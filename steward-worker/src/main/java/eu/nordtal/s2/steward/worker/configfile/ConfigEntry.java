@@ -98,6 +98,14 @@ import java.util.List;
  * @param choices             the allowed (or suggested) values from the schema, and whether the
  *                            list is closed to them, or {@code null} when there is no schema entry
  *                            for this key or it names none
+ * @param protectedEntry      for a {@link Kind#SECTIONS} entry whose schema carries
+ *                            {@code @Protected} (steward/74): the field and value that identify the
+ *                            one section a save must never be allowed to remove - {@code tag} /
+ *                            {@code en} for {@code languages}. {@code null} whenever there is no
+ *                            schema for this list or its property carries no {@code @Protected}.
+ *                            {@link ConfigFiles#write} is what turns this into a refusal; carrying
+ *                            it here is also what lets the interface grey out the one card it names
+ *                            instead of only failing after a confirmed removal is sent
  */
 public record ConfigEntry(
         @NotNull String path,
@@ -116,7 +124,8 @@ public record ConfigEntry(
         boolean editable,
         boolean secret,
         boolean inSchema,
-        @Nullable Choices choices) {
+        @Nullable Choices choices,
+        @Nullable Protected protectedEntry) {
 
     /** What sits under a key. */
     public enum Kind {
@@ -159,6 +168,17 @@ public record ConfigEntry(
         public Choices {
             values = List.copyOf(values);
         }
+    }
+
+    /**
+     * Identifies the one section of a {@link Kind#SECTIONS} list that a save must refuse to remove -
+     * mirrors {@code eu.nordtal.jcore.config.schema.SchemaNode.ProtectedEntry}, which is where it
+     * comes from.
+     *
+     * @param field the field key within one section to match against, e.g. {@code tag}
+     * @param value the value that field must equal for that section to be the protected one
+     */
+    public record Protected(@NotNull String field, @NotNull String value) {
     }
 
     /** Defensive copies, so a document cannot be edited through an entry. */

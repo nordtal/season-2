@@ -522,6 +522,15 @@ export type ConfigChoices = {
 }
 
 /**
+ * Identifies the one section of a `SECTIONS` entry that a save must never be allowed to remove -
+ * from the schema's `@Protected` (steward/74), e.g. `{ field: "tag", value: "en" }` for `languages`.
+ */
+export type ConfigProtectedEntry = {
+  field: string
+  value: string
+}
+
+/**
  * One key of a config file, as the form draws it.
  *
  * **`value` and `items` are absent for a secret and that is the point.** A key whose name says
@@ -585,6 +594,13 @@ export type ConfigEntry = {
    * shaped like {@link template}. Empty for an empty list. Undefined for every other kind.
    */
   sections?: ConfigEntry[][]
+  /**
+   * For a `SECTIONS` entry whose schema carries `@Protected` (steward/74): which section must not
+   * be removed. The worker itself refuses that removal - see `ConfigFiles.removeSection` - so this
+   * is here for the interface to grey the option out up front rather than let an operator confirm a
+   * removal that only fails once it reaches the worker. Undefined when there is no such rule.
+   */
+  protectedEntry?: ConfigProtectedEntry
 }
 
 /**

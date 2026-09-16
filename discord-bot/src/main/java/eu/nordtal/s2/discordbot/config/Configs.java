@@ -47,7 +47,15 @@ public final class Configs {
      */
     static final String DIRECTORY_PROPERTY = "access.config.dir";
 
-    /** The one language {@code access.yml} may not leave out. */
+    /**
+     * The one language {@code access.yml} may not leave out.
+     *
+     * <p>The same constant {@link AccessSpec#languages()}'s {@code @Protected} annotation carries
+     * (steward/74), which is what steward-worker's schema-reading side refuses to let an operator
+     * remove through the API. The two cannot drift apart while both name this field, and
+     * {@code ConfigsTest} fails the build if the annotation is ever changed to say something
+     * else.</p>
+     */
     private static final String FALLBACK_LANGUAGE = Languages.FALLBACK_TAG;
 
     /**

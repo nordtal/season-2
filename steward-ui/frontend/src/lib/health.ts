@@ -24,7 +24,7 @@ import { bytes, percent, relative } from "@/lib/format"
  * The page used to render `text` for every trigger, one line each - which is exactly the "wall of
  * tiles" this file argued against replacing itself with a wall of sentences instead. It now prints
  * "Errors in {subjects}" plus one link, and `text` stays here for the page that link leads to: the
- * full sentence never had to move, because nothing outside `status.tsx` ever read it.
+ * full sentence never had to move, because nothing outside `overview.tsx` ever read it.
  */
 
 export type Level = "ok" | "warn" | "down"
@@ -149,7 +149,7 @@ export function summarise(input: {
   // in the stack - but reporting "up to date" for an image nobody compared is the fault above.
   //
   // A SINGLE service whose own drift is UNKNOWN is deliberately NOT a trigger (Till, 2026-09-13).
-  // status.tsx argues the opposite for the badge, and A24 is this light's whole reason to exist -
+  // overview.tsx argues the opposite for the badge, and A24 is this light's whole reason to exist -
   // but a registry that could not be asked about one image, or a container whose exact image is no
   // longer on file locally, is not rare enough here for a yellow that never clears to be worth
   // reading. The Operations page footnotes how many could not be compared. This trigger is the

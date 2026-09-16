@@ -1,10 +1,10 @@
 import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
-import { ChevronRight, CircleAlert, OctagonAlert, Terminal, ScrollText } from "lucide-react"
+import { ChevronRight, Terminal, ScrollText } from "lucide-react"
 
 import type { Service } from "@/lib/api"
-import { bytes, count, dateTime, load as formatLoad, percent, relative, since } from "@/lib/format"
-import { UNKNOWN, shownLevel, summarise, type Level } from "@/lib/health"
+import { bytes, count, dateTime, percent, relative, since } from "@/lib/format"
+import { summarise } from "@/lib/health"
 import {
   useBackups,
   useHost,
@@ -34,7 +34,7 @@ import {
  * The landing page (concept §10c).
  *
  * It answers three questions in this order and no other: **is something wrong** - **how full is
- * the box** - **where do I want to go**. Everything below the light is a tile, and every tile is a
+ * the box** - **where do I want to go**. Everything below the header is a tile, and every tile is a
  * link into the page that can actually do something about it.
  *
  * **Mobile first, as of steward/64** - and a standing rule for this page from here on, not a one-off
@@ -42,40 +42,22 @@ import {
  * column is the layout that gets designed, and the wide one is what falls out of it at `lg`, never
  * the other way around.
  *
+ * **The traffic light is gone (steward/80).** It used to stand above the numbers as a banner that
+ * appeared for `warn`/`down` and disappeared for `ok`. Its content is now the first tile in
+ * {@link MetricRow}, in the same shape every other tile there already has: a number, and beneath it
+ * the names it is about. `health.ts`'s own warning still applies inside that tile - a settled "0"
+ * must never look like "nothing has been read yet".
+ *
  * The service rows are deliberately read-only. No restart button lives here: restarting the SMP
  * throws every player out, and the place where that happens is the Operations page, where the
  * confirmation already stands. A row is for reading and for jumping onwards.
  */
-export function StatusPage() {
-  const services = useServices()
-  const host = useHost()
-  const backups = useBackups()
-  // The thresholds are configured, not compiled in. Without this the page would draw its traffic light
-  // against 85/90 while steward-ui.yml said something else - and the Discord channel, which reads
-  // the same numbers off the server, would disagree with the screen. Which is why this counts as
-  // evidence like any other query: while it is missing, `summarise` leaves the checks that need a
-  // threshold alone, and the light below says it could not read everything.
-  const settings = useSettings()
-
-  const { level, triggers } = summarise({
-    table: services.data,
-    host: host.data,
-    backups: backups.data,
-    thresholds: settings.data,
-  })
-
-  // Nothing has answered yet: the traffic light must not say "all is well" about a stack it has not
-  // looked at. A green light on no evidence is worse than no light.
-  const waiting = services.isPending || host.isPending || backups.isPending || settings.isPending
-  const failed = services.error ?? host.error ?? backups.error ?? settings.error
-
+export function OverviewPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Status"
+        title="Overview"
       />
-
-      <TrafficLight level={level} triggers={triggers} waiting={waiting} failed={Boolean(failed)} />
 
       <MetricRow />
 
@@ -89,124 +71,20 @@ export function StatusPage() {
   )
 }
 
-// --- the traffic light -------------------------------------------------------------------------
-
-const LIGHTS: Record<Exclude<Level, "ok">, { icon: typeof CircleAlert; ring: string; text: string }> = {
-  warn: { icon: CircleAlert, ring: "border-warning/30 bg-warning/8", text: "text-warning" },
-  down: { icon: OctagonAlert, ring: "border-destructive/40 bg-destructive/8", text: "text-destructive" },
-}
-
-function TrafficLight({
-  level,
-  triggers,
-  waiting,
-  failed,
-}: {
-  level: Level
-  triggers: ReturnType<typeof summarise>["triggers"]
-  waiting: boolean
-  failed: boolean
-}) {
-  if (waiting && triggers.length === 0) {
-    return (
-      <div className="flex items-center gap-3 rounded-md border border-border bg-card px-4 py-3">
-        <span className="size-2 animate-pulse rounded-full bg-muted-foreground" aria-hidden />
-        <p className="text-sm text-muted-foreground">Reading status…</p>
-      </div>
-    )
-  }
-
-  const shown = shownLevel(level, failed)
-
-  // steward/64: Till's instruction was to remove the green banner entirely rather than to shorten
-  // its text - show it only for the red and yellow case, and even there just a short reference. A
-  // stack with nothing wrong gets no banner at all; the page starts with the numbers below. This branch is
-  // only reachable once `waiting` is false AND `failed` is false, because `shownLevel` only ever
-  // turns "ok" into "warn" on a failed query - so an `ok` here is a settled, evidenced "ok", never a
-  // guess. That is the one distinction this whole file exists to keep visible: "checked and fine"
-  // must never render the same as "nothing read yet", and the branch above is what still renders for
-  // the second case.
-  if (shown === "ok") {
-    return null
-  }
-
-  const { icon: Icon, ring, text } = LIGHTS[shown]
-  // A single link for a single line: the worst trigger (triggers are sorted red-first) is the one
-  // whose destination the operator most wants, and every other trigger this render still names by
-  // its subject even though only one of them gets a place to click through to.
-  const worst = triggers[0]
-
-  return (
-    <div className={`flex flex-col gap-3 rounded-md border px-4 py-3 ${ring}`} role="status">
-      <div className="flex items-start gap-3">
-        <Icon className={`mt-0.5 size-5 shrink-0 ${text}`} aria-hidden />
-        <div className="flex min-w-0 flex-col gap-1">
-          {triggers.length === 0 ? (
-            <p className="text-sm font-medium">{UNKNOWN}</p>
-          ) : (
-            <p className="text-sm">
-              {/*
-                Till's own words for what belongs here: "Fehler in smp, discord-bot" plus a link -
-                a reference, not a list of sentences. The full sentence per trigger (`text`) still
-                exists, on `Trigger` itself, for the page this link leads to; nothing here parses it
-                back out of prose, `subject` is already the short form.
-              */}
-              <span className={worst.level === "down" ? "text-destructive" : "text-warning"}>
-                Errors in {triggers.map((trigger) => trigger.subject).join(", ")}.
-              </span>{" "}
-              {worst.to ? (
-                <Link
-                  to={worst.to}
-                  params={worst.params}
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  view
-                </Link>
-              ) : (
-                <Link to="/operations" className="text-primary underline-offset-4 hover:underline">
-                  view
-                </Link>
-              )}
-            </p>
-          )}
-          {/*
-            Both sentences, and `waiting` is the one that was missing. The loading state above only
-            fires while there is NOTHING to say; with one trigger already found - an image behind,
-            say - the page drew a definite yellow light while `/api/settings` was still on its way,
-            and the answer can turn it red (a backup older than the threshold that had not arrived
-            yet). A light that is definite about an incomplete reading is the failure this whole
-            file argues against.
-          */}
-          {failed ? (
-            <p className="text-sm text-muted-foreground">
-              Some of the readings could not be fetched - so the light is judging on less than it
-              should.
-            </p>
-          ) : waiting ? (
-            <p className="text-sm text-muted-foreground">
-              Still reading - so far the light is judging on less than it should.
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // --- the metric row -------------------------------------------------------------------------------
 
 /**
- * CPU, memory, disk, drift and the newest backup - the five numbers §10c and Till's own list of
- * 2026-09-15 agreed are the ones an operator wants without scrolling. This replaces the Host,
- * Updates and Backups cards: their remaining detail - the container limits, when the registry was
- * last compared, the unverifiable services, the last update run and the partial archives - is not
- * lost with them. The Operations page already showed every one of it before this change (Images
- * table with its Compared column and its `drift.unverifiable` line, the runs table, the backups
- * table with its partial state), so nothing had to be carried across; the front page simply stopped
- * printing a second copy of a page one tap away.
+ * Issues, CPU, memory, disk, drift and the newest backup - six numbers on a phone, three rows of
+ * two, exactly the width steward/80 asked for. This replaces the Host, Updates and Backups cards:
+ * their remaining detail - the container limits, when the registry was last compared, the
+ * unverifiable services, the last update run and the partial archives - is not lost with them. The
+ * Operations page already showed every one of it before this change (Images table with its
+ * Compared column and its `drift.unverifiable` line, the runs table, the backups table with its
+ * partial state), so nothing had to be carried across; the front page simply stopped printing a
+ * second copy of a page one tap away.
  *
  * Mobile first: two tiles to a row is the width steward/64 asked for on a phone, three from
- * `26rem`, and only the desktop breakpoint spends the whole thing on one row of five - the layout
+ * `26rem`, and only the desktop breakpoint spends the whole thing on one row of six - the layout
  * this row *ends* on, not the one it starts from.
  */
 function MetricRow() {
@@ -214,6 +92,19 @@ function MetricRow() {
   const cpu = useMetrics("host", "cpu", 6)
   const services = useServices()
   const backups = useBackups()
+  const settings = useSettings()
+
+  const { triggers } = summarise({
+    table: services.data,
+    host: host.data,
+    backups: backups.data,
+    thresholds: settings.data,
+  })
+  // Nothing has answered yet: the tile must not say "all is well" about a stack it has not looked
+  // at. A settled zero on no evidence is worse than no number - the argument health.ts has always
+  // made for the light, unchanged now that it is a tile.
+  const waiting = services.isPending || host.isPending || backups.isPending || settings.isPending
+  const failed = Boolean(services.error ?? host.error ?? backups.error ?? settings.error)
 
   const outdated = (services.data?.services ?? []).filter((service) => service.drift === "OUTDATED")
   const finishedBackups = (backups.data ?? []).filter((backup) => !backup.partial)
@@ -225,12 +116,15 @@ function MetricRow() {
     : undefined
 
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-5 min-[26rem]:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-5 min-[26rem]:grid-cols-3 lg:grid-cols-6">
+      <IssuesTile triggers={triggers} waiting={waiting} failed={failed} />
+
       <MetricTile
         label="CPU"
         value={percent(host.data?.cpuPercent)}
-        hint={unreadable ?? `${count(host.data?.cpus)} cores · Load ${formatLoad(host.data?.load1)}`}
+        hint={unreadable ?? `${count(host.data?.cpus)} cores`}
       >
+        <UsageBar used={host.data?.cpuPercent ?? 0} total={100} />
         <Sparkline points={cpu.data?.points ?? []} />
       </MetricTile>
 
@@ -285,6 +179,57 @@ function MetricRow() {
   )
 }
 
+/**
+ * What used to be the traffic light, now the first tile in {@link MetricRow} (steward/80). Till:
+ * "the alert-style banner disappears entirely and its information is folded into the area that
+ * already says 'Behind 2 steward-worker, steward-ui'" - so this tile is deliberately built like
+ * `Behind`: a count, and beneath it the names the count is about.
+ *
+ * **The steward/64 trap is sharper here than it was for the banner.** With no banner left at all,
+ * this tile is the only place "nothing has been read yet" or "a read failed" can still be told
+ * apart from "read, and nothing is wrong" - so a settled `0` only ever appears once every query has
+ * actually answered and found nothing. While reading, or once a read has failed outright, the value
+ * is the same dash this row already uses for "no data" everywhere else, never the zero that means
+ * evidenced and fine.
+ */
+function IssuesTile({
+  triggers,
+  waiting,
+  failed,
+}: {
+  triggers: ReturnType<typeof summarise>["triggers"]
+  waiting: boolean
+  failed: boolean
+}) {
+  if (triggers.length === 0) {
+    if (waiting) return <MetricTile label="Issues" value="–" hint="reading" />
+    if (failed) return <MetricTile label="Issues" value="–" tone="warn" hint="could not be read" />
+    return <MetricTile label="Issues" value={count(0)} hint="all clear" />
+  }
+
+  const worst = triggers[0]
+  const names = triggers.map((trigger) => trigger.subject).join(", ")
+  const note = failed ? "could not read everything" : waiting ? "still reading" : null
+
+  return (
+    <MetricTile
+      label="Issues"
+      value={count(triggers.length)}
+      tone={worst.level === "down" ? "down" : "warn"}
+      hint={
+        note ? (
+          <span className="flex flex-col gap-0.5">
+            <span>{names}</span>
+            <span>{note}</span>
+          </span>
+        ) : (
+          names
+        )
+      }
+    />
+  )
+}
+
 function MetricTile({
   label,
   value,
@@ -293,8 +238,8 @@ function MetricTile({
   children,
 }: {
   label: string
-  value: string
-  hint?: string
+  value: ReactNode
+  hint?: ReactNode
   tone?: "ok" | "warn" | "down"
   children?: ReactNode
 }) {

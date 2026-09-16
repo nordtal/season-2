@@ -9,23 +9,22 @@ import {
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { StatusPage } from "@/pages/status"
+import { OverviewPage } from "@/pages/overview"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The traffic light on the page, which is not the same thing as {@link summarise}.
+ * The Issues tile, which is not the same thing as {@link summarise}.
  *
  * `health.test.ts` proves what the function decides. This file proves what the page *says* about
- * how complete that decision is - the half that lives in `status.tsx` and that no unit test can
- * see, because the sentence under the light is drawn from `waiting` and `failed` rather than from
- * the level.
+ * how complete that decision is - the half that lives in `overview.tsx` and that no unit test can
+ * see, because the tile's text is drawn from `waiting` and `failed` rather than from the level.
  *
- * The defect it was written for: the loading state above the light only fires while there is
- * NOTHING to report. With one trigger already found - an image behind, say - the page drew a
- * definite yellow light while `/api/settings` was still on its way, with no sentence saying so.
- * And the answer can turn that yellow red, because the age of the newest backup is one of the
- * three checks that need a threshold. A light that looks final over a reading that is not is the
- * failure this page argues against everywhere else.
+ * **steward/80 moved this suite off a banner and onto a tile.** Till removed the alert-style banner
+ * entirely and asked for its content to become a tile in the number row, in the same shape as
+ * `Behind` - a count, and beneath it the names. The defect this file was originally written for
+ * still applies to the tile: the loading state only fires while there is NOTHING to report yet, so
+ * with one trigger already found - an image behind, say - the tile must not look as settled as it
+ * would once every query has actually answered.
  *
  * The page is rendered inside a real memory router rather than behind a stubbed `Link`: the
  * triggers carry `to` and `params`, and a stub would happily draw a link to a route that does not
@@ -78,7 +77,7 @@ function backup(hoursAgo: number) {
  * The other file in `/backups`, which since steward/40 has to be there too.
  *
  * A fixture that carries only archives is a stack whose database has never been dumped, and the
- * light is red about it - correctly. Every test here is about something else, so they all get one.
+ * tile is red about it - correctly. Every test here is about something else, so they all get one.
  */
 function dump(hoursAgo: number) {
   return {
@@ -109,8 +108,8 @@ function backend(over: { services?: unknown[]; backups?: unknown[]; settings?: (
     if (url === "/api/settings") {
       return json(200, await (over.settings?.() ?? Promise.resolve({ disk: 85, memory: 90, backupAgeHours: 36 })))
     }
-    // The four tiles below the light. None of them feeds `waiting` or `failed`; they answer
-    // emptily so that nothing else on the page can be the reason a test passes or fails.
+    // The other tiles in the row. None of them feeds `waiting` or `failed`; they answer emptily so
+    // that nothing else on the page can be the reason a test passes or fails.
     if (url.startsWith("/api/metrics")) return json(200, { points: [] })
     if (url.startsWith("/api/updates")) return json(200, [])
     if (url === "/api/season") return json(200, { phase: "SMP", launch: null, smpStart: null })
@@ -129,7 +128,7 @@ function draw() {
   const root = createRootRoute()
   const nothing = () => null
   const routeTree = root.addChildren([
-    createRoute({ getParentRoute: () => root, path: "/", component: StatusPage }),
+    createRoute({ getParentRoute: () => root, path: "/", component: OverviewPage }),
     createRoute({ getParentRoute: () => root, path: "/operations", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/season", component: nothing }),
@@ -154,35 +153,32 @@ function draw() {
 }
 
 /**
- * The light itself, re-queried on every call.
+ * The Issues tile itself, re-queried on every call.
  *
- * `role="status"` is NOT unique on this page: `Loading` carries it too, on every tile that has not
- * answered yet. The two are told apart by `aria-busy`, which only the skeleton sets - and holding
- * on to a node found once would be worse than ambiguous, because the loading placeholder above the
- * light is a different element that React swaps out rather than updates.
+ * There is exactly one tile labelled "Issues" in the number row - `Stat` renders the label as its
+ * own element, and this walks up to the div that also holds the value and the hint beneath it, the
+ * same div `Stat` wraps all three in.
  */
-function light(): HTMLElement | null {
-  const lights = screen.queryAllByRole("status").filter((one) => !one.hasAttribute("aria-busy"))
-  if (lights.length > 1) throw new Error(`${lights.length} traffic lights on one page`)
-  return lights[0] ?? null
+function issuesTile(): HTMLElement | null {
+  const label = screen.queryByText("Issues")
+  return label?.closest("div") ?? null
 }
 
-/** What the light says, or "" while it is not drawn at all. */
-const said = () => light()?.textContent ?? ""
+/** What the tile says altogether, or "" while it has not rendered at all. */
+const said = () => issuesTile()?.textContent ?? ""
 
-const STILL_READING = /Still reading/
-const COULD_NOT_READ = /could not be fetched/
+const STILL_READING = /still reading/
+const COULD_NOT_READ = /could not/
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
 
-describe("StatusPage - the traffic light while /api/settings is still on its way", () => {
-  it("says so under a light that already has something to report", async () => {
-    // The defect, in one render: an image is behind, so the loading state above the light does not
-    // fire, and the light is drawn. What was missing is the second sentence - without it the page
-    // looks as though it has judged everything, over a stack it has not finished reading.
+describe("OverviewPage - the Issues tile while /api/settings is still on its way", () => {
+  it("says so beside a tile that already has something to report", async () => {
+    // The defect, in one render: an image is behind, so the tile already has a count to show, and
+    // it must not look as settled as it would once every query has actually answered.
     vi.stubGlobal(
       "fetch",
       backend({
@@ -192,22 +188,25 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
     )
     draw()
 
-    // steward/64: the light no longer prints the full sentence for a trigger, only its subject
-    // ("Errors in bot" rather than "bot is running an older image..."), so this test follows suit.
+    // steward/64: the tile does not print the full sentence for a trigger, only its subject
+    // ("bot" rather than "bot is running an older image..."), so this test follows suit.
     await waitFor(() => expect(said()).toContain("bot"))
     expect(said()).toMatch(STILL_READING)
     // And not the other sentence: nothing failed, it is simply not finished.
     expect(said()).not.toMatch(COULD_NOT_READ)
   })
 
-  it("keeps the plain loading state while there is nothing to report at all", async () => {
+  it("keeps the plain reading placeholder while there is nothing to report at all", async () => {
     // The branch that already worked, kept here so that the fix cannot be a sentence that is now
-    // printed twice, or one that replaced the quiet first render.
+    // printed twice, or one that replaced the quiet first render. A settled "0" must never appear
+    // before every query has actually answered - that is the steward/40 trap this tile still guards
+    // against, one level down from the banner it replaced.
     vi.stubGlobal("fetch", backend({ settings: () => new Promise(() => {}) }))
     draw()
 
-    expect(await screen.findByText(/Reading status…/)).toBeTruthy()
-    expect(light()).toBeNull()
+    await waitFor(() => expect(issuesTile()).not.toBeNull())
+    expect(said()).toMatch(/reading/)
+    expect(said()).not.toContain("0")
   })
 
   it("drops the sentence, and only then, once the thresholds have arrived", async () => {
@@ -220,13 +219,8 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
 
   it("is judging over less than it should, and the sentence is the only warning of it", async () => {
     // End to end, and the reason the sentence is worth anything: while /api/settings is open the
-    // light is YELLOW over one trigger, and the answer adds a second, RED one - a backup older
-    // than the threshold that had not arrived yet. Same stack, same moment, two verdicts.
-    //
-    // steward/64 replaced the per-trigger `<li>` list with one short line ("Errors in ..."), so what
-    // used to be a listitem count is now read off the line itself - both subjects present, and the
-    // colour (still asserted through the class rather than a computed style, same as everywhere else
-    // in this suite) having moved from warning to destructive.
+    // tile is YELLOW over one trigger, and the answer adds a second, RED one - a backup older than
+    // the threshold that had not arrived yet. Same stack, same moment, two verdicts.
     let answer: (value: unknown) => void = () => undefined
     const held = new Promise<unknown>((resolve) => {
       answer = resolve
@@ -243,7 +237,7 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
 
     await waitFor(() => expect(said()).toContain("bot"))
     expect(said()).toMatch(STILL_READING)
-    expect(light()?.className).toContain("warning")
+    expect(issuesTile()?.innerHTML).toContain("text-warning")
 
     await act(async () => {
       answer({ disk: 85, memory: 90, backupAgeHours: 36 })
@@ -252,11 +246,11 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
     await waitFor(() => expect(said()).toContain("nordtal-s2_mc-smp"))
     expect(said()).toContain("bot")
     expect(said()).not.toMatch(STILL_READING)
-    expect(light()?.className).toContain("destructive")
+    expect(issuesTile()?.innerHTML).toContain("text-destructive")
   })
 
   it("still says which of the two it is when a query actually failed", async () => {
-    // `failed` and `waiting` are different sentences and the page must not collapse them: one is
+    // `failed` and `waiting` are different sentences and the tile must not collapse them: one is
     // "not finished", the other is "will not be finished".
     vi.stubGlobal("fetch", async (url: string) => {
       if (url === "/api/settings") return json(503, { error: "Broken." })
@@ -269,24 +263,23 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
   })
 })
 
-describe("StatusPage - the banner that steward/64 removed for the green case", () => {
+describe("OverviewPage - the tile that replaced steward/64's banner", () => {
   /**
    * The seam the ticket names by name: "a test that requires the page says something when
-   * `waiting` and nothing when `ok` must fail before the rebuild."
+   * `waiting` and nothing when `ok` must fail before the rebuild" - migrated here to what the
+   * ticket asks the tile to keep proving, now that there is no banner left to appear or disappear.
    *
-   * Before this change, the page printed the placeholder while waiting and then - once a healthy
-   * stack finished answering - swapped it for a green tick and "Everything is in order.": SOMETHING
-   * in both states, and the two only distinguishable by colour. `health.ts` has always argued
-   * against exactly that shape (a green light on no evidence is the one thing this page must not
-   * do); steward/64 asked for the opposite failure mode to become impossible too - `ok` now prints
-   * NOTHING, so it cannot be mistaken for the placeholder, and the placeholder is the only thing
-   * that still prints something while nothing has been decided yet.
+   * Before steward/80, a healthy settled stack printed no banner at all - "ok" and "nothing read
+   * yet" were told apart by presence versus absence of a whole element. The tile is never absent
+   * (it is built "in the same shape as Behind", steward/80's own words, and Behind always shows a
+   * number) so the same distinction now has to live in the VALUE: a placeholder while waiting, and
+   * only once settled the "0" that means evidenced and fine. Those two must never read alike.
    *
-   * Run against the pre-steward/64 page this fails on the second half: `light()` finds the old
-   * green `role="status"` div carrying "Everything is in order.", so `toBeNull()` and the
-   * `/in order/i` query both fail.
+   * Run against the pre-steward/80 page (the banner still standing, no Issues tile at all) this
+   * fails outright: `issuesTile()` never resolves, because `screen.queryByText("Issues")` finds
+   * nothing to close in on.
    */
-  it("says something while still reading, and nothing at all once a healthy stack settles", async () => {
+  it("shows a placeholder while reading, and a settled zero only once a healthy stack answers", async () => {
     let answerSettings: (value: unknown) => void = () => undefined
     const held = new Promise<unknown>((resolve) => {
       answerSettings = resolve
@@ -294,19 +287,18 @@ describe("StatusPage - the banner that steward/64 removed for the green case", (
     vi.stubGlobal("fetch", backend({ settings: () => held }))
     draw()
 
-    // Waiting: SOMETHING is on screen. Not knowing yet and having checked must never render
-    // identically, and this placeholder is the half of that promise that still has to hold.
-    expect(await screen.findByText(/Reading status…/)).toBeTruthy()
-    expect(light()).toBeNull()
+    // Waiting: the tile already exists and already says something, and that something is not "0".
+    await waitFor(() => expect(issuesTile()).not.toBeNull())
+    expect(said()).not.toContain("0")
 
     await act(async () => {
       answerSettings({ disk: 85, memory: 90, backupAgeHours: 36 })
     })
 
-    // Settled, and every reading is fine: no banner, no tick, no "Everything is in order." - the
-    // page simply has nothing left to say up here, and starts with the numbers instead.
-    await waitFor(() => expect(screen.queryByText(/Reading status…/)).toBeNull())
-    expect(light()).toBeNull()
-    expect(screen.queryByText(/in order/i)).toBeNull()
+    // Settled, and every reading is fine: the tile now shows the evidenced zero, and nothing about
+    // it reads as "still reading" or "could not be read".
+    await waitFor(() => expect(said()).toContain("0"))
+    expect(said()).not.toMatch(STILL_READING)
+    expect(said()).not.toMatch(COULD_NOT_READ)
   })
 })

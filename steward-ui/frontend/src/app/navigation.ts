@@ -86,7 +86,7 @@ export const NAVIGATION: NavGroup[] = [
     icon: Activity,
     entries: [
       {
-        id: "status",
+        id: "overview",
         label: "Overview",
         to: "/",
         // steward/66, 2026-09-16: three claims, and steward/64 had retired all three. There is no

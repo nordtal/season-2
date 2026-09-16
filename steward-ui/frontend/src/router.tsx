@@ -13,7 +13,7 @@ import { ServicePage } from "@/pages/service"
 import { SettingsPage } from "@/pages/settings"
 import { SeasonPage } from "@/pages/season"
 import { JournalPage, AccountsPage, PaymentsPage, AccessPage } from "@/pages/access"
-import { StatusPage } from "@/pages/status"
+import { OverviewPage } from "@/pages/overview"
 
 /**
  * The route tree, written out rather than generated.
@@ -30,7 +30,7 @@ const rootRoute = createRootRoute({
 })
 
 const routes = [
-  createRoute({ getParentRoute: () => rootRoute, path: "/", component: StatusPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/", component: OverviewPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/services/$name", component: ServicePage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/operations", component: OperationsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/operations/plan", component: OperationsPlanPage }),

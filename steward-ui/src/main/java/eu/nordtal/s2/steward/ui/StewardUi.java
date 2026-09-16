@@ -565,6 +565,13 @@ public final class StewardUi {
             cfg.routes.put("/api/config/<file>",
                     ctx -> forwardConfig(ctx, configPath(ctx), ctx.body()), Gate.KEY_FRESH);
 
+            // The raw editor's own save (steward/60), proxied the same way as the parsed one right
+            // above it - same gate, same worker, its own path because the body it carries (text and
+            // a revision, never `changes`) is a different shape than a parsed save's.
+            cfg.routes.put("/api/config-raw/<file>",
+                    ctx -> forwardConfig(ctx, workerPath("/api/config-raw", ctx, "file"),
+                            ctx.body()), Gate.KEY_FRESH);
+
             // The message bundles (steward/48) are the same arrangement one path along: the worker
             // holds the jars and the file permissions, this side holds the security key. They are
             // three routes of their own and not part of /api/config because a bundle is not a YAML

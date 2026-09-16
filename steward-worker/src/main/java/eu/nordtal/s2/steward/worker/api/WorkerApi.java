@@ -383,6 +383,11 @@ public final class WorkerApi implements AutoCloseable {
             config.routes.get("/api/config/<file>", configs::one);
             config.routes.put("/api/config/<file>", configs::save);
 
+            // The raw editor's own save (steward/60) - a route of its own rather than a fourth
+            // verb on the three above, because a raw save carries text and a revision, never a
+            // `changes` map, and nothing here refuses on what that text says. See ConfigApi#saveRaw.
+            config.routes.put("/api/config-raw/<file>", configs::saveRaw);
+
             // The message bundles (steward/48) - their own routes and their own card in the
             // interface, never folded into the three above. See MessagesApi's javadoc for why.
             config.routes.get("/api/messages", messages::list);

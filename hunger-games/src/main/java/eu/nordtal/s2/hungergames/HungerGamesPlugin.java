@@ -20,9 +20,11 @@ import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.command.HungerGamesCommand;
+import eu.nordtal.s2.hungergames.config.ColoursSpec;
 import eu.nordtal.s2.hungergames.config.Configs;
 import eu.nordtal.s2.hungergames.config.DatabaseSpec;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
@@ -73,6 +75,17 @@ public final class HungerGamesPlugin extends JavaPlugin {
      * once and a game is a running clock.
      */
     private ConfigHandle<SoundsSpec> soundsHandle;
+
+    /**
+     * Its own file and handle (season-2-ingame/22), read once at enable. {@code /hg reload} does not
+     * touch this one - see {@code ColoursSpec}'s own javadoc for why - so there is nothing to reload
+     * it against.
+     */
+    private ConfigHandle<ColoursSpec> coloursHandle;
+
+    /** The tone palette this server paints a reply with. Set once in {@link #start()}. */
+    private ToneColours colours;
+
     private HikariDataSource pool;
     private AdminWatch adminWatch;
 
@@ -134,6 +147,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
             configHandle = Configs.load(getDataFolder().toPath(), getLogger0());
             databaseHandle = Configs.database(getDataFolder().toPath(), getLogger0());
             soundsHandle = Configs.sounds(getDataFolder().toPath(), getLogger0());
+            coloursHandle = Configs.colours(getDataFolder().toPath(), getLogger0());
         } catch (final ConfigException exception) {
             severe("hunger-games is not starting because its configuration could not be read: "
                     + exception.getMessage());
@@ -144,6 +158,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // Built before anything that plays one. A bad key in here never reaches this line - it is
         // reported and the category silenced - so this cannot be a reason the server does not start.
         sounds = HungerGamesSounds.of(soundsHandle.get(), getLogger()::warning);
+        colours = ToneColours.parse(Configs.declared(coloursHandle.get()), getLogger()::warning);
 
         pool = HungerGamesPool.open(databaseHandle.get());
         final Jdbi jdbi = Jdbi.create(pool).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
@@ -255,7 +270,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(this,
                 eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
                         eu.nordtal.s2.common.command.AllowlistDirectory.using(pool)),
-                adminWatch::isAdmin, locales, messages, getLogger0());
+                adminWatch::isAdmin, locales, messages, getLogger0(), () -> colours);
         getServer().getPluginManager().registerEvents(commandFilter, this);
         commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 
@@ -331,7 +346,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private void registerCommands(final HungerGamesSpec config, final World world) {
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final HungerGamesCommand command = new HungerGamesCommand(this, dao, messages, locales,
-                    lobby, sounds, () -> currentGameId);
+                    lobby, sounds, () -> currentGameId, () -> colours);
             command.build(outbox, chatEffects, adminWatch::isAdmin, pool)
                     .forEach(node -> event.registrar().register(node));
         });

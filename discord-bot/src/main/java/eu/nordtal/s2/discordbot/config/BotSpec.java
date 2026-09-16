@@ -4,6 +4,7 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
  * {@code config/bot.yml} - the Discord token and the bunq credentials, declared here so they are
@@ -34,6 +35,7 @@ public interface BotSpec {
     @Order(1)
     @Key("token")
     @Comment("Discord bot token. Set NORDTAL_BOT_TOKEN instead of filling this in.")
+    @Secret
     default String token() {
         return "";
     }
@@ -50,6 +52,7 @@ public interface BotSpec {
         @Order(1)
         @Key("api-key")
         @Comment("bunq API key. Set NORDTAL_BOT_BUNQ_API_KEY instead of filling this in.")
+        @Secret
         default String apiKey() {
             return "";
         }

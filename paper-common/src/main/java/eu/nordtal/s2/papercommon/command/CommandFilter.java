@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Tones;
 import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
@@ -83,6 +84,7 @@ public final class CommandFilter implements Listener {
     private final Messages messages;
     private final Logger logger;
     private final PaperUser.Chime chime;
+    private final java.util.function.Supplier<ToneColours> colours;
 
     /**
      * The list as of the last successful read, or {@code null} while none has arrived.
@@ -103,16 +105,22 @@ public final class CommandFilter implements Listener {
      * report). This overload delegates to the other one with {@link PaperUser.Chime#silent()}.
      */
     public CommandFilter(final Plugin plugin, final Source source, final Predicate<UUID> admin,
-                         final PlayerLocales locales, final Messages messages, final Logger logger) {
-        this(plugin, source, admin, locales, messages, logger, PaperUser.Chime.silent());
+                         final PlayerLocales locales, final Messages messages, final Logger logger,
+                         final java.util.function.Supplier<ToneColours> colours) {
+        this(plugin, source, admin, locales, messages, logger, colours, PaperUser.Chime.silent());
     }
 
     /**
-     * @param chime how the refusal sounds - {@link PaperUser.Chime#silent()} for a module with no
-     *              sounds file, same as every other {@code Chime} parameter in this package
+     * @param colours the tone palette this plugin is configured with right now - a supplier, so a
+     *                {@code /smp reload} that replaces it is picked up by the very next refusal
+     *                rather than only by a freshly built {@code CommandFilter}, which this one is
+     *                not: it is registered once at enable and outlives every reload
+     * @param chime   how the refusal sounds - {@link PaperUser.Chime#silent()} for a module with no
+     *                sounds file, same as every other {@code Chime} parameter in this package
      */
     public CommandFilter(final Plugin plugin, final Source source, final Predicate<UUID> admin,
                          final PlayerLocales locales, final Messages messages, final Logger logger,
+                         final java.util.function.Supplier<ToneColours> colours,
                          final PaperUser.Chime chime) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.source = Objects.requireNonNull(source, "source");
@@ -120,6 +128,7 @@ public final class CommandFilter implements Listener {
         this.locales = Objects.requireNonNull(locales, "locales");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.colours = Objects.requireNonNull(colours, "colours");
         this.chime = Objects.requireNonNull(chime, "chime");
     }
 
@@ -239,7 +248,7 @@ public final class CommandFilter implements Listener {
      */
     private net.kyori.adventure.text.Component refusal(final UUID player) {
         return Tones.paint(MessageRenderer.of(messages).get(locales.of(player), "command.unknown"),
-                Tone.BAD);
+                Tone.BAD, colours.get());
     }
 
     /**

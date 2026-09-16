@@ -22,6 +22,7 @@ import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
@@ -78,15 +79,17 @@ public final class VelocityCommands {
     private final ProxyServer proxy;
     private final LoginRoster roster;
     private final Messages messages;
+    private final Supplier<ToneColours> colours;
     private final Confirmations confirmations = new Confirmations();
     private final List<Entry> entries = new ArrayList<>();
     private final Map<String, Supplier<Collection<String>>> suggestions = new LinkedHashMap<>();
 
     public VelocityCommands(final ProxyServer proxy, final LoginRoster roster,
-                            final Messages messages) {
+                            final Messages messages, final Supplier<ToneColours> colours) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.messages = Objects.requireNonNull(messages, "messages");
+        this.colours = Objects.requireNonNull(colours, "colours");
     }
 
     /** A command this process runs itself. */
@@ -441,7 +444,7 @@ public final class VelocityCommands {
 
     private NordtalUser user(final CommandSource source) {
         return source instanceof Player player
-                ? new VelocityUser(player, roster, messages)
+                ? new VelocityUser(player, roster, messages, colours)
                 // The console's own audience, so a reply reaches the proxy log rather than stdout.
                 : new ConsoleUser(messages, proxy.getConsoleCommandSource());
     }

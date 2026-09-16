@@ -136,7 +136,7 @@ export function QueryState<T>({
   if (query.isPending && query.fetchStatus === "idle") {
     return (
       <Empty
-        title="Nothing was asked for here."
+        title="Nothing was requested here."
         note="This query is switched off, so no answer is on its way. That is a fault in the page rather than in the service - the skeletons below it would otherwise never end."
       />
     )

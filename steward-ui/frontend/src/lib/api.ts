@@ -424,6 +424,13 @@ export type LogSearch = { lines: string[]; limit: number; truncated: boolean }
  * `accessUntil` is the latest `valid_until` over ALL grants, revoked ones included, while
  * `accessActive` is the full login predicate. The pair is deliberate: a revoked person showing no
  * date at all would look exactly like a stranger who never had access.
+ *
+ * **The eight profile fields (steward/44/45) are what discord-bot and network-control last
+ * observed, each with its own timestamp.** All eight are independently absent - an account nobody
+ * has mirrored a Discord profile onto, one that left the guild, or one that was never seen joining
+ * reads with the corresponding fields simply missing, never with an empty string standing in. They
+ * feed `PersonIdentity` (`@/components/steward/identity`), the one place a raw id or uuid may be
+ * shown - see that module's header comment for the rule.
  */
 export type Person = {
   discordId: string
@@ -436,6 +443,14 @@ export type Person = {
   linked?: string
   accessUntil?: string
   accessActive: boolean
+  discordUsername?: string
+  discordUsernameUpdated?: string
+  discordDisplayName?: string
+  discordDisplayNameUpdated?: string
+  discordAvatarUrl?: string
+  discordAvatarUrlUpdated?: string
+  mcName?: string
+  mcNameUpdated?: string
 }
 
 export type Payment = {

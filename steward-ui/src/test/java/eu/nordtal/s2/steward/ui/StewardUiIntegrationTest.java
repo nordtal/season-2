@@ -419,6 +419,12 @@ class StewardUiIntegrationTest {
                 };
             }
 
+            @Override
+            public AvatarSpec avatars() {
+                return new AvatarSpec() {
+                };
+            }
+
         };
 
         // A real database with the real migrations: the rows these endpoints read are the rows

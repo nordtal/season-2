@@ -43,14 +43,20 @@ public final class AccessCommands {
     private AccessCommands() {
     }
 
-    /** {@code status} and {@code reload}: the two that read. Everywhere, Discord included. */
-    private static final Set<Surface> EVERYWHERE =
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
-
     /**
-     * The writing four, and <b>Discord is not among them</b>.
+     * All six {@code /access} commands: console, and nothing a player or a bot user ever sees.
      *
-     * <h2>Why it was taken away, 2026-09-14</h2>
+     * <h2>Neither game nor Discord any more, 2026-09-15 (ops/18)</h2>
+     * "alles Admin nur noch Konsole und Web" (owner) took every admin command off both surfaces a
+     * player or a Discord member can reach, {@code /access status} and {@code /access reload}
+     * included - reading is not the exception that {@code EVERYWHERE} used to make it. Steward
+     * covers the writing commands (see the note kept below for the reasoning that still applies);
+     * the two that only read never needed Discord for anything the audit log shows anybody actually
+     * doing, and a read-only door left open on two surfaces because it seemed harmless is exactly
+     * the kind of exception {@code AdminCommandsAreConsoleAndWebOnlyTest} exists to refuse to trust
+     * without a name attached.
+     *
+     * <h2>Why it was taken off Discord in the first place, 2026-09-14</h2>
      * A Discord slash command is guarded by {@code discord_user.admin} and by nothing else: anybody
      * holding the account - or a session on somebody's phone - can grant a year of access, revoke
      * somebody's, book a payment or break a link. Steward now asks for a security key before each
@@ -69,12 +75,10 @@ public final class AccessCommands {
      * not replace that side, and it belongs written down rather than repaired by quietly adding
      * {@link Surface#DISCORD} back here.</p>
      */
-    private static final Set<Surface> NOT_IN_DISCORD =
-            Set.of(Surface.GAME, Surface.CONSOLE);
+    private static final Set<Surface> CONSOLE_ONLY = Set.of(Surface.CONSOLE);
 
-    /** The two that Steward runs as commands, so: the same, plus the interface. */
-    private static final Set<Surface> AND_THE_INTERFACE =
-            Set.of(Surface.GAME, Surface.CONSOLE, Surface.WEB);
+    /** The two Steward also runs as commands: console, plus the interface. */
+    private static final Set<Surface> CONSOLE_AND_WEB = Set.of(Surface.CONSOLE, Surface.WEB);
 
 
     // Every one of these takes an ACCOUNT and not a PLAYER, and the difference is the whole reason
@@ -85,12 +89,12 @@ public final class AccessCommands {
 
     /** {@code /access status <member>} - the full picture: access, donor, language, grants, purchases. */
     public static final Declaration STATUS = new Declaration(
-            List.of("access", "status"), Target.BOT, EVERYWHERE, true, false,
+            List.of("access", "status"), Target.BOT, CONSOLE_ONLY, true, false,
             List.of(Argument.account("member")));
 
     /** {@code /access grant <member> <days>} - days on top of whatever is already running. */
     public static final Declaration GRANT = new Declaration(
-            List.of("access", "grant"), Target.BOT, NOT_IN_DISCORD, true, true,
+            List.of("access", "grant"), Target.BOT, CONSOLE_ONLY, true, true,
             // Bounded, which the Discord command was not: it hand-checked "greater than zero" in the
             // handler and had no upper bound at all, so a mistyped 3650 was a decade of free access
             // and one keystroke away from 365.
@@ -98,7 +102,7 @@ public final class AccessCommands {
 
     /** {@code /access revoke <member>} - every running grant, at once. */
     public static final Declaration REVOKE = new Declaration(
-            List.of("access", "revoke"), Target.BOT, NOT_IN_DISCORD, true, true,
+            List.of("access", "revoke"), Target.BOT, CONSOLE_ONLY, true, true,
             List.of(Argument.account("member")));
 
     /**
@@ -109,7 +113,7 @@ public final class AccessCommands {
      * it: re-linking needs a code the <em>player</em> generates in game.</p>
      */
     public static final Declaration UNLINK = new Declaration(
-            List.of("access", "unlink"), Target.BOT, AND_THE_INTERFACE, true, true,
+            List.of("access", "unlink"), Target.BOT, CONSOLE_AND_WEB, true, true,
             List.of(Argument.account("member")));
 
     /**
@@ -120,7 +124,7 @@ public final class AccessCommands {
      * on the one command that books money.</p>
      */
     public static final Declaration SETTLE = new Declaration(
-            List.of("access", "settle"), Target.BOT, AND_THE_INTERFACE, true, true,
+            List.of("access", "settle"), Target.BOT, CONSOLE_AND_WEB, true, true,
             List.of(Argument.reference("reference")));
 
     /**
@@ -133,7 +137,7 @@ public final class AccessCommands {
      * generic enough name to collide with something else's.</p>
      */
     public static final Declaration RELOAD_MESSAGES = new Declaration(
-            List.of("access", "reload"), Target.BOT, EVERYWHERE, true, false, List.of());
+            List.of("access", "reload"), Target.BOT, CONSOLE_ONLY, true, false, List.of());
 
     /** Every {@code /access} command, plus the bot's own reload. */
     public static List<NordtalCommand<AccessEffects>> all() {

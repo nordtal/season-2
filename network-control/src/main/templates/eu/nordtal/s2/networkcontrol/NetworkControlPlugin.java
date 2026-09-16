@@ -29,6 +29,7 @@ import eu.nordtal.s2.networkcontrol.gate.FallbackCache;
 import eu.nordtal.s2.networkcontrol.gate.GateMessages;
 import eu.nordtal.s2.networkcontrol.gate.LoginGate;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
+import eu.nordtal.s2.networkcontrol.gate.BackendHealth;
 import eu.nordtal.s2.networkcontrol.gate.BackendKick;
 import eu.nordtal.s2.networkcontrol.gate.MisconfiguredGate;
 import eu.nordtal.s2.networkcontrol.launch.LaunchCountdown;
@@ -232,8 +233,12 @@ public final class NetworkControlPlugin {
         final WaitingBook book = new WaitingBook(offer != null,
                 Duration.ofSeconds(packConfig.applyTimeoutSeconds()),
                 Duration.ofSeconds(gateConfig.limboReadyGraceSeconds()), Clock.systemUTC());
+        // season-2-ops/20: one breaker per backend, shared by BackendKick (which trips it), the
+        // pack station's own release-connection failures (which trip it too) and PlayerRouter
+        // (which clears it the moment a real connection to that backend succeeds again).
+        final BackendHealth backendHealth = new BackendHealth(Clock.systemUTC());
         final PackStation packs = new PackStation(proxy, logger, routing, phaseWatch, roster,
-                packMessages, packConfig, offer, book);
+                packMessages, packConfig, offer, book, backendHealth);
         packs.registerChannel();
 
         // Every destination this plugin chooses is recorded, and every other one is refused - the
@@ -245,7 +250,7 @@ public final class NetworkControlPlugin {
         proxy.getEventManager().register(this, intents);
 
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
-                roster, fallback, gateMessages, packs, intents);
+                roster, fallback, gateMessages, packs, intents, backendHealth);
         routerRef.set(router);
         packs.onRelease(router::releaseFromLimbo);
         proxy.getEventManager().register(this, router);
@@ -361,10 +366,12 @@ public final class NetworkControlPlugin {
         proxy.getEventManager().register(this, loginGate);
         proxy.getEventManager().register(this, roster);
         proxy.getEventManager().register(this, expiryWatch);
-        // Text only: a backend's own disconnect screen, without Velocity's English wrapper around
-        // it. It moves nobody - see BackendKick for the boundary and for the question it leaves
-        // open.
-        proxy.getEventManager().register(this, new BackendKick());
+        // A kick with a reason keeps the backend's own screen, without Velocity's English wrapper
+        // around it. A kick with none - the connection died rather than being decided - goes to
+        // the waiting room instead of a disconnect screen, and suspends that one backend in
+        // backendHealth until a real connection to it succeeds again. See BackendKick.
+        proxy.getEventManager().register(this, new BackendKick(proxy, gateConfig.serverLimbo(),
+                backendHealth, gateMessages, roster, logger));
 
         proxy.getScheduler().buildTask(this, expiryWatch::check)
                 .delay(Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds()))

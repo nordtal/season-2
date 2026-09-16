@@ -221,6 +221,56 @@ const GRANT_SOURCES: Record<string, string> = {
   ADMIN: "by hand",
 }
 
+/**
+ * A person a row names by identifier alone - a payment request, a journal entry.
+ *
+ * steward/45 put identifiers in one place, behind a click. These two tables were the reason that
+ * promise did not hold: they carry a Discord id or a Minecraft uuid and nothing else, so drawing
+ * the row meant drawing the number. The roster already knows who that is, so it is looked up here
+ * instead - and when it does not (a payment from somebody who has since left the guild, a journal
+ * entry about an account nobody linked), `PersonIdentity` falls back to saying so, and the number
+ * is still one click away in its popover, next to the copy button.
+ *
+ * The lookup is a linear scan of a list the page has already fetched. The roster is a few hundred
+ * rows and this runs per visible row of one page of twenty; an index would be a second thing to
+ * keep in step with the first.
+ */
+function PersonByIdentifier({
+  discordId,
+  mcUuid,
+  people,
+  avatarBaseUrl,
+  now,
+}: {
+  discordId?: string
+  mcUuid?: string
+  people: Person[] | undefined
+  avatarBaseUrl: string | undefined
+  now: number
+}) {
+  const known = people?.find(
+    (candidate) =>
+      (discordId !== undefined && candidate.discordId === discordId) ||
+      (mcUuid !== undefined && candidate.minecraftUuid === mcUuid),
+  )
+  return (
+    <PersonIdentity
+      discordId={known?.discordId ?? discordId ?? ""}
+      discordUsername={known?.discordUsername}
+      discordUsernameUpdated={known?.discordUsernameUpdated}
+      discordDisplayName={known?.discordDisplayName}
+      discordDisplayNameUpdated={known?.discordDisplayNameUpdated}
+      discordAvatarUrl={known?.discordAvatarUrl}
+      discordAvatarUrlUpdated={known?.discordAvatarUrlUpdated}
+      mcUuid={mcUuid ?? known?.minecraftUuid}
+      mcName={known?.mcName}
+      mcNameUpdated={known?.mcNameUpdated}
+      avatarBaseUrl={avatarBaseUrl}
+      now={now}
+    />
+  )
+}
+
 /** Where a period stands right now, judged from the row itself rather than from the roster. */
 function grantTone(grant: Grant, now: number): { label: string; tone: Tone; title: string } {
   if (grant.revoked) {
@@ -717,9 +767,8 @@ function RevokeDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Revoke access?</AlertDialogTitle>
           <AlertDialogDescription>
-            What is revoked is the <span className="text-foreground">whole remaining run</span> of{" "}
-            <span className="font-mono text-foreground">{person.discordId}</span> - every period not
-            yet expired at once, not a single one.
+            What is revoked is the <span className="text-foreground">whole remaining run</span> of
+            the person this row names - every period not yet expired at once, not a single one.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -951,6 +1000,12 @@ function isOverdue(payment: Payment, now: number): boolean {
  */
 export function PaymentsPage() {
   const payments = usePayments()
+  // The roster is fetched here only to put a name on a payment's Discord id (steward/45). It is
+  // the same cached query the People page uses, so on a session that has visited that page this
+  // costs nothing, and a failure to load it is not a failure of this page: the identity falls
+  // back to "no Discord name on record" and the row still shows its reference and its amount.
+  const people = usePeople()
+  const avatarBase = useAvatarBaseUrl()
   const commands = useCommands()
   const settleCommand = commands.data?.find((command) => command.name === "/access settle")
   const [status, setStatus] = useState("")
@@ -1073,8 +1128,13 @@ export function PaymentsPage() {
                               <TableCell data-label="Reference" className="font-mono font-medium">
                                 {payment.reference}
                               </TableCell>
-                              <TableCell data-label="Person" className="font-mono text-muted-foreground">
-                                {payment.discordId}
+                              <TableCell data-label="Person">
+                                <PersonByIdentifier
+                                  discordId={payment.discordId}
+                                  people={people.data}
+                                  avatarBaseUrl={avatarBase.data}
+                                  now={now}
+                                />
                               </TableCell>
                               <TableCell data-label="Days" className="text-right tnum">{payment.days}</TableCell>
                               <TableCell data-label="Amount" className="text-right tnum">
@@ -1183,6 +1243,7 @@ export function PaymentsPage() {
  */
 export function AccountsPage() {
   const people = usePeople()
+  const avatarBase = useAvatarBaseUrl()
   const [needle, setNeedle] = useState("")
   const [onlyLinked, setOnlyLinked] = useState(false)
   const now = Date.now()
@@ -1252,8 +1313,7 @@ export function AccountsPage() {
                   <Table className="steward-table">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[14rem]">Discord-ID</TableHead>
-                        <TableHead className="w-[22rem]">Minecraft-UUID</TableHead>
+                        <TableHead className="w-[20rem]">Person</TableHead>
                         <TableHead className="w-[13rem]">Linked</TableHead>
                         <TableHead className="w-[8rem]">Guild</TableHead>
                         <TableHead>Access</TableHead>
@@ -1262,13 +1322,14 @@ export function AccountsPage() {
                     <TableBody>
                       {rows.map((person) => (
                         <TableRow key={person.discordId}>
-                          <TableCell data-label="Discord ID" className="font-mono font-medium">
-                            {person.discordId}
-                          </TableCell>
-                          <TableCell data-label="Minecraft UUID" className="font-mono text-muted-foreground">
-                            {person.minecraftUuid ?? (
-                              <span className="font-sans text-xs">not linked</span>
-                            )}
+                          <TableCell data-label="Person" className="font-medium">
+                            <PersonByIdentifier
+                              discordId={person.discordId}
+                              mcUuid={person.minecraftUuid}
+                              people={people.data}
+                              avatarBaseUrl={avatarBase.data}
+                              now={now}
+                            />
                           </TableCell>
                           <TableCell data-label="Linked" className="text-muted-foreground tnum">
                             {person.linked ? dateTime(person.linked) : "–"}
@@ -1375,6 +1436,12 @@ export function JournalPage() {
   const [typed, setTyped] = useState("")
   const entries = useJournal(action, subject)
   const actions = [...new Set((all.data ?? []).map((entry) => entry.action))].sort()
+  // Same reason as on the payments page: a journal entry carries a Minecraft uuid and no name,
+  // and steward/45 keeps the number out of the table. The roster is the cached query that knows
+  // who it is; without it the identity says so rather than showing the uuid.
+  const people = usePeople()
+  const avatarBase = useAvatarBaseUrl()
+  const now = Date.now()
 
   return (
     <div className="flex flex-col gap-6">
@@ -1499,8 +1566,13 @@ export function JournalPage() {
                         <TableCell data-label="Concerns" className="font-mono text-muted-foreground">
                           {entry.subject ?? "–"}
                           {entry.mcUuid ? (
-                            <span className="block text-xs" title={entry.mcUuid}>
-                              {shortId(entry.mcUuid)}
+                            <span className="mt-1 block">
+                              <PersonByIdentifier
+                                mcUuid={entry.mcUuid}
+                                people={people.data}
+                                avatarBaseUrl={avatarBase.data}
+                                now={now}
+                              />
                             </span>
                           ) : null}
                         </TableCell>

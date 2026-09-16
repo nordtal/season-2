@@ -431,8 +431,8 @@ describe("database.yml", () => {
   })
 })
 
-describe("a file that does not parse as YAML", () => {
-  it("is shown as raw, read-only text instead of an error", async () => {
+describe("a file that does not parse as YAML (steward/56, editable since steward/60)", () => {
+  it("is shown as raw text, editable and with a Save button, when the mount allows a write", async () => {
     const file = "steward-worker/README.txt"
     vi.stubGlobal(
       "fetch",
@@ -442,17 +442,95 @@ describe("a file that does not parse as YAML", () => {
           raw: true,
           reason: "line 1: the top of the file must be a set of keys, found a scalar instead",
           content: "Read me.\n",
+          revision: "r1",
         },
       }),
     )
     draw(<ServiceConfiguration service="steward-worker" />)
     await open("Readme")
 
-    await screen.findByText("Shown as raw text.")
+    await screen.findByText("Editable as raw text.")
     // `getByDisplayValue`'s default normalizer trims trailing whitespace, so the trailing newline
     // the fixture's content ends in is not part of what it matches against.
     screen.getByDisplayValue("Read me.")
+    const save = screen.getByRole("button", { name: /Save/ }) as HTMLButtonElement
+    expect(save.disabled).toBe(true)
+  })
+
+  it("is shown as raw, read-only text with no Save button, when the mount does not allow a write", async () => {
+    const file = "smp/README.txt"
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "README.txt", service: "smp", writable: false }),
+          raw: true,
+          reason: "line 1: the top of the file must be a set of keys, found a scalar instead",
+          content: "Read me.\n",
+          revision: "r1",
+        },
+      }),
+    )
+    draw(<ServiceConfiguration service="smp" />)
+    await open("Readme")
+
+    await screen.findByText("This file is mounted read-only.")
+    screen.getByDisplayValue("Read me.")
     expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
+  })
+
+  it("saves what was typed on Save, and shows a syntax warning without undoing it", async () => {
+    const file = "steward-worker/config.yml"
+    const broken = "one: 1\ntwo: [unterminated\n"
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/config") {
+        return json([
+          { service: "steward-worker", name: "config.yml", path: file, readable: true, writable: true },
+        ])
+      }
+      if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
+      if (url === `/api/config-raw/${file}` && init?.method === "PUT") {
+        const body = JSON.parse(String(init.body)) as { revision: string; content: string }
+        expect(body.revision).toBe("r1")
+        expect(body.content).toBe(broken)
+        return json({
+          ...location({ path: file, name: "config.yml" }),
+          raw: true,
+          reason: "line 3: expected ',' or ']', but got :",
+          content: broken,
+          revision: "r2",
+          warnings: ["Line 3: not valid YAML: expected ',' or ']', but got :"],
+        })
+      }
+      if (url === `/api/config/${file}`) {
+        return json({
+          ...location({ path: file, name: "config.yml" }),
+          raw: true,
+          reason: "line 1: the top of the file must be a set of keys, found a scalar instead",
+          content: "one: 1\n",
+          revision: "r1",
+        })
+      }
+      throw new Error(`the form asked for ${url}, which this test did not expect`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    draw(<ServiceConfiguration service="steward-worker" />)
+    await open("Config")
+
+    const editor = (await screen.findByLabelText(
+      "Raw content of config.yml",
+    )) as HTMLTextAreaElement
+    fireEvent.change(editor, { target: { value: broken } })
+    fireEvent.click(screen.getByRole("button", { name: /Save/ }))
+
+    await screen.findByText("Line 3: not valid YAML: expected ',' or ']', but got :")
+    // The warning is shown beside the save, not instead of it - the text the operator typed is
+    // still what is on screen, matching what the fake worker above actually wrote.
+    // `getByDisplayValue` collapses inner whitespace under its default normalizer, which would
+    // treat this content's own line break as insignificant, so the element's real `value` is
+    // asserted directly instead.
+    expect(editor.value).toBe(broken)
   })
 })
 

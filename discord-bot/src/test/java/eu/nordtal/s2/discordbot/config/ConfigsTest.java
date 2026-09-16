@@ -1,6 +1,7 @@
 package eu.nordtal.s2.discordbot.config;
 
 import eu.nordtal.jcore.config.ConfigLoader;
+import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.exception.UnknownConfigKeyException;
 import org.junit.jupiter.api.AfterEach;
@@ -707,6 +708,65 @@ class ConfigsTest {
         final ConfigValidationException error =
                 assertThrows(ConfigValidationException.class, Configs::database);
         assertTrue(error.getMessage().contains("PostgreSQL"), error.getMessage());
+    }
+
+    // ------------------------------------------------------------- steward/70: schema beside every file
+
+    /**
+     * steward/70: the running deployment's {@code bot-config} volume had three {@code .yml} files
+     * and not one {@code *.schema.json} beside any of them - every other service in the stack had
+     * one. This is the same guard steward/54 and steward/58 need for the schema to be useful at
+     * all: a file with no schema falls back to steward-worker's plain leaf-key reading, which is
+     * exactly the "looks right, means less" state that ticket is about.
+     * <p>
+     * {@code ConfigHandle}'s load (jcore, current dependency) writes {@code <name>.schema.json}
+     * unconditionally on every load, whether or not the load ends up throwing in the validator -
+     * the schema write happens before the validator runs. That already held on 2026-09-16 with
+     * jcore 4.1.0 and this module's own {@code Configs}: this test does not need to be red before
+     * green here, because there is nothing in this module's own loading code to fix - it calls
+     * {@link ConfigLoader#builder} exactly the way {@code smp} and every other module does. What
+     * <b>was</b> missing from the deployed volume is a stale jar: the running container was last
+     * built before jcore gained {@code SchemaWriter} and simply does not carry the class, so its
+     * copy of {@code ConfigHandle} never had a schema to write in the first place. A rebuild of
+     * this module's image against the current dependency is the fix for the volume; this test
+     * pins that the module's own code does not regress back into the state that jar is stuck in.
+     */
+    @Test
+    @DisplayName("every config file this module writes gets a schema.json beside it")
+    void everyConfigFileHasASchemaBesideIt() {
+        swallowValidationFailure(Configs::access);
+        swallowValidationFailure(Configs::bot);
+        swallowValidationFailure(Configs::database);
+
+        assertAll(
+                () -> assertTrue(Files.isRegularFile(directory.resolve("access.schema.json")),
+                        "access.yml has no access.schema.json beside it"),
+                () -> assertTrue(Files.isRegularFile(directory.resolve("bot.schema.json")),
+                        "bot.yml has no bot.schema.json beside it"),
+                () -> assertTrue(Files.isRegularFile(directory.resolve("database.schema.json")),
+                        "database.yml has no database.schema.json beside it")
+        );
+    }
+
+    /**
+     * Runs a config loader and discards a validation failure - this test is only about the file
+     * and its schema having been written, which jcore does before the validator ever runs, not
+     * about whether the freshly written defaults are themselves acceptable (they usually are not:
+     * an empty token or guild id is refused by design).
+     */
+    private static void swallowValidationFailure(final ThrowingCall call) {
+        try {
+            call.run();
+        } catch (final ConfigValidationException expectedForFreshDefaults) {
+            // Ignored on purpose - see the Javadoc above.
+        } catch (final ConfigException unexpected) {
+            throw new AssertionError(unexpected);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingCall {
+        void run() throws ConfigException;
     }
 
     // ------------------------------------------------------------- .env.example

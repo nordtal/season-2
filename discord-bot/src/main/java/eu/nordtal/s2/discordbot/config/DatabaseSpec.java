@@ -4,6 +4,7 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
  * {@code config/database.yml}.
@@ -54,6 +55,7 @@ public interface DatabaseSpec {
     @Order(3)
     @Key("password")
     @Comment("Database password. Prefer NORDTAL_DATABASE_PASSWORD in production.")
+    @Secret
     default String password() {
         return "";
     }

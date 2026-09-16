@@ -10,6 +10,7 @@ import eu.nordtal.s2.steward.worker.configfile.ConfigDocument;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry;
 import eu.nordtal.s2.steward.worker.configfile.ConfigFiles;
 import eu.nordtal.s2.steward.worker.configfile.ConfigLocation;
+import eu.nordtal.s2.steward.worker.configfile.RawSyntax;
 import eu.nordtal.s2.steward.worker.configfile.StaleConfigException;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
 import io.javalin.http.BadRequestResponse;
@@ -187,6 +188,57 @@ public final class ConfigApi {
         }
     }
 
+    /**
+     * {@code PUT /api/config-raw/<file>} - saves exactly the text typed into the raw editor
+     * (steward/60).
+     *
+     * <p>The body is {@code {"revision": "…", "content": "…"}} - no {@code changes} map, because
+     * there is no shape here to check a change against: the raw editor exists for a file this class
+     * could not split into keys at all, or one an operator wants to hand-edit byte for byte anyway.
+     * {@link ConfigFiles#writeRaw} writes exactly what it is given.</p>
+     *
+     * <p><b>Nothing here is ever refused for what the text says.</b> {@link RawSyntax#check} looks
+     * at the content against the format its file name implies and, when it finds something, that
+     * becomes a warning in the response - never a {@code 400}, and never something that stops the
+     * write below from happening. Till's decision for this editor is that one which refuses to save
+     * a file is one an operator has to work around. The only refusals left are the ones
+     * {@link #save} already has for reasons that have nothing to do with syntax: the mount is
+     * read-only, or somebody else wrote the file since this editor read it.</p>
+     */
+    public void saveRaw(final @NotNull Context ctx) {
+        final ConfigLocation location = locate(ctx);
+        if (!location.writable()) {
+            throw new ForbiddenResponse(location.name() + " is mounted read-only in this container,"
+                    + " so this interface cannot save a change to it.");
+        }
+        final JsonObject body = bodyOf(ctx.body());
+        final String content = contentOf(body);
+        final String revision = revisionOf(body);
+        final List<String> warnings = RawSyntax.check(location.name(), content)
+                .map(warning -> List.of(warning.sentence()))
+                .orElse(List.of());
+        try {
+            final String newRevision = ConfigFiles.writeRaw(location.file(), content, revision);
+            final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
+            answer.put("raw", true);
+            answer.put("revision", newRevision);
+            answer.put("content", content);
+            answer.put("warnings", warnings);
+            ctx.json(answer);
+        } catch (final StaleConfigException e) {
+            // Exactly #save's own reasoning: nobody made a mistake, somebody else was faster.
+            log.info("{} was not saved: it was written since it was read ({} -> {})",
+                    location.file(), e.expected(), e.actual());
+            throw new ConflictResponse(location.name() + " was changed by somebody else while this"
+                    + " editor was open, so nothing was saved. Read it again and make the change"
+                    + " once more if it is still the one you want.");
+        } catch (final IOException e) {
+            log.error("{} could not be written", location.file(), e);
+            throw new InternalServerErrorResponse(location.name() + " could not be written: "
+                    + e.getMessage());
+        }
+    }
+
     // ---------------------------------------------------------------------------------------
     // Finding the file
     // ---------------------------------------------------------------------------------------
@@ -347,21 +399,24 @@ public final class ConfigApi {
     }
 
     /**
-     * A file that could not be read as YAML, shown as itself instead of as a 400 (steward/56).
+     * A file that could not be read as YAML, shown as itself instead of as a 400 (steward/56) - and,
+     * since steward/60, editable as itself too.
      *
-     * <p>{@code raw: true} is the whole of the contract: no {@code entries}, no {@code revision} -
-     * there is nothing here this class parsed, so there is nothing a save could be validated
-     * against. The interface draws this as text, never as a form, and never offers a save button
-     * for it; {@code writable} on the location is beside the point; this route is what makes it
-     * genuinely un-savable no matter what the interface does.</p>
+     * <p>{@code raw: true} is still the marker that says "nothing here was parsed into keys", but
+     * {@code revision} is no longer absent the way steward/56 originally left it: {@link #saveRaw}
+     * needs the same stale-write guard {@link #save} already has, and {@link ConfigFiles#revisionOf}
+     * is computed the same way for any text regardless of whether this class could split it into
+     * keys - so a raw document now carries one too, of the content string read below.</p>
      */
     private static Map<String, Object> rawDocument(final ConfigLocation location, final String reason) {
         final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
         answer.put("raw", true);
         answer.put("reason", reason);
         try {
-            answer.put("content", java.nio.file.Files.readString(location.file(),
-                    java.nio.charset.StandardCharsets.UTF_8));
+            final String content = java.nio.file.Files.readString(location.file(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            answer.put("content", content);
+            answer.put("revision", ConfigFiles.revisionOf(content));
         } catch (final IOException e) {
             log.warn("{} could not be read as raw text either", location.file(), e);
             throw new InternalServerErrorResponse(location.name() + " could not be read: "
@@ -444,6 +499,19 @@ public final class ConfigApi {
                     + " overwritten.");
         }
         return revision.getAsString();
+    }
+
+    /**
+     * The raw text a {@link #saveRaw} body carries under {@code content} - required, but an empty
+     * string is a perfectly good value: an operator emptying a file on purpose is not a malformed
+     * request.
+     */
+    private static String contentOf(final JsonObject body) {
+        final JsonElement content = body.get("content");
+        if (content == null || !content.isJsonPrimitive()) {
+            throw new BadRequestResponse("`content` has to be the text to write, as a string.");
+        }
+        return content.getAsString();
     }
 
     private static Map<String, ConfigChange> changesOf(final JsonObject asked) {

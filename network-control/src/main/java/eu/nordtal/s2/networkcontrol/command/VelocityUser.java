@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Tones;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
@@ -16,6 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * A connected player, as {@code :commands} sees them.
@@ -39,11 +41,14 @@ public final class VelocityUser implements NordtalUser {
     private final Player player;
     private final LoginRoster roster;
     private final Messages messages;
+    private final Supplier<ToneColours> colours;
 
-    public VelocityUser(final Player player, final LoginRoster roster, final Messages messages) {
+    public VelocityUser(final Player player, final LoginRoster roster, final Messages messages,
+                        final Supplier<ToneColours> colours) {
         this.player = player;
         this.roster = roster;
         this.messages = messages;
+        this.colours = colours;
     }
 
     @Override
@@ -83,7 +88,7 @@ public final class VelocityUser implements NordtalUser {
 
     @Override
     public void reply(final String messageKey, final Map<String, ?> placeholders, final Tone tone) {
-        player.sendMessage(Tones.paint(render(messageKey, placeholders), tone));
+        player.sendMessage(Tones.paint(render(messageKey, placeholders), tone, colours.get()));
     }
 
     @Override

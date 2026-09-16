@@ -607,6 +607,39 @@ public final class ConfigFiles {
         return read(file);
     }
 
+    /**
+     * The raw-save half of writing (steward/60): the bytes an operator typed into the raw editor,
+     * written verbatim - no parse, no re-serialise, no reformat. This is the whole point of the raw
+     * path, so unlike {@link #write(Path, Map, String)} there is no shape to check a change against
+     * and nothing here ever refuses on content grounds; {@link RawSyntax} is what looks at the text
+     * for a warning, and it runs before this method is ever called.
+     *
+     * <p>The same revision guard as the parsed save, for the same reason: a raw file left open in
+     * one tab while another writes it is not a rarer evening than a parsed one. Comparing against
+     * whatever is on disk right now rather than a cached {@link ConfigDocument#revision()} keeps the
+     * two paths using the exact same {@link #revisionOf(String)}, so a file that started in one form
+     * and gets fixed and saved in the other still conflicts correctly.</p>
+     *
+     * @param file             the file to overwrite
+     * @param content          the exact text to write
+     * @param expectedRevision the revision the caller last read the file as, or {@code null} not to
+     *                         check at all
+     * @return the new revision, {@link #revisionOf(String)} of {@code content}
+     * @throws StaleConfigException if the file has been written since {@code expectedRevision}
+     * @throws IOException          if the file cannot be read or written
+     */
+    public static @NotNull String writeRaw(final @NotNull Path file, final @NotNull String content,
+                                           final String expectedRevision) throws IOException {
+        final String current = Files.exists(file)
+                ? Files.readString(file, StandardCharsets.UTF_8) : "";
+        final String currentRevision = revisionOf(current);
+        if (expectedRevision != null && !expectedRevision.equals(currentRevision)) {
+            throw new StaleConfigException(file, expectedRevision, currentRevision);
+        }
+        writeAtomically(file, content);
+        return revisionOf(content);
+    }
+
     private static ConfigEntry entryOf(final Parsed parsed, final Path file, final String path) {
         return parsed.document().find(path).orElseThrow(() -> new IllegalArgumentException(
                 "There is no setting called " + path + " in " + file));

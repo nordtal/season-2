@@ -48,6 +48,15 @@ public final class PrivateMessage implements NordtalCommand<ChatEffects> {
         // the window between that resolution and this line, which GONE covers.
         final java.util.UUID to = values.player(ChatCommands.PLAYER);
         final String text = values.string(ChatCommands.MESSAGE);
+        // Writing to yourself is refused here rather than in the effect (season-2-ingame/24). The
+        // ticket suggested ProxyChatEffects#whisper; this is one level up, and the reason is reach:
+        // the proxy is one of three surfaces, so a check down there would leave Discord and the web
+        // able to do it. Up here nothing is handed to the effect at all, which also keeps the reply
+        // partner from ever being set to the sender - the thing that would make /r answer itself.
+        if (user.minecraftUuid().filter(to::equals).isPresent()) {
+            user.reply("chat.msg.self", Map.of(), Feedback.REFUSED, Tone.WARN);
+            return;
+        }
         effects.async(() -> {
             final ChatEffects.Outcome outcome;
             try {

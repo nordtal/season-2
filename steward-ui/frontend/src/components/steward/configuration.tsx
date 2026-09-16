@@ -1,9 +1,27 @@
 import { Fragment, useEffect, useMemo, useState } from "react"
 import type { CSSProperties } from "react"
-import { ChevronDown, ChevronRight, FileWarning, Lock, Plus, RotateCcw, Trash2 } from "lucide-react"
+import {
+  Ban,
+  ChevronDown,
+  ChevronRight,
+  FileCode,
+  FileWarning,
+  Lock,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react"
 import { toast } from "sonner"
 
-import type { ConfigChanges, ConfigDocument, ConfigEntry, ConfigLocation, GuildList } from "@/lib/api"
+import type {
+  ConfigChanges,
+  ConfigChoices,
+  ConfigEntry,
+  ConfigLocation,
+  GuildList,
+  ParsedConfigDocument,
+  RawConfigDocument,
+} from "@/lib/api"
 import {
   useConfig,
   useConfigs,
@@ -19,6 +37,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -43,6 +68,45 @@ import { Textarea } from "@/components/ui/textarea"
  * machine-readable path kept in monospace beside them, because the path is what an error message
  * and a log line will name.
  */
+
+/**
+ * The plain-text file name Till asked for, instead of `nordtal-smp/config.yml` verbatim
+ * (steward/56) - mechanical, the same way `Labels.of` on the backend turns a YAML key into a
+ * label: strip the extension, split on the characters a path uses to separate words, lower-case
+ * them, capitalise the first letter of the result. The raw name is still shown beside it, in
+ * monospace, because a path is exactly what an error message or a support request will name.
+ */
+function humanFileName(name: string): string {
+  const withoutExtension = name.replace(/\.[a-z0-9]+$/i, "")
+  const words = withoutExtension.split(/[-_./]+/).filter(Boolean)
+  if (words.length === 0) return name
+  const joined = words.map((word) => word.toLowerCase()).join(" ")
+  return joined.charAt(0).toUpperCase() + joined.slice(1)
+}
+
+/**
+ * The short text under a label: the schema's own words when there is a schema, the mechanical
+ * comment block for a file with none, and nothing at all when the schema explicitly says there is
+ * nothing to add (steward/55, steward/56). Three states, not two - `noExplanationNeeded` and "no
+ * comment happened to be written above this key" must not read the same, and only the first of
+ * them is drawn as literally no text regardless of what either string holds.
+ */
+function explanationOf(entry: ConfigEntry): string | null {
+  if (entry.noExplanationNeeded) return null
+  if (entry.explanation) return entry.explanation
+  if (entry.comments.length > 0) return entry.comments.join("\n").trim()
+  return null
+}
+
+/** The marker for a key the file has but the schema does not mention (steward/50, steward/55). */
+function NotInSchemaBadge() {
+  return (
+    <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
+      not in schema
+    </Badge>
+  )
+}
+
 export function ServiceConfiguration({ service }: { service: string }) {
   // Which file is open, not whether one is. Only the open file is fetched, which is also why the
   // form is mounted rather than hidden: an unopened file is a request nobody made.
@@ -73,7 +137,7 @@ export function ServiceConfiguration({ service }: { service: string }) {
           isEmpty={() => mine.length === 0}
           empty={{
             title: "This service has no configuration file here.",
-            note: `Nothing under ${service}/ in the mount point ends in .yml. Its settings are somewhere else, or it has none.`,
+            note: `Nothing under ${service}/ in the mount point is a readable text file. Its settings are somewhere else, or it has none.`,
           }}
         >
           {() =>
@@ -122,7 +186,10 @@ function FileRow({
     >
       <span className="flex min-w-0 items-center gap-2">
         <Chevron className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <span className="truncate font-mono text-sm">{file.name}</span>
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-sm">{humanFileName(file.name)}</span>
+          <span className="truncate font-mono text-xs text-muted-foreground">{file.name}</span>
+        </span>
         {file.service === "" ? (
           <Badge variant="outline" className="shrink-0">
             no service
@@ -154,15 +221,57 @@ function OneFile({ file }: { file: string }) {
   return (
     <div className="border-t border-border pt-4 pb-6">
       <QueryState query={document} rows={8}>
-        {(read) => <ConfigForm key={file} file={file} document={read} />}
+        {(read) =>
+          // `raw` splits the two forms this route ever answers with (steward/56): a document this
+          // class parsed, which gets the whole form below, and a file it could not - a foreign one
+          // steward/55's broadened `discover()` now finds, or a `.yml` with a mistake in it - which
+          // gets its own component so the hooks below stay unconditional rather than depending on
+          // which shape the same `file` happened to come back as.
+          read.raw ? (
+            <RawConfigView key={file} document={read} />
+          ) : (
+            <ConfigForm key={file} file={file} document={read} />
+          )
+        }
       </QueryState>
+    </div>
+  )
+}
+
+/**
+ * A file steward could not read as YAML, shown exactly as it stands on disk (steward/56).
+ *
+ * No form, no save button: there is nothing here this class parsed, so there is nothing a save
+ * could be checked against. This is the fallback for a genuinely foreign file - a plugin's
+ * `README.txt`, a `.properties` file - and for an ordinary `.yml` with a mistake in it; either way
+ * the operator can still read the bytes without them being a 400 with a path in it.
+ */
+function RawConfigView({ document }: { document: RawConfigDocument }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <Alert>
+        <FileCode aria-hidden />
+        <AlertTitle>Shown as raw text.</AlertTitle>
+        <AlertDescription>
+          Steward could not read {humanFileName(document.name)} ({document.name}) as a config file
+          {document.reason ? `: ${document.reason}` : "."} It is shown exactly as it stands on disk
+          and cannot be edited here.
+        </AlertDescription>
+      </Alert>
+      <Textarea
+        readOnly
+        value={document.content}
+        spellCheck={false}
+        rows={Math.min(30, document.content.split("\n").length + 1)}
+        className="font-mono text-sm"
+      />
     </div>
   )
 }
 
 type Draft = Record<string, string | string[]>
 
-function ConfigForm({ file, document }: { file: string; document: ConfigDocument }) {
+function ConfigForm({ file, document }: { file: string; document: ParsedConfigDocument }) {
   const [draft, setDraft] = useState<Draft>({})
   const save = useSaveConfig(file)
   // Asked for on every config file, not only the bot's: both answers are cached for five minutes
@@ -178,6 +287,21 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
 
   const changes = useMemo(() => changed(document, draft), [document, draft])
   const count = Object.keys(changes).length
+
+  // database.yml holds what this service connects to Postgres with, and there is no health check
+  // between "saved" and "broken" the way there is for a plugin that gets recreated - a mistake here
+  // takes the datasource down directly. Till has not asked for a way to edit it from this page, so
+  // until he does it stays visibly read-only regardless of what the mount underneath it actually
+  // permits (steward/56) - the generic "mounted read-only" sentence below is true of a volume, and
+  // this is stronger than that on purpose.
+  //
+  // Matched on the LAST path segment, not on the whole name. `name` is the path under the service
+  // directory, so a plugin's file is `smp/database.yml` or `hunger-games/hunger-games/database.yml`
+  // and only the three services that keep theirs at the top - discord-bot, steward-worker,
+  // steward-ui - are called `database.yml` outright. Measured against the running mount on
+  // 2026-09-16: an equality check caught three of the seven and left four editable.
+  const databaseFile = document.name.split("/").pop() === "database.yml"
+  const writable = document.writable && !databaseFile
 
   function submit() {
     save.mutate({ revision: document.revision, changes }, {
@@ -197,7 +321,17 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
         </p>
       ) : null}
 
-      {document.writable ? (
+      {databaseFile ? (
+        <Alert variant="destructive">
+          <Ban aria-hidden />
+          <AlertTitle>This file is read-only in Steward.</AlertTitle>
+          <AlertDescription>
+            {document.name} holds what this service connects to Postgres with. Steward shows it so
+            it can be checked, and never offers to save a change to it here - edit it on the host
+            if it ever has to change.
+          </AlertDescription>
+        </Alert>
+      ) : writable ? (
         <Alert>
           <FileWarning aria-hidden />
           <AlertTitle>A saved change does not reach a running service.</AlertTitle>
@@ -233,7 +367,7 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
               key={entry.path}
               entry={entry}
               first={index === 0}
-              writable={document.writable}
+              writable={writable}
               draft={draft}
               roles={roles.data}
               channels={channels.data}
@@ -271,7 +405,7 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
           <Button
             type="button"
             size="sm"
-            disabled={count === 0 || save.isPending || !document.writable}
+            disabled={count === 0 || save.isPending || !writable}
             onClick={submit}
           >
             {save.isPending ? "Saving…" : "Save"}
@@ -288,7 +422,7 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
  * Sending everything would be simpler and would rewrite every line of the file on every save,
  * which turns a one-word change into a diff nobody reads.
  */
-function changed(document: ConfigDocument, draft: Draft): ConfigChanges {
+function changed(document: ParsedConfigDocument, draft: Draft): ConfigChanges {
   const changes: ConfigChanges = {}
   for (const entry of document.entries) {
     const value = draft[entry.path]
@@ -333,19 +467,28 @@ function Field({
 }) {
   const depth = entry.path.split(".").length - 1
   const dirty = draft[entry.path] !== undefined
+  const explanation = explanationOf(entry)
 
   if (entry.kind === "MAP") {
+    // Headings come purely from the file's own nesting (steward/56) - there is no second grouping
+    // concept beside it. Past two levels a heading stops helping and starts being mostly indent, so
+    // the fallback is what a leaf field already shows beside its own label: the full dotted path,
+    // which names the third level and deeper without a heading of its own.
+    if (depth >= 2) return null
     return (
       <div
         style={{ "--depth": depth } as CSSProperties}
         className="ml-[calc(var(--depth)*0.375rem)] pt-6 pb-2 sm:ml-[calc(var(--depth)*1rem)]"
       >
         <Separator className="mb-4" />
-        <h2 className="text-sm font-semibold">{entry.label}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-sm font-semibold">{entry.label}</h2>
+          {!entry.inSchema ? <NotInSchemaBadge /> : null}
+        </div>
         <p className="font-mono text-xs text-muted-foreground">{entry.path}</p>
-        {entry.comments.length > 0 ? (
+        {explanation ? (
           <p className="mt-2 max-w-prose whitespace-pre-wrap text-sm text-muted-foreground">
-            {entry.comments.join("\n").trim()}
+            {explanation}
           </p>
         ) : null}
       </div>
@@ -364,9 +507,12 @@ function Field({
       className={`ml-[calc(var(--depth)*0.375rem)] flex flex-col gap-2 border-border py-3 sm:ml-[calc(var(--depth)*1rem)] ${first ? "" : "border-t"}`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <Label htmlFor={entry.path} className="text-sm font-medium">
-          {entry.label}
-        </Label>
+        <span className="flex flex-wrap items-center gap-2">
+          <Label htmlFor={entry.path} className="text-sm font-medium">
+            {entry.label}
+          </Label>
+          {!entry.inSchema ? <NotInSchemaBadge /> : null}
+        </span>
         <div className="flex items-center gap-2">
           {dirty ? (
             <Button type="button" variant="ghost" size="sm" onClick={onReset}>
@@ -378,9 +524,9 @@ function Field({
         </div>
       </div>
 
-      {entry.comments.length > 0 ? (
+      {explanation ? (
         <p className="max-w-prose whitespace-pre-wrap text-sm text-muted-foreground">
-          {entry.comments.join("\n").trim()}
+          {explanation}
         </p>
       ) : null}
 
@@ -470,6 +616,21 @@ function Control({
 
   const value = typed ?? entry.value ?? ""
 
+  // A schema's allowed values (steward/55, steward/56) win over the Discord picker below: they are
+  // the more specific of the two, being data this particular key actually declared rather than a
+  // guess drawn from its name.
+  if (entry.choices) {
+    return (
+      <ChoicesControl
+        id={entry.path}
+        value={value}
+        choices={entry.choices}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    )
+  }
+
   const discord = discordId(entry)
   if (discord) {
     return (
@@ -524,6 +685,61 @@ function Control({
       className="font-mono text-sm"
       onChange={(event) => onChange(event.target.value)}
     />
+  )
+}
+
+/**
+ * A schema's allowed (or suggested) values (steward/55, steward/56).
+ *
+ * `strict` is the whole of the difference: a closed list is a select and nothing else, because
+ * anything else it could hold is not a valid save. A suggestion is the same select beside a
+ * free-text field that still takes anything - so the common case is a click and the uncommon one
+ * is still just typing, the way it always was.
+ */
+function ChoicesControl({
+  id,
+  value,
+  choices,
+  disabled,
+  onChange,
+}: {
+  id: string
+  value: string
+  choices: ConfigChoices
+  disabled: boolean
+  onChange: (value: string) => void
+}) {
+  // Radix refuses an item with an empty value, and a value the schema did not list is a normal
+  // state here - typed by hand before this shipped, or (when not strict) simply a suggestion not
+  // taken. Passing it through as "" leaves the select showing its placeholder rather than a value
+  // it does not have.
+  const known = choices.values.includes(value)
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select value={known ? value : ""} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger id={choices.strict ? id : undefined} className="min-w-48">
+          <SelectValue placeholder={choices.strict ? "choose one" : "choose a suggestion"} />
+        </SelectTrigger>
+        <SelectContent>
+          {choices.values.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {choices.strict ? null : (
+        <Input
+          id={id}
+          aria-label="Free text"
+          disabled={disabled}
+          value={value}
+          spellCheck={false}
+          className="min-w-40 flex-1 font-mono text-sm"
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )}
+    </div>
   )
 }
 

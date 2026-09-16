@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EveryNodeAnswersTest {
 
     private final NavigateCommand commands =
-            new NavigateCommand(null, null, null, null, null, null, null);
+            new NavigateCommand(null, null, null, null, null, null, null, null);
 
     @Test
     @DisplayName("/poi answers at every depth, bare root and bare subcommand included")

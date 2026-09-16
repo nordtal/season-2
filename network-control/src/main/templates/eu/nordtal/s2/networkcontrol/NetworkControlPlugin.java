@@ -16,8 +16,10 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.networkcontrol.config.ColoursSpec;
 import eu.nordtal.s2.networkcontrol.config.Configs;
 import eu.nordtal.s2.networkcontrol.config.DatabaseSpec;
 import eu.nordtal.s2.networkcontrol.config.GateSpec;
@@ -178,6 +180,7 @@ public final class NetworkControlPlugin {
                     Configs.gate(dataDirectory, logger).get(),
                     Configs.pack(dataDirectory, logger).get(),
                     Configs.network(dataDirectory, logger).get(),
+                    Configs.colours(dataDirectory, logger).get(),
                     messages);
         } catch (final ConfigException | RuntimeException failure) {
             failClosed(failure);
@@ -186,7 +189,7 @@ public final class NetworkControlPlugin {
 
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
                        final PackSpec packConfig, final NetworkSpec networkConfig,
-                       final Messages messages) {
+                       final ColoursSpec coloursConfig, final Messages messages) {
         // :commands' bundle on its own, with the operator's override on top of it, for the command
         // inbox to render remote answers with. One root and not two, because the layered bundle
         // above lets THIS module's keys win and this module's keys are allowed MiniMessage, which
@@ -195,6 +198,10 @@ public final class NetworkControlPlugin {
                 dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
         this.pool = AccessPool.open(databaseConfig);
         this.access = AccessDirectory.using(pool);
+
+        // season-2-ingame/22: the five reply colours. Read once, here, the same as network.yml and
+        // gate.yml - see ColoursSpec's own javadoc for why this has no reload path yet.
+        final ToneColours colours = ToneColours.parse(Configs.declared(coloursConfig), logger::warn);
 
         final PhaseDirectory phases = PhaseDirectory.using(pool);
         final GateMessages gateMessages = new GateMessages(messages, gateConfig);
@@ -444,7 +451,8 @@ public final class NetworkControlPlugin {
         // do: what a client is told exists. See CommandGate and :common's CommandFilter.
         final CommandAllowlist allowlist =
                 CommandAllowlist.parse(networkConfig.commandAllowlist());
-        proxy.getEventManager().register(this, new CommandGate(roster, allowlist, messages, logger));
+        proxy.getEventManager().register(this,
+                new CommandGate(roster, allowlist, messages, logger, () -> colours));
         if (allowlist.entries().isEmpty()) {
             logger.warn("network.yml#command-allowlist is empty: a player who is not an admin can "
                     + "type no command at all, anywhere on this network. That is a valid setting "
@@ -477,7 +485,7 @@ public final class NetworkControlPlugin {
         final NetworkEffects networkEffects = new ProxyNetworkEffects(
                 ProxyNetworkEffects.async(this, proxy), messages, sharedMessages, logger);
 
-        final VelocityCommands tree = new VelocityCommands(proxy, roster, messages);
+        final VelocityCommands tree = new VelocityCommands(proxy, roster, messages, () -> colours);
         PhaseCommands.all().forEach(command -> tree.local(command, phaseEffects));
         NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
 

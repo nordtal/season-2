@@ -26,6 +26,7 @@ import {
   type Metrics,
   type Payment,
   type Person,
+  type RawConfigSaveResult,
   type ReloadAwareConfigDocument,
   type Run,
   type Schedule,
@@ -593,6 +594,35 @@ export function useSaveConfig(file: string) {
       // cache is now provably out of date - including its revision, so a second attempt with it
       // would be refused for the same reason. Re-reading is what lets the operator see what the
       // file says and decide whether their change is still the one they want.
+      if (failure instanceof ApiError && failure.status === 409) {
+        client.invalidateQueries({ queryKey: keys.config(file) })
+      }
+    },
+  })
+}
+
+/**
+ * Saves the exact text typed into the raw editor (steward/60).
+ *
+ * Mirrors {@link useSaveConfig}'s shape - a revision that has to match, an answer that replaces
+ * the cache entry directly rather than triggering a refetch - but posts to the raw file's own
+ * route, because its body is text and a revision, never a `changes` map. A syntax warning in the
+ * answer is never a reason this promise rejects: {@code warnings} rides along on the same 200 a
+ * clean save gets, the same way {@link useSaveMessageBundle}'s does.
+ */
+export function useSaveRawConfig(file: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ revision, content }: { revision: string; content: string }) =>
+      api<RawConfigSaveResult>(`/api/config-raw/${encodePath(file)}`, {
+        method: "PUT",
+        body: { revision, content },
+      }),
+    onSuccess: (document) => {
+      client.setQueryData(keys.config(file), document)
+    },
+    onError: (failure) => {
+      // The other browser was faster - the same 409 handling useSaveConfig gives the parsed path.
       if (failure instanceof ApiError && failure.status === 409) {
         client.invalidateQueries({ queryKey: keys.config(file) })
       }

@@ -11,6 +11,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.smp.db.PlaceRow;
 import eu.nordtal.s2.smp.db.PoiRow;
@@ -59,10 +60,12 @@ public final class NavigateCommand {
     private final Messages messages;
     private final PlayerLocales locales;
     private final SmpSounds sounds;
+    private final java.util.function.Supplier<ToneColours> colours;
 
     public NavigateCommand(final Plugin plugin, final SmpDao dao, final Navigation navigation,
                            final Identities identities, final Messages messages,
-                           final PlayerLocales locales, final SmpSounds sounds) {
+                           final PlayerLocales locales, final SmpSounds sounds,
+                           final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = plugin;
         this.dao = dao;
         this.navigation = navigation;
@@ -70,6 +73,7 @@ public final class NavigateCommand {
         this.messages = messages;
         this.locales = locales;
         this.sounds = sounds;
+        this.colours = colours;
     }
 
     public LiteralCommandNode<CommandSourceStack> navigate() {
@@ -172,7 +176,7 @@ public final class NavigateCommand {
         final Player player = (Player) context.getSource().getSender();
         return PaperUser.of(plugin, player, locales.of(player.getUniqueId()),
                 identities.of(player.getUniqueId()).admin(),
-                () -> identities.discordIdOf(player.getUniqueId()), messages, sounds::play);
+                () -> identities.discordIdOf(player.getUniqueId()), messages, sounds::play, colours);
     }
 
     // ------------------------------------------------------------------ /navigate

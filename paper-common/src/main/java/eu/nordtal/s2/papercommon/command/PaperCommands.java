@@ -18,6 +18,7 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Messages;
 
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -74,6 +75,7 @@ public final class PaperCommands {
     private final Predicate<UUID> isAdmin;
     private final Function<UUID, Optional<String>> discordIdOf;
     private final PaperUser.Chime chime;
+    private final java.util.function.Supplier<ToneColours> colours;
     private final Confirmations confirmations = new Confirmations();
     private final List<Entry> entries = new ArrayList<>();
     private final Map<String, List<LiteralArgumentBuilder<CommandSourceStack>>> extras =
@@ -94,12 +96,16 @@ public final class PaperCommands {
      * @param discordIdOf the linked Discord account, for a command that travels and has to say who
      *                    asked
      * @param chime       the sound a reply makes, or {@link PaperUser.Chime#silent()}
+     * @param colours     the tone palette this plugin is configured with right now - a supplier, so
+     *                    the {@link PaperUser} built for the next command typed sees a reload that
+     *                    happened after this tree was built
      */
     public PaperCommands(final Plugin plugin, final Messages messages, final Target here,
                          final Outbox outbox, final Function<UUID, java.util.Locale> localeOf,
                          final Predicate<UUID> isAdmin,
                          final Function<UUID, Optional<String>> discordIdOf,
-                         final PaperUser.Chime chime) {
+                         final PaperUser.Chime chime,
+                         final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.here = Objects.requireNonNull(here, "here");
@@ -108,6 +114,7 @@ public final class PaperCommands {
         this.isAdmin = Objects.requireNonNull(isAdmin, "isAdmin");
         this.discordIdOf = Objects.requireNonNull(discordIdOf, "discordIdOf");
         this.chime = Objects.requireNonNull(chime, "chime");
+        this.colours = Objects.requireNonNull(colours, "colours");
     }
 
     /** A command this process runs itself. */
@@ -709,8 +716,8 @@ public final class PaperCommands {
             // The supplier and not the value, because this runs for every invocation and the help
             // output, and an eager account_link read would be a query on the main thread.
             return PaperUser.of(plugin, player, localeOf.apply(player.getUniqueId()), true,
-                    () -> discordIdOf.apply(player.getUniqueId()), messages, chime);
+                    () -> discordIdOf.apply(player.getUniqueId()), messages, chime, colours);
         }
-        return PaperUser.console(plugin, sender, messages);
+        return PaperUser.console(plugin, sender, messages, colours);
     }
 }

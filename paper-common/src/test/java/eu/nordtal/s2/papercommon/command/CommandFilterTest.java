@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.ToneColours;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -61,7 +62,7 @@ class CommandFilterTest {
 
     private CommandFilter filter(final CommandFilter.Source source, final SpyChime chime) {
         return new CommandFilter(silentPlugin(), source, uuid -> false, locales, messages,
-                silentLogger(), chime);
+                silentLogger(), () -> ToneColours.DEFAULTS, chime);
     }
 
     @Test

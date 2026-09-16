@@ -20,6 +20,8 @@ import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.smp.config.ColoursSpec;
 import eu.nordtal.s2.smp.config.Configs;
 import eu.nordtal.s2.smp.config.DatabaseSpec;
 import eu.nordtal.s2.smp.config.Milestones;
@@ -118,6 +120,18 @@ public final class SmpPlugin extends JavaPlugin {
     /** Held so {@code /smp reload} can swap what it answers; every listener has this one instance. */
     private SmpSounds sounds;
 
+    /** Its own file, and its own handle, so that {@code /smp reload} can re-read it (season-2-ingame/22). */
+    private ConfigHandle<ColoursSpec> coloursHandle;
+
+    /**
+     * The tone palette, replaced by {@code /smp reload}.
+     *
+     * <p><b>volatile</b> for the same reason {@link #track} is: the write is on whatever thread ran
+     * the reload command and every {@code PaperUser} built afterwards reads it fresh, through a
+     * supplier rather than a captured value.</p>
+     */
+    private volatile ToneColours colours;
+
     private HikariDataSource pool;
     private AdminWatch adminWatch;
 
@@ -211,6 +225,7 @@ public final class SmpPlugin extends JavaPlugin {
             databaseHandle = Configs.database(getDataFolder().toPath(), logger());
             milestonesHandle = Configs.milestones(getDataFolder().toPath(), logger());
             soundsHandle = Configs.sounds(getDataFolder().toPath(), logger());
+            coloursHandle = Configs.colours(getDataFolder().toPath(), logger());
         } catch (final ConfigException exception) {
             severe("smp is not starting because its configuration could not be read: "
                     + exception.getMessage());
@@ -224,6 +239,11 @@ public final class SmpPlugin extends JavaPlugin {
         // rather than joining the refusals below: a typo in a chime is not worth a season offline.
         final SmpSounds sounds = SmpSounds.of(soundsHandle.get(), getLogger()::warning);
         this.sounds = sounds;
+
+        // The tone palette, read once here and re-read by /smp reload - see reloadTrack. A bad hex
+        // value is reported and its tone falls back to the default rather than joining the refusals
+        // below, the same treatment the sounds above get.
+        this.colours = ToneColours.parse(Configs.declared(coloursHandle.get()), getLogger()::warning);
 
         // ---- refusal 1: the datapacks -------------------------------------------------------
         // A world generated without them is vanilla terrain permanently, because terrain is never
@@ -507,7 +527,7 @@ public final class SmpPlugin extends JavaPlugin {
         commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(this,
                 eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
                         eu.nordtal.s2.common.command.AllowlistDirectory.using(pool)),
-                adminWatch::isAdmin, locales, messages, logger());
+                adminWatch::isAdmin, locales, messages, logger(), () -> colours);
         getServer().getPluginManager().registerEvents(commandFilter, this);
         commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 
@@ -627,7 +647,8 @@ public final class SmpPlugin extends JavaPlugin {
     private void registerCommands(final SmpSounds sounds) {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final NavigateCommand commands =
-                    new NavigateCommand(this, dao, navigation, identities, messages, locales, sounds);
+                    new NavigateCommand(this, dao, navigation, identities, messages, locales, sounds,
+                            () -> colours);
             // Not folded into :commands: /navigate opens an inventory and /poi add reads the
             // caller's position, so a Discord half of either would be a different command wearing
             // the same name.
@@ -639,7 +660,7 @@ public final class SmpPlugin extends JavaPlugin {
                             // a row and a notification, never a call.
                             new UpdateWatcher(this, UpdateDirectory.using(pool)),
                             // A supplier and not the field: /smp reload replaces it.
-                            () -> track, season)
+                            () -> track, season, () -> colours)
                     .forEach(node -> event.registrar().register(node));
         });
     }
@@ -703,6 +724,15 @@ public final class SmpPlugin extends JavaPlugin {
         } catch (final ConfigException | RuntimeException exception) {
             getLogger().severe("the sounds could not be reloaded, the running ones are unchanged: "
                     + exception.getMessage());
+        }
+
+        try {
+            coloursHandle.reload();
+            colours = ToneColours.parse(Configs.declared(coloursHandle.get()), getLogger()::warning);
+            getLogger().info("the tone colours were reloaded");
+        } catch (final ConfigException | RuntimeException exception) {
+            getLogger().severe("the tone colours could not be reloaded, the running ones are "
+                    + "unchanged: " + exception.getMessage());
         }
 
         try {

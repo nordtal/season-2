@@ -18,6 +18,7 @@ import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.MemberState;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
 import net.kyori.adventure.text.ComponentLike;
@@ -107,7 +108,8 @@ class VelocityCommandsGameSurfaceTest {
         final LoginRoster roster = new LoginRoster();
         roster.remember(ADMIN, new AccessState(ADMIN, "300000000000000042", MemberState.MEMBER,
                 true, null, false, true, Locale.ENGLISH, SeasonPhase.SMP, null));
-        return new VelocityCommands(refuse(ProxyServer.class), roster, messages);
+        return new VelocityCommands(refuse(ProxyServer.class), roster, messages,
+                () -> ToneColours.DEFAULTS);
     }
 
     private static CommandDispatcher<CommandSource> dispatcher(final VelocityCommands commands) {

@@ -6,12 +6,15 @@ import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
 
 import eu.nordtal.s2.common.command.CommandAllowlist;
+import eu.nordtal.s2.common.message.Tone;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -153,6 +156,37 @@ public final class Configs {
                                 + " the .sha1 file next to the release asset - was '" + config.sha1() + "'");
             }
         });
+    }
+
+    /**
+     * Loads the tone colours (season-2-ingame/22). No validator: {@code ToneColours#parse} corrects
+     * a bad hex value where it parses it, so a typo here is never a reason to refuse a login. Read
+     * once at proxy start - see {@code ColoursSpec}'s own javadoc for why this file has no reload
+     * path.
+     */
+    public static @NotNull ConfigHandle<ColoursSpec> colours(final Path directory, final Logger logger)
+            throws ConfigException {
+        return load(directory, logger, "colours", ColoursSpec.class, "NORDTAL_NETWORK_CONTROL_COLOURS",
+                config -> { });
+    }
+
+    /**
+     * {@code ColoursSpec}'s five accessors, as the map {@code ToneColours} parses. An exhaustive
+     * {@code switch} with no {@code default}, so a sixth {@link Tone} stops this compiling rather
+     * than silently leaving it unpainted.
+     */
+    public static Map<Tone, String> declared(final ColoursSpec spec) {
+        final Map<Tone, String> declared = new EnumMap<>(Tone.class);
+        for (final Tone tone : Tone.values()) {
+            declared.put(tone, switch (tone) {
+                case GOOD -> spec.good();
+                case BAD -> spec.bad();
+                case WARN -> spec.warn();
+                case NEUTRAL -> spec.neutral();
+                case MUTED -> spec.muted();
+            });
+        }
+        return declared;
     }
 
     // ------------------------------------------------------------------ loading

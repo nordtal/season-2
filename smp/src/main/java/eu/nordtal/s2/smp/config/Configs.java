@@ -5,12 +5,15 @@ import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.hud.BoardFrame;
+import eu.nordtal.s2.common.message.Tone;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * Where {@code smp}'s config files live, and every rule about what a valid value is.
@@ -30,7 +33,8 @@ public final class Configs {
 
     public static @NotNull ConfigHandle<SmpSpec> load(final Path dataFolder, final Logger logger)
             throws ConfigException {
-        return load(dataFolder, logger, "config", SmpSpec.class, "NORDTAL_SMP", Configs::validate);
+        return load(dataFolder, logger, "config", SmpSpec.class, "NORDTAL_SMP", Configs::validate,
+                true);
     }
 
     public static @NotNull ConfigHandle<DatabaseSpec> database(final Path dataFolder, final Logger logger)
@@ -44,7 +48,7 @@ public final class Configs {
             }
             requirePositive("maximum-pool-size", config.maximumPoolSize());
             requirePositive("query-timeout-seconds", config.queryTimeoutSeconds());
-        });
+        }, false);
     }
 
     /**
@@ -64,7 +68,7 @@ public final class Configs {
                         throw new IllegalArgumentException(
                                 "the milestone track is not usable:\n" + result.describe());
                     }
-                });
+                }, false);
     }
 
     /**
@@ -77,7 +81,42 @@ public final class Configs {
     public static @NotNull ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger)
             throws ConfigException {
         return load(dataFolder, logger, "sounds", SoundsSpec.class, "NORDTAL_SMP_SOUNDS",
-                config -> { });
+                config -> { }, false);
+    }
+
+    /**
+     * Loads the tone colours (season-2-ingame/22).
+     *
+     * <p><b>No validator.</b> {@code ToneColours#parse} is where a bad hex value is caught, and it
+     * corrects rather than refuses: a typo in a colour is not worth a season offline, the same rule
+     * {@link #sounds} follows for a bad sound key.
+     */
+    public static @NotNull ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger)
+            throws ConfigException {
+        return load(dataFolder, logger, "colours", ColoursSpec.class, "NORDTAL_SMP_COLOURS",
+                config -> { }, false);
+    }
+
+    /**
+     * {@code ColoursSpec}'s five accessors, as the map {@link eu.nordtal.s2.common.message.ToneColours}
+     * parses.
+     *
+     * <p>An exhaustive {@code switch} with no {@code default}, the same guard {@code SmpSounds}'
+     * {@code specOf} uses for {@code Feedback}: a sixth {@link Tone} stops this compiling until
+     * somebody says what its colour is called, rather than silently leaving it unpainted.
+     */
+    public static Map<Tone, String> declared(final ColoursSpec spec) {
+        final Map<Tone, String> declared = new EnumMap<>(Tone.class);
+        for (final Tone tone : Tone.values()) {
+            declared.put(tone, switch (tone) {
+                case GOOD -> spec.good();
+                case BAD -> spec.bad();
+                case WARN -> spec.warn();
+                case NEUTRAL -> spec.neutral();
+                case MUTED -> spec.muted();
+            });
+        }
+        return declared;
     }
 
     private static void validate(final SmpSpec config) {
@@ -190,7 +229,9 @@ public final class Configs {
 
     private static <T> ConfigHandle<T> load(final Path dataFolder, final Logger logger, final String name,
                                             final Class<T> specType, final String envPrefix,
-                                            final ConfigValidator<T> validator) throws ConfigException {
+                                            final ConfigValidator<T> validator,
+                                            final boolean defaultsArePlaceholders)
+            throws ConfigException {
         final Path file = dataFolder.resolve(name + ".yml");
         final boolean fresh = !Files.isRegularFile(file);
 
@@ -200,9 +241,19 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            logger.warn("No config existed at {} - defaults were written and are almost certainly "
-                    + "not what you want, especially the world names and every coordinate",
-                    file.toAbsolutePath());
+            // Only `config.yml` earns the loud line: it is the one that names worlds and
+            // coordinates, and its defaults really are placeholders. `sounds.yml`, `colours.yml`
+            // and `database.yml` ship defaults that are correct as written, and warning about them
+            // trains an operator to read every WARN from this plugin as noise - which is the one
+            // thing the loud line cannot afford, because it is the one that is true.
+            if (defaultsArePlaceholders) {
+                logger.warn("No config existed at {} - defaults were written and are almost "
+                        + "certainly not what you want, especially the world names and every "
+                        + "coordinate", file.toAbsolutePath());
+            } else {
+                logger.info("No config existed at {} - it was written with this project's "
+                        + "defaults, which are usable as they stand", file.toAbsolutePath());
+            }
         }
         return handle;
     }

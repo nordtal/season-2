@@ -4,7 +4,6 @@ import {
   Ban,
   ChevronDown,
   ChevronRight,
-  FileCode,
   FileWarning,
   Lock,
   Plus,
@@ -18,6 +17,7 @@ import type {
   ConfigEntry,
   ConfigLocation,
   ConfigReloadOutcome,
+  EditableRawConfigDocument,
   GuildList,
   ParsedConfigDocument,
   RawConfigDocument,
@@ -33,6 +33,7 @@ import {
 import { takePendingJump } from "@/lib/settings-search"
 import { explanationOf, humanFileName, ScalarControl } from "@/components/steward/config-controls"
 import { ServiceSettingsSearch } from "@/components/steward/config-search"
+import { RawConfigEditor } from "@/components/steward/raw-config-editor"
 import { Empty, Failure, QueryState } from "@/components/steward/query-state"
 import {
   type SectionValues,
@@ -46,7 +47,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
 
 /**
  * `discordId` used to be defined here and stayed exported under this name for
@@ -246,7 +246,7 @@ function OneFile({
           // which shape the same `file` happened to come back as. A raw document has no entries, so
           // a search hit never points into one and `highlight` has nothing to do here.
           read.raw ? (
-            <RawConfigView key={file} document={read} />
+            <RawConfigView key={file} file={file} document={read} />
           ) : (
             <ConfigForm
               key={file}
@@ -266,33 +266,24 @@ function OneFile({
 }
 
 /**
- * A file steward could not read as YAML, shown exactly as it stands on disk (steward/56).
- *
- * No form, no save button: there is nothing here this class parsed, so there is nothing a save
- * could be checked against. This is the fallback for a genuinely foreign file - a plugin's
- * `README.txt`, a `.properties` file - and for an ordinary `.yml` with a mistake in it; either way
- * the operator can still read the bytes without them being a 400 with a path in it.
+ * A file steward could not read as YAML, shown exactly as it stands on disk (steward/56) - and,
+ * since steward/60, editable as the plain text it is when the mount underneath it allows a write
+ * at all. There is nothing here this class parsed, so there is no form and no per-field save; the
+ * whole file is one draft, checked for the syntax its own name implies only once the operator
+ * saves it, and never refused for what that check finds. See `RawConfigEditor` for the rest of
+ * this - format detection, highlighting, the save itself and its warnings all live there so this
+ * function stays just the hand-off steward/56 left it as.
  */
-function RawConfigView({ document }: { document: RawConfigDocument }) {
+function RawConfigView({ file, document }: { file: string; document: RawConfigDocument }) {
   return (
-    <div className="flex flex-col gap-4">
-      <Alert>
-        <FileCode aria-hidden />
-        <AlertTitle>Shown as raw text.</AlertTitle>
-        <AlertDescription>
-          Steward could not read {humanFileName(document.name)} ({document.name}) as a config file
-          {document.reason ? `: ${document.reason}` : "."} It is shown exactly as it stands on disk
-          and cannot be edited here.
-        </AlertDescription>
-      </Alert>
-      <Textarea
-        readOnly
-        value={document.content}
-        spellCheck={false}
-        rows={Math.min(30, document.content.split("\n").length + 1)}
-        className="font-mono text-sm"
-      />
-    </div>
+    <RawConfigEditor
+      file={file}
+      // The worker sends `revision` on every raw document too, since steward/60 gave this shape a
+      // save path of its own (`ConfigApi#rawDocument`). `RawConfigDocument` itself is left alone,
+      // the same way `ParsedConfigDocument` is above: other work lands in this file the same
+      // night, so the widened shape is its own type in api.ts rather than a change to this one.
+      document={document as EditableRawConfigDocument}
+    />
   )
 }
 

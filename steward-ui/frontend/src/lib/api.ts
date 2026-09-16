@@ -816,3 +816,37 @@ export type ReloadAwareConfigDocument = ParsedConfigDocument & {
   restartRequired: boolean
   reload?: ConfigReloadOutcome
 }
+
+/**
+ * `RawConfigDocument` widened with the revision the raw editor's save needs (steward/60).
+ *
+ * `RawConfigDocument` itself stays as steward/56 left it - no revision, no save button, because
+ * that was true of every raw document until this ticket gave the worker a write path for one. The
+ * worker now sends `revision` on every raw document too (`ConfigApi#rawDocument`), computed the
+ * same way a parsed file's is; this is its own type rather than a change to `RawConfigDocument`
+ * for the same reason `ReloadAwareConfigDocument` is its own type above it - other work lands in
+ * this file the same night, and appending stays out of its way.
+ */
+export type EditableRawConfigDocument = RawConfigDocument & {
+  revision: string
+}
+
+/**
+ * What `PUT /api/config-raw/<file>` answers (steward/60): the file as it now reads, plus every
+ * syntax warning the save found.
+ *
+ * A warning never blocks the save - the same rule `MessageSaveResult` already carries for a
+ * dropped placeholder. `warnings` is empty rather than absent when there was nothing to say, so a
+ * caller never has to tell "no field" apart from "empty list".
+ */
+export type RawConfigSaveResult = EditableRawConfigDocument & {
+  warnings: string[]
+}
+
+/**
+ * The four formats the raw editor tells apart, by the file's own name - never its content, and
+ * never guessed from what parsed and what did not. Mirrors `RawSyntax.Format` on the worker
+ * (steward/60); the two are independent (a frontend module cannot import a worker enum) and
+ * agreeing is a matter of both reading the same four extensions, not of sharing code.
+ */
+export type RawConfigFormat = "yaml" | "json" | "toml" | "properties" | "text"

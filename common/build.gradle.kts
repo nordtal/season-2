@@ -20,6 +20,26 @@ repositoryRootTestInputs {
 
     reads("gradle/libs.versions.toml")
 
+    // Every message bundle in the repository, for EveryBundleIsCompleteTest. The test finds them by
+    // walking the tree, but Gradle cannot see a walk - without these fourteen lines an edit to a
+    // bundle leaves :common:test UP-TO-DATE and the parity guard never runs on the change that
+    // broke it. A new module's bundle needs a line here and nothing else; the test itself picks it
+    // up on its own.
+    reads("commands/src/main/resources/messages/commands/en.properties")
+    reads("commands/src/main/resources/messages/commands/de.properties")
+    reads("discord-bot/src/main/resources/messages/access/en.properties")
+    reads("discord-bot/src/main/resources/messages/access/de.properties")
+    reads("hunger-games/src/main/resources/messages/hunger-games/en.properties")
+    reads("hunger-games/src/main/resources/messages/hunger-games/de.properties")
+    reads("limbo/src/main/resources/messages/limbo/en.properties")
+    reads("limbo/src/main/resources/messages/limbo/de.properties")
+    reads("network-control/src/main/resources/messages/network-control/en.properties")
+    reads("network-control/src/main/resources/messages/network-control/de.properties")
+    reads("paper-common/src/main/resources/messages/paper-common/en.properties")
+    reads("paper-common/src/main/resources/messages/paper-common/de.properties")
+    reads("smp/src/main/resources/messages/smp/en.properties")
+    reads("smp/src/main/resources/messages/smp/de.properties")
+
     reads("smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java")
     reads("resource-pack/src/assets/nordtal/font/bossbar.json")

@@ -19,6 +19,21 @@ SETUP="$HERE/setup.sh"
 failed=0
 current_case=""
 case_begin() { current_case="$1"; }
+
+# Membership without a pipe, and that is the whole point (season-2-ops/27, 2026-09-16). This used to
+# be `printf '%s\n' "${REQUIRED[@]}" | grep -qx "$name"`, which is wrong under the `pipefail` on the
+# line above: grep -q closes the pipe the moment it matches, printf upstream takes SIGPIPE, and
+# pipefail reports 141 for a pipeline whose grep succeeded. Measured on this host: five misses in
+# nine thousand, which is about one in a hundred whole runs of this file - enough that CI went red
+# on a commit and green on the identical tree when it was re-run, which is the worst kind of guard.
+contains() {
+    local needle="$1"; shift
+    local item
+    for item in "$@"; do
+        [[ "$item" == "$needle" ]] && return 0
+    done
+    return 1
+}
 ok()  { printf '  ok    %s\n' "$1"; }
 bad() { printf '  FAIL  %s: %s\n' "$current_case" "$1" >&2; failed=$(( failed + 1 )); }
 
@@ -241,12 +256,12 @@ case_begin "what a deployment demands of a person is the short list"
 for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA NORDTAL_BOT_TOKEN \
             NORDTAL_ACCESS_GUILD_ID NORDTAL_ACCESS_ROLES_ADMIN STEWARD_HOST STEWARD_ACME_EMAIL \
             STEWARD_ENV_FILE STEWARD_UI_DISCORD_CLIENT_ID STEWARD_UI_DISCORD_CLIENT_SECRET; do
-    printf '%s\n' "${REQUIRED[@]}" | grep -qx "$name" || bad "$name is not required and should be"
+    contains "$name" "${REQUIRED[@]}" || bad "$name is not required and should be"
 done
 for name in NORDTAL_ACCESS_ROLES_ACCESS NORDTAL_ACCESS_ROLES_DONOR NORDTAL_ACCESS_ROLES_ADMIN_PING \
             NORDTAL_ACCESS_CHANNELS_ADMIN NORDTAL_ACCESS_LANGUAGES NORDTAL_ACCESS_TIERS \
             NORDTAL_BOT_BUNQ_API_KEY NORDTAL_BOT_BUNQ_ACCOUNT_ID; do
-    if printf '%s\n' "${REQUIRED[@]}" | grep -qx "$name"; then
+    if contains "$name" "${REQUIRED[@]}"; then
         bad "$name is required, and a deployment must not stop for it"
     fi
 done

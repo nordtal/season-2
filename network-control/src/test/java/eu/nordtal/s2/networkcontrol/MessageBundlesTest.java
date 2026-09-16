@@ -24,9 +24,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The three other modules that ship a bundle - {@code commands}, {@code smp} and
  * {@code hunger-games} - have had this guard for some time; {@code network-control} did not, which
  * is why {@code gate.connection-lost} was added on 2026-09-16 (season-2-ops/20) with nothing
- * checking that the German half arrived with it. {@code Messages} degrades to the key rather than
- * throwing, so a missing translation is not an exception anybody sees - it is the literal string
- * {@code gate.connection-lost} on a disconnect screen, in the language it was supposed to avoid.</p>
+ * checking that the German half arrived with it. <b>English is the fallback for everything</b>, so
+ * a key with no German is answered in English: nothing throws, nothing is logged, and a German
+ * player gets one English line in the middle of German text. An earlier version of this comment
+ * said the key itself would be printed - that only happens when the key is missing in English too,
+ * and it is the louder failure of the two. This one is the quiet one, which is why it needs a test.
+ * </p>
+ *
+ * <p>Since 2026-09-16 the parity question is also asked repository-wide, once, by
+ * {@code EveryBundleIsCompleteTest} in {@code :common} - three modules had no guard at all and
+ * copying this file into them would have left the next module to find out the same way. This test
+ * stays because the pass below it is a different question.</p>
  *
  * <p>This is the parity half only. The other module's version also walks the command classes to
  * check that every key <i>named in code</i> exists; that pass is not reproduced here, because this

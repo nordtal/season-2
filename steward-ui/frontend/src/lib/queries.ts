@@ -19,6 +19,10 @@ import {
   type JournalEntry,
   type LogSearch,
   type Me,
+  type MessageBundle,
+  type MessageBundleLocation,
+  type MessageChanges,
+  type MessageSaveResult,
   type Metrics,
   type Payment,
   type Person,
@@ -76,6 +80,8 @@ export const keys = {
   config: (file: string) => ["config", file] as const,
   guildRoles: ["guild-roles"] as const,
   guildChannels: ["guild-channels"] as const,
+  messageBundles: ["message-bundles"] as const,
+  messageBundle: (path: string) => ["message-bundle", path] as const,
 }
 
 /**
@@ -649,6 +655,55 @@ export function useAdminCommand() {
     onSuccess: () => {
       // The row names who asked, so it is a journal entry whether or not the command succeeds.
       client.invalidateQueries({ queryKey: ["journal"] })
+    },
+  })
+}
+
+// --- message bundles (steward/48) ---------------------------------------------------------
+
+/**
+ * Every message bundle steward-worker found - one row per module's `messages/` directory,
+ * without opening a single jar. `ServiceMessages` filters this by `service` itself, the same way
+ * `useConfigs` is filtered by `ServiceConfiguration`, so one listing serves every service's page.
+ */
+export function useMessageBundles(enabled = true) {
+  return useQuery({
+    queryKey: keys.messageBundles,
+    queryFn: () => api<MessageBundleLocation[]>("/api/messages"),
+    staleTime: 5 * 60 * SECOND,
+    enabled,
+  })
+}
+
+/**
+ * One bundle's packaged text and operator overrides, in both languages at once - the en/de toggle
+ * is drawn client-side rather than as two requests, since a bundle is one file's worth of JSON
+ * either way.
+ */
+export function useMessageBundle(path: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.messageBundle(path),
+    queryFn: () => api<MessageBundle>(`/api/messages/${encodePath(path)}`),
+    enabled: enabled && Boolean(path),
+  })
+}
+
+/**
+ * Saves a set of overrides for one language of one bundle.
+ *
+ * Unlike {@link useSaveConfig} there is no revision to carry - an override is a change to one key
+ * at a time rather than a whole file rewritten under a form, and two admins editing the same line
+ * a minute apart is "the second edit wins", the same way it already is for the override file if
+ * somebody edited it by hand. The answer is the bundle as it now reads, plus any placeholder
+ * warnings, and both replace this bundle's cache entry directly rather than triggering a refetch.
+ */
+export function useSaveMessageBundle(path: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: MessageChanges) =>
+      api<MessageSaveResult>(`/api/messages/${encodePath(path)}`, { method: "PUT", body }),
+    onSuccess: (document) => {
+      client.setQueryData(keys.messageBundle(path), document)
     },
   })
 }

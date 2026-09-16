@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ServiceConfiguration } from "@/components/steward/configuration"
@@ -368,5 +368,132 @@ describe("a file with no schema at all", () => {
     await screen.findByText("Mechanical, no schema wrote this file.")
     expect(screen.queryByText("Shown as raw text.")).toBeNull()
     screen.getByText("Port")
+  })
+})
+
+/**
+ * Repeatable cards (steward/57), wired through the real form rather than tested in isolation the
+ * way `repeatable-cards.test.tsx` does it - these prove `Control` actually reaches for
+ * `RepeatableCards` on a `SECTIONS` entry, and that the whole page still only writes on Save.
+ *
+ * The worker does not send `kind: "SECTIONS"` today - see the comment on `ConfigEntry.kind` in
+ * `lib/api.ts` - so every fixture below is this ticket's own proposal for the shape, exercised the
+ * same way steward/56's fixtures stood in for a worker change that had already shipped by the time
+ * they were written. Here it has not.
+ */
+describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
+  const file = "discord-bot/access.yml"
+  const TEMPLATE: ConfigEntry[] = [
+    entry({ path: "tag", key: "tag", label: "Tag" }),
+    entry({ path: "contribution-channel", key: "contribution-channel", label: "Contribution channel" }),
+  ]
+
+  function section(tag: string, channel: string): ConfigEntry[] {
+    return [
+      entry({ path: "tag", key: "tag", value: tag }),
+      entry({ path: "contribution-channel", key: "contribution-channel", value: channel }),
+    ]
+  }
+
+  function languages(sections: ConfigEntry[][]): ConfigEntry {
+    return entry({
+      path: "languages",
+      key: "languages",
+      label: "Languages",
+      kind: "SECTIONS",
+      editable: true,
+      template: TEMPLATE,
+      sections,
+    })
+  }
+
+  it("draws one card per section and adds a blank one on request", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "access.yml", service: "discord-bot" }),
+          revision: "r1",
+          header: [],
+          entries: [languages([section("en", "")])],
+        },
+      }),
+    )
+    draw(<ServiceConfiguration service="discord-bot" />)
+    await open("Access")
+
+    await screen.findByDisplayValue("en")
+    fireEvent.click(screen.getByRole("button", { name: /Add entry/ }))
+
+    const tags = screen.getAllByLabelText("Tag") as HTMLInputElement[]
+    expect(tags.map((input) => input.value)).toEqual(["en", ""])
+  })
+
+  it("gives a channel field inside a card the SnowflakePicker, not a plain text box", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "access.yml", service: "discord-bot" }),
+          revision: "r1",
+          header: [],
+          entries: [languages([section("en", "")])],
+        },
+      }),
+    )
+    draw(<ServiceConfiguration service="discord-bot" />)
+    await open("Access")
+
+    // GUILD_UNAVAILABLE (no bot token in this test) makes the picker degrade to a text input, but
+    // it still carries its own fallback hint - a plain ScalarControl text field never shows this.
+    await screen.findByText(/Paste the id instead/)
+  })
+
+  it("removes a card from the draft only, and writes it on Save - not on the click", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/config") {
+        return json([
+          { service: "discord-bot", name: "access.yml", path: file, readable: true, writable: true },
+        ])
+      }
+      if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
+      if (url === `/api/config/${file}` && init?.method === "PUT") {
+        const body = JSON.parse(String(init.body)) as { revision: string; changes: Record<string, unknown> }
+        expect(body.changes.languages).toEqual([{ tag: "en", "contribution-channel": "" }])
+        return json({
+          ...location({ path: file, name: "access.yml", service: "discord-bot" }),
+          revision: "r2",
+          header: [],
+          entries: [languages([section("en", "")])],
+        })
+      }
+      if (url === `/api/config/${file}`) {
+        return json({
+          ...location({ path: file, name: "access.yml", service: "discord-bot" }),
+          revision: "r1",
+          header: [],
+          entries: [languages([section("en", ""), section("de", "")])],
+        })
+      }
+      throw new Error(`the form asked for ${url}, which this test did not expect`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    draw(<ServiceConfiguration service="discord-bot" />)
+    await open("Access")
+    await screen.findByDisplayValue("de")
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove entry 2" }))
+
+    // The card is gone from the draft, and the count says so - but nothing has been written yet.
+    expect(screen.queryByDisplayValue("de")).toBeNull()
+    screen.getByText("One setting changed.")
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false)
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true),
+    )
   })
 })

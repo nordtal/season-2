@@ -552,7 +552,17 @@ export type ConfigEntry = {
   value?: string
   /** Absent when `secret`. The entries of a LIST; empty for every other kind. */
   items?: string[]
-  kind: "SCALAR" | "LIST" | "MAP"
+  /**
+   * **`SECTIONS` does not exist on the worker yet (steward/57).** It is a sequence of mappings -
+   * `languages` in `discord-bot/access.yml` is the case this was invented for - and today's worker
+   * has no way to describe one: {@link ConfigFiles#collect} in `steward-worker` only recurses into
+   * a `MappingNode`, never into the items of a `SequenceNode`, so a list of sections currently
+   * arrives as an ordinary `LIST` with `items: []` (its scalars collector finds none) and
+   * `editable: false`. This value, and {@link template} and {@link sections} below, are this
+   * ticket's frontend half of the mechanism, built so the worker side has a concrete shape to send
+   * once it exists - see the ticket for exactly what would have to change in `ConfigFiles`.
+   */
+  kind: "SCALAR" | "LIST" | "MAP" | "SECTIONS"
   type: "STRING" | "INTEGER" | "DECIMAL" | "BOOLEAN"
   line: number
   /** False for a nested section, which has no value, and for a list of sections. */
@@ -562,6 +572,19 @@ export type ConfigEntry = {
   inSchema: boolean
   /** The schema's allowed or suggested values, or absent when it names none. */
   choices?: ConfigChoices
+  /**
+   * For a `SECTIONS` entry: the schema's own shape of one section, in display order - the field set
+   * every existing section is drawn with, and the blank template a new "Add" starts from. Absent
+   * when the schema does not describe this list's shape closely enough to draw a card from (mixed
+   * shapes in one sequence) - the form then falls back to raw text rather than a card that would
+   * swallow whatever does not fit the first section it saw. Undefined for every other kind.
+   */
+  template?: ConfigEntry[]
+  /**
+   * For a `SECTIONS` entry: one array of field entries per existing section, in file order, each
+   * shaped like {@link template}. Empty for an empty list. Undefined for every other kind.
+   */
+  sections?: ConfigEntry[][]
 }
 
 /**
@@ -621,8 +644,12 @@ export type ParsedConfigDocument = ConfigLocation & {
 
 export type ConfigDocument = RawConfigDocument | ParsedConfigDocument
 
-/** What a PUT sends: a string is a scalar, an array is a list, and they are not interchangeable. */
-export type ConfigChanges = Record<string, string | string[]>
+/**
+ * What a PUT sends: a string is a scalar, a string array is a list, and an array of records is a
+ * `SECTIONS` entry - one flat `{key: value}` record per card, in order. None of the three are
+ * interchangeable.
+ */
+export type ConfigChanges = Record<string, string | string[] | Record<string, string>[]>
 
 /**
  * One admin command the interface may ask for (concept §10b).
@@ -704,4 +731,59 @@ export type DeployerJob = {
   exitCode?: number
   /** compose's own output, in order. Only `GET /api/deployer/jobs/{id}` carries it. */
   lines?: string[]
+}
+
+/**
+ * Where one message bundle lives (steward/48).
+ *
+ * `path` is `<service>/<module>`, or just `<service>` when the bundle sits directly in the
+ * service's own jar rather than a plugin's - the identity `/api/messages/<path>` is called with.
+ * `module` is `""` in that case, the same convention `ConfigLocation.service` uses for a file with
+ * no service.
+ */
+export type MessageBundleLocation = {
+  service: string
+  module: string
+  path: string
+  writable: boolean
+}
+
+/**
+ * One key of a bundle, packaged text and operator override side by side.
+ *
+ * **The worker reads the packaged text out of the module's jar, never off disk** - disk only ever
+ * holds an override, and almost nothing on a fresh deploy. `english`/`german` are therefore what
+ * ships; `overrideEnglish`/`overrideGerman` are absent, not empty, when nothing overrides that
+ * language - the same "absence is the signal" convention `ConfigEntry.value` uses for a secret.
+ *
+ * `inBundle` is `false` for a key an override file mentions that the packaged text does not (any
+ * more) - the module was updated and an old override key is now stale rather than wrong.
+ */
+export type MessageEntry = {
+  key: string
+  english?: string
+  german?: string
+  overrideEnglish?: string
+  overrideGerman?: string
+  inBundle: boolean
+}
+
+export type MessageBundle = MessageBundleLocation & {
+  entries: MessageEntry[]
+}
+
+/**
+ * What a save answers: the bundle as it now reads, plus every dropped-placeholder warning.
+ *
+ * A warning never blocks the save (steward/60's rule) - the response carries both the written
+ * result and the sentence, rather than the interface having to infer one from the other.
+ */
+export type MessageSaveResult = MessageBundle & {
+  warnings: string[]
+}
+
+/** What a PUT to `/api/messages/<path>` sends. `null` resets that key rather than filling it. */
+export type MessageChanges = {
+  language: "en" | "de"
+  changes: Record<string, string | null>
 }

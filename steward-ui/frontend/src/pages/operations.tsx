@@ -477,8 +477,12 @@ function AskBar() {
 
 // --- the drift table, shared by /operations and /operations/plan ---------------------------------------
 
-/** Whatever wants attention first: OUTDATED, then UNKNOWN, then UP_TO_DATE, then by name. */
-const DRIFT_RANK: Record<string, number> = { OUTDATED: 0, UP_TO_DATE: 2 }
+/**
+ * Whatever wants attention first: OUTDATED, then UNKNOWN, then LOCAL, then UP_TO_DATE, then by
+ * name. LOCAL sorts ahead of UP_TO_DATE deliberately - it is not an alarm, but it is worth noticing
+ * before a screenful of ordinary rows (steward/75).
+ */
+const DRIFT_RANK: Record<string, number> = { OUTDATED: 0, LOCAL: 2, UP_TO_DATE: 3 }
 
 function DriftCard() {
   const services = useServices()
@@ -557,10 +561,11 @@ function DriftCard() {
 
                 {table.drift.unverifiable.length > 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    Unchecked: {table.drift.unverifiable.join(", ")} - either the image carries no
-                    registry digest (built here and pushed nowhere), or the registry did not answer
-                    for it. The worker tells the two apart internally; here it only says that no
-                    comparison was possible. That is not "up to date".
+                    Unchecked: {table.drift.unverifiable.join(", ")} - either the registry did not
+                    answer, or this container's exact image is no longer on file locally (its tag
+                    was rebuilt without recreating it). A build performed on this host and never
+                    published is its own row above, marked "local build", not listed here: that is
+                    a known answer, not an unanswered question.
                   </p>
                 ) : null}
               </>

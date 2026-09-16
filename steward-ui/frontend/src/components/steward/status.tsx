@@ -98,6 +98,12 @@ const STATES: Record<string, string> = {
  *
  * `UNKNOWN` is deliberately not silent and deliberately not green: an image nobody compared is not
  * a current image, and treating it as one is how four releases shipped unnoticed (A24).
+ *
+ * `LOCAL` is the opposite direction from `OUTDATED`, not a milder version of it (steward/75): the
+ * registry has nothing newer, this host has something the registry has never seen. Drawn neutral
+ * rather than red, because a red lamp that means "you just deployed something" is a lamp people
+ * stop reading - but it carries the one warning that is true of it, which stood nowhere before this
+ * state existed.
  */
 export function DriftBadge({ drift }: { drift: string }) {
   switch (drift) {
@@ -113,13 +119,27 @@ export function DriftBadge({ drift }: { drift: string }) {
           outdated
         </StatusBadge>
       )
+    case "LOCAL":
+      return (
+        <StatusBadge
+          tone="idle"
+          title={
+            "Built on this host and never published - ahead of the registry, not behind it. The" +
+            " next real update run replaces it silently, because the updater only ever installs" +
+            " from a release."
+          }
+        >
+          local build
+        </StatusBadge>
+      )
     default:
       return (
         <StatusBadge
           tone="idle"
           title={
-            'Not compared - either the image carries no registry digest (built here, published' +
-            ' nowhere), or the registry did not answer. That is not "up to date".'
+            'Not compared - either the registry did not answer, or this container\'s exact image' +
+            ' is no longer on file locally (its tag was rebuilt without recreating it). That is' +
+            ' not "up to date".'
           }
         >
           unchecked

@@ -133,6 +133,10 @@ describe("RepeatableCards", () => {
     )
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
+    // The click arms a confirmation rather than removing straight away (see the describe block
+    // below) - nothing is drafted until that confirmation is answered.
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole("button", { name: "Remove it" }))
 
     expect(onChange).toHaveBeenCalledWith([{ tag: "de", role: "" }])
     expect(onChange).toHaveBeenCalledTimes(1)
@@ -197,5 +201,201 @@ describe("RepeatableCards", () => {
 
     screen.getByText(/no card fits/i)
     expect(screen.queryByRole("button", { name: /Add entry/ })).toBeNull()
+  })
+})
+
+/**
+ * Removing an entry asks first, and what it asks is the list's own explanation - the generic
+ * answer steward/49 and steward/61 settled on instead of an `if tag === "en"`: `SchemaNode` has no
+ * way to mark one entry of a list as protected (steward/74), so the interface cannot refuse to
+ * remove `en` - it can only make sure whoever tries reads the sentence that says not to, at the
+ * moment they are about to. Nothing here knows the word "English" or the tag "en"; it shows
+ * whatever `explanationOf(entry)` already carries for the parent list, `en` or not.
+ */
+describe("RepeatableCards - confirming a removal", () => {
+  it("does not touch the draft on the trash icon alone - it opens a confirmation first", () => {
+    const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
+    const onChange = vi.fn()
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={onChange}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
+
+    expect(onChange).not.toHaveBeenCalled()
+    screen.getByRole("alertdialog")
+  })
+
+  it("shows the list's own explanation in the confirmation, not a value-specific warning", () => {
+    const entry = {
+      ...sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]]),
+      explanation: "'en' must be present - it is the fallback everything degrades to",
+    }
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
+
+    screen.getByText(/fallback everything degrades to/)
+  })
+
+  it("cancelling leaves the draft untouched", () => {
+    const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
+    const onChange = vi.fn()
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={onChange}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
+    fireEvent.click(screen.getByRole("button", { name: "Keep it" }))
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+  })
+})
+
+/**
+ * A card's title, when the caller supplies one (steward/61) - `configuration.tsx` is the only
+ * caller that does, keyed on the `languages` path, because no field in an arbitrary schema is
+ * marked as "the one that names this entry". Every other `SECTIONS` entry (`tiers`, today) gets no
+ * such prop and keeps the plain "Entry N" every card has always had.
+ */
+describe("RepeatableCards - a caller-supplied title", () => {
+  it("uses it instead of the plain index", () => {
+    const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+        sectionTitle={(section) => `Language: ${section.tag}`}
+      />,
+    )
+
+    screen.getByText("Language: en")
+    expect(screen.queryByText("Entry 1")).toBeNull()
+  })
+
+  it("keeps the plain index when no title is supplied", () => {
+    const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+      />,
+    )
+
+    screen.getByText("Entry 1")
+  })
+})
+
+/**
+ * A card visibly says when it is missing a channel it needs (steward/61's "visibly incomplete, not
+ * merely empty") - generic on `isRequiredChannel` from `config-controls.tsx`, which itself decides
+ * from the field's key (is it a channel at all) and the schema's own explanation (does it say
+ * OPTIONAL), never from which section it happens to sit in.
+ */
+describe("RepeatableCards - an incomplete card", () => {
+  const REQUIRED_CHANNEL = field({
+    key: "contribution-channel",
+    label: "Contribution channel",
+    explanation: "Carries the buy-access message in this language, and its donation thank-yous.",
+  })
+  const OPTIONAL_CHANNEL = field({
+    key: "announcement-channel",
+    label: "Announcement channel",
+    explanation: "OPTIONAL, like status-channel: empty means this language gets no announcements.",
+  })
+
+  it("says so, and names the missing field, when a required channel is blank", () => {
+    const template = [field({ key: "tag", label: "Tag" }), REQUIRED_CHANNEL]
+    const entry = sectionsEntry(
+      [[field({ key: "tag", value: "en" }), field({ key: "contribution-channel", value: "" })]],
+      template,
+    )
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+      />,
+    )
+
+    screen.getByText(/incomplete/i)
+    // Named twice - once as the field's own label, once inside the "missing" sentence - so this
+    // checks there are two rather than exactly one.
+    expect(screen.getAllByText(/Contribution channel/)).toHaveLength(2)
+  })
+
+  it("says nothing when every required channel is filled", () => {
+    const template = [field({ key: "tag", label: "Tag" }), REQUIRED_CHANNEL]
+    const entry = sectionsEntry(
+      [[field({ key: "tag", value: "en" }), field({ key: "contribution-channel", value: "123" })]],
+      template,
+    )
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+      />,
+    )
+
+    expect(screen.queryByText(/incomplete/i)).toBeNull()
+  })
+
+  it("does not call an empty OPTIONAL channel incomplete", () => {
+    const template = [field({ key: "tag", label: "Tag" }), OPTIONAL_CHANNEL]
+    const entry = sectionsEntry(
+      [[field({ key: "tag", value: "en" }), field({ key: "announcement-channel", value: "" })]],
+      template,
+    )
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+      />,
+    )
+
+    expect(screen.queryByText(/incomplete/i)).toBeNull()
   })
 })

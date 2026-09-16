@@ -30,6 +30,7 @@ import {
   useGuildRoles,
   useSaveConfig,
 } from "@/lib/queries"
+import { languageName } from "@/lib/language-names"
 import { takePendingJump } from "@/lib/settings-search"
 import {
   colourValue,
@@ -756,6 +757,30 @@ function Field({
 }
 
 /**
+ * The one path-keyed exception to "a card has no title beyond its index" (steward/61).
+ *
+ * `languages` in `discord-bot/access.yml` is the only `SECTIONS` entry in the whole config tree
+ * that has a natural title - the tag - and nothing in the schema marks a field as "the one that
+ * names this entry" for `RepeatableCards` to find generically (`SchemaNode` carries field shapes,
+ * never a role like that). Recognising it by key path here, instead of teaching the schema a new
+ * concept for a case that occurs exactly once, is the ticket's own documented fallback. `tiers`,
+ * the only other `SECTIONS` entry today, gets no title from here and keeps the plain "Entry N".
+ *
+ * The name itself comes from `languageName` (`lib/language-names.ts`), a hand-kept map - see that
+ * file for where the two names in it come from. A blank tag (a freshly added, still-empty card)
+ * falls back to the plain index rather than showing an empty string as a title.
+ */
+function sectionTitleFor(
+  entry: ConfigEntry,
+): ((section: SectionValues, index: number) => string) | undefined {
+  if (entry.path !== "languages") return undefined
+  return (section, index) => {
+    const tag = section.tag?.trim()
+    return tag ? languageName(tag) : `Entry ${index + 1}`
+  }
+}
+
+/**
  * Which control an entry gets: the repeatable cards for a `SECTIONS` entry (steward/57), the plain
  * scalar list rows for a `LIST`, or a leaf's own scalar control - a secret, a schema's choices, a
  * Discord id, a boolean or plain text, in that order of precedence. The leaf branch is
@@ -792,6 +817,7 @@ function Control({
         roles={roles}
         channels={channels}
         onChange={onChange}
+        sectionTitle={sectionTitleFor(entry)}
       />
     )
   }

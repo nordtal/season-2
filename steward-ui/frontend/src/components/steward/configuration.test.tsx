@@ -624,6 +624,34 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
     expect(tags.map((input) => input.value)).toEqual(["en", ""])
   })
 
+  it("titles a language card by its name, not its tag (steward/61)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "access.yml", service: "discord-bot" }),
+          revision: "r1",
+          header: [],
+          entries: [languages([section("en", ""), section("de", "")])],
+        },
+      }),
+    )
+    draw(<ServiceConfiguration service="discord-bot" />)
+    await open("Access")
+
+    await screen.findByDisplayValue("en")
+
+    screen.getByText("English")
+    screen.getByText("Deutsch")
+    expect(screen.queryByText("Entry 1")).toBeNull()
+    expect(screen.queryByText("en", { selector: "span" })).toBeNull()
+
+    // A freshly added, still-blank card has no tag yet and falls back to the plain index rather
+    // than showing an empty title.
+    fireEvent.click(screen.getByRole("button", { name: /Add entry/ }))
+    screen.getByText("Entry 3")
+  })
+
   it("gives a channel field inside a card the SnowflakePicker, not a plain text box", async () => {
     vi.stubGlobal(
       "fetch",
@@ -679,6 +707,8 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
     await screen.findByDisplayValue("de")
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 2" }))
+    // Removing asks first (steward/49, steward/61) - the click only arms the confirmation.
+    fireEvent.click(screen.getByRole("button", { name: "Remove it" }))
 
     // The card is gone from the draft, and the count says so - but nothing has been written yet.
     expect(screen.queryByDisplayValue("de")).toBeNull()

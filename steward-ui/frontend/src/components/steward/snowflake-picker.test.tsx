@@ -257,8 +257,14 @@ describe("discordId", () => {
     expect(discordId(entry({ path: "languages.role", key: "role" }))).toBe("role")
     expect(discordId(entry({ path: "channels.admin", key: "admin" }))).toBe("channel")
     expect(discordId(entry({ path: "languages.link-channel", key: "link-channel" }))).toBe("channel")
-    expect(discordId(entry({ path: "languages.status-channel", key: "status-channel" })))
-      .toBe("channel")
+  })
+
+  it("leaves status-channel alone, because it holds a channel NAME rather than an id (steward/61)", () => {
+    // `key.endsWith("-channel")` used to catch this one too, and `SnowflakePicker` writes back an
+    // id - so saving through it would have replaced the channel's name with a snowflake the bot
+    // then searches for and never finds. Seen red first: this assertion failed with
+    // `expected null to be 'channel'` before the exclusion was added.
+    expect(discordId(entry({ path: "languages.status-channel", key: "status-channel" }))).toBeNull()
   })
 
   it("decides on the key and not on the value, because an empty key is the one needing help", () => {

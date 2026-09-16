@@ -565,6 +565,21 @@ public final class StewardUi {
             cfg.routes.put("/api/config/<file>",
                     ctx -> forwardConfig(ctx, configPath(ctx), ctx.body()), Gate.KEY_FRESH);
 
+            // The message bundles (steward/48) are the same arrangement one path along: the worker
+            // holds the jars and the file permissions, this side holds the security key. They are
+            // three routes of their own and not part of /api/config because a bundle is not a YAML
+            // file - it has two languages, a packaged half nobody may write, and no revision.
+            //
+            // The same two gates for the same reason: reading is KEY_HELD, writing is KEY_FRESH.
+            cfg.routes.get("/api/messages", ctx -> forwardConfig(ctx, "/api/messages", null),
+                    Gate.KEY_HELD);
+            cfg.routes.get("/api/messages/<bundle>",
+                    ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"), null),
+                    Gate.KEY_HELD);
+            cfg.routes.put("/api/messages/<bundle>",
+                    ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"),
+                            ctx.body()), Gate.KEY_FRESH);
+
             // The names behind the ids, so the editor above can offer a list instead of a field.
             // Never a failure: an unreachable Discord is `available: false` and a typed id.
             cfg.routes.get("/api/discord/roles", guild::roles, Gate.KEY_HELD);
@@ -1511,8 +1526,19 @@ public final class StewardUi {
      * sent as a request line with a space in it.</p>
      */
     private static String configPath(final Context ctx) {
-        final StringBuilder path = new StringBuilder("/api/config");
-        for (final String segment : ctx.pathParam("file").split("/", -1)) {
+        return workerPath("/api/config", ctx, "file");
+    }
+
+    /**
+     * {@code prefix} plus one path parameter, re-encoded segment by segment.
+     *
+     * <p>This was {@code configPath} alone until steward/48 gave the message bundles the same
+     * shape. Both identifiers are a service and a path under it with a slash in between, and both
+     * arrive here decoded.</p>
+     */
+    private static String workerPath(final String prefix, final Context ctx, final String param) {
+        final StringBuilder path = new StringBuilder(prefix);
+        for (final String segment : ctx.pathParam(param).split("/", -1)) {
             path.append('/').append(java.net.URLEncoder
                     .encode(segment, StandardCharsets.UTF_8).replace("+", "%20"));
         }

@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp.db;
 import eu.nordtal.s2.smp.milestone.StoredProgress;
 
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
+import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
@@ -518,13 +519,14 @@ public interface SmpDao {
                    grave.y             AS y,
                    grave.z             AS z,
                    grave.contents      AS contents,
-                   grave.experience    AS experience
+                   grave.experience    AS experience,
+                   grave.created       AS created
             FROM smp_grave grave
                      LEFT JOIN account_link link ON link.discord_id = grave.owner_id
             WHERE grave.looted IS NULL
             ORDER BY grave.created
             """)
-    @RegisterConstructorMapper(GraveRow.class)
+    @RegisterRowMapper(GraveRowMapper.class)
     List<GraveRow> openGraves();
 
     /**

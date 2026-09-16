@@ -17,6 +17,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -120,6 +122,24 @@ class GraveLootIntegrationTest {
                 "a grave already looted must not be marked a second time");
     }
 
+    /**
+     * season-2-ingame/21, Till 2026-09-15: a grave is open to anyone, not only whoever died into
+     * it - decided rather than found, and this is the check that decision asked for. "Rot sehen"
+     * for this one means what it says only if a check exists to remove; there is none in
+     * {@code markGraveLooted}'s {@code WHERE} clause today, so this is green from the first run,
+     * and that absence is itself the finding the ticket wanted written down rather than a red run
+     * invented to have one.
+     */
+    @Test
+    @DisplayName("a looter who never owned the grave empties it all the same")
+    void aStrangerMayEmptyAnyonesGrave() {
+        assertTrue(dao.markGraveLooted(graveId, LOOTER).isPresent(),
+                "LOOTER owns none of this grave's contents - owner_id on the row is OWNER - and it"
+                        + " still closed. If this ever fails, somebody added the ownership check"
+                        + " the ticket explicitly declined, and that belongs in a rules text and a"
+                        + " release note, not a quiet WHERE clause");
+    }
+
     @Test
     @DisplayName("an unlinked looter still closes the grave")
     void nullIsALegitimateLooter() {
@@ -199,6 +219,25 @@ class GraveLootIntegrationTest {
                 .map(ExpiredGrave::id).toList());
         assertEquals("1", scalar("SELECT count(*) FROM smp_grave WHERE id = '" + second + "'"),
                 "the younger grave of the same player is untouched - two deaths are two graves");
+    }
+
+    /**
+     * season-2-ingame/19: the hologram over a grave counts down against {@code created} plus the
+     * configured limit, so {@code openGraves} has to hand that column back and {@link GraveRowMapper}
+     * has to read it as the {@code timestamptz} it is, not drop it or silently null it.
+     */
+    @Test
+    @DisplayName("an open grave carries when it was made, for the hologram to count down against")
+    void openGravesCarryWhenTheyWereMade() {
+        final GraveRow row = dao.openGraves().stream()
+                .filter(candidate -> candidate.id().equals(graveId))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("the fresh grave is not among the open ones"));
+
+        assertTrue(row.created() != null,
+                "created came back null for a row whose insert never set it to null");
+        assertTrue(Duration.between(row.created(), Instant.now()).abs().toSeconds() < 60,
+                "the fresh grave's created timestamp is not close to now: " + row.created());
     }
 
     @Test

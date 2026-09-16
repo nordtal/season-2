@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.ExpiredGrave;
 import eu.nordtal.s2.smp.db.GraveRow;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -20,6 +21,7 @@ import org.bukkit.entity.Display;
 import org.bukkit.entity.Interaction;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -29,6 +31,8 @@ import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,15 +45,18 @@ import java.util.UUID;
  * Graves: what a death leaves behind, everywhere except the duel arena.
  *
  * <p>A grave <em>looks</em> like a chest with the player's own head resting on it, tilted and half
- * sunk into the lid as if it had fallen there, but it is three display entities plus an
- * {@link Interaction} to click. Real blocks were rejected: a death in
+ * sunk into the lid as if it had fallen there, but it is display entities plus an
+ * {@link Interaction} to click - three of them, or four while decay is on, since a fourth carries
+ * the countdown hovering above it (season-2-ingame/19). Real blocks were rejected: a death in
  * the void, in lava, under the Nether roof or inside somebody's wall would each replace blocks that
  * belong to somebody, and graves stand forever. A display cannot land in a wall, cannot collide with
  * a second grave, and is gone when the grave is emptied.
  *
  * <p><b>Anyone may open one</b> - no timer, no ownership lock. Killing somebody and emptying their
  * grave is therefore possible; that is accepted rather than closed off, because locking a grave to
- * its owner would also stop a friend bringing somebody's things back.
+ * its owner would also stop a friend bringing somebody's things back (season-2-ingame/21, Till
+ * 2026-09-15). {@code /rules} says so, because a mechanic that turns people against each other has
+ * to be visible before somebody hits it.
  */
 public final class Graves implements InventoryHolder {
 
@@ -60,6 +67,7 @@ public final class Graves implements InventoryHolder {
     private final PlayerLocales locales;
     private final SmpSounds sounds;
     private final WorldEffects effects;
+    private final SmpSpec config;
 
     /** Grave id -> the entities drawing it, so they can be removed together. */
     private final Map<UUID, List<org.bukkit.entity.Entity>> parts = new HashMap<>();
@@ -69,6 +77,20 @@ public final class Graves implements InventoryHolder {
 
     /** Grave id -> what is in it right now. Emptied graves are removed from here. */
     private final Map<UUID, GraveRow> open = new HashMap<>();
+
+    /**
+     * Grave id -> the countdown text hovering over it, when {@code graveMaxAgeHours} is on
+     * (season-2-ingame/19). Absent for a grave drawn while decay is off - a countdown against a
+     * limit that never triggers is not a countdown, it is a number that never moves.
+     */
+    private final Map<UUID, TextDisplay> holograms = new HashMap<>();
+
+    /**
+     * Grave id -> the epoch millisecond {@link #tickHolograms()} is next allowed to touch its
+     * hologram. What keeps a grave that stands for 24 hours from writing a packet to everyone
+     * watching it once a second for all 86 400 of them - see {@link #tickHolograms()}.
+     */
+    private final Map<UUID, Long> nextHologramUpdate = new HashMap<>();
 
     /**
      * Grave id -> the one window showing it, however many people are looking.
@@ -83,7 +105,8 @@ public final class Graves implements InventoryHolder {
 
     public Graves(final Plugin plugin, final SmpDao dao,
                   final eu.nordtal.s2.smp.player.Identities identities, final Messages messages,
-                  final PlayerLocales locales, final SmpSounds sounds, final WorldEffects effects) {
+                  final PlayerLocales locales, final SmpSounds sounds, final WorldEffects effects,
+                  final SmpSpec config) {
         this.plugin = plugin;
         this.dao = dao;
         this.identities = identities;
@@ -91,6 +114,7 @@ public final class Graves implements InventoryHolder {
         this.locales = locales;
         this.sounds = sounds;
         this.effects = effects;
+        this.config = config;
     }
 
     /**
@@ -190,9 +214,26 @@ public final class Graves implements InventoryHolder {
      */
     private static final float HEAD_ROLL_DEGREES = 12f;
 
+    /**
+     * How far above {@code at} the countdown hologram floats (season-2-ingame/19). A placeholder,
+     * same caveat as {@link #HEAD_SINK_DEPTH}: high enough to clear the skull was guessed, not
+     * measured, and is found by looking at it in the game.
+     */
+    private static final double HOLOGRAM_HEIGHT = 1.6;
+
+    /**
+     * Below this much time left, the hologram is refreshed every second instead of every minute -
+     * the point at which a player watching it actually reads the number (season-2-ingame/19: not
+     * every second, a grave standing 24 hours would be 86 400 packet updates to everyone in sight).
+     */
+    private static final Duration HOLOGRAM_FINAL_STRETCH = Duration.ofMinutes(1);
+
+    private static final long HOLOGRAM_REFRESH_MINUTES_MS = Duration.ofMinutes(1).toMillis();
+    private static final long HOLOGRAM_REFRESH_SECONDS_MS = Duration.ofSeconds(1).toMillis();
+
     private void draw(final GraveRow row, final Location at) {
         final World world = at.getWorld();
-        final List<org.bukkit.entity.Entity> entities = new ArrayList<>(3);
+        final List<org.bukkit.entity.Entity> entities = new ArrayList<>(4);
 
         // A chest, not a squashed plank: season-2-ingame/14, Till 2026-09-15. It is drawn at its own
         // size - no scale override - the translation only re-centres the model on the block cell,
@@ -247,9 +288,91 @@ public final class Graves implements InventoryHolder {
         });
         entities.add(click);
 
+        // The countdown (season-2-ingame/19, Till 2026-09-15): see-through so it reads from behind
+        // a wall, billboarded to CENTER so it turns to face whoever is looking rather than only
+        // whoever stood north of it. Skipped while decay is off (graveMaxAgeHours() <= 0): there is
+        // no deadline to count down to, and a number that never moves is not a countdown.
+        if (config.graveMaxAgeHours() > 0) {
+            final Duration timeLeft = timeLeft(row);
+            final TextDisplay hologram = world.spawn(at.clone().add(0, HOLOGRAM_HEIGHT, 0),
+                    TextDisplay.class, display -> {
+                        display.setPersistent(false);
+                        display.setSeeThrough(true);
+                        display.setBillboard(Display.Billboard.CENTER);
+                        display.text(hologramText(row, timeLeft));
+                    });
+            entities.add(hologram);
+            holograms.put(row.id(), hologram);
+            nextHologramUpdate.put(row.id(), System.currentTimeMillis() + refreshInterval(timeLeft));
+        }
+
         parts.put(row.id(), entities);
         byInteraction.put(click.getUniqueId(), row.id());
         open.put(row.id(), row);
+    }
+
+    /** How long until {@code row} decays, floored at zero. Zero when decay itself is off. */
+    private Duration timeLeft(final GraveRow row) {
+        final int hours = config.graveMaxAgeHours();
+        if (hours <= 0) {
+            return Duration.ZERO;
+        }
+        final Duration timeLeft = Duration.between(Instant.now(), row.created().plus(Duration.ofHours(hours)));
+        return timeLeft.isNegative() ? Duration.ZERO : timeLeft;
+    }
+
+    /**
+     * The hologram's text for {@code timeLeft} remaining, in the dead player's own language.
+     *
+     * <p>Read in the owner's locale rather than the viewer's: the hologram hangs in the world for
+     * anybody standing nearby, the same problem the grave window's title has (see the class
+     * comment there) and the same answer - one language has to be picked, and it is the one person
+     * every viewer of a shared display has in common. {@link PlayerLocales#of} degrades to English
+     * on its own when the owner is offline or unlinked, which is also the fallback here.
+     */
+    private Component hologramText(final GraveRow row, final Duration timeLeft) {
+        final Locale locale = row.ownerUuid() == null ? Locale.ENGLISH : locales.of(row.ownerUuid());
+        final MessageRenderer renderer = MessageRenderer.of(messages);
+        if (timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0) {
+            return renderer.format(locale, "smp.grave.hologram-seconds",
+                    "seconds", timeLeft.toSeconds());
+        }
+        return renderer.format(locale, "smp.grave.hologram",
+                "hours", timeLeft.toHours(), "minutes", timeLeft.toMinutesPart());
+    }
+
+    /** Once a minute normally, once a second inside {@link #HOLOGRAM_FINAL_STRETCH}. */
+    private static long refreshInterval(final Duration timeLeft) {
+        return timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0
+                ? HOLOGRAM_REFRESH_SECONDS_MS : HOLOGRAM_REFRESH_MINUTES_MS;
+    }
+
+    /**
+     * Refreshes every grave's countdown that is due, at whatever interval it currently needs
+     * (season-2-ingame/19). Call once a second; {@link #nextHologramUpdate} is what keeps a grave
+     * far from expiring from writing a packet to everyone watching it on every one of those calls.
+     *
+     * <p>Main thread: {@link TextDisplay#text} is a packet to everybody who can see the entity.
+     */
+    public void tickHolograms() {
+        if (holograms.isEmpty()) {
+            return;
+        }
+        final long now = System.currentTimeMillis();
+        for (final Map.Entry<UUID, TextDisplay> entry : holograms.entrySet()) {
+            final UUID graveId = entry.getKey();
+            final Long dueAt = nextHologramUpdate.get(graveId);
+            if (dueAt != null && now < dueAt) {
+                continue;
+            }
+            final GraveRow row = open.get(graveId);
+            if (row == null) {
+                continue;
+            }
+            final Duration timeLeft = timeLeft(row);
+            entry.getValue().text(hologramText(row, timeLeft));
+            nextHologramUpdate.put(graveId, now + refreshInterval(timeLeft));
+        }
     }
 
     private void erase(final UUID graveId) {
@@ -262,6 +385,8 @@ public final class Graves implements InventoryHolder {
         }
         open.remove(graveId);
         shown.remove(graveId);
+        holograms.remove(graveId);
+        nextHologramUpdate.remove(graveId);
     }
 
     /**
@@ -385,7 +510,11 @@ public final class Graves implements InventoryHolder {
         return window;
     }
 
-    /** The dead player's own head, which is where their name is (see {@link #window}). */
+    /**
+     * The dead player's own head, which is where their name is (see {@link #window}). A real item
+     * since season-2-ingame/21, Till 2026-09-15 - collected along with everything else by
+     * {@link #takeAll}, not only decoration in the world.
+     */
     private ItemStack head(final GraveRow row, final MessageRenderer renderer, final Locale locale) {
         final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         final String name = row.ownerUuid() == null ? null
@@ -432,6 +561,12 @@ public final class Graves implements InventoryHolder {
      * <p>Closing the window is what settles the grave, so this only moves the items and closes.
      * Two people in the same grave are safe because the slots are emptied here on the main thread,
      * so the second click finds nothing.</p>
+     *
+     * <p><b>The head goes too</b> (season-2-ingame/21, Till 2026-09-15): it is a real item now, not
+     * only the marker of whose grave this is, and there is no separate gesture for it - clicking
+     * the head itself stays cancelled, the same as every other footer cell, see {@code
+     * GraveListener#onClick}. This is therefore the one place that takes it, which is also why
+     * {@link #settle} will not finish a grave the head is still sitting in - see there.</p>
      */
     private void takeAll(final Player player, final Inventory inventory, final int contentRows) {
         boolean took = false;
@@ -445,6 +580,16 @@ public final class Graves implements InventoryHolder {
                     player.getWorld().dropItemNaturally(player.getLocation(), left));
             took = true;
         }
+
+        final int headSlot = GravePanel.headSlot(contentRows);
+        final ItemStack head = inventory.getItem(headSlot);
+        if (head != null && !head.getType().isAir()) {
+            inventory.setItem(headSlot, null);
+            player.getInventory().addItem(head).values().forEach(left ->
+                    player.getWorld().dropItemNaturally(player.getLocation(), left));
+            took = true;
+        }
+
         if (!took) {
             sounds.play(player, Feedback.REFUSED);
             return;
@@ -492,13 +637,22 @@ public final class Graves implements InventoryHolder {
         // The CONTENT slots and not the whole window: the footer's furniture would make the grave
         // never empty and would be written into the row as loot.
         final ItemStack[] left = contentOf(inventory);
-        final boolean empty = java.util.Arrays.stream(left)
+        final boolean contentGone = java.util.Arrays.stream(left)
                 .allMatch(stack -> stack == null || stack.getType().isAir());
+
+        // AND the head (season-2-ingame/21): it is a real item now and only takeAll gives it out,
+        // so a grave finishing while it still sits there would delete it uncollected the moment
+        // somebody empties the rest by hand, one item at a time, rather than by the button.
+        final int contentRows = inventory.getSize() / 9 - 1;
+        final ItemStack head = inventory.getItem(GravePanel.headSlot(contentRows));
+        final boolean headGone = head == null || head.getType().isAir();
+
+        final boolean empty = contentGone && headGone;
         if (!empty) {
             // Not finished: keep what is left so anybody can come back for the rest.
             final byte[] remaining = ItemStack.serializeItemsAsBytes(left);
             open.put(graveId, new GraveRow(row.id(), row.ownerId(), row.ownerUuid(), row.world(),
-                    row.x(), row.y(), row.z(), remaining, row.experience()));
+                    row.x(), row.y(), row.z(), remaining, row.experience(), row.created()));
             // AND IN THE DATABASE: the map above is this process's memory, but the enable-time
             // restore reads the row, so a half-emptied grave would come back full after a restart.
             Bukkit.getScheduler().runTaskAsynchronously(plugin,

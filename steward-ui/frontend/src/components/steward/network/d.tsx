@@ -10,7 +10,8 @@ import { type Box, EDGE_COLOR, Wires, railToSink, useNodeBoxes } from "./wires"
  * Draft **d** - a route map.
  *
  * Built for the second round of steward/81, after Till's own read of the first three drafts:
- * "die Verbindungen ... sind sehr schwer zu erkennen". This one answers with the transit-map
+ * the connections between the services are very hard to make out and to tell apart. This one
+ * answers with the transit-map
  * convention rather than a new arrangement - it draws {@link LAYERS}'s own bands, the same ones
  * `b` draws, but treats the wires the way a subway map treats its lines rather than the way a
  * flowchart does: no diagonal ever appears, every corner is rounded, and a line keeps one colour
@@ -29,7 +30,7 @@ import { type Box, EDGE_COLOR, Wires, railToSink, useNodeBoxes } from "./wires"
  * exactly the way `c` cut through `hunger-games` and `network-control` in the first round. Each of
  * the seven exits into a lane along the right edge instead, one rounded corner per service
  * ({@link railToSink}), and travels down that empty lane to `postgres` as a single visible rail -
- * "eine dicke Linie statt sieben Fächern", which is the shape Till asked for by name.
+ * one thick line in place of seven fans, which is the shape Till asked for by name.
  *
  * <h2>What the lane costs</h2>
  * The bands above `postgres` carry a fixed right margin (`pr-8`) that no box is ever placed in,

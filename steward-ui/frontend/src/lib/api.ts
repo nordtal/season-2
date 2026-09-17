@@ -277,6 +277,16 @@ export type Service = {
   memoryBytes?: number
   memoryLimitBytes?: number
   cpuPercent?: number
+  /**
+   * How many people are connected, on the four services that have an answer to that.
+   *
+   * **Absent is not zero** (steward/86). `smp`, `hunger-games` and `limbo` each carry their own,
+   * `network-control` the network's total, and every other service has no such field at all -
+   * neither does one of those four while network-control has not written recently enough for the
+   * worker to trust the row. So the optional marker here is load-bearing: `players ?? 0` is the
+   * one thing a reader must not write, because it turns "nobody has said" into "nobody is on".
+   */
+  players?: number
   unreadable?: string
   /** Only on the single-service endpoint. */
   digests?: string[]

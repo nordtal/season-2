@@ -137,14 +137,18 @@ const DOT_WORD: Record<Exclude<Tone, "idle">, string> = {
  * what a quiet sidebar makes easy to spot. Decided at the narrow layout, where a row of ten dots
  * costs the most.
  *
- * **In the network view it will draw green, and that is not a contradiction.** Till asked for a
+ * **In the network view it draws green, and that is not a contradiction.** Till asked for a
  * small dot, green or red, "in any case" - his words are in steward/83 - and when this component
  * answered that wording with silence, the question went back to him rather than being decided
  * here. His answer, 2026-09-16: green in the network view, quiet in the sidebar. A network view is
  * a picture of state, and one whose healthy nodes carry nothing looks like a query that failed; a
- * sidebar is navigation, where nothing *is* the message. So the line below becomes a switch when
- * steward/81 builds the second caller. It is deliberately not one yet: a parameter with one caller
- * is a parameter nobody is holding to its meaning.
+ * sidebar is navigation, where nothing *is* the message. steward/81 built the second caller, so
+ * `quiet` is that switch now.
+ *
+ * **`quiet` defaults to `true`, which is today's behaviour for every caller that had one.** The
+ * default is the sidebar's, not the network view's, for two reasons: no existing call site
+ * changes, and a caller that says nothing gets the cheaper of the two - a dot that appears only
+ * when it means something. Going loud is the decision, so going loud is what has to be typed.
  *
  * **`service` undefined is not "fine".** `health.ts` already carries the rule this reuses one
  * level down: *"A green light on no evidence is the one thing this page must not do."* Before
@@ -153,7 +157,16 @@ const DOT_WORD: Record<Exclude<Tone, "idle">, string> = {
  * fine". It is never coloured like the fine state and never pulses like ten rows all loading at
  * once would.
  */
-export function HealthDot({ service, className }: { service?: ServiceHealth; className?: string }) {
+export function HealthDot({
+  service,
+  className,
+  quiet = true,
+}: {
+  service?: ServiceHealth
+  className?: string
+  /** Whether a healthy service draws nothing at all. The sidebar wants `true`, a graph `false`. */
+  quiet?: boolean
+}) {
   if (!service) {
     return (
       <span
@@ -166,7 +179,7 @@ export function HealthDot({ service, className }: { service?: ServiceHealth; cla
   }
 
   const tone = serviceTone(service)
-  if (tone === "ok") return null
+  if (tone === "ok" && quiet) return null
 
   return (
     <span

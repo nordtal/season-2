@@ -14,6 +14,8 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
+import type { Crumb } from "@/app/breadcrumbs"
+import { Crumbs, SidebarToggle } from "@/app/island"
 import { NAVIGATION } from "@/app/navigation"
 import { StewardMark } from "@/app/steward-mark"
 import { shortcutLabel } from "@/lib/keys"
@@ -23,9 +25,11 @@ import { HealthDot } from "@/components/steward/status"
 /**
  * The navigation.
  *
- * **On a desktop it never collapses**, and that is not a placeholder for a collapse button: this is
- * an operator's tool, the labels are the point, and an icon rail that hides the word "Restore"
- * behind a play glyph is a worse interface, not a denser one. The provider holds `open` fixed.
+ * **On a desktop it collapses, all the way out** (steward/89). It used to be held open, on the
+ * argument that an icon rail hiding the word "Restore" behind a play glyph is a worse interface
+ * rather than a denser one - and that argument survives: `collapsible` is `offcanvas`, so a
+ * collapsed sidebar is gone rather than reduced to glyphs, and the island at the top left is what
+ * brings it back. The state is kept in the provider's cookie, so it survives a reload.
  *
  * **On a phone it is a sheet**, because 13rem of a 390px screen is a third of it. `collapsible` is
  * `offcanvas` rather than `none` for exactly one reason: `none` renders a plain column and skips
@@ -42,7 +46,20 @@ import { HealthDot } from "@/components/steward/status"
  * hook already carries its own ten-second `refetchInterval`, so mounting it here does not add a
  * second poll: every page shares the one query behind `useServices`, this component included.
  */
-export function AppSidebar() {
+export type AppSidebarProps = {
+  /**
+   * The island, unfolded into the head of this column - shell A of steward/89 and nothing else.
+   * Absent means the island is standing somewhere else and this head is only the brand.
+   */
+  head?: { crumbs: Crumb[]; onToggle: () => void }
+  /**
+   * Room at the top for an island floating over this column - shell B, where the sidebar slides
+   * out from underneath one. Without it the brand is drawn behind the island.
+   */
+  clearIsland?: boolean
+}
+
+export function AppSidebar({ head, clearIsland }: AppSidebarProps = {}) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   // Decided once for the whole navigation rather than per entry: "is this one active" cannot be
   // answered by looking at one entry, because two of them can match and only the longer is meant.
@@ -58,7 +75,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="offcanvas" className="h-(--app-height) border-r">
-      <SidebarHeader className="h-14 justify-center border-b px-cell">
+      <SidebarHeader
+        className={`justify-center gap-1 border-b px-cell py-2 ${clearIsland ? "pt-[4.5rem]" : ""}`}
+      >
         <Link
           to="/"
           onClick={follow}
@@ -69,6 +88,19 @@ export function AppSidebar() {
             Nordtal <span className="text-muted-foreground">Steward</span>
           </span>
         </Link>
+        {/*
+          The island, unfolded (steward/89, shell A). It is not drawn as a pill here: the sidebar
+          is already a surface with an edge, and a bordered pill inside it would be the nesting
+          Till's rule forbids. So the toggle and the path simply are the second line of this head.
+        */}
+        {head ? (
+          <div className="flex min-w-0 items-center gap-0.5">
+            <SidebarToggle expanded onToggle={head.onToggle} className="-ml-1" />
+            <div className="min-w-0 flex-1 px-1">
+              <Crumbs crumbs={head.crumbs} />
+            </div>
+          </div>
+        ) : null}
       </SidebarHeader>
 
       <SidebarContent className="gap-0">

@@ -34,7 +34,16 @@ dependencies {
     // persistence layer, which is another ~8 MB of shaded jar this plugin has no use for, so the
     // whole persistence side is excluded. If this plugin ever needs a database, drop the
     // exclusions rather than adding a second dependency.
-    implementation("com.github.nordtal:jcore:3.0.0") {
+    //
+    // 3.0.0 -> 4.2.1 on 2026-09-17 (steward/54), following season-2 onto the same tag. The API
+    // this plugin calls (ConfigLoader.builder/envPrefix/validator/load, ConfigHandle#reload) did
+    // not change, but the YAML this plugin writes did: config.yml carries no comments and no
+    // header any more from the next time it is saved (this plugin's own load-time normalisation
+    // counts as a save). The explanations moved to a config.schema.json jcore writes beside the
+    // file - nothing here reads that file yet, so until something does, an operator opening
+    // config.yml after an update sees only keys and values. See the Javadoc on
+    // DisplayTagsConfiguration for the same note at the code's entry point.
+    implementation("com.github.nordtal:jcore:4.2.1") {
         exclude group: "org.jdbi"
         exclude group: "com.zaxxer"
         exclude group: "org.flywaydb"

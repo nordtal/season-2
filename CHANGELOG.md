@@ -1,3 +1,11 @@
+## Unreleased
+
+- **`jcore` bumped to 4.2.1** (from 3.0.0). The API this plugin calls did not change, but the
+  YAML `jcore` writes did: `config.yml` loses its comments and header on the next load, reload or
+  save. The explanations move into a `config.schema.json` jcore writes beside the file; nothing in
+  this plugin reads that file yet. This is intentional upstream (nordtal/jcore, steward/54) and not
+  something this release introduces a workaround for.
+
 # DisplayTags 2.1.1
 
 Configuration handling moved onto nordtal's own hardened copy of the Spec library, shipped in

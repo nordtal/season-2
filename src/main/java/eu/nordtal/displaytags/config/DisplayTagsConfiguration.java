@@ -16,6 +16,14 @@ import java.io.File;
  * as {@code 1.0}) and the fact that a mistyped key was deleted from the file on the next save.
  * Both are handled by jcore's hardened copy now, so neither this class nor any other caller has
  * to know about them.
+ * <p>
+ * <b>Since jcore 4.0.0 (this plugin followed to 4.2.1 on 2026-09-17):</b> the YAML jcore writes
+ * carries no comments and no header any more. The first load, reload or save after upgrading
+ * rewrites {@code config.yml} down to bare keys and values — every {@code @Comment} still on the
+ * spec interfaces in this package is still read, but it no longer reaches the file. It is written
+ * instead into {@code config.schema.json} beside the YAML, for a future reader that does not exist
+ * in this plugin yet. An operator who opens {@code config.yml} after an update and finds the
+ * explanations gone is seeing the intended behaviour, not a bug.
  */
 public class DisplayTagsConfiguration {
 

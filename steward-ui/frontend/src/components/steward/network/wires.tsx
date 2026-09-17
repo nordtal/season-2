@@ -33,7 +33,7 @@ import { EDGES, type Edge, type EdgeKind, type NodeId } from "./topology"
  * `--muted-foreground` for the bookkeeping line to the database - at opacities a screenshot can
  * actually show, with rounded caps and joins throughout. Every corner in {@link orthogonal} is
  * rounded by {@link roundedPath} rather than a hard right angle, because Till asked for exactly
- * that ("die Linien könnten übrigens besser gerundet sein").
+ * that - the lines would be better off rounded.
  */
 
 export type Box = { x: number; y: number; width: number; height: number }

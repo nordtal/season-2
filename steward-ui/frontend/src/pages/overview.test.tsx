@@ -10,6 +10,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { OverviewPage } from "@/pages/overview"
+import { SEASON_PHASES } from "@/lib/season-phases"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
@@ -95,7 +96,12 @@ function dump(hoursAgo: number) {
  * `settings` is a function so that a test can hold `/api/settings` open and let it answer in the
  * middle - which is the whole state under test and cannot be reached with a fixed answer.
  */
-function backend(over: { services?: unknown[]; backups?: unknown[]; settings?: () => Promise<unknown> }) {
+function backend(over: {
+  services?: unknown[]
+  backups?: unknown[]
+  settings?: () => Promise<unknown>
+  season?: unknown
+}) {
   return vi.fn(async (url: string) => {
     if (url === "/api/services") {
       return json(200, {
@@ -112,7 +118,9 @@ function backend(over: { services?: unknown[]; backups?: unknown[]; settings?: (
     // that nothing else on the page can be the reason a test passes or fails.
     if (url.startsWith("/api/metrics")) return json(200, { points: [] })
     if (url.startsWith("/api/updates")) return json(200, [])
-    if (url === "/api/season") return json(200, { phase: "SMP", launch: null, smpStart: null })
+    if (url === "/api/season") {
+      return json(200, over.season ?? { phase: "SMP", launch: null, smpStart: null })
+    }
     if (url.startsWith("/api/journal")) return json(200, [])
     throw new Error(`the page asked for ${url}, which this test did not expect`)
   })
@@ -300,5 +308,41 @@ describe("OverviewPage - the tile that replaced steward/64's banner", () => {
     await waitFor(() => expect(said()).toContain("0"))
     expect(said()).not.toMatch(STILL_READING)
     expect(said()).not.toMatch(COULD_NOT_READ)
+  })
+})
+
+/**
+ * steward/90: the Season tile used to keep a second, invented phase list
+ * (`{ PRE_EVENT, EVENT, SMP, ENDED }`) that agreed with neither `season.tsx` nor the backend, so a
+ * phase it did not know - which, `PRE_LAUNCH` included, was three of the five real ones - reached
+ * the screen as the bare enum constant: versals and an underscore in an interface that otherwise
+ * speaks in sentences. There is now exactly one list (`lib/season-phases.ts`), and this is the test
+ * that would have caught it: every real phase renders as its sentence, never as its own name.
+ */
+describe("OverviewPage - the season tile speaks in sentences, not enum names (steward/90)", () => {
+  it("prints the label for every real phase, and never the raw constant", async () => {
+    for (const phase of SEASON_PHASES) {
+      vi.stubGlobal(
+        "fetch",
+        backend({ season: { phase: phase.name, launch: null, smpStart: null } }),
+      )
+      draw()
+
+      await waitFor(() => expect(screen.getByText(phase.label)).toBeTruthy())
+      // The regression itself: `PRE_LAUNCH` printed literally because the tile's own list did not
+      // know it. A phase name and its label never collide by construction (see season-phases.ts),
+      // so finding the raw name on the page at all means the lookup fell through to its fallback.
+      expect(screen.queryByText(phase.name)).toBeNull()
+
+      cleanup()
+    }
+  })
+
+  it("labels the SMP launch date in English, not a German compound", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+
+    await waitFor(() => expect(screen.getByText("SMP start")).toBeTruthy())
+    expect(screen.queryByText("SMP-Start")).toBeNull()
   })
 })

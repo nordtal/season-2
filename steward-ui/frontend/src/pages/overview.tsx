@@ -5,6 +5,7 @@ import { ChevronRight, Terminal, ScrollText } from "lucide-react"
 import type { Service } from "@/lib/api"
 import { bytes, count, dateTime, percent, relative, since } from "@/lib/format"
 import { summarise } from "@/lib/health"
+import { seasonPhaseLabel } from "@/lib/season-phases"
 import {
   useActions,
   useAvatarBaseUrl,
@@ -273,9 +274,9 @@ function SeasonPanel() {
       ) : (
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-1 gap-4 min-[26rem]:grid-cols-3">
-            <Stat label="Phase" value={PHASES[season.data!.phase] ?? season.data!.phase} />
+            <Stat label="Phase" value={seasonPhaseLabel(season.data!.phase)} />
             <Stat label="Season start" value={dateTime(season.data!.launch)} />
-            <Stat label="SMP-Start" value={dateTime(season.data!.smpStart)} />
+            <Stat label="SMP start" value={dateTime(season.data!.smpStart)} />
           </div>
           <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
             <Link to="/season">To the season</Link>
@@ -284,13 +285,6 @@ function SeasonPanel() {
       )}
     </Panel>
   )
-}
-
-const PHASES: Record<string, string> = {
-  PRE_EVENT: "before the event",
-  EVENT: "Event",
-  SMP: "SMP",
-  ENDED: "ended",
 }
 
 /**

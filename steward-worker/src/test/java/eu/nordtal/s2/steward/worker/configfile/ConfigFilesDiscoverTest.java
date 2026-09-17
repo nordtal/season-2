@@ -95,7 +95,7 @@ class ConfigFilesDiscoverTest {
     @Test
     @DisplayName("the environment-override marker is not offered as a file to edit (steward/76)")
     void anEnvironmentOverrideMarkerIsNotAConfigFile() throws IOException {
-        // The same trap the .bak above names, sprung by a file steward/76 newly invented: every
+        // The same trap the .bak above names, set off by a file steward/76 newly invented: every
         // service now writes `<name>.env-overrides.txt` beside its own config, it is plain text so
         // `isProbablyText` says yes, and without the filter it would be listed on the service page
         // as a configuration of its own - opened and editable. Editing it would change what the

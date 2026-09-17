@@ -34,16 +34,38 @@ const DARK_TOOLTIP = "border border-border bg-popover text-popover-foreground"
  * `Card`. The border stops here and is the only one in the picture.
  *
  * <h2>What is on it, in the order it is read</h2>
- * The identifier left, the player count and the health dot right, and one small line underneath
- * carrying the running tag with the image-drift mark in front of it. Everything else - memory, CPU,
- * uptime - is in the tooltip on the dot, which is where the ticket put it: anything that does not
- * fit on a box goes there, and never into a line of text beside it.
+ * The identifier left and the health dot right on the first line; underneath, the running tag with
+ * the image-drift mark in front of it, and the player count pinned to the right of that same line
+ * for the four Minecraft services that carry one. Everything else - memory, CPU, uptime - is in the
+ * tooltip on the dot, which is where the ticket put it: anything that does not fit on a box goes
+ * there, and never into a line of text beside it.
+ *
+ * <h2>Why the count is not on the first line</h2>
+ * It used to sit there, beside the identifier and the dot, and at 390px that is exactly what broke:
+ * the orchestrator's measurement of 2026-09-17 found `network-control` and `hunger-games` losing
+ * their own name to an ellipsis - `network-co…` and `hunger-ga…` - on the two-column grid every
+ * draft falls back to at that width, because the identifier is `min-w-0 flex-1 truncate` and the
+ * player count sat on the same line as `shrink-0`, so it was the identifier, the first of the
+ * ticket's four facts, that gave way first. `d` and `f` make it worse again with a `pr-8` rail
+ * margin reserved for the database bus, narrowing every box further - which is why `network-control`
+ * fits in draft `a`'s plain grid at that width but not in either of those. The second line has a
+ * dash and a short tag on it and nothing else, so it has the room the first line does not, and this
+ * moves the count there **unconditionally** rather than behind a breakpoint: a width-keyed toggle
+ * would have to know each draft's own column count to reason about a box's actual width, since the
+ * same component sits inside `grid-cols-2`, `-3`, `-4` and a rail margin across the seven drafts, and
+ * getting that wrong the same way `a` "worked" only by accident is the exact failure this is fixing.
+ * Always-second-line is one fewer variable, for the cost of the count sitting one line lower even
+ * where 1440px had room to spare - which changes nothing that was being read differently there
+ * before, so 1440px stays as it was.
  *
  * <h2>Two shapes, and neither of them may collapse the layout</h2>
  * Six of the ten services have no player count, and `players` is then **absent rather than zero**
- * (steward/86). The count sits in a flex row that is pinned right by the dot, so a node without one
- * is the same box with one fewer item in it - the dot does not move, and no placeholder is drawn to
- * keep it still.
+ * (steward/86). On the four services that draw a second line, the count sits in a flex row that is
+ * pinned right after the tag, so a node without one is the same row with one fewer item in it - the
+ * tag does not move, and no placeholder is drawn to keep it still. `players` (the `INGRESS` box) has
+ * no second line at all, so it keeps its own count on the first line beside the dot exactly as
+ * before - that box's identifier is short enough that the failure above never applied to it, and
+ * moving its count would need inventing a second line this one box does not otherwise have.
  */
 
 /**
@@ -187,7 +209,10 @@ export function ServiceNode({
           </Link>
         )}
 
-        {players === undefined ? null : (
+        {/* Only `players` (`INGRESS`) draws its count here - it has no second line to put it on
+            instead. Every real service with a count draws it below, next to the drift mark and
+            the running tag, which is where the room at 390px actually is (see the class comment). */}
+        {ingress && players !== undefined ? (
           <span
             // The only word on the box that is not data, and it is not drawn: the icon carries it
             // on screen and this carries it to a screen reader and to a test.
@@ -197,7 +222,7 @@ export function ServiceNode({
             <Users className="size-3" aria-hidden />
             <span className="tnum">{players}</span>
           </span>
-        )}
+        ) : null}
 
         {ingress ? null : service ? (
           <Tooltip>
@@ -218,7 +243,19 @@ export function ServiceNode({
       {ingress ? null : (
         <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
           <DriftMark drift={service?.drift ?? "UNKNOWN"} />
-          <span className="min-w-0 truncate tnum">{imageTag(service?.image)}</span>
+          <span className="min-w-0 flex-1 truncate tnum">{imageTag(service?.image)}</span>
+
+          {players === undefined ? null : (
+            <span
+              // Same word, same reason as the one on `players` above: the icon is what a reader
+              // sees, this is what a screen reader and a test see.
+              title="players"
+              className="flex shrink-0 items-center gap-1"
+            >
+              <Users className="size-3" aria-hidden />
+              <span className="tnum">{players}</span>
+            </span>
+          )}
         </div>
       )}
 

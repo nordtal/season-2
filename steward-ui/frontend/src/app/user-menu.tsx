@@ -19,11 +19,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
  * of the time is worse than one that is plain, so an account with no picture on record gets the
  * first letters of its name on a quiet round surface and the same tap target.
  *
- * **There is no picture on record yet.** `/api/me` answers `id`, `name`, the keys and the session,
- * and no avatar - the URL Discord gives is mirrored onto the `person` rows the access directory
- * reads, not onto the session. Rather than mount the whole directory query in the shell for one
- * image, this takes a `url` it is not given today: the day `whoAmI` in `StewardUi.java` puts one in
- * the answer, this is one prop and no layout.
+ * **The picture is not always on record, and that is not an error** (steward/91). `whoAmI` in
+ * `StewardUi.java` reads `discordAvatarUrl` from the same `person` row `/api/people` answers, over
+ * the session's Discord id - not a second call to Discord, and not `usePeople()` mounted in the
+ * shell for one 32px image (that query has a 30s `staleTime` and loads the whole access list). An
+ * account signed into Steward without ever having been mirrored into that list, same as one Discord
+ * itself has no picture for, answers with the field simply absent - the initials fallback below is
+ * that same case, not a degraded one.
  */
 export function UserAvatar({
   me,
@@ -100,7 +102,7 @@ export function UserMenu({
             aria-label={me?.name ? `Account of ${me.name}` : "Account"}
             className={`flex size-control shrink-0 items-center justify-center rounded-full transition-colors duration-150 ease-out focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${plain ? "hover:opacity-80" : "border border-border bg-card hover:border-input focus-visible:border-ring"}`}
           >
-            <UserAvatar me={me} className="size-8" />
+            <UserAvatar me={me} url={me?.discordAvatarUrl} className="size-8" />
           </button>
         </PopoverTrigger>
 
@@ -114,7 +116,7 @@ export function UserMenu({
           className="flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-3"
         >
           <div className="flex items-center gap-2">
-            <UserAvatar me={me} className="size-8" />
+            <UserAvatar me={me} url={me?.discordAvatarUrl} className="size-8" />
             <div className="flex min-w-0 flex-col">
               <span className="truncate text-sm font-medium">{me?.name ?? "unknown"}</span>
               <span className="truncate font-mono text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
+import { CaretRightIcon, ScrollIcon, TerminalIcon } from "@phosphor-icons/react"
 import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
-import { ChevronRight, Terminal, ScrollText } from "lucide-react"
 import { cn } from "cn"
 
 import type { Service } from "@/lib/api"
@@ -428,7 +428,7 @@ function ServiceTable() {
   return (
     <details className="group rounded-md border border-border">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm select-none [&::-webkit-details-marker]:hidden">
-        <ChevronRight
+        <CaretRightIcon
           className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
           aria-hidden
         />
@@ -539,7 +539,7 @@ function GroupRows({
             <div className="flex items-center justify-end gap-1">
               <Button asChild variant="ghost" size="sm">
                 <Link to="/services/$name" params={{ name: service.service }}>
-                  <ScrollText aria-hidden />
+                  <ScrollIcon aria-hidden />
                   Log
                 </Link>
               </Button>
@@ -551,7 +551,7 @@ function GroupRows({
                     params={{ name: service.service }}
                     hash="console"
                   >
-                    <Terminal aria-hidden />
+                    <TerminalIcon aria-hidden />
                     Console
                   </Link>
                 </Button>

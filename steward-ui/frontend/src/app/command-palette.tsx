@@ -1,6 +1,6 @@
+import { ClockCounterClockwiseIcon, SlidersHorizontalIcon, TranslateIcon } from "@phosphor-icons/react"
 import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { History, Languages, SlidersHorizontal } from "lucide-react"
 
 import {
   CommandDialog,
@@ -205,7 +205,7 @@ export function CommandPalette() {
                   }}
                   className="min-h-control gap-2.5"
                 >
-                  <History aria-hidden className="text-muted-foreground" />
+                  <ClockCounterClockwiseIcon aria-hidden className="text-muted-foreground" />
                   <span className="truncate">
                     Run #{run.id} ({RUN_KIND[run.kind] ?? run.kind})
                   </span>
@@ -249,7 +249,7 @@ export function CommandPalette() {
                       }}
                       className="min-h-control gap-2.5"
                     >
-                      <SlidersHorizontal aria-hidden className="text-muted-foreground" />
+                      <SlidersHorizontalIcon aria-hidden className="text-muted-foreground" />
                       <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
                       <CommandShortcut className="truncate text-muted-foreground/70">
                         {humanFileName(hit.location.name)} ({service})
@@ -285,7 +285,7 @@ export function CommandPalette() {
                     }}
                     className="min-h-control gap-2.5"
                   >
-                    <Languages aria-hidden className="text-muted-foreground" />
+                    <TranslateIcon aria-hidden className="text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{messageLabel}</span>
                     <CommandShortcut className="truncate text-muted-foreground/70">
                       {bundleLabel} ({service}) {language} {hit.entry.key}

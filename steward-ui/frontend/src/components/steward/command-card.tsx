@@ -1,5 +1,5 @@
+import { PlayIcon, TerminalIcon } from "@phosphor-icons/react"
 import { useState } from "react"
-import { Play, Terminal } from "lucide-react"
 
 import type { AdminCommand, CommandArgument, CommandRun } from "@/lib/api"
 import { euros } from "@/lib/format"
@@ -75,7 +75,7 @@ export function CommandCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Terminal className="size-4 text-muted-foreground" aria-hidden />
+          <TerminalIcon className="size-4 text-muted-foreground" aria-hidden />
           {title}
         </CardTitle>
       </CardHeader>
@@ -146,7 +146,7 @@ function CommandRow({ command }: { command: AdminCommand }) {
           disabled={missing.length > 0 || ask.isPending}
           onClick={() => (command.irreversible ? setConfirming(true) : send())}
         >
-          <Play aria-hidden />
+          <PlayIcon aria-hidden />
           Run
         </Button>
       </div>

@@ -1,5 +1,5 @@
+import { ArrowsClockwiseIcon } from "@phosphor-icons/react"
 import { useState } from "react"
-import { RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 
 import { ApiError } from "@/lib/api"
@@ -105,7 +105,7 @@ export function RecreateButton({
           disabled={unavailable}
           title={title}
         >
-          <RefreshCw className="size-3.5" aria-hidden />
+          <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
           Recreate
         </Button>
       </DialogTrigger>

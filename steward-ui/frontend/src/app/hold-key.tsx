@@ -1,5 +1,5 @@
-import { Fingerprint, LogOut, ShieldAlert } from "lucide-react"
 
+import { FingerprintIcon, ShieldWarningIcon, SignOutIcon } from "@phosphor-icons/react"
 import type { Me } from "@/lib/api"
 import { api } from "@/lib/api"
 import { useHoldKey } from "@/lib/queries"
@@ -52,7 +52,7 @@ export function HoldKeyPage({ me }: { me: Me }) {
           <CardContent className="flex flex-col gap-4">
             {supported ? null : (
               <Alert variant="destructive">
-                <ShieldAlert aria-hidden />
+                <ShieldWarningIcon aria-hidden />
                 <AlertTitle>This browser cannot use security keys.</AlertTitle>
                 <AlertDescription>
                   Every current browser can. A private window, an in-app browser or an old WebView
@@ -71,13 +71,13 @@ export function HoldKeyPage({ me }: { me: Me }) {
               disabled={!supported || hold.isPending}
               onClick={() => hold.mutate()}
             >
-              <Fingerprint aria-hidden />
+              <FingerprintIcon aria-hidden />
               {hold.isPending ? "Waiting for the key…" : "Use my key"}
             </Button>
 
             {hold.error ? (
               <Alert variant="destructive">
-                <ShieldAlert aria-hidden />
+                <ShieldWarningIcon aria-hidden />
                 <AlertTitle>That did not work.</AlertTitle>
                 <AlertDescription>{hold.error.message}</AlertDescription>
               </Alert>
@@ -93,7 +93,7 @@ export function HoldKeyPage({ me }: { me: Me }) {
                 window.location.assign("/")
               }}
             >
-              <LogOut aria-hidden />
+              <SignOutIcon aria-hidden />
               Sign out instead
             </Button>
           </CardContent>

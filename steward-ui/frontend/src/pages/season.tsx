@@ -1,5 +1,5 @@
+import { CalendarDotIcon, FlagIcon, ShieldWarningIcon } from "@phosphor-icons/react"
 import { useState } from "react"
-import { CalendarClock, Flag, ShieldAlert } from "lucide-react"
 import { toast } from "sonner"
 
 import type { Season } from "@/lib/api"
@@ -59,7 +59,7 @@ export function SeasonPage() {
               * people. A season is not where somebody goes to settle a payment. */}
             <CommandCard only={(command) => !isAccessCommand(command)} />
             <Alert>
-              <ShieldAlert aria-hidden />
+              <ShieldWarningIcon aria-hidden />
               <AlertTitle>Nothing is carried between seasons.</AlertTitle>
               <AlertDescription>
                 Every season is a full rebuild: every service, every database, every config from
@@ -99,7 +99,7 @@ function PhaseCard({ season }: { season: Season }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Flag className="size-4 text-muted-foreground" aria-hidden />
+          <FlagIcon className="size-4 text-muted-foreground" aria-hidden />
           Phase
         </CardTitle>
         <CardDescription>
@@ -211,7 +211,7 @@ function DatesCard({ season }: { season: Season }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarClock className="size-4 text-muted-foreground" aria-hidden />
+          <CalendarDotIcon className="size-4 text-muted-foreground" aria-hidden />
           Dates
         </CardTitle>
       </CardHeader>

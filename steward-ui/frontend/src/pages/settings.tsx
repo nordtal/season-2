@@ -1,5 +1,5 @@
+import { SignOutIcon, SlidersHorizontalIcon, UserIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
-import { LogOut, SlidersHorizontal, UserRound } from "lucide-react"
 
 import { SecurityKeys } from "@/app/security-keys"
 import { api } from "@/lib/api"
@@ -44,7 +44,7 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <UserRound className="size-4 text-muted-foreground" aria-hidden />
+            <UserIcon className="size-4 text-muted-foreground" aria-hidden />
             Signed in
           </CardTitle>
         </CardHeader>
@@ -67,7 +67,7 @@ export function SettingsPage() {
                     window.location.assign("/")
                   }}
                 >
-                  <LogOut aria-hidden />
+                  <SignOutIcon aria-hidden />
                   Sign out
                 </Button>
               </div>
@@ -83,7 +83,7 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <SlidersHorizontal className="size-4 text-muted-foreground" aria-hidden />
+            <SlidersHorizontalIcon className="size-4 text-muted-foreground" aria-hidden />
             Thresholds of the light
           </CardTitle>
         </CardHeader>

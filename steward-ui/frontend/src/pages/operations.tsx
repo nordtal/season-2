@@ -1,20 +1,20 @@
+import {
+  ArchiveIcon,
+  ArrowCounterClockwiseIcon,
+  ArrowRightIcon,
+  ArrowsClockwiseIcon,
+  CheckIcon,
+  CopyIcon,
+  DatabaseIcon,
+  DownloadIcon,
+  FileTextIcon,
+  PlayIcon,
+  ProhibitInsetIcon,
+  ShieldWarningIcon,
+  WarningIcon,
+} from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
 import { Link, useParams } from "@tanstack/react-router"
-import {
-  Archive,
-  ArrowRight,
-  Check,
-  CircleSlash,
-  Copy,
-  Database,
-  Download,
-  FileText,
-  Play,
-  RefreshCw,
-  RotateCcw,
-  ShieldAlert,
-  TriangleAlert,
-} from "lucide-react"
 import { toast } from "sonner"
 
 import type { Backup, ReportChange, ReportLine, Run, ServiceTable } from "@/lib/api"
@@ -198,7 +198,7 @@ function Change({ change }: { change: ReportChange }) {
       {change.from ? (
         <>
           <span className="text-muted-foreground tnum">{change.from}</span>
-          <ArrowRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+          <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
         </>
       ) : (
         <span className="text-muted-foreground">new:</span>
@@ -331,26 +331,26 @@ export function tonight(nextBackupAt: string | null | undefined, now = new Date(
 
 const ASKS: Record<
   Kind,
-  { title: string; what: string; warning?: string; icon: typeof RefreshCw }
+  { title: string; what: string; warning?: string; icon: typeof ArrowsClockwiseIcon }
 > = {
   UPDATE: {
     title: "Enter an update",
     what:
       "Queries every source for the newest version, stops the services where something changes, swaps their jars and starts them again. If nothing is new, nothing is stopped - the run then ends at \"Nothing to do\".",
-    icon: RefreshCw,
+    icon: ArrowsClockwiseIcon,
   },
   BACKUP: {
     title: "Enter a backup",
     what:
       "Takes the database dump first (nothing is stopped for that), then stops smp, network-control and the bot, packs every volume and starts everything again.",
     warning: "While the packing runs, the network cannot be reached.",
-    icon: Archive,
+    icon: ArchiveIcon,
   },
   RESTART: {
     title: "Enter a restart",
     what: "Stops the services of the network and starts them again. Nothing is swapped.",
     warning: "A restart throws every player off the SMP.",
-    icon: RotateCcw,
+    icon: ArrowCounterClockwiseIcon,
   },
 }
 
@@ -423,7 +423,7 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
         <div className="flex flex-col gap-3 text-sm">
           {spec.warning ? (
             <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
               {spec.warning}
             </p>
           ) : null}
@@ -522,7 +522,7 @@ function DriftCard() {
                 </p>
                 {table.drift.reached === false ? (
                   <p className="flex items-start gap-2 text-xs text-warning">
-                    <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                    <WarningIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                     The registry could not be reached
                     {table.drift.reason ? ` (${table.drift.reason})` : ""}.
                     {table.drift.message ? ` ${table.drift.message}` : ""}
@@ -651,7 +651,7 @@ function RunsCard() {
         <CardAction>
           <Button asChild variant="outline" size="sm">
             <Link to="/operations/plan">
-              <FileText aria-hidden />
+              <FileTextIcon aria-hidden />
               View the plan
             </Link>
           </Button>
@@ -719,7 +719,7 @@ function RunsCard() {
                     <TableCell data-label="Result">
                       {run.report?.stage === "NOTHING_TO_DO" ? (
                         <span className="flex items-center gap-1.5 text-muted-foreground">
-                          <CircleSlash className="size-3.5 shrink-0" aria-hidden />
+                          <ProhibitInsetIcon className="size-3.5 shrink-0" aria-hidden />
                           nothing to do
                         </span>
                       ) : (
@@ -832,7 +832,7 @@ function BackupsCard() {
                 </p>
                 <Button asChild variant="outline" size="sm" className="ml-auto">
                   <Link to="/operations/restore">
-                    <Download aria-hidden />
+                    <DownloadIcon aria-hidden />
                     Restore
                   </Link>
                 </Button>
@@ -952,7 +952,7 @@ export function OperationsRunPage() {
         actions={
           <Button asChild variant="outline">
             <Link to="/operations">
-              <ArrowRight aria-hidden />
+              <ArrowRightIcon aria-hidden />
               All runs
             </Link>
           </Button>
@@ -1032,7 +1032,7 @@ function RunDetail({ run }: { run: Run }) {
           className="flex items-start gap-3 rounded-md border border-border bg-secondary/40 px-4 py-3"
           role="status"
         >
-          <CircleSlash className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
+          <ProhibitInsetIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">Nothing to do.</p>
             <p className="max-w-prose text-sm text-muted-foreground">
@@ -1047,7 +1047,7 @@ function RunDetail({ run }: { run: Run }) {
           className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
           role="alert"
         >
-          <ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
+          <ShieldWarningIcon className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">This run saved nothing.</p>
             <p className="max-w-prose text-sm text-muted-foreground">
@@ -1082,7 +1082,7 @@ function RunDetail({ run }: { run: Run }) {
           {run.resultText ? (
             <>
               <p className="flex items-start gap-2 text-sm text-warning">
-                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
                 The contents of the <code className="text-xs">result</code> column could not be
                 read as a report - an old row, or one from a newer version than this. The raw text
                 is therefore shown here.
@@ -1150,18 +1150,18 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
                     : "flex items-center gap-1.5 text-xs text-muted-foreground"
               }
             >
-              {past && !now ? <Check className="size-3 shrink-0" aria-hidden /> : null}
+              {past && !now ? <CheckIcon className="size-3 shrink-0" aria-hidden /> : null}
               {STAGE_LABEL[step]}
             </span>
             {index < TRAIL.length - 1 ? (
-              <ArrowRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+              <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
             ) : null}
           </li>
         )
       })}
       {ending ? (
         <li className="flex items-center gap-2">
-          <ArrowRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+          <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
           <StageBadge stage={stage} />
         </li>
       ) : null}
@@ -1253,7 +1253,7 @@ function ArchiveKind({ name }: { name: string }) {
   if (what.kind === "database") {
     return (
       <span className="flex items-center gap-1.5">
-        <Database className="size-3.5 shrink-0" aria-hidden />
+        <DatabaseIcon className="size-3.5 shrink-0" aria-hidden />
         Database
       </span>
     )
@@ -1261,7 +1261,7 @@ function ArchiveKind({ name }: { name: string }) {
   if (what.kind === "volume") {
     return (
       <span className="flex items-center gap-1.5">
-        <Archive className="size-3.5 shrink-0" aria-hidden />
+        <ArchiveIcon className="size-3.5 shrink-0" aria-hidden />
         <span className="truncate">{what.subject}</span>
       </span>
     )
@@ -1304,7 +1304,7 @@ export function OperationsBackupPage() {
         actions={
           <Button asChild variant="outline">
             <Link to="/operations/restore">
-              <Download aria-hidden />
+              <DownloadIcon aria-hidden />
               Restore
             </Link>
           </Button>
@@ -1417,7 +1417,7 @@ export function OperationsBackupPage() {
                   />
                   <Button asChild variant="outline" size="sm" className="ml-auto">
                     <Link to="/operations/runs/$id" params={{ id: String(match.id) }}>
-                      <Play aria-hidden />
+                      <PlayIcon aria-hidden />
                       View the report
                     </Link>
                   </Button>
@@ -1573,7 +1573,7 @@ function CopyButton({ text, disabled }: { text: string; disabled?: boolean }) {
         }
       }}
     >
-      {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+      {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
       {copied ? "Copied" : "Copy"}
     </Button>
   )

@@ -1,16 +1,16 @@
+import {
+  ArrowCounterClockwiseIcon,
+  CaretDownIcon,
+  CaretRightIcon,
+  FileXIcon,
+  LockIcon,
+  PlusIcon,
+  ProhibitIcon,
+  TrashIcon,
+  WarningIcon,
+} from "@phosphor-icons/react"
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
-import {
-  Ban,
-  ChevronDown,
-  ChevronRight,
-  FileWarning,
-  Lock,
-  Plus,
-  RotateCcw,
-  Trash2,
-  TriangleAlert,
-} from "lucide-react"
 import { toast } from "sonner"
 
 import type {
@@ -113,7 +113,7 @@ function EnvironmentOverriddenBadge() {
             variant="outline"
             className="shrink-0 gap-1 border-warning/30 bg-warning/12 text-warning"
           >
-            <TriangleAlert className="size-3" aria-hidden />
+            <WarningIcon className="size-3" aria-hidden />
             env override
           </Badge>
         </span>
@@ -214,7 +214,7 @@ function FileRow({
   open: boolean
   onToggle: () => void
 }) {
-  const Chevron = open ? ChevronDown : ChevronRight
+  const Chevron = open ? CaretDownIcon : CaretRightIcon
 
   return (
     <button
@@ -249,12 +249,12 @@ function FileRow({
       */}
       {!file.readable ? (
         <Badge variant="outline" className="shrink-0 gap-1 text-destructive">
-          <Lock className="size-3" aria-hidden />
+          <LockIcon className="size-3" aria-hidden />
           not readable
         </Badge>
       ) : file.writable ? null : (
         <Badge variant="outline" className="shrink-0 gap-1">
-          <Lock className="size-3" aria-hidden />
+          <LockIcon className="size-3" aria-hidden />
           read only
         </Badge>
       )}
@@ -391,7 +391,7 @@ function ConfigForm({
 
       {databaseFile ? (
         <Alert variant="destructive">
-          <Ban aria-hidden />
+          <ProhibitIcon aria-hidden />
           <AlertTitle>This file is read-only in Steward.</AlertTitle>
           <AlertDescription>
             {document.name} holds what this service connects to Postgres with. Steward shows it so
@@ -401,7 +401,7 @@ function ConfigForm({
         </Alert>
       ) : writable && document.restartRequired ? (
         <Alert>
-          <FileWarning aria-hidden />
+          <FileXIcon aria-hidden />
           <AlertTitle>Saving here does not reach a running service.</AlertTitle>
           <AlertDescription>
             {/* It used to link to the service page. This IS the service page now, so the sentence
@@ -415,7 +415,7 @@ function ConfigForm({
         </Alert>
       ) : writable ? (
         <Alert>
-          <FileWarning aria-hidden />
+          <FileXIcon aria-hidden />
           <AlertTitle>Saving also reloads it.</AlertTitle>
           <AlertDescription>
             A save here is sent straight to {document.service || "the service"}'s own console, so
@@ -425,7 +425,7 @@ function ConfigForm({
         </Alert>
       ) : (
         <Alert>
-          <Lock aria-hidden />
+          <LockIcon aria-hidden />
           <AlertTitle>This file is mounted read-only.</AlertTitle>
           <AlertDescription>
             The values are readable, the form accepts no change. That is a property of the volume,
@@ -757,7 +757,7 @@ function Field({
         <div className="flex items-center gap-2">
           {dirty ? (
             <Button type="button" variant="ghost" size="sm" onClick={onReset}>
-              <RotateCcw aria-hidden />
+              <ArrowCounterClockwiseIcon aria-hidden />
               Reset
             </Button>
           ) : null}
@@ -917,7 +917,7 @@ function ListControl({
               aria-label={`Remove entry ${index + 1}`}
               onClick={() => onChange(items.filter((_, at) => at !== index))}
             >
-              <Trash2 aria-hidden />
+              <TrashIcon aria-hidden />
             </Button>
           </div>
         ))
@@ -930,7 +930,7 @@ function ListControl({
           disabled={disabled}
           onClick={() => onChange([...items, ""])}
         >
-          <Plus aria-hidden />
+          <PlusIcon aria-hidden />
           Add entry
         </Button>
       </div>

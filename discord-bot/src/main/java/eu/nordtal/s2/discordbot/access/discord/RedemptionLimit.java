@@ -17,7 +17,7 @@ import java.util.Map;
  * link. Nothing else stands between a guesser and that: the modal is a Discord interaction, and
  * Discord's own limits are generous enough to be irrelevant here. Five wrong guesses an hour turns
  * 923 521 possibilities into decades of guessing per account. <b>The length and this class were
- * decided together and neither is safe alone</b> (2026-09-03, todo.md #9).
+ * decided together and neither is safe alone</b> (2026-09-03).
  *
  * <h2>What counts</h2>
  * Only a code that matched nothing. A correct code obviously does not, and neither does a code that

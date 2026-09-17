@@ -27,8 +27,8 @@ import java.util.function.Consumer;
  *
  * <p><b>Dependencies are never pulled along.</b> Every {@code up} carries {@code --no-deps}. Arcane
  * called compose with {@code RecreateDependencies = RecreateDiverged} and nobody could change it,
- * which is why a recreate of one backend could recreate the service every backend waits for -
- * {@code todo.md} A19. Here it is one flag.</p>
+ * which is why a recreate of one backend could recreate the service every backend waits for.
+ * Here it is one flag.</p>
  */
 public final class Compose {
 

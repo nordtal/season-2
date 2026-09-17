@@ -9,8 +9,8 @@ import java.time.Duration;
  * What saving one thing came to.
  *
  * <p><b>{@code bytes} is on this record because a backup that saved nothing has to be able to say
- * so.</b> Run 23 reported success having snapshotted zero volumes, and nothing in the report made
- * that visible ({@code todo.md} A23). A size of zero is not a detail here; it is the finding.</p>
+ * so.</b> Run 23 once reported success having snapshotted zero volumes, and nothing in the report
+ * made that visible. A size of zero is not a detail here; it is the finding.</p>
  *
  * @param name     what was saved - a volume name, or {@code database}
  * @param ok       whether there is now a file that can be restored from

@@ -3,6 +3,7 @@ import type { ComponentProps, ReactNode } from "react"
 import { ChevronDown, ChevronRight, PanelLeft, Search as SearchIcon } from "lucide-react"
 
 import type { Crumb } from "@/app/breadcrumbs"
+import { StewardMark } from "@/app/steward-mark"
 import { shortcutLabel } from "@/lib/keys"
 import {
   Breadcrumb,
@@ -58,6 +59,41 @@ export function IslandSurface({
 }
 
 /**
+ * The mark and the word, standing in for "Overview" as the first crumb (steward/89, shells d/e/f/g).
+ *
+ * Till, 2026-09-17: the island's first element is always the Nordtal mark and the word "Steward" -
+ * not "Nordtal Steward", the word alone - and it leads where Overview led. It replaces the crumb
+ * rather than sitting beside it, so `Crumbs` below draws this in place of `crumbs[0].label` instead
+ * of adding a fifth element to a row that is already tight at 390px.
+ */
+function BrandLabel() {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <StewardMark className="size-4 shrink-0" />
+      <span className="truncate">Steward</span>
+    </span>
+  )
+}
+
+/**
+ * A corner every fixed control in shells d/f/g anchors to, so the four addresses agree on the
+ * offset instead of each carrying its own copy of the safe-area and blur-clearance arithmetic.
+ *
+ * `pointer-events-none` on the row and `pointer-events-auto` on whatever is put inside it: the
+ * strip spans the header the way shell B's floating island already did, and must not steal clicks
+ * from the page over the space it does not actually draw anything in.
+ */
+export function FixedCorner({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={`pointer-events-none fixed inset-x-0 top-0 z-30 flex items-start px-4 pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+0.75rem)] md:px-6 ${className ?? ""}`}
+    >
+      {children}
+    </div>
+  )
+}
+
+/**
  * The navigation toggle.
  *
  * `expanded` is drawn rather than hidden: the panel icon keeps its shape and the state is in the
@@ -102,7 +138,20 @@ export function SidebarToggle({
  * a pill that is one line tall. `flex-nowrap` is the belt to that brace - a two-crumb path that
  * still does not fit truncates rather than growing the island.
  */
-export function Crumbs({ crumbs, linked = true }: { crumbs: Crumb[]; linked?: boolean }) {
+export function Crumbs({
+  crumbs,
+  linked = true,
+  brand = false,
+}: {
+  crumbs: Crumb[]
+  linked?: boolean
+  /**
+   * Draw `crumbs[0]` as the Nordtal mark and the word "Steward" instead of its label (steward/89,
+   * shells d/e/f/g). It replaces "Overview", so it is exempt from the phone rule below that hides
+   * every ancestor but the last - the order is explicit that this one crumb never disappears.
+   */
+  brand?: boolean
+}) {
   // Inside a button the trail is text, and it is written out rather than borrowed: the breadcrumb
   // component is a `nav` around an ordered list, and a landmark inside a button is neither a
   // landmark nor a button.
@@ -111,13 +160,20 @@ export function Crumbs({ crumbs, linked = true }: { crumbs: Crumb[]; linked?: bo
       <span className="flex min-w-0 items-center gap-1 text-sm">
         {crumbs.map((crumb, index) => {
           const last = index === crumbs.length - 1
+          const isBrand = brand && index === 0
+          const label = isBrand ? <BrandLabel /> : crumb.label
           return last ? (
             <span key={crumb.href} className="min-w-0 truncate text-foreground">
-              {crumb.label}
+              {label}
             </span>
           ) : (
-            <span key={crumb.href} className="hidden shrink-0 items-center gap-1 text-muted-foreground sm:flex">
-              <span className="truncate">{crumb.label}</span>
+            <span
+              key={crumb.href}
+              className={`shrink-0 items-center gap-1 text-muted-foreground ${
+                isBrand ? "flex" : "hidden sm:flex"
+              }`}
+            >
+              <span className="truncate">{label}</span>
               <ChevronRight className="size-3.5" aria-hidden />
             </span>
           )
@@ -131,6 +187,8 @@ export function Crumbs({ crumbs, linked = true }: { crumbs: Crumb[]; linked?: bo
       <BreadcrumbList className="flex-nowrap gap-1 text-sm sm:gap-1.5">
         {crumbs.map((crumb, index) => {
           const last = index === crumbs.length - 1
+          const isBrand = brand && index === 0
+          const label = isBrand ? <BrandLabel /> : crumb.label
           // The separator is a sibling of the item, never a child of it: both are `li`, and the
           // old header nested them - which is invalid, and which a rendering test says out loud.
           //
@@ -144,23 +202,45 @@ export function Crumbs({ crumbs, linked = true }: { crumbs: Crumb[]; linked?: bo
           // ellipses long before the page name loses a letter, and nothing ever overflows the
           // column the way a `shrink-0` last crumb would. Measured at 1440px on /designs/network,
           // which is three segments deep; so is /services/smp.
+          //
+          // The brand crumb (steward/89, 2026-09-17) is the one exception to "ancestors give way
+          // first": it carries the mark and the bare word "Steward", and a shell that lets that
+          // shrink to an ellipsis before an in-between segment does is un-branding itself under
+          // its own name. It shares the page name's own gentle `shrink` rather than the
+          // ancestors' `shrink-[999]` - the segments between them absorb the shortfall first and
+          // go to their ellipsis long before either end does.
+          //
+          // `shrink-0` was tried first and made it worse: a completely rigid brand crumb, once the
+          // in-between ancestors had already given up everything they had, pushed the *entire*
+          // remaining overflow onto the one other flexible item left standing - the page name -
+          // which is the exact disappearance this whole rule exists to prevent. A 13rem sidebar
+          // head with "Steward", one ancestor and a page name is tight enough that this actually
+          // happened: `/services/smp` folded into shell d's sidebar head showed "Steward > >"
+          // with both "Services" and "smp" gone. Splitting the modest, low-priority shrink between
+          // brand and page name is what keeps both readable as an ellipsis instead.
           return (
             <Fragment key={crumb.href}>
               <BreadcrumbItem
-                className={last ? "min-w-0 shrink" : "min-w-0 shrink-[999] max-sm:hidden"}
+                className={
+                  last || isBrand
+                    ? "min-w-0 shrink"
+                    : "min-w-0 shrink-[999] max-sm:hidden"
+                }
               >
                 {last ? (
-                  <BreadcrumbPage className="truncate">{crumb.label}</BreadcrumbPage>
+                  <BreadcrumbPage className="truncate">{label}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink
                     href={crumb.href}
                     className="truncate transition-colors duration-150 ease-out hover:text-primary"
                   >
-                    {crumb.label}
+                    {label}
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>
-              {last ? null : <BreadcrumbSeparator className="max-sm:hidden" />}
+              {last ? null : (
+                <BreadcrumbSeparator className={isBrand ? "" : "max-sm:hidden"} />
+              )}
             </Fragment>
           )
         })}
@@ -182,6 +262,8 @@ export function PathIsland({
   rotate,
   trailing,
   floating,
+  brand,
+  hideToggle,
   className,
 }: {
   crumbs: Crumb[]
@@ -190,13 +272,26 @@ export function PathIsland({
   rotate?: boolean
   trailing?: ReactNode
   floating?: boolean
+  /** The first crumb is the Nordtal mark and "Steward", not "Overview" - see {@link Crumbs}. */
+  brand?: boolean
+  /**
+   * Draw a same-sized blank instead of the toggle button (shells d/f/g): the toggle is answered
+   * once, fixed to the corner, and a second live button here would be a second way to do the same
+   * thing at a different address - the blank keeps the path where it would sit if the toggle were
+   * drawn, so nothing shifts when a shell switches between having one here and not.
+   */
+  hideToggle?: boolean
   className?: string
 }) {
   return (
     <IslandSurface floating={floating} className={className}>
-      <SidebarToggle expanded={expanded} onToggle={onToggle} rotate={rotate} />
+      {hideToggle ? (
+        <span className="size-control shrink-0" aria-hidden />
+      ) : (
+        <SidebarToggle expanded={expanded} onToggle={onToggle} rotate={rotate} />
+      )}
       <div className="min-w-0 flex-1 px-1">
-        <Crumbs crumbs={crumbs} />
+        <Crumbs crumbs={crumbs} brand={brand} />
       </div>
       {trailing}
     </IslandSurface>

@@ -4,27 +4,37 @@ import { useRouterState } from "@tanstack/react-router"
 /**
  * Which of the three shells is drawn, for as long as steward/89 is a choice rather than a decision.
  *
- * Three app shells exist side by side so that one person can hold a phone and compare them. They
- * are chosen with `?shell=b` or `?shell=c` on any address of the interface - there is no route of
+ * Nine app shells exist side by side so that one person can hold a phone and compare them. They
+ * are chosen with `?shell=b`, `?shell=c`, … on any address of the interface - there is no route of
  * their own and no entry in the navigation, because the whole question is how a shell feels on the
  * pages that already exist, not on one prepared example.
+ *
+ * `a`, `b` and `c` were the first round; Till asked for a middle ground on 2026-09-17 and got four
+ * more - `d`, `e`, `f`, `g` - each answering the one requirement `b` failed: the toggle has to sit
+ * at the same pixel in both states, not just look like it does. The orchestrator's own screenshots
+ * of that round caught a second, real defect in three of the four - `d`, `f` and `g` folded the
+ * path into the sidebar's own `13rem` head and dropped whole segments of it at three levels - which
+ * is what `h` and `i` answer: the same shells, with the head sized to the chain instead of pinned
+ * to the column's own width.
  *
  * **The choice outlives the link that made it.** A sidebar link goes to `/services/smp` without
  * carrying the query on, so a shell picked once and then navigated away from would last exactly one
  * page - which is the opposite of what a comparison needs. The answer is remembered for the tab and
  * nothing longer: `sessionStorage`, so a second tab can hold a second shell and neither of them
- * survives the browser being closed. When steward/89 is decided this module and the two shells
- * nobody picked are deleted together.
+ * survives the browser being closed. When steward/89 is decided this module and the shells nobody
+ * picked are deleted together.
  */
-export type ShellVariant = "a" | "b" | "c"
+export type ShellVariant = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i"
 
 /** The tab-scoped memory of the last shell that was asked for by name. */
 export const SHELL_STORAGE_KEY = "steward.shell"
 
-/** Anything that is not `b` or `c` is `a`, including nothing at all and including nonsense. */
+const NAMED: ReadonlySet<string> = new Set(["b", "c", "d", "e", "f", "g", "h", "i"])
+
+/** Anything that is not one of the eight named letters is `a`, including nothing and nonsense. */
 function normalise(value: string | null | undefined): ShellVariant {
   const asked = value?.trim().toLowerCase()
-  return asked === "b" || asked === "c" ? asked : "a"
+  return asked && NAMED.has(asked) ? (asked as ShellVariant) : "a"
 }
 
 /**

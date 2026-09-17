@@ -1184,10 +1184,15 @@ public final class ConfigFiles {
         for (final ConfigEntry field : removed) {
             if (field.key().equals(protectedEntry.field())
                     && field.value().equals(protectedEntry.value())) {
+                // The schema's own explanation is deliberately NOT pasted in here. Measured
+                // against the running worker on 2026-09-17, `languages` answered this refusal with
+                // fifteen lines of schema prose, ending mid-sentence in the browser's alert - and
+                // the page showing that alert is already displaying the same explanation under the
+                // list. An error says what happened; the explanation is the page's job, and Till
+                // has asked for less text everywhere in this interface, not more.
                 throw new IllegalArgumentException(entry.path() + ": the entry whose "
                         + protectedEntry.field() + " is '" + protectedEntry.value() + "' cannot be"
-                        + " removed - " + (entry.explanation().isBlank()
-                                ? "its schema marks it as required." : entry.explanation()));
+                        + " removed - the schema marks it as required.");
             }
         }
     }

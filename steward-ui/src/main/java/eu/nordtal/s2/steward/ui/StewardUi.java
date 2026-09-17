@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.ui;
 import com.google.gson.Gson;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessSource;
+import eu.nordtal.s2.common.roster.Person;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
@@ -261,6 +262,12 @@ public final class StewardUi {
     /**
      * {@code forget-factors <discord-id>} - the way back in after a lost authenticator.
      *
+     * <p>Run as {@code docker exec nordtal-s2-steward-ui-1 steward-ui forget-factors <discord-id>}
+     * on the host. That line used to be printed on the hold-key screen itself, which told anyone
+     * who ever loaded that page the exact command past the second factor; it was pulled from the
+     * UI on 2026-09-15 for that reason and lives here instead, where only somebody who already has
+     * a shell on the machine reads it.</p>
+     *
      * <p>Removes the account's keys <b>and</b> its sessions, which is one thing and not two:
      * clearing the keys of an account whose browser is still signed in would leave that browser
      * inside with no key at all. The next sign-in lands on the setup page, which is where somebody
@@ -355,9 +362,29 @@ public final class StewardUi {
             // one rule below - not by guessing.
             cfg.spaRoot.addFile("/", "/web/index.html", Location.CLASSPATH);
 
-            cfg.routes.get("/api/health", ctx -> ctx.json(Map.of(
-                    "status", "ok",
-                    "worker", worker.isReachable())), Gate.ANYONE);
+            // THE FRONTEND'S CACHE HEADERS, SAID ONCE, FOR BOTH WAYS IN. Jetty's own default for
+            // everything under `cfg.staticFiles` and `cfg.spaRoot` - measured on this Javalin
+            // version - is a literal `Cache-Control: max-age=0`, on the bundle and on the document
+            // alike. `after` runs once every request has been answered, including a static file or
+            // the single-page fallback, which neither carries a Gate nor a place of its own to set
+            // a header from - so this is the one hook that sees both. See `cacheHeaders`.
+            cfg.routes.after(StewardUi::cacheHeaders);
+
+            cfg.routes.get("/api/health", this::health, Gate.ANYONE);
+            // steward/85: Javalin discards the BODY of a HEAD request at the wire layer, but its
+            // own routing never carries that far - `guard`, on `beforeMatched`, reads
+            // `ctx.routeRoles()` before any handler runs, and that lookup is keyed to the exact
+            // HTTP method. With no route ever registered for HEAD, it saw zero decided roles and
+            // `gateOf` refused the request as an undecided route: a 500 that named a fault this
+            // service does not have, on the one path a monitor tries first because it is cheaper
+            // than GET. Confirmed generic to every `/api` GET route (`/api/me` breaks the same
+            // way) and not caused by the `after`-stage steward/79 added - `guard` throws before
+            // `after` ever runs, over a mechanism that predates it. The general fix would be a
+            // stage that answers every HEAD from its GET's own decision; that is a bigger change
+            // than this ticket asks for, so only the one route an outside watcher would actually
+            // reach is given its own explicit HEAD registration. If a monitor is ever pointed at
+            // another `/api` route, HEAD on it still 500s - failing closed, loudly, not open.
+            cfg.routes.head("/api/health", this::health, Gate.ANYONE);
 
             // WHO MAY SIGN IN IS ANSWERED BEFORE ANYTHING ELSE IS SERVED. The sign-in page itself
             // needs to be readable without a session, and so does the static bundle - everything
@@ -435,6 +462,12 @@ public final class StewardUi {
             cfg.routes.get("/api/deployer/jobs", deployments::jobs, Gate.KEY_HELD);
             cfg.routes.get("/api/deployer/jobs/{id}", deployments::job, Gate.KEY_HELD);
 
+            // The unified "latest actions" feed (steward/82). It carries `?limit=`, so it goes
+            // through forwardedQuery like the log search does - a passThrough that names the bare
+            // path drops the query string silently, and the worker would answer its own default
+            // while the browser believed it had asked for a number.
+            cfg.routes.get("/api/actions", ctx -> passThrough(ctx,
+                    "/api/actions" + forwardedQuery(ctx.queryString())), Gate.KEY_HELD);
             cfg.routes.get("/api/host", ctx -> passThrough(ctx, "/api/host"), Gate.KEY_HELD);
             // What "tonight" means on the host, rather than in whatever zone the browser is in.
             cfg.routes.get("/api/schedule", ctx -> passThrough(ctx, "/api/schedule"), Gate.KEY_HELD);
@@ -559,6 +592,28 @@ public final class StewardUi {
             cfg.routes.put("/api/config/<file>",
                     ctx -> forwardConfig(ctx, configPath(ctx), ctx.body()), Gate.KEY_FRESH);
 
+            // The raw editor's own save (steward/60), proxied the same way as the parsed one right
+            // above it - same gate, same worker, its own path because the body it carries (text and
+            // a revision, never `changes`) is a different shape than a parsed save's.
+            cfg.routes.put("/api/config-raw/<file>",
+                    ctx -> forwardConfig(ctx, workerPath("/api/config-raw", ctx, "file"),
+                            ctx.body()), Gate.KEY_FRESH);
+
+            // The message bundles (steward/48) are the same arrangement one path along: the worker
+            // holds the jars and the file permissions, this side holds the security key. They are
+            // three routes of their own and not part of /api/config because a bundle is not a YAML
+            // file - it has two languages, a packaged half nobody may write, and no revision.
+            //
+            // The same two gates for the same reason: reading is KEY_HELD, writing is KEY_FRESH.
+            cfg.routes.get("/api/messages", ctx -> forwardConfig(ctx, "/api/messages", null),
+                    Gate.KEY_HELD);
+            cfg.routes.get("/api/messages/<bundle>",
+                    ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"), null),
+                    Gate.KEY_HELD);
+            cfg.routes.put("/api/messages/<bundle>",
+                    ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"),
+                            ctx.body()), Gate.KEY_FRESH);
+
             // The names behind the ids, so the editor above can offer a list instead of a field.
             // Never a failure: an unreachable Discord is `available: false` and a typed id.
             cfg.routes.get("/api/discord/roles", guild::roles, Gate.KEY_HELD);
@@ -567,7 +622,12 @@ public final class StewardUi {
             cfg.routes.get("/api/settings", ctx -> ctx.json(Map.of(
                     "disk", config.alerts().diskPercent(),
                     "memory", config.alerts().memoryPercent(),
-                    "backupAgeHours", config.alerts().backupAgeHours())), Gate.KEY_HELD);
+                    "backupAgeHours", config.alerts().backupAgeHours(),
+                    // steward/45: the base a Minecraft head is composed from, never the image
+                    // itself - see AvatarSpec's javadoc for why this is configuration and not a
+                    // column.
+                    "minecraftHeadBaseUrl", config.avatars().minecraftHeadBaseUrl())),
+                    Gate.KEY_HELD);
 
             // --- who is in the guild, what they paid, what they may ----------------------------
             cfg.routes.get("/api/people", ctx -> ctx.json(
@@ -969,6 +1029,35 @@ public final class StewardUi {
     }
 
     /**
+     * The two cache rules the frontend bundle needs, and why they are opposite (steward/79).
+     *
+     * <p>Vite names every file under {@code /assets} after a hash of its own content, so the same
+     * name can never point at different bytes between one build and the next - which is exactly
+     * what {@code max-age=31536000, immutable} promises a cache. {@code index.html} is the one file
+     * whose name never changes while its content does, on every redeploy, so it needs the opposite
+     * promise: {@code no-cache}, not {@code max-age=0}. The two look similar and are not - a cache
+     * with no reachable network is still allowed to answer a plain {@code max-age=0} with what it
+     * already has, offline; {@code no-cache} makes the revalidation mandatory. A cold start on an
+     * iPhone that has just woken up is exactly the "cache with no reachable network yet" case, and
+     * the document this served offline is what pointed at bundle names an intervening redeploy had
+     * already deleted - a page that never ran and never would.</p>
+     *
+     * <p>Runs on every request, after it has been answered - static file, single-page fallback, or
+     * a route - because neither the static bundle nor the SPA fallback has a place of its own to
+     * set a header from (see {@code staticFiles.roles} above, which exists for the same reason).
+     * {@code isOurs} excludes {@code /api} and {@code /auth} so this never touches a header one of
+     * this service's own handlers set on purpose.</p>
+     */
+    private static void cacheHeaders(final Context ctx) {
+        if (isOurs(ctx.path())) {
+            return;
+        }
+        ctx.header("Cache-Control", ctx.path().startsWith("/assets/")
+                ? "max-age=31536000, immutable"
+                : "no-cache");
+    }
+
+    /**
      * A route registered without a {@link Gate}, refused at the door.
      *
      * <p>It is a 500 and not a 403, because nothing the person in front of the browser did is
@@ -1307,6 +1396,38 @@ public final class StewardUi {
         return listed;
     }
 
+    /**
+     * The Discord avatar {@code /api/people} would print for this account, or empty - never a
+     * thrown exception (steward/91).
+     *
+     * <p>Read from the same {@code person} row {@code /api/people} answers, over the Discord id of
+     * the session - not a second call to Discord, and not {@code data.roster().people(...)}: that
+     * pages the whole access list for a picture 32 pixels wide. Being signed into Steward does not
+     * imply a row in that list exists at all - an admin the bot has never mirrored a Discord profile
+     * onto reaches this route the same as anyone else - so a missing row is answered as "no avatar",
+     * the same fallback the shell already draws for it, and a database hiccup here must not turn
+     * into a broken {@code /api/me} for everything else on it.</p>
+     */
+    private Optional<String> avatarOf(final String discordId) {
+        try {
+            return data.roster().personOf(discordId)
+                    .map(Person::discordAvatarUrl)
+                    .filter(url -> url != null && !url.isBlank());
+        } catch (final RuntimeException e) {
+            log.warn("could not read the Discord avatar of {}, so /api/me answers none", discordId, e);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * The answer for both {@code GET} and {@code HEAD /api/health} - see the registration above
+     * (steward/85) for why the second one has to be its own route rather than something Javalin
+     * hands it for free.
+     */
+    private void health(final Context ctx) {
+        ctx.json(Map.of("status", "ok", "worker", worker.isReachable()));
+    }
+
     private void whoAmI(final Context ctx) {
         final Optional<Sessions.Session> session = session(ctx);
         final Map<String, Object> answer = new LinkedHashMap<>();
@@ -1330,6 +1451,7 @@ public final class StewardUi {
                 answer.put("verifiedAt", who.verifiedAt().toString());
             }
             answer.put("relyingPartyId", webauthn.relyingPartyId());
+            avatarOf(who.discordId()).ifPresent(url -> answer.put("discordAvatarUrl", url));
         });
         discord.whatIsMissing().ifPresent(missing -> answer.put("signInUnavailable", missing));
         // Said out loud rather than in a footnote, and since packages C and D it is the whole of
@@ -1500,8 +1622,19 @@ public final class StewardUi {
      * sent as a request line with a space in it.</p>
      */
     private static String configPath(final Context ctx) {
-        final StringBuilder path = new StringBuilder("/api/config");
-        for (final String segment : ctx.pathParam("file").split("/", -1)) {
+        return workerPath("/api/config", ctx, "file");
+    }
+
+    /**
+     * {@code prefix} plus one path parameter, re-encoded segment by segment.
+     *
+     * <p>This was {@code configPath} alone until steward/48 gave the message bundles the same
+     * shape. Both identifiers are a service and a path under it with a slash in between, and both
+     * arrive here decoded.</p>
+     */
+    private static String workerPath(final String prefix, final Context ctx, final String param) {
+        final StringBuilder path = new StringBuilder(prefix);
+        for (final String segment : ctx.pathParam(param).split("/", -1)) {
             path.append('/').append(java.net.URLEncoder
                     .encode(segment, StandardCharsets.UTF_8).replace("+", "%20"));
         }

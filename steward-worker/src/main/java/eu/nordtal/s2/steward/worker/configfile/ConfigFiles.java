@@ -1,8 +1,13 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
+import eu.nordtal.jcore.config.schema.SchemaNode;
+import eu.nordtal.jcore.config.schema.SettingKind;
+import eu.nordtal.s2.common.config.EnvOverrideFile;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Type;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -31,11 +36,10 @@ import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,14 +52,21 @@ import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.nio.file.StandardOpenOption.WRITE;
 
 /**
- * Reads and writes the commented YAML jcore writes, without knowing the {@code @ConfigSpec} it
- * came from.
+ * Reads and writes the YAML jcore writes, without knowing the {@code @ConfigSpec} it came from.
  *
  * <p><b>The file is the model.</b> Steward shows every configuration in the stack - the worker's
  * {@code steward.yml}, the bot's, the four Paper plugins' - and those specs live in modules
  * steward-ui must not depend on (one of them would drag a Paper API onto a web server's
- * classpath). jcore writes its {@code @Comment}s into the YAML, so a file it wrote documents
- * itself, and a reader of the file can draw the same form a reader of the class could.</p>
+ * classpath). A reader of the file, and now of the {@code <name>.schema.json} beside it
+ * ({@link Schemas}, steward/55), can draw the same form a reader of the class could - without a
+ * class to read.</p>
+ *
+ * <p><b>The schema is the first choice, never the only one.</b> A file with no schema - one jcore
+ * has not written under 4.0.0 yet, or one nothing ever described - reads exactly as it always has:
+ * a mechanical {@link Labels#of(String)} label and whatever comment block sits above the key. And
+ * whichever source wins, <b>the file is still the truth about what keys exist</b> (steward/50): a
+ * key the schema does not mention is delivered anyway, never hidden, and a schema entry with
+ * nothing behind it in the file is silently ignored rather than invented as an entry.</p>
  *
  * <p><b>Writing is a line edit, never a re-dump.</b> Handing the parsed tree back to SnakeYAML's
  * dumper would produce a valid file with every comment gone, blank lines moved and keys in some
@@ -64,6 +75,8 @@ import static java.nio.file.StandardOpenOption.WRITE;
  * the file alone.</p>
  */
 public final class ConfigFiles {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ConfigFiles.class);
 
     private ConfigFiles() {
     }
@@ -185,19 +198,37 @@ public final class ConfigFiles {
 
         final List<ConfigEntry> entries = new ArrayList<>();
         final Map<String, Span> spans = new HashMap<>();
-        collect(file, mapping, "", lines, entries, spans);
+        final Optional<Map<String, SchemaNode>> schema = Schemas.read(file).map(SchemaNode::children);
+        // Flat, unlike schema: an overridden path is already fully dotted ("roles.access",
+        // "languages"), so the same Set is compared against at every nesting level rather than
+        // narrowed level by level the way schemaLevel is.
+        final Optional<Set<String>> overridden = EnvOverrides.read(file);
+        collect(file, mapping, "", lines, entries, spans, schema, overridden);
 
         final int firstKeyLine = entries.isEmpty() ? Integer.MAX_VALUE : entries.getFirst().line() - 1;
         return new Parsed(new ConfigDocument(file, revisionOf(content),
                 headerOf(lines, firstKeyLine), entries), lines, spans);
     }
 
+    /**
+     * Walks one mapping level, matching each key against {@code schemaLevel} when there is one.
+     *
+     * @param schemaLevel the schema's children at this level, keyed the same way the file is - or
+     *                    empty when there is no schema to compare against here at all, which is the
+     *                    file-has-no-schema case (steward/55) as well as the case where an ancestor's
+     *                    schema node did not itself describe a nested mapping. Either way, every key
+     *                    at this level is then vacuously {@link ConfigEntry#inSchema()}: there is
+     *                    nothing here for it to be missing from
+     */
     private static void collect(final Path file,
                                 final MappingNode mapping,
                                 final String prefix,
                                 final List<String> lines,
                                 final List<ConfigEntry> entries,
-                                final Map<String, Span> spans) throws IOException {
+                                final Map<String, Span> spans,
+                                final Optional<Map<String, SchemaNode>> schemaLevel,
+                                final Optional<Set<String>> overridden) throws IOException {
+        final Set<String> matchedSchemaKeys = new HashSet<>();
         for (final NodeTuple tuple : mapping.getValue()) {
             if (!(tuple.getKeyNode() instanceof ScalarNode keyNode)) {
                 throw new IOException(file + ": line " + (tuple.getKeyNode().getStartMark().getLine() + 1)
@@ -209,10 +240,18 @@ public final class ConfigFiles {
             final Node valueNode = tuple.getValueNode();
             final int keyLine = keyNode.getStartMark().getLine();
 
+            final SchemaNode schemaChild = schemaLevel.map(level -> level.get(key)).orElse(null);
+            final boolean inSchema = schemaLevel.isEmpty() || schemaChild != null;
+            if (schemaChild != null) {
+                matchedSchemaKeys.add(key);
+            }
+
             final Kind kind;
             final Type type;
             final String value;
             final List<String> items;
+            final List<ConfigEntry> template;
+            final List<List<ConfigEntry>> sections;
             final boolean editable;
 
             if (valueNode instanceof MappingNode) {
@@ -220,9 +259,47 @@ public final class ConfigFiles {
                 type = Type.STRING;
                 value = "";
                 items = List.of();
+                template = List.of();
+                sections = List.of();
                 // A section is a heading, not a value. There is nothing here to change that is not
                 // one of the keys underneath it.
                 editable = false;
+            } else if (valueNode instanceof SequenceNode sequence
+                    && !sequence.getValue().isEmpty()
+                    && sequence.getValue().stream().allMatch(item -> item instanceof MappingNode)) {
+                // A sequence of mappings - `languages` and `tiers` in the bot's access.yml are the
+                // cases this was built for (steward/68). Reading and writing are split on purpose:
+                // this class only ever replaces the characters of one scalar already on a line, so
+                // an existing entry's own field can be changed - see #sections(Parsed, List, Entry,
+                // List) below - but inserting or deleting a whole entry would have to place a new
+                // block of lines (or remove one) with the right indentation and, for an insert, no
+                // comment to invent - a harder problem this class does not solve yet.
+                kind = Kind.SECTIONS;
+                value = "";
+                items = List.of();
+                type = Type.STRING;
+                editable = true;
+
+                final Optional<Map<String, SchemaNode>> elementSchema =
+                        (schemaChild != null && schemaChild.kind() == SettingKind.LIST)
+                                ? Optional.of(schemaChild.children())
+                                : Optional.empty();
+                final List<List<ConfigEntry>> collected = new ArrayList<>();
+                for (int index = 0; index < sequence.getValue().size(); index++) {
+                    final MappingNode element = (MappingNode) sequence.getValue().get(index);
+                    final List<ConfigEntry> fields = new ArrayList<>();
+                    collect(file, element, path + "[" + index + "]", lines, fields, spans, elementSchema,
+                            overridden);
+                    collected.add(List.copyOf(fields));
+                }
+                sections = List.copyOf(collected);
+                // No template at all when there is nothing to build one from, or when the schema
+                // covers this list but describes an element with a map or a list of its own inside
+                // it - a shape steward/68 leaves as "no card fits" rather than guessing at how deep
+                // to go.
+                template = elementSchema.filter(ConfigFiles::everyFieldIsAScalar)
+                        .map(ConfigFiles::templateOf)
+                        .orElse(List.of());
             } else if (valueNode instanceof SequenceNode sequence) {
                 kind = Kind.LIST;
                 value = "";
@@ -237,9 +314,10 @@ public final class ConfigFiles {
                 }
                 items = scalars.stream().map(ScalarNode::getValue).toList();
                 type = plain ? sharedType(scalars) : Type.STRING;
-                // A list of sections is left alone: rewriting the block would have to carry the
-                // comments and the key order inside every entry across, and a config editor that
-                // reformats a file nobody asked it to touch is one nobody will trust twice.
+                template = List.of();
+                sections = List.of();
+                // A sequence that mixes scalars and mappings is nothing this class can describe as
+                // either shape, so it is left exactly as before: raw and not editable.
                 editable = plain;
             } else {
                 final ScalarNode scalar = (ScalarNode) valueNode;
@@ -247,6 +325,8 @@ public final class ConfigFiles {
                 type = Scalars.typeOf(scalar);
                 value = scalar.getValue();
                 items = List.of();
+                template = List.of();
+                sections = List.of();
                 editable = true;
             }
 
@@ -267,21 +347,126 @@ public final class ConfigFiles {
             entries.add(new ConfigEntry(
                     path,
                     key,
-                    Labels.of(key),
+                    schemaChild != null ? schemaChild.label() : Labels.of(key),
                     commentsAbove(lines, keyLine),
+                    schemaChild != null ? schemaChild.explanation() : "",
+                    schemaChild != null && schemaChild.noExplanationNeeded(),
                     value,
                     items,
+                    template,
+                    sections,
                     kind,
                     type,
                     keyLine + 1,
                     editable,
-                    ConfigEntry.isSecretKey(key)));
+                    // The heuristic is a net that stays under the schema (steward/50): a schema
+                    // saying secret=true always wins, but secret=false or no schema entry at all
+                    // never turns the heuristic off, only the schema turning it ON is authoritative.
+                    ConfigEntry.isSecretKey(key) || (schemaChild != null && schemaChild.secret()),
+                    inSchema,
+                    overridden.map(paths -> paths.contains(path)).orElse(null),
+                    choicesOf(schemaChild),
+                    protectedEntryOf(schemaChild)));
             spans.put(path, span);
 
             if (valueNode instanceof MappingNode nested) {
-                collect(file, nested, path, lines, entries, spans);
+                final Optional<Map<String, SchemaNode>> nestedSchema =
+                        (schemaChild != null && schemaChild.kind() == SettingKind.MAP)
+                                ? Optional.of(schemaChild.children())
+                                : Optional.empty();
+                collect(file, nested, path, lines, entries, spans, nestedSchema, overridden);
             }
         }
+
+        // The file is the truth (steward/50): a schema entry with nothing in the file behind it is
+        // not an error, but it is worth a line in the log - it is exactly what a setting the
+        // software has since dropped from its spec looks like from here.
+        if (schemaLevel.isPresent()) {
+            final Set<String> extra = new java.util.TreeSet<>(schemaLevel.get().keySet());
+            extra.removeAll(matchedSchemaKeys);
+            if (!extra.isEmpty()) {
+                LOG.warn("{}: the schema names {} setting(s) the file does not have: {}. The file"
+                                + " wins; they are ignored.",
+                        file, extra.size(), String.join(", ", extra));
+            }
+        }
+    }
+
+    /** {@link ConfigEntry.Choices}, from a schema entry's own {@link SchemaNode.Choices} - or {@code null}. */
+    private static ConfigEntry.Choices choicesOf(final SchemaNode schemaChild) {
+        if (schemaChild == null || schemaChild.choices() == null) {
+            return null;
+        }
+        return new ConfigEntry.Choices(schemaChild.choices().values(), schemaChild.choices().strict());
+    }
+
+    /**
+     * {@link ConfigEntry.Protected}, from a schema entry's own
+     * {@link SchemaNode.ProtectedEntry} - or {@code null} when there is no schema for this key or
+     * its property carries no {@code @Protected} (steward/74).
+     */
+    private static ConfigEntry.Protected protectedEntryOf(final SchemaNode schemaChild) {
+        if (schemaChild == null || schemaChild.protectedEntry() == null) {
+            return null;
+        }
+        return new ConfigEntry.Protected(
+                schemaChild.protectedEntry().field(), schemaChild.protectedEntry().value());
+    }
+
+    /**
+     * Whether a {@link Kind#SECTIONS} element's schema is flat enough to build a
+     * {@link ConfigEntry#template()} from - every one of its own fields a plain scalar, none of them
+     * a nested map or another list.
+     *
+     * <p>Nothing in {@code access.yml} needs more than that today, and a field two levels deep would
+     * need a card that draws a card inside a card - a shape steward-ui's {@code RepeatableCards} was
+     * never asked to draw. Refusing a template here is what sends that case down the raw-text
+     * fallback instead of a card silently dropping the nested part.</p>
+     */
+    private static boolean everyFieldIsAScalar(final Map<String, SchemaNode> elementSchema) {
+        return elementSchema.values().stream().allMatch(field -> field.kind() == SettingKind.SCALAR);
+    }
+
+    /**
+     * The blank card a "Add entry" starts from: one {@link ConfigEntry} per field the schema
+     * describes for one element, in schema order, every one of them an empty, editable scalar.
+     *
+     * @param elementSchema the schema's own shape of one element - see
+     *                      {@link SchemaNode#children()}'s doc for a {@link SettingKind#LIST}
+     */
+    private static List<ConfigEntry> templateOf(final Map<String, SchemaNode> elementSchema) {
+        final List<ConfigEntry> fields = new ArrayList<>();
+        for (final Map.Entry<String, SchemaNode> field : elementSchema.entrySet()) {
+            final String key = field.getKey();
+            final SchemaNode schema = field.getValue();
+            fields.add(new ConfigEntry(
+                    key,
+                    key,
+                    schema.label(),
+                    List.of(),
+                    schema.explanation(),
+                    schema.noExplanationNeeded(),
+                    "",
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    Kind.SCALAR,
+                    schema.type() != null ? Type.valueOf(schema.type().name()) : Type.STRING,
+                    0,
+                    true,
+                    ConfigEntry.isSecretKey(key) || schema.secret(),
+                    true,
+                    // A template field is the blank shape of one section, not a value that could
+                    // ever be read from a live file - there is no path here for an environment
+                    // variable to have overridden.
+                    null,
+                    choicesOf(schema),
+                    // A template field is the blank shape of one section, not the list itself -
+                    // @Protected names a whole section by one of its field VALUES, which a blank
+                    // template field never has, so this is always null here.
+                    null));
+        }
+        return List.copyOf(fields);
     }
 
     /**
@@ -313,15 +498,34 @@ public final class ConfigFiles {
      * belongs to whatever came before.</p>
      */
     private static List<String> commentsAbove(final List<String> lines, final int keyLine) {
-        final Deque<String> block = new ArrayDeque<>();
+        final List<String> block = new ArrayList<>();
+        for (int i = commentBlockStartLine(lines, keyLine); i < keyLine; i++) {
+            block.add(stripCommentMarker(withoutLineEnding(lines.get(i)).strip()));
+        }
+        return List.copyOf(block);
+    }
+
+    /**
+     * The first line of the contiguous {@code #} comment block directly above {@code keyLine}, or
+     * {@code keyLine} itself when there is none directly above it (a blank line, or a line that is
+     * not a comment, stops the walk immediately - the same rule {@link #commentsAbove} has always
+     * used for reading).
+     *
+     * <p>{@link #removeSection} (steward/71) is the other caller: it needs the line number rather
+     * than the text, because deleting an entry has to delete the comment lines that belong to it
+     * along with it - and, just as importantly, stop before the comment that belongs to the entry
+     * above.</p>
+     */
+    private static int commentBlockStartLine(final List<String> lines, final int keyLine) {
+        int start = keyLine;
         for (int i = keyLine - 1; i >= 0; i--) {
             final String text = withoutLineEnding(lines.get(i)).strip();
             if (text.isEmpty() || !text.startsWith("#")) {
                 break;
             }
-            block.addFirst(stripCommentMarker(text));
+            start = i;
         }
-        return List.copyOf(block);
+        return start;
     }
 
     /**
@@ -441,13 +645,46 @@ public final class ConfigFiles {
         for (final Map.Entry<String, ConfigChange> change : ordered) {
             final ConfigEntry entry = entryOf(parsed, file, change.getKey());
             final Span span = parsed.spans().get(change.getKey());
-            expected.put(change.getKey(), apply(lines, entry, span, change.getValue()));
+            expected.put(change.getKey(), apply(parsed, lines, entry, span, change.getValue()));
         }
 
         final String content = String.join("", lines);
         verify(file, content, expected);
         writeAtomically(file, content);
         return read(file);
+    }
+
+    /**
+     * The raw-save half of writing (steward/60): the bytes an operator typed into the raw editor,
+     * written verbatim - no parse, no re-serialise, no reformat. This is the whole point of the raw
+     * path, so unlike {@link #write(Path, Map, String)} there is no shape to check a change against
+     * and nothing here ever refuses on content grounds; {@link RawSyntax} is what looks at the text
+     * for a warning, and it runs before this method is ever called.
+     *
+     * <p>The same revision guard as the parsed save, for the same reason: a raw file left open in
+     * one tab while another writes it is not a rarer evening than a parsed one. Comparing against
+     * whatever is on disk right now rather than a cached {@link ConfigDocument#revision()} keeps the
+     * two paths using the exact same {@link #revisionOf(String)}, so a file that started in one form
+     * and gets fixed and saved in the other still conflicts correctly.</p>
+     *
+     * @param file             the file to overwrite
+     * @param content          the exact text to write
+     * @param expectedRevision the revision the caller last read the file as, or {@code null} not to
+     *                         check at all
+     * @return the new revision, {@link #revisionOf(String)} of {@code content}
+     * @throws StaleConfigException if the file has been written since {@code expectedRevision}
+     * @throws IOException          if the file cannot be read or written
+     */
+    public static @NotNull String writeRaw(final @NotNull Path file, final @NotNull String content,
+                                           final String expectedRevision) throws IOException {
+        final String current = Files.exists(file)
+                ? Files.readString(file, StandardCharsets.UTF_8) : "";
+        final String currentRevision = revisionOf(current);
+        if (expectedRevision != null && !expectedRevision.equals(currentRevision)) {
+            throw new StaleConfigException(file, expectedRevision, currentRevision);
+        }
+        writeAtomically(file, content);
+        return revisionOf(content);
     }
 
     private static ConfigEntry entryOf(final Parsed parsed, final Path file, final String path) {
@@ -457,9 +694,11 @@ public final class ConfigFiles {
 
     /**
      * Rewrites one key, and answers with what that key should now read back as - a {@link String}
-     * for a scalar, a {@link List} for a sequence.
+     * for a scalar, a {@link List} for a sequence of scalars, a {@link List} of {@link Map}s for a
+     * {@link Kind#SECTIONS} entry.
      */
-    private static Object apply(final List<String> lines,
+    private static Object apply(final Parsed parsed,
+                                final List<String> lines,
                                 final ConfigEntry entry,
                                 final Span span,
                                 final ConfigChange change) {
@@ -468,14 +707,21 @@ public final class ConfigFiles {
                     + entry.line() + ") and has no value of its own - change the keys under it");
         }
         if (!entry.editable()) {
-            throw new IllegalArgumentException(entry.path() + " is a list of sections (line "
-                    + entry.line() + "): rewriting it would move the comments and the keys inside"
-                    + " it, so this editor leaves it alone - edit that one by hand");
+            // The one remaining shape that reaches here is a sequence that mixes scalars and
+            // mappings - a uniform sequence of mappings is Kind.SECTIONS now and editable (steward/68),
+            // and a uniform sequence of scalars always was.
+            throw new IllegalArgumentException(entry.path() + " is a list whose entries are not all"
+                    + " the same shape (line " + entry.line() + "): this editor cannot describe it"
+                    + " field by field, so it leaves it alone - edit it by hand");
         }
         return switch (change) {
             case ConfigChange.Text text -> {
-                if (entry.kind() != Kind.LIST) {
+                if (entry.kind() == Kind.SCALAR) {
                     yield scalar(lines, entry, span, text.text());
+                }
+                if (entry.kind() == Kind.SECTIONS) {
+                    throw new IllegalArgumentException(entry.path() + " is a list of sections (line "
+                            + entry.line() + "): send one flat record per entry, not one value");
                 }
                 throw new IllegalArgumentException(entry.path() + " is a list (line " + entry.line()
                         + "): send its entries, not one value");
@@ -484,8 +730,20 @@ public final class ConfigFiles {
                 if (entry.kind() == Kind.LIST) {
                     yield sequence(lines, entry, span, items.items());
                 }
+                if (entry.kind() == Kind.SECTIONS) {
+                    throw new IllegalArgumentException(entry.path() + " is a list of sections (line "
+                            + entry.line() + "): send one flat record per entry, not a list of plain"
+                            + " values");
+                }
                 throw new IllegalArgumentException(entry.path() + " is a single value (line "
                         + entry.line() + "): send one value, not a list");
+            }
+            case ConfigChange.Sections sectionsChange -> {
+                if (entry.kind() == Kind.SECTIONS) {
+                    yield sections(parsed, lines, entry, span, sectionsChange.sections());
+                }
+                throw new IllegalArgumentException(entry.path() + " is not a list of sections (line "
+                        + entry.line() + "): send a single value or a list of values instead");
             }
         };
     }
@@ -603,6 +861,388 @@ public final class ConfigFiles {
         keepEndingOf(replacement, lines.get(last));
         replaceLines(lines, span.keyLine(), last, replacement);
         return List.copyOf(items);
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Writing - sections (steward/68)
+    // -----------------------------------------------------------------------------------------
+
+    /**
+     * Rewrites the fields of a {@link Kind#SECTIONS} entry that actually changed, and leaves every
+     * other field - and with it every comment and the key order around it - untouched.
+     *
+     * <p><b>This is the whole of what steward/68 proves.</b> A field already on its own line is
+     * rewritten the same way {@link #scalar} rewrites a top-level one: only the characters of that
+     * value move. A field whose sent value equals what {@code entry.sections()} already read is not
+     * touched at all - not re-read, not re-written, not even considered a candidate line - which is
+     * what makes the surrounding comments and the key order of an entry nobody asked to change
+     * provably still there afterwards, byte for byte.</p>
+     *
+     * <p><b>Adding or removing more than one entry in the same save is refused</b> (steward/71):
+     * {@code incoming} may name exactly as many entries as {@code entry.sections()} already has -
+     * an ordinary field edit, dispatched below - or exactly one more ({@link #appendSection}) or
+     * one fewer ({@link #removeSection}). Anything else is a diff this class does not try to read,
+     * on the same reasoning steward/68 gave for refusing every add or remove outright: guessing
+     * which of several changed entries was added, removed or edited is how a config editor becomes
+     * untrustworthy.</p>
+     */
+    private static List<Map<String, String>> sections(final Parsed parsed,
+                                                       final List<String> lines,
+                                                       final ConfigEntry entry,
+                                                       final Span span,
+                                                       final List<Map<String, String>> incoming) {
+        final List<List<ConfigEntry>> existing = entry.sections();
+        if (incoming.size() == existing.size() + 1) {
+            return appendSection(parsed, lines, entry, span, incoming);
+        }
+        if (incoming.size() == existing.size() - 1) {
+            return removeSection(parsed, lines, entry, incoming);
+        }
+        if (incoming.size() != existing.size()) {
+            throw new IllegalArgumentException(entry.path() + " has " + existing.size()
+                    + " entr" + (existing.size() == 1 ? "y" : "ies") + " in the file right now, but "
+                    + incoming.size() + " " + (incoming.size() == 1 ? "was" : "were")
+                    + " sent - this editor adds or removes exactly one entry per save (steward/71),"
+                    + " not " + Math.abs(incoming.size() - existing.size()) + " at once; save one"
+                    + " change at a time");
+        }
+
+        record PendingEdit(ConfigEntry field, String value) {
+        }
+        final List<PendingEdit> edits = new ArrayList<>();
+        for (int index = 0; index < existing.size(); index++) {
+            final List<ConfigEntry> fields = existing.get(index);
+            final Map<String, String> wanted = incoming.get(index);
+            for (final ConfigEntry field : fields) {
+                final String wantedValue = wanted.get(field.key());
+                if (wantedValue == null) {
+                    throw new IllegalArgumentException(field.path() + " is missing from entry "
+                            + index + " of " + entry.path() + " that was sent to be saved");
+                }
+                if (field.kind() != Kind.SCALAR) {
+                    // Neither real case (tiers, languages) nests a map or a list inside one entry;
+                    // refusing rather than guessing is the same choice #everyFieldIsAScalar makes
+                    // for the template on the reading side.
+                    throw new IllegalArgumentException(field.path() + " (line " + field.line()
+                            + ") is not a plain value and cannot be changed through " + entry.path());
+                }
+                if (!wantedValue.equals(field.value())) {
+                    edits.add(new PendingEdit(field, wantedValue));
+                }
+            }
+        }
+
+        // Bottom of the file upwards, exactly like the top-level write() loop and for the same
+        // reason: a field rewritten as a block would change how many lines follow it, and every
+        // span below it would then point at the wrong line.
+        edits.sort(Comparator.comparingInt(
+                (final PendingEdit edit) -> parsed.spans().get(edit.field().path()).line()).reversed());
+        final Map<String, String> rendered = new HashMap<>();
+        for (final PendingEdit edit : edits) {
+            final Span fieldSpan = parsed.spans().get(edit.field().path());
+            rendered.put(edit.field().path(), scalar(lines, edit.field(), fieldSpan, edit.value()));
+        }
+
+        final List<Map<String, String>> written = new ArrayList<>(existing.size());
+        for (final List<ConfigEntry> fields : existing) {
+            final Map<String, String> row = new LinkedHashMap<>();
+            for (final ConfigEntry field : fields) {
+                row.put(field.key(), rendered.getOrDefault(field.path(), field.value()));
+            }
+            written.add(Map.copyOf(row));
+        }
+        return List.copyOf(written);
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Writing - sections: adding and removing an entry (steward/71)
+    // -----------------------------------------------------------------------------------------
+
+    /**
+     * Appends one new entry to a {@link Kind#SECTIONS} list.
+     *
+     * <p><b>Only a pure append is accepted.</b> {@code incoming} has to carry every existing entry
+     * completely unchanged, in order, plus exactly one more entry at the end. A save that both
+     * edits a field and adds an entry is refused rather than guessed at - two saves, not one that
+     * has to be unpicked into which value belonged to which operation.</p>
+     *
+     * <p><b>The new entry's shape is copied from the existing last entry, never invented</b>: the
+     * same field keys, in the same order, at the same two columns (the {@code - } and the
+     * continuation lines beneath it), preceded by a blank line only if the last entry already was
+     * - exactly the "indentation and list style" the ticket asks not to guess at. A list with no
+     * entries at all has no shape to copy and this refuses rather than inventing one; jcore's own
+     * {@code ArrayCommentStyle#COMMENT_FIRST_ELEMENT} is why the last entry, rather than the first,
+     * is the safe one to copy - the first is the one entry that might carry a comment the new one
+     * must not inherit.</p>
+     */
+    private static List<Map<String, String>> appendSection(final Parsed parsed,
+                                                            final List<String> lines,
+                                                            final ConfigEntry entry,
+                                                            final Span span,
+                                                            final List<Map<String, String>> incoming) {
+        final List<List<ConfigEntry>> existing = entry.sections();
+        if (existing.isEmpty()) {
+            throw new IllegalArgumentException(entry.path() + " (line " + entry.line() + ") has no"
+                    + " entry yet to copy the shape of a new one from - add the first entry by hand");
+        }
+        if (span.flow()) {
+            throw new IllegalArgumentException(entry.path() + " (line " + entry.line() + ") is"
+                    + " written as a flow sequence: adding an entry is not supported for that style -"
+                    + " write it as a block sequence by hand first");
+        }
+        if (!allFieldsAreScalar(existing)) {
+            throw new IllegalArgumentException(entry.path() + " (line " + entry.line() + ") has a"
+                    + " field that is not a plain value: adding an entry only works when every field"
+                    + " of every entry is a simple value");
+        }
+
+        for (int index = 0; index < existing.size(); index++) {
+            final Map<String, String> wanted = incoming.get(index);
+            for (final ConfigEntry field : existing.get(index)) {
+                final String wantedValue = wanted.get(field.key());
+                if (wantedValue == null) {
+                    throw new IllegalArgumentException(field.path() + " is missing from entry "
+                            + index + " of " + entry.path() + " that was sent to be saved");
+                }
+                if (!wantedValue.equals(field.value())) {
+                    throw new IllegalArgumentException(entry.path() + ": adding an entry cannot also"
+                            + " change " + field.path() + " in the same save - save that change"
+                            + " first, then add the entry");
+                }
+            }
+        }
+
+        final List<ConfigEntry> template = existing.getLast();
+        final Map<String, String> newFields = incoming.getLast();
+        // Two maps on purpose, and never one: `renderedText` is what has to appear after the colon
+        // in the file - quoted, if the value needs it - and `newRow` is the logical value a re-read
+        // of that same line comes back as, unquoted, which is what ConfigEntry#value() and therefore
+        // #verify() below both deal in. Handing the quoted text to #verify() as if it were the value
+        // is exactly the "'' instead of an empty string" bug the file wrote before this comment did.
+        final Map<String, String> renderedText = new LinkedHashMap<>();
+        final Map<String, String> newRow = new LinkedHashMap<>();
+        for (final ConfigEntry field : template) {
+            final String value = newFields.get(field.key());
+            if (value == null) {
+                throw new IllegalArgumentException(field.key() + " is missing from the new entry of "
+                        + entry.path() + " that was sent to be saved");
+            }
+            if (value.indexOf('\n') >= 0) {
+                throw new IllegalArgumentException(entry.path() + ": a new entry cannot hold a"
+                        + " multi-line value (" + field.key() + ")");
+            }
+            renderedText.put(field.key(),
+                    Scalars.render(field.type(), value, entry.path() + "." + field.key()));
+            newRow.put(field.key(), value);
+        }
+
+        final Span firstFieldSpan = parsed.spans().get(template.getFirst().path());
+        final Span secondFieldSpan = template.size() > 1
+                ? parsed.spans().get(template.get(1).path()) : null;
+        final int dashColumn = span.start();
+        final int fieldColumn = secondFieldSpan != null ? secondFieldSpan.keyColumn() : dashColumn + 2;
+        final int lastEntryStartLine = firstFieldSpan.keyLine();
+        final boolean blankLineBefore = lastEntryStartLine > 0
+                && withoutLineEnding(lines.get(lastEntryStartLine - 1)).isBlank();
+        final String inner = dominantEnding(lines);
+
+        final List<String> newLines = new ArrayList<>();
+        if (blankLineBefore) {
+            newLines.add(inner);
+        }
+        boolean first = true;
+        for (final ConfigEntry field : template) {
+            final String prefix = (first ? " ".repeat(dashColumn) + "- " : " ".repeat(fieldColumn))
+                    + field.key() + ":";
+            newLines.add(prefix + " " + renderedText.get(field.key()) + inner);
+            first = false;
+        }
+        // The end of THIS list's own block, not of the file - `donation-cents` and everything else
+        // AccessSpec declares after `tiers` still has to end up after the new entry, not before it.
+        final int sequenceEndLine = sequenceExtent(lines, span.keyLine(), span.start());
+        insertLinesAfter(lines, sequenceEndLine, newLines);
+
+        final List<Map<String, String>> written = new ArrayList<>(existing.size() + 1);
+        for (final List<ConfigEntry> fields : existing) {
+            final Map<String, String> row = new LinkedHashMap<>();
+            for (final ConfigEntry field : fields) {
+                row.put(field.key(), field.value());
+            }
+            written.add(Map.copyOf(row));
+        }
+        written.add(Map.copyOf(newRow));
+        return List.copyOf(written);
+    }
+
+    /**
+     * Inserts {@code newLines} right after {@code lines.get(index)}, preserving the file's trailing
+     * newline convention if {@code index} happens to be its very last line - the insert counterpart
+     * of {@link #keepEndingOf}, which does the same job for a block rewritten in place.
+     */
+    private static void insertLinesAfter(final List<String> lines, final int index,
+                                         final List<String> newLines) {
+        if (index == lines.size() - 1) {
+            final String last = lines.get(index);
+            final String withoutEnding = withoutLineEnding(last);
+            if (withoutEnding.length() == last.length() && !withoutEnding.isEmpty()) {
+                // The old last line of the file had no trailing newline. It is no longer the last
+                // line, so it needs one now, and the newly inserted last line inherits the "no
+                // ending" state instead.
+                lines.set(index, withoutEnding + dominantEnding(lines));
+                final String newLast = newLines.get(newLines.size() - 1);
+                newLines.set(newLines.size() - 1, withoutLineEnding(newLast));
+            }
+        }
+        lines.addAll(index + 1, newLines);
+    }
+
+    /**
+     * Removes exactly one entry from a {@link Kind#SECTIONS} list, together with the comment lines
+     * that belong to it and none that belong to the next one.
+     *
+     * <p><b>Only a pure removal is accepted</b>, for the same reason {@link #appendSection} only
+     * accepts a pure append: {@code incoming} has to be {@code existing} with exactly one entry
+     * missing and every remaining entry's fields byte-for-byte unchanged, or this refuses rather
+     * than guessing which entry was meant and which value was also edited.</p>
+     *
+     * <p><b>This is the hard half of steward/71.</b> A comment sitting directly above the removed
+     * entry's own {@code - } line belongs to it and is deleted with it ({@link
+     * #commentBlockStartLine}, the same walk {@link #commentsAbove} does for reading); a comment
+     * directly above the <em>next</em> entry's {@code - } line belongs to that one, and is never
+     * reached by this walk because it starts counting from the removed entry's own line, not the
+     * removed entry's end.</p>
+     */
+    private static List<Map<String, String>> removeSection(final Parsed parsed,
+                                                            final List<String> lines,
+                                                            final ConfigEntry entry,
+                                                            final List<Map<String, String>> incoming) {
+        final List<List<ConfigEntry>> existing = entry.sections();
+        if (!allFieldsAreScalar(existing)) {
+            throw new IllegalArgumentException(entry.path() + " (line " + entry.line() + ") has a"
+                    + " field that is not a plain value: removing an entry only works when every"
+                    + " field of every entry is a simple value");
+        }
+
+        int removedIndex = -1;
+        for (int index = 0; index < existing.size(); index++) {
+            final Map<String, String> candidate = index < incoming.size() ? incoming.get(index) : null;
+            if (!matchesSection(existing.get(index), candidate)) {
+                removedIndex = index;
+                break;
+            }
+        }
+        if (removedIndex < 0) {
+            // Every entry that incoming names at all matched exactly; the missing one is the extra
+            // entry at the very end of `existing`.
+            removedIndex = existing.size() - 1;
+        }
+        boolean ok = true;
+        for (int index = removedIndex; index < incoming.size(); index++) {
+            if (!matchesSection(existing.get(index + 1), incoming.get(index))) {
+                ok = false;
+                break;
+            }
+        }
+        if (!ok) {
+            throw new IllegalArgumentException(entry.path() + " has " + existing.size() + " entries"
+                    + " in the file right now, but what was sent does not read as exactly one of"
+                    + " them removed and nothing else changed - remove an entry and edit a field in"
+                    + " separate saves");
+        }
+
+        final List<ConfigEntry> removed = existing.get(removedIndex);
+        refuseIfProtected(entry, removed);
+        final Span firstFieldSpan = parsed.spans().get(removed.getFirst().path());
+        final Span lastFieldSpan = parsed.spans().get(removed.getLast().path());
+        final int entryStartLine = firstFieldSpan.keyLine();
+        final int entryEndLine = blockExtent(lines, lastFieldSpan.keyLine(), lastFieldSpan.keyColumn());
+        final int deleteFrom = commentBlockStartLine(lines, entryStartLine);
+        lines.subList(deleteFrom, entryEndLine + 1).clear();
+
+        final List<Map<String, String>> written = new ArrayList<>(existing.size() - 1);
+        for (int index = 0; index < existing.size(); index++) {
+            if (index == removedIndex) {
+                continue;
+            }
+            final Map<String, String> row = new LinkedHashMap<>();
+            for (final ConfigEntry field : existing.get(index)) {
+                row.put(field.key(), field.value());
+            }
+            written.add(Map.copyOf(row));
+        }
+        return List.copyOf(written);
+    }
+
+    /**
+     * Refuses to remove the one section {@code entry}'s schema names as protected (steward/74),
+     * before a single line of the file is touched.
+     *
+     * <p><b>This is the net {@code SchemaNode} could not express before steward/74.</b> A schema
+     * described only the shape of a list's elements, never a rule about one specific value among
+     * them, so `en` could always be removed from {@code languages} through this same method - the
+     * bot's own startup validator was the only thing that ever noticed, and only on the next
+     * restart. {@link ConfigEntry#protectedEntry()} is what {@code @Protected} on the
+     * {@code @ConfigSpec} now puts here instead.</p>
+     *
+     * <p>Nothing here assumes which list this is or what the protected value means - it only reads
+     * {@code entry.protectedEntry()} and one field of {@code removed}, the same way every other rule
+     * in this class reads the schema rather than hardcoding a list's name.</p>
+     */
+    private static void refuseIfProtected(final ConfigEntry entry, final List<ConfigEntry> removed) {
+        final ConfigEntry.Protected protectedEntry = entry.protectedEntry();
+        if (protectedEntry == null) {
+            return;
+        }
+        for (final ConfigEntry field : removed) {
+            if (field.key().equals(protectedEntry.field())
+                    && field.value().equals(protectedEntry.value())) {
+                // The schema's own explanation is deliberately NOT pasted in here. Measured
+                // against the running worker on 2026-09-17, `languages` answered this refusal with
+                // fifteen lines of schema prose, ending mid-sentence in the browser's alert - and
+                // the page showing that alert is already displaying the same explanation under the
+                // list. An error says what happened; the explanation is the page's job, and Till
+                // has asked for less text everywhere in this interface, not more.
+                throw new IllegalArgumentException(entry.path() + ": the entry whose "
+                        + protectedEntry.field() + " is '" + protectedEntry.value() + "' cannot be"
+                        + " removed - the schema marks it as required.");
+            }
+        }
+    }
+
+    /** Whether every field of {@code fields} already reads exactly as {@code candidate} says. */
+    private static boolean matchesSection(final List<ConfigEntry> fields, final Map<String, String> candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        for (final ConfigEntry field : fields) {
+            if (!field.value().equals(candidate.get(field.key()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether every field of every entry is a plain value - {@link #appendSection} and {@link
+     * #removeSection} both stop rather than guess at a shape with a nested map or list inside it,
+     * the same restriction {@link #everyFieldIsAScalar} places on building a {@code template}. */
+    private static boolean allFieldsAreScalar(final List<List<ConfigEntry>> sections) {
+        return sections.stream().flatMap(List::stream).allMatch(field -> field.kind() == Kind.SCALAR);
+    }
+
+    /**
+     * The same shape {@link #sections} writes, read back out of an already-parsed
+     * {@link Kind#SECTIONS} entry - what {@link #verify} compares the write above against.
+     */
+    private static List<Map<String, String>> sectionValuesOf(final ConfigEntry entry) {
+        final List<Map<String, String>> result = new ArrayList<>(entry.sections().size());
+        for (final List<ConfigEntry> section : entry.sections()) {
+            final Map<String, String> row = new LinkedHashMap<>();
+            for (final ConfigEntry field : section) {
+                row.put(field.key(), field.value());
+            }
+            result.add(Map.copyOf(row));
+        }
+        return result;
     }
 
     // -----------------------------------------------------------------------------------------
@@ -771,7 +1411,8 @@ public final class ConfigFiles {
         }
         final List<ConfigEntry> entries = new ArrayList<>();
         try {
-            collect(file, (MappingNode) root, "", splitKeepingLineEndings(content), entries, new HashMap<>());
+            collect(file, (MappingNode) root, "", splitKeepingLineEndings(content), entries, new HashMap<>(),
+                    Optional.empty(), Optional.empty());
         } catch (final IOException | ClassCastException e) {
             throw new IllegalStateException("Refusing to write " + file
                     + ": the edited content cannot be read back. This is a bug in ConfigFiles.", e);
@@ -782,7 +1423,11 @@ public final class ConfigFiles {
                     .orElseThrow(() -> new IllegalStateException("Refusing to write " + file
                             + ": " + path + " disappeared from the edited content."
                             + " This is a bug in ConfigFiles."));
-            final Object actual = value instanceof List ? entry.items() : entry.value();
+            final Object actual = switch (entry.kind()) {
+                case LIST -> entry.items();
+                case SECTIONS -> sectionValuesOf(entry);
+                case SCALAR, MAP -> entry.value();
+            };
             if (!actual.equals(value)) {
                 throw new IllegalStateException("Refusing to write " + file + ": " + path
                         + " would read back as \"" + actual + "\" instead of \"" + value + "\"."
@@ -857,17 +1502,62 @@ public final class ConfigFiles {
     // Discovery
     // -----------------------------------------------------------------------------------------
 
+    /** The suffix {@link eu.nordtal.jcore.config.schema.SchemaWriter#schemaFileFor} always writes. */
+    private static final String SCHEMA_SUFFIX = ".schema.json";
+
+    /**
+     * jcore's own copy of the file as it was before the last write. Excluded by name, decided by
+     * Till on 2026-09-16 when the broadening below was measured against the running mount and
+     * turned up six of them.
+     *
+     * <p>It is the one new entry that would be actively wrong rather than merely noisy: it is
+     * YAML, it parses, it draws a perfectly ordinary form, and every edit made in that form is
+     * written to a file nothing reads. A page that offers a control which does nothing is worse
+     * than a page missing a file.</p>
+     */
+    private static final String BACKUP_SUFFIX = ".bak";
+
+    /**
+     * A directory whose contents are scratch, not configuration - {@code spark/tmp} holds profiler
+     * dumps and an {@code about.txt}, and the same name is the convention everywhere else. Matched
+     * as a whole path segment, so a file honestly called {@code tmp.yml} is still listed.
+     */
+    private static final String SCRATCH_DIRECTORY = "tmp";
+
+    /** How many bytes of a file {@link #isProbablyText} looks at before deciding. */
+    private static final int SNIFF_LENGTH = 8000;
+
     /**
      * Every config file under the mount, one directory per service.
      *
      * <p>{@code /configs/steward-worker/steward.yml} is service {@code steward-worker}, name
      * {@code steward.yml}; {@code /configs/smp/nordtal-smp/config.yml} is service {@code smp}, name
-     * {@code nordtal-smp/config.yml}. A {@code .yml} lying directly in the root has no service
-     * directory above it and is reported with an empty service rather than dropped - a file the
-     * page does not list is a file nobody will go looking for.</p>
+     * {@code nordtal-smp/config.yml}. A file lying directly in the root has no service directory
+     * above it and is reported with an empty service rather than dropped - a file the page does not
+     * list is a file nobody will go looking for.</p>
+     *
+     * <p><b>Not only {@code .yml} any more (steward/55).</b> A directory under this mount holds a
+     * plugin's {@code README.txt}, a {@code spark/config.json}, a {@code voicechat-server.properties}
+     * - real files this stack already has, that used to be invisible to this page purely because of
+     * their extension. So this no longer filters by name at all; it filters by content, the same way
+     * {@code git} and {@code grep} decide a file is worth treating as text: {@link #isProbablyText}
+     * sniffs the first few kilobytes for a NUL byte, which no text encoding this stack writes ever
+     * contains and every binary format eventually does. A file this process cannot read is not
+     * sniffed and not excluded either - hiding a config nobody can open yet is a worse answer than
+     * showing it and letting {@link ConfigLocation#readable()} say why it is dead.</p>
+     *
+     * <p>Three things are excluded by name rather than by content, and each for its own reason.
+     * Every {@code <name>.schema.json} jcore writes beside a config file is the description of
+     * another file in this listing, never a file of its own. Every {@code *.bak} is jcore's copy of
+     * a file as it was before the last write - it is YAML, it parses, and it would draw a form
+     * whose every control writes to something nothing reads. And anything under a {@code tmp}
+     * directory is scratch: {@code spark/tmp} holds profiler dumps and a stray {@code about.txt}.
+     * Measured against the running mount on 2026-09-16, those three rules are the difference
+     * between 49 files and 39, and the six {@code .bak} among them are the reason the rule exists
+     * at all.</p>
      *
      * @param root the mount point
-     * @return every {@code *.yml} beneath it, by service then name. <b>Empty if the root does not
+     * @return every text file beneath it, by service then name. <b>Empty if the root does not
      *         exist</b>: an unmounted volume is a normal state the page has to be able to report,
      *         not a failure
      * @throws UncheckedIOException if the root exists but cannot be walked
@@ -878,19 +1568,83 @@ public final class ConfigFiles {
         }
         try (Stream<Path> walk = Files.walk(root)) {
             return walk.filter(Files::isRegularFile)
-                    // A LINK IS NOT A CONFIG FILE. `isRegularFile` follows one, so a `.yml` link
-                    // dropped into a shared config volume would be listed, read and written
-                    // through - wherever it points. That is the one way out of this mount, and
-                    // this class's whole claim is that there is none: the browser's string is
-                    // matched against this list and never joined onto a path.
+                    // A LINK IS NOT A CONFIG FILE. `isRegularFile` follows one, so a link dropped
+                    // into a shared config volume would be listed, read and written through -
+                    // wherever it points. That is the one way out of this mount, and this class's
+                    // whole claim is that there is none: the browser's string is matched against
+                    // this list and never joined onto a path.
                     .filter(path -> !Files.isSymbolicLink(path))
-                    .filter(path -> path.getFileName().toString().endsWith(".yml"))
+                    .filter(path -> !path.getFileName().toString().endsWith(SCHEMA_SUFFIX))
+                    .filter(path -> !path.getFileName().toString().endsWith(BACKUP_SUFFIX))
+                    // A MARKER IS NOT A CONFIG FILE either (steward/76). Services write
+                    // `<name>.env-overrides.txt` beside their own config, and without this line
+                    // every one of them would appear on the service page as a configuration in its
+                    // own right - listed, opened, and editable, which is worse than merely
+                    // confusing: editing it would change what the warning says without changing a
+                    // single thing about what the environment actually overrides. The `.tmp` is
+                    // matched too because `write` moves one into place, and `discover` can walk
+                    // the directory inside that window.
+                    .filter(path -> !path.getFileName().toString().endsWith(EnvOverrideFile.SUFFIX))
+                    .filter(path -> !path.getFileName().toString().endsWith(EnvOverrideFile.SUFFIX + ".tmp"))
+                    .filter(path -> isUnderNoScratchDirectory(root, path))
+                    .filter(ConfigFiles::isProbablyText)
                     .map(path -> locationOf(root, path))
                     .sorted(Comparator.comparing(ConfigLocation::service)
                             .thenComparing(ConfigLocation::name))
                     .toList();
         } catch (final IOException e) {
             throw new UncheckedIOException("Cannot list the config files under " + root, e);
+        }
+    }
+
+    /**
+     * Whether no directory between {@code root} and {@code path} is a scratch directory.
+     *
+     * <p>Compared segment by segment rather than with {@code contains}, so {@code smp/tmp/about.txt}
+     * is excluded and {@code smp/tmpl/config.yml} is not.</p>
+     *
+     * <p><b>Relative to the root, and that is not a detail.</b> Walking the absolute path would
+     * mean every segment above the mount counts too - and this project's own test fixtures live
+     * under {@code /tmp}, so the first version of this rule matched the mount itself and hid every
+     * file in it. The rule is about the layout inside the volume; nothing above it is ours to
+     * read.</p>
+     */
+    private static boolean isUnderNoScratchDirectory(final Path root, final Path path) {
+        for (final Path segment : root.relativize(path)) {
+            if (segment.toString().equals(SCRATCH_DIRECTORY)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Whether a file looks like text rather than a binary format, by the same heuristic {@code git}
+     * and {@code grep} use: a NUL byte in the first few kilobytes means binary, because no text
+     * encoding this stack ever writes contains one.
+     *
+     * <p>A file this process cannot read is treated as text rather than excluded - there is nothing
+     * to sniff, and hiding a config nobody can open (yet) is a worse answer than listing it dead. An
+     * empty file is text; there is nothing in it to say otherwise.</p>
+     */
+    private static boolean isProbablyText(final Path path) {
+        if (!Files.isReadable(path)) {
+            return true;
+        }
+        try (var in = Files.newInputStream(path)) {
+            final byte[] buffer = new byte[SNIFF_LENGTH];
+            final int read = in.read(buffer);
+            for (int i = 0; i < read; i++) {
+                if (buffer[i] == 0) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (final IOException e) {
+            // Unreadable in a way `Files.isReadable` did not catch - a permission race, a link
+            // whose target vanished after the check above. Same answer as above and for the same
+            // reason.
+            return true;
         }
     }
 

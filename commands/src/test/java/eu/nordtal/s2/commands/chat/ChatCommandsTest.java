@@ -60,6 +60,33 @@ class ChatCommandsTest {
     }
 
     @Test
+    @DisplayName("writing to yourself is refused, and with its own sentence")
+    void aMessageToYourselfIsRefused() {
+        // Vanilla allows it and so did this until season-2-ingame/24. The sentence matters as much
+        // as the refusal: "player not found" sends somebody looking for a typo that is not there.
+        final FakeUser user = FakeUser.inGame();
+        msg().run(user, values(ChatCommands.MSG, Map.of(
+                ChatCommands.PLAYER, user.minecraftUuid().orElseThrow(),
+                ChatCommands.MESSAGE, "hello")), effects);
+
+        assertEquals(List.of("chat.msg.self"), user.keys());
+        assertEquals(List.of(), effects.sent,
+                "nothing may be handed to the effect - a delivery that is then discarded is still a"
+                        + " delivery, and on the proxy it would set the reply partner to yourself");
+    }
+
+    @Test
+    @DisplayName("writing to somebody else from the same account is untouched by that")
+    void aMessageToAnotherPlayerStillGoesThrough() {
+        final FakeUser user = FakeUser.inGame();
+        msg().run(user, values(ChatCommands.MSG, Map.of(
+                ChatCommands.PLAYER, SOMEBODY, ChatCommands.MESSAGE, "hello")), effects);
+
+        assertEquals(List.of(), user.keys());
+        assertEquals(List.of(new FakeChat.Sent(SOMEBODY, "hello")), effects.sent);
+    }
+
+    @Test
     @DisplayName("a recipient who left between typing and sending is told about, not swallowed")
     void goneIsReported() {
         effects.answer = ChatEffects.Outcome.GONE;

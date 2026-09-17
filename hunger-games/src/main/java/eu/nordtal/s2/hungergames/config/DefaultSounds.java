@@ -66,6 +66,9 @@ final class DefaultSounds {
      */
     static final SoundsSpec.SoundSpec STAGING = sound("", 1.0f);
 
+    /** Unreachable on this server - see SoundsSpec. Kept identical to the SMP's all the same. */
+    static final SoundsSpec.SoundSpec RECLAIMED = sound("minecraft:entity.skeleton.death", 1.0f);
+
     private DefaultSounds() {
     }
 

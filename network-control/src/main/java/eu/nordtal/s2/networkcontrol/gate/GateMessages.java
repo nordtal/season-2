@@ -142,6 +142,16 @@ public final class GateMessages {
                         .color(NamedTextColor.GRAY));
     }
 
+    /**
+     * A backend lost this player without sending a reason, so they were redirected into the waiting
+     * room instead of onto a disconnect screen (season-2-ops/20). Velocity shows this component at
+     * the moment of the redirect - it is the only explanation the player gets, because the path that
+     * produced the kick never decided anything to say. See {@link BackendKick}.
+     */
+    public Component connectionLost(final Locale locale) {
+        return MessageRenderer.of(messages).get(locale, "gate.connection-lost");
+    }
+
     /** The database is unreachable and the fallback cache has nothing usable for this player. */
     public Component trouble(final Locale locale) {
         return MessageRenderer.of(messages).get(locale, "gate.trouble");

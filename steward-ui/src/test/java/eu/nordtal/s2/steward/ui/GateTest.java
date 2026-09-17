@@ -95,6 +95,12 @@ class GateTest {
                 return new WebAuthnSpec() {
                 };
             }
+
+            @Override
+            public AvatarSpec avatars() {
+                return new AvatarSpec() {
+                };
+            }
         };
         app = new StewardUi(config,
                 new DiscordAuth(config.discord(), config.publicUrl()),

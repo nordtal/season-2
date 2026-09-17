@@ -2,6 +2,8 @@ package eu.nordtal.s2.steward.worker;
 
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.online.OnlineDirectory;
+import eu.nordtal.s2.common.audit.AuditDirectory;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.metric.MetricDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
@@ -15,11 +17,13 @@ import eu.nordtal.s2.steward.worker.config.Configs;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.docker.Console;
+import eu.nordtal.s2.steward.worker.docker.DeployerRecreate;
 import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerOps;
 import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
 import eu.nordtal.s2.steward.worker.metric.Sampler;
+import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.plan.Change;
 import eu.nordtal.s2.steward.worker.plan.Report;
 import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
@@ -388,8 +392,25 @@ public final class StewardWorker {
                         Path.of(config.docker().socket()), Duration.ofSeconds(30)));
                 // One instance, shared by the internal API and by every update run: they ask the
                 // same daemon about the same compose project, and a second one would be a second
-                // answer to the same question.
-                final DockerOps containers = new DockerOps(docker, config.docker().project());
+                // answer to the same question. WorkerApi keeps this one, undecorated - it only
+                // ever calls images(), never recreate().
+                final DockerOps dockerOps = new DockerOps(docker, config.docker().project());
+                // The one thing DockerOps refuses (season-2-ops/22): recreating a container needs
+                // the compose file, and only steward-deployer has it. An empty token leaves this
+                // exactly as it always was - DockerOps' own refusal, named - because a container
+                // that cannot authenticate to the deployer must not silently pretend it can.
+                if (config.deployer().token().isBlank()) {
+                    log.warn("deployer.token is empty in steward.yml, so this container cannot ask"
+                            + " steward-deployer to recreate a service: an update whose image has"
+                            + " moved stops the old container and starts it again on that same"
+                            + " image, and the line stays FAILED. The setup script writes that"
+                            + " secret.");
+                }
+                final ContainerOps containers = config.deployer().token().isBlank()
+                        ? dockerOps
+                        : new DeployerRecreate(dockerOps, config.deployer().url(),
+                                config.deployer().token(), Duration.ofSeconds(config.httpTimeoutSeconds()),
+                                Duration.ofSeconds(config.deployer().timeoutSeconds()));
                 if (!docker.isReachable()) {
                     // The one that matters: without the socket an update, a restart or a backup
                     // refuses at its first step rather than half way through. Said once, here,
@@ -426,15 +447,22 @@ public final class StewardWorker {
                 // runner starts and commits the countdown on the row it is running. Two would be
                 // two pools for one table.
                 final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
+                // Read-only, for ActionsApi's feed (steward/82) - the run loop above never touches
+                // audit_log, so this is the one directory this method opens purely for the API.
+                final AuditDirectory audit = AuditDirectory.using(database.dataSource());
                 // What steward-ui reads this container through (§3). It is started after the
                 // readiness marker for the same reason the sampler is: nothing in the stack waits
                 // for this API, and a container that would not come up because a web layer failed
                 // would take four Minecraft servers with it.
-                try (WorkerApi api = new WorkerApi(docker, containers,
+                try (WorkerApi api = new WorkerApi(docker, dockerOps,
                         new Console(docker, config.docker().project()), new HostMetrics(),
                         config.docker().project(), Path.of(config.backup().outputRoot()),
                         config.api().token(), Path.of(config.api().configsRoot()),
-                        new WorkerApi.Nightly(config.backup().at(), ZoneId.systemDefault()))) {
+                        Path.of(config.volumesRoot()), updates, audit,
+                        new WorkerApi.Nightly(config.backup().at(), ZoneId.systemDefault()),
+                        // The player counts network-control writes (steward/86). Same pool again -
+                        // four rows read per service table, and no second connection for them.
+                        OnlineDirectory.using(database.dataSource()))) {
                     if (config.api().token().isBlank()) {
                         log.warn("api.token is empty, so the internal API is not listening and"
                                 + " steward-ui cannot read this container. Updates and backups are"

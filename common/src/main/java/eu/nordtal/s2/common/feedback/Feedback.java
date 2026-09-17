@@ -45,5 +45,13 @@ public enum Feedback {
      * device is later pointed at. Its {@code sounds.yml} key ships empty - which every module treats
      * as silence - because the sound it wants arrives with the art.
      */
-    STAGING
+    STAGING,
+
+    /**
+     * Something is given back, heard by everyone standing nearby rather than by one player: a grave
+     * settling once it is empty. Not {@link #LOSS} - that is something taken from you, and this is its
+     * opposite - and not {@link #SMALL_SUCCESS}, which belongs to the pickup itself rather than to the
+     * grave disappearing. Added for season-2-ingame/15, Till 2026-09-15.
+     */
+    RECLAIMED
 }

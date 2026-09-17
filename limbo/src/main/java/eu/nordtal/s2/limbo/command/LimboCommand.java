@@ -10,6 +10,7 @@ import eu.nordtal.s2.commands.limbo.LimboEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.papercommon.command.PaperCommands;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 
@@ -51,7 +52,8 @@ public final class LimboCommand {
             final Predicate<UUID> isAdmin,
             final java.util.function.Function<UUID, Optional<String>> discordIdOf,
             final Outbox outbox, final LimboEffects effects,
-            final javax.sql.DataSource pool) {
+            final javax.sql.DataSource pool,
+            final java.util.function.Supplier<ToneColours> colours) {
 
         final PaperCommands commands = new PaperCommands(plugin, messages, Target.LIMBO, outbox,
                 locales::of, isAdmin,
@@ -61,7 +63,7 @@ public final class LimboCommand {
                 // lazily and Outbox#send is the only caller, so the query never lands on the login
                 // path's own main thread - which is what the empty version was protecting.
                 discordIdOf,
-                PaperUser.Chime.silent());
+                PaperUser.Chime.silent(), colours);
 
         for (final NordtalCommand<LimboEffects> command : LimboCommands.all()) {
             commands.local(command, effects);

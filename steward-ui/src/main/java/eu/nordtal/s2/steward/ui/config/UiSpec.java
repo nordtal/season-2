@@ -2,7 +2,9 @@ package eu.nordtal.s2.steward.ui.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
@@ -32,6 +34,7 @@ public interface UiSpec {
             "The port inside the container. Caddy is in front of it and terminates TLS; nothing",
             "else ever talks to this port."
     })
+    @NoExplanationNeeded
     default int port() {
         return 8080;
     }
@@ -56,6 +59,7 @@ public interface UiSpec {
             "origin in a WebAuthn response is compared against this address exactly, which is why",
             "changing it is a change to the second factor as well as to the Discord redirect."
     })
+    @Explain("Pins both the Discord redirect URI and the WebAuthn origin check - not the same value as webauthn.relying-party-id below, though the two are cross-checked at startup so they cannot quietly drift apart.")
     default String publicUrl() {
         return "https://steward.dev.nordtal.eu";
     }
@@ -63,6 +67,7 @@ public interface UiSpec {
     @Order(3)
     @Key("worker")
     @Comment("Where steward-worker's internal API is, and the secret it expects.")
+    @NoExplanationNeeded
     WorkerSpec worker();
 
     @Order(4)
@@ -82,6 +87,7 @@ public interface UiSpec {
             "own is WHO may register one at all: the admin role below is the gate in front of the",
             "gate."
     })
+    @Explain("The bot's own Discord application, reused rather than a separate one. Discord only decides who may attempt to register a security key - webauthn below is a second, mandatory gate behind it.")
     DiscordSpec discord();
 
     @Order(5)
@@ -107,6 +113,7 @@ public interface UiSpec {
             "does never reach a file that already has the key. The old `session-hours: 12` line",
             "is left behind as a dead key and can be deleted whenever somebody is in there."
     })
+    @Explain("Only defensible because a security key stands in front of every dangerous action - raising this without keeping that boundary intact turns a stolen cookie into a month-long back door.")
     default int sessionDays() {
         return 30;
     }
@@ -120,7 +127,20 @@ public interface UiSpec {
             "service that is down, and a missing backup - are not adjustable and are not meant to",
             "be. A stopped SMP is not a preference."
     })
+    @Explain("Only these two thresholds are a matter of taste - a stopped service and a missing backup are separate, non-adjustable triggers on the same traffic light.")
     AlertSpec alerts();
+
+    @Order(7)
+    @Key("avatars")
+    @Comment({
+            "Where a Minecraft head image comes from (steward/45).",
+            "",
+            "Moved here from steward/44, which found the two open questions and left them: a",
+            "column in the database would have gone stale the moment this URL changed, so the",
+            "identity display builds the address itself from mc_uuid plus the base below."
+    })
+    @NoExplanationNeeded
+    AvatarSpec avatars();
 
     @Order(8)
     @Key("deployer")
@@ -136,6 +156,7 @@ public interface UiSpec {
             "Empty means the button is not offered and the page says why, rather than offering a",
             "button that fails."
     })
+    @Explain("A second service and a second secret from steward-worker's own - the split is this stack's privilege boundary, so one stolen token can never both read and recreate a container.")
     DeployerSpec deployer();
 
     @Order(9)
@@ -148,6 +169,7 @@ public interface UiSpec {
             "for a scalar key, and AddedSectionTest holds for this whole block - so it is a commit",
             "and not a deployment step."
     })
+    @NoExplanationNeeded
     WebAuthnSpec webauthn();
 
     /**
@@ -183,6 +205,7 @@ public interface UiSpec {
                 "It must be `public-url`'s host or a parent of it. A browser silently refuses any",
                 "other combination, so it is refused loudly here instead."
         })
+        @Explain("The one decision here that cannot be taken back: changing it invalidates every registered key rather than migrating them, and every subdomain of the value chosen becomes a trusted sign-in surface for this interface.")
         default String relyingPartyId() {
             return "nordtal.eu";
         }
@@ -195,6 +218,7 @@ public interface UiSpec {
         @Order(1)
         @Key("base-url")
         @Comment("The compose service name and the API port - no TLS, it never leaves the network.")
+        @NoExplanationNeeded
         default String baseUrl() {
             return "http://steward-deployer:8081";
         }
@@ -206,6 +230,7 @@ public interface UiSpec {
                 "NORDTAL_STEWARD_DEPLOYER_TOKEN. From the environment in a deployment; this file",
                 "holds an empty string rather than a secret somebody might commit."
         })
+        @Explain("The same secret steward-deployer expects as NORDTAL_STEWARD_DEPLOYER_TOKEN, not a second one to invent - empty leaves the recreate button unoffered rather than offered and failing.")
         default String token() {
             return "";
         }
@@ -227,6 +252,7 @@ public interface UiSpec {
                 "2026-09-12: 12.1 G of 193.6 G, i.e. 6 percent - so the margin here is wide, and it",
                 "is meant to fire long before anything actually stops."
         })
+        @NoExplanationNeeded
         default int diskPercent() {
             return 85;
         }
@@ -238,6 +264,7 @@ public interface UiSpec {
                 "of the whole machine and not of anybody's budget - four Minecraft servers shared",
                 "6.2 of 15.6 GiB when this was measured."
         })
+        @Explain("A share of the WHOLE host's memory, not of any per-container limit - none is set, so a busy server here means less headroom for everything else, not a violation of its own quota.")
         default int memoryPercent() {
             return 90;
         }
@@ -250,10 +277,41 @@ public interface UiSpec {
                 "morning; 36 leaves one missed night visible and two nights impossible to miss.",
                 "",
                 "This one counts files on the disk, not runs that reported success. Run 23 reported",
-                "success having saved nothing at all (todo.md A23), which is why."
+                "success having saved nothing at all, which is why."
         })
+        @Explain("Counts files actually on disk, not runs that reported success - a run once reported success while saving nothing at all, which is why this does not trust the run's own verdict.")
         default int backupAgeHours() {
             return 36;
+        }
+    }
+
+    /**
+     * Where the Minecraft head image in the identity display comes from.
+     *
+     * <p>A face is a pure function of {@code mc_uuid} and this base URL - see
+     * {@code eu.nordtal.s2.common.access.MinecraftProfile}'s class comment for why the image
+     * itself is never a column. Changing the service here is a config edit, never a migration.</p>
+     */
+    @ConfigSpec
+    interface AvatarSpec {
+
+        @Order(1)
+        @Key("minecraft-head-base-url")
+        @Comment({
+                "Till's choice, 2026-09-15: Crafatar. A free, unaffiliated service - see",
+                "season-2/README.md - so the identity display treats a non-answer as a placeholder",
+                "and never blocks the page on it.",
+                "",
+                "NOTED RATHER THAN HIDDEN: every render sends this service the mc_uuid being",
+                "looked at, which is the one piece of information about a player that leaves this",
+                "deployment on the strength of an admin merely opening a page.",
+                "",
+                "The identity display appends '/<uuid>' itself; this is the address up to and",
+                "including the path segment before the uuid, with no trailing slash."
+        })
+        @Explain("Every render sends this third-party service the mc_uuid being looked at - the one piece of player information that leaves this deployment on the strength of an admin merely opening a page.")
+        default String minecraftHeadBaseUrl() {
+            return "https://crafatar.com/avatars";
         }
     }
 
@@ -264,6 +322,7 @@ public interface UiSpec {
         @Order(1)
         @Key("base-url")
         @Comment("The compose service name and the API port - no TLS, it never leaves the network.")
+        @NoExplanationNeeded
         default String baseUrl() {
             return "http://steward-worker:8082";
         }
@@ -276,6 +335,7 @@ public interface UiSpec {
                 "would have shown one - rather than drawing an empty table that looks like a stack",
                 "with nothing running."
         })
+        @Explain("Empty means this interface can read nothing about a container and says so on every page that would have shown one, rather than drawing an empty table that looks like nothing is running.")
         default String token() {
             return "";
         }
@@ -288,6 +348,7 @@ public interface UiSpec {
         @Order(1)
         @Key("client-id")
         @Comment("The application's id. Public - it is in the URL a browser is sent to.")
+        @NoExplanationNeeded
         default String clientId() {
             return "";
         }
@@ -298,6 +359,7 @@ public interface UiSpec {
                 "From the environment, never from this file. Empty means nobody can sign in and",
                 "the sign-in page says which value is missing instead of failing at Discord."
         })
+        @Explain("Empty means nobody can sign in at all - the sign-in page names which value is missing rather than failing silently at Discord's side.")
         default String clientSecret() {
             return "";
         }
@@ -310,6 +372,7 @@ public interface UiSpec {
                 "shared file. If they ever disagree, this one decides who gets into the interface",
                 "and the bot's decides who gets into the game."
         })
+        @Explain("A second, independent copy of the same guild id the bot's access.yml holds - if the two ever disagree, this one decides who reaches the interface and the bot's decides who reaches the game, not each other.")
         default String guildId() {
             return "";
         }
@@ -328,6 +391,7 @@ public interface UiSpec {
                 "",
                 "From the environment, never from this file."
         })
+        @Explain("The bot's own token, used only to label roles and channels by name in the config editor - steward never sends a message or changes a role with it, and never places it in a log, an answer or in front of a browser.")
         default String botToken() {
             return "";
         }
@@ -343,6 +407,7 @@ public interface UiSpec {
                 "interface that can stop a server and read a token is not a thing to open by",
                 "forgetting a value."
         })
+        @Explain("Empty means NOBODY may sign in - deliberately not a default that lets everyone in, since this interface can stop a server and read a token.")
         default String adminRole() {
             return "";
         }

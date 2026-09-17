@@ -63,14 +63,20 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("all four are admin-only and reachable from Discord and the console")
-    void allFourAreEverywhere() {
+    @DisplayName("all four are admin-only, console-reachable, and off game and Discord (ops/18)")
+    void allFourAreConsoleOnly() {
+        // ops/18, 2026-09-15: "alles Admin nur noch Konsole und Web" took Surface.GAME and
+        // Surface.DISCORD off every admin command. /hg start keeps Surface.WEB too, since it is
+        // one of the three buttons Steward also runs (see HungerGamesCommands.CONSOLE_AND_WEB);
+        // /hg ready-status and /hg reload are console only.
         for (final Declaration declaration : HungerGamesCommands.declarations()) {
             assertTrue(declaration.adminOnly(), declaration.name());
-            assertTrue(declaration.surfaces().containsAll(
-                            List.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE)),
-                    declaration.name() + " is not on every surface - the gap that made the start of"
-                            + " the season's flagship event depend on one client");
+            assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
+                    declaration.name() + " lost the console, which must never happen");
+            assertFalse(declaration.surfaces().contains(Surface.GAME),
+                    declaration.name() + " is still reachable in game");
+            assertFalse(declaration.surfaces().contains(Surface.DISCORD),
+                    declaration.name() + " is still reachable from Discord");
         }
     }
 

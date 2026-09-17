@@ -60,6 +60,15 @@ final class DefaultSounds {
      */
     static final SoundsSpec.SoundSpec STAGING = sound("", 1.0f);
 
+    /**
+     * A monster's death, for a grave settling. season-2-ingame/15, Till 2026-09-15: he asked for "a
+     * fitting sound, maybe the death sound of a monster" and left the exact one open - this is the
+     * proposal, not a decision, and it is one line plus {@code /smp reload} to change. See the
+     * ticket's own fallback if it turns out wrong in the game: {@code entity.zombie.death} or a
+     * dampened {@code entity.wither.spawn}.
+     */
+    static final SoundsSpec.SoundSpec RECLAIMED = sound("minecraft:entity.skeleton.death", 1.0f);
+
     private DefaultSounds() {
     }
 

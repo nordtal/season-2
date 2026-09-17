@@ -72,7 +72,7 @@ Docker fails the deploy with `error from registry: denied`.
    in `unverifiable` — `UNKNOWN`, never "up to date". That is the honest answer rather than a wrong
    one, but three of five services reporting `UNKNOWN` is a drift report that says very little.
    `updater` and `postgres-backup` stay behind as public packages nothing pushes to any more; they
-   can be deleted once the cutover holds (`todo.md` A30).
+   can be deleted once the cutover holds.
 
 ### On the host
 
@@ -428,8 +428,7 @@ Docker socket, ~250 ms) and compares the answer with the digest the container ac
 Three outcomes, and the third is the point: newer in the registry, the same, or **could not be
 asked** — which is a named note in the report and never counted as current. Until 2026-09-12 this
 went through a panel whose image check never asked a registry at all; it answered from what it had
-already persisted, and four releases ran behind while every report said the network was current
-(`todo.md` A24).
+already persisted, and four releases ran behind while every report said the network was current.
 
 An image that **cannot** be checked is one built on this host and pushed nowhere, or a registry that
 did not answer. Credentials are not among the reasons: all three `ghcr.io/nordtal` packages are
@@ -480,6 +479,30 @@ docker inspect -f '{{.State.Health.Status}}' "$PROJECT-steward-ui-1"   # wait fo
 
 `--no-deps` is the word that keeps it to one service: without it Compose recreates everything
 `steward-ui` depends on, which is `postgres` and `steward-worker`, which is the network.
+
+**A new image is not a new process for two of these three, and that has now cost two rollouts.**
+`steward-ui` runs the jar the image carries, at `/app/app.jar`. `steward-worker` and `discord-bot`
+do **not**: they run the jar out of a volume — `nordtal-s2_steward-worker-jar` at
+`/volumes/steward-worker/steward-worker-0.9.1.jar`, and `nordtal-s2_bot-jar` at
+`/app/lib/discord-bot-0.9.1.jar`. Rebuilding and recreating those two containers deploys nothing:
+the new jar sits at `/app/app.jar`, unused, and the volume's older copy keeps running. On
+2026-09-17 that copy was a day and a half old, and the matching file **size** at the image path is
+what made it look deployed.
+
+> **Ask the process, not the filesystem:**
+> ```bash
+> docker exec nordtal-s2-discord-bot-1 cat /proc/1/cmdline | tr '\0' ' '
+> ```
+> That prints the jar actually running. Replace *that* path, then restart:
+> ```bash
+> docker run --rm -v nordtal-s2_bot-jar:/vol -v "$PWD/discord-bot/build/libs:/src:ro" alpine \
+>   sh -c 'cp /src/discord-bot-0.9.1.jar /vol/discord-bot-0.9.1.jar'
+> docker restart nordtal-s2-discord-bot-1
+> ```
+> Compare the md5 on both sides before restarting; "Built" and "Recreated" are not evidence that
+> anything moved. This is the same trap in a second shape as the one under [The
+> images](#the-images): a Dockerfile that only copies a jar reports success whether or not
+> `shadowJar` ran.
 
 **`-f` has to be said, and the reason is worth a paragraph.** Counted on the dev host on
 2026-09-14, `com.docker.compose.project.config_files` across the ten running containers said two
@@ -662,7 +685,7 @@ and nothing else, and everything after that row is the path `/backup now` alread
 What replaced the fifteen-minute coupling between that clock and the farm reset is a query: `smp`
 will not reset the farm world unless a `BACKUP` run finished, succeeded **and saved something**
 inside `config.yml#farm-reset-backup-window-hours` (12). A `DONE` row is not enough — run 23
-reported success having saved zero volumes (`todo.md` A23), so the check reads the report.
+once reported success having saved zero volumes, so the check reads the report.
 
 The run is a thirty-second countdown every player sees, then `smp`, `network-control` and the bot
 are stopped, then every volume is tarred in order, then retention runs, then everything comes back
@@ -681,7 +704,7 @@ restored; `bot-jar` and `steward-worker-jar` are refilled by `steward-worker boo
 
 **There is no offsite copy yet.** §9a's Hetzner Storage Box does not exist, so every archive sits on
 the same disk as the thing it is a copy of, and `backup.keep` (14) protects against a mistake and
-against nothing else. There is deliberately no untested S3 path in the code — `todo.md` A29.
+against nothing else. There is deliberately no untested S3 path in the code.
 
 ### Restoring
 
@@ -724,8 +747,22 @@ its readability, which is checked when it is written and again before a restore 
 `deploy/restore-test.sh` pins which names are recognised and that the confirmation cannot be
 satisfied by "yes", by a bare Return or by a neighbouring volume's name; it runs on `check`.
 
-**A restore of the real season database has not been rehearsed** — that needs the host and an
-evening, and it is in `todo.md`. A green script is not a rehearsed restore.
+**Both halves were rehearsed on 2026-09-17** (steward/88), on this host, against that morning's
+`024500Z` backup: a `pg_dump` into a `restore_<stamp>` database beside the live one, and a volume
+archive over `steward-ui-config`. Two things the rehearsal found, neither of which is a defect and
+both of which will mislead the next person who checks the result:
+
+- **`restore.sh` starts the services it stopped again, and they write into the volume on start.**
+  A restored volume is therefore not byte for byte the archive once the service is up: for
+  `steward-ui-config` the two `*.schema.json` are rewritten from the running jar's `@ConfigSpec`
+  and the two `*.env-overrides.txt` are written afresh. Four of the six files match the archive's
+  checksums exactly; the schema does not, because the jar has moved on since the archive.
+- **Checking "did it really unpack" by looking for files that should have disappeared does not
+  work**, for that same reason — the service recreates its own within the second. What separates an
+  unpacked file from one that was merely left alone is **`ctime`**: `tar` restores the mtime and
+  cannot forge the ctime. After the rehearsal the four config files carried yesterday's mtime and a
+  ctime from the minute of the restore, and the service's four carried a ctime one second later.
+  That one second is the whole sequence: tar first, service second.
 
 ### The world volumes are a different problem
 

@@ -92,8 +92,10 @@ class ConfigFilesWriteTest {
         final ConfigDocument document = ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("9090")));
 
         assertEquals("9090", document.find("port").orElseThrow().value());
-        assertEquals(List.of("A whole number.", "", "With a blank line in the middle of its comment."),
-                document.find("port").orElseThrow().comments());
+        // jcore 4.0.0 writes no comments at all (steward/54); the explanation FixtureSpec's
+        // @Comment used to carry now lives only in fixture.schema.json, which ConfigFilesSchemaTest
+        // covers.
+        assertEquals(List.of(), document.find("port").orElseThrow().comments());
     }
 
     @Test
@@ -318,8 +320,12 @@ class ConfigFilesWriteTest {
     void theWriteLeavesNoTemporaryFileBehind() throws IOException {
         ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("9090")));
 
+        // fixture.schema.json is jcore's own, written beside fixture.yml the moment @BeforeEach
+        // loads FixtureSpec through it (steward/54) - it is not a temporary file this class wrote
+        // and has to be there, not absent, for this assertion to mean what it says.
         try (Stream<Path> files = Files.list(directory)) {
-            assertEquals(List.of("fixture.yml"), files.map(p -> p.getFileName().toString()).sorted().toList());
+            assertEquals(List.of("fixture.schema.json", "fixture.yml"),
+                    files.map(p -> p.getFileName().toString()).sorted().toList());
         }
     }
 

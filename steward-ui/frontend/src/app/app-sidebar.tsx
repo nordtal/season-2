@@ -14,16 +14,22 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
+import type { Crumb } from "@/app/breadcrumbs"
+import { Crumbs, SidebarToggle } from "@/app/island"
 import { NAVIGATION } from "@/app/navigation"
 import { StewardMark } from "@/app/steward-mark"
 import { shortcutLabel } from "@/lib/keys"
+import { useServices } from "@/lib/queries"
+import { HealthDot } from "@/components/steward/status"
 
 /**
  * The navigation.
  *
- * **On a desktop it never collapses**, and that is not a placeholder for a collapse button: this is
- * an operator's tool, the labels are the point, and an icon rail that hides the word "Restore"
- * behind a play glyph is a worse interface, not a denser one. The provider holds `open` fixed.
+ * **On a desktop it collapses, all the way out** (steward/89). It used to be held open, on the
+ * argument that an icon rail hiding the word "Restore" behind a play glyph is a worse interface
+ * rather than a denser one - and that argument survives: `collapsible` is `offcanvas`, so a
+ * collapsed sidebar is gone rather than reduced to glyphs, and the island at the top left is what
+ * brings it back. The state is kept in the provider's cookie, so it survives a reload.
  *
  * **On a phone it is a sheet**, because 13rem of a 390px screen is a third of it. `collapsible` is
  * `offcanvas` rather than `none` for exactly one reason: `none` renders a plain column and skips
@@ -34,13 +40,51 @@ import { shortcutLabel } from "@/lib/keys"
  * The active item is marked with a blue rule down its left edge and blue text - never a blue
  * background. Blue is action in this interface; a selected row is a place, not an action, so it
  * gets the brand's line and not the brand's surface.
+ *
+ * **Every service row carries a health dot** (steward/83), drawn by the same {@link HealthDot}
+ * steward/81's network view will use. `useServices()` is the one query this component opens - the
+ * hook already carries its own ten-second `refetchInterval`, so mounting it here does not add a
+ * second poll: every page shares the one query behind `useServices`, this component included.
  */
-export function AppSidebar() {
+export type AppSidebarProps = {
+  /**
+   * The island, unfolded into the head of this column - shell A of steward/89, and d/e/f/g's own
+   * answer to the same question.
+   * Absent means the island is standing somewhere else and this head is only the brand.
+   */
+  head?: {
+    crumbs: Crumb[]
+    onToggle: () => void
+    /** The first crumb is the Nordtal mark and "Steward", not "Overview" - see {@link Crumbs}. */
+    brand?: boolean
+    /**
+     * The toggle lives outside this column entirely, fixed to the corner (shells d/f/g) - so this
+     * head draws a same-sized blank rather than a second, redundant button, and widens its own
+     * padding to `px-4 md:px-6` to line up with that fixed corner instead of the column's usual
+     * `px-cell`.
+     */
+    hideToggle?: boolean
+  }
+  /**
+   * Room at the top for an island floating over this column - shell B, where the sidebar slides
+   * out from underneath one. Without it the brand is drawn behind the island.
+   */
+  clearIsland?: boolean
+  /**
+   * Skip the plain "Nordtal Steward" link entirely (shell e): the mark and the word are already
+   * fixed to the corner there, outside this column, and are not part of `head.crumbs` either - so
+   * neither of this header's two usual reasons to draw the brand applies.
+   */
+  hideBrandLink?: boolean
+}
+
+export function AppSidebar({ head, clearIsland, hideBrandLink }: AppSidebarProps = {}) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   // Decided once for the whole navigation rather than per entry: "is this one active" cannot be
   // answered by looking at one entry, because two of them can match and only the longer is meant.
   const active = activeEntryId(pathname, NAVIGATION)
   const { isMobile, setOpenMobile } = useSidebar()
+  const services = useServices()
 
   // Tapping a place closes the sheet. Without this the phone lands on the new page with the
   // navigation still over it, and the first thing every visit needs is a tap somewhere empty.
@@ -50,17 +94,44 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="offcanvas" className="h-(--app-height) border-r">
-      <SidebarHeader className="h-14 justify-center border-b px-cell">
-        <Link
-          to="/"
-          onClick={follow}
-          className="flex items-center gap-2.5 rounded-md py-1 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-        >
-          <StewardMark className="size-5 shrink-0" />
-          <span>
-            Nordtal <span className="text-muted-foreground">Steward</span>
-          </span>
-        </Link>
+      <SidebarHeader
+        className={`justify-center gap-1 border-b py-2 ${head?.hideToggle ? "px-4 md:px-6" : "px-cell"} ${clearIsland ? "pt-[4.5rem]" : ""}`}
+      >
+        {/*
+          The plain brand link only when nothing else carries "Steward": d/e/f/g put the mark and
+          the word into the crumb trail itself (`head.brand`), so drawing it again here would be
+          the same name twice in one head.
+        */}
+        {head?.brand || hideBrandLink ? null : (
+          <Link
+            to="/"
+            onClick={follow}
+            className="flex items-center gap-2.5 rounded-md py-1 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <StewardMark className="size-5 shrink-0" />
+            <span>
+              Nordtal <span className="text-muted-foreground">Steward</span>
+            </span>
+          </Link>
+        )}
+        {/*
+          The island, unfolded (steward/89, shell A and d/e/f/g). It is not drawn as a pill here:
+          the sidebar is already a surface with an edge, and a bordered pill inside it would be the
+          nesting Till's rule forbids. So the toggle and the path simply are the second line of this
+          head - or the only line, once the plain brand link above is gone too.
+        */}
+        {head ? (
+          <div className="flex min-w-0 items-center gap-0.5">
+            {head.hideToggle ? (
+              <span className="size-control shrink-0" aria-hidden />
+            ) : (
+              <SidebarToggle expanded onToggle={head.onToggle} className="-ml-1" />
+            )}
+            <div className="min-w-0 flex-1 px-1">
+              <Crumbs crumbs={head.crumbs} brand={head.brand} />
+            </div>
+          </div>
+        ) : null}
       </SidebarHeader>
 
       <SidebarContent className="gap-0">
@@ -74,6 +145,13 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.entries.map((entry) => {
+                  // Only the ten container rows carry a dot - the health this section is about.
+                  // `entry.params.name` is the exact service name the query answers with, because
+                  // it is the same name `navigation.ts` built the route's params from.
+                  const service =
+                    group.id === "services"
+                      ? services.data?.services.find((row) => row.service === entry.params?.name)
+                      : undefined
                   return (
                     <SidebarMenuItem key={entry.id}>
                       <SidebarMenuButton
@@ -89,7 +167,10 @@ export function AppSidebar() {
                           onClick={follow}
                         >
                           {entry.icon ? <entry.icon aria-hidden /> : null}
-                          <span className="truncate">{entry.label}</span>
+                          <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+                          {group.id === "services" ? (
+                            <HealthDot service={service} className="ml-auto" />
+                          ) : null}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

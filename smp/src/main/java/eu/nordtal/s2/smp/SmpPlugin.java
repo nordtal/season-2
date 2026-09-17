@@ -20,12 +20,16 @@ import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.smp.config.ColoursSpec;
 import eu.nordtal.s2.smp.config.Configs;
 import eu.nordtal.s2.smp.config.DatabaseSpec;
 import eu.nordtal.s2.smp.config.Milestones;
 import eu.nordtal.s2.smp.config.MilestonesSpec;
+import eu.nordtal.s2.smp.config.PrestigeColoursSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.config.SoundsSpec;
+import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import eu.nordtal.s2.smp.db.JoinGate;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.common.update.UpdateDirectory;
@@ -117,6 +121,33 @@ public final class SmpPlugin extends JavaPlugin {
 
     /** Held so {@code /smp reload} can swap what it answers; every listener has this one instance. */
     private SmpSounds sounds;
+
+    /** Its own file, and its own handle, so that {@code /smp reload} can re-read it (season-2-ingame/22). */
+    private ConfigHandle<ColoursSpec> coloursHandle;
+
+    /**
+     * The tone palette, replaced by {@code /smp reload}.
+     *
+     * <p><b>volatile</b> for the same reason {@link #track} is: the write is on whatever thread ran
+     * the reload command and every {@code PaperUser} built afterwards reads it fresh, through a
+     * supplier rather than a captured value.</p>
+     */
+    private volatile ToneColours colours;
+
+    /**
+     * Its own file, and its own handle, so that {@code /smp reload} can re-read it
+     * (season-2-ingame/23).
+     */
+    private ConfigHandle<PrestigeColoursSpec> prestigeColoursHandle;
+
+    /**
+     * The name colours, replaced by {@code /smp reload}.
+     *
+     * <p><b>volatile</b> for the same reason {@link #colours} is: {@link PlayerComposition} reads it
+     * through a supplier, not a captured value, so a reload on another thread is visible to the very
+     * next render.
+     */
+    private volatile PrestigeColours prestigeColours;
 
     private HikariDataSource pool;
     private AdminWatch adminWatch;
@@ -211,6 +242,8 @@ public final class SmpPlugin extends JavaPlugin {
             databaseHandle = Configs.database(getDataFolder().toPath(), logger());
             milestonesHandle = Configs.milestones(getDataFolder().toPath(), logger());
             soundsHandle = Configs.sounds(getDataFolder().toPath(), logger());
+            coloursHandle = Configs.colours(getDataFolder().toPath(), logger());
+            prestigeColoursHandle = Configs.prestigeColours(getDataFolder().toPath(), logger());
         } catch (final ConfigException exception) {
             severe("smp is not starting because its configuration could not be read: "
                     + exception.getMessage());
@@ -224,6 +257,18 @@ public final class SmpPlugin extends JavaPlugin {
         // rather than joining the refusals below: a typo in a chime is not worth a season offline.
         final SmpSounds sounds = SmpSounds.of(soundsHandle.get(), getLogger()::warning);
         this.sounds = sounds;
+
+        // The tone palette, read once here and re-read by /smp reload - see reloadTrack. A bad hex
+        // value is reported and its tone falls back to the default rather than joining the refusals
+        // below, the same treatment the sounds above get.
+        this.colours = ToneColours.parse(Configs.declared(coloursHandle.get()), getLogger()::warning);
+
+        // The prestige name palette, read once here and re-read by /smp reload - see reloadTrack.
+        // A bad hex value is reported and its tier (or the admin colour) falls back to the default,
+        // the same treatment the tone palette above gets.
+        this.prestigeColours = PrestigeColours.parse(
+                Configs.declaredPrestigeTiers(prestigeColoursHandle.get()),
+                prestigeColoursHandle.get().admin(), getLogger()::warning);
 
         // ---- refusal 1: the datapacks -------------------------------------------------------
         // A world generated without them is vanilla terrain permanently, because terrain is never
@@ -328,7 +373,8 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(effects, this);
 
         final PlayerComposition composition =
-                new PlayerComposition(new Prestige(config.prestigeThresholdHours()));
+                new PlayerComposition(new Prestige(config.prestigeThresholdHours()),
+                        () -> prestigeColours);
         final PlayerSurfaces surfaces =
                 new PlayerSurfaces(this, identities, composition, new MessageRenderer(messages));
 
@@ -404,7 +450,20 @@ public final class SmpPlugin extends JavaPlugin {
         poller = new StatisticPoller(this, () -> track, engine, identities);
         poller.start();
 
-        graves = new Graves(this, dao, identities, messages, locales, sounds, effects);
+        graves = new Graves(this, dao, identities, messages, locales, sounds, effects, config);
+        // A grave decays after config.graveMaxAgeHours() (season-2-ingame/20). Once a minute is
+        // three orders of magnitude finer than the thing being measured, so the visible cost of the
+        // interval is nothing and the query it runs is one indexed delete that usually deletes
+        // nothing. The first sweep is immediate rather than delayed by a minute: a server that was
+        // down over the weekend has graves that expired while it was off, and they should not stand
+        // for another minute after it comes back.
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this,
+                () -> graves.expire(config.graveMaxAgeHours()), 20L, 20L * 60L);
+        // The hologram countdown over each grave (season-2-ingame/19). Once a second on the main
+        // thread - it has to be, TextDisplay#text is a packet - but graves.tickHolograms() only
+        // actually writes one out once a minute per grave, or once a second inside its last minute,
+        // so this tick is a map lookup for everything further out than that.
+        Bukkit.getScheduler().runTaskTimer(this, graves::tickHolograms, 20L, 20L);
         duels = new Duels(this, dao, config, worlds, identities, messages, locales, sounds,
                 effects);
 
@@ -499,7 +558,7 @@ public final class SmpPlugin extends JavaPlugin {
         commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(this,
                 eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
                         eu.nordtal.s2.common.command.AllowlistDirectory.using(pool)),
-                adminWatch::isAdmin, locales, messages, logger());
+                adminWatch::isAdmin, locales, messages, logger(), () -> colours, sounds::play);
         getServer().getPluginManager().registerEvents(commandFilter, this);
         commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 
@@ -619,7 +678,8 @@ public final class SmpPlugin extends JavaPlugin {
     private void registerCommands(final SmpSounds sounds) {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final NavigateCommand commands =
-                    new NavigateCommand(this, dao, navigation, identities, messages, locales, sounds);
+                    new NavigateCommand(this, dao, navigation, identities, messages, locales, sounds,
+                            () -> colours);
             // Not folded into :commands: /navigate opens an inventory and /poi add reads the
             // caller's position, so a Discord half of either would be a different command wearing
             // the same name.
@@ -631,7 +691,7 @@ public final class SmpPlugin extends JavaPlugin {
                             // a row and a notification, never a call.
                             new UpdateWatcher(this, UpdateDirectory.using(pool)),
                             // A supplier and not the field: /smp reload replaces it.
-                            () -> track, season)
+                            () -> track, season, () -> colours)
                     .forEach(node -> event.registrar().register(node));
         });
     }
@@ -695,6 +755,26 @@ public final class SmpPlugin extends JavaPlugin {
         } catch (final ConfigException | RuntimeException exception) {
             getLogger().severe("the sounds could not be reloaded, the running ones are unchanged: "
                     + exception.getMessage());
+        }
+
+        try {
+            coloursHandle.reload();
+            colours = ToneColours.parse(Configs.declared(coloursHandle.get()), getLogger()::warning);
+            getLogger().info("the tone colours were reloaded");
+        } catch (final ConfigException | RuntimeException exception) {
+            getLogger().severe("the tone colours could not be reloaded, the running ones are "
+                    + "unchanged: " + exception.getMessage());
+        }
+
+        try {
+            prestigeColoursHandle.reload();
+            prestigeColours = PrestigeColours.parse(
+                    Configs.declaredPrestigeTiers(prestigeColoursHandle.get()),
+                    prestigeColoursHandle.get().admin(), getLogger()::warning);
+            getLogger().info("the prestige name colours were reloaded");
+        } catch (final ConfigException | RuntimeException exception) {
+            getLogger().severe("the prestige name colours could not be reloaded, the running ones "
+                    + "are unchanged: " + exception.getMessage());
         }
 
         try {

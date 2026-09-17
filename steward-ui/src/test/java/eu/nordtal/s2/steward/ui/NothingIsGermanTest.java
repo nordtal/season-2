@@ -92,6 +92,28 @@ class NothingIsGermanTest {
     private static final String BUNDLE = "commands/src/main/resources/messages/commands/";
     private static final String RULES = "steward-ui/language-rules.json";
 
+    /**
+     * The files whose <em>subject</em> is German, which is the whole of the exception.
+     *
+     * <p>This test is one of them and always was. The two that joined it on 2026-09-16 are
+     * steward/48's: Steward can now edit the bot's message bundles, and the bot's German half is
+     * one of the two things it edits. A test for that has to hold real German - {@code Willkommen}
+     * next to {@code Welcome}, and {@code Die Mühle dreht sich - äöüÄÖÜß} to prove the file is
+     * written as UTF-8 rather than as {@code Properties.store()}'s Latin-1 with escapes. Fixtures
+     * in a made-up language would prove neither.</p>
+     *
+     * <p><b>By file name and no wider.</b> The rule the guard exists for is unchanged and still
+     * applies to every other file in these three modules, {@code MessageBundles.java} included:
+     * handling German is not speaking it, so the production code that reads and writes those
+     * bundles has no German word in it and is scanned like everything else. An exemption that
+     * covered a package, or anything matching {@code *Message*}, would have quietly taken that
+     * with it.</p>
+     */
+    private static final Set<String> ABOUT_GERMAN = Set.of(
+            "NothingIsGermanTest.java",
+            "MessageBundlesTest.java",
+            "MessagesApiIntegrationTest.java");
+
     /** Three or more letters, German ones included. Two-letter words are noise in both languages. */
     private static final Pattern WORD = Pattern.compile("[A-Za-zÄÖÜäöüß]{3,}");
 
@@ -295,9 +317,7 @@ class NothingIsGermanTest {
             try (Stream<Path> walk = Files.walk(directory)) {
                 walk.filter(Files::isRegularFile)
                         .filter(path -> path.getFileName().toString().endsWith(".java"))
-                        // This file is about German words, which is the whole of the exception.
-                        .filter(path -> !path.getFileName().toString()
-                                .equals("NothingIsGermanTest.java"))
+                        .filter(path -> !ABOUT_GERMAN.contains(path.getFileName().toString()))
                         .forEach(files::add);
             } catch (final IOException unreadable) {
                 throw new UncheckedIOException(unreadable);

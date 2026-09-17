@@ -1,8 +1,12 @@
 package eu.nordtal.s2.discordbot.config;
 
+import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
+import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.exception.UnknownConfigKeyException;
+import eu.nordtal.jcore.config.spec.annotation.Protected;
+import eu.nordtal.s2.common.config.EnvOverrideFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -10,18 +14,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -675,12 +682,24 @@ class ConfigsTest {
         assertThrows(ConfigValidationException.class, Configs::bot);
 
         final Path file = directory.resolve("bot.yml");
+        // The header is NOT in the YAML any more, and looking for it there is what made this test
+        // red on 2026-09-16. jcore 4.0.0 stopped writing comments and headers into the file it
+        // writes; 4.1.0 put the file-level @ConfigSpec(header) into the schema beside it, on the
+        // root node's `explanation`. So the sentence that tells an operator where the token
+        // actually comes from still has to exist and still has to be findable - just in the other
+        // file. Asserting it here rather than dropping the assertion is the point: that sentence
+        // is the only place NORDTAL_BOT_TOKEN is explained to somebody looking at bot.yml.
+        final Path schema = directory.resolve("bot.schema.json");
         assertAll(
                 () -> assertTrue(Files.isRegularFile(file), "the defaults file is still written"),
                 () -> assertTrue(Files.readString(file).contains("token: ''"),
                         "the token slot is written empty, never guessed"),
-                () -> assertTrue(Files.readString(file).contains("LEAVE THESE EMPTY"),
-                        "and the header says so")
+                () -> assertTrue(Files.isRegularFile(schema),
+                        "the schema is written beside it, under the config's own base name"),
+                () -> assertTrue(Files.readString(schema).contains("LEAVE THESE EMPTY"),
+                        "and the schema's root explanation carries the header that says so"),
+                () -> assertFalse(Files.readString(file).contains("LEAVE THESE EMPTY"),
+                        "the YAML itself stays comment-free - that is what jcore 4.0.0 decided")
         );
     }
 
@@ -695,6 +714,65 @@ class ConfigsTest {
         final ConfigValidationException error =
                 assertThrows(ConfigValidationException.class, Configs::database);
         assertTrue(error.getMessage().contains("PostgreSQL"), error.getMessage());
+    }
+
+    // ------------------------------------------------------------- steward/70: schema beside every file
+
+    /**
+     * steward/70: the running deployment's {@code bot-config} volume had three {@code .yml} files
+     * and not one {@code *.schema.json} beside any of them - every other service in the stack had
+     * one. This is the same guard steward/54 and steward/58 need for the schema to be useful at
+     * all: a file with no schema falls back to steward-worker's plain leaf-key reading, which is
+     * exactly the "looks right, means less" state that ticket is about.
+     * <p>
+     * {@code ConfigHandle}'s load (jcore, current dependency) writes {@code <name>.schema.json}
+     * unconditionally on every load, whether or not the load ends up throwing in the validator -
+     * the schema write happens before the validator runs. That already held on 2026-09-16 with
+     * jcore 4.1.0 and this module's own {@code Configs}: this test does not need to be red before
+     * green here, because there is nothing in this module's own loading code to fix - it calls
+     * {@link ConfigLoader#builder} exactly the way {@code smp} and every other module does. What
+     * <b>was</b> missing from the deployed volume is a stale jar: the running container was last
+     * built before jcore gained {@code SchemaWriter} and simply does not carry the class, so its
+     * copy of {@code ConfigHandle} never had a schema to write in the first place. A rebuild of
+     * this module's image against the current dependency is the fix for the volume; this test
+     * pins that the module's own code does not regress back into the state that jar is stuck in.
+     */
+    @Test
+    @DisplayName("every config file this module writes gets a schema.json beside it")
+    void everyConfigFileHasASchemaBesideIt() {
+        swallowValidationFailure(Configs::access);
+        swallowValidationFailure(Configs::bot);
+        swallowValidationFailure(Configs::database);
+
+        assertAll(
+                () -> assertTrue(Files.isRegularFile(directory.resolve("access.schema.json")),
+                        "access.yml has no access.schema.json beside it"),
+                () -> assertTrue(Files.isRegularFile(directory.resolve("bot.schema.json")),
+                        "bot.yml has no bot.schema.json beside it"),
+                () -> assertTrue(Files.isRegularFile(directory.resolve("database.schema.json")),
+                        "database.yml has no database.schema.json beside it")
+        );
+    }
+
+    /**
+     * Runs a config loader and discards a validation failure - this test is only about the file
+     * and its schema having been written, which jcore does before the validator ever runs, not
+     * about whether the freshly written defaults are themselves acceptable (they usually are not:
+     * an empty token or guild id is refused by design).
+     */
+    private static void swallowValidationFailure(final ThrowingCall call) {
+        try {
+            call.run();
+        } catch (final ConfigValidationException expectedForFreshDefaults) {
+            // Ignored on purpose - see the Javadoc above.
+        } catch (final ConfigException unexpected) {
+            throw new AssertionError(unexpected);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingCall {
+        void run() throws ConfigException;
     }
 
     // ------------------------------------------------------------- .env.example
@@ -816,6 +894,32 @@ class ConfigsTest {
     }
 
     /**
+     * steward/74: the {@code @Protected} annotation and the bot's own startup rule have to name the
+     * same language, and there is no way to notice at runtime if they stop doing so - the removal
+     * refusal lives in steward-worker, in another process, and the startup check here would simply
+     * go on protecting a different tag without complaining.
+     *
+     * <p>This is that check, at build time. It replaces reading the annotation reflectively into
+     * {@code Configs.FALLBACK_LANGUAGE}: both the field and the annotation already name
+     * {@link Languages#FALLBACK_TAG}, so the reflection guarded against nothing the compiler does
+     * not, while adding one way for this class to fail to initialise at all.</p>
+     */
+    @Test
+    @DisplayName("the language steward-worker refuses to remove is the one this bot falls back to")
+    void theProtectedLanguageIsTheFallback() throws Exception {
+        final Method languages = AccessSpec.class.getMethod("languages");
+        final Protected annotation = languages.getAnnotation(Protected.class);
+        assertNotNull(annotation, "AccessSpec#languages() must carry @Protected - without it"
+                + " steward-worker lets an operator remove the fallback language through the API,"
+                + " and the bot only notices on its next restart");
+        assertEquals("tag", annotation.field(),
+                "@Protected has to match on the element's own tag field");
+        assertEquals(Languages.FALLBACK_TAG, annotation.value(),
+                "the protected tag and the fallback tag are the same language or the rule protects"
+                        + " the wrong entry");
+    }
+
+    /**
      * Loads {@code access.yml} with a fake environment on top, the way the container's is.
      * <p>
      * {@link Configs#access()} reads {@link System#getenv} and a test cannot set that, so this goes
@@ -825,11 +929,73 @@ class ConfigsTest {
      * </p>
      */
     private AccessSpec fromEnvironment(final Map<String, String> environment) throws Exception {
+        return handleFromEnvironment(environment).get();
+    }
+
+    /**
+     * The handle itself, for steward/76: {@link #fromEnvironment} only ever needed the loaded
+     * spec, but {@link ConfigHandle#environmentOverrides()} is what feeds
+     * {@code EnvOverrideFile.write} in {@code Configs#load} - see
+     * {@code environmentOverridesNameExactlyTheOverriddenPaths} below for why this had to be added
+     * rather than reused as it stood.
+     */
+    private ConfigHandle<AccessSpec> handleFromEnvironment(final Map<String, String> environment)
+            throws Exception {
         Files.writeString(directory.resolve("access.yml"), access());
         return ConfigLoader.builder(directory.resolve("access.yml"), AccessSpec.class)
                 .envPrefix("NORDTAL_ACCESS")
                 .environment(environment::get)
-                .load()
-                .get();
+                .load();
+    }
+
+    /**
+     * steward/76, and the exact measurement its report is built on: this host's own
+     * {@code deploy/dev.env.example} sets {@code NORDTAL_ACCESS_LANGUAGES}, and the running bot's
+     * startup line names {@code languages} among seven overridden settings. This is that same
+     * override, run through {@link ConfigHandle#environmentOverrides()} and then
+     * {@link EnvOverrideFile}, which is the whole path {@code Configs#load}'s new
+     * {@code recordEnvironmentOverrides} step takes in production - a private method a test cannot
+     * call directly, so this exercises the same two calls in the same order instead of trusting
+     * that they are wired up.
+     */
+    @Test
+    @DisplayName("languages, overridden exactly the way dev.env.example overrides it, ends up in the marker file")
+    void environmentOverridesNameExactlyTheOverriddenPaths() throws Exception {
+        final ConfigHandle<AccessSpec> handle = handleFromEnvironment(Map.of(
+                "NORDTAL_ACCESS_LANGUAGES", envExampleValue("NORDTAL_ACCESS_LANGUAGES")));
+
+        assertTrue(handle.environmentOverrides().contains("languages"),
+                "jcore itself has to report the override before anything downstream can - reported: "
+                        + handle.environmentOverrides());
+
+        EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
+
+        assertEquals(Optional.of(handle.environmentOverrides()),
+                EnvOverrideFile.read(handle.file()),
+                "the marker file steward-worker reads has to carry exactly what jcore reported");
+    }
+
+    /**
+     * {@link #environmentOverridesNameExactlyTheOverriddenPaths} deliberately builds its own
+     * {@link ConfigHandle} and calls {@link EnvOverrideFile} itself, because {@link Configs#load}
+     * is private and {@code Configs.access()} does not let a test inject environment variables -
+     * so nothing above actually calls {@code Configs}'s own {@code recordEnvironmentOverrides}
+     * step. This is the test that does: it goes through the real, public entry point with no
+     * override in play at all, and the only thing it can require is that the entry point writes
+     * <em>some</em> marker file - the empty-list case {@code EnvOverrideFileTest} already covers
+     * for {@link EnvOverrideFile} on its own. A regression that deletes the
+     * {@code recordEnvironmentOverrides(handle);} line from {@code Configs#load} shows up here as
+     * a missing file, not as a wrong value in one.
+     */
+    @Test
+    @DisplayName("loading access.yml through Configs.access() itself leaves a marker file beside it")
+    void loadingThroughTheRealEntryPointWritesTheMarkerFile() throws Exception {
+        Files.writeString(directory.resolve("access.yml"), access());
+
+        Configs.access();
+
+        assertEquals(Optional.of(List.of()), EnvOverrideFile.read(directory.resolve("access.yml")),
+                "nothing is overridden here, but Configs#load still has to run the write step - an"
+                        + " absent marker file and an empty one are different facts (steward/76)");
     }
 }

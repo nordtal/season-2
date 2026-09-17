@@ -71,9 +71,15 @@ volume_of() {
 }
 
 # The stamp out of any archive name, for naming the scratch database after the dump it came from.
+#
+# `sed -n 1p` and not `head -1`, and that is not a style preference (season-2-ops/27, 2026-09-16):
+# head closes the pipe the moment it has its line, grep upstream takes SIGPIPE, and `set -o pipefail`
+# then reports 141 for a pipeline that did exactly what it was asked. Measured on this host: about
+# one in two thousand such pipelines. sed reads its input to the end, so there is no early close and
+# nothing to race. Every pipeline in this file is under pipefail, so this applies to all of them.
 stamp_of() {
     local name="$1"
-    grep -oE "$STAMP_PATTERN" <<<"$name" | head -1
+    grep -oE "$STAMP_PATTERN" <<<"$name" | sed -n '1p'
 }
 
 # Whether a typed confirmation matches. Deliberately identical in shape to deploy/dev's: the name
@@ -176,8 +182,10 @@ if [[ "$kind" == database ]]; then
     # anybody has looked inside the dump. So it lands beside the live database under its own name,
     # and pointing anything at it is a separate act with its own thinking.
     stamp="$(stamp_of "$ARCHIVE")"
+    # sed -n 1p rather than head -1, for the reason written at stamp_of: head would close the pipe
+    # under docker and pipefail would turn its SIGPIPE into a failed restore.
     container="$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" \
-        --filter "label=com.docker.compose.service=postgres" | head -1)"
+        --filter "label=com.docker.compose.service=postgres" | sed -n '1p')"
     [[ -n "$container" ]] || die "postgres is not running in project '$PROJECT'. A dump is restored
        BY the database server, so it has to be up - this is the one restore that needs the stack
        working rather than broken."

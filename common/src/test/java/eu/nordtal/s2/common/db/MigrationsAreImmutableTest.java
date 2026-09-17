@@ -95,6 +95,10 @@ class MigrationsAreImmutableTest {
                 "7a8ea086b6e364501828119da501fb14e3a8fccd0ef473efbcf8b45d277f7783");
         FROZEN.put("V20__steward_credential.sql",
                 "db65081934220ecbbf227acb602a7a060ce191a337549e7fdbb8748da25cf701");
+        FROZEN.put("V21__discord_and_minecraft_profile_cache.sql",
+                "e598a302d28e4fcfb97a39a4e6eb8db2d634fa7840d508a9a7bc81aebaf5fed5");
+        FROZEN.put("V22__online_count.sql",
+                "bf98dd8e45614cd2cf1e76f812102f575957ec038ec58768c1281f5779846164");
     }
 
     @Test

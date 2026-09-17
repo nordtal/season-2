@@ -3,14 +3,19 @@ package eu.nordtal.s2.hungergames.config;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.config.EnvOverrideFile;
+import eu.nordtal.s2.common.message.Tone;
 
 import org.bukkit.Material;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -41,6 +46,7 @@ public final class Configs {
                     + "not what you want, especially the world name and every coordinate",
                     file.toAbsolutePath());
         }
+        recordEnvironmentOverrides(handle, logger);
         return handle;
     }
 
@@ -67,6 +73,7 @@ public final class Configs {
             logger.warn("No config existed at {} - defaults were written and are almost certainly "
                     + "not what you want", file.toAbsolutePath());
         }
+        recordEnvironmentOverrides(handle, logger);
         return handle;
     }
 
@@ -90,7 +97,67 @@ public final class Configs {
             logger.info("No sounds config existed at {} - the ten defaults were written",
                     file.toAbsolutePath());
         }
+        recordEnvironmentOverrides(handle, logger);
         return handle;
+    }
+
+    /**
+     * Loads the tone colours (season-2-ingame/22). No validator, the same reason {@link #sounds}
+     * has none: {@code ToneColours#parse} corrects a bad hex value where it parses it, so a typo
+     * here is never the reason the event server is down. Read once at enable - see the class's own
+     * javadoc on {@code ColoursSpec} for why this file has no {@code /hg reload} path yet.
+     */
+    public static @NotNull ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger)
+            throws ConfigException {
+        final Path file = dataFolder.resolve("colours.yml");
+        final boolean fresh = !java.nio.file.Files.isRegularFile(file);
+
+        final ConfigHandle<ColoursSpec> handle = ConfigLoader.builder(file, ColoursSpec.class)
+                .envPrefix("NORDTAL_HUNGER_GAMES_COLOURS")
+                .validator(config -> { })
+                .load();
+
+        if (fresh) {
+            logger.info("No colours config existed at {} - the five defaults were written",
+                    file.toAbsolutePath());
+        }
+        recordEnvironmentOverrides(handle, logger);
+        return handle;
+    }
+
+    /**
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, so
+     * steward-worker can warn that editing an overridden setting there has no effect until the
+     * variable is removed (steward/76). Best-effort: this is a UI nicety, not a reason for a
+     * correctly loaded config to refuse to enable the plugin.
+     */
+    private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
+        try {
+            EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
+        } catch (final IOException e) {
+            logger.warn("Could not write the environment-override marker beside {}: {}",
+                    handle.file(), e.getMessage());
+        }
+    }
+
+    /**
+     * {@code ColoursSpec}'s five accessors, as the map {@code ToneColours} parses. An exhaustive
+     * {@code switch} with no {@code default} - the same guard {@code HungerGamesSounds}' own
+     * {@code specOf} uses for {@code Feedback} - so a sixth {@link Tone} stops this compiling rather
+     * than silently leaving it unpainted.
+     */
+    public static Map<Tone, String> declared(final ColoursSpec spec) {
+        final Map<Tone, String> declared = new EnumMap<>(Tone.class);
+        for (final Tone tone : Tone.values()) {
+            declared.put(tone, switch (tone) {
+                case GOOD -> spec.good();
+                case BAD -> spec.bad();
+                case WARN -> spec.warn();
+                case NEUTRAL -> spec.neutral();
+                case MUTED -> spec.muted();
+            });
+        }
+        return declared;
     }
 
     private static void validate(final HungerGamesSpec config) {

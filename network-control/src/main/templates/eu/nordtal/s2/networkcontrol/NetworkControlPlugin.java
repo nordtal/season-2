@@ -17,6 +17,7 @@ import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.common.online.OnlineDirectory;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.networkcontrol.config.ColoursSpec;
@@ -61,6 +62,7 @@ import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
 import eu.nordtal.s2.common.notify.PostgresNotifications;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
+import eu.nordtal.s2.networkcontrol.online.OnlineWriter;
 import eu.nordtal.s2.networkcontrol.ping.NetworkPing;
 import eu.nordtal.s2.networkcontrol.ping.SnapshotStore;
 import eu.nordtal.s2.networkcontrol.playtime.PlaytimeStore;
@@ -401,6 +403,23 @@ public final class NetworkControlPlugin {
         proxy.getEventManager().register(this, new NetworkPing(proxy, logger, networkConfig, phaseWatch,
                 snapshots, messages, Clock.systemUTC(),
                 eu.nordtal.s2.networkcontrol.ping.ServerIcon.load(dataDirectory, logger)));
+
+        // ------------------------------------------------------------ the service list's player counts
+
+        // steward/86: this proxy is the only process that already knows every connection and which
+        // backend it is on, without adding anything up - the same two calls NetworkPing's own
+        // placeholders already use. Writing them to online_count is what lets steward-worker show a
+        // count next to smp, hunger-games, limbo and the network total without a Velocity API of its
+        // own. See OnlineDirectory#WRITE_INTERVAL for why this runs on a fixed constant and not a
+        // network.yml setting.
+        final OnlineWriter onlineWriter = new OnlineWriter(proxy, PhaseServers.from(gateConfig),
+                OnlineDirectory.using(pool), logger);
+        final Duration onlineInterval = OnlineDirectory.WRITE_INTERVAL;
+        onlineWriter.write();
+        proxy.getScheduler().buildTask(this, onlineWriter::write)
+                .delay(onlineInterval)
+                .repeat(onlineInterval)
+                .schedule();
 
         // ------------------------------------------------------------ play time
 

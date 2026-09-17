@@ -871,9 +871,10 @@ services:
       # service that only logs a warning about that gets deployed anyway.
       NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui and steward-deployer share, `openssl rand -hex 32`}
       # WHAT `up` MEANS HAS TO BE THE SAME SELECTION ON BOTH SIDES. This service runs
-      # `docker compose up` with the mounted .env as its --env-file, so COMPOSE_PROFILES comes from
-      # there and not from here; the variable is repeated only so that a `docker compose` typed on
-      # the host and a deploy from the interface act on the same set of services.
+      # `docker compose up` with the mounted environment file as its --env-file (steward/102: the
+      # file mounted under a directory, not a literal `.env` - see the volumes comment below), so
+      # COMPOSE_PROFILES comes from there and not from here; the variable is repeated only so that a
+      # `docker compose` typed on the host and a deploy from the interface act on the same services.
       COMPOSE_PROFILES: ${COMPOSE_PROFILES:-db,bot,mc,backup,steward}
       # AND THE SAME PROJECT, for a sharper reason. This service names the project on its own
       # command line, so if it ever disagreed with the project compose used out here it would not
@@ -881,6 +882,10 @@ services:
       # and its own database, and the first sign would be a fresh world. The default is spelled in
       # two places (here and StewardDeployer) so that neither can be the only one.
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-nordtal-s2}
+      # steward/102: the file name inside the directory mounted below, so this process knows what
+      # to open under /app/env. NOT the path itself - the directory is the mount now, not the file
+      # (see the volumes comment) - so only the name survives the trip into the container.
+      NORDTAL_STEWARD_ENV_FILE: /app/env/${STEWARD_ENV_FILE_NAME:?set STEWARD_ENV_FILE_NAME in .env - the file name (not the path) of the environment file, derived from STEWARD_ENV_FILE by deploy/setup.sh}
     volumes:
       # THE SOCKET. It is not read-only and cannot be made read-only: `:ro` restricts the socket
       # FILE and not the API behind it, and a container that can talk to this daemon can start a
@@ -888,10 +893,18 @@ services:
       # cannot be given from outside, and that steward-ui - the part an attacker reaches first -
       # has no socket at all.
       - /var/run/docker.sock:/var/run/docker.sock
-      # The deployment's secrets, for compose to interpolate. READ-ONLY, and an ABSOLUTE host path:
-      # this is the one file in the deployment that is in no image and in no repository, and
-      # deploy/setup.sh is what puts it where this points.
-      - ${STEWARD_ENV_FILE:?set STEWARD_ENV_FILE in .env - the ABSOLUTE path of this .env on the host, which deploy/setup.sh writes}:/app/env/.env:ro
+      # THE DIRECTORY HOLDING THE DEPLOYMENT'S SECRETS, not the file itself (steward/102). A FILE
+      # bind mount follows the INODE, not the path: when the host replaces this file - any `mv` over
+      # a temp file, which is how a secret is rotated, not edited - the old inode is unlinked from
+      # the host but stays mounted here, orphaned, forever, for the life of this container. Nothing
+      # about that looks wrong from in here: the path still resolves, the content is just from
+      # before the rotation, and every `${X:?}` in this file still sees a value - so a recreated
+      # service silently gets secrets from before the last rotation. A DIRECTORY bind re-resolves
+      # the path on every access, so a file replaced after this container started is visible without
+      # recreating it. READ-ONLY, and an ABSOLUTE host path: this is the one file in the deployment
+      # that is in no image and in no repository, and deploy/setup.sh is what puts it where
+      # STEWARD_ENV_FILE points - this mounts the directory around it.
+      - ${STEWARD_ENV_DIR:?set STEWARD_ENV_DIR in .env - the directory holding STEWARD_ENV_FILE, derived from it by deploy/setup.sh}:/app/env:ro
     logging: *logging
 
   # -------------------------------------------------------------------------------------------

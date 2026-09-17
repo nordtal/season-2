@@ -29,9 +29,23 @@ function Command({
   )
 }
 
+/**
+ * `label` is not decoration, and leaving it out is how the input lost its name (steward/100).
+ *
+ * `cmdk` always renders a visually hidden `<label>` for the input and points the input's
+ * `aria-labelledby` at it. Without a `label` that element is **empty** - and `aria-labelledby` wins
+ * over `aria-label`, so the field ends up with no accessible name at all however many labels are
+ * added from outside. Measured 2026-09-17: a screen reader announced "combobox" and nothing else,
+ * because `role="combobox"` also removes the browser's placeholder-as-name fallback (HTML-AAM
+ * grants that to the native textbox role only). Filling cmdk's own label is the fix; anything else
+ * is shouted down by the empty one.
+ *
+ * It defaults to `title` so a caller that says nothing still gets a name rather than none.
+ */
 function CommandDialog({
   title = "Command Palette",
   description = "Search for a command to run...",
+  label,
   children,
   className,
   showCloseButton = true,
@@ -39,6 +53,7 @@ function CommandDialog({
 }: React.ComponentProps<typeof Dialog> & {
   title?: string
   description?: string
+  label?: string
   className?: string
   showCloseButton?: boolean
 }) {
@@ -52,7 +67,7 @@ function CommandDialog({
         className={cn("overflow-hidden p-0", className)}
         showCloseButton={showCloseButton}
       >
-        <Command className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+        <Command label={label ?? title} className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
           {children}
         </Command>
       </DialogContent>

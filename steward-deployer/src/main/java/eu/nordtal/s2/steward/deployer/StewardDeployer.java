@@ -126,7 +126,7 @@ public final class StewardDeployer {
         return List.copyOf(services);
     }
 
-    private static void serve(Compose compose) {
+    private static void serve(Compose compose) throws java.io.IOException {
         String token = System.getenv("NORDTAL_STEWARD_DEPLOYER_TOKEN");
         if (token == null || token.isBlank()) {
             // Refusing to start is the point. This process can recreate every container in the
@@ -136,6 +136,12 @@ public final class StewardDeployer {
                     "NORDTAL_STEWARD_DEPLOYER_TOKEN is not set. steward-deployer creates containers "
                     + "and will not serve without a shared secret; the setup script writes one.");
         }
+        // steward/102: checked again before every `up`/`recreate` inside Compose itself, because
+        // this process serves for days and a rotation can land at any point in that time - but
+        // checking once here too means a container that starts already stale says so in its own
+        // boot log and its healthcheck never turns green, instead of waiting for the first deploy
+        // request to notice.
+        compose.assertEnvFileFresh();
         Jobs jobs = new Jobs();
 
         Javalin.create(config -> {

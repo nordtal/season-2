@@ -147,6 +147,7 @@ export function CommandPalette() {
       onOpenChange={setOpen}
       title="Search"
       description="Jump to a page"
+      label="Search pages, runs, settings"
       className="top-[20%] translate-y-0"
     >
       <CommandInput

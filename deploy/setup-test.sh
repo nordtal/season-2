@@ -255,7 +255,8 @@ case_begin "what a deployment demands of a person is the short list"
 # unset channel means that feature is not served - and this is the list that is left.
 for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA NORDTAL_BOT_TOKEN \
             NORDTAL_ACCESS_GUILD_ID NORDTAL_ACCESS_ROLES_ADMIN STEWARD_HOST STEWARD_ACME_EMAIL \
-            STEWARD_ENV_FILE STEWARD_UI_DISCORD_CLIENT_ID STEWARD_UI_DISCORD_CLIENT_SECRET; do
+            STEWARD_ENV_FILE STEWARD_ENV_DIR STEWARD_ENV_FILE_NAME STEWARD_UI_DISCORD_CLIENT_ID \
+            STEWARD_UI_DISCORD_CLIENT_SECRET; do
     contains "$name" "${REQUIRED[@]}" || bad "$name is not required and should be"
 done
 for name in NORDTAL_ACCESS_ROLES_ACCESS NORDTAL_ACCESS_ROLES_DONOR NORDTAL_ACCESS_ROLES_ADMIN_PING \
@@ -265,7 +266,7 @@ for name in NORDTAL_ACCESS_ROLES_ACCESS NORDTAL_ACCESS_ROLES_DONOR NORDTAL_ACCES
         bad "$name is required, and a deployment must not stop for it"
     fi
 done
-ok "twelve required; the roles, the channels, the languages, the tiers and bunq are not"
+ok "fourteen required; the roles, the channels, the languages, the tiers and bunq are not"
 
 # ------------------------------------------------------------------------------------------------
 case_begin "a value full of shell metacharacters survives the round trip"

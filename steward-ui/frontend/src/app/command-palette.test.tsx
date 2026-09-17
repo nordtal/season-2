@@ -473,3 +473,28 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
     expect(screen.queryByText("Farm reset announcement")).not.toBeNull()
   })
 })
+
+/**
+ * steward/100: the field had no accessible name at all.
+ *
+ * `cmdk` gives the input `role="combobox"`, and that overrides the native textbox role. The
+ * browser's placeholder-as-name fallback (HTML-AAM) applies to the native role only, so the
+ * placeholder stopped counting the moment the role was set - a screen reader announced "combobox"
+ * and nothing about what it searches. Nothing in this file caught it, because every test here finds
+ * the field by `queryByPlaceholderText`, which asks about an attribute rather than about the name.
+ *
+ * Found by `preview.mjs` while building workspace/05: the tool looks a field up by accessible name
+ * and fails loudly when it finds none, which is the whole reason the option is worth having.
+ */
+describe("CommandPalette - the input says what it is", () => {
+  it("is findable by role and name, not only by its placeholder", async () => {
+    render(<CommandPalette />)
+    ctrlK(document.body)
+    await waitFor(() => expect(searchInput()).not.toBeNull())
+
+    // eslint-disable-next-line no-console
+    expect(screen.getByRole("combobox", { name: "Search pages, runs, settings" })).toBe(
+      searchInput(),
+    )
+  })
+})

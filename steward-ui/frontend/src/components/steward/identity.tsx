@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Check, Copy, ImageOff, UserRound } from "lucide-react"
 
 import { relative } from "@/lib/format"
+import { StewardMark } from "@/app/steward-mark"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
@@ -82,7 +83,12 @@ export async function copyToClipboard(value: string): Promise<boolean> {
 }
 
 export type PersonIdentityProps = {
-  discordId: string
+  /**
+   * Not required when {@link system} is set - a system-triggered action has no Discord id to draw
+   * a popover of, and forcing a caller to invent one would be exactly the raw-identifier leak this
+   * component exists to prevent.
+   */
+  discordId?: string
   discordUsername?: string
   discordUsernameUpdated?: string
   discordDisplayName?: string
@@ -96,6 +102,13 @@ export type PersonIdentityProps = {
   avatarBaseUrl?: string
   now?: number
   className?: string
+  /**
+   * Steward itself did this, not a person (steward/82) - the nightly backup clock, an orphan
+   * settle, a journal line the bot wrote with nobody behind it. Drawn as the server's own mark and
+   * the word "Steward", in the same closed shape a person gets, and with no popover: there is no id
+   * behind this one to reveal, so opening one would show nothing rather than something.
+   */
+  system?: boolean
 }
 
 /** The name shown closed, and the timestamp its staleness is judged by. */
@@ -110,6 +123,19 @@ function displayName(props: PersonIdentityProps): { text: string | null; updated
 }
 
 export function PersonIdentity(props: PersonIdentityProps) {
+  if (props.system) {
+    return (
+      <span
+        className={
+          "inline-flex min-w-0 items-center gap-2 " + (props.className ?? "")
+        }
+      >
+        <StewardMark className="size-5 shrink-0" />
+        <span className="truncate text-sm text-foreground">Steward</span>
+      </span>
+    )
+  }
+
   const now = props.now ?? Date.now()
   const name = displayName(props)
   const stale = name.text !== null && isStale(name.updated, now)
@@ -163,7 +189,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
           </div>
         </div>
 
-        <CopyableId label="Discord-ID" value={props.discordId} />
+        <CopyableId label="Discord-ID" value={props.discordId ?? ""} />
 
         {props.mcUuid ? (
           <>

@@ -35,7 +35,7 @@ public interface DatabaseSpec {
 
     @Order(1)
     @Key("jdbc-url")
-    @Comment("JDBC URL of the PostgreSQL database that holds the hunger games schema.")
+    @Comment("JDBC URL of the PostgreSQL database that holds the smp schema.")
     @Explain("The full JDBC connection string, including the database name.")
     default String jdbcUrl() {
         return "jdbc:postgresql://localhost:5432/nordtal";

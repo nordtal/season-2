@@ -76,6 +76,15 @@ slf4j = "2.0.18"
 # junit-jupiter module is deliberately not used - it is built against JUnit 5 and this
 # repo is on the JUnit 6 BOM.
 testcontainers = "1.21.4"
+# jimfs: an in-memory NIO filesystem, test-only. steward/104's ownership-preserving write needs a
+# file owned by somebody other than the test process to prove anything - the real filesystem only
+# lets root hand that out, and this host's own sessions already run as uid 0 (workspace/02), which
+# makes the interesting failure untestable there and untestable in CI for the opposite reason.
+# Jimfs has no privilege model at all, so a fabricated owner survives or does not on its own
+# merits, the same "prove it from the other side" fix workspace/02 already made for jcore's
+# AtomicConfigWriterTest - which is also where this exact version comes from: checked against
+# jcore's build.gradle.kts 2026-09-17, still 1.3.2.
+jimfs = "1.3.2"
 # Gson, and only :common's tests use it - the resource-pack consistency test parses the three
 # font JSON files, and hand-rolling a JSON reader for that is 80 lines nobody would ever review.
 # Pinned to what Paper ships in libraries/, so the parser reading the fonts is the one the
@@ -153,6 +162,7 @@ webauthn-server-core = { module = "com.yubico:webauthn-server-core", version.ref
 jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
 cbor = { module = "com.upokecenter:cbor", version.ref = "cbor" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+jimfs = { module = "com.google.jimfs:jimfs", version.ref = "jimfs" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }

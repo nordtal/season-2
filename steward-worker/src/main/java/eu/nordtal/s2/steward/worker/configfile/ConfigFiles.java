@@ -33,7 +33,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFileAttributeView;
-import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -1441,7 +1441,7 @@ public final class ConfigFiles {
         Path temp = null;
         try {
             temp = Files.createTempFile(directory, ".", ".tmp");
-            keepTheMode(file, temp);
+            keepTheOwnerAndMode(file, temp);
             try (FileChannel channel = FileChannel.open(temp, CREATE, TRUNCATE_EXISTING, WRITE)) {
                 channel.write(ByteBuffer.wrap(content.getBytes(StandardCharsets.UTF_8)));
                 // Without the force() the bytes can still be in the page cache when the move
@@ -1468,34 +1468,52 @@ public final class ConfigFiles {
     }
 
     /**
-     * Gives {@code temp} the permissions {@code file} already has, so the move does not change them.
+     * Gives {@code temp} the owner, group and permissions {@code file} already has, so the move
+     * changes none of them.
      *
-     * <p>{@link Files#createTempFile} makes an owner-only file on purpose, and that is the right
-     * default for a temporary file - but this one is about to <em>become</em> the destination. A
-     * {@code config.yml} that was {@code rw-r--r--} would come back {@code rw-------} from one
-     * click in the browser, and nothing would say so. Nothing in this stack runs as a second user
-     * today, so that is a quiet change rather than an outage; it stops being quiet the day any of
-     * these images gains a {@code USER} line.</p>
+     * <p>{@link Files#createTempFile} makes an owner-only file owned by whichever process is
+     * writing, and that is the right default for a temporary file - but this one is about to
+     * <em>become</em> the destination. A {@code config.yml} that was {@code rw-r--r--} would come
+     * back {@code rw-------} from one click in the browser, and nothing would say so; this stack
+     * does now run as a second user, which is the whole reason this class exists - the worker
+     * edits every other service's config through a mount under {@code /configs/}, as root, while
+     * every one of those services runs as its own uid. Carrying the mode across and leaving the
+     * owner at whoever is writing (steward/104: {@code steward-ui.yml} came back owned by root,
+     * mode untouched) is a save that looks fine until the service it belongs to is next re-created
+     * and finds its own configuration unreadable - silently, because the container that already
+     * has the file open never notices.</p>
      *
-     * <p>A failure here is not swallowed. Reporting a saved file whose permissions are not the
-     * ones it had is the failure this method exists to prevent, so it fails the save instead.</p>
+     * <p>Owner and group are a POSIX file's own attributes, not the permission bits, so they need
+     * their own carry-across - {@link PosixFileAttributeView#setOwner} and {@link
+     * PosixFileAttributeView#setGroup}, each a {@code chown}, which only the process that already
+     * owns the file or one allowed to give ownership away may call. The worker runs as root here,
+     * so it may.</p>
+     *
+     * <p>A failure here is not swallowed. Reporting a saved file whose owner, group or permissions
+     * are not the ones it had is the failure this method exists to prevent, so it fails the save
+     * instead.</p>
      */
-    private static void keepTheMode(final Path file, final Path temp) throws IOException {
-        final PosixFileAttributeView view =
+    private static void keepTheOwnerAndMode(final Path file, final Path temp) throws IOException {
+        final PosixFileAttributeView destination =
                 Files.getFileAttributeView(file, PosixFileAttributeView.class);
-        if (view == null) {
+        if (destination == null) {
             // Not a POSIX filesystem. There is nothing to carry across and nothing to report.
             return;
         }
-        final Set<PosixFilePermission> mode;
+        final PosixFileAttributes attributes;
         try {
-            mode = view.readAttributes().permissions();
+            attributes = destination.readAttributes();
         } catch (final NoSuchFileException e) {
-            // A file that is not there yet has no permissions to keep; the restrictive default of
-            // the temporary file is then the better of the two answers.
+            // A file that is not there yet has no owner or permissions to keep; the restrictive
+            // default of the temporary file, owned by whichever process is writing it, is then the
+            // better of the two answers.
             return;
         }
-        Files.setPosixFilePermissions(temp, mode);
+        Files.setPosixFilePermissions(temp, attributes.permissions());
+        final PosixFileAttributeView temporary =
+                Files.getFileAttributeView(temp, PosixFileAttributeView.class);
+        temporary.setGroup(attributes.group());
+        temporary.setOwner(attributes.owner());
     }
 
     // -----------------------------------------------------------------------------------------

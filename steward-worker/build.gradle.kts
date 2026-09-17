@@ -82,6 +82,12 @@ dependencies {
     // session, with no in-JVM stand-in. It skips itself when no Docker daemon is reachable.
     testImplementation(libs.testcontainers.postgresql)
 
+    // ConfigFilesOwnershipTest (steward/104) needs a file owned by somebody other than the test
+    // process to prove the atomic write carries that ownership across - see the version comment
+    // in libs.versions.toml for why an in-memory filesystem is the only place that scenario is
+    // actually testable, on this host or in CI.
+    testImplementation(libs.jimfs)
+
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
     testCompileOnly(libs.lombok)

@@ -72,7 +72,7 @@ describe("the header is gone and does not grow back (steward/89)", () => {
     const frames = shellSources().find(({ file }) => file === "frames.tsx")!.text
     const shells = frames.split(/export function Shell/).slice(1)
 
-    expect(shells.length, "Three shells are being compared.").toBe(3)
+    expect(shells.length, "Nine shells are being compared (steward/89, 2026-09-17).").toBe(9)
     for (const shell of shells) {
       expect(
         /Search(Button|Row)/.test(shell),

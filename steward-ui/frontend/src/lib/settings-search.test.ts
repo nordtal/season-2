@@ -1,12 +1,26 @@
 import { describe, expect, it } from "vitest"
 
-import type { ConfigEntry, ConfigLocation, ParsedConfigDocument } from "@/lib/api"
+import type {
+  ConfigEntry,
+  ConfigLocation,
+  MessageBundle,
+  MessageBundleLocation,
+  MessageEntry,
+  ParsedConfigDocument,
+} from "@/lib/api"
 import {
   entryHaystack,
+  matchesMessageQuery,
   matchesQuery,
+  messageEntryHaystack,
+  onPendingMessageJump,
   searchAcross,
+  searchMessagesAcross,
+  searchSettingsAndMessages,
   setPendingJump,
+  setPendingMessageJump,
   takePendingJump,
+  takePendingMessageJump,
 } from "@/lib/settings-search"
 
 /**
@@ -191,5 +205,238 @@ describe("pending jump", () => {
     setPendingJump("discord-bot", { file: "discord-bot/steward.yml", path: "b" })
     expect(takePendingJump("discord-bot")?.path).toBe("b")
     expect(takePendingJump("steward-worker")?.path).toBe("a")
+  })
+})
+
+// --- steward/87: the message bundles are a second supplier, not a second search --------------
+
+function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
+  return { inBundle: true, ...over }
+}
+
+function bundleLocation(
+  over: Partial<MessageBundleLocation> & { path: string },
+): MessageBundleLocation {
+  return { service: "smp", module: "smp", writable: true, ...over }
+}
+
+function bundle(loc: MessageBundleLocation, entries: MessageEntry[]): MessageBundle {
+  return { ...loc, entries }
+}
+
+describe("messageEntryHaystack / matchesMessageQuery", () => {
+  it("matches the English default", () => {
+    const e = messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })
+    expect(matchesMessageQuery(e, "en", "resetting")).toBe(true)
+  })
+
+  it("matches the German translation, and only for the German language", () => {
+    // A synthetic marker, not real German prose - `language.test.ts` scans every source file for
+    // German and a fixture is not exempt from that, the same reason `messages.test.tsx` (steward/48)
+    // spells its own German fixtures as "packaged-de-text" rather than an actual sentence.
+    const e = messageEntry({
+      key: "farm.reset.announce",
+      english: "The farm world is resetting.",
+      german: "packaged-de-marker",
+    })
+    expect(matchesMessageQuery(e, "de", "de-marker")).toBe(true)
+    expect(matchesMessageQuery(e, "en", "de-marker")).toBe(false)
+  })
+
+  it("matches an operator's override, not only the packaged text", () => {
+    const e = messageEntry({
+      key: "farm.reset.announce",
+      english: "The farm world is resetting.",
+      overrideEnglish: "The farm is being wiped.",
+    })
+    expect(matchesMessageQuery(e, "en", "wiped")).toBe(true)
+  })
+
+  it("matches the key, in both languages - the key has no language of its own", () => {
+    const e = messageEntry({ key: "farm.reset.announce", english: "x", german: "y" })
+    expect(matchesMessageQuery(e, "en", "farm.reset")).toBe(true)
+    expect(matchesMessageQuery(e, "de", "farm.reset")).toBe(true)
+  })
+
+  it("is case-insensitive", () => {
+    const e = messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })
+    expect(matchesMessageQuery(e, "en", "RESETTING")).toBe(true)
+  })
+
+  it("finds nothing for an empty query", () => {
+    const e = messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })
+    expect(matchesMessageQuery(e, "en", "   ")).toBe(false)
+  })
+
+  it("does not leak the other language's text into this one's haystack", () => {
+    const e = messageEntry({ key: "farm.reset.announce", english: "wipe", german: "de-only-marker" })
+    expect(messageEntryHaystack(e, "en")).not.toContain("de-only-marker")
+    expect(messageEntryHaystack(e, "de")).not.toContain("wipe")
+  })
+})
+
+describe("searchMessagesAcross", () => {
+  it("finds a key by its English default and its German translation as two separate hits", () => {
+    const loc = bundleLocation({ path: "smp/smp" })
+    const doc = bundle(loc, [
+      messageEntry({
+        key: "farm.reset.announce",
+        english: "The farm world is resetting.",
+        german: "packaged-de-marker",
+      }),
+    ])
+    // A query that matches the key matches it in both languages - one hit per language, since
+    // each is a different destination (a different tab) once it is found.
+    const hits = searchMessagesAcross([{ location: loc, bundle: doc }], "farm.reset")
+    expect(hits.map((hit) => hit.language).sort()).toEqual(["de", "en"])
+  })
+
+  it("skips a bundle whose document has not loaded yet", () => {
+    const loc = bundleLocation({ path: "smp/smp" })
+    expect(searchMessagesAcross([{ location: loc, bundle: undefined }], "anything")).toEqual([])
+  })
+
+  it("returns nothing for an empty query without looking at any bundle", () => {
+    const loc = bundleLocation({ path: "smp/smp" })
+    const doc = bundle(loc, [messageEntry({ key: "a", english: "b" })])
+    expect(searchMessagesAcross([{ location: loc, bundle: doc }], "")).toEqual([])
+  })
+
+  it("tags every hit with kind: \"message\", so a caller can tell it apart from a config hit", () => {
+    const loc = bundleLocation({ path: "smp/smp" })
+    const doc = bundle(loc, [messageEntry({ key: "a", english: "wipe" })])
+    const [hit] = searchMessagesAcross([{ location: loc, bundle: doc }], "wipe")
+    expect(hit.kind).toBe("message")
+  })
+})
+
+describe("searchSettingsAndMessages - one list, from two suppliers", () => {
+  function configLocation(over: Partial<ConfigLocation> & { path: string; name: string }): ConfigLocation {
+    return { service: "smp", readable: true, writable: true, ...over }
+  }
+
+  function configEntry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
+    return {
+      label: over.key,
+      comments: [],
+      explanation: "",
+      noExplanationNeeded: false,
+      filled: true,
+      value: "",
+      items: [],
+      kind: "SCALAR",
+      type: "STRING",
+      line: 1,
+      editable: true,
+      secret: false,
+      inSchema: true,
+      ...over,
+    }
+  }
+
+  function configDocument(loc: ConfigLocation, entries: ConfigEntry[]): ParsedConfigDocument {
+    return { ...loc, revision: "r1", header: [], entries }
+  }
+
+  /**
+   * steward/87's own words, made literal: "a text that lives in only one bundle is not found
+   * before, and is found after". This is that sentence, with a fixture proving the "before" half
+   * too - the config file has entries, none of which mention the text, so a config-only search
+   * (`searchAcross` alone) would answer nothing for this query.
+   */
+  it("finds a text that lives only in a bundle - not in any config file of the same service", () => {
+    const loc = configLocation({ path: "smp/steward.yml", name: "steward.yml" })
+    const configDoc = configDocument(loc, [
+      configEntry({ path: "farm.reset.enabled", key: "enabled", label: "Farm reset enabled" }),
+    ])
+    const bundleLoc = bundleLocation({ path: "smp/smp" })
+    const bundleDoc = bundle(bundleLoc, [
+      messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." }),
+    ])
+
+    // The "before" half: config search alone finds nothing for this text.
+    expect(searchAcross([{ location: loc, document: configDoc }], "resetting")).toEqual([])
+
+    // The "after" half: both suppliers together find it.
+    const hits = searchSettingsAndMessages(
+      [{ location: loc, document: configDoc }],
+      [{ location: bundleLoc, bundle: bundleDoc }],
+      "resetting",
+    )
+    expect(hits).toHaveLength(1)
+    expect(hits[0]).toMatchObject({ kind: "message", entry: { key: "farm.reset.announce" } })
+  })
+
+  it("still finds a config hit when the query matches only a config file", () => {
+    const loc = configLocation({ path: "smp/steward.yml", name: "steward.yml" })
+    const configDoc = configDocument(loc, [
+      configEntry({ path: "farm.reset.enabled", key: "enabled", label: "Farm reset enabled" }),
+    ])
+    const hits = searchSettingsAndMessages(
+      [{ location: loc, document: configDoc }],
+      [],
+      "farm reset enabled",
+    )
+    expect(hits).toHaveLength(1)
+    expect(hits[0].kind).toBe("config")
+  })
+
+  it("finds both a config hit and a message hit for one query, in one list", () => {
+    const loc = configLocation({ path: "smp/steward.yml", name: "steward.yml" })
+    const configDoc = configDocument(loc, [
+      configEntry({ path: "farm.reset.enabled", key: "enabled", label: "Farm reset enabled" }),
+    ])
+    const bundleLoc = bundleLocation({ path: "smp/smp" })
+    const bundleDoc = bundle(bundleLoc, [
+      messageEntry({ key: "farm.reset.announce", english: "Farm reset announcement" }),
+    ])
+
+    const hits = searchSettingsAndMessages(
+      [{ location: loc, document: configDoc }],
+      [{ location: bundleLoc, bundle: bundleDoc }],
+      "farm reset",
+    )
+    expect(hits.map((hit) => hit.kind).sort()).toEqual(["config", "message"])
+  })
+})
+
+describe("pending message jump", () => {
+  it("hands a jump to the one read that follows, then forgets it", () => {
+    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "farm.reset.announce" })
+    expect(takePendingMessageJump("smp")).toEqual({
+      path: "smp/smp",
+      language: "en",
+      key: "farm.reset.announce",
+    })
+    expect(takePendingMessageJump("smp")).toBeUndefined()
+  })
+
+  it("keeps jumps for different services apart", () => {
+    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "a" })
+    setPendingMessageJump("discord-bot", { path: "discord-bot", language: "de", key: "b" })
+    expect(takePendingMessageJump("discord-bot")?.key).toBe("b")
+    expect(takePendingMessageJump("smp")?.key).toBe("a")
+  })
+
+  it("is a separate map from the config jump - the same service name in both never collides", () => {
+    setPendingJump("smp", { file: "smp/steward.yml", path: "farm.reset.enabled" })
+    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "farm.reset.announce" })
+    expect(takePendingJump("smp")).toEqual({ file: "smp/steward.yml", path: "farm.reset.enabled" })
+    expect(takePendingMessageJump("smp")).toEqual({
+      path: "smp/smp",
+      language: "en",
+      key: "farm.reset.announce",
+    })
+  })
+
+  it("notifies a subscriber immediately - the same-page case, where nothing navigates", () => {
+    const seen: string[] = []
+    const unsubscribe = onPendingMessageJump(() => seen.push("notified"))
+    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "a" })
+    expect(seen).toEqual(["notified"])
+    unsubscribe()
+    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "b" })
+    expect(seen).toEqual(["notified"]) // unsubscribed: no second notification
+    takePendingMessageJump("smp") // clean up, so this jump does not leak into a later test
   })
 })

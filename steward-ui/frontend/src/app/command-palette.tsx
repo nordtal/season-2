@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { History, SlidersHorizontal } from "lucide-react"
+import { History, Languages, SlidersHorizontal } from "lucide-react"
 
 import {
   CommandDialog,
@@ -16,8 +16,20 @@ import { NAVIGATION } from "@/app/navigation"
 import { RUN_KIND_SEARCH_TERMS } from "@/app/run-search-terms"
 import type { Run } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
-import { useConfigDocuments, useConfigs, useRuns } from "@/lib/queries"
-import { entryHaystack, searchAcross, setPendingJump } from "@/lib/settings-search"
+import {
+  useConfigDocuments,
+  useConfigs,
+  useMessageBundles,
+  useMessageDocuments,
+  useRuns,
+} from "@/lib/queries"
+import {
+  entryHaystack,
+  messageEntryHaystack,
+  searchSettingsAndMessages,
+  setPendingJump,
+  setPendingMessageJump,
+} from "@/lib/settings-search"
 import { humanFileName } from "@/components/steward/config-controls"
 import { RUN_KIND, RUN_STATUS } from "@/components/steward/status"
 
@@ -79,11 +91,27 @@ export function CommandPalette() {
   const locations = useConfigs(open).data ?? []
   const paths = React.useMemo(() => locations.map((location) => location.path), [locations])
   const documents = useConfigDocuments(paths, open && search.trim().length > 0)
+
+  // steward/87: the message bundles are a second supplier for the same search, gated on `open` and
+  // on something being typed the same way the config side already is - five bundles measured on
+  // this host on 2026-09-17, 282 to 429 keys each, which is the same "small enough to just fetch
+  // it" case `useConfigDocuments` already made for config files.
+  const bundleLocations = useMessageBundles(open).data ?? []
+  const bundlePaths = React.useMemo(
+    () => bundleLocations.map((location) => location.path),
+    [bundleLocations],
+  )
+  const bundleDocuments = useMessageDocuments(bundlePaths, open && search.trim().length > 0)
+
   const settingsHits = React.useMemo(() => {
     if (!search.trim()) return []
-    const pairs = locations.map((location, index) => ({ location, document: documents[index]?.data }))
-    return searchAcross(pairs, search)
-  }, [locations, documents, search])
+    const configPairs = locations.map((location, index) => ({ location, document: documents[index]?.data }))
+    const messagePairs = bundleLocations.map((location, index) => ({
+      location,
+      bundle: bundleDocuments[index]?.data,
+    }))
+    return searchSettingsAndMessages(configPairs, messagePairs, search)
+  }, [locations, documents, bundleLocations, bundleDocuments, search])
 
   // The listener is registered once, so it would otherwise read the `open` of the render it was
   // created in - which is always false.
@@ -197,24 +225,69 @@ export function CommandPalette() {
         {settingsHits.length > 0 ? (
           <>
             <CommandSeparator />
+            {/*
+              steward/87: config hits and message-bundle hits in the one group, in the order
+              `searchSettingsAndMessages` returned them - one list, not two groups, was
+              Till's own choice when offered the alternative. A bundle hit's destination is the
+              messages tool on the same service page, not the configuration form, so it goes
+              through `setPendingMessageJump` rather than `setPendingJump` - the two are separate
+              maps read by two different components, see `settings-search.ts`.
+            */}
             <CommandGroup heading="Settings">
               {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
                 const service = hit.location.service || "steward-ui"
+                if (hit.kind === "config") {
+                  return (
+                    <CommandItem
+                      key={`setting-${hit.location.path}-${hit.entry.path}`}
+                      value={entryHaystack(hit.entry)}
+                      onSelect={() => {
+                        setOpen(false)
+                        setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
+                        void navigate({ to: "/services/$name", params: { name: service } })
+                      }}
+                      className="min-h-control gap-2.5"
+                    >
+                      <SlidersHorizontal aria-hidden className="text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
+                      <CommandShortcut className="truncate text-muted-foreground/70">
+                        {humanFileName(hit.location.name)} ({service})
+                      </CommandShortcut>
+                    </CommandItem>
+                  )
+                }
+                const bundleLabel = hit.location.module || hit.location.service
+                const language = hit.language === "en" ? "EN" : "DE"
+                // The matched text, not the raw key, is the main label - the same reasoning as
+                // `SettingsHitRow` in `config-search.tsx` (steward/87): it mirrors a config hit's
+                // own split of a human-facing label up front and the technical identifier tucked
+                // into the metadata instead, and it is what fixed a row showing the same key twice.
+                // `searchMessagesAcross` never produces a hit for a language with neither an
+                // override nor packaged text, so the key fallback below is unreachable today, kept
+                // only so this stays correct on its own.
+                const messageLabel =
+                  (hit.language === "en"
+                    ? (hit.entry.overrideEnglish ?? hit.entry.english)
+                    : (hit.entry.overrideGerman ?? hit.entry.german)) ?? hit.entry.key
                 return (
                   <CommandItem
-                    key={`setting-${hit.location.path}-${hit.entry.path}`}
-                    value={entryHaystack(hit.entry)}
+                    key={`message-${hit.location.path}-${hit.language}-${hit.entry.key}`}
+                    value={messageEntryHaystack(hit.entry, hit.language)}
                     onSelect={() => {
                       setOpen(false)
-                      setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
+                      setPendingMessageJump(service, {
+                        path: hit.location.path,
+                        language: hit.language,
+                        key: hit.entry.key,
+                      })
                       void navigate({ to: "/services/$name", params: { name: service } })
                     }}
                     className="min-h-control gap-2.5"
                   >
-                    <SlidersHorizontal aria-hidden className="text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
+                    <Languages aria-hidden className="text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{messageLabel}</span>
                     <CommandShortcut className="truncate text-muted-foreground/70">
-                      {humanFileName(hit.location.name)} ({service})
+                      {bundleLabel} ({service}) {language} {hit.entry.key}
                     </CommandShortcut>
                   </CommandItem>
                 )

@@ -5,6 +5,7 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The whole SQL surface of the roster, as a JDBI SqlObject interface. Package-private on purpose:
@@ -17,31 +18,17 @@ import java.util.List;
 interface RosterDao {
 
     /**
-     * Everyone the bot knows, with their link and their access, in one statement.
+     * The columns and joins a {@link Person} is made of, without the part that chooses which rows.
      *
-     * <h2>Why the grant side is a LATERAL and not a join</h2>
-     * A plain join onto {@code access_grant} multiplies the row out once per grant, and the two
-     * aggregates would then need a {@code GROUP BY} over every column of {@code discord_user}. The
-     * lateral subquery answers exactly one row per person - always one, because an aggregate over
-     * no rows still returns a row of nulls - so the shape of the result is one row per person by
-     * construction rather than by grouping.
-     *
-     * <p>{@code bool_or(...)} is {@code NULL} for somebody with no grants at all, which is why it
-     * is wrapped in {@code coalesce}: {@code ResultSet#getBoolean} would answer {@code false} for
-     * the null anyway, but relying on that would leave the difference between "no" and "nothing to
-     * say" to the driver rather than to the query.
-     *
-     * <p>{@code revoked IS NULL} sits inside {@code bool_or} and <b>not</b> in the {@code WHERE},
-     * because the two aggregates disagree about revoked grants on purpose: {@code access_until} is
-     * the end of the latest period on record and {@code access_active} is the login decision. See
-     * {@link Person}.
-     *
-     * <p>The order is {@code updated DESC}, and {@code discord_id} breaks the tie so that a page is
-     * stable across two calls - several rows can share an {@code updated} down to the microsecond
-     * after a bulk role reconcile, and without the tiebreak PostgreSQL is free to return them in
-     * any order it likes each time.
+     * <p>It is a constant rather than two texts because there are two callers and they must not
+     * drift: {@link #people(int)} pages the roster and {@link #personOf(String)} fetches one
+     * account for {@code /api/me} (steward/91). Eighteen columns and two joins copied into a second
+     * string is the shape this repository has been bitten by often enough to name it - a column
+     * added to one and forgotten in the other produces a {@link Person} that is silently missing a
+     * field on exactly one route. A compile-time constant concatenated into the annotation cannot
+     * do that.
      */
-    @SqlQuery("""
+    String PERSON_SELECTION = """
             SELECT usr.discord_id,
                    usr.member_state,
                    usr.donor,
@@ -70,11 +57,53 @@ interface RosterDao {
                 FROM access_grant grant_row
                 WHERE grant_row.discord_id = usr.discord_id
                 ) access ON true
+            """;
+
+    /**
+     * Everyone the bot knows, with their link and their access, in one statement.
+     *
+     * <h2>Why the grant side is a LATERAL and not a join</h2>
+     * A plain join onto {@code access_grant} multiplies the row out once per grant, and the two
+     * aggregates would then need a {@code GROUP BY} over every column of {@code discord_user}. The
+     * lateral subquery answers exactly one row per person - always one, because an aggregate over
+     * no rows still returns a row of nulls - so the shape of the result is one row per person by
+     * construction rather than by grouping.
+     *
+     * <p>{@code bool_or(...)} is {@code NULL} for somebody with no grants at all, which is why it
+     * is wrapped in {@code coalesce}: {@code ResultSet#getBoolean} would answer {@code false} for
+     * the null anyway, but relying on that would leave the difference between "no" and "nothing to
+     * say" to the driver rather than to the query.
+     *
+     * <p>{@code revoked IS NULL} sits inside {@code bool_or} and <b>not</b> in the {@code WHERE},
+     * because the two aggregates disagree about revoked grants on purpose: {@code access_until} is
+     * the end of the latest period on record and {@code access_active} is the login decision. See
+     * {@link Person}.
+     *
+     * <p>The order is {@code updated DESC}, and {@code discord_id} breaks the tie so that a page is
+     * stable across two calls - several rows can share an {@code updated} down to the microsecond
+     * after a bulk role reconcile, and without the tiebreak PostgreSQL is free to return them in
+     * any order it likes each time.
+     */
+    @SqlQuery(PERSON_SELECTION + """
             ORDER BY usr.updated DESC, usr.discord_id
             LIMIT :limit
             """)
     @RegisterRowMapper(PersonMapper.class)
     List<Person> people(@Bind("limit") int limit);
+
+    /**
+     * The one row {@link #people(int)} would print for a single account - same columns, same two
+     * joins, just a {@code WHERE} instead of a {@code LIMIT} (steward/91).
+     *
+     * <p>Written out separately rather than as {@code people(1)} filtered afterwards: this is meant
+     * to be called once per request from {@code /api/me}, and fetching the whole page to keep one
+     * row would cost the same query for a hundred times the data.
+     */
+    @SqlQuery(PERSON_SELECTION + """
+            WHERE usr.discord_id = :discordId
+            """)
+    @RegisterRowMapper(PersonMapper.class)
+    Optional<Person> personOf(@Bind("discordId") String discordId);
 
     /**
      * Every payment request, newest first. {@code id} breaks the tie for the same reason the roster

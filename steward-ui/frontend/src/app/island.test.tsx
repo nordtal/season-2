@@ -173,11 +173,48 @@ describe("the account popover is the settings page's account half", () => {
 
   it("stays tappable for an account with no picture on record", () => {
     // The fallback is not a nicety: a way to sign out that is there most of the time is worse
-    // than one that is plain. There is no avatar in `/api/me` at all today, so this IS the state.
+    // than one that is plain. `discordAvatarUrl` absent is the ordinary case (steward/91), not an
+    // error - an account can be signed into Steward without ever having a `person` row at all.
     withQueries(<UserMenu me={{ ...ME, name: "till hofmann" }} />)
 
     const trigger = screen.getByRole("button", { name: /Account/ })
     expect(trigger.textContent).toBe("th")
+  })
+
+  it("draws the Discord picture once /api/me carries one (steward/91)", () => {
+    withQueries(
+      <UserMenu me={{ ...ME, discordAvatarUrl: "https://cdn.discordapp.com/a.png" }} />,
+    )
+
+    const trigger = screen.getByRole("button", { name: /Account/ })
+    const img = trigger.querySelector("img")
+    expect(img).toBeTruthy()
+    expect(img?.getAttribute("src")).toBe("https://cdn.discordapp.com/a.png")
+  })
+
+  it("falls back to initials, and stays tappable, when the picture fails to load", () => {
+    // The guard steward/91 asks for: a broken image is the same fallback as no field at all, not
+    // a broken button.
+    withQueries(
+      <UserMenu me={{ ...ME, discordAvatarUrl: "https://cdn.discordapp.com/gone.png" }} />,
+    )
+
+    const trigger = screen.getByRole("button", { name: /Account/ })
+    const img = trigger.querySelector("img")
+    expect(img).toBeTruthy()
+
+    fireEvent.error(img as HTMLImageElement)
+
+    expect(trigger.querySelector("img")).toBeNull()
+    expect(trigger.textContent).toBe("ti")
+  })
+
+  it("falls back to initials for an empty name too, with no picture in the answer", () => {
+    withQueries(<UserMenu me={{ ...ME, name: "" }} />)
+
+    const trigger = screen.getByRole("button", { name: "Account" })
+    expect(trigger.querySelector("img")).toBeNull()
+    expect(trigger.textContent).toBe("?")
   })
 })
 

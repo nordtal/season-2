@@ -9,6 +9,7 @@ import {
   Plus,
   RotateCcw,
   Trash2,
+  TriangleAlert,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -54,6 +55,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
  * `discordId` used to be defined here and stayed exported under this name for
@@ -91,6 +93,36 @@ function NotInSchemaBadge() {
     <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
       not in schema
     </Badge>
+  )
+}
+
+/**
+ * The marker for a key an environment variable currently answers (steward/76): saving it here
+ * changes the file, never the running service, until whoever set the variable removes it.
+ *
+ * The field stays editable regardless - Till's decision, 2026-09-16, is to let the file be
+ * prepared for the day the variable is gone, not to lock it - so this is a sign next to the field,
+ * not a state on it.
+ */
+function EnvironmentOverriddenBadge() {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="rounded-full focus-visible:outline-none">
+          <Badge
+            variant="outline"
+            className="shrink-0 gap-1 border-warning/30 bg-warning/12 text-warning"
+          >
+            <TriangleAlert className="size-3" aria-hidden />
+            env override
+          </Badge>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">
+        An environment variable overrides this. Saving changes the file, not the running service,
+        until that variable is removed.
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -720,6 +752,7 @@ function Field({
             {entry.label}
           </Label>
           {!entry.inSchema ? <NotInSchemaBadge /> : null}
+          {entry.environmentOverridden ? <EnvironmentOverriddenBadge /> : null}
         </span>
         <div className="flex items-center gap-2">
           {dirty ? (

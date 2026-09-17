@@ -3,9 +3,11 @@ package eu.nordtal.s2.steward.ui.config;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.config.EnvOverrideFile;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -56,6 +58,7 @@ public final class Configs {
                     + " The two secrets are environment variables and are not in it.",
                     file.toAbsolutePath());
         }
+        recordEnvironmentOverrides(handle, logger);
         return handle;
     }
 
@@ -91,7 +94,23 @@ public final class Configs {
                     + " is not where the database is from inside a container",
                     file.toAbsolutePath());
         }
+        recordEnvironmentOverrides(handle, logger);
         return handle;
+    }
+
+    /**
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, so
+     * steward-worker can warn that editing an overridden setting there has no effect until the
+     * variable is removed (steward/76). Best-effort: this is a UI nicety, not a reason for a
+     * correctly loaded config to refuse to start the service.
+     */
+    private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
+        try {
+            EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
+        } catch (final IOException e) {
+            logger.warn("Could not write the environment-override marker beside {}: {}",
+                    handle.file(), e.getMessage());
+        }
     }
 
     /**

@@ -95,6 +95,17 @@ import java.util.List;
  *                            this section of it) and does not mention this key: a setting the
  *                            software has retired, or one typed by hand. Never hidden for it
  *                            (steward/50, steward/55)
+ * @param environmentOverridden whether an environment variable has taken this exact path over, so
+ *                            that a save here changes the file and never the running service until
+ *                            the variable is removed (steward/76). The field stays
+ *                            {@link #editable()} regardless - Till's decision is to let the file be
+ *                            prepared for the day the variable goes, not to lock it. {@code null}
+ *                            when the service behind this file never reported which paths the
+ *                            environment overlays - older than steward/76, or not reloaded since -
+ *                            which is a different fact from {@code false} and must stay a different
+ *                            value: see {@code eu.nordtal.s2.common.config.EnvOverrideFile}'s own
+ *                            doc for why "nobody said" is never allowed to collapse into "not
+ *                            overridden"
  * @param choices             the allowed (or suggested) values from the schema, and whether the
  *                            list is closed to them, or {@code null} when there is no schema entry
  *                            for this key or it names none
@@ -124,6 +135,7 @@ public record ConfigEntry(
         boolean editable,
         boolean secret,
         boolean inSchema,
+        @Nullable Boolean environmentOverridden,
         @Nullable Choices choices,
         @Nullable Protected protectedEntry) {
 

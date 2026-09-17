@@ -74,6 +74,8 @@ REQUIRED=(
     STEWARD_HOST
     STEWARD_ACME_EMAIL
     STEWARD_ENV_FILE
+    STEWARD_ENV_DIR
+    STEWARD_ENV_FILE_NAME
     STEWARD_UI_DISCORD_CLIENT_ID
     STEWARD_UI_DISCORD_CLIENT_SECRET
 )
@@ -401,6 +403,15 @@ default_for POSTGRES_USER        "nordtal"
 # The path this very file is at, so that steward-deployer mounts the file this deployment is
 # configured from. §3 below refuses to continue if the two ever disagree.
 default_for STEWARD_ENV_FILE     "$ENV_FILE"
+# steward/102: steward-deployer mounts the DIRECTORY holding STEWARD_ENV_FILE, not the file itself -
+# a file bind follows the inode, so a rotation after the container started kept serving the deleted
+# file forever, silently, for the lifetime of the container. A directory bind re-resolves the path on
+# every access, so a replaced file is visible without recreating steward-deployer. Both of these are
+# derived from STEWARD_ENV_FILE, never asked for, and §3 below refuses to continue if either one has
+# drifted from what STEWARD_ENV_FILE actually says - the same shape of check as STEWARD_ENV_FILE's
+# own agreement check three lines above.
+default_for STEWARD_ENV_DIR       "$(dirname "$ENV_FILE")"
+default_for STEWARD_ENV_FILE_NAME "$(basename "$ENV_FILE")"
 
 ask_for STEWARD_HOST plain looks_like_host \
     "What name will the interface answer on?" \
@@ -577,6 +588,20 @@ declared_env_file="$(env_value "$ENV_FILE" STEWARD_ENV_FILE)"
        into steward-deployer, so the deployer would mount a different file than the one this
        deployment is configured from - or nothing at all."
 
+# steward/102: STEWARD_ENV_DIR and STEWARD_ENV_FILE_NAME are never asked for, only derived from
+# STEWARD_ENV_FILE above - so if either disagrees with what dirname/basename of the actual file say
+# right now, something edited them by hand or the file moved after they were written, and
+# steward-deployer would mount the wrong directory or look for the wrong name inside it.
+declared_env_dir="$(env_value "$ENV_FILE" STEWARD_ENV_DIR)"
+[[ "$declared_env_dir" == "$(dirname "$ENV_FILE")" ]] || die "STEWARD_ENV_DIR inside the file says
+       '$declared_env_dir', and the file is at '$ENV_FILE' (directory '$(dirname "$ENV_FILE")').
+       That value is what compose.yml mounts into steward-deployer as a directory - the fix for
+       steward/102 - so a stale STEWARD_ENV_DIR would mount the wrong directory entirely."
+declared_env_file_name="$(env_value "$ENV_FILE" STEWARD_ENV_FILE_NAME)"
+[[ "$declared_env_file_name" == "$(basename "$ENV_FILE")" ]] || die "STEWARD_ENV_FILE_NAME inside
+       the file says '$declared_env_file_name', and the file is named '$(basename "$ENV_FILE")'.
+       steward-deployer looks for exactly this name inside the mounted directory."
+
 log "every required value is set; the interface will answer on $STEWARD_NAME"
 
 # --- 5 · the name, and the wait -------------------------------------------------------------------
@@ -660,12 +685,21 @@ fi
 #
 # COMPOSE_PROFILES is not passed in: compose reads it out of the file given to --env-file, which is
 # the file mounted below (measured on this host 2026-09-13, compose v5.5.1).
+#
+# THE DIRECTORY IS MOUNTED, NOT THE FILE (steward/102), same as compose.yml's own steward-deployer
+# service below - this is the other place that used to bind the file itself. A file bind follows the
+# inode, not the path, so a rotation between this container starting and the file being read would
+# have gone unnoticed exactly like it did for the long-running service; here the window is one `up`
+# rather than the container's whole lifetime, but the mechanism is identical. NORDTAL_STEWARD_ENV_FILE
+# tells the image which name to open under the mounted directory - it has no other way to know, since
+# the directory is what it can see, not this variable's value.
 log "deploying - this pulls every image before it stops anything"
 docker run --rm \
     --name "${PROJECT}-setup" \
     -e "COMPOSE_PROJECT_NAME=$PROJECT" \
+    -e "NORDTAL_STEWARD_ENV_FILE=/app/env/$(basename "$ENV_FILE")" \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$ENV_FILE:/app/env/.env:ro" \
+    -v "$(dirname "$ENV_FILE"):/app/env:ro" \
     "$DEPLOYER_IMAGE" up \
     || die "the deployment failed, above. Nothing was stopped if the failure was a pull; if it was
        an up, 'docker compose -p $PROJECT ps' says what is running now."

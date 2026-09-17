@@ -49,7 +49,33 @@ export function RecreateButton({
   // the button for it is not drawn at all rather than drawn and then refused.
   if (service === "steward-deployer") return null
 
-  const unavailable = deployer.data?.available === false
+  // Five states, not two (steward/97): `available === false` with a reason steward-deployer gave,
+  // `available: true` but `reachable: false`, an error on `/api/deployer` itself (404, network,
+  // steward-ui down), the ordinary first load before anything has answered, and finally the one
+  // state the confident title belongs to. Only the last may be claimed with confidence.
+  //
+  // What separates the states that lock the button from the one that does not is whether an answer
+  // exists, not whether it is good news: `available: false` and `reachable: false` are both
+  // *measurements* - the second is a live GET /api/health the endpoint performed on our behalf
+  // (`InternalClient#isReachable`) - and an error is the measurement failing. A first load is none
+  // of those, so it stays open: a slow query is not a broken one, and going grey for it would be
+  // the same dishonesty in the other direction.
+  //
+  // `reachable` was carried in the payload and read by nobody until now, which is the same defect
+  // one layer down from the one this ticket is about: a configured deployer whose container is not
+  // answering looked exactly like a healthy one, down to the sentence promising the image is
+  // already on this host.
+  const unreachable = deployer.data?.available === true && deployer.data.reachable === false
+  const unavailable = deployer.data?.available === false || unreachable || deployer.isError
+  const title = deployer.data?.available === false
+    ? deployer.data.reason
+    : unreachable
+      ? "steward-deployer is configured but not answering."
+      : deployer.isError
+        ? "The state of steward-deployer is unknown: /api/deployer did not answer."
+        : deployer.data?.available === true
+          ? `Recreate the container for ${service} from the image already on this host.`
+          : "The state of steward-deployer is not known yet."
 
   // `job.data` survives a failed poll, so without the error guard this stayed true forever once one
   // answer had said RUNNING - and `running` is what disables the close button AND what makes
@@ -77,11 +103,7 @@ export function RecreateButton({
           variant="outline"
           size={size}
           disabled={unavailable}
-          title={
-            unavailable
-              ? deployer.data?.reason
-              : `Recreate the container for ${service} from the image already on this host.`
-          }
+          title={title}
         >
           <RefreshCw className="size-3.5" aria-hidden />
           Recreate

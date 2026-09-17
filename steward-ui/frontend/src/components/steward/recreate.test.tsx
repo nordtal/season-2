@@ -29,10 +29,23 @@ function json({ status = 200, body }: Answer): Response {
 }
 
 /** The deployer's three routes. `job` is a function so a test can change its mind mid-dialog. */
-function backend(over: { available?: boolean; reason?: string; job?: () => Answer } = {}) {
+function backend(
+  over: {
+    available?: boolean
+    reachable?: boolean
+    reason?: string
+    job?: () => Answer
+  } = {},
+) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/deployer") {
-      return json({ body: { available: over.available ?? true, reason: over.reason } })
+      return json({
+        body: {
+          available: over.available ?? true,
+          reachable: over.reachable ?? true,
+          reason: over.reason,
+        },
+      })
     }
     if (url.startsWith("/api/deployer/recreate/") && init?.method === "POST") {
       return json({ body: { id: "j1", kind: "RECREATE", services: ["smp"], state: "RUNNING", started: "now" } })
@@ -100,6 +113,25 @@ describe("RecreateButton - before anything is pressed", () => {
     expect(button.title).toBe("No shared secret has been set up.")
   })
 
+  it("is disabled when the deployer is configured but its container is not answering", async () => {
+    // `reachable` is not a guess the interface makes: the endpoint performs a real GET
+    // /api/health against steward-deployer and reports what came back
+    // (`InternalClient#isReachable`). A false here is therefore an answer, and answers lock the
+    // button - unlike a first load, which is the absence of one.
+    //
+    // This field travelled in the payload and was read by nobody, which made a configured
+    // deployer with a dead container look exactly like a healthy one, right down to the sentence
+    // promising the image is already on this host.
+    fetched = backend({ available: true, reachable: false })
+    vi.stubGlobal("fetch", fetched)
+    draw(<RecreateButton service="smp" />)
+
+    const button = screen.getByRole("button", { name: /Recreate/ }) as HTMLButtonElement
+    await waitFor(() => expect(button.disabled).toBe(true))
+    expect(button.title).toBe("steward-deployer is configured but not answering.")
+    expect(button.title).not.toContain("already on this host")
+  })
+
   it("says that nobody in the world is warned, before the button is pressed and not after", async () => {
     // The whole argument for the dialog: an update counts down in front of every player, this
     // does not. Putting that in front of the button is cheaper than explaining it afterwards.
@@ -111,6 +143,51 @@ describe("RecreateButton - before anything is pressed", () => {
     expect(dialog.textContent).toContain("thrown out")
     // Nothing has been asked for yet - opening the dialog must not start a compose run.
     expect(fetched.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST")).toBe(false)
+  })
+})
+
+describe("RecreateButton - when /api/deployer itself cannot be asked", () => {
+  it("disables the button and stops claiming a state nobody has checked, on a 404", async () => {
+    // The third state from steward/97: no answer at all, not "answered false". `deployer.data`
+    // stays undefined here, so the old `unavailable = deployer.data?.available === false` read
+    // this as available and drew the confident title regardless.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/deployer") return json({ status: 404, body: { error: "not found", where: "steward-ui" } })
+        throw new Error(`the test did not expect ${url}`)
+      }),
+    )
+    draw(<RecreateButton service="smp" />)
+
+    const button = screen.getByRole("button", { name: /Recreate/ }) as HTMLButtonElement
+    await waitFor(() => expect(button.disabled).toBe(true))
+    expect(button.title).not.toContain("from the image already on this host")
+  })
+})
+
+describe("RecreateButton - before /api/deployer has answered at all", () => {
+  it("keeps the button active but does not claim a state nobody has checked yet", async () => {
+    // The fourth state: the ordinary first load. The decided fix only lets the error case lock
+    // the button - a query that is merely slow must not go grey - but the title still must not
+    // say the confident sentence before anybody has checked anything.
+    let settle!: (response: Response) => void
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url === "/api/deployer") return new Promise<Response>((resolve) => (settle = resolve))
+        throw new Error(`the test did not expect ${url}`)
+      }),
+    )
+    draw(<RecreateButton service="smp" />)
+
+    const button = screen.getByRole("button", { name: /Recreate/ }) as HTMLButtonElement
+    expect(button.disabled).toBe(false)
+    expect(button.title).not.toContain("from the image already on this host")
+
+    // Let the pending fetch resolve so the test does not leak a dangling timer into the next one.
+    settle(json({ body: { available: true, reachable: true } }))
+    await waitFor(() => expect(button.title).toContain("from the image already on this host"))
   })
 })
 

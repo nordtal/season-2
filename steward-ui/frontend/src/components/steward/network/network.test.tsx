@@ -161,6 +161,44 @@ describe.each([["a"], ["b"], ["c"], ["d"], ["e"], ["f"], ["g"]])("draft %s", (va
     }
   })
 
+  /**
+   * The identifier never shares its row with the count, because that is what took its characters
+   * away.
+   *
+   * Measured on 2026-09-17 at 390px: every draft falls back to a two-column grid there, `d` and `f`
+   * narrow it further with the rail margin their database bus needs, and the identifier - which
+   * carries `truncate` so that it yields rather than break the box - was the thing that yielded.
+   * `network-control` and `hunger-games` rendered as `network-co…` and `hunger-ga…`, and the
+   * identifier is the *first* of the four things steward/81 says a node carries. It must not be the
+   * first to go.
+   *
+   * Sixty-four tests were green through all of it, because every one of them finds the count with
+   * `getByTitle("players")` and none of them cares which row it sits in. This one does: it asks
+   * whether the two are siblings, which is the shape of the defect rather than its appearance, and
+   * is the one thing a jsdom test can say about a layout it cannot measure.
+   */
+  it("never puts the count on the identifier's own row, which is what truncated it", async () => {
+    draw(variant)
+    await waitFor(() => expect(box("smp")).toBeTruthy())
+
+    for (const name of ["smp", "limbo", "network-control", "hunger-games"]) {
+      const identifier = within(box(name)).getByRole("link", { name })
+      const count = within(box(name)).getByTitle("players")
+      expect(
+        count.parentElement,
+        `${name}: the count must live on the tag line, not beside the identifier`,
+      ).not.toBe(identifier.parentElement)
+    }
+
+    // And the one deliberate exception, written down rather than implied: the entry box has no
+    // second line to put a count on, so its count does sit beside the label - which is harmless
+    // there, because "players" is short enough that nothing has ever had to yield to it.
+    const entry = box("players")
+    expect(within(entry).getByText("players").parentElement).toBe(
+      within(entry).getByTitle("players").parentElement,
+    )
+  })
+
   it("marks the three image states that are not current, and leaves the current one unmarked", async () => {
     draw(variant)
     await waitFor(() => expect(box("smp")).toBeTruthy())

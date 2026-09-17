@@ -217,6 +217,37 @@ describe("AccessPage - search over four things", () => {
   })
 })
 
+describe("AccessPage - the Minecraft column draws a face", () => {
+  it("shows the in-game name and a head for a linked person, not a badge", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw(<AccessPage />)
+
+    const row = (await screen.findByText("Ally")).closest("tr") as HTMLElement
+    const cell = row.querySelector('[data-label="Minecraft"]') as HTMLElement
+    expect(within(cell).getByText("AliceMC")).toBeTruthy()
+    expect(within(cell).queryByText("linked")).toBeNull()
+    expect(cell.querySelector("img")).toBeTruthy()
+  })
+
+  it("keeps the not-linked badge, with its warning colour, for somebody with no Minecraft account", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw(<AccessPage />)
+
+    const row = (await screen.findByText("bob")).closest("tr") as HTMLElement
+    const cell = row.querySelector('[data-label="Minecraft"]') as HTMLElement
+    expect(within(cell).getByText("not linked")).toBeTruthy()
+  })
+
+  it("never puts the Minecraft uuid in that cell", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw(<AccessPage />)
+
+    const row = (await screen.findByText("Ally")).closest("tr") as HTMLElement
+    const cell = row.querySelector('[data-label="Minecraft"]') as HTMLElement
+    expect(cell.textContent).not.toContain("11111111-2222-3333-4444-555555555555")
+  })
+})
+
 describe("AccessPage - pagination filters the whole roster before it pages", () => {
   it("holds 21 matches over two pages of at most 20, without the second page vanishing from the search", async () => {
     vi.stubGlobal("fetch", backend({ people: manyMatches }))

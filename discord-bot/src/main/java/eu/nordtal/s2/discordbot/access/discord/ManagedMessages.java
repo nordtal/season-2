@@ -4,7 +4,7 @@ import eu.nordtal.s2.discordbot.discord.Ids;
 
 import eu.nordtal.s2.discordbot.discord.ManagedMessageDao;
 
-import eu.nordtal.s2.discordbot.access.bunq.Money;
+import eu.nordtal.s2.common.payment.Money;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.access.payment.Tier;

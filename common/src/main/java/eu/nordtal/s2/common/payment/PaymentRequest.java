@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.access.payment;
+package eu.nordtal.s2.common.payment;
 
 import java.time.Instant;
 import java.util.Optional;

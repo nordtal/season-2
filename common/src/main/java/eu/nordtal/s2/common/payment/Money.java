@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.access.bunq;
+package eu.nordtal.s2.common.payment;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

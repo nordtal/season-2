@@ -8,10 +8,10 @@ import eu.nordtal.s2.common.access.AccessSource;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
-import eu.nordtal.s2.discordbot.access.bunq.Money;
-import eu.nordtal.s2.discordbot.access.payment.PaymentRequest;
-import eu.nordtal.s2.discordbot.access.payment.PaymentRequestStatus;
-import eu.nordtal.s2.discordbot.access.payment.PaymentRequests;
+import eu.nordtal.s2.common.payment.Money;
+import eu.nordtal.s2.common.payment.PaymentRequest;
+import eu.nordtal.s2.common.payment.PaymentRequestStatus;
+import eu.nordtal.s2.common.payment.PaymentRequests;
 
 import net.dv8tion.jda.api.JDA;
 

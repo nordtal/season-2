@@ -1,10 +1,12 @@
 package eu.nordtal.s2.discordbot.config;
 
+import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.exception.UnknownConfigKeyException;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
+import eu.nordtal.s2.common.config.EnvOverrideFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -926,11 +929,73 @@ class ConfigsTest {
      * </p>
      */
     private AccessSpec fromEnvironment(final Map<String, String> environment) throws Exception {
+        return handleFromEnvironment(environment).get();
+    }
+
+    /**
+     * The handle itself, for steward/76: {@link #fromEnvironment} only ever needed the loaded
+     * spec, but {@link ConfigHandle#environmentOverrides()} is what feeds
+     * {@code EnvOverrideFile.write} in {@code Configs#load} - see
+     * {@code environmentOverridesNameExactlyTheOverriddenPaths} below for why this had to be added
+     * rather than reused as it stood.
+     */
+    private ConfigHandle<AccessSpec> handleFromEnvironment(final Map<String, String> environment)
+            throws Exception {
         Files.writeString(directory.resolve("access.yml"), access());
         return ConfigLoader.builder(directory.resolve("access.yml"), AccessSpec.class)
                 .envPrefix("NORDTAL_ACCESS")
                 .environment(environment::get)
-                .load()
-                .get();
+                .load();
+    }
+
+    /**
+     * steward/76, and the exact measurement its report is built on: this host's own
+     * {@code deploy/dev.env.example} sets {@code NORDTAL_ACCESS_LANGUAGES}, and the running bot's
+     * startup line names {@code languages} among seven overridden settings. This is that same
+     * override, run through {@link ConfigHandle#environmentOverrides()} and then
+     * {@link EnvOverrideFile}, which is the whole path {@code Configs#load}'s new
+     * {@code recordEnvironmentOverrides} step takes in production - a private method a test cannot
+     * call directly, so this exercises the same two calls in the same order instead of trusting
+     * that they are wired up.
+     */
+    @Test
+    @DisplayName("languages, overridden exactly the way dev.env.example overrides it, ends up in the marker file")
+    void environmentOverridesNameExactlyTheOverriddenPaths() throws Exception {
+        final ConfigHandle<AccessSpec> handle = handleFromEnvironment(Map.of(
+                "NORDTAL_ACCESS_LANGUAGES", envExampleValue("NORDTAL_ACCESS_LANGUAGES")));
+
+        assertTrue(handle.environmentOverrides().contains("languages"),
+                "jcore itself has to report the override before anything downstream can - reported: "
+                        + handle.environmentOverrides());
+
+        EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
+
+        assertEquals(Optional.of(handle.environmentOverrides()),
+                EnvOverrideFile.read(handle.file()),
+                "the marker file steward-worker reads has to carry exactly what jcore reported");
+    }
+
+    /**
+     * {@link #environmentOverridesNameExactlyTheOverriddenPaths} deliberately builds its own
+     * {@link ConfigHandle} and calls {@link EnvOverrideFile} itself, because {@link Configs#load}
+     * is private and {@code Configs.access()} does not let a test inject environment variables -
+     * so nothing above actually calls {@code Configs}'s own {@code recordEnvironmentOverrides}
+     * step. This is the test that does: it goes through the real, public entry point with no
+     * override in play at all, and the only thing it can require is that the entry point writes
+     * <em>some</em> marker file - the empty-list case {@code EnvOverrideFileTest} already covers
+     * for {@link EnvOverrideFile} on its own. A regression that deletes the
+     * {@code recordEnvironmentOverrides(handle);} line from {@code Configs#load} shows up here as
+     * a missing file, not as a wrong value in one.
+     */
+    @Test
+    @DisplayName("loading access.yml through Configs.access() itself leaves a marker file beside it")
+    void loadingThroughTheRealEntryPointWritesTheMarkerFile() throws Exception {
+        Files.writeString(directory.resolve("access.yml"), access());
+
+        Configs.access();
+
+        assertEquals(Optional.of(List.of()), EnvOverrideFile.read(directory.resolve("access.yml")),
+                "nothing is overridden here, but Configs#load still has to run the write step - an"
+                        + " absent marker file and an empty one are different facts (steward/76)");
     }
 }

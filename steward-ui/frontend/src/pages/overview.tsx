@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 import { ChevronRight, Terminal, ScrollText } from "lucide-react"
+import { cn } from "cn"
 
 import type { Service } from "@/lib/api"
 import { bytes, count, dateTime, percent, relative, since } from "@/lib/format"
@@ -93,7 +94,7 @@ export function OverviewPage() {
  */
 function MetricRow() {
   const host = useHost()
-  const cpu = useMetrics("host", "cpu", 6)
+  const cpu = useMetrics("host", "cpu_percent", 6)
   const services = useServices()
   const backups = useBackups()
   const settings = useSettings()
@@ -123,10 +124,29 @@ function MetricRow() {
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 min-[26rem]:grid-cols-3 lg:grid-cols-6">
       <IssuesTile triggers={triggers} waiting={waiting} failed={failed} />
 
+      {/*
+        CPU is the only one of the six tiles that carries both a bar and a sparkline beneath its
+        number - Memory and Disk stop at the bar, and Issues/Behind/Newest backup have no meter at
+        all. That makes it the tallest tile by a fixed ~34px (a gap plus the sparkline's own 28px),
+        in every state, whether the sparkline is drawing a real curve or the flat placeholder it
+        shows while `cpu.data.points` is still empty - `Sparkline` reserves the same height either
+        way, on purpose (see its own comment), so this is not a loading-state artifact.
+
+        A CSS grid row's height is the tallest item in it, and every other item in that row
+        stretches to match by default - so whichever tile happens to land next to CPU in a given
+        column count inherits blank space nothing of its own explains. `col-span-2` /
+        `min-[26rem]:col-span-3` give CPU the whole row to itself below `lg`, where six columns
+        already hold it without a row-mate at all (steward/92: measured with `getBoundingClientRect`
+        - the tile paired with CPU was 110px tall against its neighbours' 64-76px, and no amount of
+        `items-*` changes that, since grid track sizing is content-based regardless of alignment).
+        The cell CPU vacates next to Issues is empty, not stretched - an empty grid cell costs
+        nothing to look at, the way the trailing cell in an odd-numbered row already does not.
+      */}
       <MetricTile
         label="CPU"
         value={percent(host.data?.cpuPercent)}
         hint={unreadable ?? `${count(host.data?.cpus)} cores`}
+        className="col-span-2 min-[26rem]:col-span-3 lg:col-span-1"
       >
         <UsageBar used={host.data?.cpuPercent ?? 0} total={100} />
         <Sparkline points={cpu.data?.points ?? []} />
@@ -239,16 +259,18 @@ function MetricTile({
   value,
   hint,
   tone,
+  className,
   children,
 }: {
   label: string
   value: ReactNode
   hint?: ReactNode
   tone?: "ok" | "warn" | "down"
+  className?: string
   children?: ReactNode
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
       <Stat label={label} value={value} hint={hint} tone={tone} />
       {children}
     </div>

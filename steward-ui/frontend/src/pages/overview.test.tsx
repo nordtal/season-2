@@ -346,3 +346,45 @@ describe("OverviewPage - the season tile speaks in sentences, not enum names (st
     expect(screen.queryByText("SMP-Start")).toBeNull()
   })
 })
+
+/**
+ * steward/92: the number row tore open between the first two rows at 390px, and closed again
+ * between the second and third - a gap of ~66px where the grid's own `gap-y-5` is 20px.
+ *
+ * Measured with `getBoundingClientRect` (jsdom draws no layout, so this could only be done in a
+ * real browser, see the ticket): CPU is the only tile of the six that carries both a bar and a
+ * sparkline beneath its number, which makes it 110px tall against 64-76px for every other tile -
+ * in every state, whether the sparkline is drawing a real curve or the placeholder it shows while
+ * empty, because `Sparkline` reserves the same height either way. A CSS grid row is as tall as its
+ * tallest item, and every other item in that row stretches to match by default, so whichever tile
+ * happened to share a row with CPU inherited blank space nothing of its own explains - Issues at
+ * 390px width, Memory and Disk at the 3-column width in between. No `items-*` alignment fixes this:
+ * track sizing is content-based regardless of alignment, which was checked by hand before writing
+ * this rule (`items-start` moved the blank space from inside Issues' own box to the grid track
+ * beside it, at the same position on the page - see the ticket for the numbers).
+ *
+ * The fix, and the rule this test holds: **the tile that is taller than every sibling must never
+ * share a row-track with one of them.** Below `lg`, where the six tiles are never all in one row
+ * together, CPU spans the whole row instead of sharing it with whatever the column count happens
+ * to put beside it - the cell it leaves next to its neighbour is empty, not stretched, and an empty
+ * grid cell costs nothing to look at. At `lg`, all six already sit in one row regardless of order,
+ * so CPU returns to a single column there - which this test also holds, because a `col-span` left
+ * on past `lg` would silently break the "one row of six" desktop layout instead.
+ *
+ * Confirmed red by removing `className="col-span-2 min-[26rem]:col-span-3 lg:col-span-1"` from the
+ * CPU tile and watching this fail before restoring it.
+ */
+describe("OverviewPage - the CPU tile never shares a row with a shorter one (steward/92)", () => {
+  it("spans the whole row below `lg`, where it would otherwise stretch a shorter neighbour", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+
+    await waitFor(() => expect(screen.getByText("CPU")).toBeTruthy())
+    // CPU's own label sits inside `Stat`'s wrapping div; the grid item - the one carrying the
+    // column span - is that div's parent, the div `MetricTile` renders.
+    const tile = screen.getByText("CPU").closest("div")?.parentElement
+    expect(tile?.className).toContain("col-span-2")
+    expect(tile?.className).toContain("min-[26rem]:col-span-3")
+    expect(tile?.className).toContain("lg:col-span-1")
+  })
+})

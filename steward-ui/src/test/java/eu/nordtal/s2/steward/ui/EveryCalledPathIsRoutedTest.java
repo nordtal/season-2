@@ -46,6 +46,8 @@ class EveryCalledPathIsRoutedTest {
     private static final String FRONTEND = "steward-ui/frontend/src";
     private static final String ROUTES =
             "steward-ui/src/main/java/eu/nordtal/s2/steward/ui/StewardUi.java";
+    private static final String SAMPLER =
+            "steward-worker/src/main/java/eu/nordtal/s2/steward/worker/metric/Sampler.java";
 
     /**
      * An {@code /api/...} literal in the frontend, in either quote style.
@@ -120,6 +122,61 @@ class EveryCalledPathIsRoutedTest {
                         + " reason to look for it, and this line should go with it.");
     }
 
+    /** {@code useMetrics("host", "cpu_percent", 6)} - the second argument is the one that matters. */
+    private static final Pattern ASKED_METRIC =
+            Pattern.compile("useMetrics\\(\\s*\"[^\"]*\"\\s*,\\s*\"([^\"]+)\"");
+
+    /** {@code new MetricSample(subject, "cpu_percent", at, value)} in the sampler. */
+    private static final Pattern WRITTEN_METRIC =
+            Pattern.compile("new MetricSample\\([^,]*,\\s*\"([^\"]+)\"");
+
+    /**
+     * Every metric the frontend draws a curve of is one the sampler actually writes.
+     *
+     * <h2>The same mistake one layer in</h2>
+     * The test above holds the paths, and it was green while the start page's CPU sparkline had
+     * never drawn a single point in its life: the path {@code /api/metrics} is registered, so
+     * nothing complained. What was wrong is the value of {@code metric} - the page asked for
+     * {@code cpu} and the sampler writes {@code cpu_percent}, and
+     * {@link StewardUi}'s handler answers an unknown name with {@code 200} and an empty list of
+     * points rather than with an error. That is right for a name with no samples yet, on a
+     * deployment where the sampler has not run; it is indistinguishable from a name that will
+     * never have any. Measured on the running stack 2026-09-17: 9 103 rows under
+     * {@code host/cpu_percent}, none at all under {@code host/cpu} (steward/94).
+     *
+     * <p>Only the metric is held, never the subject. The sampler writes {@code "host"} as a
+     * literal and every service name as a variable, so a list of valid subjects cannot be read out
+     * of it - and the subject was not where this went wrong.</p>
+     */
+    @Test
+    @DisplayName("every metric the frontend asks for is one the sampler writes")
+    void nothingIsDrawnThatIsNeverSampled() {
+        final Set<String> written = literals(WRITTEN_METRIC, repository().resolve(SAMPLER));
+        assertTrue(written.size() >= 4,
+                "only " + written.size() + " metric names were read out of " + SAMPLER
+                        + " - the sampler moved or it names its metrics some other way now, and"
+                        + " this guard is measuring nothing.");
+
+        final Set<String> asked = new TreeSet<>();
+        forEachSourceFile(file -> {
+            final Matcher matcher = ASKED_METRIC.matcher(read(file));
+            while (matcher.find()) {
+                asked.add(matcher.group(1));
+            }
+        });
+        assertFalse(asked.isEmpty(),
+                "no useMetrics call was found in " + FRONTEND + " - either no page draws a curve"
+                        + " any more, in which case this test should go, or the call is written"
+                        + " some other way and the pattern stopped seeing it.");
+
+        final List<String> unsampled = asked.stream().filter(name -> !written.contains(name))
+                .sorted().toList();
+        assertEquals(List.of(), unsampled,
+                "a metric nobody samples is answered with 200 and an empty list, so the curve is"
+                        + " simply never there and no error is reported anywhere. The names the"
+                        + " sampler writes are " + written + ".");
+    }
+
     /**
      * Whether a Javalin route pattern covers a called path.
      *
@@ -162,29 +219,47 @@ class EveryCalledPathIsRoutedTest {
     }
 
     private static Set<String> called() {
+        final Set<String> paths = new TreeSet<>();
+        forEachSourceFile(file -> {
+            final Matcher matcher = CALLED.matcher(read(file));
+            while (matcher.find()) {
+                paths.add(matcher.group(1));
+            }
+        });
+        return paths;
+    }
+
+    private static Set<String> literals(final Pattern pattern, final Path file) {
+        final Set<String> found = new TreeSet<>();
+        final Matcher matcher = pattern.matcher(read(file));
+        while (matcher.find()) {
+            found.add(matcher.group(1));
+        }
+        return found;
+    }
+
+    /**
+     * Every {@code .ts} and {@code .tsx} file of the frontend that is not a test, handed over one
+     * at a time. Two guards in this class walk the same tree looking for two different literals;
+     * the walk and what it leaves out belong in one place rather than in both.
+     */
+    private static void forEachSourceFile(final java.util.function.Consumer<Path> visitor) {
         final Path root = repository().resolve(FRONTEND);
         assertTrue(Files.isDirectory(root), root + " is not there, so this test was reading"
                 + " nothing. Fix the path rather than the assertion.");
-        final Set<String> paths = new TreeSet<>();
         try (Stream<Path> walk = Files.walk(root)) {
             walk.filter(Files::isRegularFile)
                     // A test's fixture is not a call the browser makes, and a mocked fetch is
-                    // free to name a path that never existed.
+                    // free to name a path, or a metric, that never existed.
                     .filter(path -> !path.getFileName().toString().contains(".test."))
                     .filter(path -> {
                         final String name = path.getFileName().toString();
                         return name.endsWith(".ts") || name.endsWith(".tsx");
                     })
-                    .forEach(file -> {
-                        final Matcher matcher = CALLED.matcher(read(file));
-                        while (matcher.find()) {
-                            paths.add(matcher.group(1));
-                        }
-                    });
+                    .forEach(visitor);
         } catch (final IOException unreadable) {
             throw new UncheckedIOException(unreadable);
         }
-        return paths;
     }
 
     private static String read(final Path file) {

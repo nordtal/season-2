@@ -453,6 +453,13 @@ public final class ConfigApi {
         row.put("editable", entry.editable());
         row.put("secret", entry.secret());
         row.put("inSchema", entry.inSchema());
+        // Left out, not sent as false, when the service behind this file never reported which
+        // paths the environment overlays (steward/76) - api.ts's ConfigEntry declares this optional
+        // for exactly that reason, and sending false here would be the silent wrong answer the
+        // whole field exists to prevent.
+        if (entry.environmentOverridden() != null) {
+            row.put("environmentOverridden", entry.environmentOverridden());
+        }
         if (entry.choices() != null) {
             final Map<String, Object> choices = new LinkedHashMap<>();
             choices.put("values", entry.choices().values());

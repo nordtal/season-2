@@ -6,11 +6,13 @@ import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
 
 import eu.nordtal.s2.common.command.CommandAllowlist;
+import eu.nordtal.s2.common.config.EnvOverrideFile;
 import eu.nordtal.s2.common.message.Tone;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumMap;
@@ -206,7 +208,23 @@ public final class Configs {
             logger.warn("No config existed at {} - defaults were written and are almost certainly "
                     + "not what you want", file.toAbsolutePath());
         }
+        recordEnvironmentOverrides(handle, logger);
         return handle;
+    }
+
+    /**
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, so
+     * steward-worker can warn that editing an overridden setting there has no effect until the
+     * variable is removed (steward/76). Best-effort: this is a UI nicety, not a reason for a
+     * correctly loaded config to refuse to start the proxy.
+     */
+    private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
+        try {
+            EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
+        } catch (final IOException e) {
+            logger.warn("Could not write the environment-override marker beside {}: {}",
+                    handle.file(), e.getMessage());
+        }
     }
 
     // ------------------------------------------------------------------ validation helpers

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ServiceConfiguration } from "@/components/steward/configuration"
 import type { ConfigEntry, ConfigLocation } from "@/lib/api"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
  * The configuration form draws headings, labels and controls out of what steward/55's worker now
@@ -78,7 +79,14 @@ function draw(node: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  return render(<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>)
+  // The same provider the Shell puts around everything (recreate.test.tsx's own comment on this):
+  // EnvironmentOverriddenBadge (steward/76) is a Radix tooltip and throws without one, which would
+  // be a test failing for a reason the component does not have.
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>{node}</TooltipProvider>
+    </QueryClientProvider>,
+  )
 }
 
 /** Opens a file row by the plain-text name the row now shows (steward/56), not the raw filename. */
@@ -320,6 +328,69 @@ describe("headings and explanations", () => {
     await open("Steward")
 
     await screen.findByText("not in schema")
+  })
+})
+
+/**
+ * steward/76: an environment variable can take a path over from the file - measured on this host,
+ * `NORDTAL_ACCESS_LANGUAGES` does exactly that to `access.yml`'s `languages` - and until now Steward
+ * drew that field exactly like any other editable one, so a save there looked like it worked and
+ * changed nothing the bot would ever read. `environmentOverridden` is absent/`true`/`false` and all
+ * three have to draw differently: absent is "this service never said", not "not overridden".
+ */
+describe("environment overrides (steward/76)", () => {
+  const file = "steward-worker/steward.yml"
+
+  function withField(over: Partial<ConfigEntry>) {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "steward.yml" }),
+          revision: "r1",
+          header: [],
+          entries: [
+            entry({
+              path: "worker.base-url",
+              key: "base-url",
+              label: "Base url",
+              value: "http://steward-worker:8081",
+              ...over,
+            }),
+          ],
+        },
+      }),
+    )
+  }
+
+  it("marks a field the environment currently overrides, and leaves it editable", async () => {
+    withField({ environmentOverridden: true })
+    draw(<ServiceConfiguration service="steward-worker" />)
+    await open("Steward")
+
+    await screen.findByText("env override")
+    const input = (await screen.findByDisplayValue(
+      "http://steward-worker:8081",
+    )) as HTMLInputElement
+    expect(input.disabled).toBe(false)
+  })
+
+  it("shows nothing when the environment does not override this field", async () => {
+    withField({ environmentOverridden: false })
+    draw(<ServiceConfiguration service="steward-worker" />)
+    await open("Steward")
+    await screen.findByText("Base url")
+
+    expect(screen.queryByText("env override")).toBeNull()
+  })
+
+  it("shows nothing when the service never reported which paths the environment overrides - absent is not the same as false", async () => {
+    withField({})
+    draw(<ServiceConfiguration service="steward-worker" />)
+    await open("Steward")
+    await screen.findByText("Base url")
+
+    expect(screen.queryByText("env override")).toBeNull()
   })
 })
 

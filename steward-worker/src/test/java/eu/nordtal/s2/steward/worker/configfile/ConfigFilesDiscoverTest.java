@@ -93,6 +93,25 @@ class ConfigFilesDiscoverTest {
     }
 
     @Test
+    @DisplayName("the environment-override marker is not offered as a file to edit (steward/76)")
+    void anEnvironmentOverrideMarkerIsNotAConfigFile() throws IOException {
+        // The same trap the .bak above names, sprung by a file steward/76 newly invented: every
+        // service now writes `<name>.env-overrides.txt` beside its own config, it is plain text so
+        // `isProbablyText` says yes, and without the filter it would be listed on the service page
+        // as a configuration of its own - opened and editable. Editing it would change what the
+        // warning says without changing one thing about what the environment actually overrides,
+        // which is worse than merely confusing.
+        write("discord-bot/access.yml");
+        Files.writeString(root.resolve("discord-bot/access.env-overrides.txt"), "languages\nroles.access\n");
+        // And the half-written one: `EnvOverrideFile.write` moves a `.tmp` into place, and a walk
+        // can land inside that window.
+        Files.writeString(root.resolve("discord-bot/access.env-overrides.txt.tmp"), "languages\n");
+
+        assertEquals(List.of("access.yml"),
+                ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());
+    }
+
+    @Test
     @DisplayName("a tmp directory is scratch, and a file merely called tmpl is not")
     void scratchDirectoriesAreNotWalkedButASimilarNameIs() throws IOException {
         // spark keeps profiler dumps and an about.txt under `spark/tmp`. Excluded by whole path

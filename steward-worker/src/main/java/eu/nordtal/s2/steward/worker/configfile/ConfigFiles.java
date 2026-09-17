@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.worker.configfile;
 
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SettingKind;
+import eu.nordtal.s2.common.config.EnvOverrideFile;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Type;
 import org.jetbrains.annotations.NotNull;
@@ -198,7 +199,11 @@ public final class ConfigFiles {
         final List<ConfigEntry> entries = new ArrayList<>();
         final Map<String, Span> spans = new HashMap<>();
         final Optional<Map<String, SchemaNode>> schema = Schemas.read(file).map(SchemaNode::children);
-        collect(file, mapping, "", lines, entries, spans, schema);
+        // Flat, unlike schema: an overridden path is already fully dotted ("roles.access",
+        // "languages"), so the same Set is compared against at every nesting level rather than
+        // narrowed level by level the way schemaLevel is.
+        final Optional<Set<String>> overridden = EnvOverrides.read(file);
+        collect(file, mapping, "", lines, entries, spans, schema, overridden);
 
         final int firstKeyLine = entries.isEmpty() ? Integer.MAX_VALUE : entries.getFirst().line() - 1;
         return new Parsed(new ConfigDocument(file, revisionOf(content),
@@ -221,7 +226,8 @@ public final class ConfigFiles {
                                 final List<String> lines,
                                 final List<ConfigEntry> entries,
                                 final Map<String, Span> spans,
-                                final Optional<Map<String, SchemaNode>> schemaLevel) throws IOException {
+                                final Optional<Map<String, SchemaNode>> schemaLevel,
+                                final Optional<Set<String>> overridden) throws IOException {
         final Set<String> matchedSchemaKeys = new HashSet<>();
         for (final NodeTuple tuple : mapping.getValue()) {
             if (!(tuple.getKeyNode() instanceof ScalarNode keyNode)) {
@@ -282,7 +288,8 @@ public final class ConfigFiles {
                 for (int index = 0; index < sequence.getValue().size(); index++) {
                     final MappingNode element = (MappingNode) sequence.getValue().get(index);
                     final List<ConfigEntry> fields = new ArrayList<>();
-                    collect(file, element, path + "[" + index + "]", lines, fields, spans, elementSchema);
+                    collect(file, element, path + "[" + index + "]", lines, fields, spans, elementSchema,
+                            overridden);
                     collected.add(List.copyOf(fields));
                 }
                 sections = List.copyOf(collected);
@@ -357,6 +364,7 @@ public final class ConfigFiles {
                     // never turns the heuristic off, only the schema turning it ON is authoritative.
                     ConfigEntry.isSecretKey(key) || (schemaChild != null && schemaChild.secret()),
                     inSchema,
+                    overridden.map(paths -> paths.contains(path)).orElse(null),
                     choicesOf(schemaChild),
                     protectedEntryOf(schemaChild)));
             spans.put(path, span);
@@ -366,7 +374,7 @@ public final class ConfigFiles {
                         (schemaChild != null && schemaChild.kind() == SettingKind.MAP)
                                 ? Optional.of(schemaChild.children())
                                 : Optional.empty();
-                collect(file, nested, path, lines, entries, spans, nestedSchema);
+                collect(file, nested, path, lines, entries, spans, nestedSchema, overridden);
             }
         }
 
@@ -448,6 +456,10 @@ public final class ConfigFiles {
                     true,
                     ConfigEntry.isSecretKey(key) || schema.secret(),
                     true,
+                    // A template field is the blank shape of one section, not a value that could
+                    // ever be read from a live file - there is no path here for an environment
+                    // variable to have overridden.
+                    null,
                     choicesOf(schema),
                     // A template field is the blank shape of one section, not the list itself -
                     // @Protected names a whole section by one of its field VALUES, which a blank
@@ -1400,7 +1412,7 @@ public final class ConfigFiles {
         final List<ConfigEntry> entries = new ArrayList<>();
         try {
             collect(file, (MappingNode) root, "", splitKeepingLineEndings(content), entries, new HashMap<>(),
-                    Optional.empty());
+                    Optional.empty(), Optional.empty());
         } catch (final IOException | ClassCastException e) {
             throw new IllegalStateException("Refusing to write " + file
                     + ": the edited content cannot be read back. This is a bug in ConfigFiles.", e);
@@ -1564,6 +1576,16 @@ public final class ConfigFiles {
                     .filter(path -> !Files.isSymbolicLink(path))
                     .filter(path -> !path.getFileName().toString().endsWith(SCHEMA_SUFFIX))
                     .filter(path -> !path.getFileName().toString().endsWith(BACKUP_SUFFIX))
+                    // A MARKER IS NOT A CONFIG FILE either (steward/76). Services write
+                    // `<name>.env-overrides.txt` beside their own config, and without this line
+                    // every one of them would appear on the service page as a configuration in its
+                    // own right - listed, opened, and editable, which is worse than merely
+                    // confusing: editing it would change what the warning says without changing a
+                    // single thing about what the environment actually overrides. The `.tmp` is
+                    // matched too because `write` moves one into place, and `discover` can walk
+                    // the directory inside that window.
+                    .filter(path -> !path.getFileName().toString().endsWith(EnvOverrideFile.SUFFIX))
+                    .filter(path -> !path.getFileName().toString().endsWith(EnvOverrideFile.SUFFIX + ".tmp"))
                     .filter(path -> isUnderNoScratchDirectory(root, path))
                     .filter(ConfigFiles::isProbablyText)
                     .map(path -> locationOf(root, path))

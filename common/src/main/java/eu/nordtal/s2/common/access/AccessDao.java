@@ -81,11 +81,18 @@ interface AccessDao {
                            @Bind("avatarUrl") String avatarUrl);
 
     /**
-     * Clears the two <b>guild-scoped</b> fields - {@code discord_display_name} and
-     * {@code discord_avatar_url} - because an account that just left or was banned has neither in
-     * this guild any more; that is a state to render, not an error. {@code discord_username} is left
-     * as it was last observed: it is not guild-scoped, so it merely goes stale rather than becoming
-     * wrong. A no-op for a {@code discordId} with no row.
+     * Clears {@code discord_display_name} and {@code discord_avatar_url} for an account that just
+     * left or was banned; that is a state to render, not an error. {@code discord_username} is left
+     * as it was last observed: it is the account's own name rather than something this guild
+     * grants, so it merely goes stale rather than becoming wrong. A no-op for a {@code discordId}
+     * with no row.
+     *
+     * <p>Since 2026-09-17 those two columns hold the member's <b>effective</b> name and picture -
+     * the guild's when there is one, the account's otherwise - so what is cleared here is no longer
+     * strictly guild-scoped data. Clearing it is still right: the only reason this deployment ever
+     * saw either value is that the account was a member, and once it is not, there is nothing
+     * standing behind the cached copy. See {@code GuildState#mirrorProfile} for why the fallback is
+     * taken at all.
      */
     @SqlUpdate("""
             UPDATE discord_user

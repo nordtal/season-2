@@ -47,7 +47,18 @@ import java.util.Map;
  */
 public final class SchemaWriter {
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    /**
+     * Pretty-printed, and <b>not</b> HTML-escaped.
+     *
+     * <p>Gson escapes {@code '}, {@code <}, {@code >} and {@code &} by default, for a JSON document
+     * that is about to be pasted into HTML. A schema file is not: it is written beside a config
+     * file and read by a JVM, and the only other reader is a person opening it to see what the
+     * shape is. Measured 2026-09-16, {@code bot.schema.json} carried {@code &#39;} in two places of
+     * its file header, which is legal JSON, correct on screen, and unreadable in the file. The owner
+     * asked for it to go (steward/67, 2026-09-17).</p>
+     */
+    private static final Gson GSON =
+            new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     private SchemaWriter() {
     }

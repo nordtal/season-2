@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -421,6 +422,31 @@ class SchemaWriterTest {
     @DisplayName("neither file nor schema existing is not an error - that is the fresh, not-yet-written state")
     void neitherExistingIsNotAnError() {
         assertDoesNotThrow(() -> SchemaWriter.checkPaired(directory.resolve("nothing-here.yml")));
+    }
+
+    @Test
+    @DisplayName("the schema file keeps an apostrophe as an apostrophe, not as &#39;")
+    void theSchemaFileIsNotHtmlEscaped() throws Exception {
+        // steward/67: Gson escapes ' < > & by default, for JSON that is about to be pasted into
+        // HTML. A schema file is read by a JVM and, occasionally, by a person opening it - never by
+        // a browser. bot.schema.json carried &#39; in its file header for exactly that reason.
+        final Path yml = directory.resolve("service.yml");
+        SchemaWriter.write(yml, EscapingHolder.class);
+
+        final String json = Files.readString(SchemaWriter.schemaFileFor(yml), StandardCharsets.UTF_8);
+        assertTrue(json.contains("the network's own name"),
+                "the apostrophe has to survive into the file: " + json);
+        assertFalse(json.contains("&#39;"), "Gson's HTML escaping is still on: " + json);
+    }
+
+    @ConfigSpec
+    public interface EscapingHolder {
+        @Order(1)
+        @Key("name")
+        @Explain("the network's own name")
+        default String name() {
+            return "";
+        }
     }
 
     // ---------------------------------------------------------------- @Protected (steward/74)

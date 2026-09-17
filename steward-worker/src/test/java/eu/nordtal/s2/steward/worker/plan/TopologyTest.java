@@ -565,7 +565,20 @@ class TopologyTest {
         // Compose interpolates the whole file before it filters by profile, so one `${X:?}` with no
         // value stops the local stack before an image is pulled - even for a service the local
         // selection never starts. Hence the obvious placeholders in the example file.
-        final String compose = Files.readString(findUpwards("compose.yml"), StandardCharsets.UTF_8);
+        //
+        // COMMENT LINES ARE NOT SCANNED, and that is the point rather than a convenience. Compose
+        // does not interpolate a comment, so a `${...:?}` written in one can never stop a start -
+        // and this test claims to find the variables that would. It read the whole file until
+        // 2026-09-17, when steward/102's explanation of the inode trap used `${X:?}` as a
+        // placeholder in prose and turned CI red over a variable named X that nothing requires.
+        // The env side was already filtered this way; only the compose side was not, and that
+        // asymmetry was the defect. The cost is that a `#` opening an inline trailing comment is
+        // still scanned - no line in this file does that, and narrowing it further would mean
+        // parsing YAML quoting rules to find a false positive nobody has had.
+        final String compose = Files.readString(findUpwards("compose.yml"), StandardCharsets.UTF_8)
+                .lines()
+                .filter(line -> !line.strip().startsWith("#"))
+                .collect(java.util.stream.Collectors.joining("\n"));
         final String env = Files.readString(findUpwards("deploy/dev.env.example"), StandardCharsets.UTF_8);
 
         final java.util.Set<String> defined = env.lines()

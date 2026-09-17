@@ -76,6 +76,10 @@ function draw(variant: string, table: unknown = TABLE) {
     "fetch",
     vi.fn(async (url: string) => {
       if (url === "/api/services") return json(table)
+      // Every node's toolbar carries a `RecreateButton` (steward/81, second round), and that
+      // component asks `/api/deployer` unconditionally to know whether to disable itself - not
+      // something a rendering test of the graph itself has any reason to special-case per node.
+      if (url === "/api/deployer") return json({ available: true })
       throw new Error(`the draft asked for ${url}, which this test did not expect`)
     }),
   )
@@ -112,7 +116,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe.each([["a"], ["b"], ["c"]])("draft %s", (variant) => {
+describe.each([["a"], ["b"], ["c"], ["d"], ["e"], ["f"], ["g"]])("draft %s", (variant) => {
   it("draws every service in navigation.ts, plus the box the traffic comes from", async () => {
     draw(variant)
     await waitFor(() => expect(box("smp")).toBeTruthy())
@@ -204,11 +208,11 @@ describe.each([["a"], ["b"], ["c"]])("draft %s", (variant) => {
 })
 
 describe("the drafts are reachable from one another", () => {
-  it("offers the three letters, with the one on screen marked", async () => {
+  it("offers all seven letters, with the one on screen marked", async () => {
     draw("b")
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
-    for (const letter of ["a", "b", "c"]) {
+    for (const letter of ["a", "b", "c", "d", "e", "f", "g"]) {
       const link = screen.getByRole("link", { name: letter })
       expect(link.getAttribute("href")).toBe(`/designs/network?v=${letter}`)
     }

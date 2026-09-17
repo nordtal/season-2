@@ -103,15 +103,25 @@ export function layoutFaults(placed: readonly NodeId[]): string[] {
  * because its tag was rebuilt without the container being recreated - the same situation
  * `DriftBadge`'s `UNKNOWN` text describes. Sixty-four hex characters under a name is not a version,
  * it is a line of noise as wide as the box, so it is shortened like any other digest.
+ *
+ * **A shortened digest is prefixed with `#`, and that prefix is not decoration.** Seven hex
+ * characters with nothing else around them reads as a number - the network view's first review
+ * (steward/81, 2026-09-17) found exactly that: `steward-worker` showing `334951d` next to the
+ * "not compared" mark was read as "334951 days", because a hex string with no letters near its
+ * front end is indistinguishable from a large number at a glance. `#` is what a reader's eye
+ * already parses as "identifier, not quantity" - a version tag never carries one, so it also keeps
+ * the two cases visually apart from each other, not just from a duration.
  */
 export function imageTag(image: string | undefined): string {
   if (!image) return "–"
   const [reference, digest] = image.split("@")
-  if (/^sha256:/.test(reference)) return reference.slice("sha256:".length, "sha256:".length + 7)
+  if (/^sha256:/.test(reference)) {
+    return `#${reference.slice("sha256:".length, "sha256:".length + 7)}`
+  }
   const name = reference.slice(reference.lastIndexOf("/") + 1)
   const colon = name.lastIndexOf(":")
   if (colon !== -1) return name.slice(colon + 1)
-  if (digest) return digest.replace(/^sha256:/, "").slice(0, 7)
+  if (digest) return `#${digest.replace(/^sha256:/, "").slice(0, 7)}`
   // Docker's own default when a reference carries no tag. Printing the repository name here
   // instead would put `caddy` on a line whose whole job is to say which version of caddy.
   return "latest"

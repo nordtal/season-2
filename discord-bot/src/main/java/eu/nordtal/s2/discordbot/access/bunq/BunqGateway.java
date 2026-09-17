@@ -1,5 +1,7 @@
 package eu.nordtal.s2.discordbot.access.bunq;
 
+import eu.nordtal.s2.common.payment.Money;
+
 import com.bunq.sdk.context.ApiContext;
 import com.bunq.sdk.context.ApiEnvironmentType;
 import com.bunq.sdk.context.BunqContext;

@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.access.payment;
+package eu.nordtal.s2.common.payment;
 
 /**
  * The life of one attempt to buy access. The names are the exact strings stored in

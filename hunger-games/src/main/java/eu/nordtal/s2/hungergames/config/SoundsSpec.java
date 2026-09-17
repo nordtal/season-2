@@ -2,7 +2,9 @@ package eu.nordtal.s2.hungergames.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
@@ -18,18 +20,18 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 @ConfigSpec(header = {
         "hunger-games - sounds",
         "",
-        "What each feedback category sounds like. Nine categories, ten entries - open and close are",
+        "What each feedback category sounds like. Ten categories, eleven entries - open and close are",
         "the two halves of one - and a call site in the plugin can pick a category and nothing else.",
         "That is a structural rule and not a matter of discipline: a codebase where every call site",
         "names its own sound drifts into nine different chimes for the same kind of event.",
         "Every value below is deliberately the same as the SMP's, so that the network sounds like",
         "one server rather than three.",
         "",
-        "THREE OF THESE ARE NEVER PLAYED ON THIS SERVER: surface-open, surface-close and select.",
-        "The event server has no menus - chat, three boss bars and a title are the whole interface -",
-        "so those three are read and nothing reaches them. They are still here because the plugin",
-        "has to answer for every category or it does not compile, which is what keeps this file and",
-        "the code from drifting apart.",
+        "FOUR OF THESE ARE NEVER PLAYED ON THIS SERVER: surface-open, surface-close, select and",
+        "reclaimed. The event server has no menus - chat, three boss bars and a title are the whole",
+        "interface - and it has no graves either, so those four are read and nothing reaches them.",
+        "They are still here because the plugin has to answer for every category or it does not",
+        "compile, which is what keeps this file and the code from drifting apart.",
         "",
         "A KEY IS A NAMESPACED REGISTRY KEY, NOT A BUKKIT CONSTANT: minecraft:ui.button.click, never",
         "UI_BUTTON_CLICK. The constant names change between Minecraft versions and the registry keys",
@@ -55,42 +57,52 @@ public interface SoundsSpec {
 
     @Order(1) @Key("small-success")
     @Comment("Something small went right: a kill, or your team marked ready.")
+    @Explain("Something small went right: a kill, or your team marked ready.")
     default SoundSpec smallSuccess() { return DefaultSounds.SMALL_SUCCESS; }
 
     @Order(2) @Key("big-success")
     @Comment("You won the game. Heard by exactly one player, once per event.")
+    @Explain("You won the game. Heard by exactly one player, once per event.")
     default SoundSpec bigSuccess() { return DefaultSounds.BIG_SUCCESS; }
 
     @Order(3) @Key("refused")
     @Comment("The server said no: not an admin, no game, too few participants, not registered.")
+    @Explain("The server said no: not an admin, no game, too few participants, or not registered.")
     default SoundSpec refused() { return DefaultSounds.REFUSED; }
 
     @Order(4) @Key("loss")
     @Comment("You were eliminated. The one sound in this file every player expects to hear.")
+    @Explain("You were eliminated.")
     default SoundSpec loss() { return DefaultSounds.LOSS; }
 
     @Order(5) @Key("surface-open")
     @Comment("Never played here - this server has no menus. Kept so the vocabulary stays whole.")
+    @Explain("Never played on this server - kept only so every feedback category stays answered.")
     default SoundSpec surfaceOpen() { return DefaultSounds.SURFACE_OPEN; }
 
     @Order(6) @Key("surface-close")
     @Comment("Never played here, for the same reason as surface-open.")
+    @Explain("Never played on this server - kept only so every feedback category stays answered.")
     default SoundSpec surfaceClose() { return DefaultSounds.SURFACE_CLOSE; }
 
     @Order(7) @Key("select")
     @Comment("Never played here - nothing on this server is picked out of a list.")
+    @Explain("Never played on this server - kept only so every feedback category stays answered.")
     default SoundSpec select() { return DefaultSounds.SELECT; }
 
     @Order(8) @Key("travel")
     @Comment("Going somewhere: being placed on your spawn tower when the game starts.")
+    @Explain("Being placed on your spawn tower when the game starts.")
     default SoundSpec travel() { return DefaultSounds.TRAVEL; }
 
     @Order(9) @Key("countdown-tick")
     @Comment("A clock running out: the lobby countdown, the release, and every border shrink.")
+    @Explain("A clock running out: the lobby countdown, the release, or a border shrink.")
     default SoundSpec countdownTick() { return DefaultSounds.COUNTDOWN_TICK; }
 
     @Order(10) @Key("network-event")
     @Comment("Everybody hears it: a loot refill, the same-team warning, somebody else winning.")
+    @Explain("Heard by everyone: a loot refill, the same-team warning, or somebody else winning.")
     default SoundSpec networkEvent() { return DefaultSounds.NETWORK_EVENT; }
 
     @Order(11) @Key("staging")
@@ -100,7 +112,13 @@ public interface SoundsSpec {
             "SHIPS EMPTY on purpose: a staged moment's sound arrives with the resource pack artwork",
             "and does not exist yet. Filling it in is one line here and no release."
     })
+    @Explain("A staged moment - today only the season's opening on a player's first join. Ships empty until the resource pack has the sound.")
     default SoundSpec staging() { return DefaultSounds.STAGING; }
+
+    @Order(12) @Key("reclaimed")
+    @Comment("Never played here - this server has no graves. Kept so the vocabulary stays whole.")
+    @Explain("Never played on this server - kept only so every feedback category stays answered.")
+    default SoundSpec reclaimed() { return DefaultSounds.RECLAIMED; }
 
     /** One sound: the key, how loud, how fast. */
     @ConfigSpec
@@ -109,10 +127,15 @@ public interface SoundsSpec {
         // No @Comment: this interface is written out ten times over, and the header above already
         // says what a key is and what an empty one does.
         @Order(1) @Key("key")
+        @NoExplanationNeeded
         default String key() { return ""; }
 
-        @Order(2) @Key("volume") default float volume() { return 1.0f; }
+        @Order(2) @Key("volume")
+        @NoExplanationNeeded
+        default float volume() { return 1.0f; }
 
-        @Order(3) @Key("pitch") default float pitch() { return 1.0f; }
+        @Order(3) @Key("pitch")
+        @NoExplanationNeeded
+        default float pitch() { return 1.0f; }
     }
 }

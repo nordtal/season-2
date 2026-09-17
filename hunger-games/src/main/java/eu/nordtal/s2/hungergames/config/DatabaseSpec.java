@@ -2,7 +2,9 @@ package eu.nordtal.s2.hungergames.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
@@ -30,6 +32,7 @@ public interface DatabaseSpec {
     @Order(1)
     @Key("jdbc-url")
     @Comment("JDBC URL of the PostgreSQL database that holds the hunger games schema.")
+    @Explain("The full JDBC connection string, including the database name.")
     default String jdbcUrl() {
         return "jdbc:postgresql://localhost:5432/nordtal";
     }
@@ -37,6 +40,7 @@ public interface DatabaseSpec {
     @Order(2)
     @Key("username")
     @Comment("Database user.")
+    @NoExplanationNeeded
     default String username() {
         return "hunger_games";
     }
@@ -44,6 +48,7 @@ public interface DatabaseSpec {
     @Order(3)
     @Key("password")
     @Comment("Database password. Prefer NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD in production.")
+    @NoExplanationNeeded
     default String password() {
         return "";
     }
@@ -51,6 +56,7 @@ public interface DatabaseSpec {
     @Order(4)
     @Key("maximum-pool-size")
     @Comment("Upper bound of the HikariCP pool.")
+    @NoExplanationNeeded
     default int maximumPoolSize() {
         return 5;
     }
@@ -64,6 +70,7 @@ public interface DatabaseSpec {
             "that accepts a connection and then hangs is not caught by the first at all.",
             "Kept short so a struggling database fails fast rather than queueing joins behind it."
     })
+    @Explain("Limits both waiting for a free connection and a query already running - not only the query.")
     default int queryTimeoutSeconds() {
         return 3;
     }

@@ -16,8 +16,11 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.common.online.OnlineDirectory;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.networkcontrol.config.ColoursSpec;
 import eu.nordtal.s2.networkcontrol.config.Configs;
 import eu.nordtal.s2.networkcontrol.config.DatabaseSpec;
 import eu.nordtal.s2.networkcontrol.config.GateSpec;
@@ -29,6 +32,7 @@ import eu.nordtal.s2.networkcontrol.gate.FallbackCache;
 import eu.nordtal.s2.networkcontrol.gate.GateMessages;
 import eu.nordtal.s2.networkcontrol.gate.LoginGate;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
+import eu.nordtal.s2.networkcontrol.gate.BackendHealth;
 import eu.nordtal.s2.networkcontrol.gate.BackendKick;
 import eu.nordtal.s2.networkcontrol.gate.MisconfiguredGate;
 import eu.nordtal.s2.networkcontrol.launch.LaunchCountdown;
@@ -58,6 +62,7 @@ import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
 import eu.nordtal.s2.common.notify.PostgresNotifications;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
+import eu.nordtal.s2.networkcontrol.online.OnlineWriter;
 import eu.nordtal.s2.networkcontrol.ping.NetworkPing;
 import eu.nordtal.s2.networkcontrol.ping.SnapshotStore;
 import eu.nordtal.s2.networkcontrol.playtime.PlaytimeStore;
@@ -177,6 +182,7 @@ public final class NetworkControlPlugin {
                     Configs.gate(dataDirectory, logger).get(),
                     Configs.pack(dataDirectory, logger).get(),
                     Configs.network(dataDirectory, logger).get(),
+                    Configs.colours(dataDirectory, logger).get(),
                     messages);
         } catch (final ConfigException | RuntimeException failure) {
             failClosed(failure);
@@ -185,7 +191,7 @@ public final class NetworkControlPlugin {
 
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
                        final PackSpec packConfig, final NetworkSpec networkConfig,
-                       final Messages messages) {
+                       final ColoursSpec coloursConfig, final Messages messages) {
         // :commands' bundle on its own, with the operator's override on top of it, for the command
         // inbox to render remote answers with. One root and not two, because the layered bundle
         // above lets THIS module's keys win and this module's keys are allowed MiniMessage, which
@@ -194,6 +200,10 @@ public final class NetworkControlPlugin {
                 dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
         this.pool = AccessPool.open(databaseConfig);
         this.access = AccessDirectory.using(pool);
+
+        // season-2-ingame/22: the five reply colours. Read once, here, the same as network.yml and
+        // gate.yml - see ColoursSpec's own javadoc for why this has no reload path yet.
+        final ToneColours colours = ToneColours.parse(Configs.declared(coloursConfig), logger::warn);
 
         final PhaseDirectory phases = PhaseDirectory.using(pool);
         final GateMessages gateMessages = new GateMessages(messages, gateConfig);
@@ -232,8 +242,12 @@ public final class NetworkControlPlugin {
         final WaitingBook book = new WaitingBook(offer != null,
                 Duration.ofSeconds(packConfig.applyTimeoutSeconds()),
                 Duration.ofSeconds(gateConfig.limboReadyGraceSeconds()), Clock.systemUTC());
+        // season-2-ops/20: one breaker per backend, shared by BackendKick (which trips it), the
+        // pack station's own release-connection failures (which trip it too) and PlayerRouter
+        // (which clears it the moment a real connection to that backend succeeds again).
+        final BackendHealth backendHealth = new BackendHealth(Clock.systemUTC());
         final PackStation packs = new PackStation(proxy, logger, routing, phaseWatch, roster,
-                packMessages, packConfig, offer, book);
+                packMessages, packConfig, offer, book, backendHealth);
         packs.registerChannel();
 
         // Every destination this plugin chooses is recorded, and every other one is refused - the
@@ -245,7 +259,7 @@ public final class NetworkControlPlugin {
         proxy.getEventManager().register(this, intents);
 
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
-                roster, fallback, gateMessages, packs, intents);
+                roster, fallback, gateMessages, packs, intents, backendHealth);
         routerRef.set(router);
         packs.onRelease(router::releaseFromLimbo);
         proxy.getEventManager().register(this, router);
@@ -361,10 +375,12 @@ public final class NetworkControlPlugin {
         proxy.getEventManager().register(this, loginGate);
         proxy.getEventManager().register(this, roster);
         proxy.getEventManager().register(this, expiryWatch);
-        // Text only: a backend's own disconnect screen, without Velocity's English wrapper around
-        // it. It moves nobody - see BackendKick for the boundary and for the question it leaves
-        // open.
-        proxy.getEventManager().register(this, new BackendKick());
+        // A kick with a reason keeps the backend's own screen, without Velocity's English wrapper
+        // around it. A kick with none - the connection died rather than being decided - goes to
+        // the waiting room instead of a disconnect screen, and suspends that one backend in
+        // backendHealth until a real connection to it succeeds again. See BackendKick.
+        proxy.getEventManager().register(this, new BackendKick(proxy, gateConfig.serverLimbo(),
+                backendHealth, gateMessages, roster, logger));
 
         proxy.getScheduler().buildTask(this, expiryWatch::check)
                 .delay(Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds()))
@@ -387,6 +403,23 @@ public final class NetworkControlPlugin {
         proxy.getEventManager().register(this, new NetworkPing(proxy, logger, networkConfig, phaseWatch,
                 snapshots, messages, Clock.systemUTC(),
                 eu.nordtal.s2.networkcontrol.ping.ServerIcon.load(dataDirectory, logger)));
+
+        // ------------------------------------------------------------ the service list's player counts
+
+        // steward/86: this proxy is the only process that already knows every connection and which
+        // backend it is on, without adding anything up - the same two calls NetworkPing's own
+        // placeholders already use. Writing them to online_count is what lets steward-worker show a
+        // count next to smp, hunger-games, limbo and the network total without a Velocity API of its
+        // own. See OnlineDirectory#WRITE_INTERVAL for why this runs on a fixed constant and not a
+        // network.yml setting.
+        final OnlineWriter onlineWriter = new OnlineWriter(proxy, PhaseServers.from(gateConfig),
+                OnlineDirectory.using(pool), logger);
+        final Duration onlineInterval = OnlineDirectory.WRITE_INTERVAL;
+        onlineWriter.write();
+        proxy.getScheduler().buildTask(this, onlineWriter::write)
+                .delay(onlineInterval)
+                .repeat(onlineInterval)
+                .schedule();
 
         // ------------------------------------------------------------ play time
 
@@ -437,7 +470,9 @@ public final class NetworkControlPlugin {
         // do: what a client is told exists. See CommandGate and :common's CommandFilter.
         final CommandAllowlist allowlist =
                 CommandAllowlist.parse(networkConfig.commandAllowlist());
-        proxy.getEventManager().register(this, new CommandGate(roster, allowlist, messages, logger));
+        proxy.getEventManager().register(this,
+                new CommandGate(roster, allowlist, messages, logger, () -> colours,
+                        eu.nordtal.s2.networkcontrol.feedback.NetworkControlSounds.defaults(logger::warn)));
         if (allowlist.entries().isEmpty()) {
             logger.warn("network.yml#command-allowlist is empty: a player who is not an admin can "
                     + "type no command at all, anywhere on this network. That is a valid setting "
@@ -470,7 +505,7 @@ public final class NetworkControlPlugin {
         final NetworkEffects networkEffects = new ProxyNetworkEffects(
                 ProxyNetworkEffects.async(this, proxy), messages, sharedMessages, logger);
 
-        final VelocityCommands tree = new VelocityCommands(proxy, roster, messages);
+        final VelocityCommands tree = new VelocityCommands(proxy, roster, messages, () -> colours);
         PhaseCommands.all().forEach(command -> tree.local(command, phaseEffects));
         NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
 

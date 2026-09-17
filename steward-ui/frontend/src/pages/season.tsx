@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import type { Season } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
 import { useSeason, useSetPhase, useSetSeasonDate } from "@/lib/queries"
+import { SEASON_PHASES as PHASES, type SeasonPhaseName as PhaseName } from "@/lib/season-phases"
 import { CommandCard, isAccessCommand } from "@/components/steward/command-card"
 import { PageHeader } from "@/components/steward/page-header"
 import { Failure, QueryState } from "@/components/steward/query-state"
@@ -39,47 +40,6 @@ import { Label } from "@/components/ui/label"
  * is in force on the next join, with no restart anywhere. That is also why it is the one setting
  * in this interface that asks twice before it changes.
  */
-
-type PhaseName = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "MAINTENANCE"
-
-/**
- * What each phase actually does, in the words of `SeasonPhase` in :common.
- *
- * Kept as the admission rule rather than as a description: a phase name tells nobody whether
- * their players can log in, and "admins only" does.
- */
-const PHASES: { name: PhaseName; label: string; who: string; where: string }[] = [
-  {
-    name: "PRE_LAUNCH",
-    label: "Before launch",
-    who: "Admins only. Everybody else sees a countdown to the launch date.",
-    where: "—",
-  },
-  {
-    name: "PRE_EVENT",
-    label: "Before the event",
-    who: "Every linked, unbanned Discord member. No contribution period is needed.",
-    where: "hunger-games",
-  },
-  {
-    name: "START_EVENT",
-    label: "Event start",
-    who: "Same as before the event.",
-    where: "hunger-games",
-  },
-  {
-    name: "SMP",
-    label: "Season running",
-    who: "Linked, unbanned - and the only phase that also requires current access.",
-    where: "smp",
-  },
-  {
-    name: "MAINTENANCE",
-    label: "Maintenance",
-    who: "Everybody reaches the network and stays in limbo; admins are not redirected.",
-    where: "limbo",
-  },
-]
 
 export function SeasonPage() {
   const season = useSeason()

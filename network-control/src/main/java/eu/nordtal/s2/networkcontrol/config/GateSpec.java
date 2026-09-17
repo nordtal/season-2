@@ -2,6 +2,7 @@ package eu.nordtal.s2.networkcontrol.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
@@ -39,6 +40,7 @@ public interface GateSpec {
             "",
             "Empty is allowed - every message makes sense without it."
     })
+    @Explain("The website, not a Discord invite link - it never expires the way an invite can.")
     default String discordInviteUrl() {
         return "https://nordtal.eu";
     }
@@ -51,6 +53,7 @@ public interface GateSpec {
             "",
             "This is the only place this value lives."
     })
+    @Explain("How long a freshly issued link code stays valid; a repeated join within it returns the same code.")
     default int linkCodeTtlMinutes() {
         return 10;
     }
@@ -63,6 +66,7 @@ public interface GateSpec {
             "ever used to let somebody in; everyone else is refused outright. A long outage",
             "closes the door rather than leaving it open forever."
     })
+    @Explain("How long a player's last-known access stays usable once the database is unreachable; only access already active is honoured.")
     default int fallbackCacheWindowMinutes() {
         return 15;
     }
@@ -79,6 +83,7 @@ public interface GateSpec {
             "expiry - the fallback cache is a login-time concept only; nobody already",
             "connected is kicked because one periodic query failed."
     })
+    @Explain("How often a connected player's access is re-checked live - not just counted down - so a mid-session revoke or renewal is noticed.")
     default int expiryCheckIntervalSeconds() {
         return 60;
     }
@@ -86,6 +91,7 @@ public interface GateSpec {
     @Order(5)
     @Key("expiry-warning-lead-minutes")
     @Comment("How long before access ends the in-chat warning is shown, once, per remaining period.")
+    @Explain("Shown once per remaining period, never repeated.")
     default int expiryWarningLeadMinutes() {
         return 5;
     }
@@ -103,6 +109,7 @@ public interface GateSpec {
             "The login path does NOT use this: it reads the phase on the same row as the access",
             "state, in one round trip. This is for everything that is not a login."
     })
+    @Explain("Thirty seconds is the decided value, for an emergency change rather than routine tuning; this poll, not the LISTEN switch below, is the actual guarantee.")
     default int phasePollIntervalSeconds() {
         return 30;
     }
@@ -123,6 +130,7 @@ public interface GateSpec {
             "the switch statement in :common, and a listener quietly pointed at a different",
             "channel would look exactly like one that works until the first phase switch."
     })
+    @Explain("Makes a phase switch feel instant instead of waiting for the next poll; the poll above is the actual guarantee, so turning this off is safe.")
     default boolean phaseListenEnabled() {
         return true;
     }
@@ -145,6 +153,7 @@ public interface GateSpec {
             "Nothing is lost to rounding either way: a flush advances the session marker by",
             "exactly the whole seconds it wrote, so the remainder survives to the next one."
     })
+    @Explain("Bounds how much playtime a proxy crash can cost a connected player; always flushed on disconnect regardless.")
     default int playtimeFlushIntervalSeconds() {
         return 300;
     }
@@ -168,6 +177,7 @@ public interface GateSpec {
             "belongs to may never be entered. It fails at the moment it is needed: the player is",
             "disconnected rather than dropped somewhere undefined. See routing/PhaseRouting."
     })
+    @Explain("The backend name for MAINTENANCE - must match a real server in velocity.toml.")
     default String serverLimbo() {
         return "limbo";
     }
@@ -175,6 +185,7 @@ public interface GateSpec {
     @Order(10)
     @Key("server-hunger-games")
     @Comment("The backend for PRE_EVENT and START_EVENT. See server-limbo above.")
+    @Explain("The backend name for PRE_EVENT and START_EVENT - must match a real server in velocity.toml.")
     default String serverHungerGames() {
         return "hunger-games";
     }
@@ -182,6 +193,7 @@ public interface GateSpec {
     @Order(11)
     @Key("server-smp")
     @Comment("The backend for SMP. See server-limbo above.")
+    @Explain("The backend name for SMP - must match a real server in velocity.toml.")
     default String serverSmp() {
         return "smp";
     }
@@ -199,6 +211,7 @@ public interface GateSpec {
             "It is also what enforces pack.yml#apply-timeout-seconds, so it must stay well below",
             "it. The sweep touches no database and makes no network call of its own."
     })
+    @Explain("How often waiting players are re-checked for a backend coming up; must stay well below pack.yml's apply-timeout-seconds.")
     default int limboSweepIntervalSeconds() {
         return 5;
     }
@@ -221,6 +234,7 @@ public interface GateSpec {
             "already generous. A release that runs out this clock is logged as a WARNING naming",
             "the channel, because a network where it happens routinely has a broken one."
     })
+    @Explain("A safety window against a lost join confirmation - without it, a dropped message strands a player in limbo forever.")
     default int limboReadyGraceSeconds() {
         return 5;
     }

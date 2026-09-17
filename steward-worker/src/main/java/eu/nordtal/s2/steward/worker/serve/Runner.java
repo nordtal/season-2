@@ -179,6 +179,14 @@ public final class Runner implements RequestRunner {
             report = report.withNote(unverifiable.get());
         }
 
+        // steward/75: LOCAL is not work and never claims a line below, but it is the one thing this
+        // report used to say nothing about at all - a service running unpublished code, silently
+        // overwritten by the very next real update run.
+        final java.util.Optional<String> local = images.localImages();
+        if (local.isPresent()) {
+            report = report.withNote(local.get());
+        }
+
         final java.util.Optional<String> nothing = images.nothingChecked();
         if (nothing.isPresent()) {
             return report.withNote(nothing.get());

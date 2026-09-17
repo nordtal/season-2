@@ -87,6 +87,16 @@ public final class PhaseServers {
         return limbo;
     }
 
+    /** @return the name of the PRE_EVENT / START_EVENT backend - see {@link #forPhase} */
+    public String hungerGames() {
+        return hungerGames;
+    }
+
+    /** @return the name of the SMP backend - see {@link #forPhase} */
+    public String smp() {
+        return smp;
+    }
+
     private static String requireName(final String field, final String value) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " server name must not be blank");

@@ -10,9 +10,11 @@ import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.proxy.Player;
 
 import eu.nordtal.s2.common.command.CommandAllowlist;
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Tones;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
@@ -22,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * What a player who is not an admin may type, and what they are told exists.
@@ -62,9 +65,48 @@ import java.util.Objects;
  */
 public final class CommandGate {
 
+    /**
+     * How a refusal sounds on the proxy - the Velocity-side twin of {@code PaperUser.Chime}, kept
+     * as its own interface because a Velocity {@link Player} is not a Bukkit one and this module
+     * must not depend on {@code paper-common} to borrow its shape.
+     *
+     * <h2>The proxy can reach a player on any backend, measured 2026-09-15 (season-2-ingame/13)</h2>
+     * Measured before writing anything: {@link Player} extends {@code CommandSource}, which extends
+     * {@code net.kyori.adventure.audience.Audience} - the same interface {@code sendMessage} comes
+     * from - and {@link Player} itself carries a default {@code playSound(Sound)} straight from
+     * Adventure. {@code RestartWatch}, already running in production, calls {@code sendMessage} and
+     * {@code showTitle} from this exact proxy process on players standing on any backend; nothing in
+     * that call path differs for {@code playSound}, because Velocity holds the client connection
+     * itself; a backend is not in between. So the answer to season-2-ingame/05's open question is
+     * <b>yes, the API says the proxy can</b> - this is a structural finding, not an acoustic one:
+     * nobody has listened, and that stays {@code Owner: till} until somebody does.
+     *
+     * <h2>A real chime, wired in season-2-ingame/28</h2>
+     * {@code common}'s {@code SoundVocabularyTest} scans {@code network-control} (this module is on
+     * its list) and refuses a bare {@code playSound(} or {@code net.kyori.adventure.sound.} outside
+     * a named, allow-listed "Sounds" adapter file. {@code NetworkControlSounds} in
+     * {@code eu.nordtal.s2.networkcontrol.feedback} is that adapter for this module, allow-listed
+     * alongside {@code SmpSounds.java} and {@code HungerGamesSounds.java}, and
+     * {@code NetworkControlPlugin} hands one to the constructor below. {@link #silent()} still
+     * exists for a caller with no chime of its own - the tests in this package use it deliberately,
+     * to hold the old, unchanged constructors in place.
+     */
+    @FunctionalInterface
+    public interface Chime {
+
+        void play(Player player, Feedback feedback);
+
+        /** For as long as nothing plays a real sound here - see the class javadoc above. */
+        static Chime silent() {
+            return (player, feedback) -> { };
+        }
+    }
+
     private final LoginRoster roster;
     private final Messages messages;
     private final Logger logger;
+    private final Supplier<ToneColours> colours;
+    private final Chime chime;
 
     /**
      * Read straight out of {@code network.yml} rather than out of the database.
@@ -76,12 +118,38 @@ public final class CommandGate {
      */
     private final CommandAllowlist allowlist;
 
+    /** Without a {@link Chime}: silent, which is every existing caller's behaviour unchanged. */
     public CommandGate(final LoginRoster roster, final CommandAllowlist allowlist,
                        final Messages messages, final Logger logger) {
+        this(roster, allowlist, messages, logger, Chime.silent());
+    }
+
+    /**
+     * Without a colour supplier: {@link ToneColours#DEFAULTS}, which is every existing caller's
+     * behaviour unchanged (season-2-ingame/22) - none of them painted anything but the defaults
+     * before this ticket.
+     */
+    public CommandGate(final LoginRoster roster, final CommandAllowlist allowlist,
+                       final Messages messages, final Logger logger, final Chime chime) {
+        this(roster, allowlist, messages, logger, () -> ToneColours.DEFAULTS, chime);
+    }
+
+    /** Without a {@link Chime}: silent - the real caller, {@code NetworkControlPlugin}, has none yet. */
+    public CommandGate(final LoginRoster roster, final CommandAllowlist allowlist,
+                       final Messages messages, final Logger logger,
+                       final Supplier<ToneColours> colours) {
+        this(roster, allowlist, messages, logger, colours, Chime.silent());
+    }
+
+    public CommandGate(final LoginRoster roster, final CommandAllowlist allowlist,
+                       final Messages messages, final Logger logger,
+                       final Supplier<ToneColours> colours, final Chime chime) {
         this.roster = Objects.requireNonNull(roster, "roster");
         this.allowlist = Objects.requireNonNull(allowlist, "allowlist");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.colours = Objects.requireNonNull(colours, "colours");
+        this.chime = Objects.requireNonNull(chime, "chime");
     }
 
     /**
@@ -126,7 +194,9 @@ public final class CommandGate {
         }
         event.setResult(CommandExecuteEvent.CommandResult.denied());
         player.sendMessage(Tones.paint(
-                MessageRenderer.of(messages).get(locale(player), "command.unknown"), Tone.BAD));
+                MessageRenderer.of(messages).get(locale(player), "command.unknown"), Tone.BAD,
+                colours.get()));
+        chime.play(player, Feedback.REFUSED);
     }
 
     /**

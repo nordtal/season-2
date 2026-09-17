@@ -139,6 +139,25 @@ const ABBREVIATION = new RegExp(`(${rules.abbreviations.join("|")})`)
 
 const NON_ENGLISH_LETTERS = /[äöüÄÖÜß]/
 
+/**
+ * The deliberate exemptions, and the list is deliberately two long.
+ *
+ * `run-search-terms.ts` (steward/52) holds search synonyms for the command palette, in English and
+ * German both. A synonym is matched against what somebody typed - it is never printed to a screen
+ * the way a label, a button or a comment is - so it carries none of the risk this guard exists for.
+ *
+ * **Nothing else is exempt, and that is the part worth keeping true.** The German word is exported
+ * from that one file as a constant, so its own test, `command-palette.tsx` and
+ * `command-palette.test.tsx` all import it instead of spelling it out - which is what leaves every
+ * one of them inside the ordinary scan. Measured 2026-09-16: dropping
+ * `run-search-terms.test.ts` back out of this set leaves this guard green, so it is out.
+ * An exemption that is not needed is a hole waiting for somebody to put something in it.
+ */
+const EXEMPT = new Set([
+  path.join(here, "language.test.ts"),
+  path.join(frontend, "src", "app", "run-search-terms.ts"),
+])
+
 /** Everything a reader of this interface can reach: its sources, its page and its build file. */
 function scanned(): string[] {
   const files: string[] = [
@@ -150,7 +169,7 @@ function scanned(): string[] {
       const full = path.join(directory, entry.name)
       if (entry.isDirectory()) {
         walk(full)
-      } else if (/\.(ts|tsx|css|html)$/.test(entry.name) && full !== path.join(here, "language.test.ts")) {
+      } else if (/\.(ts|tsx|css|html)$/.test(entry.name) && !EXEMPT.has(full)) {
         files.push(full)
       }
     }

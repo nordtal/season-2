@@ -5,6 +5,7 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The whole SQL surface of the roster, as a JDBI SqlObject interface. Package-private on purpose:
@@ -15,6 +16,48 @@ import java.util.List;
  * would be a second answer to who has access.
  */
 interface RosterDao {
+
+    /**
+     * The columns and joins a {@link Person} is made of, without the part that chooses which rows.
+     *
+     * <p>It is a constant rather than two texts because there are two callers and they must not
+     * drift: {@link #people(int)} pages the roster and {@link #personOf(String)} fetches one
+     * account for {@code /api/me} (steward/91). Eighteen columns and two joins copied into a second
+     * string is the shape this repository has been bitten by often enough to name it - a column
+     * added to one and forgotten in the other produces a {@link Person} that is silently missing a
+     * field on exactly one route. A compile-time constant concatenated into the annotation cannot
+     * do that.
+     */
+    String PERSON_SELECTION = """
+            SELECT usr.discord_id,
+                   usr.member_state,
+                   usr.donor,
+                   usr.admin,
+                   usr.locale,
+                   usr.updated,
+                   link.mc_uuid,
+                   link.linked,
+                   access.access_until,
+                   coalesce(access.access_active, false) AS access_active,
+                   usr.discord_username,
+                   usr.discord_username_updated,
+                   usr.discord_display_name,
+                   usr.discord_display_name_updated,
+                   usr.discord_avatar_url,
+                   usr.discord_avatar_url_updated,
+                   link.mc_name,
+                   link.mc_name_updated
+            FROM discord_user usr
+                     LEFT JOIN account_link link ON link.discord_id = usr.discord_id
+                     LEFT JOIN LATERAL (
+                SELECT max(grant_row.valid_until)                    AS access_until,
+                       bool_or(grant_row.revoked IS NULL
+                           AND grant_row.valid_from <= now()
+                           AND grant_row.valid_until > now())        AS access_active
+                FROM access_grant grant_row
+                WHERE grant_row.discord_id = usr.discord_id
+                ) access ON true
+            """;
 
     /**
      * Everyone the bot knows, with their link and their access, in one statement.
@@ -41,32 +84,26 @@ interface RosterDao {
      * after a bulk role reconcile, and without the tiebreak PostgreSQL is free to return them in
      * any order it likes each time.
      */
-    @SqlQuery("""
-            SELECT usr.discord_id,
-                   usr.member_state,
-                   usr.donor,
-                   usr.admin,
-                   usr.locale,
-                   usr.updated,
-                   link.mc_uuid,
-                   link.linked,
-                   access.access_until,
-                   coalesce(access.access_active, false) AS access_active
-            FROM discord_user usr
-                     LEFT JOIN account_link link ON link.discord_id = usr.discord_id
-                     LEFT JOIN LATERAL (
-                SELECT max(grant_row.valid_until)                    AS access_until,
-                       bool_or(grant_row.revoked IS NULL
-                           AND grant_row.valid_from <= now()
-                           AND grant_row.valid_until > now())        AS access_active
-                FROM access_grant grant_row
-                WHERE grant_row.discord_id = usr.discord_id
-                ) access ON true
+    @SqlQuery(PERSON_SELECTION + """
             ORDER BY usr.updated DESC, usr.discord_id
             LIMIT :limit
             """)
     @RegisterRowMapper(PersonMapper.class)
     List<Person> people(@Bind("limit") int limit);
+
+    /**
+     * The one row {@link #people(int)} would print for a single account - same columns, same two
+     * joins, just a {@code WHERE} instead of a {@code LIMIT} (steward/91).
+     *
+     * <p>Written out separately rather than as {@code people(1)} filtered afterwards: this is meant
+     * to be called once per request from {@code /api/me}, and fetching the whole page to keep one
+     * row would cost the same query for a hundred times the data.
+     */
+    @SqlQuery(PERSON_SELECTION + """
+            WHERE usr.discord_id = :discordId
+            """)
+    @RegisterRowMapper(PersonMapper.class)
+    Optional<Person> personOf(@Bind("discordId") String discordId);
 
     /**
      * Every payment request, newest first. {@code id} breaks the tie for the same reason the roster

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.db;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -15,7 +16,11 @@ import java.util.UUID;
  * <p>{@code ownerUuid} is joined in from {@code account_link} rather than stored: the schema is keyed
  * by Discord account throughout, and the Minecraft UUID is only wanted here so the head on top of
  * the grave is the right person's face.
+ *
+ * <p>{@code created} is the same column {@code expireGravesOlderThan} ages a grave by
+ * (season-2-ingame/20) - it is what the hologram over the grave counts down against
+ * (season-2-ingame/19), so a restart never resets the number either.
  */
 public record GraveRow(UUID id, String ownerId, UUID ownerUuid, String world, int x, int y, int z,
-                       byte[] contents, int experience) {
+                       byte[] contents, int experience, Instant created) {
 }

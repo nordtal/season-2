@@ -261,6 +261,16 @@ export type Me = {
    * a literal here that would disagree with it the day somebody changes one of the two.
    */
   stepUpMinutes?: number
+  /**
+   * The picture Discord holds for this account, when the access list happens to carry one.
+   *
+   * **Absent is the ordinary case, not an error** (steward/91): somebody can be signed into Steward
+   * and not be in the access list at all, and Discord itself does not always have a picture. The
+   * island then draws the initials, stays tappable, and nothing about the page changes - which is
+   * the fallback steward/89 prescribes rather than a degraded state. So the query that fills this
+   * must never be allowed to fail the answer.
+   */
+  discordAvatarUrl?: string
 }
 
 /** Docker's own words, passed through. `state` is the container state, `status` its sentence. */
@@ -277,6 +287,16 @@ export type Service = {
   memoryBytes?: number
   memoryLimitBytes?: number
   cpuPercent?: number
+  /**
+   * How many people are connected, on the four services that have an answer to that.
+   *
+   * **Absent is not zero** (steward/86). `smp`, `hunger-games` and `limbo` each carry their own,
+   * `network-control` the network's total, and every other service has no such field at all -
+   * neither does one of those four while network-control has not written recently enough for the
+   * worker to trust the row. So the optional marker here is load-bearing: `players ?? 0` is the
+   * one thing a reader must not write, because it turns "nobody has said" into "nobody is on".
+   */
+  players?: number
   unreadable?: string
   /** Only on the single-service endpoint. */
   digests?: string[]
@@ -424,6 +444,13 @@ export type LogSearch = { lines: string[]; limit: number; truncated: boolean }
  * `accessUntil` is the latest `valid_until` over ALL grants, revoked ones included, while
  * `accessActive` is the full login predicate. The pair is deliberate: a revoked person showing no
  * date at all would look exactly like a stranger who never had access.
+ *
+ * **The eight profile fields (steward/44/45) are what discord-bot and network-control last
+ * observed, each with its own timestamp.** All eight are independently absent - an account nobody
+ * has mirrored a Discord profile onto, one that left the guild, or one that was never seen joining
+ * reads with the corresponding fields simply missing, never with an empty string standing in. They
+ * feed `PersonIdentity` (`@/components/steward/identity`), the one place a raw id or uuid may be
+ * shown - see that module's header comment for the rule.
  */
 export type Person = {
   discordId: string
@@ -436,6 +463,14 @@ export type Person = {
   linked?: string
   accessUntil?: string
   accessActive: boolean
+  discordUsername?: string
+  discordUsernameUpdated?: string
+  discordDisplayName?: string
+  discordDisplayNameUpdated?: string
+  discordAvatarUrl?: string
+  discordAvatarUrlUpdated?: string
+  mcName?: string
+  mcNameUpdated?: string
 }
 
 export type Payment = {
@@ -475,6 +510,24 @@ export type JournalEntry = {
 }
 
 /**
+ * One row of steward-worker's `/api/actions` (steward/82) - a run from `update_request` or a line
+ * from `audit_log`, already merged and sorted by the worker into one feed, newest first.
+ *
+ * `actorDiscordId` and `actorLabel` are `""`, never absent, when there is nothing to show in that
+ * slot - `eu.nordtal.s2.steward.worker.api.ActionEntry`'s own header comment says why a record's
+ * field cannot simply be left out the way a map's can. `system` decides between the two: true means
+ * neither field means anything and `PersonIdentity`'s `system` prop draws Steward instead of either.
+ */
+export type Action = {
+  kind: string
+  occurred: string
+  extent: string
+  actorDiscordId: string
+  actorLabel: string
+  system: boolean
+}
+
+/**
  * One config file under the mount.
  *
  * `path` is the identity - `steward-worker/steward.yml`, or `smp/nordtal-smp/config.yml` for a
@@ -496,6 +549,26 @@ export type ConfigLocation = {
 }
 
 /**
+ * The allowed (or suggested) values of a setting, from its schema (steward/55, steward/56).
+ *
+ * `strict` closes the list to exactly these values - the form draws a select and nothing else.
+ * Otherwise it is a suggestion: a select beside a free-text field that still accepts anything.
+ */
+export type ConfigChoices = {
+  values: string[]
+  strict: boolean
+}
+
+/**
+ * Identifies the one section of a `SECTIONS` entry that a save must never be allowed to remove -
+ * from the schema's `@Protected` (steward/74), e.g. `{ field: "tag", value: "en" }` for `languages`.
+ */
+export type ConfigProtectedEntry = {
+  field: string
+  value: string
+}
+
+/**
  * One key of a config file, as the form draws it.
  *
  * **`value` and `items` are absent for a secret and that is the point.** A key whose name says
@@ -504,23 +577,83 @@ export type ConfigLocation = {
  * only reading the old one that does not.
  *
  * `filled` is sent for every key, secret or not, so there is one rule to draw rather than two.
+ *
+ * **Since jcore 4.0.0 (steward/55), `explanation` and `choices` come from the `<name>.schema.json`
+ * beside the file, not from `comments` any more** - a file that generation of jcore wrote carries no
+ * comments at all. `comments` is what is left for a file with no schema, or one nothing ever wrote a
+ * schema for. `inSchema` is `true` whenever there is nothing to be missing from (no schema at all)
+ * and `false` only when a schema exists here and does not mention this key - the file still wins
+ * and the key is still sent, just marked.
  */
 export type ConfigEntry = {
   path: string
   key: string
   label: string
   comments: string[]
+  /** The schema's short `@Explain` text. Empty when no schema entry covers this key. */
+  explanation: string
+  /** The schema says explicitly that this needs no explanation - draw no text, not empty text. */
+  noExplanationNeeded: boolean
   filled: boolean
   /** Absent when `secret`. A scalar's text; for a block scalar, with the newlines it holds. */
   value?: string
   /** Absent when `secret`. The entries of a LIST; empty for every other kind. */
   items?: string[]
-  kind: "SCALAR" | "LIST" | "MAP"
+  /**
+   * **`SECTIONS` does not exist on the worker yet (steward/57).** It is a sequence of mappings -
+   * `languages` in `discord-bot/access.yml` is the case this was invented for - and today's worker
+   * has no way to describe one: {@link ConfigFiles#collect} in `steward-worker` only recurses into
+   * a `MappingNode`, never into the items of a `SequenceNode`, so a list of sections currently
+   * arrives as an ordinary `LIST` with `items: []` (its scalars collector finds none) and
+   * `editable: false`. This value, and {@link template} and {@link sections} below, are this
+   * ticket's frontend half of the mechanism, built so the worker side has a concrete shape to send
+   * once it exists - see the ticket for exactly what would have to change in `ConfigFiles`.
+   */
+  kind: "SCALAR" | "LIST" | "MAP" | "SECTIONS"
   type: "STRING" | "INTEGER" | "DECIMAL" | "BOOLEAN"
   line: number
   /** False for a nested section, which has no value, and for a list of sections. */
   editable: boolean
   secret: boolean
+  /** Whether the schema declares this key. Always `true` when the file has no schema at all. */
+  inSchema: boolean
+  /**
+   * Whether an environment variable has taken this key over, so that editing the file here changes
+   * the file and not the running service (steward/76).
+   *
+   * jcore's `ConfigHandle` overlays `NORDTAL_<PREFIX>_<PATH>` on load and never writes the value
+   * back; measured on this host, seven keys of `discord-bot`'s `access.yml` are overridden that
+   * way, `languages` among them. The field stays **editable** on purpose - the point is to be able
+   * to prepare the file for the day the variable goes - but it must say so, which is what this
+   * carries.
+   *
+   * Absent means the service did not say, not that it is unaffected: a worker or a service older
+   * than steward/76 answers nothing here, and drawing "not overridden" from that would be the
+   * silent wrong answer this whole field exists to prevent.
+   */
+  environmentOverridden?: boolean
+  /** The schema's allowed or suggested values, or absent when it names none. */
+  choices?: ConfigChoices
+  /**
+   * For a `SECTIONS` entry: the schema's own shape of one section, in display order - the field set
+   * every existing section is drawn with, and the blank template a new "Add" starts from. Absent
+   * when the schema does not describe this list's shape closely enough to draw a card from (mixed
+   * shapes in one sequence) - the form then falls back to raw text rather than a card that would
+   * swallow whatever does not fit the first section it saw. Undefined for every other kind.
+   */
+  template?: ConfigEntry[]
+  /**
+   * For a `SECTIONS` entry: one array of field entries per existing section, in file order, each
+   * shaped like {@link template}. Empty for an empty list. Undefined for every other kind.
+   */
+  sections?: ConfigEntry[][]
+  /**
+   * For a `SECTIONS` entry whose schema carries `@Protected` (steward/74): which section must not
+   * be removed. The worker itself refuses that removal - see `ConfigFiles.removeSection` - so this
+   * is here for the interface to grey the option out up front rather than let an operator confirm a
+   * removal that only fails once it reaches the worker. Undefined when there is no such rule.
+   */
+  protectedEntry?: ConfigProtectedEntry
 }
 
 /**
@@ -550,7 +683,21 @@ export type GuildList = {
   entries: GuildEntry[]
 }
 
-export type ConfigDocument = ConfigLocation & {
+/**
+ * A file steward could not split into keys - a foreign file steward/55's broadened `discover()`
+ * now finds (a plugin's `README.txt`, a `.properties` file), or a `.yml` with a mistake in it
+ * (steward/56). There is no `revision` and no `entries`: nothing here was parsed, so there is
+ * nothing a save could be checked against. The interface shows the bytes as text and offers no
+ * save button for them - `writable` on the location is beside the point.
+ */
+export type RawConfigDocument = ConfigLocation & {
+  raw: true
+  reason?: string
+  content: string
+}
+
+export type ParsedConfigDocument = ConfigLocation & {
+  raw?: never
   /**
    * What the file said when it was read, and what the next save has to still be about.
    *
@@ -564,8 +711,14 @@ export type ConfigDocument = ConfigLocation & {
   entries: ConfigEntry[]
 }
 
-/** What a PUT sends: a string is a scalar, an array is a list, and they are not interchangeable. */
-export type ConfigChanges = Record<string, string | string[]>
+export type ConfigDocument = RawConfigDocument | ParsedConfigDocument
+
+/**
+ * What a PUT sends: a string is a scalar, a string array is a list, and an array of records is a
+ * `SECTIONS` entry - one flat `{key: value}` record per card, in order. None of the three are
+ * interchangeable.
+ */
+export type ConfigChanges = Record<string, string | string[] | Record<string, string>[]>
 
 /**
  * One admin command the interface may ask for (concept §10b).
@@ -648,3 +801,121 @@ export type DeployerJob = {
   /** compose's own output, in order. Only `GET /api/deployer/jobs/{id}` carries it. */
   lines?: string[]
 }
+
+/**
+ * Where one message bundle lives (steward/48).
+ *
+ * `path` is `<service>/<module>`, or just `<service>` when the bundle sits directly in the
+ * service's own jar rather than a plugin's - the identity `/api/messages/<path>` is called with.
+ * `module` is `""` in that case, the same convention `ConfigLocation.service` uses for a file with
+ * no service.
+ */
+export type MessageBundleLocation = {
+  service: string
+  module: string
+  path: string
+  writable: boolean
+}
+
+/**
+ * One key of a bundle, packaged text and operator override side by side.
+ *
+ * **The worker reads the packaged text out of the module's jar, never off disk** - disk only ever
+ * holds an override, and almost nothing on a fresh deploy. `english`/`german` are therefore what
+ * ships; `overrideEnglish`/`overrideGerman` are absent, not empty, when nothing overrides that
+ * language - the same "absence is the signal" convention `ConfigEntry.value` uses for a secret.
+ *
+ * `inBundle` is `false` for a key an override file mentions that the packaged text does not (any
+ * more) - the module was updated and an old override key is now stale rather than wrong.
+ */
+export type MessageEntry = {
+  key: string
+  english?: string
+  german?: string
+  overrideEnglish?: string
+  overrideGerman?: string
+  inBundle: boolean
+}
+
+export type MessageBundle = MessageBundleLocation & {
+  entries: MessageEntry[]
+}
+
+/**
+ * What a save answers: the bundle as it now reads, plus every dropped-placeholder warning.
+ *
+ * A warning never blocks the save (steward/60's rule) - the response carries both the written
+ * result and the sentence, rather than the interface having to infer one from the other.
+ */
+export type MessageSaveResult = MessageBundle & {
+  warnings: string[]
+}
+
+/** What a PUT to `/api/messages/<path>` sends. `null` resets that key rather than filling it. */
+export type MessageChanges = {
+  language: "en" | "de"
+  changes: Record<string, string | null>
+}
+
+/**
+ * What became of asking the affected service to pick up a just-saved change (steward/59).
+ *
+ * The three values are deliberately not two: `APPLIED` and `NO_ANSWER` both mean a command was
+ * sent, and must not be told apart only by reading `message` closely. `RESTART_REQUIRED` means
+ * nothing was sent at all - there is no live command this file's own reload path would answer to,
+ * so nothing here restarts anything on its own; that stays a deliberate click.
+ */
+export type ConfigReloadOutcome = {
+  status: "APPLIED" | "NO_ANSWER" | "RESTART_REQUIRED"
+  message: string
+}
+
+/**
+ * `ParsedConfigDocument` widened by the two fields steward/59 added.
+ *
+ * `restartRequired` is on every GET as well as every PUT - the "no live reload reaches this file"
+ * fact is a property of the file, known before anybody types anything, and shown at the file
+ * rather than only after a save. `reload` exists only on a PUT's answer, because only a save asks
+ * a service to do anything - reading a file asks nothing of it.
+ *
+ * Its own type rather than a change to `ParsedConfigDocument` itself: other work is landing in
+ * this file tonight, and appending a new type is what stays out of its way.
+ */
+export type ReloadAwareConfigDocument = ParsedConfigDocument & {
+  restartRequired: boolean
+  reload?: ConfigReloadOutcome
+}
+
+/**
+ * `RawConfigDocument` widened with the revision the raw editor's save needs (steward/60).
+ *
+ * `RawConfigDocument` itself stays as steward/56 left it - no revision, no save button, because
+ * that was true of every raw document until this ticket gave the worker a write path for one. The
+ * worker now sends `revision` on every raw document too (`ConfigApi#rawDocument`), computed the
+ * same way a parsed file's is; this is its own type rather than a change to `RawConfigDocument`
+ * for the same reason `ReloadAwareConfigDocument` is its own type above it - other work lands in
+ * this file the same night, and appending stays out of its way.
+ */
+export type EditableRawConfigDocument = RawConfigDocument & {
+  revision: string
+}
+
+/**
+ * What `PUT /api/config-raw/<file>` answers (steward/60): the file as it now reads, plus every
+ * syntax warning the save found.
+ *
+ * A warning never blocks the save - the same rule `MessageSaveResult` already carries for a
+ * dropped placeholder. `warnings` is empty rather than absent when there was nothing to say, so a
+ * caller never has to tell "no field" apart from "empty list".
+ */
+export type RawConfigSaveResult = EditableRawConfigDocument & {
+  warnings: string[]
+}
+
+/**
+ * The four formats the raw editor tells apart, by the file's own name - never its content, and
+ * never guessed from what parsed and what did not. Mirrors `RawSyntax.Format` on the worker
+ * (steward/60); the two are independent (a frontend module cannot import a worker enum) and
+ * agreeing is a matter of both reading the same four extensions, not of sharing code.
+ */
+export type RawConfigFormat = "yaml" | "json" | "toml" | "properties" | "text"

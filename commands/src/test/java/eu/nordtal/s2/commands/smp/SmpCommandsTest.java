@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -57,32 +58,42 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("all but /aura are reachable from Discord as well as in game, and all but the two player ones are admin-only")
-    void allSevenAreOnBothPlatforms() {
+    @DisplayName("status and /aura stay as they were; the six admin commands are console (and web) only")
+    void adminSixAreConsoleOnly() {
+        // ops/18, 2026-09-15: "alles Admin nur noch Konsole und Web" took Surface.GAME and
+        // Surface.DISCORD off every admin command. /smp status is not an admin's - three read-only
+        // lines about the season (2026-09-06, poliert stage 8) - and keeps every surface it always
+        // had. /aura (SmpCommands#OWN_AURA) is the second player command this module serves and is
+        // likewise untouched: it is about whoever typed it, so Discord and console were never on
+        // its surface set in the first place.
         for (final Declaration declaration : SmpCommands.declarations()) {
-            // /smp status is the one /smp command a player may run: three read-only lines about
-            // the season (2026-09-06, poliert stage 8). /aura is the second player command this
-            // module serves and the one that is not under /smp at all - see SmpCommands#OWN_AURA.
-            // Everything that writes stays an admin's.
             final boolean forPlayers =
                     declaration == SmpCommands.STATUS || declaration == SmpCommands.OWN_AURA;
             assertEquals(!forPlayers, declaration.adminOnly(),
                     declaration.name() + " has the wrong admin flag");
-            assertTrue(declaration.surfaces().contains(Surface.GAME), declaration.name());
+
             if (declaration == SmpCommands.OWN_AURA) {
-                // It is about the person typing it, so there is nobody for the console to answer
-                // about, and in Discord the account is the wrong end of the link: the command takes
-                // no argument and would have to guess whose aura was meant.
                 assertEquals(Set.of(Surface.GAME), declaration.surfaces(),
                         "/aura is about whoever typed it, and two of the three surfaces have no"
                                 + " Minecraft account to be about");
                 continue;
             }
-            assertTrue(declaration.surfaces().contains(Surface.DISCORD),
-                    declaration.name() + " cannot be typed in Discord, which is the whole point of"
-                            + " folding /smp into :commands");
+            if (declaration == SmpCommands.STATUS) {
+                assertTrue(declaration.surfaces().containsAll(
+                                List.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE)),
+                        declaration.name() + " is the one /smp command a player may run and keeps"
+                                + " every surface");
+                continue;
+            }
+
+            // Every other /smp declaration is one of the six admin commands: console must never be
+            // lost, and game/Discord must both be gone.
             assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
-                    declaration.name() + " cannot be run from the console - the gap /hg had");
+                    declaration.name() + " lost the console, which must never happen");
+            assertFalse(declaration.surfaces().contains(Surface.GAME),
+                    declaration.name() + " is still reachable in game");
+            assertFalse(declaration.surfaces().contains(Surface.DISCORD),
+                    declaration.name() + " is still reachable from Discord");
         }
     }
 

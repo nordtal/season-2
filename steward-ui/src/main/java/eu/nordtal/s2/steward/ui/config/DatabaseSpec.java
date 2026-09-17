@@ -2,7 +2,9 @@ package eu.nordtal.s2.steward.ui.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
@@ -25,12 +27,14 @@ public interface DatabaseSpec {
     @Order(1)
     @Key("jdbc-url")
     @Comment("The compose service name, not localhost - localhost inside a container is itself.")
+    @Explain("The full JDBC connection string. Use the compose service name, not localhost.")
     default String jdbcUrl() {
         return "jdbc:postgresql://postgres:5432/nordtal";
     }
 
     @Order(2)
     @Key("username")
+    @NoExplanationNeeded
     default String username() {
         return "nordtal";
     }
@@ -38,6 +42,7 @@ public interface DatabaseSpec {
     @Order(3)
     @Key("password")
     @Comment("From the environment. There is no default, and an empty one refuses to start.")
+    @Explain("Set through the environment. An empty value here refuses to start rather than falling back to anything.")
     default String password() {
         return "";
     }
@@ -49,6 +54,7 @@ public interface DatabaseSpec {
             "one or two short reads; a large pool here would only take connections away from the",
             "processes that need them under load."
     })
+    @NoExplanationNeeded
     default int maximumPoolSize() {
         return 4;
     }

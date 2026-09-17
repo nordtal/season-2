@@ -3,10 +3,12 @@ package eu.nordtal.s2.steward.worker.config;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.config.EnvOverrideFile;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -52,6 +54,7 @@ public final class Configs {
             logger.warn("No config existed at {} - defaults were written and are almost certainly"
                     + " not what you want", file.toAbsolutePath());
         }
+        recordEnvironmentOverrides(handle, logger);
         return handle;
     }
 
@@ -80,7 +83,23 @@ public final class Configs {
             logger.info("No config existed at {} - it was written with this project's own defaults",
                     file.toAbsolutePath());
         }
+        recordEnvironmentOverrides(handle, logger);
         return handle;
+    }
+
+    /**
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, so this
+     * same process's {@code configfile.EnvOverrides} can warn that editing an overridden setting
+     * through Steward has no effect until the variable is removed (steward/76). Best-effort: this
+     * is a UI nicety, not a reason for a correctly loaded config to refuse to start the worker.
+     */
+    private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
+        try {
+            EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
+        } catch (final IOException e) {
+            logger.warn("Could not write the environment-override marker beside {}: {}",
+                    handle.file(), e.getMessage());
+        }
     }
 
     // ------------------------------------------------------------------ validation helpers

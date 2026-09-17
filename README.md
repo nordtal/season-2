@@ -200,3 +200,17 @@ module does.
 This repository is public and contains no secrets. Every credential — the Discord bot token, the bunq
 API key, database access — arrives through environment variables at runtime; committed configuration
 files are examples only.
+
+### The one thing that leaves the deployment
+
+Steward's identity display draws a player's Minecraft head from an image service, by default
+[Crafatar](https://crafatar.com) (`steward-ui.yml`, `avatars.minecraft-head-base-url`). That means
+**every render sends a third party the `mc_uuid` being looked at** — on the strength of an admin
+merely opening a page, with no consent step in front of it. Nothing else about the player goes with
+it, and no image is ever stored: a face is a pure function of the uuid and that base URL, which is
+why it is a config value and never a column.
+
+It is written down here rather than only in the spec's comment because it is the only outbound
+dependency the season has on a service nobody here runs. Crafatar makes no uptime promise, so a
+non-answer is drawn as a placeholder and never blocks the page. Pointing the setting somewhere else,
+or at an empty string, is a config edit and needs no build (steward/44, steward/45).

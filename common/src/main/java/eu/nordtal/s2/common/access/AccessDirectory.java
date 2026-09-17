@@ -91,6 +91,31 @@ public interface AccessDirectory extends AutoCloseable {
     boolean isDonor(String discordId);
 
     /**
+     * What discord-bot last observed this account to be called and pictured as, in the guild. Never
+     * {@code null} and never throws: an account nobody has mirrored a profile onto yet, and one
+     * nobody has ever heard of, both answer {@link DiscordProfile#EMPTY}.
+     *
+     * <p><b>{@code discordId} is the only thing this may be looked up by.</b> A name is not a key -
+     * two different accounts may hold the exact same username, display name and avatar, see
+     * {@link DiscordProfile}'s javadoc - so there is deliberately no method here that resolves an
+     * account from a name.
+     *
+     * @param discordId the Discord snowflake
+     * @return the cached profile, {@link DiscordProfile#EMPTY} if nothing has been observed
+     */
+    DiscordProfile discordProfile(String discordId);
+
+    /**
+     * The Minecraft name {@code network-control} last saw at login, for the account linked to this
+     * Discord id. Never {@code null}: an unlinked account and one nobody has seen join yet both
+     * answer {@link MinecraftProfile#EMPTY}.
+     *
+     * @param discordId the Discord snowflake
+     * @return the cached name, {@link MinecraftProfile#EMPTY} if nothing has been observed
+     */
+    MinecraftProfile minecraftProfile(String discordId);
+
+    /**
      * Every grant of one user, oldest window first. This is what {@code /access-status} prints.
      *
      * @param discordId the Discord snowflake
@@ -140,6 +165,28 @@ public interface AccessDirectory extends AutoCloseable {
     void setAdmin(String discordId, boolean admin);
 
     /**
+     * Writes all three Discord-observed fields at once - the global username and the <b>guild</b>
+     * nickname and avatar. Called from discord-bot's reconcile pass and its member-join handler,
+     * which already visit one member at a time; there is deliberately no separate loop for this
+     * (steward/44) unless a measured slowdown of the reconcile forces one.
+     *
+     * @param discordId   the Discord snowflake
+     * @param username    the current global username, without a discriminator
+     * @param displayName the current guild nickname, {@code null} when the member has not set one
+     * @param avatarUrl   the current guild avatar, {@code null} when the member has none
+     */
+    void setDiscordProfile(String discordId, String username, String displayName, String avatarUrl);
+
+    /**
+     * Clears the two guild-scoped fields - the guild nickname and the guild avatar - because an
+     * account that just left or was banned no longer has either in this guild. The global username
+     * is left as it was last observed: it is not guild-scoped, so it goes stale rather than wrong.
+     *
+     * @param discordId the Discord snowflake
+     */
+    void clearGuildProfile(String discordId);
+
+    /**
      * Every Discord account that currently holds the admin flag - what the proxy re-reads when it
      * is told the flag moved, so a revocation reaches a player who is already online.
      *
@@ -185,6 +232,18 @@ public interface AccessDirectory extends AutoCloseable {
      * @return {@code true} when a link was removed
      */
     boolean unlink(String discordId);
+
+    /**
+     * Writes the Minecraft name last seen at login, keyed by the account rather than the name - see
+     * {@link MinecraftProfile}. A no-op, not an error, when {@code mcUuid} is not linked to
+     * anything: there is nowhere to cache the name of an account nobody has connected to a Discord
+     * identity yet.
+     *
+     * @param mcUuid the Minecraft account that just joined
+     * @param name   its current Minecraft name
+     * @return whether a linked account existed to write it onto
+     */
+    boolean setMinecraftName(UUID mcUuid, String name);
 
     /**
      * Appends a period of access: it starts at {@code max(now, current valid_until)} and runs for

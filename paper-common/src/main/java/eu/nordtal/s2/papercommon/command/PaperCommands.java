@@ -18,6 +18,7 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Messages;
 
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -74,6 +75,7 @@ public final class PaperCommands {
     private final Predicate<UUID> isAdmin;
     private final Function<UUID, Optional<String>> discordIdOf;
     private final PaperUser.Chime chime;
+    private final java.util.function.Supplier<ToneColours> colours;
     private final Confirmations confirmations = new Confirmations();
     private final List<Entry> entries = new ArrayList<>();
     private final Map<String, List<LiteralArgumentBuilder<CommandSourceStack>>> extras =
@@ -94,12 +96,16 @@ public final class PaperCommands {
      * @param discordIdOf the linked Discord account, for a command that travels and has to say who
      *                    asked
      * @param chime       the sound a reply makes, or {@link PaperUser.Chime#silent()}
+     * @param colours     the tone palette this plugin is configured with right now - a supplier, so
+     *                    the {@link PaperUser} built for the next command typed sees a reload that
+     *                    happened after this tree was built
      */
     public PaperCommands(final Plugin plugin, final Messages messages, final Target here,
                          final Outbox outbox, final Function<UUID, java.util.Locale> localeOf,
                          final Predicate<UUID> isAdmin,
                          final Function<UUID, Optional<String>> discordIdOf,
-                         final PaperUser.Chime chime) {
+                         final PaperUser.Chime chime,
+                         final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.here = Objects.requireNonNull(here, "here");
@@ -108,6 +114,7 @@ public final class PaperCommands {
         this.isAdmin = Objects.requireNonNull(isAdmin, "isAdmin");
         this.discordIdOf = Objects.requireNonNull(discordIdOf, "discordIdOf");
         this.chime = Objects.requireNonNull(chime, "chime");
+        this.colours = Objects.requireNonNull(colours, "colours");
     }
 
     /** A command this process runs itself. */
@@ -141,7 +148,14 @@ public final class PaperCommands {
         if (!declaration.isRemoteOn(here) || declaration.target() == Target.PROXY) {
             return this;
         }
-        if (!declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.GAME)) {
+        // GAME or CONSOLE, not GAME alone: before ops/18 the two always co-occurred on an admin
+        // command, so this masked the fact that the check was only ever asking about GAME. Cut
+        // GAME from a remote admin command's declaration - which ops/18 does for every admin
+        // command that keeps CONSOLE - and a GAME-only check would silently stop registering it on
+        // every OTHER process's console too. This process's own console reaches a command through
+        // local(); every other process's console reaches it only through here.
+        if (!declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.GAME)
+                && !declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.CONSOLE)) {
             return this;
         }
         if (outbox == null) {
@@ -409,7 +423,16 @@ public final class PaperCommands {
             return usage(context, below.getFirst());
         }
 
-        user.reply("command.help.header", Map.of("command", "/" + node.literal), Tone.NEUTRAL);
+        // Feedback.REFUSED once, on the header line only - not once per line below, which would
+        // play the same sound as many times as there are commands underneath. This is season-2-
+        // ingame/13's "incomplete command" case: measured against the code as it stood before this
+        // change, a bare /smp or /access played no sound at all, Tone.NEUTRAL and Tone.MUTED with
+        // nothing else - the same gap as command.unknown and command.not-admin had until CONSOLE
+        // support was added there. usage() below it already had Feedback.REFUSED; this brings the
+        // multi-child listing in line with it rather than leaving the two forms of the same
+        // "nothing more specific was runnable" answer sounding different.
+        user.reply("command.help.header", Map.of("command", "/" + node.literal),
+                Feedback.REFUSED, Tone.NEUTRAL);
         below.stream()
                 .sorted(java.util.Comparator.comparing(Declaration::name))
                 .forEach(declaration -> user.reply("command.help.line",
@@ -594,6 +617,21 @@ public final class PaperCommands {
             return Command.SINGLE_SUCCESS;
         }
 
+        // The symmetric case, added for ops/18 ("alles Admin nur noch Konsole und Web"): a player
+        // who still knows the old chat form of an admin command that just lost Surface.GAME must
+        // not be told the command does not exist (command.unknown) - Brigadier's tree already hid
+        // it from them by the requires on this node, so reaching this line at all means the tree
+        // let them past that gate some other way (a root's own executes(), for instance) rather
+        // than that they typed something meaningless. Which of the two hints depends on whether the
+        // command still has anywhere a player themself could reach it: Surface.WEB.
+        if (user.origin() == NordtalUser.Origin.GAME
+                && !entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.GAME)) {
+            final String key = entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.WEB)
+                    ? "command.not-in-game.web" : "command.not-in-game";
+            user.reply(key, Map.of(), Feedback.REFUSED, Tone.BAD);
+            return Command.SINGLE_SUCCESS;
+        }
+
         // The tree's requires is the gate and this is the lock behind it: a check that lives on the
         // decision itself cannot be skipped by the shape of the tree.
         if (entry.declaration().adminOnly() && !mayUse(sender, isAdmin)) {
@@ -678,8 +716,8 @@ public final class PaperCommands {
             // The supplier and not the value, because this runs for every invocation and the help
             // output, and an eager account_link read would be a query on the main thread.
             return PaperUser.of(plugin, player, localeOf.apply(player.getUniqueId()), true,
-                    () -> discordIdOf.apply(player.getUniqueId()), messages, chime);
+                    () -> discordIdOf.apply(player.getUniqueId()), messages, chime, colours);
         }
-        return PaperUser.console(plugin, sender, messages);
+        return PaperUser.console(plugin, sender, messages, colours);
     }
 }

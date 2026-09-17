@@ -880,6 +880,13 @@ class TopologyTest {
                 return new BackupSpec() {
                 };
             }
+
+            @Override
+            public DeployerSpec deployer() {
+                // Defaults: this test never recreates a container.
+                return new DeployerSpec() {
+                };
+            }
         };
     }
 
@@ -963,6 +970,13 @@ class TopologyTest {
                             public BackupSpec backup() {
                                 // Defaults throughout: this test is not about a backup.
                                 return new BackupSpec() {
+                                };
+                            }
+
+                            @Override
+                            public DeployerSpec deployer() {
+                                // Defaults: this test never recreates a container.
+                                return new DeployerSpec() {
                                 };
                             }
                         }.bootstrap(),

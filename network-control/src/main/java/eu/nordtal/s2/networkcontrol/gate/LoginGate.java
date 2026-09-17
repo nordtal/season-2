@@ -56,6 +56,12 @@ import java.util.UUID;
  * does not run on a Netty I/O thread. How long it may block is the connection pool's concern,
  * bounded by {@code query-timeout-seconds} in {@code database.yml}.
  * </p>
+ * <p>
+ * Since steward/44 this is also the one place the proxy sees a player's current Minecraft name, and
+ * it writes it onto the linked account's cache - see
+ * {@code eu.nordtal.s2.common.access.MinecraftProfile}. That write is best-effort and never changes
+ * the login outcome above it.
+ * </p>
  */
 public final class LoginGate {
 
@@ -103,6 +109,13 @@ public final class LoginGate {
         fallback.remember(uuid, state);
         // And the facts the /phase command and the play-time writer need, from the same row.
         roster.remember(uuid, state);
+        // steward/44: the one place this proxy sees a player's current Minecraft name. Only when
+        // linked - account_link is where the name is cached, and there is no row to write it onto
+        // otherwise. A write failure must not turn into a refused login, so it is caught and logged
+        // rather than left to propagate out of an already-decided allow/deny.
+        if (state.linked()) {
+            mirrorMinecraftName(uuid, player.getUsername());
+        }
 
         final Instant countdownFrom = state.phase() == SeasonPhase.PRE_LAUNCH ? clock.instant() : null;
 
@@ -118,6 +131,18 @@ public final class LoginGate {
                     messages.preLaunchBuy(state.locale(), state.launch(), countdownFrom)));
             case PRE_LAUNCH_READY -> event.setResult(ComponentResult.denied(
                     messages.preLaunchReady(state.locale(), state.launch(), countdownFrom)));
+        }
+    }
+
+    /**
+     * Caches the Minecraft name this login just presented (steward/44). Best-effort: a failure here
+     * is a missed cache refresh, not a reason to disturb a login decision that was already made.
+     */
+    private void mirrorMinecraftName(final UUID uuid, final String username) {
+        try {
+            access.setMinecraftName(uuid, username);
+        } catch (final RuntimeException exception) {
+            logger.warn("Could not cache the Minecraft name for {} ({})", uuid, username, exception);
         }
     }
 

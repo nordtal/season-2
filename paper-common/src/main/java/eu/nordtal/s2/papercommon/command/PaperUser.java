@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Tones;
 
 import net.kyori.adventure.text.Component;
@@ -57,12 +58,14 @@ public final class PaperUser implements NordtalUser {
     private final java.util.function.Supplier<Optional<String>> discordId;
     private final Messages messages;
     private final Chime chime;
+    private final java.util.function.Supplier<ToneColours> colours;
 
     private PaperUser(final Plugin plugin, final CommandSender sender, final Locale locale,
                       final boolean admin,
                       final java.util.function.Supplier<Optional<String>> discordId,
                       final Messages messages,
-                      final Chime chime) {
+                      final Chime chime,
+                      final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = plugin;
         this.sender = sender;
         this.locale = locale;
@@ -70,6 +73,7 @@ public final class PaperUser implements NordtalUser {
         this.discordId = discordId;
         this.messages = messages;
         this.chime = chime;
+        this.colours = colours;
     }
 
     /**
@@ -81,12 +85,16 @@ public final class PaperUser implements NordtalUser {
      * @param discordId their Discord id if the caller happens to know it, {@code null} otherwise -
      *                  "this surface does not know one" is a legitimate answer and commands are
      *                  written for it
+     * @param colours   the tone palette this plugin is configured with right now - a supplier and
+     *                  not a value, so a reload swaps what the next reply paints with rather than
+     *                  what this already-built instance answered when it was constructed
      */
     public static PaperUser of(final Plugin plugin, final Player player, final Locale locale,
                                final boolean admin, final String discordId,
-                               final Messages messages, final Chime chime) {
+                               final Messages messages, final Chime chime,
+                               final java.util.function.Supplier<ToneColours> colours) {
         return of(plugin, player, locale, admin, () -> Optional.ofNullable(discordId), messages,
-                chime);
+                chime, colours);
     }
 
     /**
@@ -96,21 +104,24 @@ public final class PaperUser implements NordtalUser {
     public static PaperUser of(final Plugin plugin, final Player player, final Locale locale,
                                final boolean admin,
                                final java.util.function.Supplier<Optional<String>> discordId,
-                               final Messages messages, final Chime chime) {
+                               final Messages messages, final Chime chime,
+                               final java.util.function.Supplier<ToneColours> colours) {
         return new PaperUser(Objects.requireNonNull(plugin, "plugin"),
                 Objects.requireNonNull(player, "player"),
                 locale == null ? Locales.DEFAULT : locale,
                 admin, discordId, Objects.requireNonNull(messages, "messages"),
-                chime == null ? Chime.silent() : chime);
+                chime == null ? Chime.silent() : chime,
+                Objects.requireNonNull(colours, "colours"));
     }
 
     /** The console: English, always an admin, no identities, and no sound. */
     public static PaperUser console(final Plugin plugin, final CommandSender sender,
-                                    final Messages messages) {
+                                    final Messages messages,
+                                    final java.util.function.Supplier<ToneColours> colours) {
         return new PaperUser(Objects.requireNonNull(plugin, "plugin"),
                 Objects.requireNonNull(sender, "sender"),
                 Locales.DEFAULT, true, Optional::empty, Objects.requireNonNull(messages, "messages"),
-                Chime.silent());
+                Chime.silent(), Objects.requireNonNull(colours, "colours"));
     }
 
     /** Whether this sender is the console, for a command that has to refuse one. */
@@ -169,7 +180,7 @@ public final class PaperUser implements NordtalUser {
 
     @Override
     public void reply(final String messageKey, final Map<String, ?> placeholders, final Tone tone) {
-        send(Tones.paint(render(messageKey, placeholders), tone), null);
+        send(Tones.paint(render(messageKey, placeholders), tone, colours.get()), null);
     }
 
     @Override
@@ -177,7 +188,7 @@ public final class PaperUser implements NordtalUser {
                       final Feedback feedback, final Tone tone) {
         // One hop, carrying all three: the line, its colour and its chime. Painting before the hop
         // rather than inside it keeps everything that touches Adventure off the main thread.
-        send(Tones.paint(render(messageKey, placeholders), tone), feedback);
+        send(Tones.paint(render(messageKey, placeholders), tone, colours.get()), feedback);
     }
 
     @Override

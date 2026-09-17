@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.worker.configfile;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * What a form is asking a key to say.
@@ -23,6 +24,14 @@ public sealed interface ConfigChange {
     /** @param items the new entries of a sequence, in order; empty writes an empty list */
     static @NotNull ConfigChange list(final @NotNull List<String> items) {
         return new Items(items);
+    }
+
+    /**
+     * @param sections one flat {@code field key -> new value} record per entry of a
+     *                 {@link ConfigEntry.Kind#SECTIONS} list, in order - see {@link Sections}
+     */
+    static @NotNull ConfigChange sections(final @NotNull List<Map<String, String>> sections) {
+        return new Sections(sections);
     }
 
     /**
@@ -52,6 +61,31 @@ public sealed interface ConfigChange {
 
         public Items {
             items = List.copyOf(items);
+        }
+    }
+
+    /**
+     * New field values for every entry of a {@link ConfigEntry.Kind#SECTIONS} list the caller wants
+     * on file afterwards, one flat {@code {key: value}} record per entry, in order (steward/68).
+     *
+     * <p><b>The count usually matches what the file already has</b> - an ordinary edit of one or
+     * more fields, on entries otherwise untouched. It may also be exactly one more (an append,
+     * steward/71) or exactly one fewer (a removal, steward/71), each accepted only as a <em>pure</em>
+     * add or remove: every entry {@link ConfigFiles#write} can still recognise as unchanged has to
+     * come through byte-for-byte identical, or the save is refused rather than guessed at - see
+     * {@code ConfigFiles.appendSection} and {@code ConfigFiles.removeSection}. Any other count, or
+     * a genuine add-and-edit or remove-and-edit in the same save, is refused with a message naming
+     * both counts.</p>
+     *
+     * <p>A field the file's own entry does not have (typically because there is no schema, or the
+     * schema describes a field this particular entry never had) is silently ignored rather than
+     * invented as a new line - the same "the file is the truth" rule steward/50 applies everywhere
+     * else.</p>
+     */
+    record Sections(@NotNull List<Map<String, String>> sections) implements ConfigChange {
+
+        public Sections {
+            sections = sections.stream().map(Map::copyOf).toList();
         }
     }
 }

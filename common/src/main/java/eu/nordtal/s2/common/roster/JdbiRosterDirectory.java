@@ -7,6 +7,7 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import javax.sql.DataSource;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * The only implementation of {@link RosterDirectory}. Package-private: consumers get it from the
@@ -34,6 +35,11 @@ final class JdbiRosterDirectory implements RosterDirectory {
     @Override
     public List<Person> people(final int limit) {
         return dao.people(clamp(limit));
+    }
+
+    @Override
+    public Optional<Person> personOf(final String discordId) {
+        return dao.personOf(Objects.requireNonNull(discordId, "discordId"));
     }
 
     @Override

@@ -4,10 +4,12 @@ import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.config.EnvOverrideFile;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -47,7 +49,15 @@ public final class Configs {
      */
     static final String DIRECTORY_PROPERTY = "access.config.dir";
 
-    /** The one language {@code access.yml} may not leave out. */
+    /**
+     * The one language {@code access.yml} may not leave out.
+     *
+     * <p>The same constant {@link AccessSpec#languages()}'s {@code @Protected} annotation carries
+     * (steward/74), which is what steward-worker's schema-reading side refuses to let an operator
+     * remove through the API. The two cannot drift apart while both name this field, and
+     * {@code ConfigsTest} fails the build if the annotation is ever changed to say something
+     * else.</p>
+     */
     private static final String FALLBACK_LANGUAGE = Languages.FALLBACK_TAG;
 
     /**
@@ -299,7 +309,23 @@ public final class Configs {
             log.warn("No config existed at {} - defaults were written and are almost certainly "
                     + "not what you want", file.toAbsolutePath());
         }
+        recordEnvironmentOverrides(handle);
         return handle;
+    }
+
+    /**
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, so
+     * steward-worker can warn that editing an overridden setting there has no effect until the
+     * variable is removed (steward/76). Best-effort: this is a UI nicety, not a reason for a
+     * correctly loaded config to refuse to start the bot.
+     */
+    private static void recordEnvironmentOverrides(final ConfigHandle<?> handle) {
+        try {
+            EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
+        } catch (final IOException e) {
+            log.warn("Could not write the environment-override marker beside {}: {}",
+                    handle.file(), e.getMessage());
+        }
     }
 
     // ------------------------------------------------------------------ validation helpers

@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -54,8 +55,14 @@ class UpdateIsServedEverywhereTest {
     }
 
     @Test
-    @DisplayName("every update command is LOCAL, admin-only, and on both surfaces")
+    @DisplayName("every update command is LOCAL, admin-only, and console only (ops/18)")
     void theDeclarationsSayWhatTheyAre() {
+        // Until 2026-09-15 this asserted GAME and DISCORD, for the reason still quoted in the old
+        // failure message: being able to update alone from one of those is how a network with a
+        // broken bot or a broken server becomes one nobody can update from anywhere but a shell.
+        // ops/18 ("alles Admin nur noch Konsole und Web", owner) decided that every admin command
+        // loses both surfaces regardless, /update included - console remains, and it is the one
+        // surface that does not depend on the thing being updated in the first place.
         for (final Declaration declaration : UpdateCommands.declarations()) {
             assertEquals(Target.LOCAL, declaration.target(),
                     declaration.name() + " is not LOCAL. Giving /update a real target puts a second"
@@ -63,11 +70,12 @@ class UpdateIsServedEverywhereTest {
                             + " network is already misbehaving.");
             assertTrue(declaration.adminOnly(),
                     declaration.name() + " is not admin-only, and it takes servers away.");
-            assertTrue(declaration.surfaces().contains(Surface.GAME)
-                            && declaration.surfaces().contains(Surface.DISCORD),
-                    declaration.name() + " has to be on both surfaces - being able to update from"
-                            + " Discord alone is how a network with a broken bot becomes one nobody"
-                            + " can update.");
+            assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
+                    declaration.name() + " lost the console, which must never happen.");
+            assertFalse(declaration.surfaces().contains(Surface.GAME),
+                    declaration.name() + " is still reachable in game.");
+            assertFalse(declaration.surfaces().contains(Surface.DISCORD),
+                    declaration.name() + " is still reachable from Discord.");
         }
     }
 

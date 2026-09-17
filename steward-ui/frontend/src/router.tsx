@@ -13,7 +13,8 @@ import { ServicePage } from "@/pages/service"
 import { SettingsPage } from "@/pages/settings"
 import { SeasonPage } from "@/pages/season"
 import { JournalPage, AccountsPage, PaymentsPage, AccessPage } from "@/pages/access"
-import { StatusPage } from "@/pages/status"
+import { OverviewPage } from "@/pages/overview"
+import { NetworkDesignsPage } from "@/pages/designs"
 
 /**
  * The route tree, written out rather than generated.
@@ -30,7 +31,7 @@ const rootRoute = createRootRoute({
 })
 
 const routes = [
-  createRoute({ getParentRoute: () => rootRoute, path: "/", component: StatusPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/", component: OverviewPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/services/$name", component: ServicePage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/operations", component: OperationsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/operations/plan", component: OperationsPlanPage }),
@@ -60,6 +61,13 @@ const routes = [
     getParentRoute: () => rootRoute,
     path: "/settings",
     component: SettingsPage,
+  }),
+  // Not in `navigation.ts` on purpose - see pages/designs.tsx. Temporary, and the ticket that puts
+  // a variant into the product is the ticket that deletes this line.
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/designs/network",
+    component: NetworkDesignsPage,
   }),
 ]
 

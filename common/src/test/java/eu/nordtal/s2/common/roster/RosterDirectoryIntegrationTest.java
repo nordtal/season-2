@@ -215,6 +215,51 @@ class RosterDirectoryIntegrationTest {
     }
 
     @Test
+    void theDiscordAndMinecraftProfileCacheRideAlongToo() {
+        // steward/44 added six columns - three on discord_user, two on account_link, all nullable -
+        // caching what discord-bot and network-control last observed. steward/45's identity display
+        // needs them in the same statement people() already is, for the reason the class comment
+        // gives: a few hundred round trips for a page nobody scrolls to the end of.
+        person(ALICE);
+        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('"
+                + ALICE + "', '" + ALICE_MC + "')");
+        execute("UPDATE discord_user SET discord_username = 'alice#0', "
+                + "discord_username_updated = now(), discord_display_name = 'Ally', "
+                + "discord_display_name_updated = now(), "
+                + "discord_avatar_url = 'https://cdn.discordapp.com/a.png', "
+                + "discord_avatar_url_updated = now() WHERE discord_id = '" + ALICE + "'");
+        execute("UPDATE account_link SET mc_name = 'AliceMC', mc_name_updated = now() "
+                + "WHERE discord_id = '" + ALICE + "'");
+
+        final Person alice = directory.people(10).getFirst();
+
+        assertEquals("alice#0", alice.discordUsername());
+        assertNotNull(alice.discordUsernameUpdated());
+        assertEquals("Ally", alice.discordDisplayName());
+        assertNotNull(alice.discordDisplayNameUpdated());
+        assertEquals("https://cdn.discordapp.com/a.png", alice.discordAvatarUrl());
+        assertNotNull(alice.discordAvatarUrlUpdated());
+        assertEquals("AliceMC", alice.mcName());
+        assertNotNull(alice.mcNameUpdated());
+    }
+
+    @Test
+    void aPersonNobodyHasEverMirroredAProfileOntoReadsAllSixColumnsAsNull() {
+        person(BOB);
+
+        final Person bob = directory.people(10).getFirst();
+
+        assertNull(bob.discordUsername());
+        assertNull(bob.discordUsernameUpdated());
+        assertNull(bob.discordDisplayName());
+        assertNull(bob.discordDisplayNameUpdated());
+        assertNull(bob.discordAvatarUrl());
+        assertNull(bob.discordAvatarUrlUpdated());
+        assertNull(bob.mcName());
+        assertNull(bob.mcNameUpdated());
+    }
+
+    @Test
     void oneRowPerPersonEvenWithSeveralGrants() {
         person(ALICE);
         grant(ALICE, "-60 days", "-30 days", false);
@@ -223,6 +268,33 @@ class RosterDirectoryIntegrationTest {
 
         assertEquals(1, directory.people(10).size(),
                 "the lateral must not multiply the person out once per grant");
+    }
+
+    @Test
+    void personOfIsTheSameRowPeopleWouldPrint() {
+        // steward/91: /api/me reads this row by discord id rather than paging the whole roster for
+        // one avatar. Same columns, same joins - proven here by comparing it against people().
+        person(ALICE);
+        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('"
+                + ALICE + "', '" + ALICE_MC + "')");
+        execute("UPDATE discord_user SET discord_avatar_url = 'https://cdn.discordapp.com/a.png', "
+                + "discord_avatar_url_updated = now() WHERE discord_id = '" + ALICE + "'");
+        grant(ALICE, "-1 hours", "+47 hours", false);
+        person(BOB);
+
+        final Person alice = directory.personOf(ALICE).orElseThrow();
+
+        assertEquals(directory.people(10).stream()
+                        .filter(p -> p.discordId().equals(ALICE)).findFirst().orElseThrow(), alice);
+        assertEquals("https://cdn.discordapp.com/a.png", alice.discordAvatarUrl());
+        assertTrue(alice.accessActive());
+    }
+
+    @Test
+    void personOfSomebodyUnknownIsEmptyRatherThanAFailure() {
+        person(ALICE);
+
+        assertTrue(directory.personOf("999999999999999999").isEmpty());
     }
 
     // ---------------------------------------------------------------- payments

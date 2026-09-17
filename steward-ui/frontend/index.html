@@ -3,6 +3,118 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
+
+    <!--
+      steward/79: THIS RUNS BEFORE ANYTHING ELSE THIS DOCUMENT LOADS, INCLUDING THE STYLESHEET AND
+      THE BUNDLE THAT VITE APPENDS BELOW. A script or stylesheet that fails to load - a stale
+      document, cached from before a redeploy, naming a file that no longer exists - reports itself
+      through a plain DOM "error" event fired on the element, which does not bubble. A listener in
+      the capturing phase on `window` is the one place that still sees it, and it has to be
+      registered before the browser starts fetching anything, or a fast failure could beat it.
+      Placed first in <head>, before the icons and the manifest, it always wins that race: nothing
+      below this point has started loading yet.
+
+      A PLAIN SCRIPT, NOT A MODULE, ON PURPOSE. It is inline, in the document itself, so it shares
+      the document's fate rather than the bundle's - if this runs, the page loaded, whatever else
+      did not. It draws nothing itself: the paragraph and button it can write a sentence into are
+      already sitting in `#root`, below, as plain HTML - not produced by this script, by React, or
+      by anything that could fail to run.
+    -->
+    <script>
+      (function () {
+        // One attempt per document, remembered here rather than in a variable, because the
+        // recovery this guards is a full page reload - nothing in memory survives it. Without this,
+        // a document that reloads and fetches the very same stale reference fails the same way and
+        // reloads again, forever.
+        var RELOAD_KEY = "steward:reloaded-after-startup-error";
+
+        function show(message) {
+          var line = document.getElementById("startup-fallback-message");
+          if (line) {
+            line.textContent = message;
+          }
+          // The panel is invisible for the first seconds so a healthy start never flashes it (see
+          // the <style> above). A start that is NOT healthy has no reason to wait those seconds
+          // out: this is the one path that knows something is already wrong.
+          var panel = document.getElementById("startup-fallback");
+          if (panel) {
+            panel.style.animation = "none";
+            panel.style.opacity = "1";
+          }
+        }
+
+        function alreadyReloaded() {
+          try {
+            return window.sessionStorage.getItem(RELOAD_KEY) !== null;
+          } catch (storageError) {
+            // Private browsing or a full quota - nowhere to remember an attempt, so this treats it
+            // as already spent rather than risking a reload loop with no memory to stop it.
+            return true;
+          }
+        }
+
+        function reloadOnce(what) {
+          if (alreadyReloaded()) {
+            show("Steward could not load " + what + ", even after reloading once. Saving this "
+              + "page to the home screen again usually fixes it.");
+            return;
+          }
+          try {
+            window.sessionStorage.setItem(RELOAD_KEY, "1");
+          } catch (storageError) {
+            show("Steward could not load " + what + ". Reload this page to try again.");
+            return;
+          }
+          window.location.reload();
+        }
+
+        window.addEventListener("error", function (event) {
+          var target = event.target;
+          var isTheAppShell = target instanceof HTMLScriptElement
+            || (target instanceof HTMLLinkElement && target.rel === "stylesheet");
+          if (isTheAppShell) {
+            reloadOnce("part of the app (" + (target.src || target.href) + ")");
+            return;
+          }
+          if (target && target !== window && typeof target.tagName === "string") {
+            // An icon or the manifest failed - cosmetic, and not what steward/79 is about.
+            return;
+          }
+          // A thrown error, most likely from inside the bundle once it did load. Reloading a
+          // bundle that loaded fine and then threw would not fix anything, so this only reports.
+          show("Steward hit an error before it could start: "
+            + (event.message || "no message was given") + ".");
+        }, true);
+
+        window.addEventListener("unhandledrejection", function (event) {
+          var reason = event.reason && event.reason.message ? event.reason.message : event.reason;
+          show("Steward hit an error before it could start: " + reason + ".");
+        });
+      })();
+    </script>
+
+    <!--
+      steward/79: THE FALLBACK BELOW MUST NOT FLASH ON A HEALTHY START. It sits in the document
+      from the first byte, because a screen that can only be drawn by JavaScript cannot report that
+      JavaScript never ran - but React replaces it within a few hundred milliseconds, and a message
+      reading "Steward has not started yet" in between is noise that teaches everyone to ignore it.
+      So it is invisible for two and a half seconds and then fades in.
+
+      In CSS, and inline in this document: no timer, no script, nothing that shares the bundle's
+      fate. An animation that never runs leaves it hidden, which is the one failure direction that
+      matters, so the reporter above also reveals it directly the moment it has something to say -
+      it never waits for this.
+    -->
+    <style>
+      #startup-fallback {
+        opacity: 0;
+        animation: startup-fallback-in 0.3s ease-out 2.5s forwards;
+      }
+      @keyframes startup-fallback-in {
+        to { opacity: 1; }
+      }
+    </style>
+
     <!--
       viewport-fit=cover, because the status bar below is translucent: the page is drawn behind the
       notch and the home indicator, and index.css gives every edge back with env(safe-area-inset-*).
@@ -33,7 +145,31 @@
     <title>Nordtal Steward</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!--
+        steward/79: STATIC, AND STAYS ON SCREEN UNTIL REACT REPLACES IT. `createRoot(container)
+        .render(...)` in main.tsx overwrites every child of #root on its first successful render -
+        if this paragraph and button are still here, nothing above this line ever ran, and a dark
+        empty #root is what a black screen on iOS actually was.
+
+        INLINE STYLES ONLY, NOT A CLASS FROM index.css. That stylesheet is one more built asset
+        that can be the very thing missing - `class="dark"` on <html> draws nothing at all once its
+        stylesheet has failed to load, so this cannot depend on it either.
+      -->
+      <div id="startup-fallback" style="min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column;
+                  align-items: center; justify-content: center; gap: 1rem; padding: 2rem;
+                  text-align: center; background: #0d0d0d; color: #e5e5e5;
+                  font-family: system-ui, sans-serif;">
+        <p id="startup-fallback-message" style="margin: 0; max-width: 28rem;">
+          Steward has not started yet.
+        </p>
+        <button type="button" onclick="window.location.reload()"
+                style="padding: 0.6rem 1.2rem; border-radius: 0.4rem; border: 1px solid #4b5563;
+                       background: #1f2937; color: #e5e5e5; font-size: 1rem;">
+          Reload
+        </button>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

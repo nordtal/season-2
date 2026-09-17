@@ -86,10 +86,15 @@ export const NAVIGATION: NavGroup[] = [
     icon: Activity,
     entries: [
       {
-        id: "status",
+        id: "overview",
         label: "Overview",
         to: "/",
-        note: "The traffic light, host load and the table of every service.",
+        // steward/66, 2026-09-16: three claims, and steward/64 had retired all three. There is no
+        // traffic light in the ordinary case any more - it appears only when something is amber or
+        // red; "host load" became a metric row of CPU, memory, disk, backlog and the last backup;
+        // and the table of every service collapsed into one line saying how many of how many are
+        // healthy. A note is a promise about the page behind it, so it names what is there.
+        note: "Whether anything needs attention, the numbers behind it, and the season.",
         icon: Activity,
         keywords: ["home", "dashboard", "health", "overview", "status"],
       },
@@ -206,8 +211,17 @@ export const NAVIGATION: NavGroup[] = [
         id: "settings",
         label: "Settings",
         to: "/settings",
-        note: "Steward itself: who reaches the interface, notifications, integrations.",
+        // steward/66, 2026-09-16: neither notifications nor integrations exist on that page, and
+        // neither ever did - it was wishful text from the design phase. The page has "Signed in"
+        // with its security keys, and "Thresholds of the light". Concept 10c does want the light
+        // to speak through Discord and Web Push one day (steward/06), which is exactly why this
+        // note must not say so yet: a menu entry that announces something is a disappointment with
+        // a lead time.
+        note: "Steward itself: who is signed in, their keys, and when the light turns.",
         icon: Settings,
+        // `notifications` stays as a keyword although the page has none. Somebody looking for them
+        // should land here, where the thresholds are, rather than nowhere - the search is about
+        // where to go looking, not about what to promise.
         keywords: ["settings", "account", "notifications"],
       },
     ],

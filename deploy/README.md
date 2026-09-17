@@ -72,7 +72,7 @@ Docker fails the deploy with `error from registry: denied`.
    in `unverifiable` — `UNKNOWN`, never "up to date". That is the honest answer rather than a wrong
    one, but three of five services reporting `UNKNOWN` is a drift report that says very little.
    `updater` and `postgres-backup` stay behind as public packages nothing pushes to any more; they
-   can be deleted once the cutover holds (`todo.md` A30).
+   can be deleted once the cutover holds.
 
 ### On the host
 
@@ -428,8 +428,7 @@ Docker socket, ~250 ms) and compares the answer with the digest the container ac
 Three outcomes, and the third is the point: newer in the registry, the same, or **could not be
 asked** — which is a named note in the report and never counted as current. Until 2026-09-12 this
 went through a panel whose image check never asked a registry at all; it answered from what it had
-already persisted, and four releases ran behind while every report said the network was current
-(`todo.md` A24).
+already persisted, and four releases ran behind while every report said the network was current.
 
 An image that **cannot** be checked is one built on this host and pushed nowhere, or a registry that
 did not answer. Credentials are not among the reasons: all three `ghcr.io/nordtal` packages are
@@ -686,7 +685,7 @@ and nothing else, and everything after that row is the path `/backup now` alread
 What replaced the fifteen-minute coupling between that clock and the farm reset is a query: `smp`
 will not reset the farm world unless a `BACKUP` run finished, succeeded **and saved something**
 inside `config.yml#farm-reset-backup-window-hours` (12). A `DONE` row is not enough — run 23
-reported success having saved zero volumes (`todo.md` A23), so the check reads the report.
+once reported success having saved zero volumes, so the check reads the report.
 
 The run is a thirty-second countdown every player sees, then `smp`, `network-control` and the bot
 are stopped, then every volume is tarred in order, then retention runs, then everything comes back
@@ -705,7 +704,7 @@ restored; `bot-jar` and `steward-worker-jar` are refilled by `steward-worker boo
 
 **There is no offsite copy yet.** §9a's Hetzner Storage Box does not exist, so every archive sits on
 the same disk as the thing it is a copy of, and `backup.keep` (14) protects against a mistake and
-against nothing else. There is deliberately no untested S3 path in the code — `todo.md` A29.
+against nothing else. There is deliberately no untested S3 path in the code.
 
 ### Restoring
 
@@ -749,7 +748,7 @@ its readability, which is checked when it is written and again before a restore 
 satisfied by "yes", by a bare Return or by a neighbouring volume's name; it runs on `check`.
 
 **A restore of the real season database has not been rehearsed** — that needs the host and an
-evening, and it is in `todo.md`. A green script is not a rehearsed restore.
+evening. A green script is not a rehearsed restore.
 
 ### The world volumes are a different problem
 

@@ -136,7 +136,7 @@ What it does with it:
 | | |
 |---|---|
 | reads | state, health, image, uptime, CPU and memory per container, the log stream, `/system/df` |
-| asks a registry | `GET /distribution/{ref}/json` against the image's own digests — the drift check the old panel never performed (`todo.md` A24) |
+| asks a registry | `GET /distribution/{ref}/json` against the image's own digests — the drift check the old panel never performed |
 | writes | one stop, one start, and `mc <command>` into the four Minecraft consoles |
 | **refuses** | creating a container. That needs the compose file, which `steward-deployer` owns, and a container rebuilt from an inspect would drift from it silently |
 
@@ -177,8 +177,8 @@ file that looks like every other one is worse than none: it is the one the reten
 and the one a restore picks.
 
 **Saved means a file exists.** Every line in the report carries the size and the duration, and a
-volume that produced nothing is FAILED even if every call succeeded. That is `todo.md` A23: run 23
-reported a successful backup having saved zero volumes, and nothing made it visible.
+volume that produced nothing is FAILED even if every call succeeded — run 23 once reported a
+successful backup having saved zero volumes, and nothing made it visible.
 
 **The clock is here since 2026-09-13** (§9a). It used to be `smp`'s, because `serve` was not
 allowed to schedule anything — and a season with `smp` down therefore had no backup and nothing
@@ -188,7 +188,7 @@ longer trusts a clock either; it asks the database whether a backup actually suc
 
 **What is not built: the offsite copy.** §9a's Storage Box does not exist yet, so every archive is
 on the same disk as the thing it is a copy of. Fourteen of them protect against a mistake and
-against nothing else. There is deliberately no untested S3 path in this code — see `todo.md` A29.
+against nothing else. There is deliberately no untested S3 path in this code.
 
 ## The images
 
@@ -206,7 +206,7 @@ not touched on that path.
 - **Three answers, never two.** Newer in the registry, the same, or *could not be asked* — the last
   is a named note and never a quiet "up to date". Arcane, the management panel this replaced,
   answered from checks it had persisted itself and never queried a registry at all, so four releases
-  ran behind while every report said the network was current (`todo.md` A24). An image that cannot be checked now is one
+  ran behind while every report said the network was current. An image that cannot be checked now is one
   built on this host and pushed nowhere, or a registry that did not answer; credentials are not
   among the reasons, because all three `ghcr.io/nordtal` packages are public (measured 2026-09-13).
 - **The worker never recreates itself**, for the reason it never stops itself: the call would end
@@ -219,7 +219,7 @@ not touched on that path.
   container needs the compose file, which `steward-deployer` owns (§8b). It is also why each
   recreate is reported *before* it is asked for — a `compose up` that considers this container a
   diverged dependency can end the run from the outside, and the last line written is then the whole
-  diagnosis. See `nordtal/todo.md`, A19.
+  diagnosis.
 
 ## Tests
 

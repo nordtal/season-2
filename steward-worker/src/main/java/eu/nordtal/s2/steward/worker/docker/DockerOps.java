@@ -24,8 +24,8 @@ import java.util.Set;
  * <h2>Why the daemon and not a panel</h2>
  * This project read its container runtime and its image drift out of Arcane, a management panel,
  * until 2026-09-12. Arcane's image check never asked a registry: it compared what it had already
- * persisted, answered "up to date", and four releases ran behind while nothing said so
- * ({@code todo.md} A24). The daemon can answer the question properly
+ * persisted, answered "up to date", and four releases ran behind while nothing said so.
+ * The daemon can answer the question properly
  * ({@code GET /distribution/{ref}/json}), and it is on the other end of a socket this container
  * already needs for logs and the console - so the panel's read half was replaced by this class and
  * the panel itself was removed.
@@ -164,7 +164,7 @@ public final class DockerOps implements ContainerOps {
      *       modules, {@code steward-worker} because renaming {@code updater} created a new package
      *       under a new name. A package under an organisation is private on its first push, so
      *       until those three are set public they land here as {@code unverifiable}, which is the
-     *       honest answer and not a wrong one. {@code todo.md} A30 is where they get set.</li>
+     *       honest answer and not a wrong one. All three were set public on 2026-09-13.</li>
      * </ul>
      */
     @Override

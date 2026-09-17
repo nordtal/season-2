@@ -8,7 +8,7 @@
 # shape, and it is tested for the same reason: running it and looking is too late.
 #
 # WHAT IT CANNOT SAY ANYTHING ABOUT: whether a restored volume then holds what the archive held.
-# That needs Docker and a real archive, and it is the restore drill in todo.md rather than a test.
+# That needs Docker and a real archive, and it is a restore drill rather than a test.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

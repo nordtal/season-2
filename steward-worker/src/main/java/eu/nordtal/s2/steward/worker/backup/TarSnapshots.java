@@ -36,7 +36,7 @@ import java.util.stream.Stream;
  * It replaces asking a management panel to snapshot a volume over its REST API. On 2026-09-12 run 23 stopped
  * {@code smp}, {@code network-control} and {@code discord-bot}, lost <em>every</em> volume snapshot
  * to {@code HTTP 403}, started them again and reported success - 66 seconds of network down and
- * zero backups ({@code todo.md} A23). Nothing in that report made the zero visible, because nothing
+ * zero backups. Nothing in that report made the zero visible, because nothing
  * in it was a size. So the shape here is the opposite one: a size and a duration come back from
  * every call, {@link SnapshotResult#saved} is only reachable with a file on disk behind it, and
  * "ok with 0 bytes" is not a state this class can produce.

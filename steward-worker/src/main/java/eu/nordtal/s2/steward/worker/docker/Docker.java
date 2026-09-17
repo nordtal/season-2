@@ -215,8 +215,8 @@ public final class Docker {
      * What the registry has for this exact reference, as a digest.
      *
      * <p>This is the check Arcane did not do. Its image comparison never asked a registry at all,
-     * so four releases ran behind while that interface said "up to date" - {@code todo.md} A24; it
-     * was removed on 2026-09-13.
+     * so four releases ran behind while that interface said "up to date"; it was removed on
+     * 2026-09-13.
      * Here the daemon is asked to resolve the reference remotely, and the answer is compared with
      * the digest the running container was created from.</p>
      *

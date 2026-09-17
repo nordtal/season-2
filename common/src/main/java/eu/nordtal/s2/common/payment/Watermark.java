@@ -1,6 +1,7 @@
-package eu.nordtal.s2.discordbot.access.payment;
+package eu.nordtal.s2.common.payment;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
@@ -32,8 +33,9 @@ import java.util.Optional;
  * still written if it is missing. Emptying the override therefore falls back to the original
  * first-start instant rather than to whenever the bot happened to restart.
  */
-@Slf4j
 public final class Watermark {
+
+    private static final Logger log = LoggerFactory.getLogger(Watermark.class);
 
     private static final String KEY = "payment.watermark";
 

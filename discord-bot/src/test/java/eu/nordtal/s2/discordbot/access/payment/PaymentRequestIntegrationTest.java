@@ -1,5 +1,10 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
+import eu.nordtal.s2.common.payment.PaymentRequest;
+import eu.nordtal.s2.common.payment.PaymentRequestStatus;
+import eu.nordtal.s2.common.payment.PaymentRequests;
+import eu.nordtal.s2.common.payment.Watermark;
+
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.access.AccessDirectory;

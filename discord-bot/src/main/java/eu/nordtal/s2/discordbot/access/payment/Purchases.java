@@ -1,5 +1,9 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
+import eu.nordtal.s2.common.payment.PaymentRequest;
+import eu.nordtal.s2.common.payment.PaymentRequestStatus;
+import eu.nordtal.s2.common.payment.PaymentRequests;
+
 import eu.nordtal.s2.discordbot.access.bunq.BunqGateway;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 

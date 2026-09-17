@@ -293,13 +293,22 @@ public final class GuildState extends ListenerAdapter {
      * a loop of its own: the ticket asks for that only if reconcile is measurably slower for it,
      * which has not been observed.
      *
-     * <p>{@link Member#getAvatarUrl()} is used rather than {@code getEffectiveAvatarUrl()}
-     * deliberately: the latter falls back to the account's global avatar, and what belongs in
-     * {@code discord_avatar_url} is the <b>guild</b> picture or nothing - a member with no
-     * guild-specific avatar has no guild avatar to cache, not a copy of their global one.
+     * <p><b>The effective profile, not the guild-scoped one</b> (Till, 2026-09-17). This used
+     * {@code getAvatarUrl()} and {@code getNickname()} - strictly the per-guild picture and the
+     * per-guild nickname - on the reasoning that a copy of somebody's global avatar is not a guild
+     * avatar. Correct, and measured on the live guild it made the whole feature empty: <b>51 of 51
+     * usernames, 1 of 51 display names, 0 of 51 avatars</b>, because a per-guild avatar is a Nitro
+     * feature almost nobody sets. Steward's account island (steward/89, steward/91) asks for "the
+     * profile picture of the signed-in user" and would therefore have drawn initials forever.
+     *
+     * <p>So the fallback is taken on purpose now, and the cost is named rather than hidden: this
+     * column no longer distinguishes a guild picture from an account picture. Nothing reads it that
+     * cares - it is shown, not reasoned about - and {@code clearGuildProfile} still empties it
+     * when somebody leaves, because what is cached here is only known through this guild either
+     * way.
      */
     private void mirrorProfile(final Member member) {
         access.setDiscordProfile(member.getId(), member.getUser().getName(),
-                member.getNickname(), member.getAvatarUrl());
+                member.getEffectiveName(), member.getEffectiveAvatarUrl());
     }
 }

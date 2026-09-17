@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Consumer;
 
 /**
@@ -46,12 +47,92 @@ public final class Compose {
     private final Path envFile;
     private final Path projectDirectory;
     private final String projectName;
+    private final LinkCounter linkCounter;
 
     public Compose(Path composeFile, Path envFile, Path projectDirectory, String projectName) {
+        this(composeFile, envFile, projectDirectory, projectName, Compose::posixLinkCount);
+    }
+
+    /**
+     * The four-argument constructor with the inode check swapped out - for tests only.
+     *
+     * <p>A real orphaned inode (steward/102's whole bug) only exists behind an actual bind mount: a
+     * plain file, deleted on the same filesystem a test runs on, simply stops resolving by path at
+     * all, which is a different and much less interesting failure than the one this class defends
+     * against. Faking the link count is what lets {@link #assertEnvFileFresh} be tested without a
+     * Docker daemon, the same way {@link ComposeRefusesItselfTest} needs none.</p>
+     */
+    Compose(Path composeFile, Path envFile, Path projectDirectory, String projectName,
+            LinkCounter linkCounter) {
         this.composeFile = composeFile;
         this.envFile = envFile;
         this.projectDirectory = projectDirectory;
         this.projectName = projectName;
+        this.linkCounter = linkCounter;
+    }
+
+    /** How many hard links the file at this path has - {@link Optional#empty()} if that cannot be
+     * determined, which is not itself a reason to refuse a deployment (see {@link #posixLinkCount}). */
+    @FunctionalInterface
+    interface LinkCounter {
+        OptionalLong nlink(Path path);
+    }
+
+    /**
+     * {@code st_nlink}, read through java.nio's "unix" attribute view.
+     *
+     * <p>Anything this cannot answer - a filesystem with no such view, most likely - comes back
+     * empty rather than as a refusal: the check this backs is an added safety net over the ordinary
+     * deploy path, and a filesystem quirk that made it unreadable must not make deployments stop
+     * working altogether, which would be a worse regression than the one it guards against.</p>
+     */
+    private static OptionalLong posixLinkCount(Path path) {
+        try {
+            Object nlink = Files.getAttribute(path, "unix:nlink");
+            return nlink instanceof Number n ? OptionalLong.of(n.longValue()) : OptionalLong.empty();
+        } catch (IOException | UnsupportedOperationException | IllegalArgumentException e) {
+            return OptionalLong.empty();
+        }
+    }
+
+    /**
+     * Refuses to go on if {@link #envFile} is a deleted inode still being served through a stale
+     * mount (steward/102).
+     *
+     * <p>A FILE bind mount follows the inode, not the path: once the host replaces this file - a
+     * temp file and a {@code mv}, which is how a secret is rotated rather than edited - the mount
+     * here keeps serving the orphaned copy for the rest of this container's life. Nothing about
+     * that looks wrong from in here: {@code Files.exists} stays true, the path resolves, and every
+     * value is just from before the rotation. The one thing that <b>does</b> differ is the orphaned
+     * inode's own link count: a bind mount is not a hard link, so when the host's directory entry
+     * for it disappears, the count the kernel reports drops to zero - visible through the mount,
+     * because {@code stat} answers with the inode's real, system-wide link count regardless of which
+     * mount you asked it through. A directory mount (the fix for steward/102) never produces this:
+     * every lookup under it walks the host directory fresh, so whatever it finds always has a real
+     * link. Called at start-up and again before every {@code up} - {@code serve} can run for days,
+     * and the file can be rotated at any point in that time, not only once at boot.</p>
+     */
+    void assertEnvFileFresh() throws IOException {
+        if (!Files.exists(envFile)) {
+            return; // base() itself only adds --env-file when the path resolves; nothing to check.
+        }
+        OptionalLong nlink = linkCounter.nlink(envFile);
+        if (nlink.isPresent() && nlink.getAsLong() == 0) {
+            throw new StaleEnvFileException(envFile
+                    + " is a deleted inode still being served through this container's mount"
+                    + " (link count 0). Something on the host replaced this file after the mount"
+                    + " was set up, and every value read from it since is from before that change."
+                    + " Refusing to deploy with it. See steward/102 - recreating steward-deployer"
+                    + " against a directory mount, rather than a file mount, is the fix.");
+        }
+    }
+
+    /** Thrown by {@link #assertEnvFileFresh}. A plain {@link IOException} so every existing caller
+     * of {@link #up}, {@link #bootstrap} and {@link #recreate} already propagates it correctly. */
+    public static final class StaleEnvFileException extends IOException {
+        StaleEnvFileException(String message) {
+            super(message);
+        }
     }
 
     /** The fixed head of every command line: which project, which file, which environment. */
@@ -77,6 +158,7 @@ public final class Compose {
      * when one service is.</p>
      */
     public int up(List<String> services, Consumer<String> output) throws IOException {
+        assertEnvFileFresh();
         List<String> command = base();
         command.addAll(List.of("up", "--detach", "--no-deps"));
         command.addAll(refuseSelf(services));
@@ -96,6 +178,7 @@ public final class Compose {
      * service to compose, so the refusal was skipped exactly when it mattered most.</p>
      */
     public int bootstrap(List<String> services, Consumer<String> output) throws IOException {
+        assertEnvFileFresh();
         List<String> command = base();
         command.addAll(List.of("up", "--detach", "--no-deps"));
         command.addAll(services);
@@ -104,6 +187,7 @@ public final class Compose {
 
     /** {@code up -d --no-deps --force-recreate <service>}: a new container from the current image. */
     public int recreate(String service, Consumer<String> output) throws IOException {
+        assertEnvFileFresh();
         List<String> command = base();
         command.addAll(List.of("up", "--detach", "--no-deps", "--force-recreate"));
         command.addAll(refuseSelf(List.of(service)));

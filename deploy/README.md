@@ -82,6 +82,19 @@ Docker fails the deploy with `error from registry: denied`.
    repository as the **reference for what a setting is called**, not as a form — copying it and
    working down it puts values in two places, and from the first edit in the web interface one of
    the two is wrong.
+
+   **Rotating a value in this file means editing it in place** (`sed -i`, or write to a temp file
+   and `cat` the result back over the original with `>`), never replacing it (`mv` a new file over
+   it, or any editor that writes-then-renames to save). `steward-deployer` mounts the *directory*
+   holding this file, not the file itself (steward/102) — a directory bind re-resolves the path on
+   every access, so an edit in place is visible immediately, but a replacement changes which inode
+   `STEWARD_ENV_FILE_NAME` resolves to under that directory, which is exactly what a directory bind
+   is for and is not a problem here. What *is* still a trap, on a host running an older
+   `steward-deployer` image built before steward/102 — check `docker inspect
+   nordtal-s2-steward-deployer-1` for whether its mount `Source` is this file or its parent
+   directory — is that an older image still binds the *file*, and a replacement there orphans the
+   old inode behind that mount for the life of the container, silently. Editing in place is the one
+   operation that is safe either way.
 4. **Run `deploy/setup.sh`.** It builds nothing; every image is pulled.
 
    ```bash

@@ -189,19 +189,14 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
 }
 
 /**
- * The fifth link of the chain.
+ * The fifth link of the chain, for the one state that has no face to draw.
  *
  * Paid but unlinked is the one combination worth a warning colour: that person has spent money and
- * still cannot join, because the proxy knows Minecraft accounts and not Discord ones.
+ * still cannot join, because the proxy knows Minecraft accounts and not Discord ones. The linked
+ * case never reaches this component any more (steward/46) - the table draws `MinecraftFace`
+ * directly for it, name and head, so this badge only has one state left to speak for.
  */
 function LinkBadge({ person }: { person: Person }) {
-  if (person.minecraftUuid) {
-    return (
-      <StatusBadge tone="idle" title={`Linked ${dateTime(person.linked)}.`}>
-        linked
-      </StatusBadge>
-    )
-  }
   return (
     <StatusBadge
       tone={person.accessActive ? "warn" : "idle"}
@@ -468,7 +463,17 @@ export function AccessPage() {
                             <AccessBadge person={person} now={now} />
                           </TableCell>
                           <TableCell data-label="Minecraft">
-                            <LinkBadge person={person} />
+                            {person.minecraftUuid ? (
+                              <MinecraftFace
+                                mcUuid={person.minecraftUuid}
+                                mcName={person.mcName}
+                                mcNameUpdated={person.mcNameUpdated}
+                                avatarBaseUrl={avatarBase.data}
+                                now={now}
+                              />
+                            ) : (
+                              <LinkBadge person={person} />
+                            )}
                           </TableCell>
                           <TableCell data-label="Roles">
                             <div className="flex items-center gap-1">

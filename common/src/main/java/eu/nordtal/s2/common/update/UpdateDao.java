@@ -227,13 +227,31 @@ interface UpdateDao {
      * a cancel flips the row to {@code CANCELLED}, so a countdown cannot be started on, or
      * extended over, a request somebody has already withdrawn.</p>
      *
+     * <h2>The notification was missing until season-2-ops/19, and every kind lost by it equally</h2>
+     * {@link #submit} rides a {@code pg_notify} in the statement that writes the row, so a listener
+     * hears about a fresh request immediately. This statement moved {@code not_before} to the
+     * instant that actually matters - the one {@link #countingDown()} counts towards - and said
+     * nothing when it did. A listener therefore only ever heard the <em>earlier</em>, premature
+     * notification from {@code submit}, at which point nothing is counting down yet, and had no way
+     * to learn that the real countdown had started except the five-second poll behind it. Since
+     * {@code countingDown()}'s thirty-second chat line requires the full thirty seconds to still be
+     * on the clock, any of those five seconds already spent by the time the poll caught up was that
+     * line gone for good - reproduced 2026-09-17 (Till: "30 Sekunden kam nicht im Chat, nur 10
+     * Sekunden") and confirmed in {@code nordtal-s2-network-control-1}'s own log: every countdown it
+     * had ever announced, {@code UPDATE} and {@code BACKUP} alike, carried 12 beats where a full one
+     * is 13. Nothing here is BACKUP-specific; BACKUP is only the kind Till was testing.
+     *
      * @return the row with its new {@code not_before}, or empty when it is no longer running
      */
     @SqlQuery("""
-            UPDATE update_request
-            SET not_before = now() + make_interval(secs => cast(:seconds AS double precision))
-            WHERE id = :id AND status = 'RUNNING'
-            RETURNING *
+            WITH updated AS (
+                UPDATE update_request
+                SET not_before = now() + make_interval(secs => cast(:seconds AS double precision))
+                WHERE id = :id AND status = 'RUNNING'
+                RETURNING *
+            )
+            SELECT updated.*, pg_notify('nordtal_update', '') AS notified
+            FROM updated
             """)
     Optional<UpdateRequest> startCountdown(@Bind("id") long id, @Bind("seconds") long seconds);
 

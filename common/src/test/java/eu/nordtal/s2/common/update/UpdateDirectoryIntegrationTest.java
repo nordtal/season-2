@@ -185,6 +185,53 @@ class UpdateDirectoryIntegrationTest {
         }
     }
 
+    /**
+     * The bug behind season-2-ops/19's reopening: Till, 2026-09-17, after the mechanics had
+     * already been fixed once - "30 Sekunden kam nicht im Chat, nur 10 Sekunden."
+     *
+     * <p>{@code submit()} rides a {@code pg_notify} in the same statement that writes the row, so
+     * the proxy's {@code LISTEN} hears about a fresh request immediately. {@code startCountdown()}
+     * did not - it only ever moved {@code not_before} - so the one notification a listener
+     * actually receives fires <em>before</em> a plan is even resolved, when the row is not yet
+     * counting down at all. The instant that matters, when {@code not_before} becomes
+     * {@code now() + 30s}, was announced to nobody, and {@code RestartWatch} had no way to learn of
+     * it except its own five-second poll.
+     *
+     * <p>{@code Countdown#beats} requires {@code millisLeft >= 30_000} to schedule the thirty-second
+     * chat line at all - so any of those up to five seconds already spent by the time the poll
+     * catches up is that line gone for good, never the ten-second one behind it. This has nothing to
+     * do with {@code BACKUP} specifically: every kind that counts down is exposed to it equally,
+     * which {@code docker logs nordtal-s2-network-control-1} confirms - every single logged
+     * countdown, {@code UPDATE} and {@code BACKUP} alike, shows 12 beats where a full countdown is
+     * 13. BACKUP is only the kind Till happened to be testing when he noticed.</p>
+     */
+    @Test
+    @DisplayName("starting a countdown announces itself on the channel, exactly like submitting"
+            + " does - season-2-ops/19")
+    void startingTheCountdownAnnouncesItselfOnTheChannel() throws Exception {
+        final UpdateRequest submitted =
+                updates.submit(UpdateKind.BACKUP, UpdateSource.CONSOLE, null, Duration.ZERO);
+        updates.claimNext().orElseThrow();
+
+        try (Connection listener = dataSource.getConnection()) {
+            try (Statement statement = listener.createStatement()) {
+                statement.execute("LISTEN " + UpdateDirectory.CHANNEL);
+            }
+
+            updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
+
+            final PGNotification[] received =
+                    listener.unwrap(PGConnection.class).getNotifications(5000);
+            assertNotNull(received, "the LISTEN connection was told the countdown had started -"
+                    + " without this, a proxy only learns of it on its next five-second poll, by"
+                    + " which time fewer than thirty seconds are left and the chat line for 30 is"
+                    + " silently dropped (Countdown#beats requires millisLeft >= 30_000)");
+            assertEquals(1, received.length);
+            assertEquals(UpdateDirectory.CHANNEL, received[0].getName());
+            assertEquals("", received[0].getParameter());
+        }
+    }
+
     // ---------------------------------------------------------------- claiming
 
     @Test

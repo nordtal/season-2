@@ -3,9 +3,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { CommandPalette } from "@/app/command-palette"
 import { GERMAN_BACKUP_SYNONYM } from "@/app/run-search-terms"
-import { useConfigDocuments, useConfigs, useRuns } from "@/lib/queries"
-import { takePendingJump } from "@/lib/settings-search"
-import type { ConfigEntry, ConfigLocation, ParsedConfigDocument, Run } from "@/lib/api"
+import {
+  useConfigDocuments,
+  useConfigs,
+  useMessageBundles,
+  useMessageDocuments,
+  useRuns,
+} from "@/lib/queries"
+import { takePendingJump, takePendingMessageJump } from "@/lib/settings-search"
+import type {
+  ConfigEntry,
+  ConfigLocation,
+  MessageBundle,
+  MessageBundleLocation,
+  MessageEntry,
+  ParsedConfigDocument,
+  Run,
+} from "@/lib/api"
 
 /**
  * Ctrl+K, and who gets to keep it.
@@ -29,11 +43,15 @@ vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateSpy }))
 // steward/52: the palette now loads runs to make them findable by more than their page title.
 // steward/58 adds the settings search the same way: mocked rather than driven through a real
 // QueryClientProvider + fetch stub, matching this file's existing style of mocking a dependency
-// rather than integrating the whole stack.
+// rather than integrating the whole stack. steward/87 adds the message-bundle pair the same way
+// again - `useMessageBundles`/`useMessageDocuments` mirror `useConfigs`/`useConfigDocuments` one
+// for one.
 vi.mock("@/lib/queries", () => ({
   useRuns: vi.fn(),
   useConfigs: vi.fn(),
   useConfigDocuments: vi.fn(),
+  useMessageBundles: vi.fn(),
+  useMessageDocuments: vi.fn(),
 }))
 
 beforeEach(() => {
@@ -42,6 +60,8 @@ beforeEach(() => {
   vi.mocked(useRuns).mockReturnValue({ data: [] } as never)
   vi.mocked(useConfigs).mockReturnValue({ data: [] } as never)
   vi.mocked(useConfigDocuments).mockReturnValue([])
+  vi.mocked(useMessageBundles).mockReturnValue({ data: [] } as never)
+  vi.mocked(useMessageDocuments).mockReturnValue([])
 })
 
 afterEach(() => {
@@ -50,6 +70,8 @@ afterEach(() => {
   vi.mocked(useRuns).mockReset()
   vi.mocked(useConfigs).mockReset()
   vi.mocked(useConfigDocuments).mockReset()
+  vi.mocked(useMessageBundles).mockReset()
+  vi.mocked(useMessageDocuments).mockReset()
 })
 
 /** The palette, identified by the one thing only the open dialog has. */
@@ -308,5 +330,146 @@ describe("CommandPalette - finding a setting (steward/58)", () => {
       file: "steward-worker/steward.yml",
       path: "worker.base-url",
     })
+  })
+})
+
+/**
+ * steward/87: the message bundles of steward/48 are a second supplier for the same global search -
+ * "a text that lives only in a bundle is not found before this ticket, and is found after" is the
+ * ticket's own red-then-green sentence, and `finds a bundle key that no config file mentions` below
+ * is that exact case, word for word.
+ */
+describe("CommandPalette - finding a message bundle key (steward/87)", () => {
+  function bundleLocation(
+    over: Partial<MessageBundleLocation> & { path: string },
+  ): MessageBundleLocation {
+    return { service: "smp", module: "smp", writable: true, ...over }
+  }
+
+  function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
+    return { inBundle: true, ...over }
+  }
+
+  /** Wires `useMessageBundles`/`useMessageDocuments` for one bundle, the same pairing-by-index
+   * `oneFile` above does for a config file. */
+  function oneBundle(loc: MessageBundleLocation, entries: MessageEntry[]) {
+    vi.mocked(useMessageBundles).mockReturnValue({ data: [loc] } as never)
+    const document: MessageBundle = { ...loc, entries }
+    vi.mocked(useMessageDocuments).mockReturnValue([{ data: document, isLoading: false }] as never)
+  }
+
+  it("finds a bundle key that no config file mentions - the ticket's own red-then-green case", async () => {
+    const loc = bundleLocation({ path: "smp/smp" })
+    oneBundle(loc, [
+      messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." }),
+    ])
+
+    await search("resetting")
+
+    // The row's main label is the matched text, not the key - the same split a config hit already
+    // draws between its human `label` and its technical `path` (steward/87, see command-palette.tsx
+    // and config-search.tsx's `SettingsHitRow`). The key still rides along in the shortcut text.
+    expect(screen.queryByText("The farm world is resetting.")).not.toBeNull()
+  })
+
+  it("finds a key by its German translation, not only its English default", async () => {
+    // A synthetic marker, not real German prose - `language.test.ts` scans every source file for
+    // German and a fixture is not exempt from that, the same reason `messages.test.tsx` (steward/48)
+    // spells its own German fixtures as "packaged-de-text" rather than an actual sentence.
+    const loc = bundleLocation({ path: "smp/smp" })
+    oneBundle(loc, [
+      messageEntry({
+        key: "farm.reset.announce",
+        english: "The farm world is resetting.",
+        german: "packaged-de-marker",
+      }),
+    ])
+
+    await search("de-marker")
+
+    expect(screen.queryByText("packaged-de-marker")).not.toBeNull()
+  })
+
+  it("finds a key by the key itself", async () => {
+    const loc = bundleLocation({ path: "smp/smp" })
+    oneBundle(loc, [messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })])
+
+    await search("farm.reset")
+
+    // Matched by the key (there is no German text on this entry, so only the English row survives
+    // `searchMessagesAcross`'s per-language guard) - the visible label is still the English text,
+    // and the key that was actually typed shows up in the shortcut instead.
+    expect(screen.queryByText("The farm world is resetting.")).not.toBeNull()
+  })
+
+  it("shows nothing before anything is typed, same as a config hit", async () => {
+    const loc = bundleLocation({ path: "smp/smp" })
+    oneBundle(loc, [messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })])
+
+    render(<CommandPalette />)
+    ctrlK(document.body)
+    await waitFor(() => expect(searchInput()).not.toBeNull())
+
+    expect(screen.queryByText("farm.reset.announce")).toBeNull()
+  })
+
+  it("selecting a bundle hit navigates to the service page and hands the messages tool a jump, not the configuration form", async () => {
+    const loc = bundleLocation({ path: "smp/smp", service: "smp" })
+    oneBundle(loc, [messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })])
+
+    await search("resetting")
+    fireEvent.click(await screen.findByText("The farm world is resetting."))
+
+    expect(navigateSpy).toHaveBeenCalledWith({
+      to: "/services/$name",
+      params: { name: "smp" },
+    })
+    expect(takePendingMessageJump("smp")).toEqual({
+      path: "smp/smp",
+      language: "en",
+      key: "farm.reset.announce",
+    })
+    // And never the config map - a bundle hit must not be mistaken for a config one downstream.
+    expect(takePendingJump("smp")).toBeUndefined()
+  })
+
+  it("finds a config hit and a bundle hit together, in one list", async () => {
+    const configLoc: ConfigLocation = {
+      service: "smp",
+      name: "steward.yml",
+      path: "smp/steward.yml",
+      readable: true,
+      writable: true,
+    }
+    const configEntry: ConfigEntry = {
+      path: "farm.reset.enabled",
+      key: "enabled",
+      label: "Farm reset enabled",
+      comments: [],
+      explanation: "",
+      noExplanationNeeded: false,
+      filled: true,
+      kind: "SCALAR",
+      type: "BOOLEAN",
+      line: 1,
+      editable: true,
+      secret: false,
+      inSchema: true,
+    }
+    vi.mocked(useConfigs).mockReturnValue({ data: [configLoc] } as never)
+    vi.mocked(useConfigDocuments).mockReturnValue([
+      {
+        data: { ...configLoc, revision: "r1", header: [], entries: [configEntry] },
+        isLoading: false,
+      },
+    ] as never)
+    oneBundle(bundleLocation({ path: "smp/smp", service: "smp" }), [
+      messageEntry({ key: "farm.reset.announce", english: "Farm reset announcement" }),
+    ])
+
+    await search("farm reset")
+
+    expect(screen.queryByText("Farm reset enabled")).not.toBeNull()
+    expect(screen.queryByText("Farm reset announcement")).not.toBeNull()
   })
 })

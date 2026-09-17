@@ -782,5 +782,22 @@ export function useConfigDocuments(files: string[], enabled: boolean) {
   })
 }
 
+/**
+ * Every one of the given bundles' documents, fetched only while `enabled` - the message-bundle
+ * twin of {@link useConfigDocuments}, for steward/87's search over the bundles as well as the
+ * files. Each query shares its key with {@link useMessageBundle}, so a bundle already open on a
+ * service's page costs nothing a second time to a search that also wants it.
+ */
+export function useMessageDocuments(paths: string[], enabled: boolean) {
+  return useQueries({
+    queries: paths.map((path) => ({
+      queryKey: keys.messageBundle(path),
+      queryFn: () => api<MessageBundle>(`/api/messages/${encodePath(path)}`),
+      staleTime: 5 * 60 * SECOND,
+      enabled,
+    })),
+  })
+}
+
 /** Re-export so a page can narrow a query's options without importing TanStack itself. */
 export type { UseQueryOptions }

@@ -1,8 +1,13 @@
-import { Fragment, useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown, ChevronRight, Languages, Lock, RotateCcw } from "lucide-react"
 
 import type { MessageBundle, MessageBundleLocation, MessageEntry } from "@/lib/api"
 import { useMessageBundle, useMessageBundles, useSaveMessageBundle } from "@/lib/queries"
+import {
+  onPendingMessageJump,
+  takePendingMessageJump,
+  type PendingMessageJump,
+} from "@/lib/settings-search"
 import { Failure, QueryState } from "@/components/steward/query-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -27,14 +32,41 @@ import { Textarea } from "@/components/ui/textarea"
  * **Resetting a line deletes the override key. It never fills it with the English text.** A reset
  * line goes back to following the jar, including the next time the jar changes - copying English
  * into it would freeze that line in whatever English said today.
+ *
+ * **A search hit lands here too (steward/87).** `ServiceSettingsSearch` (in `config-search.tsx`,
+ * on the same page) and the command palette's global search both find bundle keys now, and "a hit
+ * in a bundle leads into the messages tool, not the configuration form" is the one genuinely new
+ * navigation case that ticket added. Both suppliers hand their destination to this component
+ * through `setPendingMessageJump` (`lib/settings-search.ts`), never by a prop from
+ * `ServiceConfiguration` - that component is frozen for this ticket, and its own `PendingJump` map
+ * is a config file's identity, not a bundle's.
  */
 export function ServiceMessages({ service }: { service: string }) {
   const [open, setOpen] = useState<string | null>(null)
+  const [jump, setJump] = useState<PendingMessageJump | null>(null)
   const bundles = useMessageBundles()
   const mine = useMemo(
     () => (bundles.data ?? []).filter((bundle) => bundle.service === service),
     [bundles.data, service],
   )
+
+  // Two arrivals, one handler. `apply()` runs once on mount/service-change to pick up a jump left
+  // by the command palette before it navigated here (the same pattern `configuration.tsx` follows
+  // for `takePendingJump`) - and it runs again for as long as this stays mounted, because a hit
+  // found by `ServiceSettingsSearch` right above this card has nowhere to navigate *to*: both cards
+  // are already on screen, so that box calls `setPendingMessageJump` directly rather than a route
+  // change, and this is what notices.
+  useEffect(() => {
+    function apply() {
+      const pending = takePendingMessageJump(service)
+      if (pending) {
+        setOpen(pending.path)
+        setJump(pending)
+      }
+    }
+    apply()
+    return onPendingMessageJump(apply)
+  }, [service])
 
   return (
     <Card>
@@ -59,7 +91,12 @@ export function ServiceMessages({ service }: { service: string }) {
                   open={open === bundle.path}
                   onToggle={() => setOpen((current) => (current === bundle.path ? null : bundle.path))}
                 />
-                {open === bundle.path ? <OneBundle path={bundle.path} /> : null}
+                {open === bundle.path ? (
+                  <OneBundle
+                    path={bundle.path}
+                    jump={jump && jump.path === bundle.path ? jump : null}
+                  />
+                ) : null}
               </Fragment>
             ))
           }
@@ -102,13 +139,13 @@ function BundleRow({
   )
 }
 
-function OneBundle({ path }: { path: string }) {
+function OneBundle({ path, jump }: { path: string; jump: PendingMessageJump | null }) {
   const document = useMessageBundle(path)
 
   return (
     <div className="border-t border-border pt-4 pb-6">
       <QueryState query={document} rows={8}>
-        {(read) => <BundleForm key={path} path={path} bundle={read} />}
+        {(read) => <BundleForm key={path} path={path} bundle={read} jump={jump} />}
       </QueryState>
     </div>
   )
@@ -133,10 +170,25 @@ function overrideOf(entry: MessageEntry, language: Language): string | undefined
   return language === "en" ? entry.overrideEnglish : entry.overrideGerman
 }
 
-function BundleForm({ path, bundle }: { path: string; bundle: MessageBundle }) {
-  const [language, setLanguage] = useState<Language>("en")
+function BundleForm({
+  path,
+  bundle,
+  jump,
+}: {
+  path: string
+  bundle: MessageBundle
+  /** A search hit (steward/87) landed on this bundle - which language tab and which key. */
+  jump: PendingMessageJump | null
+}) {
+  // Seeded from `jump` where there is one, so a hit found from another page opens straight on the
+  // language it matched in rather than flashing English first and then switching.
+  const [language, setLanguage] = useState<Language>(() => jump?.language ?? "en")
   const [draft, setDraft] = useState<Draft>({})
   const [warnings, setWarnings] = useState<string[]>([])
+  // Which key to scroll to and ring, `null` the rest of the time - the message-tool equivalent of
+  // `configuration.tsx`'s `highlight` state, cleared by `MessageRow` itself once it has made its
+  // point (steward/58's fourth requirement, extended to bundles by steward/87).
+  const [highlightKey, setHighlightKey] = useState<string | null>(jump?.key ?? null)
   const save = useSaveMessageBundle(path)
 
   // The answer to a save IS the bundle as it now reads, so a successful write empties the draft -
@@ -145,6 +197,16 @@ function BundleForm({ path, bundle }: { path: string; bundle: MessageBundle }) {
   useEffect(() => {
     setDraft({})
   }, [bundle, language])
+
+  // A second hit into a bundle that is already open (the per-service search box, right above this
+  // card) does not remount this component - only the initial `useState` above sees a fresh `jump`.
+  // `jump` is referentially stable from `ServiceMessages` unless a new one was actually set, so
+  // this only fires for a genuinely new jump, not on every unrelated re-render.
+  useEffect(() => {
+    if (!jump) return
+    setLanguage(jump.language)
+    setHighlightKey(jump.key)
+  }, [jump])
 
   const changes = useMemo(() => {
     const result: Record<string, string | null> = {}
@@ -229,6 +291,8 @@ function BundleForm({ path, bundle }: { path: string; bundle: MessageBundle }) {
             draft={draft[entry.key]}
             onChange={(value) => setDraft((current) => ({ ...current, [entry.key]: value }))}
             onReset={() => setDraft((current) => ({ ...current, [entry.key]: null }))}
+            highlighted={entry.key === highlightKey}
+            onHighlighted={() => setHighlightKey(null)}
           />
         ))}
       </div>
@@ -262,15 +326,32 @@ function MessageRow({
   draft,
   onChange,
   onReset,
+  highlighted = false,
+  onHighlighted,
 }: {
   entry: MessageEntry
   language: Language
   draft: string | null | undefined
   onChange: (value: string) => void
   onReset: () => void
+  /** A search hit (steward/87) landed on this exact key. */
+  highlighted?: boolean
+  onHighlighted?: () => void
 }) {
   const packaged = packagedOf(entry, language)
   const override = overrideOf(entry, language)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Jump-and-highlight, the same rule `configuration.tsx`'s `Field` follows for a config hit
+  // (steward/58's fourth requirement) - scrolls once, on the render where `highlighted` turns
+  // true, and clears itself after a moment so the ring does not linger once the point is made.
+  useEffect(() => {
+    if (!highlighted) return
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+    const timeout = window.setTimeout(() => onHighlighted?.(), 2400)
+    return () => window.clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlighted])
 
   // `draft === undefined`: nothing typed, show what is saved (the override if there is one, else
   // the packaged text). `draft === null`: a pending reset, preview what it reads once saved - the
@@ -280,7 +361,10 @@ function MessageRow({
   const pendingReset = draft === null
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
+    <div
+      ref={ref}
+      className={`flex scroll-mt-4 flex-col gap-1.5 rounded-md border border-border p-3 transition-colors duration-300 ${highlighted ? "bg-accent ring-2 ring-primary" : ""}`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Label className="font-mono text-xs text-muted-foreground">{entry.key}</Label>
         <div className="flex items-center gap-2">

@@ -74,9 +74,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * cookie and the CSRF token are all the production code, driven through {@code /auth/login} and
  * {@code /auth/callback} exactly as a browser drives them.
  *
- * <p>What is still Till's ({@code todo.md} A29) is the real Discord application: a client secret
- * and a registered redirect URI. So this proves the flow, not the registration - a redirect URI
- * Discord has not been told about fails at Discord and nowhere in here.</p>
+ * <p>What is still Till's is the real Discord application: a client secret and a registered
+ * redirect URI. So this proves the flow, not the registration - a redirect URI Discord has not
+ * been told about fails at Discord and nowhere in here.</p>
  */
 class StewardUiIntegrationTest {
 
@@ -887,6 +887,27 @@ class StewardUiIntegrationTest {
 
         assertEquals("ok", health.get("status").getAsString());
         assertTrue(health.get("worker").getAsBoolean(), "the fake worker is up");
+    }
+
+    /**
+     * steward/85. Javalin answers a HEAD against a registered GET by discarding the body at the
+     * wire layer - but {@code guard}'s {@code beforeMatched} reads {@code ctx.routeRoles()}, and
+     * that lookup is keyed to the exact HTTP method. With no route ever registered for
+     * {@code HEAD /api/health}, it saw zero decided roles and {@code gateOf} refused it as an
+     * undecided route: a 500 that named a fault this service does not have. A real monitor tries
+     * HEAD before GET because it is cheaper, so this is exactly the request an outside watcher
+     * would send first - and the health route is the one place it has to come back cheap.
+     */
+    @Test
+    @DisplayName("a monitor's HEAD on /api/health gets 200, not the 500 an undecided route gets")
+    void headOnHealthIsNotUndecided() throws Exception {
+        final HttpResponse<Void> head = browser().send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/health"))
+                .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                .build(), HttpResponse.BodyHandlers.discarding());
+
+        assertEquals(200, head.statusCode(),
+                "HEAD on an ANYONE route must not be refused as undecided");
     }
 
     @Test

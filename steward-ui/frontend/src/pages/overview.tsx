@@ -6,14 +6,17 @@ import type { Service } from "@/lib/api"
 import { bytes, count, dateTime, percent, relative, since } from "@/lib/format"
 import { summarise } from "@/lib/health"
 import {
+  useActions,
+  useAvatarBaseUrl,
   useBackups,
   useHost,
-  useJournal,
   useMetrics,
+  usePeople,
   useSeason,
   useServices,
   useSettings,
 } from "@/lib/queries"
+import { ActionRow } from "@/components/steward/actions"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Sparkline } from "@/components/steward/sparkline"
@@ -290,40 +293,57 @@ const PHASES: Record<string, string> = {
   ENDED: "ended",
 }
 
+/**
+ * The right half of the new bottom section (steward/82; the left is {@code SeasonPanel}, steward/81).
+ *
+ * Fed by steward-worker's own {@code /api/actions} rather than by sorting {@link useJournal}'s
+ * `audit_log` rows together with a second call for `update_request` here - see that endpoint's own
+ * javadoc for why a merge belongs in one query and not on this page. Every actor is drawn through
+ * {@link ActionRow} and {@code PersonIdentity}, never as the raw text the old, journal-only version
+ * of this panel used to print: `entry.actor` was an unadorned Discord snowflake, which is exactly
+ * the leak steward/45's rule exists to close and which the old static check could not see, because
+ * nothing here was named `discordId`.
+ *
+ * **A real heading, not `Panel`'s** (steward/77's rule, and Till's own words for this ticket): the
+ * small grey capitalised line reads as a section label, and this is content, so it gets the same
+ * weight the page's own `PageHeader` gives a title.
+ */
 function ActionsPanel() {
-  const journal = useJournal("", "")
-  const entries = (journal.data ?? []).slice(0, 8)
+  const actions = useActions(5)
+  const people = usePeople()
+  const avatarBase = useAvatarBaseUrl()
+  const now = Date.now()
+  const entries = actions.data ?? []
 
   return (
-    <Panel title="Latest actions">
-      {journal.isPending ? (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold text-foreground">Latest actions</h2>
+      {actions.isPending ? (
         <Loading rows={4} />
-      ) : journal.error ? (
-        <Failure error={journal.error} onRetry={journal.refetch} />
+      ) : actions.error ? (
+        <Failure error={actions.error} onRetry={actions.refetch} />
       ) : entries.length === 0 ? (
         <Empty title="Nothing recorded yet" />
       ) : (
         <ul className="flex flex-col">
-          {entries.map((entry) => (
-            <li
-              key={entry.id}
-              className="flex h-row items-center gap-3 border-b border-border/60 last:border-0"
-            >
-              <span className="w-28 shrink-0 text-xs text-muted-foreground tnum">
-                {relative(entry.occurred)}
-              </span>
-              <span className="truncate text-sm">{entry.action}</span>
-              <span className="ml-auto truncate text-xs text-muted-foreground">
-                {entry.actor ?? "System"}
-              </span>
-            </li>
+          {entries.map((action, index) => (
+            <ActionRow
+              // The feed carries no id of its own - a run and a journal line have different
+              // primary keys, and stamping a synthetic one on here would be a fact this page
+              // invented. Position is stable because the list is never reordered client-side.
+              key={index}
+              action={action}
+              people={people.data}
+              avatarBaseUrl={avatarBase.data}
+              now={now}
+            />
           ))}
         </ul>
       )}
       <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
         <Link to="/journal">The whole journal</Link>
       </Button>
-    </Panel>
+    </section>
   )
 }
 

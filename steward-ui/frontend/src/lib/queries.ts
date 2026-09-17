@@ -5,6 +5,7 @@ import {
   api,
   ApiError,
   rememberCsrf,
+  type Action,
   type Backup,
   type AdminCommand,
   type CommandRun,
@@ -73,6 +74,7 @@ export const keys = {
   openPayments: ["payments", "open"] as const,
   grants: (discordId: string) => ["grants", discordId] as const,
   journal: (action: string, subject: string) => ["journal", action, subject] as const,
+  actions: (limit: number) => ["actions", limit] as const,
   settings: ["settings"] as const,
   commands: ["commands"] as const,
   commandRun: (id: string) => ["command-run", id] as const,
@@ -344,6 +346,21 @@ export function useJournal(action: string, subject: string, enabled = true) {
       if (subject) query.set("subject", subject)
       return api<JournalEntry[]>(`/api/journal?${query}`)
     },
+    staleTime: 15 * SECOND,
+    enabled,
+  })
+}
+
+/**
+ * The unified "latest actions" feed (steward/82) - the newest few rows across `update_request` and
+ * `audit_log`, already merged and sorted by steward-worker's own `/api/actions`. See that endpoint's
+ * javadoc for why this is one query rather than this file sorting {@link useJournal} together with
+ * a second call of its own.
+ */
+export function useActions(limit = 5, enabled = true) {
+  return useQuery({
+    queryKey: keys.actions(limit),
+    queryFn: () => api<Action[]>(`/api/actions?limit=${limit}`),
     staleTime: 15 * SECOND,
     enabled,
   })

@@ -2,6 +2,7 @@ package eu.nordtal.s2.limbo.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
@@ -35,21 +36,26 @@ public interface ColoursSpec {
 
     @Order(1) @Key("good")
     @Comment("Arriving: it worked, it is current, it came back.")
+    @Explain("For a reply that arrives: it worked, is current, or came back.")
     default String good() { return "#8ba888"; }
 
     @Order(2) @Key("bad")
     @Comment("Leaving: it failed. The one tone that has to be findable in a list of forty lines.")
+    @Explain("For a reply that fails. Needs to stand out in a long list.")
     default String bad() { return "#a8888b"; }
 
     @Order(3) @Key("warn")
     @Comment("Not a failure, but not what was asked for either - stopped, too late, still waiting.")
+    @Explain("Not a failure, but not what was asked for either - stopped, too late, still waiting.")
     default String warn() { return "#b08a4a"; }
 
     @Order(4) @Key("neutral")
     @Comment("An ordinary reply - nothing to flag. Lighter than muted, so the two are distinguishable.")
+    @Explain("An ordinary reply with nothing to flag.")
     default String neutral() { return "#c9c9c9"; }
 
     @Order(5) @Key("muted")
     @Comment("Supporting detail under a line that already carries the news.")
+    @Explain("Supporting detail under a line that already carries the news.")
     default String muted() { return "#aaaaaa"; }
 }

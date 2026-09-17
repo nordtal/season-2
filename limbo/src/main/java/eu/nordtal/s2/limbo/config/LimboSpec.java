@@ -2,6 +2,7 @@ package eu.nordtal.s2.limbo.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
@@ -55,6 +56,7 @@ public interface LimboSpec {
             "before they are ever spawned in it, so whatever level.dat the server ships with is",
             "never seen. Deleting this folder is safe; it is rebuilt empty on the next start."
     })
+    @Explain("The empty world this plugin creates and puts everybody in; safe to delete, it is rebuilt on the next start.")
     default String worldName() {
         return "limbo";
     }
@@ -66,6 +68,7 @@ public interface LimboSpec {
             "keeping players well clear of the void: a player who somehow stops flying falls,",
             "and this is how far above nothing they fall from before the plugin puts them back."
     })
+    @Explain("How far above the void players stand, so a stray fall lands them back rather than into nothing.")
     default int spawnY() {
         return 64;
     }
@@ -84,6 +87,7 @@ public interface LimboSpec {
             "Keep it comfortably below the title's own stay time, which this plugin sets to twice",
             "this value."
     })
+    @Explain("How often the waiting title is re-sent; too infrequent and the screen goes black between refreshes, looking like a crash.")
     default int titleRefreshSeconds() {
         return 4;
     }
@@ -98,6 +102,7 @@ public interface LimboSpec {
             "for. Turn it off while working ON this plugin, so you can see where you are; never",
             "in production."
     })
+    @Explain("Turns the empty world's sky into a black screen. Disable only while working on this plugin, never in production.")
     default boolean blindness() {
         return true;
     }
@@ -118,6 +123,7 @@ public interface LimboSpec {
             "changed costs one indexed query and writes nothing to ops.json, which is what makes it",
             "affordable to run for the life of the server."
     })
+    @Explain("How often admin status is re-read from the database - this is the guarantee a revoked admin loses operator, not the LISTEN switch below.")
     default int adminPollIntervalSeconds() {
         return 30;
     }
@@ -132,6 +138,7 @@ public interface LimboSpec {
             "else, which is why it is a switch: it is one connection per backend, outside the pool,",
             "parked in a blocking read for the life of the server."
     })
+    @Explain("Makes a revocation feel instant instead of waiting for the next poll; turning it off only costs latency.")
     default boolean adminListenEnabled() {
         return true;
     }

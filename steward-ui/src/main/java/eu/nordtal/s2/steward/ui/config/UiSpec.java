@@ -261,7 +261,7 @@ public interface UiSpec {
                 "morning; 36 leaves one missed night visible and two nights impossible to miss.",
                 "",
                 "This one counts files on the disk, not runs that reported success. Run 23 reported",
-                "success having saved nothing at all (todo.md A23), which is why."
+                "success having saved nothing at all, which is why."
         })
         default int backupAgeHours() {
             return 36;

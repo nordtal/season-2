@@ -2,7 +2,9 @@ package eu.nordtal.s2.networkcontrol.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
@@ -41,6 +43,7 @@ public interface DatabaseSpec {
     @Order(1)
     @Key("jdbc-url")
     @Comment("JDBC URL of the PostgreSQL database that holds the access schema.")
+    @Explain("The full JDBC connection string, including the database name.")
     default String jdbcUrl() {
         return "jdbc:postgresql://localhost:5432/nordtal";
     }
@@ -48,6 +51,7 @@ public interface DatabaseSpec {
     @Order(2)
     @Key("username")
     @Comment("Database user. Read-mostly: the login path only ever reads, links and issues codes.")
+    @NoExplanationNeeded
     default String username() {
         return "nordtal";
     }
@@ -55,6 +59,7 @@ public interface DatabaseSpec {
     @Order(3)
     @Key("password")
     @Comment("Database password. Prefer NORDTAL_NETWORK_CONTROL_DATABASE_PASSWORD in production.")
+    @NoExplanationNeeded
     default String password() {
         return "";
     }
@@ -65,6 +70,7 @@ public interface DatabaseSpec {
             "Upper bound of the HikariCP pool.",
             "The login path is one query per join attempt; this does not need to be large."
     })
+    @NoExplanationNeeded
     default int maximumPoolSize() {
         return 5;
     }
@@ -76,6 +82,7 @@ public interface DatabaseSpec {
             "wait long on a struggling database before the login gate falls back to the",
             "short-lived in-memory cache - see gate.yml's fallback-cache-window-minutes."
     })
+    @Explain("Limits both waiting for a free connection and the query itself, before the login gate falls back to its cache.")
     default int queryTimeoutSeconds() {
         return 3;
     }

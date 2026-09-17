@@ -104,7 +104,7 @@ class SeasonWelcomeIsWiredTest {
     @Test
     @DisplayName("the pictures are a placeholder and say so")
     void thePicturesAreVisiblyUnfinished() {
-        // The sequence is art and belongs to the owner (todo.md A10). A placeholder that looks
+        // The sequence is art and belongs to the owner. A placeholder that looks
         // finished is a placeholder that ships, so this pins that whatever stands there names
         // itself - and it will fail the day the real glyphs arrive, which is the moment somebody
         // should be reading this file anyway.

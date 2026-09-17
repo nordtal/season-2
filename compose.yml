@@ -712,8 +712,8 @@ services:
       # from being what destroyed it.
       #
       # A volume named in the config but missing here is a FAILED line naming the path - not a
-      # small archive that looks like a success. That distinction is todo.md A23, which was a run
-      # reporting success having saved nothing.
+      # small archive that looks like a success. That distinction matters because a run once
+      # reported success having saved nothing.
       #
       # THE PLUGIN LINES CARRY THE SAME ${*_PLUGINS} EXPRESSION as the server's and the worker's
       # above, and that is not decoration. These used to name the default volume outright, so a
@@ -738,7 +738,7 @@ services:
       # resource use, and can stop and start them - which is how the interface answers "what is
       # running", "is anything behind its registry" and "what did it just print". Before 2026-09-12
       # all of that went through a management panel whose image check never asked a registry at all:
-      # four releases ran behind while it reported everything current (todo.md A24).
+      # four releases ran behind while it reported everything current.
       #
       # IT IS NOT READ-ONLY AND CANNOT BE MADE READ-ONLY. Appending `:ro` restricts the socket FILE,
       # not the API behind it; a container that can talk to this socket can do anything the daemon

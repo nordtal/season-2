@@ -55,7 +55,7 @@ class InfoTextTest {
     @Test
     @DisplayName("the rules are still marked as a placeholder in both languages")
     void theRulesAreNotInServiceYet() {
-        // Till writes the rules (todo.md A10). Until then the one way this ships wrong is quietly:
+        // Till writes the rules. Until then the one way this ships wrong is quietly:
         // a /rules that answers with something plausible is a /rules nobody checks again. When the
         // real text lands, this test is deleted in the same commit - it is a reminder with a build
         // behind it, not a rule about the wording.

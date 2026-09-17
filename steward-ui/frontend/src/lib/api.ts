@@ -261,6 +261,16 @@ export type Me = {
    * a literal here that would disagree with it the day somebody changes one of the two.
    */
   stepUpMinutes?: number
+  /**
+   * The picture Discord holds for this account, when the access list happens to carry one.
+   *
+   * **Absent is the ordinary case, not an error** (steward/91): somebody can be signed into Steward
+   * and not be in the access list at all, and Discord itself does not always have a picture. The
+   * island then draws the initials, stays tappable, and nothing about the page changes - which is
+   * the fallback steward/89 prescribes rather than a degraded state. So the query that fills this
+   * must never be allowed to fail the answer.
+   */
+  discordAvatarUrl?: string
 }
 
 /** Docker's own words, passed through. `state` is the container state, `status` its sentence. */
@@ -607,6 +617,21 @@ export type ConfigEntry = {
   secret: boolean
   /** Whether the schema declares this key. Always `true` when the file has no schema at all. */
   inSchema: boolean
+  /**
+   * Whether an environment variable has taken this key over, so that editing the file here changes
+   * the file and not the running service (steward/76).
+   *
+   * jcore's `ConfigHandle` overlays `NORDTAL_<PREFIX>_<PATH>` on load and never writes the value
+   * back; measured on this host, seven keys of `discord-bot`'s `access.yml` are overridden that
+   * way, `languages` among them. The field stays **editable** on purpose - the point is to be able
+   * to prepare the file for the day the variable goes - but it must say so, which is what this
+   * carries.
+   *
+   * Absent means the service did not say, not that it is unaffected: a worker or a service older
+   * than steward/76 answers nothing here, and drawing "not overridden" from that would be the
+   * silent wrong answer this whole field exists to prevent.
+   */
+  environmentOverridden?: boolean
   /** The schema's allowed or suggested values, or absent when it names none. */
   choices?: ConfigChoices
   /**

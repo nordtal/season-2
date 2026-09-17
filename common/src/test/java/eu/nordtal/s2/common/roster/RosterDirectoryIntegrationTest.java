@@ -270,6 +270,33 @@ class RosterDirectoryIntegrationTest {
                 "the lateral must not multiply the person out once per grant");
     }
 
+    @Test
+    void personOfIsTheSameRowPeopleWouldPrint() {
+        // steward/91: /api/me reads this row by discord id rather than paging the whole roster for
+        // one avatar. Same columns, same joins - proven here by comparing it against people().
+        person(ALICE);
+        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('"
+                + ALICE + "', '" + ALICE_MC + "')");
+        execute("UPDATE discord_user SET discord_avatar_url = 'https://cdn.discordapp.com/a.png', "
+                + "discord_avatar_url_updated = now() WHERE discord_id = '" + ALICE + "'");
+        grant(ALICE, "-1 hours", "+47 hours", false);
+        person(BOB);
+
+        final Person alice = directory.personOf(ALICE).orElseThrow();
+
+        assertEquals(directory.people(10).stream()
+                        .filter(p -> p.discordId().equals(ALICE)).findFirst().orElseThrow(), alice);
+        assertEquals("https://cdn.discordapp.com/a.png", alice.discordAvatarUrl());
+        assertTrue(alice.accessActive());
+    }
+
+    @Test
+    void personOfSomebodyUnknownIsEmptyRatherThanAFailure() {
+        person(ALICE);
+
+        assertTrue(directory.personOf("999999999999999999").isEmpty());
+    }
+
     // ---------------------------------------------------------------- payments
 
     @Test

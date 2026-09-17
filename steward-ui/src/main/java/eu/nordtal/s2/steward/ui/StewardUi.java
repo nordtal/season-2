@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.ui;
 import com.google.gson.Gson;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessSource;
+import eu.nordtal.s2.common.roster.Person;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
@@ -1396,6 +1397,29 @@ public final class StewardUi {
     }
 
     /**
+     * The Discord avatar {@code /api/people} would print for this account, or empty - never a
+     * thrown exception (steward/91).
+     *
+     * <p>Read from the same {@code person} row {@code /api/people} answers, over the Discord id of
+     * the session - not a second call to Discord, and not {@code data.roster().people(...)}: that
+     * pages the whole access list for a picture 32 pixels wide. Being signed into Steward does not
+     * imply a row in that list exists at all - an admin the bot has never mirrored a Discord profile
+     * onto reaches this route the same as anyone else - so a missing row is answered as "no avatar",
+     * the same fallback the shell already draws for it, and a database hiccup here must not turn
+     * into a broken {@code /api/me} for everything else on it.</p>
+     */
+    private Optional<String> avatarOf(final String discordId) {
+        try {
+            return data.roster().personOf(discordId)
+                    .map(Person::discordAvatarUrl)
+                    .filter(url -> url != null && !url.isBlank());
+        } catch (final RuntimeException e) {
+            log.warn("could not read the Discord avatar of {}, so /api/me answers none", discordId, e);
+            return Optional.empty();
+        }
+    }
+
+    /**
      * The answer for both {@code GET} and {@code HEAD /api/health} - see the registration above
      * (steward/85) for why the second one has to be its own route rather than something Javalin
      * hands it for free.
@@ -1427,6 +1451,7 @@ public final class StewardUi {
                 answer.put("verifiedAt", who.verifiedAt().toString());
             }
             answer.put("relyingPartyId", webauthn.relyingPartyId());
+            avatarOf(who.discordId()).ifPresent(url -> answer.put("discordAvatarUrl", url));
         });
         discord.whatIsMissing().ifPresent(missing -> answer.put("signInUnavailable", missing));
         // Said out loud rather than in a footnote, and since packages C and D it is the whole of

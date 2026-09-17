@@ -655,6 +655,48 @@ class StewardUiIntegrationTest {
     }
 
     @Test
+    @DisplayName("steward/91: /api/me carries the Discord avatar of the same person row "
+            + "/api/people would print, and never fails without one")
+    void whoAmICarriesTheDiscordAvatar() throws Exception {
+        // No `discord_user` row for "1" exists anywhere else in this class - every other test in
+        // here signs in as "1" and none of them ever mirrors a Discord profile onto it. So this is
+        // the fallback case FIRST, exactly as every other test already exercises it without
+        // knowing: signed in, no person row, and the answer must not carry the field at all.
+        final JsonObject withoutARow = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+        assertFalse(withoutARow.has("discordAvatarUrl"), withoutARow.toString());
+
+        try (var connection = data.dataSource().getConnection();
+             var insert = connection.prepareStatement(
+                     "INSERT INTO discord_user (discord_id, discord_avatar_url) VALUES ('1', ?)")) {
+            insert.setString(1, "https://cdn.discordapp.com/avatars/1/a.png");
+            insert.executeUpdate();
+        }
+        try {
+            final JsonObject withARow = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+            assertEquals("https://cdn.discordapp.com/avatars/1/a.png",
+                    withARow.get("discordAvatarUrl").getAsString(), withARow.toString());
+
+            // A row that exists but was never mirrored a picture is the same fallback as no row -
+            // NULL, not empty text, is what the schema writes for that (V21).
+            try (var connection = data.dataSource().getConnection();
+                 var clearIt = connection.prepareStatement(
+                         "UPDATE discord_user SET discord_avatar_url = NULL WHERE discord_id = '1'")) {
+                clearIt.executeUpdate();
+            }
+            final JsonObject withANullColumn = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+            assertFalse(withANullColumn.has("discordAvatarUrl"), withANullColumn.toString());
+        } finally {
+            // Every other test in this class signs in as "1" and expects the fallback state, so
+            // the row this test wrote must not outlive it.
+            try (var connection = data.dataSource().getConnection();
+                 var delete = connection.prepareStatement(
+                         "DELETE FROM discord_user WHERE discord_id = '1'")) {
+                delete.executeUpdate();
+            }
+        }
+    }
+
+    @Test
     @DisplayName("the cookie outlives the app being closed, and says so in its own attributes")
     void theCookieSurvivesTheAppBeingClosed() throws Exception {
         // WHY THIS IS ASSERTED ON THE WIRE AND NOT ON A SETTER. Every one of these is a default

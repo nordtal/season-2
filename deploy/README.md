@@ -747,8 +747,22 @@ its readability, which is checked when it is written and again before a restore 
 `deploy/restore-test.sh` pins which names are recognised and that the confirmation cannot be
 satisfied by "yes", by a bare Return or by a neighbouring volume's name; it runs on `check`.
 
-**A restore of the real season database has not been rehearsed** — that needs the host and an
-evening. A green script is not a rehearsed restore.
+**Both halves were rehearsed on 2026-09-17** (steward/88), on this host, against that morning's
+`024500Z` backup: a `pg_dump` into a `restore_<stamp>` database beside the live one, and a volume
+archive over `steward-ui-config`. Two things the rehearsal found, neither of which is a defect and
+both of which will mislead the next person who checks the result:
+
+- **`restore.sh` starts the services it stopped again, and they write into the volume on start.**
+  A restored volume is therefore not byte for byte the archive once the service is up: for
+  `steward-ui-config` the two `*.schema.json` are rewritten from the running jar's `@ConfigSpec`
+  and the two `*.env-overrides.txt` are written afresh. Four of the six files match the archive's
+  checksums exactly; the schema does not, because the jar has moved on since the archive.
+- **Checking "did it really unpack" by looking for files that should have disappeared does not
+  work**, for that same reason — the service recreates its own within the second. What separates an
+  unpacked file from one that was merely left alone is **`ctime`**: `tar` restores the mtime and
+  cannot forge the ctime. After the rehearsal the four config files carried yesterday's mtime and a
+  ctime from the minute of the restore, and the service's four carried a ctime one second later.
+  That one second is the whole sequence: tar first, service second.
 
 ### The world volumes are a different problem
 

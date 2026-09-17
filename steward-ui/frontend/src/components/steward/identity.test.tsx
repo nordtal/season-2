@@ -79,6 +79,30 @@ describe("PersonIdentity - closed, the id is never drawn", () => {
   })
 })
 
+describe("PersonIdentity - system, steward/82", () => {
+  it("shows Steward and never opens a popover, since there is no id behind it", () => {
+    render(<PersonIdentity system now={NOW} />)
+
+    expect(screen.getByText("Steward")).toBeTruthy()
+    expect(screen.queryByRole("button")).toBeNull()
+  })
+
+  it("ignores a person's fields when system is set, rather than drawing them beside Steward", () => {
+    render(
+      <PersonIdentity
+        system
+        discordId={DISCORD_ID}
+        discordDisplayName="Ally"
+        now={NOW}
+      />,
+    )
+
+    expect(screen.getByText("Steward")).toBeTruthy()
+    expect(screen.queryByText("Ally")).toBeNull()
+    expect(document.body.textContent).not.toContain(DISCORD_ID)
+  })
+})
+
 describe("PersonIdentity - opened, the popover is the one place to copy from", () => {
   it("reveals the Discord id once the popover is opened", async () => {
     render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" now={NOW} />)

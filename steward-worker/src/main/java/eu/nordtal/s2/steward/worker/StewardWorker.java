@@ -2,6 +2,8 @@ package eu.nordtal.s2.steward.worker;
 
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.online.OnlineDirectory;
+import eu.nordtal.s2.common.audit.AuditDirectory;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.metric.MetricDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
@@ -445,6 +447,9 @@ public final class StewardWorker {
                 // runner starts and commits the countdown on the row it is running. Two would be
                 // two pools for one table.
                 final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
+                // Read-only, for ActionsApi's feed (steward/82) - the run loop above never touches
+                // audit_log, so this is the one directory this method opens purely for the API.
+                final AuditDirectory audit = AuditDirectory.using(database.dataSource());
                 // What steward-ui reads this container through (§3). It is started after the
                 // readiness marker for the same reason the sampler is: nothing in the stack waits
                 // for this API, and a container that would not come up because a web layer failed
@@ -453,8 +458,11 @@ public final class StewardWorker {
                         new Console(docker, config.docker().project()), new HostMetrics(),
                         config.docker().project(), Path.of(config.backup().outputRoot()),
                         config.api().token(), Path.of(config.api().configsRoot()),
-                        Path.of(config.volumesRoot()),
-                        new WorkerApi.Nightly(config.backup().at(), ZoneId.systemDefault()))) {
+                        Path.of(config.volumesRoot()), updates, audit,
+                        new WorkerApi.Nightly(config.backup().at(), ZoneId.systemDefault()),
+                        // The player counts network-control writes (steward/86). Same pool again -
+                        // four rows read per service table, and no second connection for them.
+                        OnlineDirectory.using(database.dataSource()))) {
                     if (config.api().token().isBlank()) {
                         log.warn("api.token is empty, so the internal API is not listening and"
                                 + " steward-ui cannot read this container. Updates and backups are"

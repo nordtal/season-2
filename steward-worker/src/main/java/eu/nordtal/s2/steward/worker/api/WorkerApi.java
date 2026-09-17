@@ -1,6 +1,9 @@
 package eu.nordtal.s2.steward.worker.api;
 
 import com.google.gson.Gson;
+import eu.nordtal.s2.common.audit.AuditDirectory;
+import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.common.online.OnlineDirectory;
 import eu.nordtal.s2.steward.worker.backup.NightlyClock;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
 import eu.nordtal.s2.steward.worker.docker.Console;
@@ -184,13 +187,26 @@ public final class WorkerApi implements AutoCloseable {
 
     private final ConfigApi configs;
     private final MessagesApi messages;
+    private final ActionsApi actions;
+
+    /**
+     * The player counts, or {@code null} on a deployment that has no database to read them from.
+     *
+     * <p>Nullable and not an empty {@link ServicesApi}, because the two are different states worth
+     * keeping apart at the wiring: no directory at all is a test or a stack without Postgres, and
+     * an empty answer is network-control not having written recently. Both leave the field off a
+     * row - see {@link #describe} - which is the whole point (steward/86).
+     */
+    private final @org.jetbrains.annotations.Nullable ServicesApi players;
 
     public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
                      final @NotNull Console console, final @NotNull HostMetrics host,
                      final @NotNull String project, final @NotNull Path backups,
                      final @NotNull String token, final @NotNull Path configs,
+                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
                      final @NotNull Nightly nightly) {
-        this(docker, ops, console, host, project, backups, token, configs, null, nightly);
+        this(docker, ops, console, host, project, backups, token, configs, null, updates, audit,
+                nightly);
     }
 
     /**
@@ -201,13 +217,38 @@ public final class WorkerApi implements AutoCloseable {
      *                    skips that second lookup rather than failing - a bundle whose jar cannot be
      *                    found is left off the list (see {@code MessageBundles#discover}), not this
      *                    process refusing to start over a mount most tests do not need.
+     * @param updates     {@code update_request}, already opened over this process's own pool - see
+     *                    {@code StewardWorker#serve} for why one directory is shared between this API
+     *                    and the run loop rather than two directories over the same table
+     * @param audit       {@code audit_log}, opened the same way. Both feed {@link ActionsApi} and
+     *                    nothing else here reads either directory - {@link #WorkerApi} otherwise
+     *                    talks to Docker and the filesystem, never the database, on purpose (§3)
      */
     public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
                      final @NotNull Console console, final @NotNull HostMetrics host,
                      final @NotNull String project, final @NotNull Path backups,
                      final @NotNull String token, final @NotNull Path configs,
                      final @org.jetbrains.annotations.Nullable Path volumesRoot,
+                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
                      final @NotNull Nightly nightly) {
+        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates,
+                audit, nightly, null);
+    }
+
+    /**
+     * @param online where the player counts come from, or {@code null} for a deployment with no
+     *               database behind this API. See {@link ServicesApi} for why a subject it cannot
+     *               vouch for is left out of the answer rather than sent as {@code 0} (steward/86).
+     */
+    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
+                     final @NotNull Console console, final @NotNull HostMetrics host,
+                     final @NotNull String project, final @NotNull Path backups,
+                     final @NotNull String token, final @NotNull Path configs,
+                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
+                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
+                     final @NotNull Nightly nightly,
+                     final @org.jetbrains.annotations.Nullable OnlineDirectory online) {
+        this.players = online == null ? null : new ServicesApi(online);
         this.docker = docker;
         this.ops = ops;
         this.console = console;
@@ -223,6 +264,9 @@ public final class WorkerApi implements AutoCloseable {
         // A message bundle is not a config file - see MessagesApi's own javadoc for why it is kept
         // apart rather than folded into ConfigApi (steward/48).
         this.messages = new MessagesApi(configs, volumesRoot);
+        // The unified "latest actions" feed (steward/82) - see ActionsApi's own javadoc for why one
+        // query over two tables and not a merge on the frontend's side.
+        this.actions = new ActionsApi(updates, audit);
         // Here rather than at the field, because it reads `ops`, which is a constructor argument.
         this.drift = new Refreshed<>(() -> new Drift(ops.images(), Instant.now()), DRIFT_TTL,
                 driftRefresh, Instant::now);
@@ -404,6 +448,11 @@ public final class WorkerApi implements AutoCloseable {
             // What is actually on the disk, not what a run reported. A backup list read from the
             // report is a list of things somebody meant to write.
             config.routes.get("/api/backups", ctx -> ctx.json(archives()));
+
+            // The unified "latest actions" feed (steward/82) - the newest few rows across
+            // update_request and audit_log, merged and sorted here rather than by the interface.
+            // See ActionsApi's own javadoc for why it is one query and not two.
+            config.routes.get("/api/actions", actions::list);
         }).start(port);
 
         log.info("the internal API is on {} - steward-ui reads the daemon through it", port);
@@ -469,11 +518,14 @@ public final class WorkerApi implements AutoCloseable {
         final List<Docker.Container> containers = docker.containers(project).stream()
                 .filter(container -> container.service() != null)
                 .toList();
+        // Once for the whole table, not once per row: it is a single read of four rows, and four
+        // reads of it would also let two rows of one answer disagree about the same instant.
+        final Map<String, Integer> counts = online();
         final List<Map<String, Object>> all;
         try (var scope = Executors.newVirtualThreadPerTaskExecutor()) {
             all = scope.invokeAll(containers.stream()
                             .map(container -> (java.util.concurrent.Callable<Map<String, Object>>)
-                                    () -> describe(container, drift))
+                                    () -> describe(container, drift, counts))
                             .toList()).stream()
                     .map(WorkerApi::resultOf)
                     .toList();
@@ -511,7 +563,17 @@ public final class WorkerApi implements AutoCloseable {
         return drift.get();
     }
 
-    private Map<String, Object> describe(final Docker.Container container, final ImageResult drift) {
+    /**
+     * One row.
+     *
+     * <p>{@code players} is written only for a service {@code counts} actually names. A service it
+     * does not name has NO {@code players} key at all - not {@code 0} and not {@code null} - because
+     * "nobody is connected" and "network-control has not said" are different answers and a dashboard
+     * that draws the second as the first is the failure {@code ImageResult.State.UNKNOWN} already
+     * exists to prevent. See {@link ServicesApi} (steward/86).
+     */
+    private Map<String, Object> describe(final Docker.Container container, final ImageResult drift,
+                                         final Map<String, Integer> counts) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("service", container.service());
         row.put("containerId", container.id());
@@ -520,6 +582,10 @@ public final class WorkerApi implements AutoCloseable {
         row.put("status", container.status());
         row.put("hasConsole", Console.has(container.service()));
         row.put("drift", drift.state(container.service()).name());
+        final Integer connected = counts.get(container.service());
+        if (connected != null) {
+            row.put("players", connected);
+        }
         if (container.isRunning()) {
             try {
                 final Docker.Inspection inspection = docker.inspect(container.id());
@@ -538,13 +604,18 @@ public final class WorkerApi implements AutoCloseable {
         return row;
     }
 
+    /** The player counts as they stand, or an empty map - never a guessed zero. */
+    private Map<String, Integer> online() {
+        return players == null ? Map.of() : players.players();
+    }
+
     private Optional<Map<String, Object>> service(final String name) {
         final ImageResult drift = drift().result();
         return docker.containers(project).stream()
                 .filter(container -> name.equals(container.service()))
                 .findFirst()
                 .map(container -> {
-                    final Map<String, Object> row = describe(container, drift);
+                    final Map<String, Object> row = describe(container, drift, online());
                     row.put("digests", docker.repoDigests(container.imageId()));
                     row.put("logLimit", "docker keeps up to 50 MB per container (5 x 10 MB) and "
                             + "nothing older; recreating the container starts that again");

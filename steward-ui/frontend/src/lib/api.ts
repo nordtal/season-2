@@ -490,6 +490,24 @@ export type JournalEntry = {
 }
 
 /**
+ * One row of steward-worker's `/api/actions` (steward/82) - a run from `update_request` or a line
+ * from `audit_log`, already merged and sorted by the worker into one feed, newest first.
+ *
+ * `actorDiscordId` and `actorLabel` are `""`, never absent, when there is nothing to show in that
+ * slot - `eu.nordtal.s2.steward.worker.api.ActionEntry`'s own header comment says why a record's
+ * field cannot simply be left out the way a map's can. `system` decides between the two: true means
+ * neither field means anything and `PersonIdentity`'s `system` prop draws Steward instead of either.
+ */
+export type Action = {
+  kind: string
+  occurred: string
+  extent: string
+  actorDiscordId: string
+  actorLabel: string
+  system: boolean
+}
+
+/**
  * One config file under the mount.
  *
  * `path` is the identity - `steward-worker/steward.yml`, or `smp/nordtal-smp/config.yml` for a

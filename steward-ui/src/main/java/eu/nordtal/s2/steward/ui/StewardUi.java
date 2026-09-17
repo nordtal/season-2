@@ -369,9 +369,21 @@ public final class StewardUi {
             // a header from - so this is the one hook that sees both. See `cacheHeaders`.
             cfg.routes.after(StewardUi::cacheHeaders);
 
-            cfg.routes.get("/api/health", ctx -> ctx.json(Map.of(
-                    "status", "ok",
-                    "worker", worker.isReachable())), Gate.ANYONE);
+            cfg.routes.get("/api/health", this::health, Gate.ANYONE);
+            // steward/85: Javalin discards the BODY of a HEAD request at the wire layer, but its
+            // own routing never carries that far - `guard`, on `beforeMatched`, reads
+            // `ctx.routeRoles()` before any handler runs, and that lookup is keyed to the exact
+            // HTTP method. With no route ever registered for HEAD, it saw zero decided roles and
+            // `gateOf` refused the request as an undecided route: a 500 that named a fault this
+            // service does not have, on the one path a monitor tries first because it is cheaper
+            // than GET. Confirmed generic to every `/api` GET route (`/api/me` breaks the same
+            // way) and not caused by the `after`-stage steward/79 added - `guard` throws before
+            // `after` ever runs, over a mechanism that predates it. The general fix would be a
+            // stage that answers every HEAD from its GET's own decision; that is a bigger change
+            // than this ticket asks for, so only the one route an outside watcher would actually
+            // reach is given its own explicit HEAD registration. If a monitor is ever pointed at
+            // another `/api` route, HEAD on it still 500s - failing closed, loudly, not open.
+            cfg.routes.head("/api/health", this::health, Gate.ANYONE);
 
             // WHO MAY SIGN IN IS ANSWERED BEFORE ANYTHING ELSE IS SERVED. The sign-in page itself
             // needs to be readable without a session, and so does the static bundle - everything
@@ -449,6 +461,12 @@ public final class StewardUi {
             cfg.routes.get("/api/deployer/jobs", deployments::jobs, Gate.KEY_HELD);
             cfg.routes.get("/api/deployer/jobs/{id}", deployments::job, Gate.KEY_HELD);
 
+            // The unified "latest actions" feed (steward/82). It carries `?limit=`, so it goes
+            // through forwardedQuery like the log search does - a passThrough that names the bare
+            // path drops the query string silently, and the worker would answer its own default
+            // while the browser believed it had asked for a number.
+            cfg.routes.get("/api/actions", ctx -> passThrough(ctx,
+                    "/api/actions" + forwardedQuery(ctx.queryString())), Gate.KEY_HELD);
             cfg.routes.get("/api/host", ctx -> passThrough(ctx, "/api/host"), Gate.KEY_HELD);
             // What "tonight" means on the host, rather than in whatever zone the browser is in.
             cfg.routes.get("/api/schedule", ctx -> passThrough(ctx, "/api/schedule"), Gate.KEY_HELD);
@@ -1375,6 +1393,15 @@ public final class StewardUi {
             listed.add(one);
         }
         return listed;
+    }
+
+    /**
+     * The answer for both {@code GET} and {@code HEAD /api/health} - see the registration above
+     * (steward/85) for why the second one has to be its own route rather than something Javalin
+     * hands it for free.
+     */
+    private void health(final Context ctx) {
+        ctx.json(Map.of("status", "ok", "worker", worker.isReachable()));
     }
 
     private void whoAmI(final Context ctx) {

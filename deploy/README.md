@@ -481,6 +481,30 @@ docker inspect -f '{{.State.Health.Status}}' "$PROJECT-steward-ui-1"   # wait fo
 `--no-deps` is the word that keeps it to one service: without it Compose recreates everything
 `steward-ui` depends on, which is `postgres` and `steward-worker`, which is the network.
 
+**A new image is not a new process for two of these three, and that has now cost two rollouts.**
+`steward-ui` runs the jar the image carries, at `/app/app.jar`. `steward-worker` and `discord-bot`
+do **not**: they run the jar out of a volume — `nordtal-s2_steward-worker-jar` at
+`/volumes/steward-worker/steward-worker-0.9.1.jar`, and `nordtal-s2_bot-jar` at
+`/app/lib/discord-bot-0.9.1.jar`. Rebuilding and recreating those two containers deploys nothing:
+the new jar sits at `/app/app.jar`, unused, and the volume's older copy keeps running. On
+2026-09-17 that copy was a day and a half old, and the matching file **size** at the image path is
+what made it look deployed.
+
+> **Ask the process, not the filesystem:**
+> ```bash
+> docker exec nordtal-s2-discord-bot-1 cat /proc/1/cmdline | tr '\0' ' '
+> ```
+> That prints the jar actually running. Replace *that* path, then restart:
+> ```bash
+> docker run --rm -v nordtal-s2_bot-jar:/vol -v "$PWD/discord-bot/build/libs:/src:ro" alpine \
+>   sh -c 'cp /src/discord-bot-0.9.1.jar /vol/discord-bot-0.9.1.jar'
+> docker restart nordtal-s2-discord-bot-1
+> ```
+> Compare the md5 on both sides before restarting; "Built" and "Recreated" are not evidence that
+> anything moved. This is the same trap in a second shape as the one under [The
+> images](#the-images): a Dockerfile that only copies a jar reports success whether or not
+> `shadowJar` ran.
+
 **`-f` has to be said, and the reason is worth a paragraph.** Counted on the dev host on
 2026-09-14, `com.docker.compose.project.config_files` across the ten running containers said two
 different things, and neither is a path a person can open:

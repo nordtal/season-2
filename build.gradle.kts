@@ -130,4 +130,28 @@ val checkRestore = tasks.register<Exec>("checkRestore") {
     }
 }
 
-tasks.named("check") { dependsOn(checkEntrypoint, checkDev, checkSetup, checkRestore) }
+// And the fifth, but shaped differently from the other four: it has no single script it is a test
+// FOR. season-2-ops/27 found that `pipefail` turns an early-exiting pipe reader's SIGPIPE into the
+// whole pipeline's exit status - `| head`, `| grep -q` and anything shaped the same way - and that
+// the only way the four instances of it got fixed was a person running `grep -rn` by hand. This
+// scans every script under `pipefail` for the pattern instead, with a hand-written exception list
+// for whichever hit turns out to be harmless (deploy/pipe-safety-test.sh's own header explains why
+// that has to be a decision and not a rule). Inputs are the whole `deploy/` tree rather than one
+// script and its test, because that dynamic discovery - not a fixed pair of files - is the point.
+val pipeSafetyTest = layout.projectDirectory.file("deploy/pipe-safety-test.sh")
+
+val checkPipeSafety = tasks.register<Exec>("checkPipeSafety") {
+    group = "verification"
+    description = "Scans every pipefail script under deploy/ for an early-terminating pipe reader (season-2-ops/27)."
+    commandLine("bash", pipeSafetyTest.asFile.absolutePath)
+    // The whole directory, not just the guard script: it discovers its targets at run time, so
+    // Gradle has to invalidate on any change under deploy/, not only on the guard itself.
+    inputs.dir(layout.projectDirectory.dir("deploy")).withPropertyName("deploy")
+    val marker = layout.buildDirectory.file("checkPipeSafety/passed")
+    outputs.file(marker).withPropertyName("marker")
+    doLast {
+        marker.get().asFile.apply { parentFile.mkdirs() }.writeText("passed\n")
+    }
+}
+
+tasks.named("check") { dependsOn(checkEntrypoint, checkDev, checkSetup, checkRestore, checkPipeSafety) }

@@ -72,7 +72,13 @@ reset_confirmed() {
 
 cd "$ROOT"
 
-version() { sed -n 's/^version=//p' gradle.properties | head -n1; }
+# `sed -n '1p'`, not `head -n1` (season-2-ops/27, 2026-09-17): head closes the pipe the moment it
+# has its line, and under this file's `set -Eeuo pipefail` that turns sed's SIGPIPE into this
+# function's exit status. gradle.properties carries exactly one `version=` line by design (one
+# repo-wide version drives every artifact - see the root CLAUDE.md), so this almost never showed,
+# which is exactly the shape of the bug: found while building the season-2-ops/27 guard, not by
+# anyone hitting it.
+version() { sed -n 's/^version=//p' gradle.properties | sed -n '1p'; }
 
 compose() {
     [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is not there. Run: deploy/dev init"
@@ -115,7 +121,10 @@ compose_project() {
     # file instead of assuming the default.
     local value
     value="$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' "$ENV_FILE" 2>/dev/null | tail -n1)"
-    [[ -n "$value" ]] || value="$(sed -n 's/^name: *//p' "$ROOT/compose.yml" 2>/dev/null | head -n1)"
+    # `sed -n '1p'`, not `head -n1` - same reason as version() above: compose.yml's top-level
+    # `name:` is unique by construction, but the anti-pattern is the same regardless of how likely
+    # a second match is (season-2-ops/27).
+    [[ -n "$value" ]] || value="$(sed -n 's/^name: *//p' "$ROOT/compose.yml" 2>/dev/null | sed -n '1p')"
     [[ -n "$value" ]] || value="$(basename "$ROOT" | tr '[:upper:]' '[:lower:]')"
     printf '%s' "$value"
 }
@@ -298,8 +307,12 @@ repository and in no release."
     # name alone until 2026-09-06, so a single mc-smp volume belonging to another compose project on
     # this machine passed the "exactly one" check and was deleted (finding 113).
     local volume
+    # `sed -n '1p'`, not `head -n1` (season-2-ops/27, 2026-09-17): `compose ps -aq` is a real
+    # subprocess, not a small sed match, and the comment three lines up already anticipates more
+    # than one container answering for this service - exactly the case where head closing the pipe
+    # early can turn an ordinary lookup into a SIGPIPE under this file's `set -Eeuo pipefail`.
     volume="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' \
-        "$(compose ps -aq "$service" 2>/dev/null | head -n1)" 2>/dev/null || true)"
+        "$(compose ps -aq "$service" 2>/dev/null | sed -n '1p')" 2>/dev/null || true)"
     compose rm -sf "$service"
     if [[ -z "$volume" ]]; then
         volume="$(docker volume ls -q \

@@ -72,7 +72,9 @@ public final class ActionsApi {
     /** {@code GET /api/actions?limit=n} - a bare JSON array, newest first. */
     public void list(final @NotNull Context ctx) {
         final int limit = ctx.queryParamAsClass("limit", Integer.class).getOrDefault(DEFAULT_LIMIT);
-        ctx.json(recent(limit));
+        // Through json(), never the records themselves - see ActionEntry#json for the Instant
+        // that leaves as {"seconds":...,"nanos":...} otherwise.
+        ctx.json(recent(limit).stream().map(ActionEntry::json).toList());
     }
 
     /**

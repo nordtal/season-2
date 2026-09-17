@@ -5,12 +5,14 @@ import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -140,5 +142,17 @@ class ActionEntryTest {
         final ActionEntry entry = ActionEntry.of(new AuditEntry(UUID.randomUUID(), FINISHED,
                 "LINK", null, null, UUID.randomUUID(), null));
         assertEquals("LINK", entry.extent());
+    }
+
+    @Test
+    @DisplayName("the moment leaves as text, not as the seconds and nanos an Instant is made of")
+    void occurredIsSentAsATextTimestamp() {
+        final ActionEntry entry = new ActionEntry("UPDATE", Instant.parse("2026-09-17T00:55:04.879Z"),
+                "1/1 successful", "", "", true);
+        final Object occurred = entry.json().get("occurred");
+        assertInstanceOf(String.class, occurred,
+                "api.ts types this field String and hands it to relative() - an object here is an"
+                + " invalid date in every row of the feed");
+        assertEquals("2026-09-17T00:55:04.879Z", occurred);
     }
 }

@@ -276,7 +276,7 @@ public interface StewardSpec {
             "",
             "WITHOUT THE SOCKET MOUNTED NOTHING HERE FAILS: the drift check and the metrics say",
             "they could not look, which is a different answer from `everything is current` - and",
-            "confusing those two is what let four releases run behind unnoticed (todo.md A24)."
+            "confusing those two is what let four releases run behind unnoticed."
     })
     DockerSpec docker();
 
@@ -523,7 +523,7 @@ public interface StewardSpec {
                 "WHERE a snapshot goes is backup.output-root, on this host. There is no offsite",
                 "copy yet: §9a's Storage Box does not exist, so every archive is on the same disk",
                 "as the thing it is a copy of, and backup.keep of them protect against a mistake",
-                "and against nothing else. todo.md A29 is where that is being chased."
+                "and against nothing else."
         })
         default List<String> volumes() {
             return List.of("nordtal-s2_mc-smp",

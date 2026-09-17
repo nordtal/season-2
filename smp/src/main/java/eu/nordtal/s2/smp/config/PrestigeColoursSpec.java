@@ -3,7 +3,9 @@ package eu.nordtal.s2.smp.config;
 import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
@@ -50,12 +52,14 @@ public interface PrestigeColoursSpec {
             "tier's default is anywhere near it, so an admin's name never reads as \"maybe a high",
             "tier\" by accident."
     })
+    @Explain("Overrides every prestige tier below - not a fourteenth tier of its own.")
     default String admin() {
         return "#ff5555";
     }
 
     @Order(2) @Key("prestige")
     @Comment("The thirteen prestige tiers, low to high. Tier 1 is everybody's from their first second.")
+    @NoExplanationNeeded
     default TierSpec prestige() {
         // createDefault fills the instance from TierSpec's own default bodies, so the thirteen hex
         // strings exist exactly once - the same reason NetworkSpec.MotdSpec is built this way.
@@ -68,54 +72,67 @@ public interface PrestigeColoursSpec {
 
         @Order(1) @Key("tier-01")
         @Comment("Teal - the colour of a crest nobody has worn for long.")
+        @NoExplanationNeeded
         default String tier01() { return "#5fbfae"; }
 
         @Order(2) @Key("tier-02")
         @Comment("Sky blue.")
+        @NoExplanationNeeded
         default String tier02() { return "#5ea9d6"; }
 
         @Order(3) @Key("tier-03")
         @Comment("Cornflower.")
+        @NoExplanationNeeded
         default String tier03() { return "#6f93e0"; }
 
         @Order(4) @Key("tier-04")
         @Comment("Periwinkle.")
+        @NoExplanationNeeded
         default String tier04() { return "#8f83e6"; }
 
         @Order(5) @Key("tier-05")
         @Comment("Violet.")
+        @NoExplanationNeeded
         default String tier05() { return "#a878e0"; }
 
         @Order(6) @Key("tier-06")
         @Comment("Orchid.")
+        @NoExplanationNeeded
         default String tier06() { return "#c96fd6"; }
 
         @Order(7) @Key("tier-07")
         @Comment("Rose.")
+        @NoExplanationNeeded
         default String tier07() { return "#dd6fae"; }
 
         @Order(8) @Key("tier-08")
         @Comment("Coral.")
+        @NoExplanationNeeded
         default String tier08() { return "#e07d78"; }
 
         @Order(9) @Key("tier-09")
         @Comment("Orange.")
+        @NoExplanationNeeded
         default String tier09() { return "#e2984f"; }
 
         @Order(10) @Key("tier-10")
         @Comment("Gold.")
+        @NoExplanationNeeded
         default String tier10() { return "#dbb043"; }
 
         @Order(11) @Key("tier-11")
         @Comment("Bright gold.")
+        @NoExplanationNeeded
         default String tier11() { return "#e8d35a"; }
 
         @Order(12) @Key("tier-12")
         @Comment("Radiant gold.")
+        @NoExplanationNeeded
         default String tier12() { return "#f0dc70"; }
 
         @Order(13) @Key("tier-13")
         @Comment("Legend - the brightest, warmest colour of all fourteen (thirteen tiers plus admin).")
+        @NoExplanationNeeded
         default String tier13() { return "#fff6d8"; }
     }
 }

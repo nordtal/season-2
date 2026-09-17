@@ -2,7 +2,9 @@ package eu.nordtal.s2.limbo.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
@@ -34,6 +36,7 @@ public interface DatabaseSpec {
     @Order(1)
     @Key("jdbc-url")
     @Comment("JDBC URL of the PostgreSQL database that holds the season 2 schema.")
+    @Explain("The full JDBC connection string, including the database name.")
     default String jdbcUrl() {
         return "jdbc:postgresql://localhost:5432/nordtal";
     }
@@ -41,6 +44,7 @@ public interface DatabaseSpec {
     @Order(2)
     @Key("username")
     @Comment("Database user.")
+    @NoExplanationNeeded
     default String username() {
         return "limbo";
     }
@@ -48,6 +52,7 @@ public interface DatabaseSpec {
     @Order(3)
     @Key("password")
     @Comment("Database password. Prefer NORDTAL_LIMBO_DATABASE_PASSWORD in production.")
+    @NoExplanationNeeded
     default String password() {
         return "";
     }
@@ -58,6 +63,7 @@ public interface DatabaseSpec {
             "Upper bound of the HikariCP pool. Smaller than the other modules' on purpose: this",
             "one makes a single indexed lookup per join and nothing else, ever."
     })
+    @NoExplanationNeeded
     default int maximumPoolSize() {
         return 3;
     }
@@ -74,6 +80,7 @@ public interface DatabaseSpec {
             "wait happens, not how long it lasts: a struggling database should fail fast onto the",
             "English fallback rather than queue joins behind itself."
     })
+    @Explain("Limits both waiting for a free connection and a query already running - a low value falls back to the English messages faster.")
     default int queryTimeoutSeconds() {
         return 3;
     }

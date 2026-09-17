@@ -2,7 +2,9 @@ package eu.nordtal.s2.discordbot.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
@@ -36,6 +38,7 @@ public interface BotSpec {
     @Key("token")
     @Comment("Discord bot token. Set NORDTAL_BOT_TOKEN instead of filling this in.")
     @Secret
+    @NoExplanationNeeded
     default String token() {
         return "";
     }
@@ -43,6 +46,7 @@ public interface BotSpec {
     @Order(2)
     @Key("bunq")
     @Comment("bunq API access.")
+    @NoExplanationNeeded
     BunqSpec bunq();
 
     /** bunq credentials and the API context location. */
@@ -53,6 +57,7 @@ public interface BotSpec {
         @Key("api-key")
         @Comment("bunq API key. Set NORDTAL_BOT_BUNQ_API_KEY instead of filling this in.")
         @Secret
+        @NoExplanationNeeded
         default String apiKey() {
             return "";
         }
@@ -63,6 +68,7 @@ public interface BotSpec {
                 "The bunq monetary account id that is polled and billed.",
                 "A number. The bot will not start if it is empty or not numeric."
         })
+        @Explain("A number, not an IBAN or alias - the bot refuses to start if it is empty or non-numeric.")
         default String accountId() {
             return "";
         }
@@ -78,6 +84,7 @@ public interface BotSpec {
                 "Docker-managed volume, never on the host filesystem.",
                 "Empty means the working directory."
         })
+        @Explain("Where the bunq API context file (holds credentials) is kept; empty uses the working directory.")
         default String contextPath() {
             return "";
         }

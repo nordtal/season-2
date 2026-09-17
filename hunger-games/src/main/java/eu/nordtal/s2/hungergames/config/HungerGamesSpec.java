@@ -2,7 +2,9 @@ package eu.nordtal.s2.hungergames.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
 
@@ -54,6 +56,7 @@ public interface HungerGamesSpec {
     @Order(1)
     @Key("countdown-seconds")
     @Comment("How long players are frozen on their spawn towers before release.")
+    @Explain("How long players are frozen on their spawn towers before release.")
     default int countdownSeconds() {
         return 60;
     }
@@ -67,6 +70,7 @@ public interface HungerGamesSpec {
                     + HARD_MINIMUM_PARTICIPANTS + " below which",
             "the command refuses outright is arithmetic, not configurable."
     })
+    @Explain("Below this, /hg start asks for confirmation instead of refusing outright; the hard floor is arithmetic and not configurable.")
     default int softMinimumParticipants() {
         return 4;
     }
@@ -74,6 +78,7 @@ public interface HungerGamesSpec {
     @Order(3)
     @Key("border-start-diameter")
     @Comment("The world border's diameter at the start of the game, in blocks.")
+    @NoExplanationNeeded
     default double borderStartDiameter() {
         return 250.0;
     }
@@ -81,6 +86,7 @@ public interface HungerGamesSpec {
     @Order(4)
     @Key("border-end-diameter")
     @Comment("The floor the border shrinks to and never passes, in blocks.")
+    @NoExplanationNeeded
     default double borderEndDiameter() {
         return 1.0;
     }
@@ -96,6 +102,7 @@ public interface HungerGamesSpec {
             "diameter-blocks/s is a 3.0 blocks/s wall, about 70% of that, leaving margin for a",
             "player who has to dodge terrain or another player."
     })
+    @Explain("Diameter change per second, not wall movement - the wall itself moves at half this rate. Keep it under walking speed (4.317 blocks/s).")
     default double borderWallSpeedBlocksPerSecond() {
         return 6.0;
     }
@@ -109,6 +116,7 @@ public interface HungerGamesSpec {
             "ordinary lulls - looting, travelling, waiting out another fight - do not trigger a",
             "shrink that then fights the next death-triggered one."
     })
+    @Explain("How long without a death before the passive shrink starts.")
     default int borderQuietPeriodSeconds() {
         return 600;
     }
@@ -124,6 +132,7 @@ public interface HungerGamesSpec {
             "same-team final two - eventually gets forced together. A death cancels it and resumes",
             "the death-triggered shrink."
     })
+    @Explain("Diameter-blocks per hour, a much coarser unit than the wall speed above - meant to be barely noticeable and only force a stalemate together.")
     default double borderPassiveShrinkBlocksPerHour() {
         return 15.0;
     }
@@ -131,6 +140,7 @@ public interface HungerGamesSpec {
     @Order(8)
     @Key("pvp-protection-seconds")
     @Comment("How long after release everyone is protected from everyone.")
+    @NoExplanationNeeded
     default int pvpProtectionSeconds() {
         return 60;
     }
@@ -138,6 +148,7 @@ public interface HungerGamesSpec {
     @Order(9)
     @Key("spawn-tower-radius")
     @Comment("Distance from world spawn each spawn tower is placed at, in blocks.")
+    @NoExplanationNeeded
     default double spawnTowerRadius() {
         return 100.0;
     }
@@ -145,6 +156,7 @@ public interface HungerGamesSpec {
     @Order(10)
     @Key("spawn-tower-height")
     @Comment("How far above the world's spawn Y level the tower platforms sit, in blocks.")
+    @NoExplanationNeeded
     default double spawnTowerHeight() {
         return 4.0;
     }
@@ -155,6 +167,7 @@ public interface HungerGamesSpec {
             "The Bukkit world name the event runs in. Not a snowflake - a world folder name, so it",
             "gets a real (placeholder) default like any other id that is not Discord-shaped."
     })
+    @Explain("A placeholder - set it to the real event world's name once the hand-built world exists.")
     default String worldName() {
         return "hunger_games";
     }
@@ -162,6 +175,7 @@ public interface HungerGamesSpec {
     @Order(12)
     @Key("lobby")
     @Comment("The lobby box: its teleport point, the rules/map image grid, and the ready broadcast.")
+    @Explain("The lobby box: teleport point, map/rules image grid, and the periodic ready broadcast.")
     LobbySpec lobby();
 
     @Order(13)
@@ -179,6 +193,7 @@ public interface HungerGamesSpec {
             "    y: 64.0",
             "    z: 0.0"
     })
+    @Explain("Exactly five entries required, each with a unique label - the spawn plus four staggered locations.")
     default List<LootPointSpec> lootPoints() {
         return DefaultLootPoints.LIST;
     }
@@ -195,6 +210,7 @@ public interface HungerGamesSpec {
             "validator. A tier is identified by its delay, so changing 'delay-minutes' on an",
             "existing entry retires that tier."
     })
+    @Explain("A schedule ordered by ascending delay; changing 'delay-minutes' on an existing entry retires that tier.")
     default List<RefillTierSpec> refillTiers() {
         return DefaultRefillTiers.LIST;
     }
@@ -215,6 +231,7 @@ public interface HungerGamesSpec {
             "changed costs one indexed query and writes nothing to ops.json, which is what makes it",
             "affordable to run for the life of the server."
     })
+    @Explain("How often admin status is re-read from the database - this is the guarantee a revoked admin loses operator, not the LISTEN switch below.")
     default int adminPollIntervalSeconds() {
         return 30;
     }
@@ -229,6 +246,7 @@ public interface HungerGamesSpec {
             "else, which is why it is a switch: it is one connection per backend, outside the pool,",
             "parked in a blocking read for the life of the server."
     })
+    @Explain("Makes a revocation feel instant instead of waiting for the next poll; turning it off only costs latency.")
     default boolean adminListenEnabled() {
         return true;
     }
@@ -243,6 +261,7 @@ public interface HungerGamesSpec {
         @Order(1)
         @Key("x")
         @Comment("Lobby teleport point, world coordinates.")
+        @NoExplanationNeeded
         default double x() {
             return 0.0;
         }
@@ -250,6 +269,7 @@ public interface HungerGamesSpec {
         @Order(2)
         @Key("y")
         @Comment("Lobby teleport point, world coordinates.")
+        @NoExplanationNeeded
         default double y() {
             return 200.0;
         }
@@ -257,6 +277,7 @@ public interface HungerGamesSpec {
         @Order(3)
         @Key("z")
         @Comment("Lobby teleport point, world coordinates.")
+        @NoExplanationNeeded
         default double z() {
             return 0.0;
         }
@@ -264,6 +285,7 @@ public interface HungerGamesSpec {
         @Order(4)
         @Key("broadcast-interval-seconds")
         @Comment("How often the ready-check broadcast with its clickable ready button repeats.")
+        @Explain("How often the ready-check broadcast, with its clickable ready button, repeats.")
         default int broadcastIntervalSeconds() {
             return 300;
         }
@@ -275,6 +297,7 @@ public interface HungerGamesSpec {
                 "from hunger-games/src/main/resources/lobby/map-<lang>.png, one per language, at",
                 "3x3 (384x384px). A missing file is logged and skipped, not a startup failure."
         })
+        @Explain("How many maps wide the sliced lobby image is, sliced from map-<lang>.png per language; a missing file is skipped, not a startup failure.")
         default int mapGridColumns() {
             return 3;
         }
@@ -282,6 +305,7 @@ public interface HungerGamesSpec {
         @Order(6)
         @Key("map-grid-rows")
         @Comment("How many Minecraft maps tall the sliced lobby image grid is.")
+        @NoExplanationNeeded
         default int mapGridRows() {
             return 3;
         }
@@ -294,6 +318,7 @@ public interface HungerGamesSpec {
                 "exist at these positions in the hand-built lobby - this plugin only sets each",
                 "frame's map item, it does not place frames."
         })
+        @Explain("The top-left item frame's position - frames must already exist in the hand-built lobby; this plugin sets their map, it does not place them.")
         default int mapFrameOriginX() {
             return 0;
         }
@@ -301,6 +326,7 @@ public interface HungerGamesSpec {
         @Order(8)
         @Key("map-frame-origin-y")
         @Comment("World coordinates of the top-left item frame's block position in the map grid.")
+        @Explain("The top-left item frame's position - frames must already exist in the hand-built lobby; this plugin sets their map, it does not place them.")
         default int mapFrameOriginY() {
             return 196;
         }
@@ -308,6 +334,7 @@ public interface HungerGamesSpec {
         @Order(9)
         @Key("map-frame-origin-z")
         @Comment("World coordinates of the top-left item frame's block position in the map grid.")
+        @Explain("The top-left item frame's position - frames must already exist in the hand-built lobby; this plugin sets their map, it does not place them.")
         default int mapFrameOriginZ() {
             return 0;
         }
@@ -320,6 +347,7 @@ public interface HungerGamesSpec {
         @Order(1)
         @Key("label")
         @Comment("A short identifying label, shown in refill announcements. Must be unique.")
+        @Explain("Shown in refill announcements. Must be unique across all five loot points.")
         default String label() {
             return "spawn";
         }
@@ -327,6 +355,7 @@ public interface HungerGamesSpec {
         @Order(2)
         @Key("x")
         @Comment("World coordinates.")
+        @NoExplanationNeeded
         default double x() {
             return 0.0;
         }
@@ -334,6 +363,7 @@ public interface HungerGamesSpec {
         @Order(3)
         @Key("y")
         @Comment("World coordinates.")
+        @NoExplanationNeeded
         default double y() {
             return 64.0;
         }
@@ -341,6 +371,7 @@ public interface HungerGamesSpec {
         @Order(4)
         @Key("z")
         @Comment("World coordinates.")
+        @NoExplanationNeeded
         default double z() {
             return 0.0;
         }
@@ -353,6 +384,7 @@ public interface HungerGamesSpec {
         @Order(1)
         @Key("delay-minutes")
         @Comment("Minutes after the game's release (end of countdown) this refill happens.")
+        @Explain("Minutes after release this refill happens; changing it on an existing entry retires that tier rather than rescheduling it.")
         default int delayMinutes() {
             return 0;
         }
@@ -364,6 +396,7 @@ public interface HungerGamesSpec {
                 "chest is cleared and restocked with one of each - see LootRefill. Material names",
                 "are validated at load; an unknown one fails the load with the name that is wrong."
         })
+        @Explain("Bukkit material names - every loot chest is cleared and restocked with one of each. An unknown name fails the load.")
         default List<String> items() {
             return List.of("BREAD");
         }

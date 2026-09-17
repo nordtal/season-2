@@ -2,6 +2,7 @@ package eu.nordtal.s2.networkcontrol.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
@@ -59,6 +60,7 @@ public interface PackSpec {
             "glyphs the tab list, the nametags, the boards and the hunger games HUD are drawn",
             "with are in it, and without them those surfaces render as missing-glyph boxes."
     })
+    @Explain("Turning this off does not remove the waiting room, only the pack offer and wait - meant for a development proxy, not production.")
     default boolean enabled() {
         return true;
     }
@@ -78,6 +80,7 @@ public interface PackSpec {
             "target is a SIGNED URL that expires within the hour. Pasting the resolved address",
             "here gives a pack that works this afternoon and fails tonight."
     })
+    @Explain("The github.com/.../releases/download/... URL, never the one it redirects to - that one is signed and expires within the hour.")
     default String url() {
         return "";
     }
@@ -93,6 +96,7 @@ public interface PackSpec {
             "looks exactly like a network problem and is not one. It is also what lets a",
             "client skip the download entirely when it already has this pack cached."
     })
+    @Explain("Never type this by hand or copy it from an older release - a mismatch fails every download on the network at once.")
     default String sha1() {
         return "";
     }
@@ -114,6 +118,7 @@ public interface PackSpec {
             "preventing it. Our own decline and failure screens therefore work by disconnecting",
             "the player first, from inside that awaited event."
     })
+    @Explain("True is the decided value and an emergency lever, not a setting to weigh up - without it, a player who declined before is silently disconnected.")
     default boolean force() {
         return true;
     }
@@ -130,6 +135,7 @@ public interface PackSpec {
             "a rejoin. Generous by design: being too eager kicks somebody who was about to",
             "succeed."
     })
+    @Explain("How long an unanswered pack offer is allowed before the player is disconnected with an explanation; generous on purpose.")
     default int applyTimeoutSeconds() {
         return 180;
     }

@@ -3,7 +3,9 @@ package eu.nordtal.s2.networkcontrol.config;
 import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
@@ -62,6 +64,7 @@ public interface NetworkSpec {
             "rather than fixed with a reservation scheme: the count is read live from the proxy,",
             "and one player over a limit of several hundred is not a state anybody can observe."
     })
+    @Explain("The only real limit on the network - also written into every backend's server.properties, so changing it needs the backends restarted too.")
     default int maxPlayers() {
         return 500;
     }
@@ -81,6 +84,7 @@ public interface NetworkSpec {
             "",
             "A failed refresh keeps the previous snapshot rather than blanking it."
     })
+    @Explain("How often the MOTD's live numbers are refreshed from the database; a ping itself never touches it.")
     default int snapshotRefreshSeconds() {
         return 10;
     }
@@ -115,6 +119,7 @@ public interface NetworkSpec {
             "has published it once a backend filters nothing and says so in its log; this proxy's",
             "own enforcement never waits for anything."
     })
+    @Explain("Every command a non-admin may type anywhere on the network - an allowlist, not permissions: anything not listed is refused.")
     default java.util.List<String> commandAllowlist() {
         return java.util.List.of(
                 // Ours, and only ours. Every vanilla command is deliberately absent, including
@@ -152,6 +157,7 @@ public interface NetworkSpec {
             "{players:<server>} takes a server name as velocity.toml spells it, e.g.",
             "{players:smp}. The three the phases route to are limbo, hunger-games and smp."
     })
+    @NoExplanationNeeded
     default MotdSpec motd() {
         // createDefault fills the instance from MotdSpec's own default bodies, so the strings
         // exist exactly once; a createUnsafe map would be a second copy to keep in step.
@@ -182,6 +188,7 @@ public interface NetworkSpec {
                 "once it has passed it reads as \"any moment now\", because nothing switches the",
                 "phase on its own."
         })
+        @Explain("Before the network has ever opened; {countdown} counts to season_phase.launch.")
         default String preLaunch() {
             return NORDTAL_BLUE
                     + "<newline><gray>Season 2 opens in <white>{countdown}</white></gray>";
@@ -193,6 +200,7 @@ public interface NetworkSpec {
                 "The network is open, the lobby stands and teams register for the hunger games.",
                 "{hg-teams} is what registration has produced so far."
         })
+        @Explain("The lobby phase; {hg-teams} is how many teams have registered so far.")
         default String preEvent() {
             return NORDTAL_BLUE
                     + "<newline><gray>Hunger Games: <white>{hg-participants}</white> players"
@@ -205,6 +213,7 @@ public interface NetworkSpec {
                 "The hunger games themselves, countdown to winner. {hg-alive} is what is left of",
                 "{hg-participants}; both come from the running game and drop to 0 between games."
         })
+        @Explain("The hunger games running; {hg-alive} is what remains of {hg-participants}.")
         default String startEvent() {
             return NORDTAL_BLUE
                     + "<newline><gray>Hunger Games: <white>{hg-alive}</white> of"
@@ -227,6 +236,7 @@ public interface NetworkSpec {
                 "config identifier in the server browser. 'Three of eight done' also says more to",
                 "a stranger than a word they have never seen."
         })
+        @Explain("The season proper; counts finished milestones rather than naming the current one, so there is no spoiler on the server list.")
         default String smp() {
             return NORDTAL_BLUE
                     + "<newline><gray>Season 2 running - <white>{smp-milestones-done}</white> of"
@@ -242,6 +252,7 @@ public interface NetworkSpec {
                 "The second half of the sentence is doing the work: 'Maintenance' on its own, in",
                 "a server list, is what a dead server looks like."
         })
+        @Explain("Shown during planned work - players still get in and wait in limbo; not a closed sign.")
         default String maintenance() {
             return NORDTAL_BLUE
                     + "<newline><gray>Maintenance - back shortly, the season is not over</gray>";

@@ -2,7 +2,9 @@ package eu.nordtal.s2.discordbot.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
@@ -47,6 +49,7 @@ public interface AccessSpec {
             "The one guild the bot manages. Roles are reconciled and members are",
             "resolved against it; the bot ignores every other guild it is in."
     })
+    @Explain("The one Discord guild the bot manages; every other guild it is in is ignored.")
     default String guildId() {
         return "";
     }
@@ -69,6 +72,7 @@ public interface AccessSpec {
             "  - days: 60",
             "    price-cents: 500"
     })
+    @Explain("What can be bought. Entries must be ordered by days ascending with price rising to match; changing 'days' on an entry retires that tier.")
     default List<TierSpec> tiers() {
         return DefaultTiers.LIST;
     }
@@ -81,6 +85,7 @@ public interface AccessSpec {
             "It is also how a payment larger than the order is read: money left over above the",
             "ordered total is a donation once it reaches this amount, and is otherwise ignored."
     })
+    @Explain("The extra amount that grants the donor role - also how a payment above the order total is recognised as a donation.")
     default int donationCents() {
         return 500;
     }
@@ -91,6 +96,7 @@ public interface AccessSpec {
             "Role ids that are not per-language. Snowflakes, as strings - a snowflake does not fit",
             "in a YAML integer safely. Each language's own role is on its entry under 'languages'."
     })
+    @Explain("Role ids that are not specific to a language; a language's own role is on its entry under languages.")
     RolesSpec roles();
 
     @Order(5)
@@ -99,6 +105,7 @@ public interface AccessSpec {
             "Channel ids that are not per-language. Snowflakes, as strings. The buy-access and",
             "account-link channels are on the 'languages' entries below, one pair per language."
     })
+    @Explain("Channel ids that are not specific to a language; a language's own channels are on its entry under languages.")
     ChannelsSpec channels();
 
     @Order(6)
@@ -130,6 +137,7 @@ public interface AccessSpec {
     // touched. `value` is Languages.FALLBACK_TAG rather than a second "en" literal - an annotation
     // value has to be a compile-time constant, and that field already is one.
     @Protected(field = "tag", value = Languages.FALLBACK_TAG)
+    @Explain("Every language the network speaks. The 'en' entry cannot be removed - it is the fallback a missing translation degrades to.")
     default List<LanguageSpec> languages() {
         return DefaultLanguages.LIST;
     }
@@ -137,6 +145,7 @@ public interface AccessSpec {
     @Order(7)
     @Key("payment")
     @Comment("The bunq poll loop and the life cycle of a payment request.")
+    @Explain("The bunq poll loop and the life cycle of a payment request.")
     PaymentSpec payment();
 
     // There is deliberately no link-code-ttl-minutes here: the proxy issues the codes and is the
@@ -145,6 +154,7 @@ public interface AccessSpec {
     @Order(8)
     @Key("expiry-reminder-lead-days")
     @Comment("How many days before access runs out the reminder DM is sent.")
+    @NoExplanationNeeded
     default int expiryReminderLeadDays() {
         return 3;
     }
@@ -156,6 +166,7 @@ public interface AccessSpec {
             "This walks the members who hold the role plus the users who hold a grant - it is",
             "not a full member scan, so it can be frequent without being expensive."
     })
+    @NoExplanationNeeded
     default int roleReconcileIntervalMinutes() {
         return 10;
     }
@@ -179,6 +190,7 @@ public interface AccessSpec {
             "The counter lives in memory and is lost on restart - it costs nothing against a space",
             "this size, and nobody who is guessing can restart the bot."
     })
+    @Explain("A security limit, not a comfort setting: raising it weakens the four-character link code's brute-force resistance from decades toward weeks.")
     default int linkCodeAttemptsPerHour() {
         return 5;
     }
@@ -197,6 +209,7 @@ public interface AccessSpec {
         @Order(1)
         @Key("days")
         @Comment("How many days of access this buys. A day is exactly 24 hours.")
+        @NoExplanationNeeded
         default int days() {
             return 30;
         }
@@ -204,6 +217,7 @@ public interface AccessSpec {
         @Order(2)
         @Key("price-cents")
         @Comment("What it costs, in cents. Integer cents everywhere; never a float.")
+        @NoExplanationNeeded
         default int priceCents() {
             return 300;
         }
@@ -224,6 +238,7 @@ public interface AccessSpec {
                 "messages/ directory and the value stored in discord_user.locale.",
                 "'en' is mandatory: it is what a missing translation falls back to."
         })
+        @Explain("Lower case - the bundle file name in every module's messages/ directory and the value stored for a player's locale.")
         default String tag() {
             return "";
         }
@@ -235,6 +250,7 @@ public interface AccessSpec {
                 "bot - it only mirrors it into discord_user.locale, and no role at all means",
                 "English."
         })
+        @Explain("The Discord onboarding role that selects this language; no role at all means English.")
         default String role() {
             return "";
         }
@@ -242,6 +258,7 @@ public interface AccessSpec {
         @Order(3)
         @Key("contribution-channel")
         @Comment("Carries the buy-access message in this language, and its donation thank-yous.")
+        @Explain("Carries the buy-access message in this language, and its donation thank-yous.")
         default String contributionChannel() {
             return "";
         }
@@ -249,6 +266,7 @@ public interface AccessSpec {
         @Order(4)
         @Key("link-channel")
         @Comment("Carries the account-link message in this language.")
+        @Explain("Carries the account-link message in this language.")
         default String linkChannel() {
             return "";
         }
@@ -260,6 +278,7 @@ public interface AccessSpec {
                 "from contribution-channel on purpose: registering for the start event and buying",
                 "paid access are different things, and access is not required to play."
         })
+        @Explain("Carries the hunger games registration message - separate from contribution-channel, since access is not required to play.")
         default String hungerGamesChannel() {
             return "";
         }
@@ -284,6 +303,7 @@ public interface AccessSpec {
                 "the bot renames at most once every six minutes and only when the text actually",
                 "changed. Two languages are two channels and two independent budgets."
         })
+        @Explain("Optional - a channel the bot renames (never posts in) to show this language's current status. Empty means none.")
         default String statusChannel() {
             return "";
         }
@@ -304,6 +324,7 @@ public interface AccessSpec {
                 "this language), not from the bot - the bot has no copy of the milestones and",
                 "must not need one."
         })
+        @Explain("Optional - a channel the bot posts milestones and season announcements into for this language. Empty means none.")
         default String announcementChannel() {
             return "";
         }
@@ -319,6 +340,7 @@ public interface AccessSpec {
                 "Strictly bot-owned. It is added and removed to match the database, so granting",
                 "it by hand holds only until the next reconcile. /grant-access is the way."
         })
+        @Explain("Bot-managed: granting it by hand only holds until the next reconcile. Use /grant-access instead.")
         default String access() {
             return "";
         }
@@ -329,6 +351,7 @@ public interface AccessSpec {
                 "Granted on a donation and never taken away, by the bot or by the reconcile.",
                 "That is what makes handing it out by hand in Discord's role UI safe."
         })
+        @Explain("Granted on a donation and never revoked - safe to hand out manually in Discord.")
         default String donor() {
             return "";
         }
@@ -349,6 +372,7 @@ public interface AccessSpec {
                 "role event or reconcile. This is what /phase set and the MAINTENANCE phase are",
                 "authorised by, so it is not a cosmetic id."
         })
+        @Explain("Read-only for the bot: mirrors Discord's role live, and is what /phase set and maintenance mode are authorised by.")
         default String admin() {
             return "";
         }
@@ -362,6 +386,7 @@ public interface AccessSpec {
                 "Not the same thing as 'admin' above: this one only decides who gets pinged, and",
                 "grants nobody any power. They may be the same role."
         })
+        @Explain("Only decides who is pinged in the admin channel - grants no power, and may be the same role as admin.")
         default String adminPing() {
             return "";
         }
@@ -381,6 +406,7 @@ public interface AccessSpec {
                 "Everything a human may need to act on: unmatchable payments, payments on an",
                 "expired reference, failed DMs, role errors, and every link and unlink."
         })
+        @Explain("Everything needing a human: unmatchable or expired payments, failed DMs, role errors, and every link or unlink.")
         default String admin() {
             return "";
         }
@@ -393,6 +419,7 @@ public interface AccessSpec {
         @Order(1)
         @Key("poll-interval-seconds")
         @Comment("How often bunq is asked about open tabs and recent payments.")
+        @NoExplanationNeeded
         default int pollIntervalSeconds() {
             return 30;
         }
@@ -404,6 +431,7 @@ public interface AccessSpec {
                 "the request goes to EXPIRED; a payment arriving afterwards is never booked",
                 "automatically - it goes to the admin channel."
         })
+        @Explain("Past this, the bunq tab is cancelled and a late payment needs manual handling in the admin channel.")
         default int requestTtlHours() {
             return 24;
         }
@@ -426,6 +454,7 @@ public interface AccessSpec {
                 "account whatever the database knows, so without one the first poll would book up",
                 "to 50 historical payments - grants, roles, DMs and public thank-yous included."
         })
+        @Explain("Leave empty - the bot stamps this itself on first start. Setting it manually risks booking historical payments the wrong side of the cut-off.")
         default String watermark() {
             return "";
         }
@@ -437,6 +466,7 @@ public interface AccessSpec {
                 "The primary match path is the tab's own result inquiries; this only catches",
                 "money that reached the account outside a tab."
         })
+        @Explain("How many recent payments the fallback scan checks per poll, beyond the primary tab-matching path.")
         default int recentPaymentCount() {
             return 50;
         }

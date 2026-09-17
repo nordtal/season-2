@@ -1,5 +1,5 @@
+import { SignOutIcon } from "@phosphor-icons/react"
 import { useState } from "react"
-import { LogOut } from "lucide-react"
 
 import { api } from "@/lib/api"
 import type { Me } from "@/lib/api"
@@ -137,7 +137,7 @@ export function UserMenu({
               window.location.assign("/")
             }}
           >
-            <LogOut aria-hidden />
+            <SignOutIcon aria-hidden />
             Sign out
           </Button>
         </PopoverContent>

@@ -1,5 +1,5 @@
+import { FingerprintIcon, ShieldWarningIcon } from "@phosphor-icons/react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Fingerprint, ShieldAlert } from "lucide-react"
 
 import { onSecondFactorRequired } from "@/lib/api"
 import { holdTheKey } from "@/lib/hold-key"
@@ -110,7 +110,7 @@ export function StepUp() {
 
         {browserHasSecurityKeys() ? null : (
           <Alert variant="destructive">
-            <ShieldAlert aria-hidden />
+            <ShieldWarningIcon aria-hidden />
             <AlertTitle>This browser cannot use security keys.</AlertTitle>
             <AlertDescription>
               Open Steward in Safari, Chrome or Firefox directly - not in a private window and not
@@ -121,7 +121,7 @@ export function StepUp() {
 
         {failure ? (
           <Alert variant="destructive">
-            <ShieldAlert aria-hidden />
+            <ShieldWarningIcon aria-hidden />
             <AlertTitle>The key was not accepted.</AlertTitle>
             <AlertDescription>{failure}</AlertDescription>
           </Alert>
@@ -139,7 +139,7 @@ export function StepUp() {
             Not now
           </Button>
           <Button type="button" onClick={hold} disabled={busy || !browserHasSecurityKeys()}>
-            <Fingerprint aria-hidden />
+            <FingerprintIcon aria-hidden />
             {busy ? "Waiting for the key…" : failure ? "Try again" : "Hold your key"}
           </Button>
         </DialogFooter>

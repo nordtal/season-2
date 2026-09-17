@@ -1,5 +1,5 @@
+import { PlugsIcon, TrayIcon, WarningIcon } from "@phosphor-icons/react"
 import type { ReactNode } from "react"
-import { AlertTriangle, Inbox, ServerCrash } from "lucide-react"
 
 import { ApiError } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -32,7 +32,7 @@ export function Loading({ rows = 5, label }: { rows?: number; label?: string }) 
 export function Empty({ title, note, action }: { title: string; note?: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border px-6 py-10 text-center">
-      <Inbox className="size-5 text-muted-foreground" aria-hidden />
+      <TrayIcon className="size-5 text-muted-foreground" aria-hidden />
       <div className="flex flex-col gap-1">
         <p className="text-sm font-medium">{title}</p>
         {note ? <p className="max-w-prose text-sm text-muted-foreground">{note}</p> : null}
@@ -46,7 +46,7 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
   const api = error instanceof ApiError ? error : null
   const worker = api?.where === "steward-worker"
   const deployer = api?.where === "steward-deployer"
-  const Icon = worker || deployer ? ServerCrash : AlertTriangle
+  const Icon = worker || deployer ? PlugsIcon : WarningIcon
 
   return (
     <div

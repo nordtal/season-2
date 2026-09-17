@@ -1,5 +1,5 @@
+import { WarningIcon } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
-import { TriangleAlert } from "lucide-react"
 
 import type { GuildEntry, GuildList } from "@/lib/api"
 import { Input } from "@/components/ui/input"
@@ -127,7 +127,7 @@ export function SnowflakePicker({
                 <span className="font-medium">{label(entry, what)}</span>
               ) : (
                 <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground italic">
-                  <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
+                  <WarningIcon aria-hidden className="size-3.5 shrink-0" />
                   <span className="truncate">name unavailable</span>
                   <span className="shrink-0 font-mono text-xs not-italic">{entry.id}</span>
                 </span>

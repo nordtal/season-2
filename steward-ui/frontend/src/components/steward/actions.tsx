@@ -1,21 +1,21 @@
-import {
-  Activity,
-  Archive,
-  ClipboardList,
-  Flag,
-  HandCoins,
-  KeyRound,
-  Link2,
-  RefreshCw,
-  RotateCcw,
-  RotateCw,
-  ShieldAlert,
-  ShieldCheck,
-  ShieldX,
-  Unlink,
-  type LucideIcon,
-} from "lucide-react"
 
+import {
+  ArchiveIcon,
+  ArrowClockwiseIcon,
+  ArrowCounterClockwiseIcon,
+  ArrowsClockwiseIcon,
+  ClipboardTextIcon,
+  FlagIcon,
+  HandCoinsIcon,
+  KeyIcon,
+  LinkBreakIcon,
+  LinkSimpleIcon,
+  PulseIcon,
+  ShieldCheckIcon,
+  ShieldSlashIcon,
+  ShieldWarningIcon,
+} from "@phosphor-icons/react"
+import type { Icon } from "@phosphor-icons/react"
 import type { Action, Person } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
 import { RUN_KIND } from "@/components/steward/status"
@@ -49,32 +49,32 @@ const AUDIT_LABEL: Record<string, string> = {
 
 /**
  * One icon per {@link Action.kind}. The three run kinds reuse the exact icons `operations.tsx`
- * already draws them with ({@link RefreshCw}, {@link Archive}, {@link RotateCcw}) - a second choice
+ * already draws them with ({@link ArrowsClockwiseIcon}, {@link ArchiveIcon}, {@link ArrowCounterClockwiseIcon}) - a second choice
  * for the same fact would be the interface disagreeing with itself between two pages.
  */
-const KIND_ICON: Record<string, LucideIcon> = {
-  UPDATE: RefreshCw,
-  BACKUP: Archive,
-  RESTART: RotateCcw,
-  REPORT: ClipboardList,
-  GRANT_ACCESS: ShieldCheck,
-  REVOKE_ACCESS: ShieldX,
-  LINK: Link2,
-  UNLINK: Unlink,
-  SETTLE: HandCoins,
-  RECREATE: RotateCw,
-  SET_PHASE: Flag,
-  REGISTER_KEY: KeyRound,
-  REMOVE_KEY: KeyRound,
-  FORGET_FACTORS: ShieldAlert,
+const KIND_ICON: Record<string, Icon> = {
+  UPDATE: ArrowsClockwiseIcon,
+  BACKUP: ArchiveIcon,
+  RESTART: ArrowCounterClockwiseIcon,
+  REPORT: ClipboardTextIcon,
+  GRANT_ACCESS: ShieldCheckIcon,
+  REVOKE_ACCESS: ShieldSlashIcon,
+  LINK: LinkSimpleIcon,
+  UNLINK: LinkBreakIcon,
+  SETTLE: HandCoinsIcon,
+  RECREATE: ArrowClockwiseIcon,
+  SET_PHASE: FlagIcon,
+  REGISTER_KEY: KeyIcon,
+  REMOVE_KEY: KeyIcon,
+  FORGET_FACTORS: ShieldWarningIcon,
 }
 
 function labelOf(kind: string): string {
   return RUN_KIND[kind] ?? AUDIT_LABEL[kind] ?? kind
 }
 
-function iconOf(kind: string): LucideIcon {
-  return KIND_ICON[kind] ?? Activity
+function iconOf(kind: string): Icon {
+  return KIND_ICON[kind] ?? PulseIcon
 }
 
 /** One row: an icon for the kind, the label and its extent, then who is credited and when. */

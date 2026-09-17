@@ -1,5 +1,5 @@
-import { ShieldAlert } from "lucide-react"
 
+import { ShieldWarningIcon } from "@phosphor-icons/react"
 import type { Me } from "@/lib/api"
 import { DiscordMark } from "@/app/discord-mark"
 import { StewardMark } from "@/app/steward-mark"
@@ -46,7 +46,7 @@ export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
               <Skeleton className="h-control w-full" />
             ) : missing ? (
               <Alert variant="destructive">
-                <ShieldAlert aria-hidden />
+                <ShieldWarningIcon aria-hidden />
                 <AlertTitle>Nobody can sign in here right now.</AlertTitle>
                 <AlertDescription>{missing}</AlertDescription>
               </Alert>

@@ -14,8 +14,17 @@ export default defineConfig({
   // Gradle owns this directory: processResources copies it into build/resources/main/web, which is
   // where the Javalin process serves it from inside the jar. It deliberately sits outside the npm
   // project so that nothing generated ever lands next to the sources.
+  //
+  // `VITE_OUT_DIR` is how Gradle says where that is (season-2-ops/30). `-PbuildRoot` moves every
+  // module's output tree somewhere else so two agents can build at once, and it moves this module's
+  // `frontendDistDirectory` with it - but Vite is a separate process reading this file, it has
+  // never heard of the property, and it used to keep writing into the one shared directory. Nothing
+  // failed loudly: `processResources` copied faithfully out of the moved directory, which was
+  // empty, and the first sign of it was Javalin refusing to start a test with "Static resource
+  // directory with path: '/web' does not exist". The fallback is the value that stood here before,
+  // so `npm run build` by hand, without Gradle, lands where it always did.
   build: {
-    outDir: path.resolve(here, "../build/frontend-dist"),
+    outDir: process.env.VITE_OUT_DIR ?? path.resolve(here, "../build/frontend-dist"),
     emptyOutDir: true,
     sourcemap: false,
   },

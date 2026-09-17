@@ -2,7 +2,9 @@ package eu.nordtal.s2.steward.worker.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
@@ -55,6 +57,7 @@ public interface DatabaseSpec {
     @Order(1)
     @Key("jdbc-url")
     @Comment("JDBC URL of the PostgreSQL database that holds the season 2 schema.")
+    @Explain("The full JDBC connection string, including the database name.")
     default String jdbcUrl() {
         return "jdbc:postgresql://localhost:5432/nordtal";
     }
@@ -65,6 +68,7 @@ public interface DatabaseSpec {
             "Database user. This one needs more rights than any other module's: it creates and",
             "alters tables. Every other process in this deployment only reads and writes rows."
     })
+    @Explain("Needs rights to create and alter tables - every other module's user only reads and writes rows.")
     default String username() {
         return "nordtal";
     }
@@ -72,6 +76,7 @@ public interface DatabaseSpec {
     @Order(3)
     @Key("password")
     @Comment("Database password. Prefer NORDTAL_STEWARD_DATABASE_PASSWORD in production.")
+    @NoExplanationNeeded
     default String password() {
         return "";
     }
@@ -89,6 +94,7 @@ public interface DatabaseSpec {
             "connection is NOT one of these - pgjdbc opens it directly, outside the pool, because",
             "LISTEN is session state a pool would hand back out."
     })
+    @Explain("Lower than 4 risks a deadlock: serve needs the advisory lock, the request query and a spare connection at once.")
     default int maximumPoolSize() {
         return 4;
     }
@@ -103,6 +109,7 @@ public interface DatabaseSpec {
             "migration killed half way through by a timeout is the one failure this whole",
             "arrangement exists to avoid."
     })
+    @Explain("Deliberately far larger than any other module's - a migration killed by a timeout is worse than a slow one.")
     default int queryTimeoutSeconds() {
         return 300;
     }

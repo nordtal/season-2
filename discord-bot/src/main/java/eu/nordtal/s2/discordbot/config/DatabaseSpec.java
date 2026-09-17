@@ -2,7 +2,9 @@ package eu.nordtal.s2.discordbot.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
@@ -41,6 +43,7 @@ public interface DatabaseSpec {
             "JDBC URL of the PostgreSQL database.",
             "The SQL dialect is implied by this URL; jcore names no database itself."
     })
+    @Explain("The full JDBC connection string, including the database name.")
     default String jdbcUrl() {
         return "jdbc:postgresql://localhost:5432/nordtal";
     }
@@ -48,6 +51,7 @@ public interface DatabaseSpec {
     @Order(2)
     @Key("username")
     @Comment("Database user.")
+    @NoExplanationNeeded
     default String username() {
         return "nordtal";
     }
@@ -56,6 +60,7 @@ public interface DatabaseSpec {
     @Key("password")
     @Comment("Database password. Prefer NORDTAL_DATABASE_PASSWORD in production.")
     @Secret
+    @NoExplanationNeeded
     default String password() {
         return "";
     }
@@ -66,6 +71,7 @@ public interface DatabaseSpec {
             "Upper bound of the HikariCP pool.",
             "The bot's own load is one poll thread plus JDA callbacks, so 10 is generous."
     })
+    @NoExplanationNeeded
     default int maximumPoolSize() {
         return 10;
     }
@@ -76,6 +82,7 @@ public interface DatabaseSpec {
             "Logs every rendered statement and its duration at DEBUG.",
             "Bound parameter values are never logged."
     })
+    @Explain("Logs every SQL statement at DEBUG level. Bound values are never logged.")
     default boolean logSql() {
         return false;
     }

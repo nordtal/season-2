@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
@@ -92,6 +93,7 @@ public interface MilestonesSpec {
             "dimension is the reward and it is larger than any number; pairing it with a border",
             "step would chain the one to the other."
     })
+    @Explain("The track, in order - the file's order IS the season's order. Renaming an entry that has progress is refused on reload.")
     default List<MilestoneEntry> milestones() {
         return DefaultTrack.LIST;
     }
@@ -103,6 +105,7 @@ public interface MilestonesSpec {
         @Order(1)
         @Key("key")
         @Comment("Identity, and the primary key in smp_milestone. Renaming one orphans its progress.")
+        @Explain("Identity, and the primary key in smp_milestone. Renaming one with progress is refused on reload.")
         default String key() {
             return "";
         }
@@ -110,6 +113,7 @@ public interface MilestonesSpec {
         @Order(2)
         @Key("unlocks")
         @Comment("BORDER, NETHER, END or NOTHING.")
+        @Explain("BORDER, NETHER, END or NOTHING.")
         default String unlocks() {
             return "NOTHING";
         }
@@ -117,6 +121,7 @@ public interface MilestonesSpec {
         @Order(3)
         @Key("border-diameter")
         @Comment("The Nordtal border this milestone sets, as a DIAMETER. Read only when unlocks is BORDER.")
+        @Explain("The border diameter this milestone sets; read only when unlocks is BORDER.")
         default int borderDiameter() {
             return 0;
         }
@@ -131,6 +136,7 @@ public interface MilestonesSpec {
                 "arithmetic rather than a fresh argument. There is deliberately no minimum pot:",
                 "a minimum flattens the ramp the track exists to create."
         })
+        @Explain("The aura pot of EACH objective below, derived from community play hours - not of the milestone as a whole.")
         default int objectivePot() {
             return 0;
         }
@@ -138,6 +144,7 @@ public interface MilestonesSpec {
         @Order(5)
         @Key("admin-unlocked")
         @Comment("Opened by an admin rather than by objectives. True for `departure` alone.")
+        @Explain("Opened by an admin rather than by objectives; true only for the opening milestone.")
         default boolean adminUnlocked() {
             return false;
         }
@@ -154,6 +161,7 @@ public interface MilestonesSpec {
                 "",
                 "The opening two milestones have none at all."
         })
+        @Explain("All must finish before this milestone unlocks; exactly one must be type ADVANCEMENT, the participation gate.")
         default List<ObjectiveEntry> objectives() {
             return List.of();
         }
@@ -166,6 +174,7 @@ public interface MilestonesSpec {
         @Order(1)
         @Key("key")
         @Comment("Unique within its milestone, and what smp_objective.key stores. Never rename one with progress.")
+        @Explain("Unique within its milestone. Never rename one with progress.")
         default String key() {
             return "";
         }
@@ -180,6 +189,7 @@ public interface MilestonesSpec {
                 "            share simply for being online.",
                 "ADVANCEMENT how many DISTINCT players earned it; a share is 1 or 0."
         })
+        @Explain("HAND_IN, STATISTIC or ADVANCEMENT - decides which of the fields below apply.")
         default String type() {
             return "HAND_IN";
         }
@@ -192,6 +202,7 @@ public interface MilestonesSpec {
                 "stops a correction from accidentally producing four mining objectives, which only",
                 "works if it is there to read in the diff."
         })
+        @Explain("What this objective is for, e.g. gathering, mining, combat. Never read by the engine - only to keep a correction from duplicating a category.")
         default String role() {
             return "";
         }
@@ -207,6 +218,7 @@ public interface MilestonesSpec {
                 "completes on reload and pays its full pot. Changing it on one that has already",
                 "completed is refused - that would rewrite the arithmetic behind aura already paid."
         })
+        @Explain("Lowering this on a live objective is always allowed; changing it on one that already completed is refused.")
         default long target() {
             return 1L;
         }
@@ -218,6 +230,7 @@ public interface MilestonesSpec {
                 "building blocks' are expressed. Bukkit material names; they are resolved once at",
                 "startup and an unknown one stops the plugin with the name in the message."
         })
+        @Explain("HAND_IN only - Bukkit material names, any of which counts. An unknown name stops the plugin at startup.")
         default List<String> items() {
             return List.of();
         }
@@ -225,6 +238,7 @@ public interface MilestonesSpec {
         @Order(6)
         @Key("statistic")
         @Comment("STATISTIC only. A Bukkit statistic name, e.g. MINE_BLOCK, KILL_ENTITY, CRAFT_ITEM.")
+        @Explain("STATISTIC only - a Bukkit statistic name, e.g. MINE_BLOCK.")
         default String statistic() {
             return "";
         }
@@ -237,6 +251,7 @@ public interface MilestonesSpec {
                 "groups rather than one entity. May be empty for a statistic that has no",
                 "substatistic at all."
         })
+        @Explain("STATISTIC only - the materials or entity types the statistic is summed over; may be empty.")
         default List<String> subjects() {
             return List.of();
         }
@@ -244,6 +259,7 @@ public interface MilestonesSpec {
         @Order(8)
         @Key("advancement")
         @Comment("ADVANCEMENT only. The advancement key, e.g. minecraft:story/mine_diamond.")
+        @Explain("ADVANCEMENT only - the advancement key, e.g. minecraft:story/mine_diamond.")
         default String advancement() {
             return "";
         }

@@ -166,6 +166,76 @@ done
 ok "no answer is reported, not passed over"
 
 # ------------------------------------------------------------------------------------------------
+# steward/107: setup.sh's own `up` (via steward-deployer's Compose#pull) pulls every image compose.yml
+# names, unconditionally, before it stops anything - there is no `pull_policy` anywhere that would
+# make it "only what's missing". A tag the registry still answers for silently replaces whatever this
+# host built locally under the same name, which is exactly how the release-less workaround
+# deploy/README.md documents (`docker compose build <service>` + `up -d --no-deps <service>`) gets
+# quietly undone by the next `setup.sh` run. at_risk_images is the decision that has to catch this
+# before §7's `up` ever runs - given as data, not as a live docker call, the same way
+# addresses_not_ours above takes `resolved`/`ours` as strings rather than calling `getent` itself.
+#
+# THE FIRST VERSION OF THIS CHECK COMPARED ONLY RepoDigests AGAINST "[]", and measured wrong on this
+# very host: the containerd image store (unlike the classic one) assigns a RepoDigest to a locally
+# built image too - identical to its image ID - so `loc == "[]"` never fired here, and the warning
+# was silent for exactly the case it exists for (steward found this by rebuilding steward-ui and
+# steward-deployer locally on 2026-09-17 and watching the check say nothing). What actually answers
+# "would a pull replace this" is a THIRD input: what the registry currently serves under the tag.
+case_begin "no local RepoDigests at all is RISK, whatever the registry says"
+pairs=$'nordtal/discord-bot:redtest-107\tdiscord-bot'
+local_digests=$'nordtal/discord-bot:redtest-107\t[]'
+registry_digests=$'nordtal/discord-bot:redtest-107\tsha256:aaaaaaaaaaaa'
+result="$(at_risk_images "$pairs" "$local_digests" "$registry_digests")"
+[[ "$result" == $'RISK\tnordtal/discord-bot:redtest-107\tdiscord-bot' ]] \
+    || bad "expected a RISK line for the image with no local digest, got: «$result»"
+ok "an image with no RepoDigests is RISK even when the registry answered"
+
+case_begin "local and registry digest agree - silent"
+pairs=$'ghcr.io/nordtal/minecraft:latest\tsmp'
+local_digests=$'ghcr.io/nordtal/minecraft:latest\t["ghcr.io/nordtal/minecraft@sha256:same0000"]'
+registry_digests=$'ghcr.io/nordtal/minecraft:latest\tsha256:same0000'
+[[ -z "$(at_risk_images "$pairs" "$local_digests" "$registry_digests")" ]] \
+    || bad "a matching local and registry digest was still reported"
+ok "an image whose local digest matches what the registry currently serves is silent"
+
+case_begin "local and registry digest disagree - RISK (the containerd-store case)"
+# This is the shape steward measured against the real host: `docker image inspect` on
+# ghcr.io/nordtal/steward-ui:latest, freshly rebuilt with \`docker compose build\`, answered a
+# RepoDigest (containerd's own image ID, not "[]"), and \`docker buildx imagetools inspect\` against
+# the same tag answered a DIFFERENT manifest digest - the one the last release published.
+pairs=$'ghcr.io/nordtal/steward-ui:latest\tsteward-ui'
+local_digests=$'ghcr.io/nordtal/steward-ui:latest\t["ghcr.io/nordtal/steward-ui@sha256:a429f360e0c8"]'
+registry_digests=$'ghcr.io/nordtal/steward-ui:latest\tsha256:39d016200b67'
+result="$(at_risk_images "$pairs" "$local_digests" "$registry_digests")"
+[[ "$result" == $'RISK\tghcr.io/nordtal/steward-ui:latest\tsteward-ui' ]] \
+    || bad "a locally built image with a mismatched registry digest was not reported, got: «$result»"
+ok "a locally built image is RISK when the registry's current digest differs from its own"
+
+case_begin "the registry did not answer - UNKNOWN, neither cleared nor flagged"
+# Folding "could not compare" into "safe" trades one silent failure for another - a private image, a
+# network hiccup or a tag the registry has never heard of must not read the same as "checked, fine".
+pairs=$'ghcr.io/nordtal/steward-worker:latest\tsteward-worker'
+local_digests=$'ghcr.io/nordtal/steward-worker:latest\t["ghcr.io/nordtal/steward-worker@sha256:ea9364be13a9"]'
+result="$(at_risk_images "$pairs" "$local_digests" "")"
+[[ "$result" == $'UNKNOWN\tghcr.io/nordtal/steward-worker:latest\tsteward-worker' ]] \
+    || bad "a registry that did not answer should be its own line, got: «$result»"
+ok "no registry answer is its own line, not a pass and not an alarm"
+
+case_begin "one locally built image used by several services names all of them"
+pairs_shared=$'nordtal/minecraft:redtest\tsmp
+nordtal/minecraft:redtest\tlimbo'
+digests_shared=$'nordtal/minecraft:redtest\t[]'
+result_shared="$(at_risk_images "$pairs_shared" "$digests_shared" "")"
+[[ "$result_shared" == $'RISK\tnordtal/minecraft:redtest\tsmp,limbo' ]] \
+    || bad "expected both services comma-joined, got: «$result_shared»"
+ok "services sharing one at-risk image are comma-joined on its one line"
+
+case_begin "an image never seen locally, or with nothing at all to go on, is silent"
+[[ -z "$(at_risk_images "" "" "")" ]] || bad "empty compose config produced a finding"
+[[ -z "$(at_risk_images "$pairs_shared" "" "")" ]] || bad "an image absent from local_digests produced a finding"
+ok "no compose config and no local digests both come back silent, not as a false alarm"
+
+# ------------------------------------------------------------------------------------------------
 case_begin "a generated secret lands in the file whatever the assignment looks like"
 # THE FAILURE THIS IS FOR: set_secret looked for the name one way and replaced it another.
 # `env_value` accepts leading whitespace and an `export`, and so does the grep that decides whether

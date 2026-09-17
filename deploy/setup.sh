@@ -230,6 +230,86 @@ addresses_not_ours() {
     done
 }
 
+# Which of compose.yml's images are on this host and would be replaced by §7's unconditional `up`
+# (steward/107) - either because they carry no RepoDigests at all, or because the registry currently
+# serves a manifest digest that this image's own RepoDigests do not contain.
+#
+# THE FIRST VERSION OF THIS ONLY CHECKED FOR "no RepoDigests at all", and it was wrong on this very
+# host: the classic docker image store never assigns a locally built image a RepoDigest, but the
+# containerd image store DOES - identical to the image ID, not derived from any registry - so a
+# steward-ui rebuilt with `docker compose build` and never pushed anywhere still carried one, and the
+# check was silent for exactly the case it exists for (steward, 2026-09-17, measured against a real
+# rebuild of steward-ui and steward-deployer on this host). Whether a RepoDigest exists is therefore
+# not the question; whether it matches what the registry serves RIGHT NOW is.
+#
+# PURE ON PURPOSE, the same way addresses_not_ours is: it takes what docker calls already found
+# rather than making them itself, so deploy/setup-test.sh can hand it fixture text and check the
+# decision without a daemon.
+#
+#   pairs             one "<image><TAB><service>" line per service compose.yml defines under the
+#                     active profiles - the same image can (and for the four Minecraft services,
+#                     does) appear more than once, under different service names.
+#   local_digests     one "<image><TAB><RepoDigests-as-JSON>" line per image already on this host -
+#                     an image `docker image inspect` cannot find at all is simply absent here, which
+#                     is correct: nothing is at risk from an image the pull would fetch for the first
+#                     time.
+#   registry_digests  one "<image><TAB><manifest digest>" line per image the registry answered a
+#                     current digest for. An image absent here is one the registry did NOT answer
+#                     for - a private repository this host has no manifest access to, a network
+#                     failure, a tag nothing ever pushed - and that is not the same as "safe".
+#
+# Output: one "<RISK|UNKNOWN><TAB><image><TAB><services, comma-separated>" line per image that is
+# already on this host and either
+#   RISK     carries no RepoDigests at all, OR the registry's current digest for it is not among its
+#            own RepoDigests - a pull would change what is running;
+#   UNKNOWN  carries RepoDigests, but the registry could not be asked - folding this into "safe"
+#            would trade one silent failure (steward/107 itself) for another.
+# An image absent from local_digests entirely produces no line at all: it has never been pulled or
+# built here, so there is nothing local for a pull to replace.
+at_risk_images() {
+    local pairs="$1" local_digests="$2" registry_digests="$3"
+    [[ -n "$pairs" ]] || return 0
+    awk -F'\t' -v local_digests="$local_digests" -v registry_digests="$registry_digests" '
+        BEGIN {
+            n = split(local_digests, llines, "\n")
+            for (i = 1; i <= n; i++) {
+                if (llines[i] == "") continue
+                split(llines[i], d, "\t")
+                local_repo[d[1]] = d[2]
+            }
+            n = split(registry_digests, rlines, "\n")
+            for (i = 1; i <= n; i++) {
+                if (rlines[i] == "") continue
+                split(rlines[i], d, "\t")
+                registry_digest[d[1]] = d[2]
+            }
+        }
+        {
+            if (!($1 in seen)) { order[++count] = $1 }
+            seen[$1] = 1
+            services[$1] = ($1 in services ? services[$1] "," : "") $2
+        }
+        END {
+            for (i = 1; i <= count; i++) {
+                image = order[i]
+                if (!(image in local_repo)) continue
+                loc = local_repo[image]
+                if (loc == "[]") {
+                    print "RISK\t" image "\t" services[image]
+                    continue
+                }
+                if (!(image in registry_digest)) {
+                    print "UNKNOWN\t" image "\t" services[image]
+                    continue
+                }
+                if (index(loc, registry_digest[image]) == 0) {
+                    print "RISK\t" image "\t" services[image]
+                }
+            }
+        }
+    ' <<<"$pairs"
+}
+
 # --- sourced rather than executed ----------------------------------------------------------------
 # Everything above this line is definitions; everything below reaches for Docker, the resolver and
 # the filesystem. deploy/setup-test.sh sources this file to exercise the decisions above, the same
@@ -655,6 +735,123 @@ while true; do
     sleep "$DNS_INTERVAL"
 done
 log "$STEWARD_NAME resolves to this host ($(tr '\n' ' ' <<<"$resolved"))"
+
+# --- 5a · images this host built itself, about to be silently replaced (steward/107) ----------------
+# §7's `up` pulls EVERY image compose.yml names before it stops anything, and that pull is not
+# "whatever is missing": compose.yml has no `pull_policy` anywhere, and the deployer image §7 runs
+# does not lean on one either - steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/
+# Compose.java's `pull()` runs a plain `docker compose pull <service>` for every service in
+# COMPOSE_PROFILES, unconditionally, before `up` ever starts (read 2026-09-17). The ONE tolerance
+# in there is the other direction: a pull that fails outright (denied or not found) keeps the local
+# image, which is what lets steward-ui run before its first release. A pull that SUCCEEDS is never
+# compared to what is already here - so a tag the registry still answers for is replaced by whatever
+# that is, even if this host's copy is newer. That is exactly the shape of the deploy/README.md
+# workaround for shipping without a release (`docker compose build <service>` then
+# `up -d --no-deps <service>`): it survives until the next `setup.sh` run undoes it, silently.
+#
+# WHETHER AN IMAGE HAS A RepoDigest IS NOT THE SIGNAL - see the long comment on at_risk_images. What
+# this section actually asks, per image already on this host, is whether `docker buildx imagetools
+# inspect` currently sees a DIFFERENT manifest digest under the same tag; RepoDigests only tells the
+# other half, whether that mismatch is the whole story or the registry could not be asked at all.
+compose_config_json() {
+    docker compose -f "$ROOT/compose.yml" --env-file "$ENV_FILE" config --format json 2>/dev/null
+}
+
+# The docker calls at_risk_images (above the source guard) needs, and nothing else: the
+# service/image pairs compose.yml resolves to under this deployment's profiles, the RepoDigests of
+# every distinct image among them that is already on this host, and what the registry currently
+# serves under each of those tags.
+#
+# jq AND buildx ARE NOT PREREQUISITES OF THIS SCRIPT, and deliberately so. An earlier draft made jq
+# one and died in §1 without it - which is the wrong trade: this check protects images this host
+# BUILT ITSELF, and a host fresh enough to be missing either tool has none yet. Refusing to bootstrap
+# a new machine over a warning that has nothing to warn about is worse than not warning; a warning
+# and a graceful skip is the shape both tools get.
+images_at_risk() {
+    local json pairs image
+    command -v jq >/dev/null 2>&1 || {
+        warn "no jq here, so §5a cannot tell a locally built image from a pulled one. If anything on"
+        warn "this host was shipped with \`compose build\` and no release, \`up\` below replaces it silently."
+        return 0
+    }
+    docker buildx version >/dev/null 2>&1 || {
+        warn "no docker buildx here, so §5a cannot ask the registry what it currently serves under each"
+        warn "tag. A locally built image on this host's image store may carry a RepoDigest regardless"
+        warn "of whether anything was ever pushed - without buildx that alone cannot be told apart from"
+        warn "a real one, so §5a stays silent rather than guess. If anything here was shipped with"
+        warn "\`compose build\` and no release, \`up\` below replaces it silently."
+        return 0
+    }
+    json="$(compose_config_json)" || return 0
+    [[ -n "$json" ]] || return 0
+    pairs="$(jq -r '.services | to_entries[] | select(.value.image != null and .value.image != "")
+            | [.value.image, .key] | @tsv' <<<"$json")"
+    [[ -n "$pairs" ]] || return 0
+
+    local local_digests="" registry_digests="" line reg
+    while IFS= read -r image; do
+        [[ -n "$image" ]] || continue
+        docker image inspect "$image" >/dev/null 2>&1 || continue
+        line="$(docker image inspect "$image" --format '{{json .RepoDigests}}' 2>/dev/null)"
+        [[ -n "$line" ]] || continue
+        local_digests+="$image"$'\t'"$line"$'\n'
+
+        # A failure here - private repository, network, a tag never pushed - is not "safe": it goes
+        # into UNKNOWN below, which is why it is NOT `|| continue`. Written as `|| reg=""` rather
+        # than a bare failing assignment because `set -e` treats a failing command substitution
+        # assigned on its own as a failure of the whole script, the same trap documented on
+        # at_risk_images' own loop further up this file.
+        reg="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}' 2>/dev/null)" \
+            || reg=""
+        [[ -n "$reg" ]] && registry_digests+="$image"$'\t'"$reg"$'\n'
+    done < <(cut -f1 <<<"$pairs" | sort -u)
+
+    at_risk_images "$pairs" "$local_digests" "$registry_digests"
+}
+
+at_risk="$(images_at_risk)"
+if [[ -n "$at_risk" ]]; then
+    risk="" unknown=""
+    while IFS=$'\t' read -r kind image services; do
+        case "$kind" in
+            RISK)    risk+="$image"$'\t'"$services"$'\n' ;;
+            UNKNOWN) unknown+="$image"$'\t'"$services"$'\n' ;;
+        esac
+    done <<<"$at_risk"
+
+    if [[ -n "$unknown" ]]; then
+        warn "the registry could not be asked about these - neither cleared nor flagged, just unknown:"
+        while IFS=$'\t' read -r image services; do
+            [[ -n "$image" ]] || continue
+            warn "  $image  (used by: $services)"
+        done <<<"$unknown"
+    fi
+
+    if [[ -n "$risk" ]]; then
+        warn "these images are on this host, and \`up\` below would replace them with whatever the"
+        warn "registry currently serves under the same tag:"
+        while IFS=$'\t' read -r image services; do
+            [[ -n "$image" ]] || continue
+            warn "  $image  (used by: $services)"
+        done <<<"$risk"
+        if $CHECK_ONLY; then
+            warn "a real run would ask before continuing (or refuse without a terminal); --check stops here."
+        elif [[ -t 0 ]]; then
+            printf '\n\033[36m[setup]\033[0m %s\n' "Continue, and let the registry overwrite the images listed above?" >&2
+            printf '        %s\n        > ' "Anything shipped on them without a release is lost the moment this pulls. [y/N]" >&2
+            read -r keep_local_answer
+            answer_is_yes "$keep_local_answer" || die "not continuing. Nothing has been pulled and nothing
+       has been stopped. Retag or remove the images above first if they should not be asked about
+       again, or answer yes here once you mean to let the registry replace them."
+            log "continuing - the images listed above will be replaced by whatever the registry answers with"
+        else
+            die "the images above are built on this host, and \`up\` would silently replace them with
+       whatever the registry currently serves - there is no terminal here to ask first. Run this from
+       a shell, or retag/remove the images above if the registry copy is meant to win. Nothing has
+       been pulled or stopped."
+        fi
+    fi
+fi
 
 if $CHECK_ONLY; then
     log "--check: everything that can be checked without changing anything is in order."

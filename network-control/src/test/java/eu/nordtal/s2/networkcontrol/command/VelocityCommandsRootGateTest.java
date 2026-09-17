@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.commands.update.UpdateCommands;
 import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
 import com.velocitypowered.api.command.BrigadierCommand;
@@ -66,7 +67,8 @@ class VelocityCommandsRootGateTest {
     }
 
     private VelocityCommands adapter() {
-        return new VelocityCommands(silent(ProxyServer.class), new LoginRoster(), messages);
+        return new VelocityCommands(silent(ProxyServer.class), new LoginRoster(), messages,
+                () -> ToneColours.DEFAULTS);
     }
 
     private static BrigadierCommand root(final List<BrigadierCommand> roots, final String literal) {

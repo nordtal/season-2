@@ -1,10 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { UseQueryOptions } from "@tanstack/react-query"
 
 import {
   api,
   ApiError,
   rememberCsrf,
+  type Action,
   type Backup,
   type AdminCommand,
   type CommandRun,
@@ -19,9 +20,15 @@ import {
   type JournalEntry,
   type LogSearch,
   type Me,
+  type MessageBundle,
+  type MessageBundleLocation,
+  type MessageChanges,
+  type MessageSaveResult,
   type Metrics,
   type Payment,
   type Person,
+  type RawConfigSaveResult,
+  type ReloadAwareConfigDocument,
   type Run,
   type Schedule,
   type Season,
@@ -67,6 +74,7 @@ export const keys = {
   openPayments: ["payments", "open"] as const,
   grants: (discordId: string) => ["grants", discordId] as const,
   journal: (action: string, subject: string) => ["journal", action, subject] as const,
+  actions: (limit: number) => ["actions", limit] as const,
   settings: ["settings"] as const,
   commands: ["commands"] as const,
   commandRun: (id: string) => ["command-run", id] as const,
@@ -76,6 +84,8 @@ export const keys = {
   config: (file: string) => ["config", file] as const,
   guildRoles: ["guild-roles"] as const,
   guildChannels: ["guild-channels"] as const,
+  messageBundles: ["message-bundles"] as const,
+  messageBundle: (path: string) => ["message-bundle", path] as const,
 }
 
 /**
@@ -341,6 +351,21 @@ export function useJournal(action: string, subject: string, enabled = true) {
   })
 }
 
+/**
+ * The unified "latest actions" feed (steward/82) - the newest few rows across `update_request` and
+ * `audit_log`, already merged and sorted by steward-worker's own `/api/actions`. See that endpoint's
+ * javadoc for why this is one query rather than this file sorting {@link useJournal} together with
+ * a second call of its own.
+ */
+export function useActions(limit = 5, enabled = true) {
+  return useQuery({
+    queryKey: keys.actions(limit),
+    queryFn: () => api<Action[]>(`/api/actions?limit=${limit}`),
+    staleTime: 15 * SECOND,
+    enabled,
+  })
+}
+
 /** Which admin commands this interface may ask for - the declarations carrying Surface.WEB. */
 export function useCommands(enabled = true) {
   return useQuery({
@@ -473,6 +498,23 @@ export function useSettings(enabled = true) {
   })
 }
 
+/**
+ * The one other thing `/api/settings` carries: where a Minecraft head is composed from.
+ *
+ * Same endpoint and same cache entry as {@link useSettings} - two hooks reading one response
+ * rather than two requests - but typed on its own rather than added to {@link Thresholds}, which
+ * belongs to the traffic light and is not this component's to widen.
+ */
+export function useAvatarBaseUrl(enabled = true) {
+  return useQuery({
+    queryKey: keys.settings,
+    queryFn: () => api<Thresholds & { minecraftHeadBaseUrl: string }>("/api/settings"),
+    staleTime: 5 * 60 * SECOND,
+    enabled,
+    select: (settings) => settings.minecraftHeadBaseUrl,
+  })
+}
+
 export function useConfigs(enabled = true) {
   return useQuery({
     queryKey: keys.configs,
@@ -551,7 +593,10 @@ export function useSaveConfig(file: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ revision, changes }: { revision: string; changes: ConfigChanges }) =>
-      api<ConfigDocument>(`/api/config/${encodePath(file)}`, {
+      // Never `raw`: a raw file offers no save button in the first place (steward/56), so a PUT's
+      // answer is always a form again - now carrying `reload`, which only a save produces
+      // (steward/59).
+      api<ReloadAwareConfigDocument>(`/api/config/${encodePath(file)}`, {
         method: "PUT",
         body: { revision, changes },
       }),
@@ -566,6 +611,35 @@ export function useSaveConfig(file: string) {
       // cache is now provably out of date - including its revision, so a second attempt with it
       // would be refused for the same reason. Re-reading is what lets the operator see what the
       // file says and decide whether their change is still the one they want.
+      if (failure instanceof ApiError && failure.status === 409) {
+        client.invalidateQueries({ queryKey: keys.config(file) })
+      }
+    },
+  })
+}
+
+/**
+ * Saves the exact text typed into the raw editor (steward/60).
+ *
+ * Mirrors {@link useSaveConfig}'s shape - a revision that has to match, an answer that replaces
+ * the cache entry directly rather than triggering a refetch - but posts to the raw file's own
+ * route, because its body is text and a revision, never a `changes` map. A syntax warning in the
+ * answer is never a reason this promise rejects: {@code warnings} rides along on the same 200 a
+ * clean save gets, the same way {@link useSaveMessageBundle}'s does.
+ */
+export function useSaveRawConfig(file: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ revision, content }: { revision: string; content: string }) =>
+      api<RawConfigSaveResult>(`/api/config-raw/${encodePath(file)}`, {
+        method: "PUT",
+        body: { revision, content },
+      }),
+    onSuccess: (document) => {
+      client.setQueryData(keys.config(file), document)
+    },
+    onError: (failure) => {
+      // The other browser was faster - the same 409 handling useSaveConfig gives the parsed path.
       if (failure instanceof ApiError && failure.status === 409) {
         client.invalidateQueries({ queryKey: keys.config(file) })
       }
@@ -633,6 +707,95 @@ export function useAdminCommand() {
       // The row names who asked, so it is a journal entry whether or not the command succeeds.
       client.invalidateQueries({ queryKey: ["journal"] })
     },
+  })
+}
+
+// --- message bundles (steward/48) ---------------------------------------------------------
+
+/**
+ * Every message bundle steward-worker found - one row per module's `messages/` directory,
+ * without opening a single jar. `ServiceMessages` filters this by `service` itself, the same way
+ * `useConfigs` is filtered by `ServiceConfiguration`, so one listing serves every service's page.
+ */
+export function useMessageBundles(enabled = true) {
+  return useQuery({
+    queryKey: keys.messageBundles,
+    queryFn: () => api<MessageBundleLocation[]>("/api/messages"),
+    staleTime: 5 * 60 * SECOND,
+    enabled,
+  })
+}
+
+/**
+ * One bundle's packaged text and operator overrides, in both languages at once - the en/de toggle
+ * is drawn client-side rather than as two requests, since a bundle is one file's worth of JSON
+ * either way.
+ */
+export function useMessageBundle(path: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.messageBundle(path),
+    queryFn: () => api<MessageBundle>(`/api/messages/${encodePath(path)}`),
+    enabled: enabled && Boolean(path),
+  })
+}
+
+/**
+ * Saves a set of overrides for one language of one bundle.
+ *
+ * Unlike {@link useSaveConfig} there is no revision to carry - an override is a change to one key
+ * at a time rather than a whole file rewritten under a form, and two admins editing the same line
+ * a minute apart is "the second edit wins", the same way it already is for the override file if
+ * somebody edited it by hand. The answer is the bundle as it now reads, plus any placeholder
+ * warnings, and both replace this bundle's cache entry directly rather than triggering a refetch.
+ */
+export function useSaveMessageBundle(path: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: MessageChanges) =>
+      api<MessageSaveResult>(`/api/messages/${encodePath(path)}`, { method: "PUT", body }),
+    onSuccess: (document) => {
+      client.setQueryData(keys.messageBundle(path), document)
+    },
+  })
+}
+
+// --- settings search (steward/58) -----------------------------------------------------------
+
+/**
+ * Every one of the given files' documents, fetched only while `enabled` - a search box that has
+ * something typed into it, or a command palette that is open, never a search box merely mounted.
+ *
+ * Each query shares its key with {@link useConfig}, so a file already open on the page (or already
+ * found by an earlier search) costs nothing a second time, and closing the search again leaves
+ * nothing subscribed. `files` is expected to be referentially stable across renders where possible
+ * - a new array of the same paths still works, it just makes `useQueries` throw the old results
+ * away and re-fetch from cache-or-network once more than strictly needed.
+ */
+export function useConfigDocuments(files: string[], enabled: boolean) {
+  return useQueries({
+    queries: files.map((file) => ({
+      queryKey: keys.config(file),
+      queryFn: () => api<ConfigDocument>(`/api/config/${encodePath(file)}`),
+      staleTime: 5 * 60 * SECOND,
+      enabled,
+    })),
+  })
+}
+
+/**
+ * Every one of the given bundles' documents, fetched only while `enabled` - the message-bundle
+ * twin of {@link useConfigDocuments}, for steward/87's search over the bundles as well as the
+ * files. Each query shares its key with {@link useMessageBundle}, so a bundle already open on a
+ * service's page costs nothing a second time to a search that also wants it.
+ */
+export function useMessageDocuments(paths: string[], enabled: boolean) {
+  return useQueries({
+    queries: paths.map((path) => ({
+      queryKey: keys.messageBundle(path),
+      queryFn: () => api<MessageBundle>(`/api/messages/${encodePath(path)}`),
+      staleTime: 5 * 60 * SECOND,
+      enabled,
+    })),
   })
 }
 

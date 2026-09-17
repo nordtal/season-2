@@ -74,9 +74,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * cookie and the CSRF token are all the production code, driven through {@code /auth/login} and
  * {@code /auth/callback} exactly as a browser drives them.
  *
- * <p>What is still Till's ({@code todo.md} A29) is the real Discord application: a client secret
- * and a registered redirect URI. So this proves the flow, not the registration - a redirect URI
- * Discord has not been told about fails at Discord and nowhere in here.</p>
+ * <p>What is still Till's is the real Discord application: a client secret and a registered
+ * redirect URI. So this proves the flow, not the registration - a redirect URI Discord has not
+ * been told about fails at Discord and nowhere in here.</p>
  */
 class StewardUiIntegrationTest {
 
@@ -234,8 +234,12 @@ class StewardUiIntegrationTest {
             // the one part of the worker these tests do not fake, because the whole of the
             // configuration editor now lives on that side and what is left in steward-ui is three
             // lines of proxy. Faking it here would test the proxy against a mirror.
+            // No console to type into in this fake worker - none of the fixture files below name a
+            // reload command (steward/59), so a no-op is never actually invoked here; the proxy is
+            // what this test exercises, not ConfigApi's own reload behaviour, which has its own
+            // test in :steward-worker.
             final eu.nordtal.s2.steward.worker.api.ConfigApi configApi =
-                    new eu.nordtal.s2.steward.worker.api.ConfigApi(configRoot);
+                    new eu.nordtal.s2.steward.worker.api.ConfigApi(configRoot, (service, command) -> { });
             cfg.routes.get("/api/config", configApi::list);
             cfg.routes.get("/api/config/<file>", configApi::one);
             cfg.routes.put("/api/config/<file>", configApi::save);
@@ -419,6 +423,12 @@ class StewardUiIntegrationTest {
                 };
             }
 
+            @Override
+            public AvatarSpec avatars() {
+                return new AvatarSpec() {
+                };
+            }
+
         };
 
         // A real database with the real migrations: the rows these endpoints read are the rows
@@ -554,6 +564,19 @@ class StewardUiIntegrationTest {
         assertFalse(built.body().contains("<div id=\"root\""),
                 assetPath + " came back as the page instead of itself");
 
+        // steward/79: a hashed bundle can never change under its own name, so a cold start must not
+        // re-fetch it - and the document that names it can, so a cold start must always revalidate
+        // it. The two headers are opposite on purpose; see StewardUi's cacheControl.
+        assertEquals(List.of("max-age=31536000, immutable"), built.headers().allValues("Cache-Control"),
+                assetPath + " is content-hashed and must be told to cache forever: "
+                        + built.headers().map());
+        assertEquals(List.of("no-cache"), page.headers().allValues("Cache-Control"),
+                "/ carries no hash in its name and must always be revalidated: "
+                        + page.headers().map());
+        assertEquals(List.of("no-cache"), deep.headers().allValues("Cache-Control"),
+                "a client-side route falls back to the same document and needs the same header: "
+                        + deep.headers().map());
+
         // And an endpoint that does not exist answers 404, not 200 with HTML. A caller expecting
         // JSON would otherwise report a parse error and send the next reader after the wrong bug.
         assertEquals(404, get(stranger, "/api/there-is-no-such-thing").statusCode());
@@ -629,6 +652,48 @@ class StewardUiIntegrationTest {
 
         assertFalse(GSON.fromJson(get(browser(), "/api/me").body(), JsonObject.class)
                 .get("signedIn").getAsBoolean());
+    }
+
+    @Test
+    @DisplayName("steward/91: /api/me carries the Discord avatar of the same person row "
+            + "/api/people would print, and never fails without one")
+    void whoAmICarriesTheDiscordAvatar() throws Exception {
+        // No `discord_user` row for "1" exists anywhere else in this class - every other test in
+        // here signs in as "1" and none of them ever mirrors a Discord profile onto it. So this is
+        // the fallback case FIRST, exactly as every other test already exercises it without
+        // knowing: signed in, no person row, and the answer must not carry the field at all.
+        final JsonObject withoutARow = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+        assertFalse(withoutARow.has("discordAvatarUrl"), withoutARow.toString());
+
+        try (var connection = data.dataSource().getConnection();
+             var insert = connection.prepareStatement(
+                     "INSERT INTO discord_user (discord_id, discord_avatar_url) VALUES ('1', ?)")) {
+            insert.setString(1, "https://cdn.discordapp.com/avatars/1/a.png");
+            insert.executeUpdate();
+        }
+        try {
+            final JsonObject withARow = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+            assertEquals("https://cdn.discordapp.com/avatars/1/a.png",
+                    withARow.get("discordAvatarUrl").getAsString(), withARow.toString());
+
+            // A row that exists but was never mirrored a picture is the same fallback as no row -
+            // NULL, not empty text, is what the schema writes for that (V21).
+            try (var connection = data.dataSource().getConnection();
+                 var clearIt = connection.prepareStatement(
+                         "UPDATE discord_user SET discord_avatar_url = NULL WHERE discord_id = '1'")) {
+                clearIt.executeUpdate();
+            }
+            final JsonObject withANullColumn = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+            assertFalse(withANullColumn.has("discordAvatarUrl"), withANullColumn.toString());
+        } finally {
+            // Every other test in this class signs in as "1" and expects the fallback state, so
+            // the row this test wrote must not outlive it.
+            try (var connection = data.dataSource().getConnection();
+                 var delete = connection.prepareStatement(
+                         "DELETE FROM discord_user WHERE discord_id = '1'")) {
+                delete.executeUpdate();
+            }
+        }
     }
 
     @Test
@@ -864,6 +929,27 @@ class StewardUiIntegrationTest {
 
         assertEquals("ok", health.get("status").getAsString());
         assertTrue(health.get("worker").getAsBoolean(), "the fake worker is up");
+    }
+
+    /**
+     * steward/85. Javalin answers a HEAD against a registered GET by discarding the body at the
+     * wire layer - but {@code guard}'s {@code beforeMatched} reads {@code ctx.routeRoles()}, and
+     * that lookup is keyed to the exact HTTP method. With no route ever registered for
+     * {@code HEAD /api/health}, it saw zero decided roles and {@code gateOf} refused it as an
+     * undecided route: a 500 that named a fault this service does not have. A real monitor tries
+     * HEAD before GET because it is cheaper, so this is exactly the request an outside watcher
+     * would send first - and the health route is the one place it has to come back cheap.
+     */
+    @Test
+    @DisplayName("a monitor's HEAD on /api/health gets 200, not the 500 an undecided route gets")
+    void headOnHealthIsNotUndecided() throws Exception {
+        final HttpResponse<Void> head = browser().send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/health"))
+                .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                .build(), HttpResponse.BodyHandlers.discarding());
+
+        assertEquals(200, head.statusCode(),
+                "HEAD on an ANYONE route must not be refused as undecided");
     }
 
     @Test
@@ -1194,7 +1280,12 @@ class StewardUiIntegrationTest {
     }
 
     // -------------------------------------------------------------------------------------------
-    // The five admin commands that stayed in the game
+    // The admin commands the interface offers
+    //
+    // This heading said "the five admin commands that stayed in the game" until 2026-09-16, and the
+    // sentence stopped being true twice over: season-2-ops/18 took every admin command off chat, so
+    // none of them stayed in the game, and /phase's four joined the list when the owner sent them to
+    // the console and the interface rather than the console alone.
     // -------------------------------------------------------------------------------------------
 
     @Test
@@ -1202,8 +1293,14 @@ class StewardUiIntegrationTest {
     void theCatalogueIsFiltered() throws Exception {
         final JsonArray offered = GSON.fromJson(get("/api/commands").body(), JsonArray.class);
 
+        // Alphabetical, because that is the order the catalogue answers in - not a ranking. The
+        // twin of this list lives in :commands' WebSurfaceTest; two copies is deliberate here,
+        // because this one proves the HTTP endpoint filters and that one proves the declarations
+        // agree, and a single shared constant would let both pass while the wiring between them
+        // was broken.
         assertEquals(
                 List.of("/access settle", "/access unlink", "/announce", "/hg start",
+                        "/phase launch", "/phase set", "/phase show", "/phase smp-start",
                         "/smp farmreset now", "/smp milestone unlock", "/smp objective complete"),
                 offered.asList().stream()
                         .map(command -> command.getAsJsonObject().get("name").getAsString())

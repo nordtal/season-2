@@ -41,8 +41,8 @@ import java.util.Optional;
  * currently the whole of the authentication, and the sign-in page says so.
  *
  * <p><b>Unverified end to end as of 2026-09-13:</b> the flow needs a client secret and a registered
- * redirect URI, which are Till's to create ({@code todo.md} A29). What has been checked from this
- * host is only that {@code discord.com/api/v10} answers.</p>
+ * redirect URI, which are Till's to create. What has been checked from this host is only that
+ * {@code discord.com/api/v10} answers.</p>
  */
 public final class DiscordAuth {
 

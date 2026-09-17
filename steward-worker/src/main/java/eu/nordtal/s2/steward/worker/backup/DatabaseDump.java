@@ -130,7 +130,7 @@ public final class DatabaseDump {
         }
 
         // Cheap integrity check, and the sidecar's: read the archive's own table of contents back.
-        // It does not prove the dump restores - only the drill in todo.md can - but it catches a
+        // It does not prove the dump restores - only a real restore drill can - but it catches a
         // truncated file while there is still something to be done about it.
         final Docker.ExecResult listed = run(containerId, "pg_restore --list " + quote(partialPath)
                 + " > /dev/null");

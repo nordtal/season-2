@@ -14,6 +14,7 @@ import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
@@ -59,11 +60,13 @@ public final class HungerGamesCommand {
     private final Lobby lobby;
     private final HungerGamesSounds sounds;
     private final Supplier<UUID> currentGameId;
+    private final Supplier<ToneColours> colours;
 
     public HungerGamesCommand(final Plugin plugin, final HungerGamesDao dao,
                               final Messages messages, final PlayerLocales locales,
                               final Lobby lobby, final HungerGamesSounds sounds,
-                              final Supplier<UUID> currentGameId) {
+                              final Supplier<UUID> currentGameId,
+                              final Supplier<ToneColours> colours) {
         this.plugin = plugin;
         this.dao = dao;
         this.messages = messages;
@@ -71,6 +74,7 @@ public final class HungerGamesCommand {
         this.lobby = lobby;
         this.sounds = sounds;
         this.currentGameId = currentGameId;
+        this.colours = colours;
     }
 
     /** Every tree this server registers. */
@@ -83,7 +87,7 @@ public final class HungerGamesCommand {
                 mcUuid -> locales.of(mcUuid),
                 isAdmin,
                 dao::discordIdOf,
-                sounds::play);
+                sounds::play, colours);
 
         for (final NordtalCommand<HungerGamesEffects> command : HungerGamesCommands.all()) {
             commands.local(command, effects);
@@ -127,7 +131,7 @@ public final class HungerGamesCommand {
         // Optional::empty rather than null: /hg ready needs no Discord id, it never travels, and a
         // bare null is ambiguous between PaperUser's two factories.
         final NordtalUser user = PaperUser.of(plugin, player, locales.of(player.getUniqueId()),
-                false, java.util.Optional::<String>empty, messages, sounds::play);
+                false, java.util.Optional::<String>empty, messages, sounds::play, colours);
         final UUID gameId = currentGameId.get();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {

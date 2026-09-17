@@ -18,12 +18,12 @@ import { NAVIGATION } from "@/app/navigation"
  */
 describe("activeEntryId - the longest match wins", () => {
   it("lights up the start page for / and nothing else", () => {
-    expect(activeEntryId("/", NAVIGATION)).toBe("status")
+    expect(activeEntryId("/", NAVIGATION)).toBe("overview")
   })
 
   it("does not light up the start page for a path that merely begins with a slash", () => {
     // `/` is the one href that must not be treated as a prefix, or every path would match it.
-    expect(activeEntryId("/season", NAVIGATION)).not.toBe("status")
+    expect(activeEntryId("/season", NAVIGATION)).not.toBe("overview")
   })
 
   it("picks the nested entry over its parent, which is the whole reason it is not a predicate", () => {

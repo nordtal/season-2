@@ -10,6 +10,7 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessState;
+import eu.nordtal.s2.networkcontrol.gate.BackendHealth;
 import eu.nordtal.s2.networkcontrol.gate.FallbackCache;
 import eu.nordtal.s2.networkcontrol.gate.GateMessages;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
@@ -66,6 +67,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     private final FallbackCache fallback;
     private final GateMessages messages;
     private final PackStation packs;
+    private final BackendHealth health;
 
     /**
      * Where this class has decided to send somebody, so that {@link RouteIntents} can refuse every
@@ -77,7 +79,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     public PlayerRouter(final Object plugin, final ProxyServer proxy, final Logger logger,
                         final AccessDirectory access, final PhaseRouting routing, final PhaseWatch phases,
                         final LoginRoster roster, final FallbackCache fallback, final GateMessages messages,
-                        final PackStation packs, final RouteIntents intents) {
+                        final PackStation packs, final RouteIntents intents, final BackendHealth health) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -89,6 +91,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         this.messages = Objects.requireNonNull(messages, "messages");
         this.packs = Objects.requireNonNull(packs, "packs");
         this.intents = Objects.requireNonNull(intents, "intents");
+        this.health = Objects.requireNonNull(health, "health");
     }
 
     // ------------------------------------------------------------------ login
@@ -314,7 +317,13 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                         .map(reason -> ": " + net.kyori.adventure.text.serializer.plain
                                 .PlainTextComponentSerializer.plainText().serialize(reason))
                         .orElse("")));
+                return;
             }
+            // A real connection succeeding is the health check BackendHealth otherwise has no way
+            // to run on its own - see that class. Cleared here rather than left to the retry
+            // window's own expiry so a backend that recovers is usable again the moment somebody
+            // actually reaches it, not up to BackendHealth#RETRY seconds later.
+            health.clear(server);
         });
         return true;
     }

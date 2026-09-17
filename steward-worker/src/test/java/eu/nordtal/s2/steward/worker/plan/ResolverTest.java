@@ -613,6 +613,13 @@ class ResolverTest {
                 };
             }
 
+            @Override
+            public DeployerSpec deployer() {
+                // Defaults: this test never recreates a container.
+                return new DeployerSpec() {
+                };
+            }
+
         };
         return new Resolver(config, new GitHubReleases(http), new Modrinth(http), new PaperFill(http),
                 Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC)).resolve();

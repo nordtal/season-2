@@ -1,38 +1,33 @@
-import { Outlet, useRouterState } from "@tanstack/react-router"
-import { Search as SearchIcon } from "lucide-react"
-
-import { AppSidebar } from "@/app/app-sidebar"
 import { CommandPalette } from "@/app/command-palette"
+import { ShellA, ShellB, ShellC, ShellD, ShellE, ShellF, ShellG, ShellH, ShellI } from "@/app/frames"
 import { HoldKeyPage } from "@/app/hold-key"
 import { SecurityKeyPage } from "@/app/security-key"
+import { sidebarDefaultOpen, useShellVariant } from "@/app/shell-variant"
 import { StepUp } from "@/app/step-up"
 import { SignInPage } from "@/app/sign-in"
 import { StewardMark } from "@/app/steward-mark"
 import { ApiError } from "@/lib/api"
-import { shortcutLabel } from "@/lib/keys"
+import type { Me } from "@/lib/api"
 import { useMe } from "@/lib/queries"
 import { useIsMobile } from "@/hooks/use-mobile"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
 import { Failure } from "@/components/steward/query-state"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+
+export { breadcrumbsFor } from "@/app/breadcrumbs"
 
 /**
  * The shell: a fixed viewport, one scrolling column, and a sidebar that is a column on a desktop
  * and a sheet on a phone.
  *
+ * **There is no header any more** (steward/89, Till 2026-09-17). It is gone in both states, with
+ * its border, and what it carried is now an island at the top left and the account picture level
+ * with it. `app/frames.tsx` holds the three shells that are being compared and says what each of
+ * them does differently; `the-header-is-gone.test.ts` is what keeps the header from growing back.
+ *
  * The document itself does not scroll. An operator watching a log window and a service table at
- * the same time should not lose the header to do it, so the header is pinned and only the content
- * column moves.
+ * the same time should not lose their place to do it, so only the content column moves.
  *
  * **The height is measured, not asked for** (`lib/app-frame.ts`). Measured on 2026-09-14 on an
  * iPhone home screen: at `h-svh` the page and the sidebar sheet were both cut off about a fifth
@@ -80,26 +75,49 @@ export function Shell() {
   // `verified` is per SESSION and not per account - signing out and back in lands here.
   if (!me.data.verified) return <HoldKeyPage me={me.data} />
 
+  return <SignedIn me={me.data} isMobile={isMobile} />
+}
+
+/**
+ * Everything past the four doors, in one place - and the only place the shell is chosen.
+ *
+ * It is a component of its own rather than the tail of {@link Shell} for a plain reason: it reads
+ * the router, and the four answers above are drawn without one. `shell.test.tsx` renders `Shell`
+ * with no route tree at all, which is exactly what makes those four testable.
+ */
+function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
+  const variant = useShellVariant()
+
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider
-        // ON A DESKTOP the sidebar never collapses, so the provider's cookie and its own Ctrl+B
-        // would only ever toggle a state nothing reads: `open` is held true and the setter is a
-        // no-op. The phone's sheet is a different piece of state (`openMobile`) and is untouched by
-        // this, which is what lets one sidebar be both things.
-        open
-        onOpenChange={() => undefined}
+        // WHAT THE SIDEBAR REMEMBERS. The provider writes this cookie whenever the sidebar is
+        // opened or closed and never reads it back - reading it is the application's job, and
+        // skipping that job is what makes a collapsed sidebar spring open again on every reload.
+        // The phone's sheet is a different piece of state (`openMobile`) and is untouched by it,
+        // which is what lets one sidebar be both things.
+        defaultOpen={sidebarDefaultOpen(document.cookie)}
         style={{ "--sidebar-width": "13rem" } as React.CSSProperties}
       >
-        <AppSidebar />
-        <SidebarInset className="flex h-(--app-height) min-w-0 flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)]">
-          <Header />
-          <ScrollArea className="min-h-0 flex-1">
-            <main className="mx-auto w-full max-w-[110rem] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:py-6">
-              <Outlet />
-            </main>
-          </ScrollArea>
-        </SidebarInset>
+        {variant === "c" ? (
+          <ShellC me={me} />
+        ) : variant === "b" ? (
+          <ShellB me={me} />
+        ) : variant === "d" ? (
+          <ShellD me={me} />
+        ) : variant === "e" ? (
+          <ShellE me={me} />
+        ) : variant === "f" ? (
+          <ShellF me={me} />
+        ) : variant === "g" ? (
+          <ShellG me={me} />
+        ) : variant === "h" ? (
+          <ShellH me={me} />
+        ) : variant === "i" ? (
+          <ShellI me={me} />
+        ) : (
+          <ShellA me={me} />
+        )}
         {/*
           Bottom right on a desktop, bottom centre on a phone - a thumb is in the middle, and a
           corner toast on a narrow screen covers whatever control is in that corner. One Toaster
@@ -134,7 +152,7 @@ function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }
           <StewardMark className="size-8" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
-            <span className="text-sm text-muted-foreground">nordtal.eu · Season 2</span>
+            <span className="text-sm text-muted-foreground">Season 2</span>
           </div>
         </div>
         <Failure error={error} onRetry={onRetry} />
@@ -145,147 +163,4 @@ function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }
       </div>
     </div>
   )
-}
-
-function Header() {
-  const crumbs = useRouterState({ select: (state) => breadcrumbsFor(state.location.pathname) })
-
-  return (
-    <header className="flex h-[calc(3.5rem+var(--blur-clearance))] shrink-0 items-center gap-2 border-b border-border px-4 pt-(--blur-clearance) md:gap-4 md:px-6">
-      {/* The only way back to the navigation on a phone. Nothing renders it on a desktop, where
-          the sidebar is always standing there. */}
-      <SidebarTrigger className="-ml-1 size-control shrink-0 md:hidden" />
-      {/*
-        ON A PHONE ONLY THE LAST CRUMB IS SHOWN. `BreadcrumbList` wraps, and "Status > Configuration
-        > steward-worker > steward-worker.yml" is two lines of a header that is one line tall - so
-        the trail spilled over the hamburger and under the border. The trail is a convenience on a
-        wide screen and the sheet is the way back on a narrow one, so below `sm` this prints where
-        you are and nothing else. `flex-nowrap` is the belt to that brace: a two-crumb path that
-        still does not fit now truncates rather than growing the header.
-      */}
-      <Breadcrumb className="min-w-0">
-        <BreadcrumbList className="flex-nowrap">
-          {crumbs.map((crumb, index) => {
-            const last = index === crumbs.length - 1
-            return (
-              <BreadcrumbItem key={crumb.href} className={last ? "min-w-0" : "max-sm:hidden"}>
-                {last ? (
-                  <BreadcrumbPage className="truncate">{crumb.label}</BreadcrumbPage>
-                ) : (
-                  <>
-                    <BreadcrumbLink
-                      href={crumb.href}
-                      className="truncate transition-colors duration-150 ease-out hover:text-primary"
-                    >
-                      {crumb.label}
-                    </BreadcrumbLink>
-                    <BreadcrumbSeparator />
-                  </>
-                )}
-              </BreadcrumbItem>
-            )
-          })}
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      <div className="ml-auto shrink-0">
-        <CommandHint />
-      </div>
-    </header>
-  )
-}
-
-/**
- * Looks like a search field and is a button, because it is one: it does nothing but open the
- * palette, and a real input here would be a second place to type the same query.
- *
- * On a phone it is the icon alone. A 56-character-wide fake search field beside a breadcrumb is
- * most of a 390px header, and the word it would be hiding is "Search".
- *
- * The key it prints is the key the reader has: `⌘K` on a Mac, `Ctrl+K` on everything else. It used
- * to say `⌘K` here and `Ctrl` in the sidebar footer - the same shortcut, answered twice, wrongly
- * for half the readers each time.
- */
-function CommandHint() {
-  const open = () => {
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }),
-    )
-  }
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={open}
-        aria-label="Search pages"
-        className="flex size-control items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 ease-out hover:border-input hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none active:bg-secondary sm:hidden"
-      >
-        <SearchIcon className="size-4" aria-hidden />
-      </button>
-
-      <button
-        type="button"
-        onClick={open}
-        className="hidden h-control min-w-56 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm text-muted-foreground transition-colors duration-150 ease-out hover:border-input hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none active:bg-secondary sm:flex"
-      >
-        <span>Search pages…</span>
-        <kbd className="ml-auto rounded-sm border border-border bg-secondary px-1.5 py-0.5 font-mono text-[0.6875rem] text-foreground">
-          {shortcutLabel("K")}
-        </kbd>
-      </button>
-    </>
-  )
-}
-
-const SECTION_LABELS: Record<string, string> = {
-  services: "Services",
-  operations: "Operations",
-  plan: "Plan",
-  runs: "Run",
-  backups: "Backup",
-  restore: "Restore",
-  season: "Season",
-  access: "Access",
-  payments: "Payments",
-  accounts: "Accounts",
-  journal: "Journal",
-  settings: "Settings",
-}
-
-/**
- * A path segment as a person should read it, or exactly as it arrived.
- *
- * `decodeURIComponent` throws on a malformed escape - `/services/%` is enough - and it is called
- * while the header renders, so the whole page became a blank screen for a URL somebody mistyped
- * or a link that lost a character. An undecodable segment is shown as it is; it is a breadcrumb,
- * not a value anything is computed from.
- */
-function readable(segment: string) {
-  try {
-    return decodeURIComponent(segment)
-  } catch {
-    return segment
-  }
-}
-
-/**
- * The trail over the page, one crumb per path segment.
- *
- * Exported for `shell.breadcrumbs.test.ts` and for nothing else: the interesting half of it is
- * `readable`, which is the difference between a mistyped URL and a blank screen, and that is not
- * reachable through a render of the shell.
- */
-export function breadcrumbsFor(pathname: string) {
-  const segments = pathname.split("/").filter(Boolean)
-  const crumbs = [{ label: "Status", href: "/" }]
-  let href = ""
-  for (const segment of segments) {
-    href += `/${segment}`
-    crumbs.push({
-      label: SECTION_LABELS[segment] ?? readable(segment),
-      href,
-    })
-  }
-  return crumbs
 }

@@ -2,13 +2,15 @@ package eu.nordtal.s2.smp.player;
 
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.smp.prestige.Prestige;
+import eu.nordtal.s2.smp.prestige.PrestigeColours;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
 import java.util.Locale;
+import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * What a player looks like, in the three places they are drawn.
@@ -24,7 +26,14 @@ import java.util.Locale;
  * </table>
  *
  * <p><b>The nametag omits the aura</b> for performance: aura changes on every death, hand-in and
- * duel, and a nametag carrying it would send a packet to everyone in range each time.
+ * duel, and a nametag that carried it would send a packet to everyone in range each time.
+ *
+ * <h2>The name carries the prestige colour (season-2-ingame/23)</h2>
+ * {@link #name} is the single seam every one of these three surfaces paints a name through - the
+ * tab list, the nametag DisplayTags renders and the chat prefix {@code SystemLines} also uses for
+ * every join, leave, death and advancement line - so colouring it once here reaches all of them by
+ * construction rather than by four call sites agreeing to do the same thing. An admin's colour wins
+ * over their prestige tier; see {@link PrestigeColours} for why that is not a fourteenth tier.
  */
 public final class PlayerComposition {
 
@@ -36,15 +45,23 @@ public final class PlayerComposition {
 
     private final Prestige prestige;
 
-    public PlayerComposition(final Prestige prestige) {
+    /**
+     * A supplier, not a captured value, for the same reason {@code SmpPlugin.track} is one: a
+     * reference held here at construction would not notice {@code /smp reload} replacing the field
+     * it was read from.
+     */
+    private final Supplier<PrestigeColours> colours;
+
+    public PlayerComposition(final Prestige prestige, final Supplier<PrestigeColours> colours) {
         this.prestige = prestige;
+        this.colours = Objects.requireNonNull(colours, "colours");
     }
 
     /** All six, for the tab list. */
     public Component tabList(final String name, final Identity identity) {
         return flag(identity.locale())
                 .append(Component.text(" "))
-                .append(name(name))
+                .append(name(name, identity))
                 .append(badges(identity))
                 .append(crest(identity))
                 .append(Component.text(" "))
@@ -55,7 +72,7 @@ public final class PlayerComposition {
     public Component nameTag(final String name, final Identity identity) {
         return flag(identity.locale())
                 .append(Component.text(" "))
-                .append(name(name))
+                .append(name(name, identity))
                 .append(badges(identity))
                 .append(crest(identity));
     }
@@ -64,7 +81,7 @@ public final class PlayerComposition {
     public Component chatPrefix(final String name, final Identity identity) {
         return flag(identity.locale())
                 .append(Component.text(" "))
-                .append(name(name))
+                .append(name(name, identity))
                 .append(crest(identity));
     }
 
@@ -79,10 +96,31 @@ public final class PlayerComposition {
         return Component.text(Glyphs.flagFor(locale)).decoration(TextDecoration.ITALIC, false);
     }
 
-    /** Uniform light grey, always - the name is never a rank and is never coloured like one. */
-    private Component name(final String name) {
-        return Component.text(name).color(NamedTextColor.GRAY)
+    /**
+     * The prestige colour, or the admin colour if it wins (season-2-ingame/23).
+     *
+     * <p>Until this ticket the name was uniform light grey everywhere, on purpose - see the git
+     * history for the comment this replaced. That was the one thing every surface agreed on and the
+     * reason a tier-4 and a tier-13 player were indistinguishable at a glance; the whole point of
+     * this method existing is that they no longer are.
+     */
+    private Component name(final String name, final Identity identity) {
+        return Component.text(name).color(nameColour(identity))
                 .decoration(TextDecoration.ITALIC, false);
+    }
+
+    /**
+     * @return the admin colour if {@link Identity#admin()} is set, otherwise this identity's
+     *         prestige-tier colour - never both, and never a fourteenth tier of its own
+     */
+    private TextColor nameColour(final Identity identity) {
+        final PrestigeColours palette = colours.get();
+        return identity.admin() ? palette.admin() : palette.tier(tierOf(identity));
+    }
+
+    /** @return the tier {@link #crest} also draws - one derivation, read from both places. */
+    private int tierOf(final Identity identity) {
+        return prestige.tierOf(identity.playtimeSeconds());
     }
 
     private Component badges(final Identity identity) {
@@ -103,7 +141,7 @@ public final class PlayerComposition {
      * Thirteen designs, thirteen tiers; a fourteenth would have nothing to render as.
      */
     private Component crest(final Identity identity) {
-        final int tier = prestige.tierOf(identity.playtimeSeconds());
+        final int tier = tierOf(identity);
         return Component.text(" " + Glyphs.PRESTIGE_CRESTS[tier - 1])
                 .decoration(TextDecoration.ITALIC, false);
     }

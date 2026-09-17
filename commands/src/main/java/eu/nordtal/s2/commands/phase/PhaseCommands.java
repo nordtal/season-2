@@ -26,20 +26,37 @@ public final class PhaseCommands {
     private static final Target TARGET = Target.PROXY;
 
     /**
-     * Chat and Discord - deliberately <b>not</b> the console, which would be a second notion of who
-     * may do this on a proxy that already knows who is an admin. Anybody with that console can edit
-     * {@code season_phase} directly.
+     * The console and the web interface, and neither chat nor Discord.
+     *
+     * <h2>This used to be the exact opposite, and the reversal is the decision</h2>
+     * It read {@code Set.of(GAME, DISCORD)} with a comment arguing that the console would be "a
+     * second notion of who may do this on a proxy that already knows who is an admin". That
+     * argument was sound on its own and lost to a larger one: {@code season-2-ops/18}, Till's own
+     * words, <i>"alles Admin nur noch Konsole und Web"</i>. Every other admin command in the
+     * repository moved; a single set of four that stayed reachable from chat would be the exception
+     * nobody remembers, and {@code /phase launch} is the most consequential command in the project
+     * - it starts the season.
+     *
+     * <p>{@link Surface#WEB} rather than {@link Surface#CONSOLE} alone, decided 2026-09-16: the
+     * Season page in Steward is where a person already reads the phase, so it is where they should
+     * be able to set it. A WEB row is pinned to the asker's Discord id by a CHECK in V18, so
+     * "who launched the season" stays answerable - which a CONSOLE row, pinned by V11 to having no
+     * identity at all, cannot answer for the one command where it matters most.</p>
+     *
+     * <p>The old comment's observation survives it and is worth keeping: anybody holding that
+     * console can edit {@code season_phase} directly anyway. That is an argument about what a
+     * console <em>can</em> do, not about where this command should be offered.</p>
      */
-    private static final Set<Surface> GAME_AND_DISCORD =
-            Set.of(Surface.GAME, Surface.DISCORD);
+    private static final Set<Surface> CONSOLE_AND_WEB =
+            Set.of(Surface.CONSOLE, Surface.WEB);
 
     /** {@code /phase show} - and the bare {@code /phase} on the proxy. Reads, changes nothing. */
     public static final Declaration SHOW = new Declaration(
-            List.of("phase", "show"), TARGET, GAME_AND_DISCORD, true, false, List.of());
+            List.of("phase", "show"), TARGET, CONSOLE_AND_WEB, true, false, List.of());
 
     /** {@code /phase set <phase>} - irreversible, and the one that disconnects people. */
     public static final Declaration SET = new Declaration(
-            List.of("phase", "set"), TARGET, GAME_AND_DISCORD, true, true,
+            List.of("phase", "set"), TARGET, CONSOLE_AND_WEB, true, true,
             List.of(Argument.choice("phase", phaseNames())));
 
     /**
@@ -50,7 +67,7 @@ public final class PhaseCommands {
      * costs one more command to fix.</p>
      */
     public static final Declaration LAUNCH = new Declaration(
-            List.of("phase", "launch"), TARGET, GAME_AND_DISCORD, true, false,
+            List.of("phase", "launch"), TARGET, CONSOLE_AND_WEB, true, false,
             List.of(whenArgument()));
 
     /**
@@ -61,7 +78,7 @@ public final class PhaseCommands {
      * first shift - a grant that started in between is no longer moved at all.</p>
      */
     public static final Declaration SMP_START = new Declaration(
-            List.of("phase", "smp-start"), TARGET, GAME_AND_DISCORD, true, true,
+            List.of("phase", "smp-start"), TARGET, CONSOLE_AND_WEB, true, true,
             List.of(whenArgument()));
 
     /** Every {@code /phase} command, in the order they read best in a help listing. */

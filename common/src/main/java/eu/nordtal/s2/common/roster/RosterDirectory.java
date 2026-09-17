@@ -2,6 +2,7 @@ package eu.nordtal.s2.common.roster;
 
 import javax.sql.DataSource;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The access schema as a list: everyone, every payment, every grant of one person.
@@ -60,6 +61,17 @@ public interface RosterDirectory {
      *         got anywhere is the wrong answer to every question it is asked
      */
     List<Person> people(int limit);
+
+    /**
+     * The one row {@link #people(int)} would print for this account, or empty when there is none
+     * (steward/91) - somebody can be signed into Steward without the bot ever having mirrored a
+     * Discord profile onto this id, and a stranger asking who they are is not the same question as
+     * "list everyone".
+     *
+     * @param discordId the Discord snowflake
+     * @return the row, or empty for an id nobody has ever heard of
+     */
+    Optional<Person> personOf(String discordId);
 
     /**
      * Every payment request, newest first - open, paid, expired, cancelled and superseded alike.

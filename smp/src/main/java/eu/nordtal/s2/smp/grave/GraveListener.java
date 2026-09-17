@@ -147,7 +147,10 @@ public final class GraveListener implements Listener {
      * <p>The content rows are deliberately free - taking things out is the whole point - so this
      * only stands between a player and the footer, which is furniture and one button. Without it a
      * shift-click or a pickup on the footer would move a head or a blank into somebody's inventory
-     * and, worse, leave an item in a slot nothing writes back.</p>
+     * and, worse, leave an item in a slot nothing writes back. The head is still a real, obtainable
+     * item since season-2-ingame/21 - {@code Graves#takeAll} hands it out - but that button is the
+     * only way to it; a manual click on its own cell stays cancelled, same as any other footer
+     * furniture.</p>
      */
     @EventHandler
     public void onClick(final org.bukkit.event.inventory.InventoryClickEvent event) {

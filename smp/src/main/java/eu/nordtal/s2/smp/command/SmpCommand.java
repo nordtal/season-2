@@ -10,6 +10,7 @@ import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.commands.update.UpdateCommands;
 import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.papercommon.command.PaperCommands;
@@ -64,13 +65,13 @@ public final class SmpCommand {
             final Identities identities, final SmpSounds sounds, final Outbox outbox,
             final SmpEffects effects, final UpdateWatcher updates,
             final java.util.function.Supplier<MilestoneTrack> track,
-            final SeasonState season) {
+            final SeasonState season, final java.util.function.Supplier<ToneColours> colours) {
 
         final PaperCommands commands = new PaperCommands(plugin, messages, Target.SMP, outbox,
                 mcUuid -> locales.of(mcUuid),
                 mcUuid -> identities.of(mcUuid).admin(),
                 identities::discordIdOf,
-                sounds::play);
+                sounds::play, colours);
 
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, effects);

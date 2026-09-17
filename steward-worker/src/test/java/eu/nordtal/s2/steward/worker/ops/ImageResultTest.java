@@ -37,9 +37,9 @@ class ImageResultTest {
                         + " reads exactly like one that was checked and found current"));
 
         assertEquals("The registry could not be asked about steward-ui, so nothing here can tell a"
-                + " current image from a stale one for it. Every reference is asked about now, so"
-                + " what is left is an image that carries no registry digest - built on this host"
-                + " and pushed nowhere - or a registry that did not answer. Neither of those is"
+                + " current image from a stale one for it. A local build is told apart from this"
+                + " already, so what is left is a registry that did not answer, or an image whose"
+                + " exact identity the daemon no longer has on file. Neither of those is"
                 + " `up to date`, and a run that stayed silent about it would read exactly as if it"
                 + " had checked and found nothing to do.", note);
 
@@ -110,5 +110,37 @@ class ImageResultTest {
         assertFalse(result.isOutdated("smp"));
         assertEquals(ImageResult.State.UNKNOWN, result.state("a-service-nobody-listed"),
                 "an absent service is 'nobody looked', which is never work and never current");
+    }
+
+    @Test
+    @DisplayName("a local build is named, but is not the unverifiable note's business")
+    void aLocalBuildIsItsOwnNoteNotAnUnverifiableOne() {
+        // steward/75: steward-ui and steward-worker on this host on 2026-09-16, both rebuilt with a
+        // local `docker build` and never pushed. Neither is a question nobody could answer.
+        final ImageResult result = ImageResult.of(
+                Map.of("steward-ui", ImageResult.State.LOCAL,
+                        "steward-worker", ImageResult.State.LOCAL,
+                        "smp", ImageResult.State.UP_TO_DATE));
+
+        assertTrue(result.isLocal("steward-ui"));
+        assertFalse(result.isOutdated("steward-ui"),
+                "LOCAL is the opposite direction from OUTDATED, not a milder version of it");
+        assertEquals(Optional.empty(), result.nothingChecked());
+        assertEquals(Optional.empty(), result.notCheckable(),
+                "a local build is a known answer, not an unanswered question");
+
+        final String note = result.localImages().orElseThrow(
+                () -> new AssertionError("two local builds produced no note at all"));
+        assertEquals("Built on this host and never published: steward-ui, steward-worker. The next"
+                + " real update run replaces them with whatever the last release actually contains,"
+                + " without asking.", note);
+    }
+
+    @Test
+    @DisplayName("no local build means no note about one")
+    void noLocalBuildMeansNoNote() {
+        final ImageResult result = ImageResult.of(Map.of("smp", ImageResult.State.UP_TO_DATE));
+
+        assertEquals(Optional.empty(), result.localImages());
     }
 }

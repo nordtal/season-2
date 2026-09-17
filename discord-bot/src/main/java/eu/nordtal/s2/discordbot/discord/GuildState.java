@@ -47,6 +47,13 @@ import java.util.Set;
  *
  * <p>A ban does not pause anything - {@code BANNED} refuses the login while the paid period keeps
  * running down. This class writes state and never touches a grant.</p>
+ *
+ * <p>Since steward/44 it also mirrors a name and a face: the global username and the <b>guild</b>
+ * nickname and avatar, written wherever this class already visits a member - the join event and the
+ * reconcile pass - never in a loop of its own. Leaving or being banned clears the guild-scoped half
+ * of that (nickname, avatar) the same way it already clears {@code admin}; the username is left as
+ * last observed, because it is not guild-scoped and merely goes stale rather than becoming wrong.
+ * See {@link eu.nordtal.s2.common.access.DiscordProfile}.</p>
  */
 @Slf4j
 public final class GuildState extends ListenerAdapter {
@@ -76,6 +83,7 @@ public final class GuildState extends ListenerAdapter {
         access.setMemberState(event.getMember().getId(), MemberState.MEMBER);
         mirrorLocale(event.getMember());
         mirrorAdmin(event.getMember());
+        mirrorProfile(event.getMember());
     }
 
     @Override
@@ -90,6 +98,9 @@ public final class GuildState extends ListenerAdapter {
         // Somebody who is not in the guild cannot be holding a role in it. The flag would otherwise
         // survive a removal and let an ex-member switch the season phase from the proxy.
         access.setAdmin(event.getUser().getId(), false);
+        // Nor a guild nickname or a guild avatar - both are scoped to a guild this account is not in
+        // any more. The global username is left as it was last observed; see clearGuildProfile.
+        access.clearGuildProfile(event.getUser().getId());
         // And they are not a linked member either. Safe here in a way it is not in reconcile():
         // this is one named user Discord has told us about, not an inference from a list that may
         // have loaded incompletely.
@@ -104,6 +115,7 @@ public final class GuildState extends ListenerAdapter {
             return;
         }
         access.setMemberState(event.getUser().getId(), MemberState.BANNED);
+        access.clearGuildProfile(event.getUser().getId());
     }
 
     @Override
@@ -177,6 +189,7 @@ public final class GuildState extends ListenerAdapter {
             access.setMemberState(member.getId(), MemberState.MEMBER);
             mirrorLocale(member);
             mirrorAdmin(member);
+            mirrorProfile(member);
             seen.add(member.getId());
         }
 
@@ -185,6 +198,7 @@ public final class GuildState extends ListenerAdapter {
             guild.retrieveBanList().stream().forEach(ban -> {
                 access.setMemberState(ban.getUser().getId(), MemberState.BANNED);
                 access.setAdmin(ban.getUser().getId(), false);
+                access.clearGuildProfile(ban.getUser().getId());
                 seen.add(ban.getUser().getId());
             });
         } catch (final RuntimeException exception) {
@@ -203,6 +217,7 @@ public final class GuildState extends ListenerAdapter {
             if (!seen.contains(discordId)) {
                 access.setMemberState(discordId, MemberState.LEFT);
                 access.setAdmin(discordId, false);
+                access.clearGuildProfile(discordId);
                 left++;
                 if (mayUnlink && access.unlink(discordId)) {
                     unlinked++;
@@ -269,5 +284,31 @@ public final class GuildState extends ListenerAdapter {
     private void mirrorAdmin(final Member member) {
         access.setAdmin(member.getId(), member.getRoles().stream()
                 .anyMatch(role -> role.getId().equals(config.roles().admin())));
+    }
+
+    /**
+     * Writes the username, guild nickname and guild avatar this event or reconcile pass just
+     * observed (steward/44). Piggybacks on the same two visits every other projection in this class
+     * already makes - the member-join event and the startup reconcile's member loop - rather than
+     * a loop of its own: the ticket asks for that only if reconcile is measurably slower for it,
+     * which has not been observed.
+     *
+     * <p><b>The effective profile, not the guild-scoped one</b> (Till, 2026-09-17). This used
+     * {@code getAvatarUrl()} and {@code getNickname()} - strictly the per-guild picture and the
+     * per-guild nickname - on the reasoning that a copy of somebody's global avatar is not a guild
+     * avatar. Correct, and measured on the live guild it made the whole feature empty: <b>51 of 51
+     * usernames, 1 of 51 display names, 0 of 51 avatars</b>, because a per-guild avatar is a Nitro
+     * feature almost nobody sets. Steward's account island (steward/89, steward/91) asks for "the
+     * profile picture of the signed-in user" and would therefore have drawn initials forever.
+     *
+     * <p>So the fallback is taken on purpose now, and the cost is named rather than hidden: this
+     * column no longer distinguishes a guild picture from an account picture. Nothing reads it that
+     * cares - it is shown, not reasoned about - and {@code clearGuildProfile} still empties it
+     * when somebody leaves, because what is cached here is only known through this guild either
+     * way.
+     */
+    private void mirrorProfile(final Member member) {
+        access.setDiscordProfile(member.getId(), member.getUser().getName(),
+                member.getEffectiveName(), member.getEffectiveAvatarUrl());
     }
 }

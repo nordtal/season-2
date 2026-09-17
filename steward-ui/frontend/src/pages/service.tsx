@@ -7,6 +7,7 @@ import { LOCALE, bytes, clock, percent, since } from "@/lib/format"
 import { useConsole, useLogSearch, useService } from "@/lib/queries"
 import { useLogStream, LIMIT } from "@/lib/use-log-stream"
 import { ServiceConfiguration } from "@/components/steward/configuration"
+import { ServiceMessages } from "@/components/steward/messages"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { RecreateButton } from "@/components/steward/recreate"
@@ -56,6 +57,11 @@ export function ServicePage() {
       {/* Below the log on purpose. The log is what somebody came here for; the configuration is
           what they came here for once. */}
       <ServiceConfiguration service={name} />
+
+      {/* Its own card, not a section of Configuration above: a message bundle has no YAML shape,
+          no schema, and keys are merged one at a time rather than a whole file rewritten
+          (steward/48). */}
+      <ServiceMessages service={name} />
     </div>
   )
 }

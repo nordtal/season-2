@@ -13,6 +13,7 @@ import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.limbo.LimboProtocol;
 import eu.nordtal.s2.networkcontrol.config.PackSpec;
+import eu.nordtal.s2.networkcontrol.gate.BackendHealth;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
 import eu.nordtal.s2.networkcontrol.routing.PhaseRouting;
@@ -56,6 +57,12 @@ import java.util.function.Consumer;
  * processes. {@code limbo}'s message says "this player is ready" and carries no destination; this
  * class asks {@link PhaseRouting} where they belong.</p>
  *
+ * <p><b>"Available" also asks {@link BackendHealth}</b>, not only {@code ProxyServer#getAllServers()}
+ * - see that class and {@link eu.nordtal.s2.networkcontrol.gate.BackendKick}. A destination it has
+ * suspended is held here exactly like one that is not registered at all, which is what stops a
+ * backend that kicks somebody with no reason given from taking them straight back the moment the
+ * next sweep runs (season-2-ops/20).</p>
+ *
  * <p><b>A plugin message is not evidence of who sent it.</b> Registering a channel makes the proxy
  * advertise it to the client, and a modded client can write whatever bytes it likes onto it - a
  * forged {@code READY} is a player releasing themselves from the waiting room, which is to say
@@ -79,6 +86,7 @@ public final class PackStation {
     private final PackMessages messages;
     private final PackSpec config;
     private final WaitingBook book;
+    private final BackendHealth health;
 
     /** {@code null} when {@code pack.yml#enabled} is off - the one thing that makes the wait short. */
     private final PackOffer offer;
@@ -103,7 +111,8 @@ public final class PackStation {
 
     public PackStation(final ProxyServer proxy, final Logger logger, final PhaseRouting routing,
                        final PhaseWatch phases, final LoginRoster roster, final PackMessages messages,
-                       final PackSpec config, final PackOffer offer, final WaitingBook book) {
+                       final PackSpec config, final PackOffer offer, final WaitingBook book,
+                       final BackendHealth health) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.routing = Objects.requireNonNull(routing, "routing");
@@ -112,6 +121,7 @@ public final class PackStation {
         this.messages = Objects.requireNonNull(messages, "messages");
         this.config = Objects.requireNonNull(config, "config");
         this.book = Objects.requireNonNull(book, "book");
+        this.health = Objects.requireNonNull(health, "health");
         this.offer = offer;
     }
 
@@ -322,8 +332,14 @@ public final class PackStation {
         // released while the network is closed goes to the SMP rather than back into this room.
         final boolean admin = roster.isAdmin(uuid);
         final String destination = routing.servers().forAdmitted(phase, admin);
+        // Registered is necessary but not sufficient: BackendHealth is what season-2-ops/20 added
+        // for a backend that is registered and has just kicked somebody with no reason given. A
+        // player is held here rather than released into it until the retry window passes - see
+        // BackendKick for what suspends it and PlayerRouter for what clears it again.
+        final boolean available = proxy.getServer(destination).isPresent()
+                && !health.isSuspended(destination);
         final WaitingDecision decision = book.decide(uuid, phase, admin,
-                proxy.getServer(destination).isPresent(), destination, updating.test(destination));
+                available, destination, updating.test(destination));
 
         switch (decision.action()) {
             case IDLE -> {
@@ -369,6 +385,12 @@ public final class PackStation {
      * and not answering. The player is still on limbo, so they go back on the books with the
      * {@code BACKEND} title and the release is tried again in {@link WaitingBook#RELEASE_RETRY}.
      *
+     * <p>Also suspends the destination in {@link BackendHealth} - the same signal
+     * {@link eu.nordtal.s2.networkcontrol.gate.BackendKick} raises for a reasonless kick, and the
+     * same shared per-server breaker: a backend refusing new connections outright is exactly as
+     * unavailable to everyone else waiting for it as one that just kicked somebody, and season-2-ops/20
+     * asks for one lock per server rather than one retry per player.</p>
+     *
      * @param player the player the release could not move
      * @param cause  why, in one line - a backend that is restarting says "Connection refused"
      */
@@ -376,6 +398,7 @@ public final class PackStation {
         final String destination = routing.servers()
                 .forAdmitted(phases.lastKnown(), roster.isAdmin(player.getUniqueId()));
         book.releaseFailed(player.getUniqueId(), destination);
+        health.suspend(destination);
         logger.warn("'{}' did not take {} ({}); holding them in the waiting room and trying again in {}s",
                 destination, player.getUsername(), cause, WaitingBook.RELEASE_RETRY.toSeconds());
         evaluate(player);

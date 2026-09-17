@@ -128,7 +128,10 @@ seed_level_settings() {
     local file="$DATA/server.properties" current
 
     current=""
-    [[ -f "$file" ]] && current=$(sed -n 's/^level-name=//p' "$file" | head -n1)
+    # `sed -n 1p` and not `head -n1`: head stops reading, and an early-exiting pipe reader turns a
+    # successful pipeline into 141 under `pipefail` - which here would abort the entrypoint and leave
+    # the container refusing to start. season-2-ops/27 is that bug, caught in CI on another script.
+    [[ -f "$file" ]] && current=$(sed -n 's/^level-name=//p' "$file" | sed -n '1p')
     if [[ -n "$current" && "$current" != "$LEVEL_NAME" ]] && ! adopt_paper_default_world "$current"; then
         die "this volume's server.properties says level-name=${current}, but LEVEL_NAME is '${LEVEL_NAME}'.
 
@@ -161,7 +164,8 @@ Two ways out, and only you can pick:
     [[ -n "${LEVEL_SEED:-}" ]] || return 0
     if [[ -f "$DATA/$LEVEL_NAME/level.dat" ]]; then
         current=""
-        [[ -f "$file" ]] && current=$(sed -n 's/^level-seed=//p' "$file" | head -n1)
+        # `sed -n 1p`, not `head -n1` - see the note at level-name above.
+        [[ -f "$file" ]] && current=$(sed -n 's/^level-seed=//p' "$file" | sed -n '1p')
         if [[ "$current" != "$LEVEL_SEED" ]]; then
             warn "world '${LEVEL_NAME}' already exists and was generated with ${current:-a seed nothing recorded}, not with LEVEL_SEED=${LEVEL_SEED}. Terrain is never re-rolled, so this is a note, not a fault - but .env and this volume do not describe the same world."
         fi
@@ -208,6 +212,28 @@ newer_server_jar() {
 # A file that does not match the shape is skipped rather than guessed at: no build number
 # (paper-26.2.jar), a non-numeric build, or a version carrying anything but digits and dots - which
 # is how a hand-copied velocity-4.1.2-SNAPSHOT-30.jar stays out of a production proxy.
+# One server jar per kind. What this removes is every jar this start did not choose: an older build,
+# an older version steward-worker superseded across a version bump (it supersedes by filename
+# prefix, so paper-26.2-121 -> paper-26.2-125 replaces in place but velocity-4.1.1-24 ->
+# velocity-4.2.0-31 does not), and anything hand-copied in that newest_server_jar refused to read.
+# They would otherwise sit here forever at 40-70 MB each.
+#
+# It is a function rather than a loop at the call site for one reason: it deletes files, and the
+# thing that decides WHICH file to keep is a string comparison against the path the caller chose.
+# Get that comparison wrong and this removes the jar the server is about to run. That deserves a
+# test, and entrypoint-test.sh can only reach what it can source.
+remove_superseded_jars() {
+    local cache="$1" kind="$2" keep="$3"
+    local old
+
+    shopt -s nullglob
+    for old in "$cache/${kind}-"*.jar; do
+        [[ "$old" != "$keep" ]] && { rm -f "$old"; log "removed superseded ${old##*/}"; }
+    done
+    shopt -u nullglob
+    return 0
+}
+
 newest_server_jar() {
     local cache="$1" kind="$2"
     local best="" best_version="" best_build=""
@@ -344,16 +370,7 @@ else
     log "downloaded and verified ${JAR_NAME}"
 fi
 
-# One server jar per kind. What this removes is every jar this start did not choose: an older build,
-# an older version steward-worker superseded across a version bump (it supersedes by filename
-# prefix, so paper-26.2-121 -> paper-26.2-125 replaces in place but velocity-4.1.1-24 ->
-# velocity-4.2.0-31 does not), and anything hand-copied in that newest_server_jar refused to read.
-# They would otherwise sit here forever at 40-70 MB each.
-shopt -s nullglob
-for old in "$CACHE/${SERVER_KIND}-"*.jar; do
-    [[ "$old" != "$JAR_PATH" ]] && { rm -f "$old"; log "removed superseded ${old##*/}"; }
-done
-shopt -u nullglob
+remove_superseded_jars "$CACHE" "$SERVER_KIND" "$JAR_PATH"
 
 # What is actually running, read back out of the filename rather than out of the two variables that
 # asked for it - SERVER_VERSION is a family on the proxy, so it is not the answer to "which version

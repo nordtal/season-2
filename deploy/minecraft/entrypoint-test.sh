@@ -26,10 +26,16 @@ trap 'rm -rf "$WORK"' EXIT
 
 failed=0
 current_case=""
+case_failed=0
 
-case_begin() { current_case="$1"; }
-ok()   { printf '  ok    %s\n' "$1"; }
-bad()  { printf '  FAIL  %s: %s\n' "$current_case" "$1" >&2; failed=$(( failed + 1 )); }
+case_begin() { current_case="$1"; case_failed=0; }
+
+# `ok` stays silent when the case it belongs to has already failed. Every case here calls its
+# assertions and then `ok` unconditionally, so without this a failing case printed its FAIL and an
+# `ok` directly underneath it. The count and the exit status were right all along; the output read
+# as if nothing had happened, which is the half somebody actually looks at.
+ok()   { (( case_failed )) || printf '  ok    %s\n' "$1"; }
+bad()  { printf '  FAIL  %s: %s\n' "$current_case" "$1" >&2; failed=$(( failed + 1 )); case_failed=1; }
 
 # A fresh volume directory for one case. Returns its path on stdout.
 volume() {
@@ -48,6 +54,18 @@ pick() {
     local cache="$1" kind="$2"
     set +e
     output=$(bash -c 'source "$1"; newest_server_jar "$2" "$3"' seeding-test "$ENTRYPOINT" "$cache" "$kind" 2>&1)
+    status=$?
+    set -e
+}
+
+# Runs remove_superseded_jars against a cache directory, and leaves what it printed in $output.
+#
+# Same `bash -c ... seeding-test` trick as pick() and seed(), and for the same reason.
+sweep() {
+    local cache="$1" kind="$2" keep="$3"
+    set +e
+    output=$(bash -c 'source "$1"; remove_superseded_jars "$2" "$3" "$4"' \
+        seeding-test "$ENTRYPOINT" "$cache" "$kind" "$keep" 2>&1)
     status=$?
     set -e
 }
@@ -80,7 +98,9 @@ ${output}"
 
 expect_property() {
     local file="$1" key="$2" want="$3" have
-    have=$(sed -n "s/^${key}=//p" "$file" 2>/dev/null | head -n1)
+    # `sed -n 1p` and not `head -n1`: head stops reading, and a reader that stops reading turns a
+    # successful pipeline into exit 141 under `pipefail`. season-2-ops/27 is that bug, found in CI.
+    have=$(sed -n "s/^${key}=//p" "$file" 2>/dev/null | sed -n '1p')
     [[ "$have" == "$want" ]] || bad "expected ${key}=${want} in ${file##*/}, found '${have:-nothing}'"
 }
 
@@ -260,6 +280,18 @@ expect_pick() {
     [[ "$output" == "$1" ]] || bad "expected '${1:-nothing}', got '${output:-nothing}'"
 }
 
+# Every name still in the cache directory, sorted, against the names given here.
+expect_cache() {
+    local dir="$1"; shift
+    local want have
+    want=$(printf '%s\n' "$@")
+    have=$(cd "$dir" && ls -1)
+    [[ "$have" == "$want" ]] || bad "expected the cache to hold:
+${want}
+but it holds:
+${have:-nothing}"
+}
+
 # ------------------------------------------------------------------------------------------------
 case_begin "the highest build of one version wins"
 dir=$(cache builds paper-26.2-119.jar paper-26.2-121.jar paper-26.2-9.jar)
@@ -327,6 +359,59 @@ pick "$dir" paper
 expect_status 0
 expect_pick ""
 ok "nothing readable"
+
+# ------------------------------------------------------------------------------------------------
+# WHY THESE CASES EXIST. The sweep deletes files, and what keeps it from deleting the jar the server
+# is about to run is one string comparison. Until 2026-09-16 it was a loop at the call site, which
+# no test could reach; the live proof that it works at all was run by hand that day (two paper jars
+# in the hunger-games cache, restart, `removed superseded paper-26.2-120.jar` in the log and one jar
+# left). These are the parts of that which should not need a container again.
+case_begin "the jar this start chose survives, and every other build goes"
+dir=$(cache sweep-builds paper-26.2-119.jar paper-26.2-121.jar paper-26.2-124.jar)
+sweep "$dir" paper "$dir/paper-26.2-124.jar"
+expect_status 0
+expect_cache "$dir" paper-26.2-124.jar
+ok "older builds removed, the chosen one kept"
+
+# ------------------------------------------------------------------------------------------------
+# The proxy's version bump is the case that made this matter: steward-worker supersedes by filename
+# prefix, so velocity-4.1.1-24 -> velocity-4.2.0-31 leaves both jars lying there.
+case_begin "a superseded version goes too, not only a superseded build"
+dir=$(cache sweep-versions velocity-4.1.1-24.jar velocity-4.2.0-31.jar)
+sweep "$dir" velocity "$dir/velocity-4.2.0-31.jar"
+expect_status 0
+expect_cache "$dir" velocity-4.2.0-31.jar
+ok "superseded version removed"
+
+# ------------------------------------------------------------------------------------------------
+# A jar newest_server_jar refused to read is exactly the kind that would sit in the cache forever,
+# so the sweep is deliberately less careful than the picker: it takes the whole `<kind>-*.jar` glob.
+case_begin "a jar of this kind that the picker could not read is removed as well"
+dir=$(cache sweep-junk paper-26.2-latest.jar paper-26.2-124.jar)
+sweep "$dir" paper "$dir/paper-26.2-124.jar"
+expect_status 0
+expect_cache "$dir" paper-26.2-124.jar
+ok "unreadable jar of this kind removed"
+
+# ------------------------------------------------------------------------------------------------
+# And the other side of that: the proxy and a Paper server never share a cache today, but the glob
+# is the only thing stopping this from being a bad day if they ever do.
+case_begin "a jar of another kind is not touched"
+dir=$(cache sweep-kinds paper-26.2-124.jar velocity-4.2.0-31.jar notes.txt)
+sweep "$dir" paper "$dir/paper-26.2-124.jar"
+expect_status 0
+expect_cache "$dir" notes.txt paper-26.2-124.jar velocity-4.2.0-31.jar
+ok "another kind left alone"
+
+# ------------------------------------------------------------------------------------------------
+# The bootstrap branch: one jar was just downloaded and there is nothing to sweep. It must not
+# remove the only jar there is, and it must not fail over an empty glob either.
+case_begin "a cache holding only the chosen jar is left exactly as it is"
+dir=$(cache sweep-single paper-26.2-124.jar)
+sweep "$dir" paper "$dir/paper-26.2-124.jar"
+expect_status 0
+expect_cache "$dir" paper-26.2-124.jar
+ok "nothing to sweep"
 
 # ------------------------------------------------------------------------------------------------
 

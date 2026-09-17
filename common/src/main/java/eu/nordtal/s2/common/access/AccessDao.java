@@ -56,6 +56,65 @@ interface AccessDao {
     Optional<Boolean> donor(@Bind("discordId") String discordId);
 
     /**
+     * Writes all three Discord-observed fields at once, each with its own {@code now()} timestamp.
+     * Called from {@code GuildState}'s reconcile pass and its join handler, which already visit one
+     * member at a time and already know the row exists - there is deliberately no separate loop for
+     * this (steward/44).
+     */
+    @SqlUpdate("""
+            INSERT INTO discord_user (discord_id, discord_username, discord_username_updated,
+                                       discord_display_name, discord_display_name_updated,
+                                       discord_avatar_url, discord_avatar_url_updated, updated)
+            VALUES (:discordId, :username, now(), :displayName, now(), :avatarUrl, now(), now())
+            ON CONFLICT (discord_id)
+                DO UPDATE SET discord_username = EXCLUDED.discord_username,
+                              discord_username_updated = now(),
+                              discord_display_name = EXCLUDED.discord_display_name,
+                              discord_display_name_updated = now(),
+                              discord_avatar_url = EXCLUDED.discord_avatar_url,
+                              discord_avatar_url_updated = now(),
+                              updated = now()
+            """)
+    void setDiscordProfile(@Bind("discordId") String discordId,
+                           @Bind("username") String username,
+                           @Bind("displayName") String displayName,
+                           @Bind("avatarUrl") String avatarUrl);
+
+    /**
+     * Clears {@code discord_display_name} and {@code discord_avatar_url} for an account that just
+     * left or was banned; that is a state to render, not an error. {@code discord_username} is left
+     * as it was last observed: it is the account's own name rather than something this guild
+     * grants, so it merely goes stale rather than becoming wrong. A no-op for a {@code discordId}
+     * with no row.
+     *
+     * <p>Since 2026-09-17 those two columns hold the member's <b>effective</b> name and picture -
+     * the guild's when there is one, the account's otherwise - so what is cleared here is no longer
+     * strictly guild-scoped data. Clearing it is still right: the only reason this deployment ever
+     * saw either value is that the account was a member, and once it is not, there is nothing
+     * standing behind the cached copy. See {@code GuildState#mirrorProfile} for why the fallback is
+     * taken at all.
+     */
+    @SqlUpdate("""
+            UPDATE discord_user
+            SET discord_display_name = NULL, discord_display_name_updated = now(),
+                discord_avatar_url = NULL, discord_avatar_url_updated = now(),
+                updated = now()
+            WHERE discord_id = :discordId
+            """)
+    void clearGuildProfile(@Bind("discordId") String discordId);
+
+    /** @return what was last observed about this account's Discord profile; empty for no such row */
+    @SqlQuery("""
+            SELECT discord_username, discord_username_updated,
+                   discord_display_name, discord_display_name_updated,
+                   discord_avatar_url, discord_avatar_url_updated
+            FROM discord_user
+            WHERE discord_id = :discordId
+            """)
+    @RegisterRowMapper(DiscordProfileMapper.class)
+    Optional<DiscordProfile> discordProfile(@Bind("discordId") String discordId);
+
+    /**
      * Mirrors the Discord admin role. Unlike {@code donor} this is written in both directions:
      * losing the role loses the flag, because it is a permission and not an acknowledgement.
      *
@@ -141,6 +200,26 @@ interface AccessDao {
 
     @SqlUpdate("DELETE FROM account_link WHERE discord_id = :discordId")
     int unlink(@Bind("discordId") String discordId);
+
+    /**
+     * The Minecraft name last seen at login, keyed by the account rather than by the name - see
+     * {@link MinecraftProfile}. An {@code UPDATE} rather than an upsert on purpose: a row only
+     * exists here once {@link #link} has written it, and there is nowhere to cache the name of an
+     * account nobody has connected to a Discord identity yet.
+     *
+     * @return how many rows were touched - {@code 0} when {@code mcUuid} is not linked
+     */
+    @SqlUpdate("""
+            UPDATE account_link
+            SET mc_name = :name, mc_name_updated = now()
+            WHERE mc_uuid = :mcUuid
+            """)
+    int setMinecraftName(@Bind("mcUuid") java.util.UUID mcUuid, @Bind("name") String name);
+
+    /** @return what was last observed about the Minecraft account linked to this Discord id */
+    @SqlQuery("SELECT mc_name, mc_name_updated FROM account_link WHERE discord_id = :discordId")
+    @RegisterRowMapper(MinecraftProfileMapper.class)
+    Optional<MinecraftProfile> minecraftProfile(@Bind("discordId") String discordId);
 
     // ---------------------------------------------------------------- access_grant
 

@@ -36,6 +36,11 @@ repositoryRootTestInputs {
     reads("steward-ui/frontend/public/icon-512.png")
     reads("steward-ui/frontend/public/manifest.webmanifest")
     reads("steward-ui/frontend/index.html")
+
+    // EveryCalledPathIsRoutedTest reads the frontend's source to find the paths it calls. Without
+    // this the test task stays UP-TO-DATE when a new call is added and the guard never runs on it,
+    // which is the one failure mode a guard must not have.
+    readsTree("steward-ui/frontend/src")
 }
 
 repositories {
@@ -108,6 +113,13 @@ val viteBuild = tasks.register<NpmTask>("viteBuild") {
     ).withPathSensitivity(PathSensitivity.RELATIVE)
     outputs.dir(frontendDistDirectory)
     outputs.cacheIf { true }
+
+    // Vite is a separate process and cannot see `frontendDistDirectory`, so it is handed over
+    // (season-2-ops/30). Without this line `-PbuildRoot` moves the declared output and leaves the
+    // actual write where it always was, and the only symptom is a Javalin test that cannot find
+    // '/web'. It is an input as well as a value: a build root that changes has to re-run this.
+    environment.put("VITE_OUT_DIR", frontendDistDirectory.map { it.asFile.absolutePath })
+    inputs.property("viteOutDir", frontendDistDirectory.map { it.asFile.absolutePath })
 }
 
 /**

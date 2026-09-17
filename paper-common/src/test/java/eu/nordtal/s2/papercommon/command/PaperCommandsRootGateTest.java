@@ -7,6 +7,7 @@ import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.commands.update.UpdateCommands;
 import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.message.ToneColours;
 
 import com.mojang.brigadier.tree.LiteralCommandNode;
 
@@ -71,7 +72,7 @@ class PaperCommandsRootGateTest {
     private PaperCommands adapter() {
         return new PaperCommands(silent(Plugin.class), messages, Target.SMP, null,
                 uuid -> Locale.ENGLISH, uuid -> false, uuid -> Optional.empty(),
-                PaperUser.Chime.silent());
+                PaperUser.Chime.silent(), () -> ToneColours.DEFAULTS);
     }
 
     private static LiteralCommandNode<CommandSourceStack> root(

@@ -22,6 +22,8 @@ import eu.nordtal.s2.common.limbo.LimboProtocol;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.limbo.command.LimboCommand;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.limbo.config.ColoursSpec;
 import eu.nordtal.s2.limbo.config.Configs;
 import eu.nordtal.s2.limbo.config.DatabaseSpec;
 import eu.nordtal.s2.limbo.config.LimboSpec;
@@ -56,6 +58,15 @@ public final class LimboPlugin extends JavaPlugin {
 
     private ConfigHandle<LimboSpec> configHandle;
     private ConfigHandle<DatabaseSpec> databaseHandle;
+
+    /**
+     * Its own file and handle (season-2-ingame/22), read once at enable - see {@code ColoursSpec}'s
+     * own javadoc for why {@code /limbo reload} does not touch it.
+     */
+    private ConfigHandle<ColoursSpec> coloursHandle;
+
+    /** The tone palette this server paints a reply with. Set once in {@link #start()}. */
+    private ToneColours colours;
     private HikariDataSource pool;
     private AccessDirectory access;
     private AdminWatch adminWatch;
@@ -95,6 +106,7 @@ public final class LimboPlugin extends JavaPlugin {
         try {
             configHandle = Configs.load(getDataFolder().toPath(), slf4j());
             databaseHandle = Configs.database(getDataFolder().toPath(), slf4j());
+            coloursHandle = Configs.colours(getDataFolder().toPath(), slf4j());
         } catch (final ConfigException exception) {
             severe("limbo is not starting because its configuration could not be read: "
                     + exception.getMessage());
@@ -102,6 +114,7 @@ public final class LimboPlugin extends JavaPlugin {
         }
 
         final LimboSpec config = configHandle.get();
+        colours = ToneColours.parse(Configs.declared(coloursHandle.get()), getLogger()::warning);
 
         final WaitingWorld world = WaitingWorld.loadOrCreate(this, config);
         if (world == null) {
@@ -190,7 +203,7 @@ public final class LimboPlugin extends JavaPlugin {
         // CommandFilter fails OPEN, and says so, when no list has been published yet.
         commandFilter = new CommandFilter(this,
                 CommandFilter.Source.of(AllowlistDirectory.using(pool)),
-                adminWatch::isAdmin, locales, messages, slf4j());
+                adminWatch::isAdmin, locales, messages, slf4j(), () -> colours);
         getServer().getPluginManager().registerEvents(commandFilter, this);
         commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 
@@ -212,7 +225,7 @@ public final class LimboPlugin extends JavaPlugin {
                                 // is filled at pre-login only when the server is near its cap, and
                                 // limbo never is - it would answer "nobody is an admin", for ever.
                                 adminWatch::isAdmin, access::linkedDiscordAccount,
-                                outbox, chatEffects, pool)
+                                outbox, chatEffects, pool, () -> colours)
                         .forEach(node -> event.registrar().register(node)));
 
         startHeartbeat();

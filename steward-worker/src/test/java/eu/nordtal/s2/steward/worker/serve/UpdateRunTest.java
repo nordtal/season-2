@@ -339,7 +339,7 @@ class UpdateRunTest {
     @Test
     @DisplayName("a volume that saved nothing is FAILED, not a successful line with no bytes")
     void savingNothingIsNotSuccess() {
-        // todo.md A23: run 23 reported success having snapshotted zero volumes, and nothing in the
+        // Run 23 once reported success having snapshotted zero volumes, and nothing in the
         // report made that visible. This is the assertion that stops it happening twice.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).savesNothing("mc-smp");
@@ -589,7 +589,7 @@ class UpdateRunTest {
         // A recreate is `compose up --force-recreate --no-deps` at bottom, and every backend
         // depends on the worker - so a recreate that considers the worker a diverged dependency can
         // take the process making the call down with it. When that happens the last report written
-        // is the whole diagnosis. See nordtal/todo.md, A19.
+        // is the whole diagnosis.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP)
                 .imageOutdated(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);

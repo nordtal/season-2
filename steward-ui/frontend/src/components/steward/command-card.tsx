@@ -256,14 +256,14 @@ function ArgumentField({
           (people.data ?? []).map((person) => ({
             value: person.discordId,
             label: person.minecraftUuid
-              ? `${person.discordId} · linked`
-              : `${person.discordId} · not linked`,
+              ? `${person.discordId} (linked)`
+              : `${person.discordId} (not linked)`,
           }))
         : (open.data ?? []).map((payment) => ({
             value: payment.reference,
-            label: `${payment.reference} · ${payment.days} days · ${euros(
+            label: `${payment.reference} (${payment.days} days, ${euros(
               payment.amountCents + payment.donationCents,
-            )} · ${payment.discordId}`,
+            )}, ${payment.discordId})`,
           }))
 
     const loading =
@@ -314,8 +314,15 @@ function ArgumentField({
   )
 }
 
-/** The four states a request can be in, each said in words rather than coloured. */
-function Outcome({ run }: { run: CommandRun }) {
+/**
+ * The four states a request can be in, each said in words rather than coloured.
+ *
+ * Exported for `inline-command.tsx`: `unlink` and `settle` (steward/47) went from a form on this
+ * card to a button on the row that already names their one argument, but the request is still a
+ * `command_request` claimed by another process, so the four words a poll can come back with are
+ * exactly these four - no reason for a second copy of the sentences.
+ */
+export function Outcome({ run }: { run: CommandRun }) {
   const text: Record<CommandRun["status"], string> = {
     PENDING: "Written. The service responsible has not picked it up yet.",
     RUNNING: "Being carried out.",

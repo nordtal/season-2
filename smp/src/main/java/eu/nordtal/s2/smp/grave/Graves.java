@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.phase.SeasonDates;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.ExpiredGrave;
 import eu.nordtal.s2.smp.db.GraveRow;
@@ -33,6 +34,7 @@ import org.joml.Vector3f;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -265,6 +267,17 @@ public final class Graves implements InventoryHolder {
         // its own centre and the lift happens afterwards either way - the tilt cannot be made to
         // pivot on the rim of the chest by writing it this way. It stays put over the chest instead
         // of swinging off it, which is the part that matters here.
+        //
+        // The -0.5f/-0.5f in X/Z (season-2-ingame/14, 2026-09-17 triage) is the SAME re-centring the
+        // chest's own Transformation carries above: `at` is the block cell's centre point, so without
+        // it the skull's model origin sits at that centre rather than the model itself being centred
+        // on it, and the tilt swings an off-centre model further over the rim. With it, the rotation
+        // pivot IS the cell centre and every corner of the skull's model - a roughly 0.5-block cube,
+        // the same order as HEAD_HALF_HEIGHT - stays within 0.25*sqrt(3) =~ 0.433 blocks of it, which
+        // is inside the cell's own 0.5-block half-width with room to spare (~0.067 blocks) at any
+        // rotation, HEAD_TILT_DEGREES and HEAD_ROLL_DEGREES included - see the ticket for the sum.
+        // That margin assumes the model's X/Z half-extent matches its Y half-extent (0.25); nobody
+        // has measured the X/Z one against a client, same caveat as the four constants below.
         final ItemDisplay skull = world.spawn(at, ItemDisplay.class, display -> {
             display.setItemStack(head);
             display.setPersistent(false);
@@ -273,7 +286,7 @@ public final class Graves implements InventoryHolder {
             // exactly this transform: the head's own model, centred on the origin, unscaled.
             display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
             display.setTransformation(new Transformation(
-                    new Vector3f(0f, CHEST_HEIGHT + HEAD_HALF_HEIGHT - HEAD_SINK_DEPTH, 0f),
+                    new Vector3f(-0.5f, CHEST_HEIGHT + HEAD_HALF_HEIGHT - HEAD_SINK_DEPTH, -0.5f),
                     new AxisAngle4f((float) Math.toRadians(HEAD_TILT_DEGREES), 1f, 0f, 0f),
                     new Vector3f(1f, 1f, 1f),
                     new AxisAngle4f((float) Math.toRadians(HEAD_ROLL_DEGREES), 0f, 0f, 1f)));
@@ -511,9 +524,22 @@ public final class Graves implements InventoryHolder {
     }
 
     /**
+     * How the grave head's lore prints the date it was made - Till, 2026-09-17 triage: "Died
+     * dd/mm/yyyy at x y z", replacing the old "whoever empties this..." hint rather than joining it
+     * ("nicht ... sondern", not "zusätzlich"). {@link SeasonDates#ZONE} is reused rather than the
+     * JVM default for the same reason it exists there: every container in {@code compose.yml} runs
+     * on UTC, and a death at 23:30 local time would otherwise print the next day's date.
+     */
+    private static final DateTimeFormatter GRAVE_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    /**
      * The dead player's own head, which is where their name is (see {@link #window}). A real item
      * since season-2-ingame/21, Till 2026-09-15 - collected along with everything else by
      * {@link #takeAll}, not only decoration in the world.
+     *
+     * <p>The lore names when and where they died ({@code smp.grave.died-at}, season-2-ingame/14,
+     * 2026-09-17 triage) - it replaced the old {@code smp.grave.owner-hint} outright, the key is
+     * gone rather than merely unused.</p>
      */
     private ItemStack head(final GraveRow row, final MessageRenderer renderer, final Locale locale) {
         final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
@@ -527,7 +553,9 @@ public final class Graves implements InventoryHolder {
                             name == null ? "smp.grave.owner-unknown" : "smp.grave.owner",
                             "player", name == null ? "" : name)
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            meta.lore(List.of(renderer.get(locale, "smp.grave.owner-hint")
+            final String date = GRAVE_DATE.format(row.created().atZone(SeasonDates.ZONE));
+            meta.lore(List.of(renderer.format(locale, "smp.grave.died-at",
+                            "date", date, "x", row.x(), "y", row.y(), "z", row.z())
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });
         return head;

@@ -10,13 +10,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ReactNode } from "react"
 
-import { ShellA, ShellB, ShellC } from "@/app/frames"
+import { ShellA, ShellB, ShellC, ShellD, ShellE, ShellF, ShellG, ShellH, ShellI } from "@/app/frames"
 import type { Me } from "@/lib/api"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The three shells of steward/89, each actually drawn.
+ * The nine shells of steward/89, each actually drawn.
  *
  * `shell.test.tsx` says in its own closing note that the signed-in branch is not reachable in a
  * test, because it needs a router with a route tree and a memory history. That note is why this
@@ -86,6 +86,12 @@ const shells: Array<[string, (me: Me) => ReactNode]> = [
   ["A", (me) => <ShellA me={me} />],
   ["B", (me) => <ShellB me={me} />],
   ["C", (me) => <ShellC me={me} />],
+  ["D", (me) => <ShellD me={me} />],
+  ["E", (me) => <ShellE me={me} />],
+  ["F", (me) => <ShellF me={me} />],
+  ["G", (me) => <ShellG me={me} />],
+  ["H", (me) => <ShellH me={me} />],
+  ["I", (me) => <ShellI me={me} />],
 ]
 
 beforeEach(() => {

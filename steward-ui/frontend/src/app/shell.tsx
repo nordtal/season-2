@@ -1,5 +1,5 @@
 import { CommandPalette } from "@/app/command-palette"
-import { ShellA, ShellB, ShellC } from "@/app/frames"
+import { ShellA, ShellB, ShellC, ShellD, ShellE, ShellF, ShellG, ShellH, ShellI } from "@/app/frames"
 import { HoldKeyPage } from "@/app/hold-key"
 import { SecurityKeyPage } from "@/app/security-key"
 import { sidebarDefaultOpen, useShellVariant } from "@/app/shell-variant"
@@ -103,6 +103,18 @@ function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
           <ShellC me={me} />
         ) : variant === "b" ? (
           <ShellB me={me} />
+        ) : variant === "d" ? (
+          <ShellD me={me} />
+        ) : variant === "e" ? (
+          <ShellE me={me} />
+        ) : variant === "f" ? (
+          <ShellF me={me} />
+        ) : variant === "g" ? (
+          <ShellG me={me} />
+        ) : variant === "h" ? (
+          <ShellH me={me} />
+        ) : variant === "i" ? (
+          <ShellI me={me} />
         ) : (
           <ShellA me={me} />
         )}

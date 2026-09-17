@@ -48,18 +48,37 @@ import { HealthDot } from "@/components/steward/status"
  */
 export type AppSidebarProps = {
   /**
-   * The island, unfolded into the head of this column - shell A of steward/89 and nothing else.
+   * The island, unfolded into the head of this column - shell A of steward/89, and d/e/f/g's own
+   * answer to the same question.
    * Absent means the island is standing somewhere else and this head is only the brand.
    */
-  head?: { crumbs: Crumb[]; onToggle: () => void }
+  head?: {
+    crumbs: Crumb[]
+    onToggle: () => void
+    /** The first crumb is the Nordtal mark and "Steward", not "Overview" - see {@link Crumbs}. */
+    brand?: boolean
+    /**
+     * The toggle lives outside this column entirely, fixed to the corner (shells d/f/g) - so this
+     * head draws a same-sized blank rather than a second, redundant button, and widens its own
+     * padding to `px-4 md:px-6` to line up with that fixed corner instead of the column's usual
+     * `px-cell`.
+     */
+    hideToggle?: boolean
+  }
   /**
    * Room at the top for an island floating over this column - shell B, where the sidebar slides
    * out from underneath one. Without it the brand is drawn behind the island.
    */
   clearIsland?: boolean
+  /**
+   * Skip the plain "Nordtal Steward" link entirely (shell e): the mark and the word are already
+   * fixed to the corner there, outside this column, and are not part of `head.crumbs` either - so
+   * neither of this header's two usual reasons to draw the brand applies.
+   */
+  hideBrandLink?: boolean
 }
 
-export function AppSidebar({ head, clearIsland }: AppSidebarProps = {}) {
+export function AppSidebar({ head, clearIsland, hideBrandLink }: AppSidebarProps = {}) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   // Decided once for the whole navigation rather than per entry: "is this one active" cannot be
   // answered by looking at one entry, because two of them can match and only the longer is meant.
@@ -76,28 +95,40 @@ export function AppSidebar({ head, clearIsland }: AppSidebarProps = {}) {
   return (
     <Sidebar collapsible="offcanvas" className="h-(--app-height) border-r">
       <SidebarHeader
-        className={`justify-center gap-1 border-b px-cell py-2 ${clearIsland ? "pt-[4.5rem]" : ""}`}
+        className={`justify-center gap-1 border-b py-2 ${head?.hideToggle ? "px-4 md:px-6" : "px-cell"} ${clearIsland ? "pt-[4.5rem]" : ""}`}
       >
-        <Link
-          to="/"
-          onClick={follow}
-          className="flex items-center gap-2.5 rounded-md py-1 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-        >
-          <StewardMark className="size-5 shrink-0" />
-          <span>
-            Nordtal <span className="text-muted-foreground">Steward</span>
-          </span>
-        </Link>
         {/*
-          The island, unfolded (steward/89, shell A). It is not drawn as a pill here: the sidebar
-          is already a surface with an edge, and a bordered pill inside it would be the nesting
-          Till's rule forbids. So the toggle and the path simply are the second line of this head.
+          The plain brand link only when nothing else carries "Steward": d/e/f/g put the mark and
+          the word into the crumb trail itself (`head.brand`), so drawing it again here would be
+          the same name twice in one head.
+        */}
+        {head?.brand || hideBrandLink ? null : (
+          <Link
+            to="/"
+            onClick={follow}
+            className="flex items-center gap-2.5 rounded-md py-1 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <StewardMark className="size-5 shrink-0" />
+            <span>
+              Nordtal <span className="text-muted-foreground">Steward</span>
+            </span>
+          </Link>
+        )}
+        {/*
+          The island, unfolded (steward/89, shell A and d/e/f/g). It is not drawn as a pill here:
+          the sidebar is already a surface with an edge, and a bordered pill inside it would be the
+          nesting Till's rule forbids. So the toggle and the path simply are the second line of this
+          head - or the only line, once the plain brand link above is gone too.
         */}
         {head ? (
           <div className="flex min-w-0 items-center gap-0.5">
-            <SidebarToggle expanded onToggle={head.onToggle} className="-ml-1" />
+            {head.hideToggle ? (
+              <span className="size-control shrink-0" aria-hidden />
+            ) : (
+              <SidebarToggle expanded onToggle={head.onToggle} className="-ml-1" />
+            )}
             <div className="min-w-0 flex-1 px-1">
-              <Crumbs crumbs={head.crumbs} />
+              <Crumbs crumbs={head.crumbs} brand={head.brand} />
             </div>
           </div>
         ) : null}

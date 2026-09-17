@@ -253,8 +253,16 @@ class ConfigFilesSchemaTest {
     void removingAProtectedEntryIsRefused() throws IOException {
         final String original = "languages:\n- tag: en\n- tag: de\n";
         Files.writeString(directory.resolve("service.yml"), original);
+        // The explanation is deliberately as long and as multi-line as the real one: `languages`
+        // in the bot's access.yml carries fifteen lines, and a fixture with a one-line explanation
+        // would let the length check below pass without ever being tested.
         writeSchema("service.yml", Map.of("languages", sections("Languages",
-                "'en' must be present - it is the fallback everything degrades to.",
+                "Every language the network speaks. A list, so a third language is an edit here\n"
+                        + "and not a release: add the role and the two channels in Discord, add an\n"
+                        + "entry, add <tag>.properties to every module's messages/ directory,\n"
+                        + "restart.\n\n'en' must be present - it is the fallback everything\n"
+                        + "degrades to, and a missing translation shows up as the message key\n"
+                        + "rather than as nothing at all.",
                 Map.of("tag", scalar("Tag", "", false, false, SettingType.STRING, null)),
                 new SchemaNode.ProtectedEntry("tag", "en"))));
 
@@ -266,6 +274,13 @@ class ConfigFilesSchemaTest {
         final IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> ConfigFiles.write(directory.resolve("service.yml"), removeEnglish));
         assertTrue(error.getMessage().contains("en"), error.getMessage());
+        // One line, not the schema's prose. The live refusal used to paste the whole explanation -
+        // fifteen lines for `languages` - into a message the browser shows in an alert, while the
+        // page underneath was already displaying that same text. An error says what happened.
+        assertFalse(error.getMessage().contains("\n"),
+                "the refusal has to stay one line: " + error.getMessage());
+        assertTrue(error.getMessage().length() < 160,
+                "the refusal has to stay short: " + error.getMessage());
 
         // Refused BEFORE a single line moves - not written, then rejected on the way back out.
         assertEquals(original, Files.readString(directory.resolve("service.yml")));

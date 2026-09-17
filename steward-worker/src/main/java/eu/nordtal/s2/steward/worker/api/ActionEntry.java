@@ -55,6 +55,31 @@ public record ActionEntry(@NotNull String kind, @NotNull Instant occurred, @NotN
     private static final Pattern TRAILING_SNOWFLAKE = Pattern.compile("^.*\\((\\d{17,20})\\)\\s*$");
 
     /**
+     * This entry in the shape the browser reads, which is not the shape the record has.
+     *
+     * <p><b>{@code occurred} has to leave here as text.</b> Serialised straight from the record it
+     * goes out as {@code {"seconds":1789569304,"nanos":879572000}}, because that is what an
+     * {@link Instant}'s getters are - and {@code api.ts} types the field {@code string} and hands
+     * it to {@code relative()}, which makes every timestamp in the feed an invalid date. Nothing on
+     * either side is wrong on its own, which is why both sides' tests were green while the live
+     * answer was unusable (measured against the running worker, 2026-09-17). The rest of this API
+     * already converts at this boundary for the same reason - see {@code WorkerApi#serviceTable},
+     * which writes {@code checkedAt} with {@code toString()}.
+     *
+     * @return a map, in the order the fields are declared; {@code occurred} as ISO-8601
+     */
+    public @NotNull java.util.Map<String, Object> json() {
+        final java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put("kind", kind);
+        row.put("occurred", occurred.toString());
+        row.put("extent", extent);
+        row.put("actorDiscordId", actorDiscordId);
+        row.put("actorLabel", actorLabel);
+        row.put("system", system);
+        return row;
+    }
+
+    /**
      * A run from {@code update_request}.
      *
      * <h2>Reading who asked</h2>

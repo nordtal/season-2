@@ -1,5 +1,5 @@
+import { CheckIcon, CopyIcon, ImageBrokenIcon, UserIcon } from "@phosphor-icons/react"
 import { useState } from "react"
-import { Check, Copy, ImageOff, UserRound } from "lucide-react"
 
 import { relative } from "@/lib/format"
 import { StewardMark } from "@/app/steward-mark"
@@ -260,7 +260,7 @@ function CopyableId({ label, value }: { label: string; value: string }) {
             }
           }}
         >
-          {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+          {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
         </Button>
       </div>
     </div>
@@ -295,7 +295,7 @@ function DiscordAvatar({
       className={`${size} inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-muted-foreground`}
       title={name ? undefined : "No avatar on record."}
     >
-      <UserRound aria-hidden className="size-3.5" />
+      <UserIcon aria-hidden className="size-3.5" />
     </span>
   )
 }
@@ -337,7 +337,7 @@ export function MinecraftHead({
       className={`${size} inline-flex shrink-0 items-center justify-center ${rounded} border border-border bg-secondary text-muted-foreground`}
       title="No head image available right now."
     >
-      <ImageOff aria-hidden className="size-3" />
+      <ImageBrokenIcon aria-hidden className="size-3" />
     </span>
   )
 }

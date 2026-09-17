@@ -1,6 +1,6 @@
+import { CaretDownIcon, CaretRightIcon, MagnifyingGlassIcon, SidebarIcon } from "@phosphor-icons/react"
 import { Fragment } from "react"
 import type { ComponentProps, ReactNode } from "react"
-import { ChevronDown, ChevronRight, PanelLeft, Search as SearchIcon } from "lucide-react"
 
 import type { Crumb } from "@/app/breadcrumbs"
 import { StewardMark } from "@/app/steward-mark"
@@ -122,7 +122,7 @@ export function SidebarToggle({
       aria-expanded={expanded}
       className={`${ISLAND_CONTROL} ${expanded ? "text-foreground" : ""} ${className ?? ""}`}
     >
-      <PanelLeft
+      <SidebarIcon
         className={`size-4 transition-transform duration-200 ease-out ${rotate && expanded ? "rotate-180" : ""}`}
         aria-hidden
       />
@@ -174,7 +174,7 @@ export function Crumbs({
               }`}
             >
               <span className="truncate">{label}</span>
-              <ChevronRight className="size-3.5" aria-hidden />
+              <CaretRightIcon className="size-3.5" aria-hidden />
             </span>
           )
         })}
@@ -328,12 +328,12 @@ export function MenuIsland({
       {...rest}
     >
       <span className={`${ISLAND_CONTROL} pointer-events-none`}>
-        <PanelLeft className="size-4" aria-hidden />
+        <SidebarIcon className="size-4" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
         <Crumbs crumbs={crumbs} linked={false} />
       </span>
-      <ChevronDown
+      <CaretDownIcon
         className={`size-4 shrink-0 text-muted-foreground transition-transform duration-150 ease-out ${expanded ? "rotate-180" : ""}`}
         aria-hidden
       />
@@ -370,7 +370,7 @@ export function SearchButton({ plain }: { plain?: boolean }) {
           : "flex size-control shrink-0 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 ease-out hover:border-input hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none active:bg-secondary"
       }
     >
-      <SearchIcon className="size-4" aria-hidden />
+      <MagnifyingGlassIcon className="size-4" aria-hidden />
     </button>
   )
 }
@@ -386,7 +386,7 @@ export function SearchRow({ onDone }: { onDone?: () => void }) {
       }}
       className="flex min-h-control w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
     >
-      <SearchIcon className="size-4 shrink-0" aria-hidden />
+      <MagnifyingGlassIcon className="size-4 shrink-0" aria-hidden />
       <span>Search pages…</span>
       <kbd className="ml-auto hidden rounded-sm bg-secondary px-1.5 py-0.5 font-mono text-[0.6875rem] text-foreground sm:inline">
         {shortcutLabel("K")}

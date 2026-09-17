@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/jetbrains-mono";
 
 /*
  * Nordtal Steward - the theme.
@@ -169,6 +172,11 @@
   --spacing-row: var(--row-height);
   --spacing-cell: var(--cell-padding);
   --spacing-control: var(--control-min-height);
+  --font-sans: 'DM Sans Variable', sans-serif;
+  --font-heading: 'JetBrains Mono Variable', monospace;
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 @layer base {
@@ -180,6 +188,7 @@
     /* Every scroll in this interface is a container's, not the document's: the shell is a fixed
      * viewport with its own scroll areas. */
     height: 100%;
+    @apply font-sans;
   }
 
   body {

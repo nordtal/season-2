@@ -1,5 +1,5 @@
+import { CaretRightIcon, LockIcon, MagnifyingGlassIcon, TranslateIcon } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
-import { ChevronRight, Languages, Lock, Search } from "lucide-react"
 
 import type { ConfigLocation } from "@/lib/api"
 import { useConfigDocuments, useMessageBundles, useMessageDocuments } from "@/lib/queries"
@@ -78,7 +78,7 @@ export function ServiceSettingsSearch({
   return (
     <div className="flex flex-col gap-2 pb-3">
       <div className="flex items-center gap-2">
-        <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -188,7 +188,7 @@ export function SettingsHitRow({
         <span className="truncate text-sm">{label}</span>
         {hit.kind === "config" && hit.entry.secret ? (
           <Badge variant="outline" className="shrink-0 gap-1">
-            <Lock className="size-3" aria-hidden />
+            <LockIcon className="size-3" aria-hidden />
             secret
           </Badge>
         ) : null}
@@ -199,13 +199,13 @@ export function SettingsHitRow({
         {showService ? (
           <>
             <span className="shrink-0 truncate">{hit.location.service || "steward-ui"}</span>
-            <ChevronRight className="size-3 shrink-0" aria-hidden />
+            <CaretRightIcon className="size-3 shrink-0" aria-hidden />
           </>
         ) : null}
         {hit.kind === "config" ? (
           <>
             <span className="shrink-0 truncate">{humanFileName(hit.location.name)}</span>
-            <ChevronRight className="size-3 shrink-0" aria-hidden />
+            <CaretRightIcon className="size-3 shrink-0" aria-hidden />
             <span className="min-w-0 flex-1 truncate">{hit.entry.path}</span>
           </>
         ) : (
@@ -213,12 +213,12 @@ export function SettingsHitRow({
             {hit.location.module ? (
               <>
                 <span className="shrink-0 truncate">{hit.location.module}</span>
-                <ChevronRight className="size-3 shrink-0" aria-hidden />
+                <CaretRightIcon className="size-3 shrink-0" aria-hidden />
               </>
             ) : null}
-            <Languages className="size-3 shrink-0" aria-hidden />
+            <TranslateIcon className="size-3 shrink-0" aria-hidden />
             <span className="shrink-0 truncate">{hit.language === "en" ? "EN" : "DE"}</span>
-            <ChevronRight className="size-3 shrink-0" aria-hidden />
+            <CaretRightIcon className="size-3 shrink-0" aria-hidden />
             <span className="min-w-0 flex-1 truncate">{hit.entry.key}</span>
           </>
         )}

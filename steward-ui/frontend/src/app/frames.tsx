@@ -1,7 +1,7 @@
+import { SidebarIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 import type { ReactNode } from "react"
 import { Link, Outlet, useRouterState } from "@tanstack/react-router"
-import { PanelLeft } from "lucide-react"
 
 import { AppSidebar, activeEntryId } from "@/app/app-sidebar"
 import type { Crumb } from "@/app/breadcrumbs"
@@ -287,7 +287,7 @@ function LogoToggle({ expanded, onToggle }: { expanded: boolean; onToggle: () =>
       className="group relative flex size-control shrink-0 items-center justify-center rounded-md transition-colors duration-150 ease-out hover:bg-secondary/60 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       <StewardMark className="size-5 shrink-0 transition-opacity duration-150 ease-out group-hover:opacity-0 group-focus-visible:opacity-0" />
-      <PanelLeft
+      <SidebarIcon
         className={`absolute size-4 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-visible:opacity-100 ${expanded ? "rotate-180" : ""}`}
         aria-hidden
       />
@@ -488,7 +488,7 @@ export function ShellG({ me }: { me: Me }) {
         aria-expanded={inSidebar}
         className="fixed top-[calc(env(safe-area-inset-top)+var(--blur-clearance)+0.75rem)] left-0 z-30 flex h-9 w-5 items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground shadow-sm transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
       >
-        <PanelLeft
+        <SidebarIcon
           className={`size-3.5 transition-transform duration-200 ease-out ${inSidebar ? "rotate-180" : ""}`}
           aria-hidden
         />

@@ -1,5 +1,5 @@
+import { PlusIcon, TrashIcon, WarningCircleIcon } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
-import { CircleAlert, Plus, Trash2 } from "lucide-react"
 
 import type { ConfigEntry, GuildList } from "@/lib/api"
 import {
@@ -166,12 +166,12 @@ export function RepeatableCards({
                 }
                 onClick={() => setPendingRemoval(index)}
               >
-                <Trash2 aria-hidden />
+                <TrashIcon aria-hidden />
               </Button>
             </div>
             {missing.length > 0 ? (
               <p className="flex items-start gap-1.5 text-sm text-amber-600 dark:text-amber-500">
-                <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+                <WarningCircleIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
                 <span>
                   Incomplete - missing {missing.map((field) => field.label).join(", ")}.
                 </span>
@@ -217,7 +217,7 @@ export function RepeatableCards({
           disabled={disabled}
           onClick={() => onChange([...value, blankSection(template)])}
         >
-          <Plus aria-hidden />
+          <PlusIcon aria-hidden />
           Add entry
         </Button>
       </div>

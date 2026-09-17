@@ -1,5 +1,11 @@
+import {
+  ArrowCounterClockwiseIcon,
+  CaretDownIcon,
+  CaretRightIcon,
+  LockIcon,
+  TranslateIcon,
+} from "@phosphor-icons/react"
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
-import { ChevronDown, ChevronRight, Languages, Lock, RotateCcw } from "lucide-react"
 
 import type { MessageBundle, MessageBundleLocation, MessageEntry } from "@/lib/api"
 import { useMessageBundle, useMessageBundles, useSaveMessageBundle } from "@/lib/queries"
@@ -115,7 +121,7 @@ function BundleRow({
   open: boolean
   onToggle: () => void
 }) {
-  const Chevron = open ? ChevronDown : ChevronRight
+  const Chevron = open ? CaretDownIcon : CaretRightIcon
   const label = bundle.module || bundle.service
 
   return (
@@ -131,7 +137,7 @@ function BundleRow({
       </span>
       {bundle.writable ? null : (
         <Badge variant="outline" className="shrink-0 gap-1">
-          <Lock className="size-3" aria-hidden />
+          <LockIcon className="size-3" aria-hidden />
           read only
         </Badge>
       )}
@@ -235,7 +241,7 @@ function BundleForm({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <Languages className="size-4 text-muted-foreground" aria-hidden />
+        <TranslateIcon className="size-4 text-muted-foreground" aria-hidden />
         <div className="inline-flex rounded-md border border-border p-0.5" role="group" aria-label="Language">
           <Button
             type="button"
@@ -258,7 +264,7 @@ function BundleForm({
 
       {!bundle.writable ? (
         <Alert>
-          <Lock aria-hidden />
+          <LockIcon aria-hidden />
           <AlertTitle>This bundle is mounted read-only.</AlertTitle>
           <AlertDescription>
             The packaged and overridden text are both readable here; nothing can be saved to them
@@ -376,7 +382,7 @@ function MessageRow({
           ) : null}
           {override !== undefined ? (
             <Button type="button" variant="ghost" size="sm" onClick={onReset} disabled={pendingReset}>
-              <RotateCcw className="size-3.5" aria-hidden />
+              <ArrowCounterClockwiseIcon className="size-3.5" aria-hidden />
               Reset
             </Button>
           ) : null}

@@ -1,5 +1,5 @@
+import type { Icon } from "@phosphor-icons/react"
 import { useState } from "react"
-import type { LucideIcon } from "lucide-react"
 
 import type { AdminCommand } from "@/lib/api"
 import { useAdminCommand, useCommandRun } from "@/lib/queries"
@@ -47,7 +47,7 @@ export function InlineCommandAction({
   argumentName: string
   value: string
   label: string
-  icon: LucideIcon
+  icon: Icon
   destructive?: boolean
   confirmDescription: string
 }) {

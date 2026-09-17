@@ -1,15 +1,15 @@
-import { useState } from "react"
 import {
-  CircleAlert,
-  ExternalLink,
-  HandCoins,
-  Search,
-  ShieldCheck,
-  ShieldX,
-  TriangleAlert,
-  Unlink,
-  UserPlus,
-} from "lucide-react"
+  ArrowSquareOutIcon,
+  HandCoinsIcon,
+  LinkBreakIcon,
+  MagnifyingGlassIcon,
+  ShieldCheckIcon,
+  ShieldSlashIcon,
+  UserPlusIcon,
+  WarningCircleIcon,
+  WarningIcon,
+} from "@phosphor-icons/react"
+import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Grant, JournalEntry, Payment, Person } from "@/lib/api"
@@ -351,7 +351,7 @@ export function AccessPage() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex w-full min-w-0 flex-1 items-center gap-2 sm:min-w-64">
-              <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <Input
                 value={needle}
                 onChange={(event) => changeNeedle(event.target.value)}
@@ -524,7 +524,7 @@ export function AccessPage() {
                                 argumentName="member"
                                 value={person.discordId}
                                 label="Unlink"
-                                icon={Unlink}
+                                icon={LinkBreakIcon}
                                 destructive
                                 confirmDescription="Breaks the link between this Discord account and its Minecraft account. The paid period is untouched; the person can link a Minecraft account again afterwards."
                               />
@@ -643,7 +643,7 @@ function GrantDialog() {
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button type="button">
-          <UserPlus aria-hidden />
+          <UserPlusIcon aria-hidden />
           Grant access
         </Button>
       </AlertDialogTrigger>
@@ -763,7 +763,7 @@ function RevokeDialog({
       {open === undefined ? (
         <AlertDialogTrigger asChild>
           <Button type="button" variant="ghost" size="sm" className="text-destructive">
-            <ShieldX aria-hidden />
+            <ShieldSlashIcon aria-hidden />
             Revoke
           </Button>
         </AlertDialogTrigger>
@@ -779,7 +779,7 @@ function RevokeDialog({
 
         <div className="flex flex-col gap-3 text-sm">
           <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
             Anyone playing right now is thrown out: the proxy re-checks every connected player's
             access regularly and disconnects as soon as it no longer holds - not only at the next
             login.
@@ -868,7 +868,7 @@ function PersonGrants({
               className="text-destructive"
               onClick={onRevoke}
             >
-              <ShieldX aria-hidden />
+              <ShieldSlashIcon aria-hidden />
               Revoke
             </Button>
           ) : null}
@@ -1096,7 +1096,7 @@ export function PaymentsPage() {
                     </Select>
                     {overdue.length > 0 ? (
                       <span className="flex items-center gap-2 text-xs text-warning">
-                        <CircleAlert className="size-4 shrink-0" aria-hidden />
+                        <WarningCircleIcon className="size-4 shrink-0" aria-hidden />
                         {count(overdue.length)} open request(s) are past their deadline - nobody is
                         going to pay those, they are only waiting for the bot's cleanup run.
                       </span>
@@ -1188,7 +1188,7 @@ export function PaymentsPage() {
                                         rel="noreferrer"
                                         title={payment.shareUrl}
                                       >
-                                        <ExternalLink aria-hidden />
+                                        <ArrowSquareOutIcon aria-hidden />
                                         Tab
                                       </a>
                                     </Button>
@@ -1214,7 +1214,7 @@ export function PaymentsPage() {
                                       argumentName="reference"
                                       value={payment.reference}
                                       label="Settle"
-                                      icon={HandCoins}
+                                      icon={HandCoinsIcon}
                                       confirmDescription={`Marks ${payment.reference} paid by hand and writes the access period it bought. Use this only once the money has actually arrived - it books access, it does not check bunq.`}
                                     />
                                   ) : null}
@@ -1268,7 +1268,7 @@ export function AccountsPage() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex w-full min-w-0 flex-1 items-center gap-2 sm:min-w-64">
-              <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <Input
                 value={needle}
                 onChange={(event) => setNeedle(event.target.value)}
@@ -1375,7 +1375,7 @@ function AuthenticationCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          <ShieldCheck className="size-4 text-muted-foreground" aria-hidden />
+          <ShieldCheckIcon className="size-4 text-muted-foreground" aria-hidden />
           Signing in to this interface
         </CardTitle>
       </CardHeader>
@@ -1505,7 +1505,7 @@ export function JournalPage() {
                 />
               </div>
               <Button type="submit" variant="outline">
-                <Search aria-hidden />
+                <MagnifyingGlassIcon aria-hidden />
                 Filter
               </Button>
               {subject ? (

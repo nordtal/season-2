@@ -1,17 +1,17 @@
 import {
-  Activity,
-  BookText,
-  CalendarRange,
-  CreditCard,
-  KeyRound,
-  Play,
-  Server,
-  Settings,
-  SlidersHorizontal,
-  Users,
-  Wrench,
-} from "lucide-react"
-import type { LucideIcon } from "lucide-react"
+  BookOpenTextIcon,
+  CalendarIcon,
+  CreditCardIcon,
+  GearIcon,
+  HardDrivesIcon,
+  KeyIcon,
+  PlayIcon,
+  PulseIcon,
+  SlidersHorizontalIcon,
+  UsersIcon,
+  WrenchIcon,
+} from "@phosphor-icons/react"
+import type { Icon } from "@phosphor-icons/react"
 
 /**
  * The one list of places in this interface.
@@ -51,7 +51,7 @@ export type NavEntry = {
   params?: Record<string, string>
   /** One line of what the page is for. The command palette shows it; so does the placeholder. */
   note: string
-  icon?: LucideIcon
+  icon?: Icon
   /** Words an admin might type that are not in the label. */
   keywords?: string[]
 }
@@ -67,7 +67,7 @@ export type NavGroup = {
    * heading, and the command palette lists it without one; the entries are their own names.
    */
   label?: string
-  icon: LucideIcon
+  icon: Icon
   entries: NavEntry[]
 }
 
@@ -83,7 +83,7 @@ export type NavGroup = {
 export const NAVIGATION: NavGroup[] = [
   {
     id: "overview",
-    icon: Activity,
+    icon: PulseIcon,
     entries: [
       {
         id: "overview",
@@ -95,7 +95,7 @@ export const NAVIGATION: NavGroup[] = [
         // and the table of every service collapsed into one line saying how many of how many are
         // healthy. A note is a promise about the page behind it, so it names what is there.
         note: "Whether anything needs attention, the numbers behind it, and the season.",
-        icon: Activity,
+        icon: PulseIcon,
         keywords: ["home", "dashboard", "health", "overview", "status"],
       },
     ],
@@ -103,28 +103,28 @@ export const NAVIGATION: NavGroup[] = [
   {
     id: "services",
     label: "Services",
-    icon: Server,
+    icon: HardDrivesIcon,
     entries: SERVICES.map((name) => ({
       id: `service-${name}`,
       label: name,
       to: "/services/$name",
       params: { name },
       note: `Log window and console for ${name}.`,
-      icon: Server,
+      icon: HardDrivesIcon,
       keywords: ["container", "log", "console", "restart"],
     })),
   },
   {
     id: "operations",
     label: "Operations",
-    icon: Wrench,
+    icon: WrenchIcon,
     entries: [
       {
         id: "operations",
         label: "Overview",
         to: "/operations",
         note: "Runs, drift against the intended state, and the backups.",
-        icon: Wrench,
+        icon: WrenchIcon,
         keywords: ["updates", "drift", "backup", "snapshot"],
       },
       {
@@ -132,7 +132,7 @@ export const NAVIGATION: NavGroup[] = [
         label: "Plan",
         to: "/operations/plan",
         note: "What a run would change, before it starts.",
-        icon: Play,
+        icon: PlayIcon,
         keywords: ["preview", "dry run", "plan"],
       },
       {
@@ -141,7 +141,7 @@ export const NAVIGATION: NavGroup[] = [
         to: "/operations/runs/$id",
         params: { id: "latest" },
         note: "The report of a single run, line by line.",
-        icon: Play,
+        icon: PlayIcon,
         keywords: ["run", "report", "log"],
       },
       {
@@ -150,7 +150,7 @@ export const NAVIGATION: NavGroup[] = [
         to: "/operations/backups/$id",
         params: { id: "latest" },
         note: "Contents and checksum of a single backup.",
-        icon: Play,
+        icon: PlayIcon,
         keywords: ["backup", "archive", "checksum"],
       },
       {
@@ -158,21 +158,21 @@ export const NAVIGATION: NavGroup[] = [
         label: "Restore",
         to: "/operations/restore",
         note: "Put a backup back - the one destructive path in the house.",
-        icon: Play,
+        icon: PlayIcon,
         keywords: ["restore", "recover", "emergency"],
       },
     ],
   },
   {
     id: "the-rest",
-    icon: SlidersHorizontal,
+    icon: SlidersHorizontalIcon,
     entries: [
       {
         id: "season",
         label: "Season",
         to: "/season",
         note: "Phase, dates, and what a season change resets.",
-        icon: CalendarRange,
+        icon: CalendarIcon,
         keywords: ["season", "phase", "reset", "launch"],
       },
       {
@@ -180,7 +180,7 @@ export const NAVIGATION: NavGroup[] = [
         label: "Access",
         to: "/access",
         note: "Who may join the server, and why they may.",
-        icon: KeyRound,
+        icon: KeyIcon,
         keywords: ["access", "whitelist", "roles"],
       },
       {
@@ -188,7 +188,7 @@ export const NAVIGATION: NavGroup[] = [
         label: "Payments",
         to: "/payments",
         note: "Incoming bunq payments and the tier that follows from them.",
-        icon: CreditCard,
+        icon: CreditCardIcon,
         keywords: ["bunq", "contribution", "money", "payments"],
       },
       {
@@ -196,7 +196,7 @@ export const NAVIGATION: NavGroup[] = [
         label: "Accounts",
         to: "/accounts",
         note: "One person's Minecraft, Discord and Steward identity in one place.",
-        icon: Users,
+        icon: UsersIcon,
         keywords: ["accounts", "players", "discord", "link"],
       },
       {
@@ -204,7 +204,7 @@ export const NAVIGATION: NavGroup[] = [
         label: "Journal",
         to: "/journal",
         note: "Every change, who triggered it and what it did.",
-        icon: BookText,
+        icon: BookOpenTextIcon,
         keywords: ["audit", "history", "trail", "log"],
       },
       {
@@ -218,7 +218,7 @@ export const NAVIGATION: NavGroup[] = [
         // note must not say so yet: a menu entry that announces something is a disappointment with
         // a lead time.
         note: "Steward itself: who is signed in, their keys, and when the light turns.",
-        icon: Settings,
+        icon: GearIcon,
         // `notifications` stays as a keyword although the page has none. Somebody looking for them
         // should land here, where the thresholds are, rather than nowhere - the search is about
         // where to go looking, not about what to promise.

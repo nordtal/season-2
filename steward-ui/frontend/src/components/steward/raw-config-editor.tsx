@@ -1,6 +1,6 @@
+import { FileCodeIcon, LockIcon } from "@phosphor-icons/react"
 import { useEffect, useRef, useState } from "react"
 import type { UIEvent } from "react"
-import { FileCode, Lock } from "lucide-react"
 
 import type { EditableRawConfigDocument, RawConfigFormat } from "@/lib/api"
 import { useSaveRawConfig } from "@/lib/queries"
@@ -64,7 +64,7 @@ export function RawConfigEditor({
     <div className="flex flex-col gap-4">
       {document.writable ? (
         <Alert>
-          <FileCode aria-hidden />
+          <FileCodeIcon aria-hidden />
           <AlertTitle>Editable as raw text.</AlertTitle>
           <AlertDescription>
             Steward could not read {humanFileName(document.name)} ({document.name}) as a config
@@ -75,7 +75,7 @@ export function RawConfigEditor({
         </Alert>
       ) : (
         <Alert>
-          <Lock aria-hidden />
+          <LockIcon aria-hidden />
           <AlertTitle>This file is mounted read-only.</AlertTitle>
           <AlertDescription>
             Steward could not read {humanFileName(document.name)} ({document.name}) as a config

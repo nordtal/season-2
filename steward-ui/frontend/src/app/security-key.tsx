@@ -1,5 +1,5 @@
+import { FingerprintIcon, ShieldWarningIcon, SignOutIcon } from "@phosphor-icons/react"
 import { useState } from "react"
-import { Fingerprint, LogOut, ShieldAlert } from "lucide-react"
 
 import type { Me } from "@/lib/api"
 import { api } from "@/lib/api"
@@ -64,7 +64,7 @@ export function SecurityKeyPage({ me }: { me: Me }) {
           <CardContent className="flex flex-col gap-4">
             {supported ? null : (
               <Alert variant="destructive">
-                <ShieldAlert aria-hidden />
+                <ShieldWarningIcon aria-hidden />
                 <AlertTitle>This browser cannot use security keys.</AlertTitle>
                 <AlertDescription>
                   Every current browser can. A private window, an in-app browser or an old WebView
@@ -92,14 +92,14 @@ export function SecurityKeyPage({ me }: { me: Me }) {
               </div>
 
               <Button type="submit" size="lg" disabled={!supported || register.isPending}>
-                <Fingerprint aria-hidden />
+                <FingerprintIcon aria-hidden />
                 {register.isPending ? "Waiting for the key…" : "Register this key"}
               </Button>
             </form>
 
             {register.error ? (
               <Alert variant="destructive">
-                <ShieldAlert aria-hidden />
+                <ShieldWarningIcon aria-hidden />
                 <AlertTitle>That did not register.</AlertTitle>
                 <AlertDescription>{register.error.message}</AlertDescription>
               </Alert>
@@ -115,7 +115,7 @@ export function SecurityKeyPage({ me }: { me: Me }) {
                 window.location.assign("/")
               }}
             >
-              <LogOut aria-hidden />
+              <SignOutIcon aria-hidden />
               Sign out instead
             </Button>
           </CardContent>

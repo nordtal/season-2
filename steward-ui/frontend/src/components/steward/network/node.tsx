@@ -1,5 +1,11 @@
+import {
+  ArrowUpIcon,
+  ArrowUpRightIcon,
+  QuestionIcon,
+  UsersIcon,
+  WrenchIcon,
+} from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
-import { ArrowUp, ArrowUpRight, CircleHelp, Users, Wrench } from "lucide-react"
 import { cn } from "cn"
 
 import type { Service } from "@/lib/api"
@@ -86,7 +92,7 @@ function DriftMark({ drift }: { drift: string }) {
   switch (drift) {
     case "OUTDATED":
       return (
-        <ArrowUp
+        <ArrowUpIcon
           className="size-3 shrink-0 text-warning"
           role="img"
           aria-label="a newer image exists"
@@ -94,7 +100,7 @@ function DriftMark({ drift }: { drift: string }) {
       )
     case "LOCAL":
       return (
-        <Wrench
+        <WrenchIcon
           className="size-3 shrink-0 text-muted-foreground"
           role="img"
           aria-label="built on this host"
@@ -104,7 +110,7 @@ function DriftMark({ drift }: { drift: string }) {
       return null
     default:
       return (
-        <CircleHelp
+        <QuestionIcon
           className="size-3 shrink-0 text-muted-foreground"
           role="img"
           aria-label="image not compared"
@@ -154,7 +160,7 @@ function NodeToolbar({ id }: { id: Exclude<NodeId, typeof INGRESS> }) {
             aria-label={`open ${id}`}
             className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }))}
           >
-            <ArrowUpRight aria-hidden />
+            <ArrowUpRightIcon aria-hidden />
           </Link>
         </TooltipTrigger>
         <TooltipContent className={DARK_TOOLTIP}>open</TooltipContent>
@@ -219,7 +225,7 @@ export function ServiceNode({
             title="players"
             className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
           >
-            <Users className="size-3" aria-hidden />
+            <UsersIcon className="size-3" aria-hidden />
             <span className="tnum">{players}</span>
           </span>
         ) : null}
@@ -252,7 +258,7 @@ export function ServiceNode({
               title="players"
               className="flex shrink-0 items-center gap-1"
             >
-              <Users className="size-3" aria-hidden />
+              <UsersIcon className="size-3" aria-hidden />
               <span className="tnum">{players}</span>
             </span>
           )}

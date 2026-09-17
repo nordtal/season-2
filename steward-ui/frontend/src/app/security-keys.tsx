@@ -1,5 +1,11 @@
+import {
+  FingerprintIcon,
+  KeyIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@phosphor-icons/react"
 import { useState } from "react"
-import { Fingerprint, KeyRound, Pencil, Plus, Trash2 } from "lucide-react"
 
 import type { Me, SecurityKey } from "@/lib/api"
 import { relative } from "@/lib/format"
@@ -111,7 +117,7 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-muted-foreground">Security keys</span>
         <Button type="button" variant="ghost" size="sm" onClick={state.startAdding}>
-          <Plus aria-hidden />
+          <PlusIcon aria-hidden />
           Add
         </Button>
       </div>
@@ -122,7 +128,7 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
         <ul className="flex flex-col">
           {keys.map((key) => (
             <li key={key.id} className="flex items-center gap-2 py-1">
-              <KeyRound className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <KeyIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-sm">{key.label}</span>
                 <span className="truncate text-xs text-muted-foreground">
@@ -138,7 +144,7 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
                 aria-label={`Rename ${key.label}`}
                 onClick={() => state.startRenaming(key)}
               >
-                <Pencil aria-hidden />
+                <PencilIcon aria-hidden />
               </Button>
               <Button
                 type="button"
@@ -147,7 +153,7 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
                 aria-label={`Remove ${key.label}`}
                 onClick={() => state.startRemoving(key)}
               >
-                <Trash2 aria-hidden />
+                <TrashIcon aria-hidden />
               </Button>
             </li>
           ))}
@@ -228,7 +234,7 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
                 Cancel
               </Button>
               <Button type="submit" disabled={add.isPending}>
-                <Fingerprint aria-hidden />
+                <FingerprintIcon aria-hidden />
                 {add.isPending ? "Waiting for the key…" : "Register"}
               </Button>
             </DialogFooter>

@@ -1,6 +1,15 @@
+import {
+  ArrowClockwiseIcon,
+  ArrowLineDownIcon,
+  CaretRightIcon,
+  MagnifyingGlassIcon,
+  PaperPlaneTiltIcon,
+  PauseIcon,
+  PlayIcon,
+  TrashIcon,
+} from "@phosphor-icons/react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "@tanstack/react-router"
-import { ArrowDownToLine, ChevronRight, Pause, Play, RotateCw, Search, Send, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { LOCALE, bytes, clock, percent, since } from "@/lib/format"
@@ -175,7 +184,7 @@ function LogPanel({ name, hasConsole }: { name: string; hasConsole: boolean }) {
                 aria-label={stream.paused ? "Resume the stream" : "Pause the stream"}
                 title={stream.paused ? "Resume the stream" : "Pause the stream"}
               >
-                {stream.paused ? <Play aria-hidden /> : <Pause aria-hidden />}
+                {stream.paused ? <PlayIcon aria-hidden /> : <PauseIcon aria-hidden />}
                 <span className="max-sm:hidden">{stream.paused ? "Resume" : "Pause"}</span>
               </Button>
               <Button
@@ -187,7 +196,7 @@ function LogPanel({ name, hasConsole }: { name: string; hasConsole: boolean }) {
                 aria-label={follow ? "Following the newest line" : "Scrolling by hand"}
                 title={follow ? "Following the newest line" : "Scrolling by hand"}
               >
-                <ArrowDownToLine aria-hidden />
+                <ArrowLineDownIcon aria-hidden />
                 <span className="max-sm:hidden">{follow ? "Following" : "Manual"}</span>
               </Button>
               <Button
@@ -198,7 +207,7 @@ function LogPanel({ name, hasConsole }: { name: string; hasConsole: boolean }) {
                 aria-label="Clear the window"
                 title="Clear the window"
               >
-                <Trash2 aria-hidden />
+                <TrashIcon aria-hidden />
                 <span className="max-sm:hidden">Clear</span>
               </Button>
             </div>
@@ -206,7 +215,7 @@ function LogPanel({ name, hasConsole }: { name: string; hasConsole: boolean }) {
 
           <TabsContent value="window" className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
-              <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <Input
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
@@ -234,7 +243,7 @@ function LogPanel({ name, hasConsole }: { name: string; hasConsole: boolean }) {
                 if (pattern.trim()) search.mutate(pattern.trim())
               }}
             >
-              <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <Input
                 value={pattern}
                 onChange={(event) => setPattern(event.target.value)}
@@ -291,7 +300,7 @@ function StreamState({ stream }: { stream: ReturnType<typeof useLogStream> }) {
         disconnected
       </StatusBadge>
       <Button type="button" variant="outline" size="sm" onClick={stream.reconnect}>
-        <RotateCw aria-hidden />
+        <ArrowClockwiseIcon aria-hidden />
         Reconnect
       </Button>
     </span>
@@ -372,7 +381,7 @@ function ConsoleLine({ name }: { name: string }) {
       }}
     >
       <div className="flex items-center gap-2">
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <CaretRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <Input
           id="console-command"
           value={command}
@@ -405,7 +414,7 @@ function ConsoleLine({ name }: { name: string }) {
           aria-label="Send"
           title="Send"
         >
-          <Send aria-hidden />
+          <PaperPlaneTiltIcon aria-hidden />
         </Button>
       </div>
     </form>

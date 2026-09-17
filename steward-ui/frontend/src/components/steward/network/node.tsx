@@ -1,13 +1,26 @@
 import { Link } from "@tanstack/react-router"
-import { ArrowUp, CircleHelp, Users, Wrench } from "lucide-react"
+import { ArrowUp, ArrowUpRight, CircleHelp, Users, Wrench } from "lucide-react"
 import { cn } from "cn"
 
 import type { Service } from "@/lib/api"
 import { bytes, percent, since } from "@/lib/format"
 import { HealthDot } from "@/components/steward/status"
+import { RecreateButton } from "@/components/steward/recreate"
+import { buttonVariants } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import { INGRESS, imageTag, type NodeId } from "./topology"
+
+/**
+ * A tooltip that reads as a tooltip on this theme, not as a stray white rectangle.
+ *
+ * `TooltipContent`'s own default is `bg-foreground text-background`, which on a light theme is a
+ * dark chip - on this one it is the reverse, because `--foreground` is the near-white text colour
+ * and `--background` is the near-black page. Till's word for the result: it should not be white.
+ * `--popover` is the token this theme already keeps for "a surface that floats over the page", so
+ * it is what every tooltip drawn in the network view asks for instead, here and in the toolbar.
+ */
+const DARK_TOOLTIP = "border border-border bg-popover text-popover-foreground"
 
 /**
  * One box, and the same box in all three drafts of steward/81.
@@ -93,6 +106,43 @@ function Vitals({ service }: { service: Service }) {
   )
 }
 
+/**
+ * What a node can actually do, not what a toolbar usually has room for.
+ *
+ * Till asked for at least three jumps per node - to the service page, to its configuration, to its
+ * logs or an action. `navigation.ts` and the router name exactly one destination per service,
+ * `/services/$name`: log window, console and configuration are three sections of that one page,
+ * not three routes, and none of them carries an id a link could jump to. Three buttons to one
+ * address would be three names for the same jump, which is worse than one - so this draws the two
+ * things that are real: **open**, the same destination the identifier above already links to, made
+ * into an explicit target of its own for a toolbar that is supposed to look like one; and
+ * **recreate**, `RecreateButton` as already built for the service page, wired to the same
+ * `steward-deployer` job it already uses there. It already declines to draw itself for
+ * `steward-deployer`. Nothing else here is a button that does nothing: what is missing is written
+ * up in the ticket rather than faked as a third link to the page the first one already opens.
+ */
+function NodeToolbar({ id }: { id: Exclude<NodeId, typeof INGRESS> }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-1.5">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            to="/services/$name"
+            params={{ name: id }}
+            aria-label={`open ${id}`}
+            className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }))}
+          >
+            <ArrowUpRight aria-hidden />
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent className={DARK_TOOLTIP}>open</TooltipContent>
+      </Tooltip>
+
+      <RecreateButton service={id} size="sm" />
+    </div>
+  )
+}
+
 export function ServiceNode({
   id,
   service,
@@ -156,7 +206,7 @@ export function ServiceNode({
                 <HealthDot service={service} quiet={false} />
               </span>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
+            <TooltipContent className={cn("max-w-xs", DARK_TOOLTIP)}>
               <Vitals service={service} />
             </TooltipContent>
           </Tooltip>
@@ -171,6 +221,11 @@ export function ServiceNode({
           <span className="min-w-0 truncate tnum">{imageTag(service?.image)}</span>
         </div>
       )}
+
+      {/* `players` gets no toolbar: it is not a container (see the class comment on `ServiceNode`),
+          has no route of its own in `navigation.ts`, and `RecreateButton` has nothing to recreate.
+          A toolbar with zero real buttons is worse than none - Till's own rule for this ticket. */}
+      {ingress ? null : <NodeToolbar id={id} />}
     </div>
   )
 }

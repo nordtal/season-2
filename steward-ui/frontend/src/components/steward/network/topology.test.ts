@@ -74,14 +74,16 @@ describe("the tag under a name", () => {
   })
 
   it("stands in with a short digest when a reference is pinned rather than tagged", () => {
-    expect(imageTag("ghcr.io/nordtal/steward-ui@sha256:abcdef1234567890")).toBe("abcdef1")
+    expect(imageTag("ghcr.io/nordtal/steward-ui@sha256:abcdef1234567890")).toBe("#abcdef1")
   })
 
   it("shortens the bare image id docker reports for a container whose tag was rebuilt", () => {
     // Measured on this host, 2026-09-17: steward-worker's row carries exactly this and no name.
+    // The `#` is the fix for the first review's finding: read without it, "334951d" next to the
+    // "not compared" mark was mistaken for "334951 days" (steward/81, second round).
     expect(
       imageTag("sha256:334951d4c54754fa0bcc40bc7e483f2af78c7244fbefc28eff775ffa40c1ce07"),
-    ).toBe("334951d")
+    ).toBe("#334951d")
   })
 
   it("says what docker itself would assume when there is no tag at all", () => {

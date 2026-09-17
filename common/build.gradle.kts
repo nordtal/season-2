@@ -66,6 +66,15 @@ repositoryRootTestInputs {
     readsTree("paper-common/src/main")
 
     readsTree("discord-bot/src/main/resources/messages")
+
+    // ConfigSpecExplanationTest walks every *Spec.java under a config/ directory in every module,
+    // looking for @Order without @Explain/@NoExplanationNeeded. smp, limbo, hunger-games and
+    // network-control are already covered above by their whole src/main tree; these three are not
+    // read anywhere else, and without declaring them here an edit inside one would leave
+    // :common:test UP-TO-DATE.
+    readsTree("discord-bot/src/main/java/eu/nordtal/s2/discordbot/config")
+    readsTree("steward-ui/src/main/java/eu/nordtal/s2/steward/ui/config")
+    readsTree("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/config")
 }
 
 dependencies {

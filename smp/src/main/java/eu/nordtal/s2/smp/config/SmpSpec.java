@@ -4,6 +4,7 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 import java.util.List;
@@ -44,6 +45,7 @@ public interface SmpSpec {
             "wall clock and disk has to be measured on the real host before the phase is",
             "scheduled."
     })
+    @Explain("The permanent world's folder name. Pre-generate it to its final 4000 border before opening the phase - a milestone unlock only moves a number and never starts a generator.")
     default String worldNordtal() {
         return "nordtal";
     }
@@ -60,6 +62,7 @@ public interface SmpSpec {
             "A pre-generation that has not finished POSTPONES the reset rather than swapping in a",
             "half-built world."
     })
+    @Explain("The farm world's folder name. Regenerated daily as a full swap - everything placed in it, chests included, dies with the reset.")
     default String worldFarm() {
         return "farm";
     }
@@ -67,6 +70,7 @@ public interface SmpSpec {
     @Order(3)
     @Key("world-nether")
     @Comment("The Nether. Fixed border, generated once before its own milestone unlocks.")
+    @NoExplanationNeeded
     default String worldNether() {
         return "nordtal_nether";
     }
@@ -74,6 +78,7 @@ public interface SmpSpec {
     @Order(4)
     @Key("world-end")
     @Comment("The End. Entered by balloon only - a stronghold's End portal never activates.")
+    @NoExplanationNeeded
     default String worldEnd() {
         return "nordtal_the_end";
     }
@@ -87,6 +92,7 @@ public interface SmpSpec {
             "This is the number to lower if the daily pre-generation turns out to cost tick time",
             "with players online. Halving it quarters the work."
     })
+    @Explain("Lower this if the daily pre-generation costs tick time with players online - halving it quarters the work.")
     default int farmWorldBorderDiameter() {
         return 2000;
     }
@@ -99,6 +105,7 @@ public interface SmpSpec {
             "Minecraft handles portal search and linking beyond a border anyway, and it leaves room",
             "for any milestone appended above 4000 without a second pre-generation."
     })
+    @Explain("Deliberately several times larger than the 1:8 mapping requires - costs nothing, since Minecraft links portals beyond a border anyway, and leaves room for a milestone appended later.")
     default int netherBorderDiameter() {
         return 2000;
     }
@@ -106,6 +113,7 @@ public interface SmpSpec {
     @Order(7)
     @Key("end-border-diameter")
     @Comment("The End's fixed border.")
+    @NoExplanationNeeded
     default int endBorderDiameter() {
         return 2000;
     }
@@ -113,6 +121,7 @@ public interface SmpSpec {
     @Order(8)
     @Key("border-centre-x")
     @Comment("The Nordtal border's centre.")
+    @Explain("Every radius mentioned elsewhere in this file - the balloon's, the spawn regions' - is measured from this point, so moving it shifts all of them at once.")
     default int borderCentreX() {
         return 106;
     }
@@ -120,6 +129,7 @@ public interface SmpSpec {
     @Order(9)
     @Key("border-centre-z")
     @Comment("See border-centre-x.")
+    @Explain("Every radius mentioned elsewhere in this file - the balloon's, the spawn regions' - is measured from this point, so moving it shifts all of them at once.")
     default int borderCentreZ() {
         return 88;
     }
@@ -132,6 +142,7 @@ public interface SmpSpec {
             "quarter of an hour and half an hour to arrive. That is a ceremony rather than a",
             "hiccup, and it is meant to be."
     })
+    @Explain("How fast a border expansion travels; at this default the final 1550-block edge takes 15 to 30 minutes to arrive, which is a deliberate ceremony rather than a hiccup.")
     default double borderExpansionBlocksPerSecond() {
         return 1.5;
     }
@@ -139,6 +150,7 @@ public interface SmpSpec {
     @Order(11)
     @Key("farm-reset-time")
     @Comment("Local time of day the farm world is swapped, HH:mm. Also available on command.")
+    @NoExplanationNeeded
     default String farmResetTime() {
         return "05:00";
     }
@@ -170,6 +182,7 @@ public interface SmpSpec {
             "It is logged as a WARNING at every start, because a guard nobody can see is off is",
             "worse than no guard."
     })
+    @Explain("How stale a verified backup may be before the daily reset is allowed to run. 0 disables the check entirely, for a stack with no steward-worker - no successful backup inside the window means no reset happens.")
     default int farmResetBackupWindowHours() {
         return 12;
     }
@@ -177,6 +190,7 @@ public interface SmpSpec {
     @Order(13)
     @Key("farm-reset-warning-minutes")
     @Comment("How far ahead the reset is announced, in chat and on the HUD, in every language.")
+    @NoExplanationNeeded
     default List<Integer> farmResetWarningMinutes() {
         return List.of(30, 10, 5, 1);
     }
@@ -206,6 +220,7 @@ public interface SmpSpec {
             "vanilla terrain permanently, because terrain is never re-rolled once it is on disk.",
             "For the farm world that is one bad day; for Nordtal it is the whole season."
     })
+    @Explain("Checked at enable, never installed by this plugin - a world generated without these packs is vanilla terrain forever, since terrain is never re-rolled once it is on disk.")
     default List<String> requiredDatapacks() {
         return List.of("Terralith", "Dungeons and Taverns");
     }
@@ -221,6 +236,7 @@ public interface SmpSpec {
             "completion event and postpones itself rather than swapping in a half-built world, so",
             "without Chunky the farm world would quietly stop resetting instead of failing."
     })
+    @Explain("The order Chunky walks chunks in - 'concentric' leaves a usable middle if a run is interrupted. Without the required Chunky plugin the farm world quietly stops resetting rather than failing loudly.")
     default String pregenerationPattern() {
         return "concentric";
     }
@@ -245,6 +261,7 @@ public interface SmpSpec {
             "its completion event; whether Chunky itself resumes an interrupted task when the",
             "server starts is Chunky's own setting, in plugins/Chunky/config.yml."
     })
+    @Explain("True pre-generates tomorrow's farm world at once, which spends the next minutes at full CPU load - set it false on a machine also used for something else; the first reset then just postpones itself by a day.")
     default boolean pregenerationOnStart() {
         return true;
     }
@@ -257,6 +274,7 @@ public interface SmpSpec {
             "can be deleted, another renamed into its place, and the SAME name loaded again with no",
             "restart - which is why there is one world name here and not a pair alternating daily."
     })
+    @Explain("The suffix tomorrow's farm world is generated under before being renamed onto the live name at reset - the rename is instant regardless of world size, which is what keeps the swap itself short.")
     default String farmWorldStagingSuffix() {
         return "-next";
     }
@@ -275,6 +293,7 @@ public interface SmpSpec {
             "A leftover folder with this suffix means a previous delete was interrupted. It is",
             "cleaned up at the next start and is never loaded as a world."
     })
+    @Explain("Yesterday's farm world is renamed to this suffix and deleted afterwards off the main thread - deleting inline would freeze the server for the length of the delete.")
     default String farmWorldRetiredSuffix() {
         return "-old";
     }
@@ -302,6 +321,7 @@ public interface SmpSpec {
             "",
             "The coordinates below are placeholders."
     })
+    @Explain("Where the balloon boxes stand. Nordtal's has a hard constraint: it must sit outside radius 10 and inside radius 21.5 of the border centre, or the opening border of 20 stops withholding travel the way the season is designed around.")
     default List<BalloonSpec> balloons() {
         return DefaultSmp.BALLOONS;
     }
@@ -312,21 +332,22 @@ public interface SmpSpec {
 
         @Order(1) @Key("world")
         @Comment("Which world this balloon stands in.")
+        @NoExplanationNeeded
         default String world() {
             return "nordtal";
         }
 
-        @Order(2) @Key("min-x") default int minX() { return 0; }
+        @Order(2) @Key("min-x") @NoExplanationNeeded default int minX() { return 0; }
 
-        @Order(3) @Key("min-y") default int minY() { return 0; }
+        @Order(3) @Key("min-y") @NoExplanationNeeded default int minY() { return 0; }
 
-        @Order(4) @Key("min-z") default int minZ() { return 0; }
+        @Order(4) @Key("min-z") @NoExplanationNeeded default int minZ() { return 0; }
 
-        @Order(5) @Key("max-x") default int maxX() { return 0; }
+        @Order(5) @Key("max-x") @NoExplanationNeeded default int maxX() { return 0; }
 
-        @Order(6) @Key("max-y") default int maxY() { return 0; }
+        @Order(6) @Key("max-y") @NoExplanationNeeded default int maxY() { return 0; }
 
-        @Order(7) @Key("max-z") default int maxZ() { return 0; }
+        @Order(7) @Key("max-z") @NoExplanationNeeded default int maxZ() { return 0; }
     }
 
     // ---------------------------------------------------------------- the boards
@@ -347,6 +368,7 @@ public interface SmpSpec {
             "",
             "The coordinates are placeholders until the spawn is built."
     })
+    @Explain("Rendered once PER VIEWER rather than once per board - each viewer gets their own hidden Text Display so two people standing together can read it in different languages. This does not scale to a hundred players and is not meant to.")
     default List<BoardSpec> boards() {
         return DefaultSmp.BOARDS;
     }
@@ -357,20 +379,22 @@ public interface SmpSpec {
 
         @Order(1) @Key("kind")
         @Comment("OBJECTIVE or AURA.")
+        @NoExplanationNeeded
         default String kind() {
             return "OBJECTIVE";
         }
 
-        @Order(2) @Key("world") default String world() { return "nordtal"; }
+        @Order(2) @Key("world") @NoExplanationNeeded default String world() { return "nordtal"; }
 
-        @Order(3) @Key("x") default double x() { return 0.0; }
+        @Order(3) @Key("x") @NoExplanationNeeded default double x() { return 0.0; }
 
-        @Order(4) @Key("y") default double y() { return 70.0; }
+        @Order(4) @Key("y") @NoExplanationNeeded default double y() { return 70.0; }
 
-        @Order(5) @Key("z") default double z() { return 0.0; }
+        @Order(5) @Key("z") @NoExplanationNeeded default double z() { return 0.0; }
 
         @Order(6) @Key("yaw")
         @Comment("Which way the board faces, in degrees. 0 is south, 90 west, 180 north, 270 east.")
+        @NoExplanationNeeded
         default float yaw() { return 0.0f; }
 
         @Order(7) @Key("width")
@@ -383,6 +407,7 @@ public interface SmpSpec {
                 "that outgrows the frame draws over the right-hand edge, which is visible at once",
                 "and is fixed here without a release. See BoardFrame."
         })
+        @Explain("Nobody can compute this from the text - the client owns the font's per-character widths. A line that outgrows it draws past the right edge until this is widened.")
         default int width() { return 180; }
     }
 
@@ -401,6 +426,7 @@ public interface SmpSpec {
             "INSIDE radius 10 of the border centre with everything else social - the balloon is the",
             "only thing the opening border withholds."
     })
+    @Explain("type picks the loadout both fighters get; both platforms must sit inside radius 10 of the border centre with the rest of the social area, since the balloon alone is what the opening border withholds.")
     default List<DuelPlatformSpec> duelPlatforms() {
         return DefaultSmp.DUEL_PLATFORMS;
     }
@@ -411,23 +437,24 @@ public interface SmpSpec {
 
         @Order(1) @Key("type")
         @Comment("SWORD or BOW.")
+        @NoExplanationNeeded
         default String type() {
             return "SWORD";
         }
 
-        @Order(2) @Key("world") default String world() { return "nordtal"; }
+        @Order(2) @Key("world") @NoExplanationNeeded default String world() { return "nordtal"; }
 
-        @Order(3) @Key("min-x") default int minX() { return 0; }
+        @Order(3) @Key("min-x") @NoExplanationNeeded default int minX() { return 0; }
 
-        @Order(4) @Key("min-y") default int minY() { return 0; }
+        @Order(4) @Key("min-y") @NoExplanationNeeded default int minY() { return 0; }
 
-        @Order(5) @Key("min-z") default int minZ() { return 0; }
+        @Order(5) @Key("min-z") @NoExplanationNeeded default int minZ() { return 0; }
 
-        @Order(6) @Key("max-x") default int maxX() { return 0; }
+        @Order(6) @Key("max-x") @NoExplanationNeeded default int maxX() { return 0; }
 
-        @Order(7) @Key("max-y") default int maxY() { return 0; }
+        @Order(7) @Key("max-y") @NoExplanationNeeded default int maxY() { return 0; }
 
-        @Order(8) @Key("max-z") default int maxZ() { return 0; }
+        @Order(8) @Key("max-z") @NoExplanationNeeded default int maxZ() { return 0; }
     }
 
     @Order(22)
@@ -439,6 +466,7 @@ public interface SmpSpec {
             "again, and a stack that reached into the skyline would eventually land on somebody's",
             "tower."
     })
+    @Explain("Height of the lowest stacked arena, chosen well above anything players build so a full stack of concurrent duels never lands on somebody's tower.")
     default int duelArenaBaseY() {
         return 200;
     }
@@ -446,6 +474,7 @@ public interface SmpSpec {
     @Order(23)
     @Key("duel-arena-spacing")
     @Comment("Vertical distance between stacked arenas. Has to exceed the arena's own height.")
+    @Explain("Must exceed the arena's own height, or stacked arenas overlap.")
     default int duelArenaSpacing() {
         return 16;
     }
@@ -456,6 +485,7 @@ public interface SmpSpec {
             "Half the arena's floor, in blocks - a radius of 7 is a 15x15 floor. Big enough that a",
             "bow duel is not a knife fight, small enough that neither fighter can simply run."
     })
+    @Explain("Half the arena's floor - big enough that a bow duel is not a knife fight, small enough that neither fighter can simply run.")
     default int duelArenaRadius() {
         return 7;
     }
@@ -478,6 +508,7 @@ public interface SmpSpec {
             "",
             "The coordinates are placeholders until the tavern is built."
     })
+    @Explain("Boxes that spin the wheel on right-click. Spinning it never costs aura - aura is recognition, not currency, and the moment it buys something it stops being recognition.")
     default List<SpawnRegionSpec> wheelRegions() {
         return DefaultSmp.WHEEL_REGIONS;
     }
@@ -499,6 +530,7 @@ public interface SmpSpec {
             "",
             "The coordinates are placeholders until the tavern is built."
     })
+    @Explain("The clickable figure in the tavern - a Mannequin, so it has no AI, never despawns and cannot be killed. Leave skin-name empty for the default skin.")
     default NpcSpec npc() {
         return DefaultSmp.NPC;
     }
@@ -507,24 +539,27 @@ public interface SmpSpec {
     @ConfigSpec
     interface NpcSpec {
 
-        @Order(1) @Key("world") default String world() { return "nordtal"; }
+        @Order(1) @Key("world") @NoExplanationNeeded default String world() { return "nordtal"; }
 
-        @Order(2) @Key("x") default double x() { return 106.5; }
+        @Order(2) @Key("x") @NoExplanationNeeded default double x() { return 106.5; }
 
-        @Order(3) @Key("y") default double y() { return 68.0; }
+        @Order(3) @Key("y") @NoExplanationNeeded default double y() { return 68.0; }
 
-        @Order(4) @Key("z") default double z() { return 92.5; }
+        @Order(4) @Key("z") @NoExplanationNeeded default double z() { return 92.5; }
 
         @Order(5) @Key("yaw")
         @Comment("Which way it faces, in degrees. 0 is south, 90 west, 180 north, 270 east.")
+        @NoExplanationNeeded
         default float yaw() { return 180.0f; }
 
         @Order(6) @Key("skin-name")
         @Comment("A Minecraft account name whose skin to wear, or empty for the default.")
+        @NoExplanationNeeded
         default String skinName() { return ""; }
 
         @Order(7) @Key("name")
         @Comment("The label above it. Empty for none.")
+        @NoExplanationNeeded
         default String name() { return "Nordtal"; }
     }
 
@@ -545,6 +580,7 @@ public interface SmpSpec {
             "outside radius 10 and inside radius 21.5 of the border centre, so that border 20",
             "withholds the farm world and the opening expansion to 43 hands it over."
     })
+    @Explain("Protected boxes, checked in order with the first match winning. Deliberately not WorldGuard - avoids a large third-party dependency of unverified Minecraft 26.2 availability for what only needs a handful of fixed boxes.")
     default List<SpawnRegionSpec> spawnRegions() {
         return DefaultSmp.SPAWN_REGIONS;
     }
@@ -555,21 +591,22 @@ public interface SmpSpec {
 
         @Order(1) @Key("world")
         @Comment("Which world the box is in.")
+        @NoExplanationNeeded
         default String world() {
             return "";
         }
 
-        @Order(2) @Key("min-x") default int minX() { return 0; }
+        @Order(2) @Key("min-x") @NoExplanationNeeded default int minX() { return 0; }
 
-        @Order(3) @Key("min-y") default int minY() { return -64; }
+        @Order(3) @Key("min-y") @NoExplanationNeeded default int minY() { return -64; }
 
-        @Order(4) @Key("min-z") default int minZ() { return 0; }
+        @Order(4) @Key("min-z") @NoExplanationNeeded default int minZ() { return 0; }
 
-        @Order(5) @Key("max-x") default int maxX() { return 0; }
+        @Order(5) @Key("max-x") @NoExplanationNeeded default int maxX() { return 0; }
 
-        @Order(6) @Key("max-y") default int maxY() { return 320; }
+        @Order(6) @Key("max-y") @NoExplanationNeeded default int maxY() { return 320; }
 
-        @Order(7) @Key("max-z") default int maxZ() { return 0; }
+        @Order(7) @Key("max-z") @NoExplanationNeeded default int maxZ() { return 0; }
     }
 
     // ---------------------------------------------------------------- aura
@@ -585,6 +622,7 @@ public interface SmpSpec {
             "contributor around 350, fifty deaths at 5 are a meaningful drag without being able to",
             "bury a hard-working player."
     })
+    @Explain("What an ordinary death costs, subtracted at the point of use - big enough to add real risk against a season total around 2480 aura, without being able to bury a hard-working player.")
     default int deathPenalty() {
         return 5;
     }
@@ -592,6 +630,7 @@ public interface SmpSpec {
     @Order(29)
     @Key("death-penalty-listed")
     @Comment("What one of the causes below costs instead. Also a positive number.")
+    @NoExplanationNeeded
     default int deathPenaltyListed() {
         return 20;
     }
@@ -613,6 +652,7 @@ public interface SmpSpec {
             "Dying in the End during the dragon fight stays an ORDINARY death, which is deliberate:",
             "until the dragon falls, dying is the only way home."
     })
+    @Explain("The 'embarrassing', self-inflicted deaths that cost the higher penalty above. Mob kills, border/void deaths and starvation are deliberately excluded, and dying to the dragon before it falls stays ordinary - it is the only way home until then.")
     default List<String> deathCausesListed() {
         return List.of("lava", "in_fire", "on_fire", "cactus", "drown", "in_wall",
                 "sweet_berry_bush", "hot_floor", "campfire", "stalagmite");
@@ -625,6 +665,7 @@ public interface SmpSpec {
             "creates or destroys aura - and the arena is the one place a death costs nothing",
             "beyond it, because the stake has already settled the fight."
     })
+    @Explain("What a duel moves between the two players - the winner takes exactly what the loser pays, so a duel never creates or destroys aura.")
     default int duelStake() {
         return 10;
     }
@@ -632,6 +673,7 @@ public interface SmpSpec {
     @Order(32)
     @Key("concurrent-duel-limit")
     @Comment("How many arenas may be stacked above the spawn at once. Beyond it, players queue.")
+    @NoExplanationNeeded
     default int concurrentDuelLimit() {
         return 3;
     }
@@ -648,6 +690,7 @@ public interface SmpSpec {
             "advancement - the point is to reward the shape of a playthrough, not to pay for",
             "ticking boxes."
     })
+    @Explain("Which advancements pay aura, once each per player. The loader refuses anything outside 2-10 aura so a single advancement can never outweigh a whole objective.")
     default List<AdvancementAwardSpec> advancementAwards() {
         return DefaultSmp.ADVANCEMENT_AWARDS;
     }
@@ -658,12 +701,14 @@ public interface SmpSpec {
 
         @Order(1) @Key("advancement")
         @Comment("The advancement key, e.g. minecraft:story/mine_diamond.")
+        @NoExplanationNeeded
         default String advancement() {
             return "";
         }
 
         @Order(2) @Key("aura")
         @Comment("2 to 10. Anything outside that band stops the load.")
+        @NoExplanationNeeded
         default int aura() {
             return 2;
         }
@@ -686,6 +731,7 @@ public interface SmpSpec {
             "Calibrated so tier 13 is reachable in two to three months by somebody who plays",
             "regularly and leaves the client running some nights."
     })
+    @Explain("The thirteen crest tier thresholds, in network-wide online hours including AFK. Must be exactly thirteen entries starting at 0 and rising strictly - the resource pack only draws thirteen crest designs.")
     default List<Integer> prestigeThresholdHours() {
         return List.of(0, 2, 5, 10, 20, 35, 55, 85, 125, 175, 250, 350, 500);
     }
@@ -704,6 +750,7 @@ public interface SmpSpec {
             "the entire prize is recognition - which is also why it must not be so large that",
             "nobody can catch it."
     })
+    @Explain("The head start paid once on the hunger games winner's first join; sized against the season's own scale so it is a visible lead a week of real contribution can still overtake.")
     default int hgWinnerAura() {
         return 150;
     }
@@ -718,6 +765,7 @@ public interface SmpSpec {
             "has on day one, the other is a head start on gear that is spent the moment it is used.",
             "Neither breaks anything - there are no claims to defend and no economy to inflate."
     })
+    @Explain("One or two special items for the hunger games winner, proposed rather than fixed - nothing here breaks an economy, since there are no claims to defend.")
     default List<WheelPrizeSpec> hgWinnerItems() {
         return DefaultSmp.HG_WINNER_ITEMS;
     }
@@ -731,6 +779,7 @@ public interface SmpSpec {
             "the first, two at the second, three at the third. Hung off the same 2 % threshold the",
             "aura share uses, so there is one rule to understand and one place to change it."
     })
+    @Explain("The contribution shares that earn 1/2/3 extra wheel spins on an objective's completion - the same threshold the aura share uses, so there is one number to change rather than two.")
     default List<Integer> wheelExtraSpinPercents() {
         return List.of(2, 10, 25);
     }
@@ -751,6 +800,7 @@ public interface SmpSpec {
             "is the one worth abusing; the weights below make the rare band roughly one spin in",
             "twenty-five."
     })
+    @Explain("The wheel's pool and relative weights - the rare band is deliberately about one spin in twenty-five, sized to encourage trading rather than to be reliably farmable.")
     default List<WheelPrizeSpec> wheelPrizes() {
         return DefaultSmp.WHEEL_PRIZES;
     }
@@ -761,18 +811,21 @@ public interface SmpSpec {
 
         @Order(1) @Key("item")
         @Comment("A Bukkit material name.")
+        @NoExplanationNeeded
         default String item() {
             return "";
         }
 
         @Order(2) @Key("amount")
         @Comment("How many.")
+        @NoExplanationNeeded
         default int amount() {
             return 1;
         }
 
         @Order(3) @Key("weight")
         @Comment("Relative weight. Ignored for the winner's head start, which is not drawn.")
+        @NoExplanationNeeded
         default int weight() {
             return 1;
         }
@@ -791,6 +844,7 @@ public interface SmpSpec {
             "apples' worth of healing is deliberately absent - a duel is a single fight, not a war",
             "of attrition. The player's real inventory is untouched; this is the arena's own."
     })
+    @Explain("What both duelists are given - identical for both, so nobody wins by being richer. No enchantments and no healing on purpose: a duel is one short fight, not a war of attrition.")
     default List<WheelPrizeSpec> duelLoadoutSword() {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
@@ -804,6 +858,7 @@ public interface SmpSpec {
             "hit matters and a miss costs. No crossbow: the reload time turns the fight into a game",
             "of cover, which is not what a 3x3 platform and a small arena are for."
     })
+    @Explain("The bow duel's loadout. No crossbow on purpose - its reload time turns the fight into a game of cover, which the small platform and arena are not built for.")
     default List<WheelPrizeSpec> duelLoadoutBow() {
         return DefaultSmp.DUEL_LOADOUT_BOW;
     }
@@ -839,6 +894,7 @@ public interface SmpSpec {
             "changed costs one indexed query and writes nothing to ops.json, which is what makes it",
             "affordable to run for the life of the server."
     })
+    @Explain("How often admin status is re-read from the database - this poll is the actual guarantee a revoked admin loses operator; the LISTEN switch below only makes it feel instant.")
     default int adminPollIntervalSeconds() {
         return 30;
     }
@@ -853,6 +909,7 @@ public interface SmpSpec {
             "else, which is why it is a switch: it is one connection per backend, outside the pool,",
             "parked in a blocking read for the life of the server."
     })
+    @Explain("Makes a revocation feel instant instead of waiting for the next poll; turning it off only costs latency, since the poll above is what is actually guaranteed.")
     default boolean adminListenEnabled() {
         return true;
     }
@@ -883,6 +940,7 @@ public interface SmpSpec {
             "",
             "THE COORDINATES BELOW ARE PLACEHOLDERS - the spawn build does not exist yet."
     })
+    @Explain("Where the balloon actually sets a player down, one point per destination world - distinct from the boxes above (which only open the travel GUI), the vanilla world spawn, and the first-join point below.")
     default BalloonSpawnPointsSpec balloonSpawnPoints() {
         return DefaultSmp.BALLOON_SPAWN_POINTS;
     }
@@ -893,6 +951,7 @@ public interface SmpSpec {
 
         @Order(1) @Key("nordtal")
         @Comment("Where the balloon lands in the permanent build world.")
+        @NoExplanationNeeded
         default SpawnPointSpec nordtal() {
             return DefaultSmp.BALLOON_SPAWN_POINT_NORDTAL;
         }
@@ -902,6 +961,7 @@ public interface SmpSpec {
                 "Where it lands in the farm world. Regenerated daily, so this one is a column in",
                 "fresh terrain rather than a built place - expect the safety search to move it."
         })
+        @Explain("Regenerated daily, so this is a column in fresh terrain rather than a built place - expect the safety search to move it rather than land exactly here.")
         default SpawnPointSpec farm() {
             return DefaultSmp.BALLOON_SPAWN_POINT_FARM;
         }
@@ -911,6 +971,7 @@ public interface SmpSpec {
                 "Where it lands in the Nether. The one point with a known way to be wrong: a Y",
                 "chosen without looking is inside the roof or inside solid rock."
         })
+        @Explain("The one point with a known way to be wrong: a Y chosen without checking the actual terrain often lands inside the Nether roof or inside solid rock.")
         default SpawnPointSpec nether() {
             return DefaultSmp.BALLOON_SPAWN_POINT_NETHER;
         }
@@ -920,6 +981,7 @@ public interface SmpSpec {
                 "Where it lands in the End. The balloon is the only way in, so this is the only",
                 "arrival point players ever see there."
         })
+        @NoExplanationNeeded
         default SpawnPointSpec end() {
             return DefaultSmp.BALLOON_SPAWN_POINT_END;
         }
@@ -935,18 +997,20 @@ public interface SmpSpec {
     @ConfigSpec
     interface SpawnPointSpec {
 
-        @Order(1) @Key("x") default double x() { return 0.5; }
+        @Order(1) @Key("x") @NoExplanationNeeded default double x() { return 0.5; }
 
-        @Order(2) @Key("y") default double y() { return 64.0; }
+        @Order(2) @Key("y") @NoExplanationNeeded default double y() { return 64.0; }
 
-        @Order(3) @Key("z") default double z() { return 0.5; }
+        @Order(3) @Key("z") @NoExplanationNeeded default double z() { return 0.5; }
 
         @Order(4) @Key("yaw")
         @Comment("Which way they face on arrival, in degrees. 0 is south, 90 west, 180 north, 270 east.")
+        @NoExplanationNeeded
         default float yaw() { return 0.0f; }
 
         @Order(5) @Key("pitch")
         @Comment("Up or down, in degrees. 0 is level, negative looks up, 90 looks at their feet.")
+        @NoExplanationNeeded
         default float pitch() { return 0.0f; }
     }
 
@@ -978,6 +1042,7 @@ public interface SmpSpec {
             "",
             "THE COORDINATES BELOW ARE PLACEHOLDERS - the spawn build does not exist yet."
     })
+    @Explain("Where a player lands on their very first join only, claimed exactly once against smp_player.welcome_shown so a reconnect or a racing session cannot double it. Separate from the balloon points and the vanilla spawn.")
     default FirstJoinSpawnSpec firstJoinSpawn() {
         return DefaultSmp.FIRST_JOIN_SPAWN;
     }
@@ -1012,20 +1077,23 @@ public interface SmpSpec {
 
         @Order(1) @Key("world")
         @Comment("Which world. Normally the same name as `world-nordtal` at the top of this file.")
+        @Explain("Normally the same name as world-nordtal above - a second place that world name is written down, so a rename there has to be repeated here.")
         default String world() { return "nordtal"; }
 
-        @Order(2) @Key("x") default double x() { return 0.5; }
+        @Order(2) @Key("x") @NoExplanationNeeded default double x() { return 0.5; }
 
-        @Order(3) @Key("y") default double y() { return 64.0; }
+        @Order(3) @Key("y") @NoExplanationNeeded default double y() { return 64.0; }
 
-        @Order(4) @Key("z") default double z() { return 0.5; }
+        @Order(4) @Key("z") @NoExplanationNeeded default double z() { return 0.5; }
 
         @Order(5) @Key("yaw")
         @Comment("Which way they face on arrival, in degrees. 0 is south, 90 west, 180 north, 270 east.")
+        @NoExplanationNeeded
         default float yaw() { return 0.0f; }
 
         @Order(6) @Key("pitch")
         @Comment("Up or down, in degrees. 0 is level, negative looks up, 90 looks at their feet.")
+        @NoExplanationNeeded
         default float pitch() { return 0.0f; }
     }
 }

@@ -4,7 +4,9 @@ import eu.nordtal.s2.steward.worker.plan.Topology;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 import java.util.List;
@@ -66,6 +68,7 @@ public interface StewardSpec {
             "wins, always. /releases/latest skips drafts and pre-releases, so an update that",
             "'did not arrive' is usually a release nobody pressed Publish on."
     })
+    @Explain("The one place season 2's jars and the resource pack come from - always the newest published release, never a pinned one. Change it only to point a test deployment elsewhere.")
     default String seasonRepo() {
         return "nordtal/season-2";
     }
@@ -77,6 +80,7 @@ public interface StewardSpec {
             "smp/src/main/resources/paper-plugin.yml declares it load: BEFORE, required: true,",
             "so the SMP plugin does not enable without it."
     })
+    @Explain("Required on the SMP server - paper-plugin.yml declares it load:BEFORE, required:true, so smp refuses to enable without a release fetched from here.")
     default String displayTagsRepo() {
         return "nordtal/papermc-display-tags";
     }
@@ -91,6 +95,7 @@ public interface StewardSpec {
             "readable one, but a slug is renameable by its author and an id is not. A rename",
             "would turn this into a 404 on the morning of a release."
     })
+    @Explain("The Modrinth project ID, not the slug - a slug is renameable by its author and would turn into a 404 on the morning of a release.")
     default String packetEventsProject() {
         return "HYKaKraK";
     }
@@ -105,6 +110,7 @@ public interface StewardSpec {
             "how you get a NoSuchMethodError in production and nowhere else, so an update to",
             "Chunky is a reason to look at the catalog - the report says so when it moves."
     })
+    @Explain("Resolving a version ahead of the compileOnly pin in gradle/libs.versions.toml is how you get a NoSuchMethodError in production and nowhere else - the report flags it when the two move apart.")
     default String chunkyProject() {
         return "fALzjamp";
     }
@@ -138,6 +144,7 @@ public interface StewardSpec {
             "EXCEPTIONS, which names it and says why: the project has never published a Velocity",
             "build marked `release`, so waiting for one means never installing it at all."
     })
+    @Explain("One Modrinth id resolves both the server and proxy voice builds, and is the one artefact this worker installs from a pre-release on purpose - the project has never published a Velocity build marked release.")
     default String voiceChatProject() {
         return "9eGKb6K1";
     }
@@ -157,6 +164,7 @@ public interface StewardSpec {
             "Blanking this key does NOT retire the artefact - it makes every run report the",
             "project id '' as unresolvable. Retiring it is an edit to Topology.SERVICES."
     })
+    @Explain("Currently has no build for this Minecraft version and resolves UNSUPPORTED rather than failing. Blanking this does not retire the artefact, only makes it unresolvable - retiring it means editing Topology.SERVICES instead.")
     default String coreProtectProject() {
         return "Lu3KuzdV";
     }
@@ -175,6 +183,7 @@ public interface StewardSpec {
             "reports 'nothing installed' for a running SMP is worse than one that says the",
             "mount is missing."
     })
+    @Explain("A directory that is not mounted here is reported missing rather than invented - a worker that silently says 'nothing installed' for a running server is worse than one that names the missing mount.")
     default String volumesRoot() {
         return "/volumes";
     }
@@ -189,6 +198,7 @@ public interface StewardSpec {
             "A fine-grained token with public read access is enough - this module only ever",
             "reads public releases and never writes to GitHub."
     })
+    @NoExplanationNeeded
     default String githubToken() {
         return "";
     }
@@ -201,6 +211,7 @@ public interface StewardSpec {
             "A resolve that hangs is worse than one that fails: the report is what an operator",
             "waits for before pressing the restart button, so it has to arrive or say why not."
     })
+    @Explain("How long any single API call may wait before the run gives up - a resolve that hangs is worse than one that fails, since an operator is waiting on the report.")
     default int httpTimeoutSeconds() {
         return 30;
     }
@@ -214,6 +225,7 @@ public interface StewardSpec {
             "small JSON documents, this one bounds a Paper server jar of about 65 MB. Ten minutes",
             "is what deploy/minecraft/entrypoint.sh already allows itself for the same file."
     })
+    @Explain("Much larger than http-timeout-seconds on purpose - this bounds downloading a ~65 MB Paper jar, not a handful of small JSON calls.")
     default int downloadTimeoutSeconds() {
         return 600;
     }
@@ -234,6 +246,7 @@ public interface StewardSpec {
             "countdown that reaches zero and then waits another fifteen seconds is a bug, not a",
             "tuning question."
     })
+    @Explain("This poll - not the LISTEN/NOTIFY path - is the actual guarantee an update starts. Shorter than the phase model's 30s because an admin is watching a spinner in Discord.")
     default int pollIntervalSeconds() {
         return 15;
     }
@@ -260,6 +273,7 @@ public interface StewardSpec {
             "make this container come up fast while something upstream is broken. The servers",
             "will then refuse to start until an apply has run, and say so by name."
     })
+    @Explain("Whether serve installs missing artefacts before reporting ready. It can only fill an empty volume, never move an existing jar to a newer version - turn it off only if the volumes are filled some other way.")
     default boolean bootstrap() {
         return true;
     }
@@ -278,6 +292,7 @@ public interface StewardSpec {
             "they could not look, which is a different answer from `everything is current` - and",
             "confusing those two is what let four releases run behind unnoticed."
     })
+    @Explain("Read, stop and start only - never creates a container, since that belongs to steward-deployer's own compose file. Without the socket mounted this reports 'could not look' rather than silently claiming everything is current.")
     DockerSpec docker();
 
     @Order(14)
@@ -293,6 +308,7 @@ public interface StewardSpec {
             "asks for one with /backup now. The consequence is written down rather than hidden: a",
             "season with `smp` down has no nightly backup and nothing else notices."
     })
+    @Explain("steward-worker does not schedule this itself - the nightly row is written by smp's own daily clock, so a season with smp down gets no nightly backup and nothing else notices.")
     BackupSpec backup();
 
     @Order(17)
@@ -311,6 +327,7 @@ public interface StewardSpec {
             "",
             "Without a token below this asks nothing, on purpose - see token."
     })
+    @Explain("Wires the request for a container recreate across the boundary that keeps container creation to steward-deployer alone. Without a token below, this asks nothing at all rather than half-recreating a service.")
     DeployerSpec deployer();
 
     @Order(16)
@@ -328,6 +345,7 @@ public interface StewardSpec {
             "a remote shell with a nicer font. The secret lives in the host's .env and compose",
             "hands the same one to both containers."
     })
+    @Explain("Keeps the Docker socket away from steward-ui - offers a list, a log, a search and one console line, never stop or start. Without a token below it refuses to serve at all.")
     ApiSpec api();
 
     /** Where the daemon is, and which compose project is ours. */
@@ -343,6 +361,7 @@ public interface StewardSpec {
                 "A path that is not there is not an error at startup: it is reported once, and",
                 "everything that needs the daemon then answers `could not look`."
         })
+        @Explain("Missing here is not a startup failure - it is reported once, and everything needing the daemon then answers 'could not look' rather than claiming everything is fine.")
         default String socket() {
             return "/var/run/docker.sock";
         }
@@ -357,6 +376,7 @@ public interface StewardSpec {
                 "works until somebody runs a second copy of the stack under another name, and then",
                 "it works differently instead of failing."
         })
+        @Explain("Written down rather than guessed from this container's own labels - guessing works until a second copy of the stack runs under another name, and then it works differently instead of failing.")
         default String project() {
             return "nordtal-s2";
         }
@@ -371,6 +391,7 @@ public interface StewardSpec {
                 "THE TABLE IS IN THE BACKUP. Turning this off is therefore also a way to make every",
                 "night's snapshot smaller, and the cost is that the start page has no curves."
         })
+        @Explain("The metrics table rides inside the nightly database backup - turning this off also shrinks every night's snapshot, at the cost of the start page's curves.")
         default boolean metrics() {
             return true;
         }
@@ -387,6 +408,7 @@ public interface StewardSpec {
                 "service and steward-ui on the same network, and the interface is the only thing",
                 "that ever calls it."
         })
+        @NoExplanationNeeded
         default int port() {
             return 8082;
         }
@@ -401,6 +423,7 @@ public interface StewardSpec {
                 "It comes from the environment in a deployment (NORDTAL_STEWARD_API_TOKEN), so",
                 "this file holds an empty string rather than a secret somebody might commit."
         })
+        @Explain("Empty disables just this internal API - the rest of the service, including update runs, keeps working without it. Comes from the environment in a real deployment, never committed here.")
         default String token() {
             return "";
         }
@@ -424,6 +447,7 @@ public interface StewardSpec {
                 "a file is found by matching what the browser asked against the list actually",
                 "discovered, never by joining a path onto this one."
         })
+        @Explain("Moved here from steward-ui's own mount on 2026-09-14: every jcore-written config file is 0600 root:root and steward-ui does not run as root, so it could neither read nor write them directly.")
         default String configsRoot() {
             return "/configs";
         }
@@ -442,6 +466,7 @@ public interface StewardSpec {
                 "on by default - both fixed by this deployment's own compose.yml rather than by",
                 "an operator, so there is normally nothing to change here."
         })
+        @NoExplanationNeeded
         default String url() {
             return "http://steward-deployer:8081";
         }
@@ -462,6 +487,7 @@ public interface StewardSpec {
                 "deployment (NORDTAL_STEWARD_DEPLOYER_TOKEN), so this file holds an empty string",
                 "rather than a secret somebody might commit."
         })
+        @Explain("Shares the same secret steward-ui already sends to steward-deployer, not a second one to keep in step. Empty means this container never asks for a recreate, leaving a stale service on its old image rather than half-recreating it.")
         default String token() {
             return "";
         }
@@ -478,6 +504,7 @@ public interface StewardSpec {
                 "network this host is on. Ten minutes matches download-timeout-seconds, which",
                 "bounds the same kind of wait on this container's own side of a jar download."
         })
+        @Explain("Bounds a full image pull plus recreate, not a small API call - matches download-timeout-seconds, which bounds the same kind of wait on this container's own side.")
         default int timeoutSeconds() {
             return 600;
         }
@@ -525,6 +552,7 @@ public interface StewardSpec {
                 "as the thing it is a copy of, and backup.keep of them protect against a mistake",
                 "and against nothing else."
         })
+        @Explain("The volumes' REAL names (docker volume ls, prefixed by the compose project), not the compose.yml keys. A name with no matching read-only mount below fails loudly rather than silently skipping.")
         default List<String> volumes() {
             return List.of("nordtal-s2_mc-smp",
                     "nordtal-s2_mc-smp-plugins",
@@ -563,6 +591,7 @@ public interface StewardSpec {
                 "and a name no container carries is a service that is never stopped - which is a",
                 "snapshot of a running server, i.e. the exact thing this list exists to prevent."
         })
+        @Explain("Compose service names taken from Topology rather than typed by hand - a stale literal here once left a service running through its own snapshot, when its compose name changed and this string did not.")
         default List<String> stopServices() {
             return List.of(Topology.SMP, Topology.NETWORK_CONTROL, Topology.DISCORD_BOT);
         }
@@ -581,6 +610,7 @@ public interface StewardSpec {
                 "A volume named in `volumes` but not mounted here is a FAILED line in the report",
                 "naming the path, never a small archive that looks like a success."
         })
+        @Explain("Read-only is enforced by the compose mount, not by this setting - a backup that could write to what it is saving is one bug away from being the thing that destroys it.")
         default String sourcesRoot() {
             return "/backup-sources";
         }
@@ -595,6 +625,7 @@ public interface StewardSpec {
                 "This is also what the Storage Box upload reads, so everything worth shipping",
                 "offsite is in one directory by construction."
         })
+        @Explain("Must never be one of the volumes listed above - a backup directory inside a backed-up volume grows by its own contents every night until the disk is gone.")
         default String outputRoot() {
             return "/backups";
         }
@@ -611,6 +642,7 @@ public interface StewardSpec {
                 "fourteen copies on the same disk as the original protect against a mistake and",
                 "against nothing else."
         })
+        @Explain("Until an offsite copy exists, this is the ONLY retention there is - it protects against a mistake and against nothing else, since every copy lives on the same disk as the original.")
         default int keep() {
             return 14;
         }
@@ -626,6 +658,7 @@ public interface StewardSpec {
                 "Empty turns the database dump off. The volume archives are unaffected, and the",
                 "report says the database was not dumped rather than implying it was."
         })
+        @Explain("pg_dump runs INSIDE this service, so the dump can never be taken by an older client than the server. Empty turns off just the database dump - the volume archives are unaffected.")
         default String databaseService() {
             return "postgres";
         }
@@ -654,6 +687,7 @@ public interface StewardSpec {
                 "firing are logged on every start, because a backup that runs an hour off is a",
                 "thing nobody notices until the clocks change."
         })
+        @Explain("Empty means no nightly backup at all. smp's farm-world reset checks for a successful backup inside its own window before running, so a backup that never fires here also holds back that reset.")
         default String at() {
             return "04:45";
         }
@@ -675,6 +709,7 @@ public interface StewardSpec {
                 "is what makes the shorter wait safe - the network comes back sooner and somebody",
                 "is told that a volume was not saved. What this must not be is infinite."
         })
+        @Explain("How long one volume's snapshot may run before this gives up and restarts the servers. The network stays down for the whole wait, so a FAILED result at the end pings the admin role rather than going unnoticed.")
         default int patienceMinutes() {
             return 30;
         }

@@ -9,6 +9,7 @@ import {
   OperationsBackupPage,
   OperationsRestorePage,
 } from "@/pages/operations"
+import { BackupsPage } from "@/pages/backups"
 import { ServicePage } from "@/pages/service"
 import { SettingsPage } from "@/pages/settings"
 import { SeasonPage } from "@/pages/season"
@@ -39,6 +40,14 @@ const routes = [
     getParentRoute: () => rootRoute,
     path: "/operations/runs/$id",
     component: OperationsRunPage,
+  }),
+  // The list page steward/95 added, and the parent the report page's own breadcrumb had been
+  // pointing at since there were breadcrumbs: `/operations/backups/<name>` draws a "Backups" crumb
+  // whose href is this path, and until now that was a 404.
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/operations/backups",
+    component: BackupsPage,
   }),
   createRoute({
     getParentRoute: () => rootRoute,

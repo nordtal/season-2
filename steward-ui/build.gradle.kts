@@ -181,6 +181,11 @@ dependencies {
     // takes jcore directly rather than going through a DTO.
     implementation(libs.jcore)
 
+    // Web Push (steward/98): VAPID's ES256 JWT and the aes128gcm payload encryption, called from
+    // Java. See the version catalog for why this one and not the Bouncy-Castle-based fork - it
+    // brings only the Kotlin runtime, which is not otherwise on this module's classpath.
+    implementation(libs.webpush)
+
     // AccessDirectory and the migration SQL. It declares JDBI, HikariCP and slf4j compileOnly, so
     // the access-persistence bundle below is what actually puts them on the runtime classpath.
     implementation(project(":common"))

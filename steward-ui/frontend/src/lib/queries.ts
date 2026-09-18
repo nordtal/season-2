@@ -34,9 +34,11 @@ import {
   type Season,
   type Service,
   type ServiceTable,
+  type WebPushPublicKey,
 } from "@/lib/api"
 import { browserHasSecurityKeys, createSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
 import { holdTheKey } from "@/lib/hold-key"
+import { currentPushEndpoint, subscribeToPush, unsubscribeFromPush } from "@/lib/push"
 import type { CreationOptionsJson } from "@/lib/webauthn"
 import type { Thresholds } from "@/lib/health"
 
@@ -86,6 +88,8 @@ export const keys = {
   guildChannels: ["guild-channels"] as const,
   messageBundles: ["message-bundles"] as const,
   messageBundle: (path: string) => ["message-bundle", path] as const,
+  webPushPublicKey: ["web-push-public-key"] as const,
+  webPushSubscription: ["web-push-subscription"] as const,
 }
 
 /**
@@ -512,6 +516,69 @@ export function useAvatarBaseUrl(enabled = true) {
     staleTime: 5 * 60 * SECOND,
     enabled,
     select: (settings) => settings.minecraftHeadBaseUrl,
+  })
+}
+
+/**
+ * The VAPID public key, fetched well before any button that needs it is tapped.
+ *
+ * **Why this is its own query and not read inside the subscribe button's handler.** iOS only opens
+ * the permission dialog `pushManager.subscribe()` shows while the tap that asked for it is still on
+ * the call stack - an `await` on a fetch first can spend that "user activation" before the browser
+ * ever sees the request. Loading this ahead of time, cached for the length of the session, is what
+ * lets the button's own handler go straight to `subscribeToPush` with no network call in between.
+ * See `lib/push.ts`'s module note for the rest of this reasoning.
+ */
+export function useWebPushPublicKey(enabled = true) {
+  return useQuery({
+    queryKey: keys.webPushPublicKey,
+    queryFn: () => api<WebPushPublicKey>("/api/web-push/public-key"),
+    staleTime: Infinity,
+    retry: false,
+    enabled,
+  })
+}
+
+/** Whether THIS browser is currently subscribed, and to what - the settings button's own state. */
+export function useWebPushSubscription(enabled = true) {
+  return useQuery({
+    queryKey: keys.webPushSubscription,
+    queryFn: () => currentPushEndpoint(),
+    staleTime: 0,
+    enabled,
+  })
+}
+
+/**
+ * Subscribes this browser: the browser-level ceremony first, then telling the server about it.
+ *
+ * **Called with the public key already in hand** (see {@link useWebPushPublicKey}) so that nothing
+ * here awaits a fetch before `subscribeToPush` reaches `pushManager.subscribe()`.
+ */
+export function useSubscribeWebPush() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (publicKey: string) => {
+      const subscription = await subscribeToPush(publicKey)
+      await api<void>("/api/web-push/subscribe", { method: "POST", body: subscription })
+      return subscription
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.webPushSubscription }),
+  })
+}
+
+/** Unsubscribes this browser, both from the push service and from Steward's own table. */
+export function useUnsubscribeWebPush() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const endpoint = await unsubscribeFromPush()
+      if (endpoint) {
+        await api<void>("/api/web-push/subscribe", { method: "DELETE", body: { endpoint } })
+      }
+      return endpoint
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.webPushSubscription }),
   })
 }
 

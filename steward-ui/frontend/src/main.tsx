@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider } from "@tanstack/react-router"
 
 import { trackAppFrame } from "@/lib/app-frame"
+import { registerServiceWorker } from "@/lib/push"
 import { router } from "@/router"
 import "@/index.css"
 
@@ -36,6 +37,13 @@ try {
 } catch (error) {
   console.error("trackAppFrame failed to start; the layout will use its CSS fallback instead", error)
 }
+
+// Registered early and unconditionally (steward/98): a service worker needs no permission and asks
+// for none, so it does not have to wait for the tap `subscribeToPush` does - see lib/push.ts's
+// module note. A browser too old to have `serviceWorker` at all skips this silently.
+registerServiceWorker().catch((error: unknown) => {
+  console.error("the service worker did not register; web push will not be available", error)
+})
 
 const container = document.getElementById("root")
 if (!container) throw new Error("#root is missing from index.html")

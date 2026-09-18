@@ -452,6 +452,11 @@ public final class WorkerApi implements AutoCloseable {
             // report is a list of things somebody meant to write.
             config.routes.get("/api/backups", ctx -> ctx.json(archives()));
 
+            // steward-ui's push watch (steward/98): a small derived reading, not the service table
+            // again - see AlertLevel's own javadoc for why it is a subset of health.ts's summarise
+            // and reads the same maps this class already built rather than a copy of their shape.
+            config.routes.get("/api/alert-level", ctx -> ctx.json(alertLevel()));
+
             // The unified "latest actions" feed (steward/82) - the newest few rows across
             // update_request and audit_log, merged and sorted here rather than by the interface.
             // See ActionsApi's own javadoc for why it is one query and not two.
@@ -714,6 +719,16 @@ public final class WorkerApi implements AutoCloseable {
         // the label the status page used to carry said the same thing a second time.
         answer.put("containerLimits",
                 "No container sets a memory limit, so every percentage here is a share of the whole host.");
+        return answer;
+    }
+
+    /** `/api/alert-level`'s body: a level, what it is about, and where a tap should land. */
+    private Map<String, Object> alertLevel() {
+        final AlertLevel.Reading reading = AlertLevel.of(serviceTable(), archives());
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("level", reading.level().name().toLowerCase(java.util.Locale.ROOT));
+        answer.put("subject", reading.subject());
+        answer.put("path", reading.path());
         return answer;
     }
 

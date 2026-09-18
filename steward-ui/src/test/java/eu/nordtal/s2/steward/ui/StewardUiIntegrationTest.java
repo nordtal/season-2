@@ -429,6 +429,15 @@ class StewardUiIntegrationTest {
                 };
             }
 
+            @Override
+            public WebPushSpec webPush() {
+                // The defaults: both keys blank, which is "not configured" - this test is about
+                // routing and sessions, not about a VAPID keypair, and a generated one here would
+                // be a keypair this suite invented rather than the one a deployment actually runs.
+                return new WebPushSpec() {
+                };
+            }
+
         };
 
         // A real database with the real migrations: the rows these endpoints read are the rows

@@ -7,6 +7,7 @@ import eu.nordtal.s2.steward.ui.config.UiSpec.AlertSpec;
 import eu.nordtal.s2.steward.ui.config.UiSpec.DeployerSpec;
 import eu.nordtal.s2.steward.ui.config.UiSpec.DiscordSpec;
 import eu.nordtal.s2.steward.ui.config.UiSpec.WebAuthnSpec;
+import eu.nordtal.s2.steward.ui.config.UiSpec.WebPushSpec;
 import eu.nordtal.s2.steward.ui.config.UiSpec.WorkerSpec;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import io.javalin.Javalin;
@@ -99,6 +100,12 @@ class GateTest {
             @Override
             public AvatarSpec avatars() {
                 return new AvatarSpec() {
+                };
+            }
+
+            @Override
+            public WebPushSpec webPush() {
+                return new WebPushSpec() {
                 };
             }
         };

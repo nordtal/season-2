@@ -273,6 +273,12 @@ export type Me = {
   discordAvatarUrl?: string
 }
 
+/** `GET /api/web-push/public-key`'s body - the VAPID public key, base64url, already the shape
+ * `PushManager.subscribe()`'s `applicationServerKey` wants once decoded. */
+export type WebPushPublicKey = {
+  publicKey: string
+}
+
 /** Docker's own words, passed through. `state` is the container state, `status` its sentence. */
 export type Service = {
   service: string

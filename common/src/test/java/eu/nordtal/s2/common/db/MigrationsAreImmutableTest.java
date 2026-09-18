@@ -105,6 +105,8 @@ class MigrationsAreImmutableTest {
                 "5261d44157deecfa8e11f6862bc166aca4ea394fd210cfa31c2f6baaf54c4766");
         FROZEN.put("V25__payment_notice_posted.sql",
                 "c231c64b72cbc887083429d95288bbc364e7886975f9836cfbb809d07b91e72a");
+        FROZEN.put("V26__web_push_subscription.sql",
+                "d55ca77170392e6f72ea2cf124cd15b3258b26c738746aefe84677e39d344dd4");
     }
 
     @Test

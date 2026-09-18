@@ -102,8 +102,12 @@ describe("ColourControl", () => {
     expect(onChange).toHaveBeenCalledWith("#00ff00")
   })
 
+  /** The preview starts hidden since the third round, so every test about it opens it first. */
+  const showPreview = () => fireEvent.click(screen.getByRole("button", { name: /preview/i }))
+
   it("previews the colour on Minecraft's own chat background, not a plain white field", () => {
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+    showPreview()
 
     const preview = screen.getByRole("img", { name: /preview on minecraft's chat background/i })
     expect(preview.style.backgroundColor).toBe(MINECRAFT_CHAT_BACKGROUND)
@@ -127,18 +131,53 @@ describe("ColourControl", () => {
    */
   it("keeps the sample to one line, so a row of colours is a row of equal heights", () => {
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+    showPreview()
 
     const sample = screen.getByText(SAMPLE_TEXT)
     expect(SAMPLE_TEXT.includes(" ")).toBe(false)
     expect(sample.className).toContain("truncate")
   })
 
+  /**
+   * steward/63, third round. Till, 2026-09-18: the preview spans the whole width of the field, the
+   * way the alternative drew it - but it starts hidden, and an eye in the hex field is what brings
+   * it out. A preview nobody asked for is a band of colour on every row of a settings page; asked
+   * for, it is worth the full width.
+   */
+  it("draws no preview until it is asked for", () => {
+    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+
+    expect(screen.queryByText(SAMPLE_TEXT)).toBeNull()
+  })
+
+  it("brings the preview out on the eye, and takes it back on a second press", () => {
+    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+    const eye = screen.getByRole("button", { name: /preview/i })
+
+    fireEvent.click(eye)
+    expect(screen.queryByText(SAMPLE_TEXT)).not.toBeNull()
+
+    // The label flips with the state, so the same query finds it either way.
+    fireEvent.click(eye)
+    expect(screen.queryByText(SAMPLE_TEXT)).toBeNull()
+  })
+
+  it("gives the shown preview the whole width of the field, not a band the size of the word", () => {
+    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+    showPreview()
+
+    const preview = screen.getByRole("img", { name: /preview on minecraft's chat background/i })
+    expect(preview.className).toContain("w-full")
+    expect(preview.className).not.toContain("w-fit")
+  })
+
   it("shows the sample dimmed, and no instructions, while the value is not a colour yet", () => {
     // Typing "#8ba" (still incomplete) must not crash the native colour input, which refuses
     // anything that is not exactly seven characters - the swatch falls back to a placeholder. The
-    // preview keeps its place and its height rather than swapping in a sentence: the box is the
-    // same size either way, so nothing below it moves while somebody retypes six digits.
+    // preview, once open, keeps its place and its height rather than swapping in a sentence: the
+    // box is the same size either way, so nothing below it moves while somebody retypes six digits.
     render(<ColourControl id="good" value="#8ba" disabled={false} onChange={vi.fn()} />)
+    showPreview()
 
     const swatch = screen.getByLabelText("Pick a colour") as HTMLInputElement
     expect(swatch.value).toBe("#000000")

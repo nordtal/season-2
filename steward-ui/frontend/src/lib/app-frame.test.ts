@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { isStandalone, measuredHeight, trackAppFrame } from "@/lib/app-frame"
 
@@ -58,6 +58,11 @@ describe("measuredHeight - the window, and the moments that are not the window",
 })
 
 describe("trackAppFrame - what lands on the document", () => {
+  // Three of these tests drive the poll with fake timers; the rest must not inherit them.
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it("publishes the measurement and keeps the last good one when a measurement is refused", () => {
     const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
@@ -134,6 +139,74 @@ describe("trackAppFrame - what lands on the document", () => {
     visual.height = 400
     window.dispatchEvent(new Event("pageshow"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("500px")
+  })
+
+  it("re-measures on a timer while visible, because a resume can arrive with no event at all", () => {
+    // STEWARD/51, SECOND ATTEMPT. The three resume events were not enough - the grey band came back
+    // on 2026-09-17 - so the height is re-read once a second as well. As in the test above, the
+    // height is changed here without any event being dispatched: that absence is the bug itself.
+    vi.useFakeTimers()
+    const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
+    Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
+
+    const stop = trackAppFrame(window)
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("800px")
+
+    visual.height = 700
+    vi.advanceTimersByTime(1000)
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("700px")
+
+    stop()
+    visual.height = 600
+    vi.advanceTimersByTime(5000)
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("700px")
+  })
+
+  it("writes nothing while the height is unchanged, so the poll is not a style change per second", () => {
+    vi.useFakeTimers()
+    const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
+    Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
+
+    const stop = trackAppFrame(window)
+    const setProperty = vi.spyOn(document.documentElement.style, "setProperty")
+
+    vi.advanceTimersByTime(10_000)
+    expect(setProperty.mock.calls.filter(([name]) => name === "--app-height")).toEqual([])
+
+    visual.height = 640
+    vi.advanceTimersByTime(1000)
+    expect(setProperty.mock.calls.filter(([name]) => name === "--app-height")).toEqual([["--app-height", "640px"]])
+
+    setProperty.mockRestore()
+    stop()
+  })
+
+  it("measures nothing and schedules nothing while the page is hidden", () => {
+    // A timer left running in the background is the sort of thing iOS throttles or freezes, and the
+    // window it would measure is one nobody is looking at.
+    vi.useFakeTimers()
+    const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
+    Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
+
+    const stop = trackAppFrame(window)
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("800px")
+
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true })
+    document.dispatchEvent(new Event("visibilitychange"))
+    visual.height = 600
+    vi.advanceTimersByTime(10_000)
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("800px")
+
+    // Coming back is the resume: at once, and the poll is running again afterwards.
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true })
+    document.dispatchEvent(new Event("visibilitychange"))
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("600px")
+
+    visual.height = 550
+    vi.advanceTimersByTime(1000)
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("550px")
+
+    stop()
   })
 
   it("gives the blurred band no clearance in a browser, which is where there is no band", () => {

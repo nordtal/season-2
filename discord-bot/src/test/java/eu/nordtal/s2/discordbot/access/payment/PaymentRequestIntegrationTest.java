@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
+import eu.nordtal.s2.common.payment.PaymentMatch;
 import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequestStatus;
 import eu.nordtal.s2.common.payment.PaymentRequests;
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -289,6 +291,134 @@ class PaymentRequestIntegrationTest {
                 () -> assertTrue(second.validUntil().isAfter(Instant.now().plus(Duration.ofDays(59))),
                         "30 days on top of 30 days")
         );
+    }
+
+    // ---------------------------------------------------------------- the seam (concept §10d)
+
+    @Test
+    @DisplayName("a request that wants a tab turns up in the worker's queue, and only then")
+    void requestedTabTurnsUpInTheQueue() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        assertTrue(requests.tabsToCreate().isEmpty(),
+                "choosing a tier is not asking for a payment link");
+
+        assertTrue(requests.requestTab(request.id()));
+
+        assertAll(
+                () -> assertEquals(List.of(request.reference()), references(requests.tabsToCreate())),
+                () -> assertNotNull(requests.tabsToCreate().getFirst().tabRequested()),
+                () -> assertNull(requests.tabsToCreate().getFirst().tabFailed())
+        );
+    }
+
+    @Test
+    @DisplayName("the queue empties the moment the tab exists")
+    void theQueueEmptiesWhenTheTabArrives() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        requests.requestTab(request.id());
+        assertEquals(1, requests.tabsToCreate().size(), "queued");
+
+        assertTrue(requests.attachTab(request.id(), 4242L, "https://bunq.me/x"));
+
+        // Without this the worker makes a second tab for the same request on its next pass, and
+        // the bot has no way to tell which of the two links the user is looking at.
+        assertTrue(requests.tabsToCreate().isEmpty(), "a request with a tab is not waiting for one");
+        assertFalse(requests.requestTab(request.id()), "and asking again changes nothing");
+    }
+
+    @Test
+    @DisplayName("a refused tab leaves the queue, says why, and can be asked for again")
+    void aFailedTabHasAnExit() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        requests.requestTab(request.id());
+
+        assertTrue(requests.failTab(request.id(), "bunq: MonetaryAccount not found"));
+
+        final PaymentRequest failed = requests.openOf(USER).orElseThrow();
+        assertAll(
+                () -> assertTrue(requests.tabsToCreate().isEmpty(),
+                        "a failure retried on every pass is a failure repeated forever"),
+                () -> assertNull(failed.tabRequested()),
+                () -> assertEquals("bunq: MonetaryAccount not found", failed.tabFailed(),
+                        "'der Link kommt gleich' needs an exit - steward/07"),
+                () -> assertTrue(requests.requestTab(request.id())),
+                () -> assertNull(requests.openOf(USER).orElseThrow().tabFailed(),
+                        "asking again clears the old reason rather than showing it next to a pending ask")
+        );
+    }
+
+    @Test
+    @DisplayName("a request already asked to be cancelled is never given a tab")
+    void aCancelledRequestIsNotGivenATab() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        requests.requestTab(request.id());
+        assertTrue(requests.requestCancel(request.id()));
+
+        // Otherwise the window between "cancel asked for" and the status being written produces a
+        // tab whose only purpose is to be cancelled by the next pass.
+        assertTrue(requests.tabsToCreate().isEmpty());
+    }
+
+    @Test
+    @DisplayName("a cancel is queued once and leaves the queue when the tab is gone")
+    void cancellingQueuesUntilTheTabIsGone() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
+        assertTrue(requests.tabsToCancel().isEmpty());
+
+        assertTrue(requests.requestCancel(request.id()));
+        assertFalse(requests.requestCancel(request.id()), "asking twice does not move the timestamp");
+        assertTrue(requests.close(request.id(), PaymentRequestStatus.CANCELLED));
+
+        assertEquals(List.of(request.reference()), references(requests.tabsToCancel()),
+                "closing the row is not cancelling the tab at bunq");
+
+        assertTrue(requests.recordCancelled(request.id()));
+        assertTrue(requests.tabsToCancel().isEmpty(),
+                "without an exit the worker cancels the same tab on every pass, forever");
+    }
+
+    @Test
+    @DisplayName("a match is written onto a row that is still open, so the settled-iff-paid check holds")
+    void aMatchDoesNotBookAnything() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
+
+        assertTrue(requests.recordMatch(request.id(), 4711L, 300, PaymentMatch.TAB));
+
+        final PaymentRequest matched = requests.openOf(USER).orElseThrow();
+        assertAll(
+                () -> assertEquals(PaymentRequestStatus.OPEN, matched.status(),
+                        "the worker finds the money; the bot books it"),
+                () -> assertNull(matched.settled()),
+                () -> assertEquals(300, matched.matchedCents()),
+                () -> assertEquals(PaymentMatch.TAB, matched.matchedBy()),
+                () -> assertEquals(4711L, matched.bunqPaymentId()),
+                () -> assertTrue(requests.alreadyBooked(4711L),
+                        "the claim on the payment id happens here, not at the booking")
+        );
+    }
+
+    @Test
+    @DisplayName("one bunq payment cannot be attributed to two requests")
+    void aPaymentCannotBeClaimedTwice() {
+        final PaymentRequest first = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        assertTrue(requests.recordMatch(first.id(), 4711L, 300, PaymentMatch.TAB));
+
+        final PaymentRequest second = requests.open(OTHER, 30, 300, 0, TTL_HOURS);
+
+        // Not a check in Java the worker could forget: the same partial unique index that already
+        // guards settle(). recordMatch passes it on rather than absorbing it, because attribution
+        // has one writer and a second claim is a bug in it.
+        final UnableToExecuteStatementException failure = assertThrows(
+                UnableToExecuteStatementException.class,
+                () -> requests.recordMatch(second.id(), 4711L, 300, PaymentMatch.REFERENCE));
+        assertTrue(String.valueOf(failure.getMessage()).contains("payment_request_bunq_payment_id_key"),
+                failure.getMessage());
+    }
+
+    private static List<String> references(final List<PaymentRequest> found) {
+        return found.stream().map(PaymentRequest::reference).toList();
     }
 
     // ---------------------------------------------------------------- the watermark

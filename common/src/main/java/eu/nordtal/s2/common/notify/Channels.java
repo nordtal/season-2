@@ -77,6 +77,27 @@ public final class Channels {
      */
     public static final String ALLOWLIST = "nordtal_allowlist";
 
+    /**
+     * A {@code payment_request} row was written across the seam. Payload: empty.
+     *
+     * <p>Matches {@code pg_notify('nordtal_payment', '')} in every write of
+     * {@code PaymentRequestDao} that belongs to the seam - {@code requestTab}, {@code failTab},
+     * {@code requestCancel}, {@code recordCancelled} and {@code recordMatch}. Each one carries it
+     * inside the statement, in a CTE over the rows that actually changed, so a notification only
+     * exists for a write that committed and a no-op write is silent.</p>
+     *
+     * <p>Two processes will listen (steward/109): steward-worker, so a requested tab is created in
+     * the seconds the user is looking at the message rather than at the next poll, and discord-bot,
+     * so the link or the failure reaches the same message the moment it exists. Both halves poll as
+     * well - the poll is the guarantee, this only makes it feel immediate - and both re-read the
+     * queue in full on every signal and every reconnect, which is why the payload is empty.</p>
+     *
+     * <p>Since 2026-09-18 the channel exists before either listener does. That is the wrong way
+     * round only in appearance: a {@code LISTEN} on a channel nobody publishes on and a working one
+     * look identical, so the publishing half is the half worth having first.</p>
+     */
+    public static final String PAYMENT = "nordtal_payment";
+
     private Channels() {
     }
 }

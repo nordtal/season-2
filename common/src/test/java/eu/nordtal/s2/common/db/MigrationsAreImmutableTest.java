@@ -99,6 +99,8 @@ class MigrationsAreImmutableTest {
                 "e598a302d28e4fcfb97a39a4e6eb8db2d634fa7840d508a9a7bc81aebaf5fed5");
         FROZEN.put("V22__online_count.sql",
                 "bf98dd8e45614cd2cf1e76f812102f575957ec038ec58768c1281f5779846164");
+        FROZEN.put("V23__payment_request_seam.sql",
+                "ae71c85668ebe7948c2cd3c7ff07102b8cfb2e6fe8ee5320127ea40b730c28d1");
     }
 
     @Test

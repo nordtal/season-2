@@ -1,7 +1,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ColourControl, MINECRAFT_CHAT_BACKGROUND, colourRuns } from "@/components/steward/colour-control"
+import {
+  ColourControl,
+  MINECRAFT_CHAT_BACKGROUND,
+  SAMPLE_TEXT,
+  colourRuns,
+} from "@/components/steward/colour-control"
 import { colourValue } from "@/components/steward/config-controls"
 import type { ConfigEntry } from "@/lib/api"
 
@@ -103,22 +108,45 @@ describe("ColourControl", () => {
     const preview = screen.getByRole("img", { name: /preview on minecraft's chat background/i })
     expect(preview.style.backgroundColor).toBe(MINECRAFT_CHAT_BACKGROUND)
 
-    const sample = screen.getByText("Nordtal — sample chat text")
+    const sample = screen.getByText(SAMPLE_TEXT)
     // jsdom normalises an inline `color` style to `rgb(...)` regardless of how it was written -
     // "#8ba888" is (139, 168, 136) in decimal.
     expect(sample.style.color).toBe("rgb(139, 168, 136)")
   })
 
-  it("shows no colour preview for a value that is not a valid hex colour yet, rather than a broken swatch", () => {
+  /**
+   * steward/63, second round. Till, 2026-09-17: it works, but the text preview under each field is
+   * not nice to look at - without saying which part. Photographed at 390px before anything changed
+   * (`/home/dev/ui-shots/shots/steward-63-colours-390-before.png`): a five-word sample in a column
+   * 112-150px wide wrapped onto three lines, so the five tones of one `colours.yml` stood in a row
+   * of five different heights, and the last one - alone on its own line and therefore full width -
+   * was one line high. Nothing about the colours was comparable, which is the whole point of
+   * drawing them side by side.
+   *
+   * One word cannot wrap, and `truncate` is what holds that when a column is narrower still.
+   */
+  it("keeps the sample to one line, so a row of colours is a row of equal heights", () => {
+    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+
+    const sample = screen.getByText(SAMPLE_TEXT)
+    expect(SAMPLE_TEXT.includes(" ")).toBe(false)
+    expect(sample.className).toContain("truncate")
+  })
+
+  it("shows the sample dimmed, and no instructions, while the value is not a colour yet", () => {
     // Typing "#8ba" (still incomplete) must not crash the native colour input, which refuses
-    // anything that is not exactly seven characters - the swatch falls back to a placeholder and
-    // the preview says a value has not been typed yet, rather than colouring "#8ba" literally as
-    // one of the two things it could otherwise be misread as (short hex, or malformed).
+    // anything that is not exactly seven characters - the swatch falls back to a placeholder. The
+    // preview keeps its place and its height rather than swapping in a sentence: the box is the
+    // same size either way, so nothing below it moves while somebody retypes six digits.
     render(<ColourControl id="good" value="#8ba" disabled={false} onChange={vi.fn()} />)
 
     const swatch = screen.getByLabelText("Pick a colour") as HTMLInputElement
     expect(swatch.value).toBe("#000000")
-    screen.getByText("type a hex value to preview it")
+    const sample = screen.getByText(SAMPLE_TEXT)
+    expect(sample.style.color).toBe("")
+    expect(screen.queryByText(/type a hex value/i)).toBeNull()
+    // The name still says what a sighted reader sees from the dimming alone.
+    screen.getByRole("img", { name: /no valid colour to preview yet/i })
   })
 })
 

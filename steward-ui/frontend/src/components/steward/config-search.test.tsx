@@ -241,3 +241,48 @@ describe("ServiceSettingsSearch - message bundles too (steward/87)", () => {
     expect(await screen.findByText("farm.reset.announce")).not.toBeNull()
   })
 })
+
+/**
+ * steward/105: the same ranking fault as the palette's, one service wide.
+ *
+ * This box never had a fuzzy filter to go wrong - it lists what {@link searchAcross} returned, in
+ * file order. `donation-cents` is written above `roles.donor` in `discord-bot/access.yml`, and its
+ * explanation mentions the donor role, so typing the name of a setting put a setting that merely
+ * talks about it first. Measured on this host, 2026-09-18, before the change.
+ */
+describe("ServiceSettingsSearch - an exact name comes first (steward/105)", () => {
+  it("puts Donor above the setting whose explanation only mentions a donor", async () => {
+    const loc = location({ path: "discord-bot/access.yml", name: "access.yml", service: "discord-bot" })
+    const document: ConfigDocument = {
+      ...loc,
+      revision: "r1",
+      header: [],
+      entries: [
+        entry({
+          path: "donation-cents",
+          key: "donation-cents",
+          label: "Donation cents",
+          explanation:
+            "The extra amount that grants the donor role - also how a payment above the order total is recognised as a donation.",
+          value: "500",
+        }),
+        entry({
+          path: "roles.donor",
+          key: "donor",
+          label: "Donor",
+          explanation: "Granted on a donation and never revoked - safe to hand out manually in Discord.",
+          value: "1544515504889139301",
+        }),
+      ],
+    }
+    wire({ files: [{ location: loc, document }] })
+
+    render(<ServiceSettingsSearch files={[loc]} onJump={vi.fn()} />)
+    await typeInto("Search this service's settings…", "Donor")
+
+    // Every hit row, top to bottom: the box draws one button per hit and nothing else.
+    const rows = screen.getAllByRole("button").map((row) => (row.textContent ?? "").trim())
+    expect(rows.findIndex((row) => row.startsWith("Donor"))).toBe(0)
+    expect(rows.findIndex((row) => row.startsWith("Donation cents"))).toBe(1)
+  })
+})

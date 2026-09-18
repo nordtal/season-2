@@ -294,99 +294,125 @@
    * name column. That is deliberate. An action cell holding two buttons wants the whole width, and
    * a label somebody forgot reads as an unnamed line rather than as a broken layout.
    */
-  @media (width < 48rem) {
-    .steward-table,
-    .steward-table :where(thead, tbody, tr, th, td) {
-      display: block;
-    }
+}
 
-    .steward-table thead {
-      display: none;
-    }
 
-    .steward-table tbody {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
+/*
+  DELIBERATELY UNLAYERED, and that is the whole reason this block sits outside `@layer components`
+  rather than inside it (steward/114, measured 2026-09-18).
 
-    .steward-table tbody tr {
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: color-mix(in oklab, var(--card) 70%, var(--background));
-      padding: 0.25rem var(--cell-padding);
-    }
+  It used to be in that layer, and half of it silently did nothing: Tailwind's `utilities` layer
+  comes after `components`, so EVERY utility class shadcn's `TableCell` already carries beat these
+  rules no matter how specific they were made. `height: auto` lost to `h-(--row-height)`,
+  `white-space: normal` lost to `whitespace-nowrap`, and `padding-block` lost to `py-0`. The
+  visible result was a cell computing to 34px around a grid row of 100px - the wrapped sentence
+  was drawn straight over the next row's card, which no test could see and a screenshot could.
 
-    /* The component's own `[&_tr:last-child]:border-0` would leave the last card without one. */
-    .steward-table tbody tr:last-child {
-      border-bottom-width: 1px;
-    }
+  Unlayered styles beat every layer, which is what a layout override for one breakpoint needs to
+  be. The cost, stated plainly: a utility class on a single stacked cell can no longer override
+  anything this block sets. That is the trade - this block decides the stacked layout, and a cell
+  that wants out of it needs a rule here rather than a class there.
+*/
+@media (width < 48rem) {
+  .steward-table,
+  .steward-table :where(thead, tbody, tr, th, td) {
+    display: block;
+  }
 
-    .steward-table :where(th, td) {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      align-items: center;
-      gap: 0 0.75rem;
-      height: auto;
-      min-height: var(--row-height);
-      padding-inline: 0;
-      padding-block: 0.25rem;
-      text-align: left;
-      /*
-        shadcn's `TableCell`/`TableHead` carry `whitespace-nowrap`, and this selector is more
-        specific than that utility class - so without `white-space: normal` here, ordinary prose
-        (an `audit_log.detail` sentence) never wraps at all and the row is as wide as its longest
-        line (steward/114). `overflow-wrap` below only decides where a line breaks WITHIN an
-        unbreakable run; it cannot make text wrap while `nowrap` still holds.
-      */
-      white-space: normal;
-      /*
-        An image reference is one word to a line-breaking algorithm - `ghcr.io/nordtal/steward-
-        deployer:latest` is 281px of unbreakable text in a column 200px wide, and it was drawn
-        straight off the right edge of the phone where nothing could reach it. On a wide screen the
-        column is wide enough and this never applies.
-      */
-      overflow-wrap: anywhere;
-    }
+  .steward-table thead {
+    display: none;
+  }
 
-    .steward-table td[data-label] {
-      grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr);
-    }
+  .steward-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 
-    .steward-table td[data-label]::before {
-      content: attr(data-label);
-      color: var(--muted-foreground);
-      font-size: 0.75rem;
-      line-height: 1.25rem;
-    }
+  .steward-table tbody tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: color-mix(in oklab, var(--card) 70%, var(--background));
+    padding: 0.25rem var(--cell-padding);
+  }
 
-    /* `text-right` is an alignment against a column that no longer exists. */
-    .steward-table td {
-      justify-items: start;
-    }
+  /* The component's own `[&_tr:last-child]:border-0` would leave the last card without one. */
+  .steward-table tbody tr:last-child {
+    border-bottom-width: 1px;
+  }
 
+  /*
+    `:is`, NOT `:where`, and that is the whole rule (steward/114, measured 2026-09-18).
+    `:where()` contributes nothing to specificity, so this block tied with shadcn's own utility
+    classes on the cell - `h-(--row-height)` and `whitespace-nowrap` - and lost the tie on source
+    order. The visible result was a cell computing to `height: 34px` around a grid row of 100px:
+    the wrapped sentence was drawn straight over the next row's card. `:is()` takes the highest
+    specificity of its arguments, so the same rules now win the way they always read as if they did.
+  */
+  .steward-table :is(th, td) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+    gap: 0 0.75rem;
+    height: auto;
+    min-height: var(--row-height);
+    padding-inline: 0;
+    padding-block: 0.25rem;
+    text-align: left;
     /*
-      ...and `justify-items: start` is why this is needed. A grid item that is not stretched is
-      sized to its content, and Firefox measured `ghcr.io/nordtal/steward-deployer:latest` at its
-      full 281px inside a 134px column - so the cell was right, the badge inside it was right, and
-      the reference was still drawn 80px off the right edge of the phone. A percentage max-width
-      resolves against the grid area, which is the number that was being ignored. Stretching the
-      items instead would fix it and make every status badge as wide as the column.
+      shadcn's `TableCell`/`TableHead` carry `whitespace-nowrap`, and this selector is more
+      specific than that utility class - so without `white-space: normal` here, ordinary prose
+      (an `audit_log.detail` sentence) never wraps at all and the row is as wide as its longest
+      line (steward/114). `overflow-wrap` below only decides where a line breaks WITHIN an
+      unbreakable run; it cannot make text wrap while `nowrap` still holds.
     */
-    .steward-table td > * {
-      max-width: 100%;
-    }
-
+    white-space: normal;
     /*
-      A cell with two children - the Journal table's `Concerns`, a subject id plus a
-      `PersonIdentity` line under it - only places the first child by the implicit rule the grid
-      already has; grid auto-placement drops the second one into row 2, COLUMN 1, which is the
-      label column, and it collides with the next cell's `::before` label (steward/114, measured:
-      the identity line sat inside the label box, `left 85 … right 169`). Every child belongs in
-      column 2, beside the label, however many of them there are.
+      An image reference is one word to a line-breaking algorithm - `ghcr.io/nordtal/steward-
+      deployer:latest` is 281px of unbreakable text in a column 200px wide, and it was drawn
+      straight off the right edge of the phone where nothing could reach it. On a wide screen the
+      column is wide enough and this never applies.
     */
-    .steward-table td[data-label] > * {
-      grid-column: 2;
-    }
+    overflow-wrap: anywhere;
+  }
+
+  .steward-table td[data-label] {
+    grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr);
+  }
+
+  .steward-table td[data-label]::before {
+    content: attr(data-label);
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+  }
+
+  /* `text-right` is an alignment against a column that no longer exists. */
+  .steward-table td {
+    justify-items: start;
+  }
+
+  /*
+    ...and `justify-items: start` is why this is needed. A grid item that is not stretched is
+    sized to its content, and Firefox measured `ghcr.io/nordtal/steward-deployer:latest` at its
+    full 281px inside a 134px column - so the cell was right, the badge inside it was right, and
+    the reference was still drawn 80px off the right edge of the phone. A percentage max-width
+    resolves against the grid area, which is the number that was being ignored. Stretching the
+    items instead would fix it and make every status badge as wide as the column.
+  */
+  .steward-table td > * {
+    max-width: 100%;
+  }
+
+  /*
+    A cell with two children - the Journal table's `Concerns`, a subject id plus a
+    `PersonIdentity` line under it - only places the first child by the implicit rule the grid
+    already has; grid auto-placement drops the second one into row 2, COLUMN 1, which is the
+    label column, and it collides with the next cell's `::before` label (steward/114, measured:
+    the identity line sat inside the label box, `left 85 … right 169`). Every child belongs in
+    column 2, beside the label, however many of them there are.
+  */
+  .steward-table td[data-label] > * {
+    grid-column: 2;
   }
 }

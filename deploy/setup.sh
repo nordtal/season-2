@@ -663,6 +663,81 @@ if [[ "$(env_value "$ENV_FILE" STEWARD_API_TOKEN)" == "$(env_value "$ENV_FILE" S
        services on two ports - and one token for both makes the boundary a comment."
 fi
 
+# --- 4b · the Web Push keypair, minted rather than asked for (steward/118) --------------------------
+# steward/117 wired the two variables through compose.yml; what it left open is that a fresh
+# installation never got asked, and web-push then sits silently unconfigured (a WARN line at
+# startup is the only sign - see StewardUi.main). THE KEYPAIR IS NOT A SECRET SOMEBODY HOLDS
+# ELSEWHERE, unlike the Discord token or a bunq key: nobody has one before this runs, it is minted
+# here, so - like POSTGRES_PASSWORD and the two tokens above - it belongs beside `set_secret`, not
+# in the "questions" block. It needs no terminal.
+#
+# UNLIKE set_secret THIS NEEDS AN IMAGE, not just openssl - StewardUi.java's own comment for
+# `generate-vapid-keys` says why that is still cheap: "No database, no config directory, nothing
+# this deployment already has" - it is one call into com.interaso.webpush and two lines on stdout,
+# so a bare `docker run --rm <image> generate-vapid-keys`, run before steward-ui is ever brought
+# up, is the whole thing - the same shape §6 already pulls the deployer image with.
+#
+# BOTH OR NEITHER: WebPushSpec reads a half-filled pair as broken, not as "not configured" (two
+# blanks is what that means). A call here that finds exactly one of the two already set treats the
+# pair as unusable and replaces both, rather than trying to keep half of a mismatched key.
+#
+# THE IMAGE IS PULLED ONLY IF NONE IS ALREADY ON THIS HOST. §5a exists because `up` silently
+# replaces a locally built image with whatever the registry currently serves under the same tag -
+# an unconditional pull here, ahead of that check, would do exactly the same thing to steward-ui
+# before anybody had a chance to be warned. A host that already carries an image (built here, or
+# pulled by an earlier run) uses it as it stands; only a host with no steward-ui image at all - the
+# fresh-install case this ticket is about - reaches for the registry.
+generate_vapid_keys() {
+    local image="${STEWARD_UI_IMAGE:-ghcr.io/nordtal/steward-ui:latest}"
+    local pub priv output
+    pub="$(env_value "$ENV_FILE" STEWARD_UI_WEB_PUSH_PUBLIC_KEY)"
+    priv="$(env_value "$ENV_FILE" STEWARD_UI_WEB_PUSH_PRIVATE_KEY)"
+
+    if [[ -n "${pub//[[:space:]]/}" && -n "${priv//[[:space:]]/}" ]]; then
+        log "STEWARD_UI_WEB_PUSH_PUBLIC_KEY / _PRIVATE_KEY are already set (left alone)"
+        return
+    fi
+    if $CHECK_ONLY; then
+        warn "the Web Push VAPID keypair is not set; a real run would generate one"
+        return
+    fi
+    if [[ -n "${pub//[[:space:]]/}" || -n "${priv//[[:space:]]/}" ]]; then
+        warn "exactly one half of the Web Push VAPID keypair is set in $ENV_FILE - WebPushSpec
+       reads that as broken, not as 'not configured', so a fresh pair replaces both halves."
+    fi
+
+    local fallback="web-push stays unconfigured for now - the subscribe button is simply not
+       drawn. Generate a pair once the stack is up with \`docker exec ${PROJECT}-steward-ui-1
+       steward-ui generate-vapid-keys\`, paste the two lines into STEWARD_UI_WEB_PUSH_PUBLIC_KEY
+       and STEWARD_UI_WEB_PUSH_PRIVATE_KEY in $ENV_FILE, and recreate steward-ui so it reads them."
+
+    if ! docker image inspect "$image" >/dev/null 2>&1; then
+        log "pulling $image to mint a Web Push VAPID keypair (no database and no config needed for
+       that one command - see steward-ui's StewardUi.java)"
+        if ! docker pull "$image" >/dev/null 2>&1; then
+            warn "could not pull $image, so no VAPID keypair was generated. $fallback"
+            return
+        fi
+    fi
+
+    output="$(docker run --rm "$image" generate-vapid-keys 2>/dev/null)" || {
+        warn "$image did not answer 'generate-vapid-keys' as expected, so no VAPID keypair was
+       generated. $fallback"
+        return
+    }
+    pub="$(sed -n '1p' <<<"$output")"
+    priv="$(sed -n '2p' <<<"$output")"
+    if [[ -z "$pub" || -z "$priv" ]]; then
+        warn "generate-vapid-keys did not print two lines, so no VAPID keypair was generated. $fallback"
+        return
+    fi
+
+    set_assignment "$ENV_FILE" STEWARD_UI_WEB_PUSH_PUBLIC_KEY "$pub"
+    set_assignment "$ENV_FILE" STEWARD_UI_WEB_PUSH_PRIVATE_KEY "$priv"
+    log "STEWARD_UI_WEB_PUSH_PUBLIC_KEY / _PRIVATE_KEY generated (a fresh VAPID keypair)"
+}
+generate_vapid_keys
+
 # --- 4a · and now everything is there ------------------------------------------------------------
 # The last check rather than the first demand: everything in REQUIRED has either been asked for or
 # generated above, so this firing means this script failed to write something it said it wrote.

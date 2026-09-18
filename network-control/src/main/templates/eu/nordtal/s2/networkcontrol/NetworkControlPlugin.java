@@ -18,6 +18,7 @@ import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.online.OnlineDirectory;
+import eu.nordtal.s2.common.online.OnlineRoster;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.networkcontrol.config.ColoursSpec;
@@ -412,8 +413,12 @@ public final class NetworkControlPlugin {
         // count next to smp, hunger-games, limbo and the network total without a Velocity API of its
         // own. See OnlineDirectory#WRITE_INTERVAL for why this runs on a fixed constant and not a
         // network.yml setting.
+        // steward/111: the same tick also writes WHO is connected into online_player, because
+        // online_count is numbers and nothing else by its own migration's decision. One pass over
+        // the proxy, two tables - a second timer would let the count and the list describe two
+        // different moments.
         final OnlineWriter onlineWriter = new OnlineWriter(proxy, PhaseServers.from(gateConfig),
-                OnlineDirectory.using(pool), logger);
+                OnlineDirectory.using(pool), OnlineRoster.using(pool), logger);
         final Duration onlineInterval = OnlineDirectory.WRITE_INTERVAL;
         onlineWriter.write();
         proxy.getScheduler().buildTask(this, onlineWriter::write)

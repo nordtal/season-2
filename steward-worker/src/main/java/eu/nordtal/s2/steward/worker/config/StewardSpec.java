@@ -681,8 +681,8 @@ public interface StewardSpec {
                 "",
                 "WHERE a snapshot goes is backup.output-root, on this host. There is no offsite",
                 "copy yet: §9a's Storage Box does not exist, so every archive is on the same disk",
-                "as the thing it is a copy of, and backup.keep of them protect against a mistake",
-                "and against nothing else."
+                "as the thing it is a copy of, and what backup.retention keeps of them protects",
+                "against a mistake and against nothing else."
         })
         @Explain("The volumes' REAL names (docker volume ls, prefixed by the compose project), not the compose.yml keys. A name with no matching read-only mount below fails loudly rather than silently skipping.")
         default List<String> volumes() {
@@ -763,21 +763,23 @@ public interface StewardSpec {
         }
 
         @Order(5)
-        @Key("keep")
+        @Key("retention")
         @Comment({
-                "How many archives of each volume, and how many database dumps, are kept here.",
-                "Fourteen is what the postgres-backup sidecar kept and there is no reason to",
-                "disagree with it.",
+                "How long a backup is kept here. Till chose the staggered schedule on 2026-09-18",
+                "(steward/95): the newest days in full, then one a week, then one a month.",
                 "",
-                "LOCAL RETENTION IS NOT THE OFFSITE ONE. This number governs the disk in this host",
-                "only. Until a Storage Box exists, it is the ONLY retention there is - and then",
-                "fourteen copies on the same disk as the original protect against a mistake and",
-                "against nothing else."
+                "IT REPLACED A FLAT `keep: 14`. That number counted FILES per volume, so three runs",
+                "on one Tuesday spent three of the fourteen and a busy week silently shortened the",
+                "history to a few days. The schedule below counts DAYS, and the day is collapsed to",
+                "its last run first - see collapse-after-days.",
+                "",
+                "LOCAL RETENTION IS NOT THE OFFSITE ONE. This governs the disk in this host only.",
+                "Until the Storage Box under backup.remote is filled, it is the ONLY retention",
+                "there is - and copies on the same disk as the original protect against a mistake",
+                "and against nothing else."
         })
-        @Explain("Until an offsite copy exists, this is the ONLY retention there is - it protects against a mistake and against nothing else, since every copy lives on the same disk as the original.")
-        default int keep() {
-            return 14;
-        }
+        @Explain("The staggered schedule: the newest days in full, then one a week, then one a month. It counts days rather than files, which a flat count could not.")
+        RetentionSpec retention();
 
         @Order(6)
         @Key("database-service")
@@ -851,8 +853,8 @@ public interface StewardSpec {
         @Comment({
                 "WHERE A COPY GOES THAT IS NOT ON THIS DISK. Empty endpoint means there is none,",
                 "which is what a fresh deployment has: every archive then lives on the same disk as",
-                "the volume it is a copy of, and backup.keep of them protect against a mistake and",
-                "against nothing else.",
+                "the volume it is a copy of, and what backup.retention keeps of them protects",
+                "against a mistake and against nothing else.",
                 "",
                 "THIS IS WHERE THE TARGET IS WRITTEN DOWN, AND NOT YET WHERE IT IS USED. The nightly",
                 "run still only writes into backup.output-root; nothing in this service uploads yet.",
@@ -875,6 +877,76 @@ public interface StewardSpec {
          * both of these names anyway; the annotation is there so the masking does not depend on what
          * the key happens to be called.</p>
          */
+        /**
+         * How long a backup is kept - the numbers; {@code Retention} in the backup package is the
+         * arithmetic that reads them.
+         *
+         * <p>Four keys rather than one, because Till's rule is two rules: the staggered schedule
+         * every backup tool has, and the one-per-day collapse that no standard tool does.</p>
+         */
+        @ConfigSpec
+        interface RetentionSpec {
+
+            @Order(1)
+            @Key("daily")
+            @Comment({
+                    "How many of the most recent DAYS are kept in full. Fourteen is what the flat",
+                    "`keep` held before this block replaced it, and there is no reason to disagree",
+                    "with it - but it now means fourteen days rather than fourteen files.",
+                    "",
+                    "Below 1 the sweep refuses to run rather than deleting everything: the",
+                    "likeliest way to arrive at 0 is a key nobody set being read as one."
+            })
+            @Explain("Fourteen DAYS, not fourteen files - several runs on one day count as that one day. Below 1 the sweep refuses rather than deleting everything.")
+            default int daily() {
+                return 14;
+            }
+
+            @Order(2)
+            @Key("weekly")
+            @Comment({
+                    "How many ISO weeks keep their newest surviving backup, counted from this week",
+                    "rather than from the end of the daily window - so 8 means eight weeks of",
+                    "history, of which the first two are already covered by fourteen daily copies.",
+                    "",
+                    "0 turns the weekly step off, and the history then ends where daily ends."
+            })
+            @Explain("Eight weeks of history, counted from this week - the first two of them are already covered by the daily window. 0 ends the history where the daily window ends.")
+            default int weekly() {
+                return 8;
+            }
+
+            @Order(3)
+            @Key("monthly")
+            @Comment({
+                    "How many calendar months keep their newest surviving backup, counted the same",
+                    "way. Six months of a world costs six archives per volume - on this host about",
+                    "500 MiB each for mc-smp and kilobytes for everything else.",
+                    "",
+                    "0 turns the monthly step off."
+            })
+            @Explain("Six months of history for the price of six archives per volume. 0 turns the monthly step off.")
+            default int monthly() {
+                return 6;
+            }
+
+            @Order(4)
+            @Key("collapse-after-days")
+            @Comment({
+                    "How long several runs of ONE day are all kept before only the LAST of that day",
+                    "survives. Till: \"ein paar Tage spaeter\" - a backup taken by hand before",
+                    "touching something must not vanish the moment the nightly one lands, because",
+                    "that is the one moment somebody is still working on what they took it for.",
+                    "",
+                    "NOTHING INSIDE THIS WINDOW IS EVER DELETED by the sweep, for any reason.",
+                    "0 collapses a day as soon as the next sweep sees it."
+            })
+            @Explain("A backup taken by hand before touching something survives the nightly one for this many days. Nothing inside the window is ever deleted, for any reason.")
+            default int collapseAfterDays() {
+                return 3;
+            }
+        }
+
         @ConfigSpec
         interface RemoteSpec {
 

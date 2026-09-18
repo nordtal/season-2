@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -173,7 +172,7 @@ class TarSnapshotsTest {
         // Not ours: an operator's own file in the same directory, which must survive untouched.
         Files.writeString(outputRoot().resolve("README.txt"), "restore instructions");
 
-        final List<String> removed = snapshots(NIGHT).prune(2);
+        final List<String> removed = snapshots(NIGHT).prune(days(2));
 
         assertEquals(List.of(
                         "nordtal-s2_mc-limbo-20260911T044500Z.tar.zst",
@@ -192,6 +191,28 @@ class TarSnapshotsTest {
                 "two of each must remain - six files, not two");
         assertTrue(Files.exists(outputRoot().resolve("README.txt")),
                 "a file this class did not name must never be deleted");
+    }
+
+    @Test
+    @DisplayName("a day that has settled keeps its last run, on the disk and not only on paper")
+    void collapsesASettledDayToItsLastRun() throws IOException {
+        // Till's own rule (steward/95, 2026-09-18), here with real files: three runs on the 10th -
+        // somebody took one by hand before touching something and the nightly one arrived anyway -
+        // and two on the 12th, which is inside a two-day grace measured from the 13th.
+        archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260910T113000Z", "20260910T211500Z",
+                "20260912T044500Z", "20260912T190000Z");
+
+        final List<String> removed = snapshots(NIGHT).prune(new Retention(30, 0, 0, 2));
+
+        assertEquals(List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst",
+                        "nordtal-s2_mc-smp-20260910T113000Z.tar.zst"),
+                sorted(removed),
+                "the 10th has settled and keeps its last run; the 12th is inside the grace and"
+                        + " keeps both, which is the whole point of the grace");
+        assertEquals(List.of("nordtal-s2_mc-smp-20260910T211500Z.tar.zst",
+                        "nordtal-s2_mc-smp-20260912T044500Z.tar.zst",
+                        "nordtal-s2_mc-smp-20260912T190000Z.tar.zst"),
+                archivesIn(outputRoot()));
     }
 
     @Test
@@ -241,7 +262,7 @@ class TarSnapshotsTest {
         mark("nordtal-s2_mc-smp-20260910T044500Z.tar.zst");
         mark("nordtal-s2_mc-smp-20260912T044500Z.tar.zst");
 
-        final List<String> removed = snapshots(NIGHT).prune(2);
+        final List<String> removed = snapshots(NIGHT).prune(days(2));
 
         assertEquals(List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst"), removed,
                 "the sweep's list is what the run's report prints, and a mark listed there would"
@@ -269,7 +290,7 @@ class TarSnapshotsTest {
         archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z");
         dump("20260910T044500Z", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
 
-        final List<String> removed = snapshots(NIGHT).prune(2);
+        final List<String> removed = snapshots(NIGHT).prune(days(2));
 
         assertEquals(List.of(
                         "nordtal-20260910T044500Z.dump",
@@ -293,7 +314,7 @@ class TarSnapshotsTest {
         Files.writeString(outputRoot().resolve("nordtal-20260912T044500Z.dump.partial"), "old");
         Files.writeString(outputRoot().resolve("nordtal-20260913T044500Z.dump.partial"), "running");
 
-        final List<String> removed = snapshots(NIGHT).prune(7);
+        final List<String> removed = snapshots(NIGHT).prune(days(7));
 
         assertEquals(List.of("nordtal-20260912T044500Z.dump.partial"), sorted(removed),
                 "a day old is debris; the one from tonight is a dump in progress");
@@ -308,7 +329,7 @@ class TarSnapshotsTest {
         Files.writeString(stale, "debris from a killed run");
         Files.writeString(fresh, "a save that may be running right now");
 
-        final List<String> removed = snapshots(NIGHT).prune(7);
+        final List<String> removed = snapshots(NIGHT).prune(days(7));
 
         assertEquals(List.of(stale.getFileName().toString()), removed);
         assertFalse(Files.exists(stale));
@@ -325,7 +346,7 @@ class TarSnapshotsTest {
         final Path impossible = outputRoot().resolve(VOLUME + "-99999999T999999Z.tar.zst.partial");
         Files.writeString(impossible, "whatever this is");
 
-        final List<String> removed = snapshots(NIGHT).prune(1);
+        final List<String> removed = snapshots(NIGHT).prune(days(1));
 
         assertEquals(List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst",
                         "nordtal-s2_mc-smp-20260911T044500Z.tar.zst"),
@@ -377,13 +398,23 @@ class TarSnapshotsTest {
         return ProcessBuilder.startPipeline(builders);
     }
 
-    @Test
-    @DisplayName("prune(0) is refused rather than obeyed")
-    void refusesZero() {
-        assertThrows(IllegalArgumentException.class, () -> snapshots(NIGHT).prune(0));
-    }
-
     // -----------------------------------------------------------------------------------------
+
+    /**
+     * The flat retention these tests were written against: N days, nothing weekly, nothing monthly,
+     * and no grace.
+     *
+     * <p>They predate the staggered schedule (steward/95, 2026-09-18) and they are about the files
+     * rather than about the arithmetic - which volume a name belongs to, that a mark goes with its
+     * archive, that a stamp nobody can parse stops one file and not the sweep. With one archive per
+     * day in every fixture, "keep N days" is exactly the "keep N files" they asked for, so the
+     * expectations are unchanged rather than adjusted. The schedule itself is checked in
+     * {@link RetentionTest}, without a disk, and the refusal of an all-zero policy moved there with
+     * it - it is the record's own constructor now, not this method's first line.</p>
+     */
+    private static Retention days(final int daily) {
+        return new Retention(daily, 0, 0, 0);
+    }
 
     private TarSnapshots snapshots(final Instant now) {
         return new TarSnapshots(sourcesRoot(), outputRoot(), Clock.fixed(now, ZoneOffset.UTC));

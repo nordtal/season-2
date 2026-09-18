@@ -62,6 +62,24 @@ interface PaymentRequestDao {
             """)
     Optional<PaymentRequest> findByReference(@Bind("reference") String reference);
 
+    /**
+     * One request by its surrogate key.
+     *
+     * <p>Added with steward/109 for the one caller that knows the row it is waiting for and nothing
+     * else about it: the ephemeral message that says "your payment link is being created" holds an
+     * id, and when {@code nordtal_payment} fires it has to ask whether <em>that</em> row has a link
+     * yet. The reference would work as well, but the id is what the flow already has in its hand.</p>
+     */
+    @SqlQuery("""
+            SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
+                   bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
+                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   matched_cents, matched_by
+            FROM payment_request
+            WHERE id = :id
+            """)
+    Optional<PaymentRequest> findById(@Bind("id") UUID id);
+
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
@@ -120,10 +138,28 @@ interface PaymentRequestDao {
                  @Bind("amountCents") int amountCents,
                  @Bind("donationCents") int donationCents);
 
-    @SqlUpdate("""
-            UPDATE payment_request
-            SET bunq_tab_id = :tabId, share_url = :shareUrl
-            WHERE id = :id AND status = 'OPEN'
+    /**
+     * Stores the tab steward-worker made, and announces it.
+     *
+     * <p>The {@code pg_notify} is what turns "your payment link is being created" back into a link
+     * while the person is still looking at the message (steward/109). It was a plain statement
+     * until then, because the process that created the tab was the process that was going to draw
+     * it; now they are two containers and a table apart.</p>
+     *
+     * @return 1 when the tab was stored, 0 when the row had closed underneath it - in which case
+     *         the caller has a live bunq.me URL nothing points at and has to cancel it
+     */
+    @SqlQuery("""
+            WITH updated AS (
+                UPDATE payment_request
+                SET bunq_tab_id = :tabId, share_url = :shareUrl
+                WHERE id = :id AND status = 'OPEN'
+                RETURNING id
+            ),
+                 notified AS (
+                     SELECT pg_notify('nordtal_payment', '') FROM updated
+                 )
+            SELECT count(*) FROM notified
             """)
     int attachTab(@Bind("id") UUID id, @Bind("tabId") long tabId, @Bind("shareUrl") String shareUrl);
 
@@ -164,11 +200,17 @@ interface PaymentRequestDao {
      * hand that money arrived. {@code bunq_payment_id} stays null, which the partial unique index
      * on it allows and which is exactly how a manual settlement is told apart from a matched one.
      *
+     * <p>{@code matched_by} is written here since steward/109, and only here does it say something
+     * the row does not already carry: with no payment id there is otherwise nothing at all in the
+     * row to say a human decided this. {@code matched_cents} deliberately stays null - {@code
+     * /settle} takes no amount, and inventing one would be the row claiming to know what arrived.
+     * V23 has no constraint tying the two together for exactly this case.</p>
+     *
      * @return 1 when the request was still open
      */
     @SqlUpdate("""
             UPDATE payment_request
-            SET status = 'PAID', settled = now()
+            SET status = 'PAID', settled = now(), matched_by = 'MANUAL'
             WHERE id = :id AND status = 'OPEN'
             """)
     int settleManually(@Bind("id") UUID id);
@@ -364,20 +406,81 @@ interface PaymentRequestDao {
                     @Bind("matchedCents") int matchedCents,
                     @Bind("matchedBy") String matchedBy);
 
+    /**
+     * The bot's half of the seam: rows steward-worker has attributed a payment to and nobody has
+     * booked yet.
+     *
+     * <p>{@code matched_cents IS NOT NULL} rather than {@code bunq_payment_id IS NOT NULL} is the
+     * predicate on purpose. The amount is what the booking needs - the tier is derived from what
+     * actually arrived, not from what was ordered - so a row without it could be claimed and then
+     * not booked, which is the one state this queue must not be able to produce.</p>
+     *
+     * <p>No {@code settled} clause is needed: {@code payment_request_settled_iff_paid} makes
+     * {@code status = 'OPEN'} and {@code settled IS NULL} the same statement.</p>
+     */
+    @SqlQuery("""
+            SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
+                   bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
+                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   matched_cents, matched_by
+            FROM payment_request
+            WHERE status = 'OPEN' AND matched_cents IS NOT NULL
+            ORDER BY created ASC
+            """)
+    List<PaymentRequest> matchedAwaitingBooking();
+
     // ---------------------------------------------------------------- payment_notice
 
     /**
-     * Records that a payment was raised to the admin channel, and says whether this call is the
-     * one that raised it.
+     * Records that a payment needs a human, once ever, and wakes whoever posts it.
+     *
+     * <p>The {@code pg_notify} arrived with steward/109 for the same reason the seam's other
+     * writes carry one: the process that finds the payment is steward-worker and the process that
+     * can say so in Discord is the bot, so this row is a message in flight rather than a note
+     * beside a message that was already sent.</p>
      *
      * @return 1 the first time, 0 on every later poll that sees the same payment
      */
-    @SqlUpdate("""
-            INSERT INTO payment_notice (bunq_payment_id, reason, detail)
-            VALUES (:bunqPaymentId, :reason, :detail)
-            ON CONFLICT (bunq_payment_id) DO NOTHING
+    @SqlQuery("""
+            WITH inserted AS (
+                INSERT INTO payment_notice (bunq_payment_id, reason, detail)
+                VALUES (:bunqPaymentId, :reason, :detail)
+                ON CONFLICT (bunq_payment_id) DO NOTHING
+                RETURNING bunq_payment_id
+            ),
+                 notified AS (
+                     SELECT pg_notify('nordtal_payment', '') FROM inserted
+                 )
+            SELECT count(*) FROM notified
             """)
     int noticeOnce(@Bind("bunqPaymentId") long bunqPaymentId,
                    @Bind("reason") String reason,
                    @Bind("detail") String detail);
+
+    /** Notices nobody has put in the admin channel yet, oldest first. */
+    @SqlQuery("""
+            SELECT bunq_payment_id, reason, detail, reported
+            FROM payment_notice
+            WHERE posted IS NULL
+            ORDER BY reported ASC
+            """)
+    @RegisterRowMapper(PaymentNoticeMapper.class)
+    List<PaymentNotice> unpostedNotices();
+
+    /**
+     * Claims a notice for posting.
+     *
+     * <p>Claimed <b>before</b> the message is sent, not after. Discord can accept a message and
+     * then this process can die, and posting the same unmatchable payment twice is noise where
+     * posting it not at all is money nobody hears about - so the loss this order risks is the one
+     * worth risking, and it is the same order {@code noticeOnce} always had.</p>
+     *
+     * @return 1 when this call claimed it, 0 when somebody else had
+     */
+    @SqlUpdate("""
+            UPDATE payment_notice
+            SET posted = now()
+            WHERE bunq_payment_id = :bunqPaymentId AND posted IS NULL
+            """)
+    int claimNotice(@Bind("bunqPaymentId") long bunqPaymentId);
 }

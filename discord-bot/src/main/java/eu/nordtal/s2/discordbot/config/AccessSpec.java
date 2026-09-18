@@ -144,8 +144,8 @@ public interface AccessSpec {
 
     @Order(7)
     @Key("payment")
-    @Comment("The bunq poll loop and the life cycle of a payment request.")
-    @Explain("The bunq poll loop and the life cycle of a payment request.")
+    @Comment("The life cycle of a payment request, and how often the bot re-reads the seam.")
+    @Explain("The life cycle of a payment request, and how often the bot re-reads the payment seam.")
     PaymentSpec payment();
 
     // There is deliberately no link-code-ttl-minutes here: the proxy issues the codes and is the
@@ -412,14 +412,39 @@ public interface AccessSpec {
         }
     }
 
-    /** The bunq poll loop and the life cycle of a payment request. */
+    /**
+     * The life cycle of a payment request, and how often the bot looks at the seam.
+     *
+     * <h2>What is no longer here (steward/109)</h2>
+     * {@code watermark} and {@code recent-payment-count} moved to {@code bunq:} in steward-worker's
+     * {@code steward.yml}, because both are questions you can only ask a process that talks to
+     * bunq: which payments are old enough to ignore, and how many of the account's recent payments
+     * to scan. Neither had any meaning in a process with no bank connection.
+     *
+     * <h2>Why the TTL did not move with them</h2>
+     * {@code request-ttl-hours} is used <b>twice in this process and nowhere else</b>: it is stamped
+     * into {@code payment_request.expires} at the moment the row is written, and it is the number in
+     * "this link is valid for N hours" on the message the buyer is looking at. Those two have to be
+     * the same number, and the row is written here. The worker reads {@code expires}, never the
+     * setting - which is the right split: the bot decides how long it is offering, the worker acts
+     * on what was decided. Moving it would have made the sentence and the column two settings that
+     * agree by convention.
+     */
     @ConfigSpec
     interface PaymentSpec {
 
         @Order(1)
         @Key("poll-interval-seconds")
-        @Comment("How often bunq is asked about open tabs and recent payments.")
-        @NoExplanationNeeded
+        @Comment({
+                "How often the bot re-reads the payment seam: money steward-worker has matched and",
+                "not yet booked, notices waiting for the admin channel, and payment links somebody",
+                "is waiting for.",
+                "",
+                "This is a query against this database, not a call to a bank - steward-worker holds",
+                "the bunq key and has a poll interval of its own. nordtal_payment makes each of",
+                "these feel instant; this is only the guarantee underneath it."
+        })
+        @Explain("How often the bot re-reads the payment seam in the database. Notifications make it feel instant; this is the fallback.")
         default int pollIntervalSeconds() {
             return 30;
         }
@@ -429,46 +454,15 @@ public interface AccessSpec {
         @Comment({
                 "How long an unpaid request stays open. Past this the bunq tab is cancelled and",
                 "the request goes to EXPIRED; a payment arriving afterwards is never booked",
-                "automatically - it goes to the admin channel."
+                "automatically - it goes to the admin channel.",
+                "",
+                "It stays with the bot and not with steward-worker because the bot is what writes",
+                "the row: this number becomes payment_request.expires and it is the same number the",
+                "buyer is told the link is good for. The worker expires rows by reading that column."
         })
         @Explain("Past this, the bunq tab is cancelled and a late payment needs manual handling in the admin channel.")
         default int requestTtlHours() {
             return 24;
-        }
-
-        @Order(3)
-        @Key("watermark")
-        @Comment({
-                "Payments created before this instant are ignored, completely and forever.",
-                "",
-                "LEAVE THIS EMPTY. On its first start the bot stamps the current instant into the",
-                "database and uses that from then on, so the cut-off is the moment this bot first",
-                "ran rather than a date somebody guessed. The stored value is written once and",
-                "never rewritten.",
-                "",
-                "Set it only to deliberately choose a different cut-off; ISO-8601, UTC, e.g.",
-                "2026-09-01T00:00:00Z. A value here overrides the stored one without replacing it,",
-                "so emptying this again falls back to the original first-start instant.",
-                "",
-                "The cut-off is not an optimisation: bunq returns the last 50 payments on the",
-                "account whatever the database knows, so without one the first poll would book up",
-                "to 50 historical payments - grants, roles, DMs and public thank-yous included."
-        })
-        @Explain("Leave empty - the bot stamps this itself on first start. Setting it manually risks booking historical payments the wrong side of the cut-off.")
-        default String watermark() {
-            return "";
-        }
-
-        @Order(4)
-        @Key("recent-payment-count")
-        @Comment({
-                "How many recent payments the fallback reference scan looks at per poll.",
-                "The primary match path is the tab's own result inquiries; this only catches",
-                "money that reached the account outside a tab."
-        })
-        @Explain("How many recent payments the fallback scan checks per poll, beyond the primary tab-matching path.")
-        default int recentPaymentCount() {
-            return 50;
         }
     }
 }

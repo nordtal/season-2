@@ -68,6 +68,23 @@ dependencies {
     // the backend is what the assertion is made of.
     testImplementation(libs.logback.classic)
 
+    // The bank (steward/109). This is the ONLY process in the network that holds a bunq credential
+    // and the only one that makes an HTTP call to bunq: the bot writes a row asking for a tab and
+    // reads back what happened, and has neither the key nor the SDK on its classpath any more.
+    //
+    // It brings OkHttp with it. `com/bunq/sdk/http/BunqRequestBuilder.java` in this module is a
+    // patched copy of one of the SDK's own classes, sitting in the SDK's package so it wins on the
+    // classpath - read that file before touching this line or the OkHttp version.
+    implementation(libs.bunq.sdk)
+
+    // Compiled against, not merely shipped: the patched BunqRequestBuilder above extends
+    // okhttp3.Request.Builder, and the SDK's POM puts OkHttp at RUNTIME scope only - so without
+    // this line the patch does not compile, which is how this was found. `implementation` and not
+    // `compileOnly` on purpose: Gradle then resolves one version for both classpaths, so a bunq
+    // bump that moves OkHttp can never leave this module compiling against one major and running
+    // on another. See the comment beside `okhttp` in libs.versions.toml.
+    implementation(libs.okhttp)
+
     // Compiled against, not just shipped: PostgresNotifications unwraps org.postgresql.PGConnection
     // to call getNotifications(int), the only way pgjdbc exposes LISTEN/NOTIFY. Declared here so the
     // version comes from this repo's catalog rather than from jcore's POM.

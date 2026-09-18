@@ -99,6 +99,46 @@ the jar it is executing.
 
 It does not own worlds or anything a player built.
 
+## The bank
+
+Since steward/109 this is the **only container in the network that holds a bunq credential**, and the
+only one that makes an HTTP call to bunq. It was `discord-bot` until then, which meant the key sat in
+a process with a gateway connection to a third party and a permanent invitation for strangers to
+press its buttons.
+
+Two variables, `NORDTAL_STEWARD_BUNQ_API_KEY` and `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`, and they are
+**optional together**: a season without a bank account is a season where everything works except
+buying access. Half of one is refused at startup by name, because that is always a setup that stopped
+in the middle — or an environment file renamed in one place and not the other.
+
+**The one line.** Because the pair is optional, a file still carrying the old `NORDTAL_BOT_BUNQ_*`
+names produces a stack in which every container is healthy, every log is quiet, and no payment is
+ever noticed again. There is no error to find. So this container says which of the two it is, in one
+sentence, on every start:
+
+```
+INFO  bunq is ON: payments on monetary account 123456 are polled every 30s, and this container is
+      the only one that holds the key.
+WARN  bunq is OFF: bunq.api-key and bunq.account-id are both empty in steward.yml
+      (NORDTAL_STEWARD_BUNQ_API_KEY / NORDTAL_STEWARD_BUNQ_ACCOUNT_ID), so no payment link can be
+      created and no payment will ever be noticed. ...
+```
+
+Read it after any deploy that touched those variables. It is also written into `bot_setting` so that
+`discord-bot`, which has no bunq configuration of its own any more, can repeat it in its own startup
+listing rather than claiming everything is configured.
+
+**The seam.** The bot writes a row; this container acts on it and writes the answer back. Five steps
+per pass, each guarded on its own so one bad bank call cannot cost the rest: expire what is overdue,
+create the tabs somebody asked for, cancel the tabs somebody asked to go away, match payments by tab,
+match the remainder by `NT-XXXXXX` reference. Every write publishes on `nordtal_payment`, both
+processes listen on it, and **the poll is still the guarantee** — the notification only decides when.
+
+**`bunq-context` is regenerated, never copied.** bunq binds an installed key to a device and an IP,
+so a context file created by another container — or on a laptop — is refused by the API, and the
+refusal appears inside a poll rather than at startup. The volume moved here from `discord-bot`; its
+contents did not. See `steward/101`.
+
 ## The two surfaces
 
 Nothing calls this container — it is reached through the database. `/update` in Discord and in game

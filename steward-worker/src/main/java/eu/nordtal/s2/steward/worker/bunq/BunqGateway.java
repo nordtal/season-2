@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.access.bunq;
+package eu.nordtal.s2.steward.worker.bunq;
 
 import eu.nordtal.s2.common.payment.Money;
 
@@ -10,14 +10,14 @@ import com.bunq.sdk.model.generated.endpoint.BunqMeTabEntryApiObject;
 import com.bunq.sdk.model.generated.endpoint.BunqMeTabResultInquiryApiObject;
 import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
 import com.bunq.sdk.model.generated.object.AmountObject;
-import eu.nordtal.s2.discordbot.config.BotSpec;
-import eu.nordtal.s2.discordbot.config.Configured;
+import eu.nordtal.s2.steward.worker.config.StewardSpec;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -28,8 +28,14 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Everything the bot does at bunq: create a tab, cancel a tab, ask a tab who paid it, and list
+ * Everything this network does at bunq: create a tab, cancel a tab, ask a tab who paid it, and list
  * recent payments on the account.
+ *
+ * <p><b>This is the only class anywhere that talks to a bank, and it lives here rather than in
+ * {@code discord-bot} since steward/109.</b> The reason is not tidiness: the bot is a process with a
+ * gateway connection to a third party and a permanent invitation for strangers to press its buttons,
+ * and the bunq key was sitting in it. The bot now writes a row saying what it wants and reads back
+ * what happened, and holds no credential that moves money.</p>
  *
  * <p>A payment is matched primarily through {@link #paymentsFor(long)} - a bunq.me tab knows the
  * payments that settled it, an exact link with no text parsing. The reference in the description is
@@ -44,7 +50,7 @@ public final class BunqGateway {
 
     private static final String CURRENCY = "EUR";
     private static final String DEFAULT_CONTEXT_FILE = "bunq-config.conf";
-    private static final String DEVICE_DESCRIPTION = "nordtal access bot";
+    private static final String DEVICE_DESCRIPTION = "nordtal steward worker";
 
     /** The status string bunq's own API uses to close a tab. */
     private static final String STATUS_CANCELLED = "CANCELLED";
@@ -56,31 +62,45 @@ public final class BunqGateway {
     private static final DateTimeFormatter TIMESTAMP =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]");
 
-    private final BotSpec config;
+    private final StewardSpec.BunqSpec config;
     private final long accountId;
     private final boolean configured;
 
     private boolean contextLoaded;
 
     /**
-     * @param config the loaded bot configuration; the account id, if there is one, is known to be
-     *               numeric because {@code Configs.bot()} checked it at startup
+     * @param config the loaded {@code steward.yml} bunq block; the account id, if there is one, is
+     *               known to be numeric because {@code Configs.steward()} checked it at startup
      */
-    public BunqGateway(final BotSpec config) {
+    public BunqGateway(final StewardSpec.BunqSpec config) {
         this.config = Objects.requireNonNull(config, "config");
-        this.configured = Configured.isSet(config.bunq().apiKey())
-                && Configured.isSet(config.bunq().accountId());
-        this.accountId = configured ? Long.parseLong(config.bunq().accountId().trim()) : 0L;
+        this.configured = isSet(config.apiKey()) && isSet(config.accountId());
+        this.accountId = configured ? Long.parseLong(config.accountId().trim()) : 0L;
+    }
+
+    /**
+     * Whether a credential was filled in at all - the same question {@code discord-bot}'s
+     * {@code Configured.isSet} asks, written out here because that class is Discord's and this
+     * module has no reason to know about it.
+     */
+    private static boolean isSet(final String value) {
+        return value != null && !value.isBlank();
     }
 
     /**
      * Whether there is a bunq account behind this at all.
      *
-     * <p>A season without one is a season whose bot does everything except take money: the roles,
-     * the link codes, the hunger games and the update commands are untouched. The caller decides
-     * what to do about it - the poll loop is not scheduled and the purchase button is not offered -
-     * because a gateway that quietly answered "no payments" would look exactly like a bank that
-     * had nothing new, which is the one thing this must never be mistaken for.</p>
+     * <p>A season without one is a season whose network does everything except take money: the
+     * roles, the link codes, the hunger games and the update commands are untouched. The caller
+     * decides what to do about it - the poll loop is not started at all - because a gateway that
+     * quietly answered "no payments" would look exactly like a bank that had nothing new, which is
+     * the one thing this must never be mistaken for.</p>
+     *
+     * <p>Whichever it is, {@code StewardWorker} says so in one line at startup and writes it into
+     * {@code bot_setting} for the bot to repeat. That is not decoration: the two variables are
+     * deliberately not {@code :?} in {@code compose.yml}, so an environment file carrying the old
+     * {@code NORDTAL_BOT_BUNQ_*} names produces a perfectly healthy stack in which no payment is
+     * ever noticed again (steward/101).</p>
      *
      * @return whether an API key and an account id were both configured
      */
@@ -88,11 +108,69 @@ public final class BunqGateway {
         return configured;
     }
 
+    /**
+     * The one line this container says about bunq on every start, and the reason it is not
+     * negotiable.
+     *
+     * <h2>What it is for</h2>
+     * The two variables behind {@link StewardSpec.BunqSpec#apiKey()} and
+     * {@link StewardSpec.BunqSpec#accountId()} are deliberately <b>not</b> {@code :?} in
+     * {@code compose.yml}: a season without a bank account is a valid season. So an environment file
+     * that still carries the pre-steward/109 names - {@code NORDTAL_BOT_BUNQ_*} rather than
+     * {@code NORDTAL_STEWARD_BUNQ_*} - produces a stack where every container is healthy, every log
+     * is quiet, nobody can buy anything and <b>no payment is ever noticed again</b>. There is no
+     * error to find, because nothing went wrong; there is only an absence. This line is the whole
+     * of the evidence, and steward/101 is the checklist that reads it.
+     *
+     * <h2>It never contains the key</h2>
+     * The account id is in it because an id pointed at the wrong account is the other way this goes
+     * wrong quietly. The API key is not, and must never be.
+     *
+     * @param poll how often the bank will be asked, for the "on" half
+     * @return one line, ready to log - at INFO when {@link #configured()}, at WARN when not
+     */
+    public String startupLine(final Duration poll) {
+        if (configured) {
+            return "bunq is ON: payments on monetary account " + accountId + " are polled every "
+                    + poll.toSeconds() + "s, and this container is the only one that holds the key.";
+        }
+        return "bunq is OFF: bunq.api-key and bunq.account-id are both empty in steward.yml"
+                + " (NORDTAL_STEWARD_BUNQ_API_KEY / NORDTAL_STEWARD_BUNQ_ACCOUNT_ID), so no"
+                + " payment link can be created and no payment will ever be noticed. Everything"
+                + " else in the network is unaffected. If this deployment used to take money,"
+                + " its environment file still says NORDTAL_BOT_BUNQ_* - those are the names"
+                + " from before bunq moved into this container.";
+    }
+
+    /**
+     * Writes {@link #startupLine(Duration)} to this class's own log, at the level that matches which
+     * of the two sentences it is.
+     *
+     * <h2>Why the level is here and not at the call site</h2>
+     * Because it is half the message. "bunq is OFF" at INFO is a line nobody reads in a container
+     * that prints several hundred of them at startup, and the whole point of the sentence is to be
+     * found by somebody who has just renamed two variables and wants to know whether it worked. It
+     * is also the one thing about this that can be driven from a test without a bank, a database or
+     * a deployment: an appender sees the level and the text, both branches, which is what
+     * steward/109 asks for instead of a rollout.
+     *
+     * @param poll how often the bank will be asked
+     */
+    public void logStartupLine(final Duration poll) {
+        if (configured) {
+            log.info(startupLine(poll));
+        } else {
+            log.warn(startupLine(poll));
+        }
+    }
+
     private void requireConfigured() {
         if (!configured) {
             throw new IllegalStateException(
-                    "bunq is not configured: set bunq.api-key and bunq.account-id before asking the"
-                            + " bank for anything. Nothing here can be answered without them.");
+                    "bunq is not configured: set bunq.api-key and bunq.account-id in steward.yml"
+                            + " (NORDTAL_STEWARD_BUNQ_API_KEY / NORDTAL_STEWARD_BUNQ_ACCOUNT_ID)"
+                            + " before asking the bank for anything. Nothing here can be answered"
+                            + " without them.");
         }
     }
 
@@ -222,7 +300,7 @@ public final class BunqGateway {
         }
         final Path path = contextPath();
         if (Files.notExists(path)) {
-            final ApiContext context = ApiContext.create(ApiEnvironmentType.PRODUCTION, config.bunq().apiKey(), DEVICE_DESCRIPTION);
+            final ApiContext context = ApiContext.create(ApiEnvironmentType.PRODUCTION, config.apiKey(), DEVICE_DESCRIPTION);
             createParentDirectory(path);
             context.save(path.toString());
             BunqContext.loadApiContext(context);
@@ -235,7 +313,7 @@ public final class BunqGateway {
     }
 
     private Path contextPath() {
-        final String configured = config.bunq().contextPath();
+        final String configured = config.contextPath();
         return configured == null || configured.isBlank()
                 ? Path.of(DEFAULT_CONTEXT_FILE)
                 : Path.of(configured);

@@ -333,6 +333,14 @@
       padding-block: 0.25rem;
       text-align: left;
       /*
+        shadcn's `TableCell`/`TableHead` carry `whitespace-nowrap`, and this selector is more
+        specific than that utility class - so without `white-space: normal` here, ordinary prose
+        (an `audit_log.detail` sentence) never wraps at all and the row is as wide as its longest
+        line (steward/114). `overflow-wrap` below only decides where a line breaks WITHIN an
+        unbreakable run; it cannot make text wrap while `nowrap` still holds.
+      */
+      white-space: normal;
+      /*
         An image reference is one word to a line-breaking algorithm - `ghcr.io/nordtal/steward-
         deployer:latest` is 281px of unbreakable text in a column 200px wide, and it was drawn
         straight off the right edge of the phone where nothing could reach it. On a wide screen the
@@ -367,6 +375,18 @@
     */
     .steward-table td > * {
       max-width: 100%;
+    }
+
+    /*
+      A cell with two children - the Journal table's `Concerns`, a subject id plus a
+      `PersonIdentity` line under it - only places the first child by the implicit rule the grid
+      already has; grid auto-placement drops the second one into row 2, COLUMN 1, which is the
+      label column, and it collides with the next cell's `::before` label (steward/114, measured:
+      the identity line sat inside the label box, `left 85 … right 169`). Every child belongs in
+      column 2, beside the label, however many of them there are.
+    */
+    .steward-table td[data-label] > * {
+      grid-column: 2;
     }
   }
 }

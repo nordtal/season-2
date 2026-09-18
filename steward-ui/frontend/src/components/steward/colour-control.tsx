@@ -31,6 +31,23 @@ import { Input } from "@/components/ui/input"
  */
 export const MINECRAFT_CHAT_BACKGROUND = "rgba(0, 0, 0, 0.5)"
 
+/**
+ * The word the preview paints, and it is **one word on purpose** (steward/63, second round).
+ *
+ * Till, 2026-09-17, on the first round: it works, but the text preview under each field is not
+ * nice to look at. He did not say what about it - so it was photographed at 390px
+ * before this changed: the sample read "Nordtal - sample chat text", and in a `colourRuns` column
+ * (`min-w-28`, so 112-150px on a phone) five words wrap onto three lines. Five tones that are drawn
+ * side by side precisely so they can be compared then stood at three different heights, and the
+ * fifth - alone on the next line, therefore full width - at one. The colours were the one thing the
+ * row was not showing.
+ *
+ * A single word cannot wrap, and the server's own name is a word this interface already says
+ * everywhere. It is also the shape the colour is actually used in for half of these files: a
+ * prestige colour paints a player's *name*, not a sentence.
+ */
+export const SAMPLE_TEXT = "Nordtal"
+
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i
 
 /** A syntactically valid `#rrggbb`, or `null` while the field holds anything else - including empty,
@@ -78,17 +95,24 @@ export function ColourControl({
           onChange={(event) => onChange(event.target.value)}
         />
       </div>
+      {/* One line, always, and the same box whether or not the six digits are complete yet - so
+          nothing below it moves while somebody retypes them, and a row of colours is a row of equal
+          heights. Not monospace: Minecraft's own font is not, and the hex value directly above this
+          is - two mono blocks in a column read as two fields rather than as a field and a preview.
+          `w-fit` rather than the full width of the field: a band as wide as the input reads as a
+          second input, and in the stacked layout it was a wide dark strip holding one short word.
+          Every one of these is the same width, because the sample is the same word. */}
       <div
         role="img"
         aria-label={valid ? `Preview on Minecraft's chat background` : "No valid colour to preview yet"}
         style={{ backgroundColor: MINECRAFT_CHAT_BACKGROUND }}
-        className="rounded px-2 py-1.5"
+        className="w-fit rounded px-2 py-1"
       >
         <span
           style={valid ? { color: valid } : undefined}
-          className={`font-mono text-sm ${valid ? "" : "text-muted-foreground italic"}`}
+          className={`block truncate text-sm ${valid ? "" : "text-muted-foreground"}`}
         >
-          {valid ? "Nordtal — sample chat text" : "type a hex value to preview it"}
+          {SAMPLE_TEXT}
         </span>
       </div>
     </div>

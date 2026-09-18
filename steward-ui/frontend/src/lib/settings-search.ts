@@ -193,6 +193,97 @@ export function searchSettingsAndMessages(
   return [...searchAcross(configs, query), ...searchMessagesAcross(messages, query)]
 }
 
+// --- ranking what was found (steward/105) -------------------------------------------------------
+
+/**
+ * How a searchable row is written down: its **name on the first line**, everything else after it.
+ *
+ * Till, 2026-09-17: typing "Donor" listed every service page and not the setting called Donor.
+ * Measured here on 2026-09-18 before anything was changed, with the real `discord-bot/access.yml`
+ * off this host: `roles.donor` came 15th of 16 rows, below all ten services, and cmdk's own default
+ * filter was not the whole story. Two separate things were wrong.
+ *
+ * 1. **cmdk's default filter is a subsequence match.** "donor" is d-o-n-o-r, and
+ *    "smp Services Log win**d**ow and c**o**nsole f**o**r smp. **r**estart" contains those five
+ *    letters in order - so *every* service page matched a query that has nothing to do with any of
+ *    them.
+ * 2. **Group order cannot be scored around.** cmdk 1.1.1 sorts items *within* their group and then
+ *    tries to sort the groups themselves by their best item - but it looks a group up by
+ *    `data-value` while holding its React id, so that lookup never matches and the groups keep
+ *    their DOM order. Measured the same day: two of this palette's five groups even render
+ *    `data-value="undefined"`, having no heading. The Settings group is written last, so **no score
+ *    on earth lifts a setting above a page** as long as the page is shown at all.
+ *
+ * Together those two mean the fix cannot be "weight the name higher"; the unrelated rows have to
+ * stop being rows. So the rule here is the same one {@link matchesQuery} has always used for the
+ * settings themselves - **a substring, not a subsequence** - and the score only decides the order
+ * among rows that genuinely contain what was typed.
+ *
+ * Callers build a value with {@link searchValue} so that "the name" is a thing this function can
+ * find: a page's own label, a run's own title, a setting's label, a bundle key. Everything after
+ * the first line is context - a note, a service name, a schema explanation, a current value - and a
+ * match there ranks below every match in a name.
+ */
+export function searchValue(name: string, ...context: Array<string | undefined | null>): string {
+  return [name, ...context.filter((part): part is string => Boolean(part))].join("\n")
+}
+
+/**
+ * Lower-cased, with runs of whitespace, hyphens and underscores flattened to one space.
+ *
+ * This is the one piece of cmdk's default filter worth keeping: it is what lets "steward ui" find
+ * `steward-ui` and "base url" find `base-url`, which is a spelling difference and not a different
+ * word. A dot is *not* flattened - `roles.donor` is typed as `roles.donor` by anyone who means it.
+ */
+function normalise(text: string): string {
+  return text.toLowerCase().replace(/[\s\-_]+/g, " ").trim()
+}
+
+/** Whether the match at `at` starts a word rather than landing in the middle of one. */
+function atWordStart(haystack: string, at: number): boolean {
+  return at === 0 || /[ ./:#]/.test(haystack[at - 1] ?? "")
+}
+
+/**
+ * What one row scores against what was typed - 0 for "not a match at all", which is what hides it.
+ *
+ * The six steps are deliberately coarse, because the thing being ordered is a short list a person
+ * reads top to bottom, not a relevance model: the whole name, the start of the name, a word of the
+ * name, anywhere in the name, a word of the context, anywhere in the context. Rows that tie keep
+ * the order their caller put them in, which for settings is file order.
+ */
+export function rankValue(value: string, query: string): number {
+  const needle = normalise(query)
+  if (!needle) return 0
+  const [first = "", ...rest] = value.split("\n")
+  const name = normalise(first)
+  const inName = name.indexOf(needle)
+  if (inName >= 0) {
+    if (name === needle) return 1
+    if (inName === 0) return 0.9
+    return atWordStart(name, inName) ? 0.8 : 0.7
+  }
+  const context = normalise(rest.join(" "))
+  const inContext = context.indexOf(needle)
+  if (inContext < 0) return 0
+  return atWordStart(context, inContext) ? 0.4 : 0.3
+}
+
+/** The haystack a hit is ranked by - the same text each caller already hands the palette. */
+export function hitValue(hit: SettingsHit): string {
+  return hit.kind === "config" ? entryHaystack(hit.entry) : messageEntryHaystack(hit.entry, hit.language)
+}
+
+/**
+ * Best first, ties in the order they came - so the thirty a caller keeps are the best thirty and
+ * not the first thirty of a list in file order. `sort` is stable in every engine this runs on
+ * (ECMAScript requires it since 2019), which is what makes "ties keep file order" a fact rather
+ * than a hope.
+ */
+export function rankHits<T extends SettingsHit>(hits: T[], query: string): T[] {
+  return [...hits].sort((a, b) => rankValue(hitValue(b), query) - rankValue(hitValue(a), query))
+}
+
 // --- carrying a hit across a navigation ---------------------------------------------------------
 
 /** Where a hit found outside a service's own page hands a hit to it. */

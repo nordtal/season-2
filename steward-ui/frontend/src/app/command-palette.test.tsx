@@ -498,3 +498,97 @@ describe("CommandPalette - the input says what it is", () => {
     )
   })
 })
+
+/**
+ * steward/105: the ranking, not the finding.
+ *
+ * Till typed "Donor" and got every service page and not the setting called Donor; typing a
+ * fragment of its explanation ("Granted on") got the setting alone. The fixture below is the real
+ * one, read off this host's `nordtal-s2_bot-config` volume on 2026-09-18: `discord-bot/access.yml`
+ * carries no comments any more (jcore rewrote it without them), so a `roles.donor` entry is found
+ * by its label, its path and its `@Explain` line and by nothing else.
+ *
+ * The assertion is an order, not a presence - presence was never the bug. `items()` reads the
+ * palette's own list in DOM order, which is what cmdk sorts and therefore what a person sees.
+ */
+describe("CommandPalette - what an exact name outranks (steward/105)", () => {
+  function accessFile() {
+    const loc: ConfigLocation = {
+      service: "discord-bot",
+      name: "access.yml",
+      path: "discord-bot/access.yml",
+      readable: true,
+      writable: true,
+    }
+    const scalar = (
+      path: string,
+      key: string,
+      label: string,
+      explanation: string,
+      value: string,
+    ): ConfigEntry => ({
+      path,
+      key,
+      label,
+      comments: [],
+      explanation,
+      noExplanationNeeded: false,
+      filled: true,
+      value,
+      items: [],
+      kind: "SCALAR",
+      type: "STRING",
+      line: 1,
+      editable: true,
+      secret: false,
+      inSchema: true,
+    })
+    const entries: ConfigEntry[] = [
+      scalar(
+        "donation-cents",
+        "donation-cents",
+        "Donation cents",
+        "The extra amount that grants the donor role - also how a payment above the order total is recognised as a donation.",
+        "500",
+      ),
+      scalar(
+        "roles.access",
+        "access",
+        "Access",
+        "Bot-managed: granting it by hand only holds until the next reconcile. Use /grant-access instead.",
+        "1544515346940301384",
+      ),
+      scalar(
+        "roles.donor",
+        "donor",
+        "Donor",
+        "Granted on a donation and never revoked - safe to hand out manually in Discord.",
+        "1544515504889139301",
+      ),
+    ]
+    vi.mocked(useConfigs).mockReturnValue({ data: [loc] } as never)
+    vi.mocked(useConfigDocuments).mockReturnValue([
+      { data: { ...loc, revision: "r1", header: [], entries }, isLoading: false },
+    ] as never)
+  }
+
+  /** Every row the palette is currently showing, top to bottom, by its visible text. */
+  function items(): string[] {
+    return Array.from(document.querySelectorAll("[cmdk-item]")).map((row) =>
+      (row.textContent ?? "").trim(),
+    )
+  }
+
+  it("puts the setting named Donor above the service pages that only fuzzily contain those letters", async () => {
+    accessFile()
+
+    await search("Donor")
+
+    const rows = items()
+    const donor = rows.findIndex((row) => row.startsWith("Donor"))
+    expect(donor).toBeGreaterThanOrEqual(0)
+    const firstService = rows.findIndex((row) => /^(smp|limbo|postgres|caddy)/.test(row))
+    expect(donor).toBeLessThan(firstService === -1 ? rows.length : firstService)
+    expect(donor).toBe(0)
+  })
+})

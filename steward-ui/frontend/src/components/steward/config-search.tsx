@@ -5,6 +5,7 @@ import type { ConfigLocation } from "@/lib/api"
 import { useConfigDocuments, useMessageBundles, useMessageDocuments } from "@/lib/queries"
 import { humanFileName } from "@/components/steward/config-controls"
 import {
+  rankHits,
   searchAcross,
   searchMessagesAcross,
   setPendingMessageJump,
@@ -66,7 +67,14 @@ export function ServiceSettingsSearch({
     if (!trimmed) return []
     const configPairs = files.map((location, index) => ({ location, document: documents[index]?.data }))
     const messagePairs = mine.map((location, index) => ({ location, bundle: bundleDocuments[index]?.data }))
-    return [...searchAcross(configPairs, trimmed), ...searchMessagesAcross(messagePairs, trimmed)]
+    // Best first rather than file order (steward/105): `donation-cents` is written above
+    // `roles.donor` in `discord-bot/access.yml` and its explanation mentions the donor role, so
+    // typing "Donor" used to answer with the setting that merely talks about it. Nothing is
+    // dropped here - `rankHits` only reorders what the two suppliers already matched.
+    return rankHits(
+      [...searchAcross(configPairs, trimmed), ...searchMessagesAcross(messagePairs, trimmed)],
+      trimmed,
+    )
   }, [files, documents, mine, bundleDocuments, trimmed])
 
   const loading =

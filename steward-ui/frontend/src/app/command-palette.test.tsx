@@ -592,3 +592,67 @@ describe("CommandPalette - what an exact name outranks (steward/105)", () => {
     expect(donor).toBe(0)
   })
 })
+
+/**
+ * steward/105, second round: Till found two more things after the ranking was fixed.
+ *
+ * The one that has a defect under it is the highlight. `cmdk` identifies a row by its `value`, and
+ * the palette handed it the *haystack* as that value - so two rows whose searchable text happens to
+ * be identical were, to cmdk, one row. Pointing at either lit both. That is not hypothetical: a
+ * setting called `base-url` exists in several services, and `entryHaystack` is built from the entry
+ * alone, never from the file it sits in.
+ */
+describe("CommandPalette - one row lights up, not every row that reads alike (steward/105)", () => {
+  function location(over: Partial<ConfigLocation> & { path: string; name: string }): ConfigLocation {
+    return { service: "steward-worker", readable: true, writable: true, ...over }
+  }
+
+  function entry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
+    return {
+      label: over.key,
+      comments: [],
+      explanation: "",
+      noExplanationNeeded: false,
+      filled: true,
+      value: "",
+      items: [],
+      kind: "SCALAR",
+      type: "STRING",
+      line: 1,
+      editable: true,
+      secret: false,
+      inSchema: true,
+      ...over,
+    }
+  }
+
+  /** The same setting, by the same name, in two services - which is the real case. */
+  function twice() {
+    const worker = location({ path: "steward-worker/steward.yml", name: "steward.yml" })
+    const bot = location({ path: "discord-bot/steward.yml", name: "steward.yml", service: "discord-bot" })
+    const same = entry({ path: "worker.base-url", key: "base-url", label: "Base url" })
+    vi.mocked(useConfigs).mockReturnValue({ data: [worker, bot] } as never)
+    vi.mocked(useConfigDocuments).mockReturnValue([
+      { data: { ...worker, revision: "r1", header: [], entries: [same] }, isLoading: false },
+      { data: { ...bot, revision: "r1", header: [], entries: [{ ...same }] }, isLoading: false },
+    ] as never)
+  }
+
+  it("draws both hits, because they are two different settings in two different services", async () => {
+    twice()
+
+    await search("base url")
+
+    const rows = Array.from(document.querySelectorAll("[cmdk-item]"))
+    expect(rows.length).toBe(2)
+  })
+
+  it("marks exactly one of them as selected", async () => {
+    twice()
+
+    await search("base url")
+
+    const selected = document.querySelectorAll('[cmdk-item][aria-selected="true"]')
+    expect(selected.length).toBe(1)
+  })
+})

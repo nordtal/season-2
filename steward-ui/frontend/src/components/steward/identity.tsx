@@ -50,7 +50,10 @@ export function isStale(updated: string | null | undefined, now = Date.now()): b
  */
 export function minecraftHeadUrl(baseUrl: string | undefined, mcUuid: string): string | null {
   if (!baseUrl) return null
-  return `${baseUrl.replace(/\/+$/, "")}/${mcUuid}`
+  // steward/111: without the hyphens. Till measured the old service failing and picked mc-heads
+  // instead; the undashed form is the one every head service accepts, so the stripping lives here
+  // rather than in the configured base - a different base later inherits it for free.
+  return `${baseUrl.replace(/\/+$/, "")}/${mcUuid.replace(/-/g, "")}`
 }
 
 /**

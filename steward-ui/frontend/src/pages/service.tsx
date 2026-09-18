@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
-import { LOCALE, bytes, clock, percent, since } from "@/lib/format"
+import { LOCALE, bytes, clock, count, percent, since } from "@/lib/format"
 import { useConsole, useLogSearch, useService } from "@/lib/queries"
 import { useLogStream, LIMIT } from "@/lib/use-log-stream"
 import { ServiceConfiguration } from "@/components/steward/configuration"
@@ -75,7 +75,11 @@ export function ServicePage() {
   )
 }
 
-function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useService>["data"]> }) {
+/**
+ * The head of a service page, exported for its own test: steward/86's second half is a field that
+ * must be *absent* rather than zero, and that is only observable on a rendered head.
+ */
+export function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useService>["data"]> }) {
   return (
     <Card>
       <CardContent className="flex flex-wrap items-start gap-x-6 gap-y-4 pt-6">
@@ -100,6 +104,14 @@ function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useSe
         <Stat label="Uptime" value={service.startedAt ? since(service.startedAt) : "–"} />
         <Stat label="RAM" value={bytes(service.memoryBytes)} hint="share of the host - no limit" />
         <Stat label="CPU" value={percent(service.cpuPercent)} />
+        {/*
+          steward/86, Till on 2026-09-18: the start page had the numbers and this page did not.
+          Only the four services that carry one get the field at all - `players === undefined` means
+          nobody has said, and a `0` in its place would be a claim the row does not make.
+        */}
+        {service.players === undefined ? null : (
+          <Stat label="Players" value={count(service.players)} />
+        )}
 
         <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:min-w-64">
           <span className="text-xs font-medium text-muted-foreground">

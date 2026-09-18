@@ -164,8 +164,15 @@ export function CommandPalette() {
         asks for a substring instead, and scores a name above a mere mention, which is the same
         rule `matchesQuery` has always used to decide what a hit even is.
       */
-      filter={rankValue}
-      className="top-[20%] translate-y-0"
+      /*
+        steward/105, second round: the searchable text moved into `keywords`, because `value` is
+        also how cmdk *identifies* a row - and two rows whose haystack happened to be identical (the
+        same setting name in two services, which `entryHaystack` cannot tell apart) were therefore
+        one row to cmdk, lighting up together. Values are now the same unique strings the React keys
+        use, and the haystack rides along beside them.
+      */
+      filter={(value, query, keywords) => rankValue(keywords?.join("\n") ?? value, query)}
+      className="top-[20%] w-[calc(100%-2rem)] translate-y-0 sm:max-w-2xl"
     >
       <CommandInput
         value={search}
@@ -186,10 +193,13 @@ export function CommandPalette() {
                     // The label alone on the first line, its group, note and keywords after it:
                     // a page is found by its note, but never *ahead of* a row that is named what
                     // was typed (steward/105).
-                    value={searchValue(
-                      entry.label,
-                      [group.label, entry.note, ...(entry.keywords ?? [])].filter(Boolean).join(" "),
-                    )}
+                    value={`page-${group.id}-${entry.id}`}
+                    keywords={[
+                      searchValue(
+                        entry.label,
+                        [group.label, entry.note, ...(entry.keywords ?? [])].filter(Boolean).join(" "),
+                      ),
+                    ]}
                     onSelect={() => {
                       setOpen(false)
                       void navigate({ to: entry.to, params: entry.params as never })
@@ -197,7 +207,7 @@ export function CommandPalette() {
                     className="min-h-control gap-2.5"
                   >
                     <Icon aria-hidden className="text-muted-foreground" />
-                    <span className="truncate">{entry.label}</span>
+                    <span className="min-w-0 flex-1 truncate">{entry.label}</span>
                     <CommandShortcut className="truncate text-muted-foreground/70">
                       {entry.params
                         ? Object.values(entry.params).join(" ")
@@ -216,7 +226,8 @@ export function CommandPalette() {
               {runs.map((run) => (
                 <CommandItem
                   key={`run-${run.id}`}
-                  value={runSearchValue(run)}
+                  value={`run-${run.id}`}
+                  keywords={[runSearchValue(run)]}
                   onSelect={() => {
                     setOpen(false)
                     void navigate({
@@ -227,7 +238,7 @@ export function CommandPalette() {
                   className="min-h-control gap-2.5"
                 >
                   <ClockCounterClockwiseIcon aria-hidden className="text-muted-foreground" />
-                  <span className="truncate">
+                  <span className="min-w-0 flex-1 truncate">
                     Run #{run.id} ({RUN_KIND[run.kind] ?? run.kind})
                   </span>
                   <CommandShortcut className="truncate text-muted-foreground/70">
@@ -262,7 +273,8 @@ export function CommandPalette() {
                   return (
                     <CommandItem
                       key={`setting-${hit.location.path}-${hit.entry.path}`}
-                      value={entryHaystack(hit.entry)}
+                      value={`setting-${hit.location.path}-${hit.entry.path}`}
+                      keywords={[entryHaystack(hit.entry)]}
                       onSelect={() => {
                         setOpen(false)
                         setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
@@ -294,7 +306,8 @@ export function CommandPalette() {
                 return (
                   <CommandItem
                     key={`message-${hit.location.path}-${hit.language}-${hit.entry.key}`}
-                    value={messageEntryHaystack(hit.entry, hit.language)}
+                    value={`message-${hit.location.path}-${hit.language}-${hit.entry.key}`}
+                    keywords={[messageEntryHaystack(hit.entry, hit.language)]}
                     onSelect={() => {
                       setOpen(false)
                       setPendingMessageJump(service, {

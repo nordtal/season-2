@@ -59,7 +59,7 @@ export type Online = {
  * exactly one backend, so the two agree whenever every row is fresh - and when one is not, the sum
  * silently drops that server's people while the proxy's own count still has them.
  */
-export function useOnline(roster: OnlinePlayer[] = []): Online {
+export function useOnline(roster?: OnlinePlayer[]): Online {
   const services = useServices()
   const rows = services.data?.services ?? []
   const proxy = rows.find((row) => row.service === "network-control")
@@ -69,7 +69,12 @@ export function useOnline(roster: OnlinePlayer[] = []): Online {
       const row = rows.find((service) => service.service === name)
       return row?.players === undefined ? [] : [{ service: name, players: row.players }]
     }),
-    roster,
+    // steward/111: from the same row the total comes from, and not from a parameter nobody
+    // passed. The worker has been putting a `roster` on this row since the roster existed; the
+    // page called `useOnline()` with no argument, so the stack drew a count and never a face -
+    // which is exactly what Till saw as the only player online: `+1`, and no head. An explicit
+    // argument still wins, for a caller that has a better list than the network's.
+    roster: roster ?? proxy?.roster ?? [],
     pending: services.isPending,
   }
 }

@@ -14,7 +14,7 @@ import { NetworkDesignsPage } from "@/pages/designs"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The three drafts of steward/81, rendered against a fake `/api/services`.
+ * The drafts of steward/81's third round, rendered against a fake `/api/services`.
  *
  * <h2>What a test here can and cannot answer</h2>
  * jsdom has no layout, so nothing about where a box ended up or where a line was drawn is visible
@@ -116,7 +116,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe.each([["a"], ["b"], ["c"], ["d"], ["e"], ["f"], ["g"]])("draft %s", (variant) => {
+describe.each([["h"], ["i"]])("draft %s", (variant) => {
   it("draws every service in navigation.ts, plus the box the traffic comes from", async () => {
     draw(variant)
     await waitFor(() => expect(box("smp")).toBeTruthy())
@@ -165,8 +165,9 @@ describe.each([["a"], ["b"], ["c"], ["d"], ["e"], ["f"], ["g"]])("draft %s", (va
    * The identifier never shares its row with the count, because that is what took its characters
    * away.
    *
-   * Measured on 2026-09-17 at 390px: every draft falls back to a two-column grid there, `d` and `f`
-   * narrow it further with the rail margin their database bus needs, and the identifier - which
+   * Measured on 2026-09-17 at 390px on the drafts of the second round: they fell back to a
+   * two-column grid there, two of them narrowed it further with the rail margin their database bus
+   * needed, and the identifier - which
    * carries `truncate` so that it yields rather than break the box - was the thing that yielded.
    * `network-control` and `hunger-games` rendered as `network-co…` and `hunger-ga…`, and the
    * identifier is the *first* of the four things steward/81 says a node carries. It must not be the
@@ -246,11 +247,11 @@ describe.each([["a"], ["b"], ["c"], ["d"], ["e"], ["f"], ["g"]])("draft %s", (va
 })
 
 describe("the drafts are reachable from one another", () => {
-  it("offers all seven letters, with the one on screen marked", async () => {
-    draw("b")
+  it("offers both letters, with the one on screen marked", async () => {
+    draw("i")
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
-    for (const letter of ["a", "b", "c", "d", "e", "f", "g"]) {
+    for (const letter of ["h", "i"]) {
       const link = screen.getByRole("link", { name: letter })
       expect(link.getAttribute("href")).toBe(`/designs/network?v=${letter}`)
     }

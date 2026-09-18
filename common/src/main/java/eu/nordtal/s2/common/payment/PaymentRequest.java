@@ -34,6 +34,14 @@ import java.util.UUID;
  * @param created        when the row was written
  * @param expires        when it stops being payable
  * @param settled        when it was booked, null unless {@code status} is {@code PAID}
+ * @param tabRequested   when the bot asked for a bunq.me tab, null when it has not; the worker's
+ *                       queue is exactly this plus {@code bunqTabId == null}
+ * @param tabFailed      what bunq said when the tab could not be made, null when nothing went
+ *                       wrong; set together with clearing {@code tabRequested}
+ * @param cancelRequested when the tab was asked to go away, null when it was not
+ * @param tabCancelled   when the worker actually cancelled it at bunq, null while that is pending
+ * @param matchedCents   what arrived, in cents, once the worker found it; null before that
+ * @param matchedBy      along which of the three paths it was found; null before that
  */
 public record PaymentRequest(
         UUID id,
@@ -48,7 +56,13 @@ public record PaymentRequest(
         Long bunqPaymentId,
         Instant created,
         Instant expires,
-        Instant settled) {
+        Instant settled,
+        Instant tabRequested,
+        String tabFailed,
+        Instant cancelRequested,
+        Instant tabCancelled,
+        Integer matchedCents,
+        PaymentMatch matchedBy) {
 
     /** @return the bunq.me tab, if one was created */
     public Optional<Long> tab() {

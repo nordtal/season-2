@@ -37,12 +37,28 @@ public final class PaymentRequestMapper implements RowMapper<PaymentRequest> {
                 nullableLong(rs, "bunq_payment_id"),
                 instant(rs, "created"),
                 instant(rs, "expires"),
-                instant(rs, "settled"));
+                instant(rs, "settled"),
+                instant(rs, "tab_requested"),
+                rs.getString("tab_failed"),
+                instant(rs, "cancel_requested"),
+                instant(rs, "tab_cancelled"),
+                nullableInt(rs, "matched_cents"),
+                match(rs, "matched_by"));
     }
 
     private static Long nullableLong(final ResultSet rs, final String column) throws SQLException {
         final long value = rs.getLong(column);
         return rs.wasNull() ? null : value;
+    }
+
+    private static Integer nullableInt(final ResultSet rs, final String column) throws SQLException {
+        final int value = rs.getInt(column);
+        return rs.wasNull() ? null : value;
+    }
+
+    private static PaymentMatch match(final ResultSet rs, final String column) throws SQLException {
+        final String value = rs.getString(column);
+        return value == null ? null : PaymentMatch.valueOf(value);
     }
 
     private static Instant instant(final ResultSet rs, final String column) throws SQLException {

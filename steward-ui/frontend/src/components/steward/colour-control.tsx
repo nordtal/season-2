@@ -1,5 +1,12 @@
+import { useState } from "react"
+import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import type { ConfigEntry } from "@/lib/api"
-import { Input } from "@/components/ui/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 
 /**
  * A hex colour, picked with a wheel or typed by hand, previewed on the background it will actually
@@ -19,6 +26,12 @@ import { Input } from "@/components/ui/input"
  * a chat colour on a white field and look at it in game, and all thirteen prestige colours (the
  * other half of this ticket, season-2-ingame/23, not yet shipped) end up looking the same - a light
  * tone reads fine on white and vanishes on what the game actually paints behind it.
+ *
+ * **And it starts hidden, behind an eye in the hex field** (Till, 2026-09-18, third round). Two
+ * rounds went into the shape of a preview nobody had asked to see: full width read as a second
+ * input, one word wide read as a stray dark band. Neither is a problem once the thing is only drawn
+ * when somebody asks for it - and asked for, it may have the whole width, which is the size at
+ * which a colour is actually worth judging.
  */
 
 /**
@@ -69,6 +82,7 @@ export function ColourControl({
   onChange: (value: string) => void
 }) {
   const valid = validHex(value)
+  const [shown, setShown] = useState(false)
 
   return (
     <div className="flex flex-col gap-2">
@@ -85,36 +99,52 @@ export function ColourControl({
           onChange={(event) => onChange(event.target.value)}
           className="h-9 w-9 shrink-0 cursor-pointer rounded border border-input bg-transparent p-0.5 disabled:cursor-not-allowed disabled:opacity-50"
         />
-        <Input
-          id={id}
-          disabled={disabled}
-          value={value}
-          spellCheck={false}
-          placeholder="#rrggbb"
-          className="min-w-0 flex-1 font-mono text-sm"
-          onChange={(event) => onChange(event.target.value)}
-        />
+        {/* `h-9` because the group is `h-8` by default and the swatch beside it is not: a picker and
+            its field standing at two heights is the first thing an eye catches in a row of them.
+            The eye stays usable while the field is disabled - a read-only view still has a colour
+            worth looking at, and the button writes nothing. */}
+        <InputGroup className="h-9 min-w-0 flex-1">
+          <InputGroupInput
+            id={id}
+            disabled={disabled}
+            value={value}
+            spellCheck={false}
+            placeholder="#rrggbb"
+            className="font-mono text-sm"
+            onChange={(event) => onChange(event.target.value)}
+          />
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              size="icon-xs"
+              aria-pressed={shown}
+              aria-label={shown ? "Hide the preview" : "Show the preview"}
+              onClick={() => setShown((it) => !it)}
+            >
+              {shown ? <EyeSlashIcon /> : <EyeIcon />}
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
       </div>
-      {/* One line, always, and the same box whether or not the six digits are complete yet - so
-          nothing below it moves while somebody retypes them, and a row of colours is a row of equal
-          heights. Not monospace: Minecraft's own font is not, and the hex value directly above this
-          is - two mono blocks in a column read as two fields rather than as a field and a preview.
-          `w-fit` rather than the full width of the field: a band as wide as the input reads as a
-          second input, and in the stacked layout it was a wide dark strip holding one short word.
-          Every one of these is the same width, because the sample is the same word. */}
-      <div
-        role="img"
-        aria-label={valid ? `Preview on Minecraft's chat background` : "No valid colour to preview yet"}
-        style={{ backgroundColor: MINECRAFT_CHAT_BACKGROUND }}
-        className="w-fit rounded px-2 py-1"
-      >
-        <span
-          style={valid ? { color: valid } : undefined}
-          className={`block truncate text-sm ${valid ? "" : "text-muted-foreground"}`}
+      {/* One line, and the same box whether or not the six digits are complete yet - so nothing
+          below it moves while somebody retypes them. Not monospace: Minecraft's own font is not, and
+          the hex value directly above this is - two mono blocks in a column read as two fields
+          rather than as a field and a preview. Full width, because it is now a thing somebody
+          switched on rather than something standing under every colour on the page. */}
+      {shown ? (
+        <div
+          role="img"
+          aria-label={valid ? `Preview on Minecraft's chat background` : "No valid colour to preview yet"}
+          style={{ backgroundColor: MINECRAFT_CHAT_BACKGROUND }}
+          className="w-full rounded px-2 py-1"
         >
-          {SAMPLE_TEXT}
-        </span>
-      </div>
+          <span
+            style={valid ? { color: valid } : undefined}
+            className={`block truncate text-sm ${valid ? "" : "text-muted-foreground"}`}
+          >
+            {SAMPLE_TEXT}
+          </span>
+        </div>
+      ) : null}
     </div>
   )
 }

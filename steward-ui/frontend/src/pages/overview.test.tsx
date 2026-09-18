@@ -116,6 +116,9 @@ function backend(over: {
     }
     // The other tiles in the row. None of them feeds `waiting` or `failed`; they answer emptily so
     // that nothing else on the page can be the reason a test passes or fails.
+    // The network picture's nodes each carry a recreate button, which asks whether the deployer is
+    // reachable at all before it decides to be disabled (steward/81).
+    if (url === "/api/deployer") return json(200, { available: true })
     if (url.startsWith("/api/metrics")) return json(200, { points: [] })
     if (url.startsWith("/api/updates")) return json(200, [])
     if (url === "/api/season") {
@@ -476,5 +479,46 @@ describe("OverviewPage - the heading is how many are in the game (steward/64)", 
     const line = await screen.findByText("players online")
     expect(line.closest("p")?.textContent).toContain("–")
     expect(line.closest("p")?.textContent).not.toContain("0")
+  })
+})
+
+/**
+ * The bottom section is the network picture and, beside it, the season and the actions - and the
+ * service table that used to stand above it is gone (steward/81).
+ *
+ * Two assertions, because the ticket is two things: the picture arrived, and the thing it replaced
+ * left. The second half is the one worth a test - a page that gained the picture and kept the table
+ * would look finished on a screenshot and would be exactly the half-done state the ticket warns
+ * about, since both draw the same ten services.
+ *
+ * Positions are not asserted here and cannot be: jsdom has no layout, so `order-last` and
+ * `lg:grid-cols-2` are class names in the DOM rather than a measured arrangement. Whether the
+ * halves are halves needs a browser at 1440px and a phone at 390px, which is Till's own pass.
+ */
+describe("OverviewPage - the bottom section (steward/81)", () => {
+  it("draws the network picture and no longer draws the service table", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        services: [
+          service({ service: "smp", players: 3 }),
+          service({ service: "postgres" }),
+          service({ service: "network-control", players: 3 }),
+        ],
+      }),
+    )
+    draw()
+
+    await waitFor(() => expect(document.querySelector('[data-node="smp"]')).not.toBeNull())
+    expect(screen.getByRole("heading", { name: "Network" })).toBeTruthy()
+    // Every service the arrangement names is drawn, including the seven this stub does not carry -
+    // a box with no container behind it is still a box (the picture is the stack's shape, not its
+    // answer), which is why this counts nodes rather than rows.
+    expect(document.querySelector('[data-node="postgres"]')).not.toBeNull()
+
+    // The disclosure steward/64 built and steward/81 replaced: its summary line is the one string
+    // that was only ever on this page.
+    expect(document.querySelector("details")).toBeNull()
+    expect(screen.queryByText(/of 3 healthy/)).toBeNull()
   })
 })

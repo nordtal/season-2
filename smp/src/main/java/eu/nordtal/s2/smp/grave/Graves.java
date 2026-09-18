@@ -197,6 +197,21 @@ public final class Graves implements InventoryHolder {
     private static final float HEAD_HALF_HEIGHT = 0.25f;
 
     /**
+     * How much of its own size the skull is drawn at, so that a tilted head stays on the lid
+     * instead of hanging over the rim (season-2-ingame/14, Till 2026-09-18: before the last round it
+     * "stuck out over the chest a little").
+     *
+     * <p>Computed, not measured, and the sum is worth writing down because the number looks
+     * arbitrary otherwise. A player head item carries a hat layer at 1.125 of the head's own
+     * 8 pixels, so its half-extent is 9/32 = 0.28125 blocks and its worst corner sits
+     * 0.28125*sqrt(3) =~ 0.487 blocks from the centre - a rotation is length-preserving, so that
+     * distance holds at any tilt. A chest is 14 pixels wide, i.e. 0.4375 blocks from its own centre
+     * to its rim. 0.487 &gt; 0.4375 is the overhang Till saw; 0.85 brings it to 0.414 and leaves
+     * about a third of a pixel of lid on every side.</p>
+     */
+    private static final float HEAD_SCALE = 0.85f;
+
+    /**
      * How far the skull's centre dips below the chest's top edge, so it reads as fallen rather than
      * placed. <b>A placeholder, not a measurement</b> - season-2-ingame/14 is explicit that this
      * number is found by looking at it in the game, not by computing it, and nobody has done that yet.
@@ -268,27 +283,29 @@ public final class Graves implements InventoryHolder {
         // pivot on the rim of the chest by writing it this way. It stays put over the chest instead
         // of swinging off it, which is the part that matters here.
         //
-        // The -0.5f/-0.5f in X/Z (season-2-ingame/14, 2026-09-17 triage) is the SAME re-centring the
-        // chest's own Transformation carries above: `at` is the block cell's centre point, so without
-        // it the skull's model origin sits at that centre rather than the model itself being centred
-        // on it, and the tilt swings an off-centre model further over the rim. With it, the rotation
-        // pivot IS the cell centre and every corner of the skull's model - a roughly 0.5-block cube,
-        // the same order as HEAD_HALF_HEIGHT - stays within 0.25*sqrt(3) =~ 0.433 blocks of it, which
-        // is inside the cell's own 0.5-block half-width with room to spare (~0.067 blocks) at any
-        // rotation, HEAD_TILT_DEGREES and HEAD_ROLL_DEGREES included - see the ticket for the sum.
-        // That margin assumes the model's X/Z half-extent matches its Y half-extent (0.25); nobody
-        // has measured the X/Z one against a client, same caveat as the four constants below.
+        // NO X/Z offset here, and that is the whole of season-2-ingame/14's last round. The chest
+        // above needs -0.5/-0.5 because a BlockDisplay draws its model from the entity's position
+        // outwards, spanning (0,0,0)-(1,1,1); an ItemDisplay with ItemDisplayTransform.NONE draws
+        // its model CENTRED on that position - HEAD_HALF_HEIGHT's own comment says so, and the Y
+        // term below has always been written for a centred model. Copying the chest's offset across
+        // on 2026-09-17 therefore did not centre the skull, it moved it half a block off the chest:
+        // Till, 2026-09-18, "before it stuck out over the chest a little, now it floats beside it
+        // entirely". The two display types are not symmetrical and that asymmetry is the bug.
+        //
+        // What is left of the original complaint - the head hanging slightly over the rim - is
+        // answered by HEAD_SCALE instead, where the arithmetic for it stands.
         final ItemDisplay skull = world.spawn(at, ItemDisplay.class, display -> {
             display.setItemStack(head);
             display.setPersistent(false);
             display.setBillboard(Display.Billboard.FIXED);
             // The default already, made explicit because the constants above are computed for
-            // exactly this transform: the head's own model, centred on the origin, unscaled.
+            // exactly this transform: the head's own model, centred on the origin.
             display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
             display.setTransformation(new Transformation(
-                    new Vector3f(-0.5f, CHEST_HEIGHT + HEAD_HALF_HEIGHT - HEAD_SINK_DEPTH, -0.5f),
+                    new Vector3f(0f,
+                            CHEST_HEIGHT + HEAD_HALF_HEIGHT * HEAD_SCALE - HEAD_SINK_DEPTH, 0f),
                     new AxisAngle4f((float) Math.toRadians(HEAD_TILT_DEGREES), 1f, 0f, 0f),
-                    new Vector3f(1f, 1f, 1f),
+                    new Vector3f(HEAD_SCALE, HEAD_SCALE, HEAD_SCALE),
                     new AxisAngle4f((float) Math.toRadians(HEAD_ROLL_DEGREES), 0f, 0f, 1f)));
         });
         entities.add(skull);
@@ -534,8 +551,8 @@ public final class Graves implements InventoryHolder {
 
     /**
      * The dead player's own head, which is where their name is (see {@link #window}). A real item
-     * since season-2-ingame/21, Till 2026-09-15 - collected along with everything else by
-     * {@link #takeAll}, not only decoration in the world.
+     * since season-2-ingame/21, Till 2026-09-15, but nobody takes it: since season-2-ingame/14,
+     * 2026-09-18, {@link #settle} hands it over when the emptied grave closes.
      *
      * <p>The lore names when and where they died ({@code smp.grave.died-at}, season-2-ingame/14,
      * 2026-09-17 triage) - it replaced the old {@code smp.grave.owner-hint} outright, the key is
@@ -590,11 +607,15 @@ public final class Graves implements InventoryHolder {
      * Two people in the same grave are safe because the slots are emptied here on the main thread,
      * so the second click finds nothing.</p>
      *
-     * <p><b>The head goes too</b> (season-2-ingame/21, Till 2026-09-15): it is a real item now, not
-     * only the marker of whose grave this is, and there is no separate gesture for it - clicking
-     * the head itself stays cancelled, the same as every other footer cell, see {@code
-     * GraveListener#onClick}. This is therefore the one place that takes it, which is also why
-     * {@link #settle} will not finish a grave the head is still sitting in - see there.</p>
+     * <p><b>The head does not go with it</b> (season-2-ingame/14, Till 2026-09-18). It did between
+     * season-2-ingame/21 and this change, and the cost was a second press: somebody who had emptied
+     * the grave by hand still had to hit this button once more, on a window holding nothing, purely
+     * to collect the skull. It is furniture again - {@link #settle} hands it over when the emptied
+     * grave is closed, and nobody clicks it at all.</p>
+     *
+     * <p>An empty grave still closes here rather than refusing. Closing is what finishes it and what
+     * hands the head over, so a button that did nothing on a grave with nothing left in it would be
+     * a dead end in the one state this ticket is about.</p>
      */
     private void takeAll(final Player player, final Inventory inventory, final int contentRows) {
         boolean took = false;
@@ -609,17 +630,11 @@ public final class Graves implements InventoryHolder {
             took = true;
         }
 
-        final int headSlot = GravePanel.headSlot(contentRows);
-        final ItemStack head = inventory.getItem(headSlot);
-        if (head != null && !head.getType().isAir()) {
-            inventory.setItem(headSlot, null);
-            player.getInventory().addItem(head).values().forEach(left ->
-                    player.getWorld().dropItemNaturally(player.getLocation(), left));
-            took = true;
-        }
-
         if (!took) {
-            sounds.play(player, Feedback.REFUSED);
+            // Nothing was in it, which is not a refusal: the close below is what settles the grave
+            // and gives the head back.
+            sounds.play(player, Feedback.SELECT);
+            player.closeInventory();
             return;
         }
         sounds.play(player, Feedback.SELECT);
@@ -668,14 +683,13 @@ public final class Graves implements InventoryHolder {
         final boolean contentGone = java.util.Arrays.stream(left)
                 .allMatch(stack -> stack == null || stack.getType().isAir());
 
-        // AND the head (season-2-ingame/21): it is a real item now and only takeAll gives it out,
-        // so a grave finishing while it still sits there would delete it uncollected the moment
-        // somebody empties the rest by hand, one item at a time, rather than by the button.
-        final int contentRows = inventory.getSize() / 9 - 1;
-        final ItemStack head = inventory.getItem(GravePanel.headSlot(contentRows));
-        final boolean headGone = head == null || head.getType().isAir();
-
-        final boolean empty = contentGone && headGone;
+        // The content decides, and only the content (season-2-ingame/14, Till 2026-09-18). Between
+        // season-2-ingame/21 and that date the head had to be gone as well, because the button was
+        // the only way to it and a grave finishing with the skull still in the footer would have
+        // deleted it uncollected. The head is not taken by anybody any more - it is handed over a
+        // few lines below - so the condition that protected it is the condition that kept an
+        // emptied grave standing.
+        final boolean empty = contentGone;
         if (!empty) {
             // Not finished: keep what is left so anybody can come back for the rest.
             final byte[] remaining = ItemStack.serializeItemsAsBytes(left);
@@ -686,6 +700,20 @@ public final class Graves implements InventoryHolder {
             Bukkit.getScheduler().runTaskAsynchronously(plugin,
                     () -> dao.updateGraveContents(graveId, remaining));
             return;
+        }
+
+        // The head comes back by itself, on the main thread, before anything asynchronous starts:
+        // this is the whole of Till's request from 2026-09-18 - empty the grave, close it, and the
+        // skull is in your inventory without a second gesture. Onto the floor for what does not fit,
+        // the same fallback every other item in this class uses; the grave is about to be erased, so
+        // leaving it in the window would destroy it.
+        final int contentRows = inventory.getSize() / 9 - 1;
+        final int headSlot = GravePanel.headSlot(contentRows);
+        final ItemStack head = inventory.getItem(headSlot);
+        if (head != null && !head.getType().isAir()) {
+            inventory.setItem(headSlot, null);
+            player.getInventory().addItem(head).values().forEach(spill ->
+                    player.getWorld().dropItemNaturally(player.getLocation(), spill));
         }
 
         // The looter's DISCORD id, never their Minecraft UUID: `looted_by` is varchar(32) like

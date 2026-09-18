@@ -199,12 +199,18 @@ function MetricRow() {
         ) : null}
       </MetricTile>
 
-      <MetricTile
-        label="Latest backup"
-        value={newest ? relative(newest.modified) : backups.data ? "none" : "–"}
-        tone={backups.data && !newest ? "down" : undefined}
-        hint={newest ? newest.human : backups.data ? "no finished backup" : "–"}
-      />
+      {/* The one tile of the six that links anywhere (steward/112): `/operations/backups`
+          (steward/95) now holds everything this number is a summary of - volumes, retention,
+          the remote target. The plain `<a>` this becomes still lays out as the grid item
+          `MetricTile` would have wrapped it in. */}
+      <Link to="/operations/backups" className="flex min-w-0 flex-col gap-1.5">
+        <Stat
+          label="Latest backup"
+          value={newest ? relative(newest.modified) : backups.data ? "none" : "–"}
+          tone={backups.data && !newest ? "down" : undefined}
+          hint={newest ? newest.human : backups.data ? "no finished backup" : "–"}
+        />
+      </Link>
 
       <MetricTile
         label="Behind"

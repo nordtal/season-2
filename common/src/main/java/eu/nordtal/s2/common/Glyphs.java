@@ -404,6 +404,13 @@ public final class Glyphs {
     /** A 68 px button plate in the affirming style - the grave's "take everything". */
     public static final String GUI_ROW_BUTTON_TAKE = cp(0xFE107);
 
+    /**
+     * The entry plate again at 122 px: seven slot cells instead of nine, for a row that carries
+     * controls on its right. The text on such a row is already fitted to stop before them, so the
+     * full plate was grey where nothing was ever drawn (season-2-ingame/17).
+     */
+    public static final String GUI_ROW_PILL_SHORT = cp(0xFE108);
+
     // Row icons - U+FE110..U+FE11A, 8 x 8, drawn white so a component's colour can tint them.
     public static final String GUI_ROW_ICON_SPAWN = cp(0xFE110);
     public static final String GUI_ROW_ICON_DEATH = cp(0xFE111);

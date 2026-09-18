@@ -76,6 +76,7 @@ CP_BUTTON_SMALL_OFF = 0xFE104
 CP_PILL_DARK = 0xFE105
 CP_BUTTON_CONFIRM = 0xFE106
 CP_BUTTON_TAKE = 0xFE107
+CP_PILL_SHORT = 0xFE108
 CP_ICONS = 0xFE110          # the icon sheet's first cell; the rest follow in order
 
 BUTTON_WIDE_WIDTH = 52
@@ -88,6 +89,12 @@ BUTTON_CONFIRM_WIDTH = 3 * ROW_PITCH - 2 * INSET
 # Four slot cells inset 2: the grave's "take all", which is a longer sentence in
 # both languages than anything else on a plate here.
 BUTTON_TAKE_WIDTH = 4 * ROW_PITCH - 2 * INSET
+# Seven slot cells inset 2: the same pill, ending where the last two cells of a row begin.
+# A row that carries controls on its right - today only the objective menu's page arrows -
+# needs its plate to stop before them rather than run underneath: the sentence on it is
+# already shortened to that point, so the grey island kept reaching two cells further than
+# anything drawn on it (season-2-ingame/17).
+PILL_SHORT_WIDTH = 7 * ROW_PITCH - 2 * INSET
 
 # --- The palette. Everything here is the panel's own, plus the three button styles. ---
 #
@@ -356,6 +363,7 @@ PLATES = (
     (CP_PILL_DARK, "row_pill_dark", ROW_WIDTH, lambda w: pill(w, PILL_DARK_FILL)),
     (CP_BUTTON_CONFIRM, "row_button_confirm", BUTTON_CONFIRM_WIDTH, lambda w: button(w, "primary")),
     (CP_BUTTON_TAKE, "row_button_take", BUTTON_TAKE_WIDTH, lambda w: button(w, "primary")),
+    (CP_PILL_SHORT, "row_pill_short", PILL_SHORT_WIDTH, lambda w: pill(w)),
 )
 
 

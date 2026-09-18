@@ -101,6 +101,14 @@ public final class ObjectivePanel {
     /** Where the share sentence has to stop when the page controls are there. */
     private static final int PAGED_RIGHT = SlotGeometry.x(7) - 2;
 
+    /**
+     * The share plate's width on a paged menu: seven slot cells inset two, so the grey ends where
+     * the two cells carrying the page buttons begin. The sentence was already fitted to
+     * {@link #PAGED_RIGHT}, so the last two cells of the full plate were grey with nothing on them
+     * (season-2-ingame/17).
+     */
+    public static final int PILL_SHORT_WIDTH = 7 * SlotGeometry.PITCH - 2 * INSET;
+
     public static final int PREV_SLOT = SlotGeometry.slot(7, SHARE_ROW);
     public static final int NEXT_SLOT = SlotGeometry.slot(8, SHARE_ROW);
 
@@ -228,10 +236,12 @@ public final class ObjectivePanel {
 
     private static void share(final MenuTitle.Canvas canvas, final String share,
                               final boolean hasPrev, final boolean hasNext) {
-        canvas.rowArt(Glyphs.GUI_ROW_PILL, SHARE_ROW, PILL_X, null);
+        final boolean paged = hasPrev || hasNext;
+        // The plate follows the sentence rather than the row: with the arrows there, both stop at
+        // the seventh cell, so the grey is only under something (season-2-ingame/17).
+        canvas.rowArt(paged ? Glyphs.GUI_ROW_PILL_SHORT : Glyphs.GUI_ROW_PILL, SHARE_ROW, PILL_X, null);
         canvas.rowArt(Glyphs.GUI_ROW_ICON_AURA, SHARE_ROW, SHARE_ICON_X, MenuPalette.INK);
 
-        final boolean paged = hasPrev || hasNext;
         canvas.rowText(MenuFont.fit(share, (paged ? PAGED_RIGHT : PILL_RIGHT) - SHARE_TEXT_X),
                 SHARE_ROW, SHARE_TEXT_X, MenuPalette.INK);
         if (!paged) {

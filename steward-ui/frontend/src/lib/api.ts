@@ -303,6 +303,12 @@ export type Service = {
    * one thing a reader must not write, because it turns "nobody has said" into "nobody is on".
    */
   players?: number
+  /**
+   * Who is connected, on the rows that have a list - `network-control` carries the whole network,
+   * a backend carries its own. **Absent is not empty** (steward/111), the same rule `players`
+   * follows one line above: a row with no `roster` is one nobody wrote a list for.
+   */
+  roster?: Array<{ uuid?: string; name?: string }>
   unreadable?: string
   /** Only on the single-service endpoint. */
   digests?: string[]

@@ -197,7 +197,9 @@ function CommandShortcut({
     <span
       data-slot="command-shortcut"
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground",
+        // steward/105: a relative ceiling, so a long trailing note cannot squeeze the white label it
+        // sits beside out of the row. The label shrinks first because it carries `flex-1`.
+        "ml-auto max-w-[45%] truncate text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground",
         className
       )}
       {...props}

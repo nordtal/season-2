@@ -372,7 +372,9 @@ public interface UiSpec {
         @Order(1)
         @Key("minecraft-head-base-url")
         @Comment({
-                "Till's choice, 2026-09-15: Crafatar. A free, unaffiliated service - see",
+                "Till's choice, 2026-09-18: mc-heads.net. Crafatar stood here until then and was",
+                "measured failing to answer at all (steward/111) - the fault was the service, not",
+                "the caller. A free, unaffiliated service either way - see",
                 "season-2/README.md - so the identity display treats a non-answer as a placeholder",
                 "and never blocks the page on it.",
                 "",
@@ -380,12 +382,13 @@ public interface UiSpec {
                 "looked at, which is the one piece of information about a player that leaves this",
                 "deployment on the strength of an admin merely opening a page.",
                 "",
-                "The identity display appends '/<uuid>' itself; this is the address up to and",
-                "including the path segment before the uuid, with no trailing slash."
+                "The identity display appends '/<uuid>' itself, with the hyphens stripped out of",
+                "the uuid; this is the address up to and including the path segment before it,",
+                "with no trailing slash."
         })
         @Explain("Every render sends this third-party service the mc_uuid being looked at - the one piece of player information that leaves this deployment on the strength of an admin merely opening a page.")
         default String minecraftHeadBaseUrl() {
-            return "https://crafatar.com/avatars";
+            return "https://mc-heads.net/avatar";
         }
     }
 

@@ -225,15 +225,30 @@ describe("isStale", () => {
 })
 
 describe("minecraftHeadUrl", () => {
-  it("composes the uuid onto the configured base", () => {
-    expect(minecraftHeadUrl("https://crafatar.com/avatars", MC_UUID)).toBe(
-      `https://crafatar.com/avatars/${MC_UUID}`,
+  /**
+   * steward/111, Till on 2026-09-18: the fetch was failing at the service, not in this code, so
+   * the head now comes from mc-heads.net - and the uuid goes out without its hyphens, which is the
+   * form he measured being accepted for certain. The stripping happens here
+   * rather than in the configuration, so a base pointing at any service gets the form that every
+   * one of them accepts.
+   */
+  const UNDASHED = MC_UUID.replace(/-/g, "")
+
+  it("composes the uuid onto the configured base, without its hyphens", () => {
+    expect(minecraftHeadUrl("https://mc-heads.net/avatar", MC_UUID)).toBe(
+      `https://mc-heads.net/avatar/${UNDASHED}`,
     )
   })
 
   it("strips a trailing slash rather than doubling it", () => {
-    expect(minecraftHeadUrl("https://crafatar.com/avatars/", MC_UUID)).toBe(
-      `https://crafatar.com/avatars/${MC_UUID}`,
+    expect(minecraftHeadUrl("https://mc-heads.net/avatar/", MC_UUID)).toBe(
+      `https://mc-heads.net/avatar/${UNDASHED}`,
+    )
+  })
+
+  it("leaves a uuid that already came without hyphens alone", () => {
+    expect(minecraftHeadUrl("https://mc-heads.net/avatar", UNDASHED)).toBe(
+      `https://mc-heads.net/avatar/${UNDASHED}`,
     )
   })
 

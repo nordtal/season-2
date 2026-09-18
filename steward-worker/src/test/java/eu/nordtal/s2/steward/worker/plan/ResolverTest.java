@@ -626,6 +626,12 @@ class ResolverTest {
                         };
                     }
 
+                    @Override
+                    public RetentionSpec retention() {
+                        return new RetentionSpec() {
+                        };
+                    }
+
                 };
             }
 

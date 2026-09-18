@@ -716,8 +716,9 @@ a live PGDATA is torn and fails at restore. `mc-limbo` and `mc-hunger-games` are
 restored; `bot-jar` and `steward-worker-jar` are refilled by `steward-worker bootstrap`.
 
 **There is no offsite copy yet.** §9a's Hetzner Storage Box does not exist, so every archive sits on
-the same disk as the thing it is a copy of, and `backup.keep` (14) protects against a mistake and
-against nothing else. There is deliberately no untested S3 path in the code.
+the same disk as the thing it is a copy of, and what `backup.retention` keeps of them (fourteen
+days, then one a week for eight weeks, then one a month for six months) protects against a mistake
+and against nothing else. There is deliberately no untested S3 path in the code.
 
 ### Restoring
 

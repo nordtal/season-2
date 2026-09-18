@@ -9,6 +9,7 @@ import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.backup.Backups;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
+import eu.nordtal.s2.steward.worker.backup.Retention;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
@@ -685,10 +686,14 @@ public final class Runner implements RequestRunner {
         // is quick, and doing it here means the disk has room before the next run rather than
         // after it. What was deleted goes into the report - a retention nobody sees is one that
         // has been deleting the wrong thing for months.
-        final List<String> pruned = backups.volumes().prune(config.backup().keep());
+        final StewardSpec.BackupSpec.RetentionSpec keep = config.backup().retention();
+        final Retention policy = new Retention(keep.daily(), keep.weekly(), keep.monthly(),
+                keep.collapseAfterDays());
+        final List<String> pruned = backups.volumes().prune(policy);
         final UpdateReport swept = pruned.isEmpty() ? saved
-                : saved.withNote("kept the newest " + config.backup().keep() + " of each and"
-                        + " removed " + pruned.size() + ": " + String.join(", ", pruned));
+                : saved.withNote("kept " + policy.daily() + " daily, " + policy.weekly()
+                        + " weekly and " + policy.monthly() + " monthly of each series, and removed "
+                        + pruned.size() + ": " + String.join(", ", pruned));
 
         final UpdateReport started = run.start(
                 new UpdateRun.Stopped(swept, stopped.services(), runtime));

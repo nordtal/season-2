@@ -156,6 +156,14 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
+    public void setPlaytimeSeconds(final String discordId, final long seconds) {
+        if (seconds < 0) {
+            throw new IllegalArgumentException("play time is never negative, not " + seconds);
+        }
+        dao.setPlaytimeSeconds(Objects.requireNonNull(discordId, "discordId"), seconds);
+    }
+
+    @Override
     public void setAdmin(final String discordId, final boolean admin) {
         dao.setAdmin(Objects.requireNonNull(discordId, "discordId"), admin);
     }

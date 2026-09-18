@@ -52,6 +52,11 @@ import java.util.UUID;
  *                                   {@code eu.nordtal.s2.common.access.MinecraftProfile};
  *                                   {@code null} when unlinked or never seen
  * @param mcNameUpdated             when that was last written, {@code null} together with it
+ * @param playtimeSeconds           total online time across the network, from
+ *                                   {@code player_playtime}; {@code null} - not zero - when there
+ *                                   is no row, i.e. when this account has never been online. The
+ *                                   prestige tier is derived from this number and stored nowhere,
+ *                                   which is why a list of people prints it at all (steward/119)
  */
 public record Person(
         String discordId,
@@ -71,5 +76,6 @@ public record Person(
         String discordAvatarUrl,
         Instant discordAvatarUrlUpdated,
         String mcName,
-        Instant mcNameUpdated) {
+        Instant mcNameUpdated,
+        Long playtimeSeconds) {
 }

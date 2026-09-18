@@ -794,6 +794,24 @@ class AccessDirectoryIntegrationTest {
         assertEquals(86400, count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"));
     }
 
+    /**
+     * steward/119: an admin may set play time outright, because the prestige tier is derived from it
+     * and there is no other lever. An absolute write, unlike the proxy's own {@code add} - "set this
+     * account to nine hours" is the whole point, and an addition could not express it.
+     */
+    @Test
+    void playtimeCanBeSetOutright() {
+        directory.ensureUser(DISCORD_ID);
+
+        directory.setPlaytimeSeconds(DISCORD_ID, 32400);
+        assertEquals(32400, count("SELECT seconds FROM player_playtime WHERE discord_id = '"
+                + DISCORD_ID + "'"), "the first write makes the row");
+
+        directory.setPlaytimeSeconds(DISCORD_ID, 60);
+        assertEquals(60, count("SELECT seconds FROM player_playtime WHERE discord_id = '"
+                + DISCORD_ID + "'"), "the second replaces it rather than adding to it");
+    }
+
     // ---------------------------------------------------------------- the double-booking guard
 
     @Test

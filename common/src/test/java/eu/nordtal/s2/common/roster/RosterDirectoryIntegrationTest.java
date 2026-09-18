@@ -113,6 +113,28 @@ class RosterDirectoryIntegrationTest {
         assertFalse(alice.accessActive());
     }
 
+    /**
+     * steward/119: the roster prints play time, because the prestige tier is derived from it and
+     * there is nothing else to look at. Null rather than zero for somebody with no row - the proxy
+     * writes one on the first flush, and "has never been online" is not "has been online for no
+     * time at all".
+     */
+    @Test
+    void thePlayTimeRidesAlongOnTheSameRow() {
+        person(ALICE);
+        person(BOB);
+        execute("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + ALICE + "', 7200)");
+
+        final List<Person> people = directory.people(10);
+        final Person alice = people.stream()
+                .filter(person -> person.discordId().equals(ALICE)).findFirst().orElseThrow();
+        final Person bob = people.stream()
+                .filter(person -> person.discordId().equals(BOB)).findFirst().orElseThrow();
+
+        assertEquals(7200L, alice.playtimeSeconds());
+        assertNull(bob.playtimeSeconds(), "no player_playtime row is not a play time of zero");
+    }
+
     @Test
     void theLinkAndTheFlagsRideAlongOnTheSameRow() {
         person(ALICE);

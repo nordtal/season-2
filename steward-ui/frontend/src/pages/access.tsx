@@ -2,6 +2,7 @@ import {
   ArrowSquareOutIcon,
   ClockCounterClockwiseIcon,
   HandCoinsIcon,
+  HourglassIcon,
   LinkBreakIcon,
   MagnifyingGlassIcon,
   ShieldCheckIcon,
@@ -14,7 +15,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Grant, JournalEntry, Payment, Person } from "@/lib/api"
-import { count, date, dateTime, euros, relative } from "@/lib/format"
+import { count, date, dateTime, duration, euros, relative } from "@/lib/format"
 import {
   useAvatarBaseUrl,
   useCommands,
@@ -25,6 +26,7 @@ import {
   usePayments,
   usePeople,
   useRevokeAccess,
+  useSetPlaytime,
 } from "@/lib/queries"
 import { MinecraftFace, PersonIdentity } from "@/components/steward/identity"
 import { InlineCommandAction } from "@/components/steward/inline-command"
@@ -333,6 +335,7 @@ export function AccessPage() {
   // page is rendered here, beside the table, and the row holds nothing but buttons.
   const [unlinking, setUnlinking] = useState<Person | null>(null)
   const [granting, setGranting] = useState<Person | null>(null)
+  const [playtime, setPlaytime] = useState<Person | null>(null)
   // One clock for the whole render, so that two badges in one row cannot disagree about "now".
   const now = Date.now()
 
@@ -454,6 +457,10 @@ export function AccessPage() {
                         </TableHead>
                         <TableHead className="w-[9rem]">Minecraft</TableHead>
                         <TableHead className="w-[9rem]">Roles</TableHead>
+                        {/* steward/119: the prestige tier is derived from this number and stored
+                            nowhere, so it is the only thing an admin can look at - and, through the
+                            row action beside it, the only thing they can move. */}
+                        <TableHead className="w-[7rem]">Playtime</TableHead>
                         <TableHead className="w-[15rem]" />
                       </TableRow>
                     </TableHeader>
@@ -524,6 +531,13 @@ export function AccessPage() {
                               ) : null}
                             </div>
                           </TableCell>
+                          <TableCell data-label="Playtime">
+                            {/* `duration` draws the dash for null by itself, which is the answer
+                                for somebody who has never been online - not "0 s". */}
+                            <span className="text-sm tabular-nums">
+                              {duration(person.playtimeSeconds ?? undefined)}
+                            </span>
+                          </TableCell>
                           <TableCell>
                             <RowActions
                               label={`Actions for ${personName(person)}`}
@@ -531,6 +545,7 @@ export function AccessPage() {
                                 unlinkable: unlinkCommand !== undefined,
                                 onPeriods: () => setSelected(person),
                                 onGrant: () => setGranting(person),
+                                onPlaytime: () => setPlaytime(person),
                                 onRevoke: () => setRevoking(person),
                                 onUnlink: () => setUnlinking(person),
                               })}
@@ -623,6 +638,14 @@ export function AccessPage() {
           onOpenChange={(open) => (open ? null : setGranting(null))}
         />
       ) : null}
+
+      {playtime ? (
+        <PlaytimeDialog
+          person={playtime}
+          open
+          onOpenChange={(open) => (open ? null : setPlaytime(null))}
+        />
+      ) : null}
     </div>
   )
 }
@@ -666,6 +689,7 @@ function rowActions(
     unlinkable: boolean
     onPeriods: () => void
     onGrant: () => void
+    onPlaytime: () => void
     onRevoke: () => void
     onUnlink: () => void
   },
@@ -690,6 +714,16 @@ function rowActions(
       <Button type="button" variant="ghost" size="sm" onClick={on.onGrant}>
         <UserPlusIcon aria-hidden />
         Grant
+      </Button>
+    ),
+  })
+
+  actions.push({
+    key: "playtime",
+    node: (
+      <Button type="button" variant="ghost" size="sm" onClick={on.onPlaytime}>
+        <HourglassIcon aria-hidden />
+        Playtime
       </Button>
     ),
   })
@@ -870,6 +904,100 @@ function GrantDialog({
             }}
           >
             Grant
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+/**
+ * Sets an account's total play time by hand (steward/119).
+ *
+ * <h2>Why this page may write that number at all</h2>
+ * The prestige tier is not a column. `Prestige.java` derives it from total play time every time it
+ * draws a name, which is the right design and leaves exactly one lever: the seconds themselves.
+ * Till asked for this so that two accounts of different tiers can stand beside each other without
+ * anybody waiting out the hours first (season-2-ingame/23).
+ *
+ * <h2>Hours here, seconds on the wire</h2>
+ * Nobody types 32400. The field takes hours, decimals included, and the multiplication happens here
+ * so that the request body and the `player_playtime.seconds` column agree on a unit. It rounds
+ * rather than truncates: a typed 1.7 is 6120 seconds.
+ *
+ * <h2>What it does not do</h2>
+ * Stop the proxy. Somebody online right now keeps accumulating on top of whatever this writes,
+ * because the flush adds seconds; there is no lock and there is deliberately no second column
+ * saying "this one was set by hand". One number, one truth.
+ */
+function PlaytimeDialog({
+  person,
+  open,
+  onOpenChange,
+}: {
+  person: Person
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const write = useSetPlaytime()
+  const [hours, setHours] = useState(
+    person.playtimeSeconds == null
+      ? "0"
+      : String(Math.round((person.playtimeSeconds / 3600) * 100) / 100),
+  )
+  const parsed = Number.parseFloat(hours.replace(",", "."))
+  const usable = Number.isFinite(parsed) && parsed >= 0
+  const seconds = Math.round(parsed * 3600)
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Set play time</AlertDialogTitle>
+          <AlertDialogDescription>
+            Replaces the counted total for {personName(person)}. The prestige tier follows from it,
+            and there is nothing else to set.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="playtime-hours">Hours</Label>
+          <Input
+            id="playtime-hours"
+            value={hours}
+            onChange={(event) => setHours(event.target.value)}
+            type="number"
+            min={0}
+            step="0.25"
+            className="w-32"
+          />
+          <p className="text-xs text-muted-foreground">
+            Counted so far: {duration(person.playtimeSeconds ?? undefined)}. Anybody online while
+            this is written keeps counting up from the new value.
+          </p>
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={!usable || write.isPending}
+            onClick={() => {
+              write.mutate(
+                { discordId: person.discordId, seconds },
+                {
+                  onSuccess: () => {
+                    toast.success(`Play time set for ${personName(person)}`, {
+                      description: `${duration(seconds)} from now on. A journal line names you.`,
+                    })
+                  },
+                  onError: (error) => {
+                    toast.error("The play time was not written", { description: String(error) })
+                  },
+                },
+              )
+            }}
+          >
+            Save
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

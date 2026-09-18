@@ -52,6 +52,25 @@ interface AccessDao {
             """)
     void setDonor(@Bind("discordId") String discordId, @Bind("donor") boolean donor);
 
+    /**
+     * Sets total play time to an absolute number of seconds (steward/119).
+     *
+     * <p>Deliberately not the addition {@code PlaytimeDao#add} performs on the proxy: this is an
+     * admin saying what the number <em>is</em>, which is the only way to reach a prestige tier on
+     * purpose - the tier is derived from this column and stored nowhere. The two writers do not
+     * conflict, they disagree: a flush that lands while somebody is online adds to whatever this
+     * wrote, so an override on an account that is playing right now keeps ticking up from the new
+     * value.
+     */
+    @SqlUpdate("""
+            INSERT INTO player_playtime (discord_id, seconds, updated)
+            VALUES (:discordId, :seconds, now())
+            ON CONFLICT (discord_id) DO UPDATE
+                SET seconds = EXCLUDED.seconds,
+                    updated = now()
+            """)
+    void setPlaytimeSeconds(@Bind("discordId") String discordId, @Bind("seconds") long seconds);
+
     @SqlQuery("SELECT donor FROM discord_user WHERE discord_id = :discordId")
     Optional<Boolean> donor(@Bind("discordId") String discordId);
 

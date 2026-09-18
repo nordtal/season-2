@@ -46,9 +46,16 @@ interface RosterDao {
                    usr.discord_avatar_url,
                    usr.discord_avatar_url_updated,
                    link.mc_name,
-                   link.mc_name_updated
+                   link.mc_name_updated,
+                   playtime.seconds AS playtime_seconds
             FROM discord_user usr
                      LEFT JOIN account_link link ON link.discord_id = usr.discord_id
+                     -- steward/119. A third LEFT JOIN and not a fourth query: play time is one row
+                     -- per person keyed by the same discord_id, so it costs a join and nothing else.
+                     -- LEFT, because somebody who has never been online has no row, and the column
+                     -- then comes back NULL - which Person keeps as null rather than flattening to
+                     -- zero.
+                     LEFT JOIN player_playtime playtime ON playtime.discord_id = usr.discord_id
                      LEFT JOIN LATERAL (
                 SELECT max(grant_row.valid_until)                    AS access_until,
                        bool_or(grant_row.revoked IS NULL

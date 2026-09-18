@@ -1,9 +1,23 @@
-import { SignOutIcon, SlidersHorizontalIcon, UserIcon } from "@phosphor-icons/react"
+import {
+  BellIcon,
+  BellSlashIcon,
+  SignOutIcon,
+  SlidersHorizontalIcon,
+  UserIcon,
+} from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 
 import { SecurityKeys } from "@/app/security-keys"
 import { api } from "@/lib/api"
-import { useMe, useSettings } from "@/lib/queries"
+import { pushSupported } from "@/lib/push"
+import {
+  useMe,
+  useSettings,
+  useSubscribeWebPush,
+  useUnsubscribeWebPush,
+  useWebPushPublicKey,
+  useWebPushSubscription,
+} from "@/lib/queries"
 import { PageHeader } from "@/components/steward/page-header"
 import { QueryState } from "@/components/steward/query-state"
 import { Badge } from "@/components/ui/badge"
@@ -124,6 +138,71 @@ export function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BellIcon className="size-4 text-muted-foreground" aria-hidden />
+            Notifications
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <WebPushRow />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+/**
+ * The one control steward/98 adds: turn this browser's traffic-light push on or off.
+ *
+ * The button's `onClick` calls `.mutate` directly - never `await`s anything first - because iOS
+ * only lets `pushManager.subscribe()` open its permission prompt while still on the call stack of
+ * a genuine tap (see `lib/push.ts`'s module note). The public key is fetched ahead of time by
+ * {@link useWebPushPublicKey} with `staleTime: Infinity`, so it is already sitting in cache and the
+ * handler only ever reads it, never fetches it.
+ */
+function WebPushRow() {
+  const supported = pushSupported()
+  const publicKey = useWebPushPublicKey(supported)
+  const subscription = useWebPushSubscription(supported)
+  const subscribe = useSubscribeWebPush()
+  const unsubscribe = useUnsubscribeWebPush()
+
+  if (!supported) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        This browser cannot receive push notifications.
+      </p>
+    )
+  }
+
+  const subscribed = Boolean(subscription.data)
+  const busy = subscribe.isPending || unsubscribe.isPending
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="text-sm font-medium">Traffic light on this device</span>
+        <span className="text-sm text-muted-foreground">{subscribed ? "On" : "Off"}</span>
+      </div>
+      <Button
+        type="button"
+        variant={subscribed ? "outline" : "default"}
+        size="sm"
+        disabled={busy || (!subscribed && !publicKey.data?.publicKey)}
+        onClick={() => {
+          if (subscribed) {
+            unsubscribe.mutate()
+          } else if (publicKey.data?.publicKey) {
+            subscribe.mutate(publicKey.data.publicKey)
+          }
+        }}
+      >
+        {subscribed ? <BellSlashIcon aria-hidden /> : <BellIcon aria-hidden />}
+        {subscribed ? "Turn off" : "Turn on"}
+      </Button>
     </div>
   )
 }

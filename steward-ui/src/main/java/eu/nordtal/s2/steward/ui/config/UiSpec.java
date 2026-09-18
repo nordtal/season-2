@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
  * {@code steward-ui.yml} - what the web interface needs to know about the rest of the stack.
@@ -23,8 +24,9 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
         "attacker reaches first, and it can therefore do the least.",
         "",
         "Secrets are environment variables, not values in this file: NORDTAL_STEWARD_UI_DISCORD_",
-        "CLIENT_SECRET, NORDTAL_STEWARD_UI_WORKER_TOKEN and NORDTAL_STEWARD_UI_DEPLOYER_TOKEN.",
-        "jcore lets an environment variable win over any key here and never writes it back."
+        "CLIENT_SECRET, NORDTAL_STEWARD_UI_WORKER_TOKEN, NORDTAL_STEWARD_UI_DEPLOYER_TOKEN and",
+        "NORDTAL_STEWARD_UI_WEB_PUSH_PRIVATE_KEY. jcore lets an environment variable win over any",
+        "key here and never writes it back."
 })
 public interface UiSpec {
 
@@ -172,6 +174,23 @@ public interface UiSpec {
     @NoExplanationNeeded
     WebAuthnSpec webauthn();
 
+    @Order(10)
+    @Key("web-push")
+    @Comment({
+            "Web Push (concept §10c / steward/98): the traffic light reaching a phone's lock",
+            "screen rather than only the page.",
+            "",
+            "Both keys are a VAPID keypair, generated once per deployment and never hardcoded -",
+            "run `docker exec nordtal-s2-steward-ui-1 steward-ui generate-vapid-keys` and paste",
+            "the two lines it prints here, or the private one into",
+            "NORDTAL_STEWARD_UI_WEB_PUSH_PRIVATE_KEY instead, which is this file's own header",
+            "advice for a secret. Both blank is read as \"not configured\": the subscribe button",
+            "is not drawn and no watch runs, the same shape worker.token and deployer.token",
+            "already use for \"not wired up yet\"."
+    })
+    @NoExplanationNeeded
+    WebPushSpec webPush();
+
     /**
      * Which domain a security key is registered against.
      *
@@ -235,6 +254,61 @@ public interface UiSpec {
             return "";
         }
     }
+
+    /**
+     * A VAPID keypair (steward/98) - proof to a push service of which server sent a message,
+     * without which every browser's subscription is worthless the moment it is asked to accept one.
+     *
+     * <p>Generated once with {@code steward-ui generate-vapid-keys} (see {@code StewardUi.main}),
+     * never in code: a keypair baked into the jar would be the same "identity" for every deployment
+     * that ever ran it, and a push service has no way to tell those apart from an attacker who
+     * downloaded the same jar.</p>
+     */
+    @ConfigSpec
+    interface WebPushSpec {
+
+        @Order(1)
+        @Key("public-key")
+        @Comment({
+                "The public half, X509-encoded and base64 - `VapidKeys.x509PublicKey`. Not a",
+                "secret: it is handed to every browser that subscribes, as the",
+                "`applicationServerKey` the Push API asks for."
+        })
+        @NoExplanationNeeded
+        default String publicKey() {
+            return "";
+        }
+
+        @Order(2)
+        @Key("private-key")
+        @Comment({
+                "The private half, PKCS8-encoded and base64 - `VapidKeys.pkcs8PrivateKey`. This",
+                "is what signs the VAPID JWT on every push, so a copy of it is everything needed",
+                "to send a notification that claims to be this deployment.",
+                "",
+                "NOT COVERED BY THE NAME HEURISTIC ConfigEntry.isSecretKey ORDINARILY USES (steward/115",
+                "found this gap once already and it must not reopen here): a key ending in",
+                "\"-key\" rather than containing \"secret\", \"token\" or \"password\" would have",
+                "been sent to the browser in plain text without @Secret saying otherwise."
+        })
+        @Secret
+        @NoExplanationNeeded
+        default String privateKey() {
+            return "";
+        }
+
+        @Order(3)
+        @Key("subject")
+        @Comment({
+                "Who a push service may contact about this VAPID identity, if it ever needs to -",
+                "a mailto: address or an https:// URL. The library refuses anything else outright."
+        })
+        @NoExplanationNeeded
+        default String subject() {
+            return "mailto:admin@nordtal.eu";
+        }
+    }
+
     /**
      * The thresholds of the traffic light.
      *

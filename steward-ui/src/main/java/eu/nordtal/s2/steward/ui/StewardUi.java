@@ -18,6 +18,8 @@ import eu.nordtal.s2.steward.ui.auth.Sessions;
 import eu.nordtal.s2.steward.ui.auth.WebAuthn;
 import eu.nordtal.s2.steward.ui.discord.DiscordApi;
 import eu.nordtal.s2.steward.ui.discord.DiscordDirectory;
+import eu.nordtal.s2.steward.ui.push.AlertWatch;
+import eu.nordtal.s2.steward.ui.push.PushSubscriptions;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.steward.ui.config.Configs;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
@@ -119,6 +121,15 @@ public final class StewardUi {
      */
     private static final String FORGET = "forget-factors";
 
+    /**
+     * {@code generate-vapid-keys} - a fresh VAPID keypair, printed for {@code steward-ui.yml}.
+     *
+     * <p>No database, no config directory, nothing this deployment already has: generating a
+     * keypair is one call into {@code com.interaso.webpush} and printing its two encoded halves.
+     * See {@code UiSpec.WebPushSpec}'s own comment for the exact two lines this fills in.</p>
+     */
+    private static final String GENERATE_VAPID_KEYS = "generate-vapid-keys";
+
     private final UiSpec config;
     private final DiscordAuth discord;
     private final InternalClient worker;
@@ -146,6 +157,19 @@ public final class StewardUi {
      */
     private final Credentials credentials;
     private final WebAuthn webauthn;
+
+    /**
+     * The web push half of the second factor's neighbourhood (steward/98, concept §10c) - browser
+     * subscriptions, the VAPID keypair they are all signed with, and the watch that pushes to them.
+     *
+     * <p>{@code vapidKeys} and {@code alertWatch} are null together, and for a different reason than
+     * {@link #credentials} is null: a deployment can have a database and no VAPID keypair yet
+     * (both halves of {@code web-push} blank), which is "not configured", not "not started". See
+     * {@code UiSpec.WebPushSpec}'s own comment.</p>
+     */
+    private final PushSubscriptions pushSubscriptions;
+    private final com.interaso.webpush.VapidKeys vapidKeys;
+    private final AlertWatch alertWatch;
 
     /** The database. Null only in tests that are about the proxy and never touch a row. */
     private final Data data;
@@ -175,6 +199,16 @@ public final class StewardUi {
      */
     private static final Duration HEARTBEAT = Duration.ofSeconds(10);
 
+    /**
+     * How often {@link AlertWatch#poll} asks steward-worker for the traffic light's state.
+     *
+     * <p>Cheap enough to be frequent - one small JSON GET the worker already has every field for -
+     * and frequent enough that a lock screen notification still feels like it is about now, not
+     * about half a minute ago. Nothing about the push protocol itself is rate-limited on this side;
+     * a push service is what would throttle a sender that called far more often than this.</p>
+     */
+    private static final Duration ALERT_POLL = Duration.ofSeconds(30);
+
     private final ScheduledExecutorService heartbeats = Executors.newSingleThreadScheduledExecutor(
             runnable -> {
                 final Thread thread = new Thread(runnable, "steward-ui-sse-heartbeat");
@@ -201,6 +235,33 @@ public final class StewardUi {
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
         this.deployments = new DeployerApi(deployer, data, ctx -> account(ctx).orElseThrow(),
                 !config.deployer().token().isBlank());
+        this.pushSubscriptions = data == null ? null : new PushSubscriptions(data.dataSource());
+        this.vapidKeys = vapidKeysOf(config.webPush());
+        this.alertWatch = (data == null || vapidKeys == null) ? null
+                : new AlertWatch(worker, pushSubscriptions, config.webPush().subject(), vapidKeys);
+    }
+
+    /**
+     * The VAPID keypair out of config, or null when {@code web-push} is not configured yet.
+     *
+     * <p>Both keys blank is "not configured" - see {@code UiSpec.WebPushSpec}'s own comment. Exactly
+     * one blank is refused outright: a public key with no private half can never sign a push, and a
+     * private key with no public half can never be handed to a browser as the
+     * {@code applicationServerKey} its subscription is bound to, so neither is a working
+     * half-configuration a deployment could be running on without anybody noticing.</p>
+     */
+    private static com.interaso.webpush.VapidKeys vapidKeysOf(final UiSpec.WebPushSpec webPush) {
+        final String publicKey = webPush.publicKey();
+        final String privateKey = webPush.privateKey();
+        if (publicKey.isBlank() && privateKey.isBlank()) {
+            return null;
+        }
+        if (publicKey.isBlank() || privateKey.isBlank()) {
+            throw new IllegalArgumentException("web-push has only one of public-key/private-key set"
+                    + " - both or neither. Run `steward-ui " + GENERATE_VAPID_KEYS + "` and paste"
+                    + " both lines it prints into steward-ui.yml.");
+        }
+        return com.interaso.webpush.VapidKeys.create(publicKey, privateKey);
     }
 
     /**
@@ -219,9 +280,16 @@ public final class StewardUi {
             System.exit(forgetFactors(directory, args));
             return;
         }
+        if (args.length > 0 && GENERATE_VAPID_KEYS.equals(args[0])) {
+            final com.interaso.webpush.VapidKeys keys = com.interaso.webpush.VapidKeys.generate();
+            System.out.println(keys.getX509PublicKey());
+            System.out.println(keys.getPkcs8PrivateKey());
+            return;
+        }
         if (args.length > 0 && !SERVE.equals(args[0])) {
             System.err.println("`" + args[0] + "` is not a command. This program serves the web"
-                    + " interface when given none, and knows `" + FORGET + " <discord-id>`.");
+                    + " interface when given none, and knows `" + FORGET + " <discord-id>` and `"
+                    + GENERATE_VAPID_KEYS + "`.");
             System.exit(2);
             return;
         }
@@ -253,6 +321,11 @@ public final class StewardUi {
         if (config.deployer().token().isBlank()) {
             log.warn("deployer.token is empty, so no container can be recreated from here. The"
                     + " button is not drawn and the page says why.");
+        }
+        if (config.webPush().publicKey().isBlank()) {
+            log.warn("web-push has no VAPID keypair yet, so the traffic light cannot reach a phone's"
+                    + " lock screen. Run `steward-ui " + GENERATE_VAPID_KEYS + "` and paste both"
+                    + " lines it prints into steward-ui.yml's web-push section.");
         }
         Runtime.getRuntime().addShutdownHook(new Thread(data::close, "steward-ui-shutdown"));
         new StewardUi(config, new DiscordAuth(config.discord(), config.publicUrl()), worker,
@@ -437,6 +510,14 @@ public final class StewardUi {
             // second thing to keep in step.
             cfg.routes.put("/api/keys/{id}", this::renameKey, Gate.KEY_FRESH);
             cfg.routes.delete("/api/keys/{id}", this::removeKey, Gate.KEY_FRESH);
+
+            // --- web push (steward/98, concept §10c) --------------------------------------------
+            //
+            // The public key is a read, like the config a KEY_HELD page already shows; subscribing
+            // and unsubscribing change a row, so they wear KEY_FRESH like every other write here.
+            cfg.routes.get("/api/web-push/public-key", this::webPushPublicKey, Gate.KEY_HELD);
+            cfg.routes.post("/api/web-push/subscribe", this::subscribeWebPush, Gate.KEY_FRESH);
+            cfg.routes.delete("/api/web-push/subscribe", this::unsubscribeWebPush, Gate.KEY_FRESH);
 
             // --- everything about a container comes from steward-worker -----------------------
             cfg.routes.get("/api/services", ctx -> passThrough(ctx, "/api/services"), Gate.KEY_HELD);
@@ -815,6 +896,13 @@ public final class StewardUi {
             // lookup itself, whether this has ever run or not. See Sessions#sweep.
             heartbeats.scheduleWithFixedDelay(this::sweepSessions, 0,
                     SWEEP.toSeconds(), TimeUnit.SECONDS);
+        }
+        if (alertWatch != null) {
+            // Same scheduler as the sweep above, for the same reason: this is one small GET every
+            // 30 seconds, not a workload that earns its own thread pool. See AlertWatch's own class
+            // note for why the first poll never sends anything.
+            heartbeats.scheduleWithFixedDelay(alertWatch::poll, 0,
+                    ALERT_POLL.toSeconds(), TimeUnit.SECONDS);
         }
         discord.whatIsMissing().ifPresent(missing -> log.warn(
                 "Nobody can sign in yet: {} is empty. Everything else is running.", missing));
@@ -1365,6 +1453,73 @@ public final class StewardUi {
         data.audit().record("REMOVE_KEY", who.discordId(), who.discordId(), null,
                 "removed the security key \"" + label + "\" - " + left + " left on this account");
         ctx.json(Map.of("removed", label, "left", left));
+    }
+
+    /**
+     * {@code GET /api/web-push/public-key} - the VAPID public key, in the one encoding the Push API
+     * asks for.
+     *
+     * <p>Not {@code webPush().publicKey()} itself: that string is X509-encoded, and
+     * {@code PushManager.subscribe()}'s {@code applicationServerKey} wants the raw uncompressed EC
+     * point instead - {@link com.interaso.webpush.VapidKeys#getApplicationServerKey}. Converting
+     * between the two is why {@link #vapidKeys} is parsed once at startup rather than re-read out of
+     * config on every call.</p>
+     */
+    private void webPushPublicKey(final Context ctx) {
+        if (vapidKeys == null) {
+            throw new NotFoundResponse("web-push is not configured on this deployment yet - see"
+                    + " web-push in steward-ui.yml");
+        }
+        ctx.json(Map.of("publicKey",
+                Base64.getUrlEncoder().withoutPadding().encodeToString(vapidKeys.getApplicationServerKey())));
+    }
+
+    /**
+     * {@code POST /api/web-push/subscribe} - the body is a browser's own
+     * {@code PushSubscription.toJSON()}, unmodified.
+     */
+    private void subscribeWebPush(final Context ctx) {
+        final Sessions.Session who = requireSession(ctx);
+        final PushSubscriptionBody body = ctx.bodyAsClass(PushSubscriptionBody.class);
+        if (body == null || body.endpoint == null || body.endpoint.isBlank()
+                || body.keys == null || body.keys.p256dh == null || body.keys.p256dh.isBlank()
+                || body.keys.auth == null || body.keys.auth.isBlank()) {
+            throw new BadRequestResponse("that is not a PushSubscription - endpoint and"
+                    + " keys.p256dh/keys.auth are required");
+        }
+        pushSubscriptions.subscribe(who.discordId(), body.endpoint, body.keys.p256dh, body.keys.auth);
+        data.audit().record("WEB_PUSH_SUBSCRIBE", who.discordId(), who.discordId(), null,
+                "subscribed a browser to the traffic light's web push");
+        ctx.status(204);
+    }
+
+    /** {@code DELETE /api/web-push/subscribe} - only the endpoint is needed to name the row. */
+    private void unsubscribeWebPush(final Context ctx) {
+        final Sessions.Session who = requireSession(ctx);
+        final PushSubscriptionBody body = ctx.bodyAsClass(PushSubscriptionBody.class);
+        if (body == null || body.endpoint == null || body.endpoint.isBlank()) {
+            throw new BadRequestResponse("no endpoint in that request");
+        }
+        if (!pushSubscriptions.unsubscribe(who.discordId(), body.endpoint)) {
+            throw new NotFoundResponse("this account has no web push subscription of that endpoint");
+        }
+        data.audit().record("WEB_PUSH_UNSUBSCRIBE", who.discordId(), who.discordId(), null,
+                "unsubscribed a browser from the traffic light's web push");
+        ctx.status(204);
+    }
+
+    /**
+     * The one shape both web-push routes read - a browser's {@code PushSubscription.toJSON()}, or
+     * just its {@code endpoint} for the unsubscribe call, which is a subset of the same shape.
+     */
+    private static final class PushSubscriptionBody {
+        private String endpoint;
+        private Keys keys;
+
+        private static final class Keys {
+            private String p256dh;
+            private String auth;
+        }
     }
 
     /** The keys of one account, as {@code /api/me} lists them. */

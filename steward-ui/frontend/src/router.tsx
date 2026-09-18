@@ -15,7 +15,6 @@ import { SettingsPage } from "@/pages/settings"
 import { SeasonPage } from "@/pages/season"
 import { JournalPage, AccountsPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { OverviewPage } from "@/pages/overview"
-import { NetworkDesignsPage } from "@/pages/designs"
 
 /**
  * The route tree, written out rather than generated.
@@ -70,13 +69,6 @@ const routes = [
     getParentRoute: () => rootRoute,
     path: "/settings",
     component: SettingsPage,
-  }),
-  // Not in `navigation.ts` on purpose - see pages/designs.tsx. Temporary, and the ticket that puts
-  // a variant into the product is the ticket that deletes this line.
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/designs/network",
-    component: NetworkDesignsPage,
   }),
 ]
 

@@ -83,6 +83,15 @@ export function isStandalone(view: Window): boolean {
 export const BLUR_CLEARANCE_PX = 8
 
 /**
+ * How often the height is re-measured while the page is visible, in milliseconds.
+ *
+ * This is the catch, not the mechanism: the events below are what normally corrects the height, and
+ * they do it in the same frame. One second is slow enough to be free and fast enough that a wrong
+ * height after a resume is gone before a finger could have fixed it.
+ */
+const POLL_INTERVAL_MS = 1000
+
+/**
  * Starts publishing both properties and returns the function that stops.
  *
  * Called once from `main.tsx`. The properties have CSS fallbacks, so the interface is laid out
@@ -91,9 +100,41 @@ export const BLUR_CLEARANCE_PX = 8
 export function trackAppFrame(view: Window = window): () => void {
   const root = view.document.documentElement
 
+  // The last value actually written. The poll below runs once a second and would otherwise be a
+  // style change per second for nothing; comparing costs nothing and is the difference between a
+  // cheap fallback and an expensive one. It is also why `apply` is safe to call as often as we like.
+  let published: string | null = null
+
   const apply = () => {
     const height = measuredHeight(view, view.document.activeElement)
-    if (height !== null) root.style.setProperty("--app-height", `${Math.round(height)}px`)
+    if (height === null) return
+    const next = `${Math.round(height)}px`
+    if (next === published) return
+    published = next
+    root.style.setProperty("--app-height", next)
+  }
+
+  // THE POLL, AND WHY IT EXISTS AT ALL - steward/51, second attempt. The three resume events below
+  // were added on 2026-09-15 and the grey band came back on 2026-09-17, so on an iOS home screen a
+  // resume can arrive with no event whatsoever. There is nothing left to listen to, so the height is
+  // simply re-read on a timer. It runs ONLY while the page is visible: a timer left running in the
+  // background is exactly the thing iOS throttles or freezes, and a measurement taken there would be
+  // of a window nobody is looking at.
+  let timer: ReturnType<typeof setInterval> | null = null
+
+  const startPolling = () => {
+    if (timer === null) timer = setInterval(apply, POLL_INTERVAL_MS)
+  }
+
+  const stopPolling = () => {
+    if (timer === null) return
+    clearInterval(timer)
+    timer = null
+  }
+
+  const syncPolling = () => {
+    if (view.document.visibilityState === "hidden") stopPolling()
+    else startPolling()
   }
 
   root.style.setProperty("--blur-clearance", isStandalone(view) ? `${BLUR_CLEARANCE_PX}px` : "0px")
@@ -116,7 +157,14 @@ export function trackAppFrame(view: Window = window): () => void {
   // there are three rather than one because which of them iOS sends depends on how the app was left.
   view.addEventListener("pageshow", apply)
   view.addEventListener("focus", apply)
-  view.document.addEventListener("visibilitychange", apply)
+  // Both, and in this order: becoming visible is a resume and has to re-measure at once rather than
+  // wait up to a second for the poll, and it is also the moment the poll itself comes back.
+  const onVisibilityChange = () => {
+    apply()
+    syncPolling()
+  }
+  view.document.addEventListener("visibilitychange", onVisibilityChange)
+  syncPolling()
 
   return () => {
     view.removeEventListener("resize", apply)
@@ -125,6 +173,7 @@ export function trackAppFrame(view: Window = window): () => void {
     view.removeEventListener("focusout", apply)
     view.removeEventListener("pageshow", apply)
     view.removeEventListener("focus", apply)
-    view.document.removeEventListener("visibilitychange", apply)
+    view.document.removeEventListener("visibilitychange", onVisibilityChange)
+    stopPolling()
   }
 }

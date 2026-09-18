@@ -15,7 +15,7 @@ const SECTION_LABELS: Record<string, string> = {
   operations: "Operations",
   plan: "Plan",
   runs: "Run",
-  backups: "Backup",
+  backups: "Backups",
   restore: "Restore",
   season: "Season",
   access: "Access",

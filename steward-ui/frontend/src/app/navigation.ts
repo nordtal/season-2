@@ -145,13 +145,16 @@ export const NAVIGATION: NavGroup[] = [
         keywords: ["run", "report", "log"],
       },
       {
-        id: "operations-backup",
-        label: "Backup",
-        to: "/operations/backups/$id",
-        params: { id: "latest" },
-        note: "Contents and checksum of a single backup.",
+        // steward/95: this used to point at `/operations/backups/$id` with the id "latest", which
+        // is not a backup's name - the report page then asked the worker for a file called
+        // "latest". It leads to the list page instead, which is the thing somebody typing "backup"
+        // is looking for and which links every report from its own rows.
+        id: "operations-backups",
+        label: "Backups",
+        to: "/operations/backups",
+        note: "Runs, archives, retention and where a copy goes that is not on this disk.",
         icon: PlayIcon,
-        keywords: ["backup", "archive", "checksum"],
+        keywords: ["backup", "archive", "snapshot", "retention", "s3", "storage box", "offsite"],
       },
       {
         id: "operations-restore",

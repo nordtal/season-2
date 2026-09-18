@@ -156,4 +156,40 @@ describe("the rules that make it fit on a phone", () => {
         " 200px column. Without overflow-wrap it hangs off the right edge of the phone.",
     ).toContain("overflow-wrap: anywhere")
   })
+
+  it("lets a stacked cell actually wrap, not just break inside an unbreakable word", () => {
+    // steward/114, measured at 390px: `TableCell`/`TableHead` carry `whitespace-nowrap` (shadcn's
+    // default), and `.steward-table :where(th, td)` in this media block only ever set
+    // `overflow-wrap: anywhere`. `overflow-wrap` decides where a line breaks WITHIN an unbreakable
+    // run; it cannot make ordinary prose wrap at all while `white-space: nowrap` still holds - that
+    // property is more specific here (`.steward-table` + `:where()` beats the utility class), so it
+    // wins and the rule never fires. A `detail` sentence like "the Minecraft account was" is not
+    // one unbreakable word, so it ran straight off the card with no ellipsis - not the bug
+    // steward/103 already fixed, a second one in the same screenshot.
+    const css = fs.readFileSync(path.join(source, "index.css"), "utf8")
+    const mobile = css.slice(css.indexOf("@media (width < 48rem)")).replace(/\/\*[\s\S]*?\*\//g, "")
+    expect(
+      mobile,
+      "`.steward-table :where(th, td)` must also set `white-space: normal` in the stacked layout -" +
+        " `overflow-wrap: anywhere` alone cannot wrap ordinary text while `whitespace-nowrap` (from" +
+        " TableCell/TableHead) still applies.",
+    ).toMatch(/white-space:\s*normal/)
+  })
+
+  it("puts a cell's second child beside its label instead of underneath it", () => {
+    // steward/114, measured at 390px: `td[data-label]` is a two-column grid,
+    // `minmax(5rem,7rem) minmax(0,1fr)`. A cell with two children - the Journal table's
+    // `Concerns`, text plus a `PersonIdentity` line below it - only ever declares the FIRST child's
+    // column implicitly; grid auto-placement puts the second one in row 2, column 1, which is the
+    // label column, and it collides with the next cell's `::before` label. Measured: the identity
+    // line sat at `left 85 … right 169`, exactly the label column's box.
+    const css = fs.readFileSync(path.join(source, "index.css"), "utf8")
+    const mobile = css.slice(css.indexOf("@media (width < 48rem)")).replace(/\/\*[\s\S]*?\*\//g, "")
+    expect(
+      mobile,
+      "`.steward-table td[data-label] > *` must set `grid-column: 2`, so every child of a labelled" +
+        " cell sits beside the label rather than the first under it and the rest defaulting into" +
+        " the label's own column.",
+    ).toMatch(/td\[data-label\]\s*>\s*\*\s*\{[^}]*grid-column:\s*2/)
+  })
 })

@@ -1259,16 +1259,23 @@ export function PaymentsPage() {
                     <Table className="steward-table">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[9rem]">Reference</TableHead>
-                          <TableHead className="w-[13rem]">Person</TableHead>
-                          <TableHead className="w-[5rem] text-right">Days</TableHead>
+                          {/*
+                            steward/114: these ten headers summed to 95rem in a 1152px (72rem)
+                            card. `Created` is folded into a title on `Reference` (still there,
+                            one hover away, the same pattern `PersonGrants`'s `Request` cell
+                            already uses for a full id) and `Donation` is folded into `Amount` as
+                            a second line - both are real data kept, not data dropped, which is
+                            the "fewer columns" the ticket's exit clause asks for once shrinking
+                            widths alone cannot close a 23rem gap on fields that do not wrap.
+                          */}
+                          <TableHead className="w-[7rem]">Reference</TableHead>
+                          <TableHead className="w-[11rem]">Person</TableHead>
+                          <TableHead className="w-[4rem] text-right">Days</TableHead>
                           <TableHead className="w-[7rem] text-right">Amount</TableHead>
-                          <TableHead className="w-[7rem] text-right">Donation</TableHead>
                           <TableHead className="w-[9rem]">Status</TableHead>
-                          <TableHead className="w-[11rem]">Created</TableHead>
                           <TableHead className="w-[11rem]">Deadline</TableHead>
                           <TableHead className="w-[11rem]">Paid</TableHead>
-                          <TableHead className="w-[12rem]" />
+                          <TableHead className="w-[10rem]" />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1277,7 +1284,11 @@ export function PaymentsPage() {
                           const late = isOverdue(payment, now)
                           return (
                             <TableRow key={payment.id}>
-                              <TableCell data-label="Reference" className="font-mono font-medium">
+                              <TableCell
+                                data-label="Reference"
+                                className="font-mono font-medium"
+                                title={`Created ${dateTime(payment.created)}`}
+                              >
                                 {payment.reference}
                               </TableCell>
                               <TableCell data-label="Person">
@@ -1290,10 +1301,17 @@ export function PaymentsPage() {
                               </TableCell>
                               <TableCell data-label="Days" className="text-right tnum">{payment.days}</TableCell>
                               <TableCell data-label="Amount" className="text-right tnum">
-                                {euros(payment.amountCents)}
-                              </TableCell>
-                              <TableCell data-label="Donation" className="text-right tnum text-muted-foreground">
-                                {payment.donationCents > 0 ? euros(payment.donationCents) : "–"}
+                                <div className="flex flex-col items-end">
+                                  <span>{euros(payment.amountCents)}</span>
+                                  {payment.donationCents > 0 ? (
+                                    <span
+                                      className="text-xs text-muted-foreground"
+                                      title="Donation on top of the requested amount"
+                                    >
+                                      +{euros(payment.donationCents)}
+                                    </span>
+                                  ) : null}
+                                </div>
                               </TableCell>
                               <TableCell data-label="Status">
                                 <div className="flex items-center gap-1">
@@ -1315,9 +1333,6 @@ export function PaymentsPage() {
                                     </StatusBadge>
                                   ) : null}
                                 </div>
-                              </TableCell>
-                              <TableCell data-label="Created" className="text-muted-foreground tnum">
-                                {dateTime(payment.created)}
                               </TableCell>
                               <TableCell data-label="Deadline" className="text-muted-foreground tnum">
                                 {dateTime(payment.expires)}
@@ -1728,7 +1743,13 @@ export function JournalPage() {
                             </span>
                           ) : null}
                         </TableCell>
-                        <TableCell data-label="Detail" className="text-muted-foreground">{entry.detail ?? "–"}</TableCell>
+                        {/* steward/114: the one column here that is running text rather than a
+                         * field - a field does not wrap (a date, an id), prose does, at any
+                         * width, so this overrides TableCell's own `whitespace-nowrap` rather
+                         * than relying on the stacked layout alone. */}
+                        <TableCell data-label="Detail" className="text-muted-foreground whitespace-normal">
+                          {entry.detail ?? "–"}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

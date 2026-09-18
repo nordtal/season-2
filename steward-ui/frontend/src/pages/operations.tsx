@@ -602,7 +602,6 @@ export function OperationsPage() {
       <RunsCard />
       <HostCard />
       <DriftCard />
-      <BackupsCard />
     </div>
   )
 }
@@ -649,12 +648,20 @@ function RunsCard() {
       <CardHeader>
         <CardTitle className="text-sm font-medium">Runs</CardTitle>
         <CardAction>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/operations/plan">
-              <FileTextIcon aria-hidden />
-              View the plan
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/operations/backups">
+                <ArchiveIcon aria-hidden />
+                Backups
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/operations/plan">
+                <FileTextIcon aria-hidden />
+                View the plan
+              </Link>
+            </Button>
+          </div>
         </CardAction>
       </CardHeader>
       <CardContent>
@@ -736,108 +743,6 @@ function RunsCard() {
                 ))}
               </TableBody>
             </Table>
-          )}
-        </QueryState>
-      </CardContent>
-    </Card>
-  )
-}
-
-function BackupsCard() {
-  const backups = useBackups()
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Backups</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <QueryState
-          query={backups}
-          rows={6}
-          empty={{
-            title: "No archive on the disk",
-            note: "There is no file in the backup directory. A run of kind \"Backup\" creates the first one.",
-          }}
-          isEmpty={(rows: Backup[]) => rows.length === 0}
-        >
-          {(rows) => (
-            <>
-              <Table className="steward-table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>File</TableHead>
-                    <TableHead className="w-[9rem]">Contents</TableHead>
-                    <TableHead className="w-[12rem]">Taken</TableHead>
-                    <TableHead className="w-[8rem]">Age</TableHead>
-                    <TableHead className="w-[8rem] text-right">Size</TableHead>
-                    <TableHead className="w-[9rem]">State</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((backup) => (
-                    <TableRow key={backup.name}>
-                      <TableCell data-label="File" className="font-medium">
-                        <Link
-                          to="/operations/backups/$id"
-                          params={{ id: backup.name }}
-                          className="underline-offset-4 hover:text-primary hover:underline"
-                        >
-                          <code className="text-xs">{backup.name}</code>
-                        </Link>
-                      </TableCell>
-                      <TableCell data-label="Contents" className="text-muted-foreground">
-                        <ArchiveKind name={backup.name} />
-                      </TableCell>
-                      <TableCell data-label="Taken" className="text-muted-foreground">
-                        {dateTime(backup.modified)}
-                      </TableCell>
-                      <TableCell data-label="Age" className="text-muted-foreground">
-                        {since(backup.modified)}
-                      </TableCell>
-                      <TableCell data-label="Size" className="text-right tnum">{bytes(backup.bytes)}</TableCell>
-                      <TableCell data-label="State">
-                        {backup.partial ? (
-                          <StatusBadge
-                            tone="warn"
-                            title="Either this backup is running right now, or it was aborted. A .partial file cannot be restored."
-                          >
-                            incomplete
-                          </StatusBadge>
-                        ) : (
-                          <StatusBadge tone="ok">complete</StatusBadge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              <div className="flex flex-wrap items-center gap-4">
-                <Stat
-                  label="Finished archives"
-                  value={count(rows.filter((backup) => !backup.partial).length)}
-                  hint={`together ${bytes(
-                    rows
-                      .filter((backup) => !backup.partial)
-                      .reduce((sum, backup) => sum + backup.bytes, 0),
-                  )}`}
-                />
-                <Separator orientation="vertical" className="h-10" />
-                {/* One of the three sentences that stay (2026-09-14): it names an absence,
-                    and nothing on the screen would otherwise say that there is no second copy. */}
-                <p className="max-w-prose text-xs text-muted-foreground">
-                  Every archive sits on the same disk as the thing it is a copy of - there is no
-                  off-site copy.
-                </p>
-                <Button asChild variant="outline" size="sm" className="ml-auto">
-                  <Link to="/operations/restore">
-                    <DownloadIcon aria-hidden />
-                    Restore
-                  </Link>
-                </Button>
-              </div>
-            </>
           )}
         </QueryState>
       </CardContent>

@@ -138,6 +138,7 @@ function draw() {
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/", component: OverviewPage }),
     createRoute({ getParentRoute: () => root, path: "/operations", component: nothing }),
+    createRoute({ getParentRoute: () => root, path: "/operations/backups", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/season", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/journal", component: nothing }),
@@ -435,6 +436,23 @@ describe("OverviewPage - the order of the number row (steward/64)", () => {
  * The dash matters as much as the number: `players` is optional on purpose (see `Service` in
  * `api.ts`), and "nobody has said" must never settle into a confident `0`.
  */
+/**
+ * steward/112: the tile linked nowhere - the only one of the six that did not, since `/operations`
+ * carried its own copy of the archive list and the new `/operations/backups` (steward/95) is where
+ * that list lives now.
+ */
+describe("OverviewPage - the Latest backup tile links to the page that holds the detail (steward/112)", () => {
+  it("points the tile at /operations/backups", async () => {
+    vi.stubGlobal("fetch", backend({ backups: [backup(2), dump(2)] }))
+    draw()
+
+    const label = await screen.findByText("Latest backup")
+    const anchor = label.closest("a")
+    expect(anchor).not.toBeNull()
+    expect(anchor?.getAttribute("href")).toBe("/operations/backups")
+  })
+})
+
 describe("OverviewPage - the heading is how many are in the game (steward/64)", () => {
   it("says the count instead of the page's own name", async () => {
     vi.stubGlobal(

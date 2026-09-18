@@ -777,6 +777,15 @@ both of which will mislead the next person who checks the result:
   ctime from the minute of the restore, and the service's four carried a ctime one second later.
   That one second is the whole sequence: tar first, service second.
 
+**Restoring `steward-ui-config` brings back its VAPID keypair too, and that is not a neutral
+byte** (steward/117, filed the day steward/98 shipped Web Push). A browser's push subscription is
+bound to the `applicationServerKey` it subscribed under; overwrite the keypair — by restoring an
+older archive, or by `docker volume rm steward-ui-config` for any other reason — and every row in
+`steward_push_subscription` survives while none of them verify against a push service any more.
+There is no migration for this today: the fix is asking whoever cares to resubscribe. If the
+answer to "is that acceptable" is ever no, the file to write is a follow-up ticket, not a rewrite of
+this paragraph.
+
 ### The world volumes are a different problem
 
 Nothing here backs the four `mc-*` world volumes up to S3: a world is recreatable from a seed and a

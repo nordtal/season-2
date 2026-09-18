@@ -81,16 +81,23 @@ public final class Channels {
      * A {@code payment_request} row was written across the seam. Payload: empty.
      *
      * <p>Matches {@code pg_notify('nordtal_payment', '')} in every write of
-     * {@code PaymentRequestDao} that belongs to the seam - {@code requestTab}, {@code failTab},
-     * {@code requestCancel}, {@code recordCancelled} and {@code recordMatch}. Each one carries it
-     * inside the statement, in a CTE over the rows that actually changed, so a notification only
-     * exists for a write that committed and a no-op write is silent.</p>
+     * {@code PaymentRequestDao} that belongs to the seam - {@code requestTab}, {@code attachTab},
+     * {@code failTab}, {@code requestCancel}, {@code recordCancelled}, {@code recordMatch} and
+     * {@code noticeOnce}. Each one carries it inside the statement, in a CTE over the rows that
+     * actually changed, so a notification only exists for a write that committed and a no-op write
+     * is silent.</p>
      *
-     * <p>Two processes will listen (steward/109): steward-worker, so a requested tab is created in
-     * the seconds the user is looking at the message rather than at the next poll, and discord-bot,
-     * so the link or the failure reaches the same message the moment it exists. Both halves poll as
-     * well - the poll is the guarantee, this only makes it feel immediate - and both re-read the
-     * queue in full on every signal and every reconnect, which is why the payload is empty.</p>
+     * <p>Two processes listen (steward/109): steward-worker, so a requested tab is created in the
+     * seconds the user is looking at the message rather than at the next poll, and discord-bot, so
+     * the link, the failure, the booking and an unmatchable payment each reach Discord the moment
+     * they exist. Both halves poll as well - the poll is the guarantee, this only makes it feel
+     * immediate - and both re-read their queues in full on every signal and every reconnect, which
+     * is why the payload is empty.</p>
+     *
+     * <p>The signal deliberately says nothing about which of the seven writes it was. Both
+     * listeners run every one of their refreshes on every wake-up, which is the rule this whole
+     * mechanism is built on: a listener that decided a notification was not for it has no second
+     * chance, because a notification is delivered once.</p>
      *
      * <p>Since 2026-09-18 the channel exists before either listener does. That is the wrong way
      * round only in appearance: a {@code LISTEN} on a channel nobody publishes on and a working one

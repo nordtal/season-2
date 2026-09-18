@@ -1,6 +1,7 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
 import eu.nordtal.s2.common.payment.PaymentMatch;
+import eu.nordtal.s2.common.payment.PaymentNotice;
 import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequestStatus;
 import eu.nordtal.s2.common.payment.PaymentRequests;
@@ -477,5 +478,129 @@ class PaymentRequestIntegrationTest {
                 () -> assertFalse(requests.noticeOnce(555L, "UNMATCHED", "second poll")),
                 () -> assertFalse(requests.noticeOnce(555L, "UNMATCHED", "third poll"))
         );
+    }
+
+    @Test
+    @DisplayName("a notice waits in the table until somebody claims it, and is claimed only once")
+    void aNoticeIsAnOutbox() {
+        // steward/109 split the writer from the speaker: steward-worker finds the money and writes
+        // the row, discord-bot is the only process that can put it in a channel. Before that the
+        // two were one process and the row was written purely so the line was not repeated - a bot
+        // that died between the INSERT and the channel post lost the alert forever, and nothing
+        // recorded that it had. V25's `posted` column is what makes that a queue instead.
+        requests.noticeOnce(555L, "UNMATCHED", "56.00 EUR with no reference");
+        requests.noticeOnce(556L, "EXPIRED_REFERENCE", "NT-ABCDEF is not open");
+
+        assertEquals(List.of(555L, 556L),
+                requests.unpostedNotices().stream().map(PaymentNotice::bunqPaymentId).toList(),
+                "oldest first, so the admin channel reads in the order the money arrived");
+        assertEquals("56.00 EUR with no reference", requests.unpostedNotices().getFirst().detail());
+        assertEquals("UNMATCHED", requests.unpostedNotices().getFirst().reason());
+
+        assertTrue(requests.claimNotice(555L));
+        assertFalse(requests.claimNotice(555L),
+                "two bots, or one bot and a poll racing itself, must not both post the same line");
+
+        assertEquals(List.of(556L),
+                requests.unpostedNotices().stream().map(PaymentNotice::bunqPaymentId).toList(),
+                "a claimed notice leaves the queue; without that it is posted on every pass forever");
+    }
+
+    @Test
+    @DisplayName("a notice nobody claims stays in the queue across a restart")
+    void anUnclaimedNoticeSurvives() {
+        requests.noticeOnce(557L, "UNMATCHED", "money nobody heard about");
+
+        // The row is written by one container and read by another, so "the process that would have
+        // said it is gone" is the normal case rather than an accident.
+        assertEquals(1, requests.unpostedNotices().size());
+        assertEquals(1, requests.unpostedNotices().size(), "reading is not claiming");
+    }
+
+    // ---------------------------------------------------------------- the bot's queue
+
+    @Test
+    @DisplayName("matched money waits in a queue of its own until it is booked")
+    void matchedMoneyWaitsToBeBooked() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
+        assertTrue(requests.matchedAwaitingBooking().isEmpty(),
+                "an open request with a tab is not money");
+
+        assertTrue(requests.recordMatch(request.id(), 4711L, 500, PaymentMatch.REFERENCE));
+
+        final List<PaymentRequest> queue = requests.matchedAwaitingBooking();
+        assertEquals(List.of(request.reference()), references(queue));
+        assertAll(
+                // The two the booking needs, and the reason the predicate is matched_cents rather
+                // than bunq_payment_id: what is granted is derived from what ARRIVED, and
+                // settleManually writes a payment id with no amount behind it.
+                () -> assertEquals(500, queue.getFirst().matchedCents()),
+                () -> assertEquals(4711L, queue.getFirst().bunqPaymentId()),
+                () -> assertEquals(PaymentMatch.REFERENCE, queue.getFirst().matchedBy())
+        );
+
+        assertTrue(requests.settle(request.id(), 4711L));
+        assertTrue(requests.matchedAwaitingBooking().isEmpty(),
+                "booking is the exit; without it the same money is granted on every pass");
+    }
+
+    @Test
+    @DisplayName("a manual settlement never enters the booking queue")
+    void aManualSettlementIsNotWaitingToBeBooked() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+
+        assertTrue(requests.settleManually(request.id()));
+
+        final PaymentRequest settled = requests.byId(request.id()).orElseThrow();
+        assertAll(
+                () -> assertEquals(PaymentRequestStatus.PAID, settled.status()),
+                () -> assertEquals(PaymentMatch.MANUAL, settled.matchedBy(),
+                        "an audit that cannot tell a hand-granted request from a matched one is"
+                                + " missing the only thing anybody asks it afterwards"),
+                () -> assertNull(settled.matchedCents(),
+                        "nothing arrived, so there is no amount to record - and that is exactly why"
+                                + " matchedAwaitingBooking keys on matched_cents"),
+                () -> assertTrue(requests.matchedAwaitingBooking().isEmpty())
+        );
+    }
+
+    @Test
+    @DisplayName("closing a request and asking for its tab to go away is one transaction")
+    void closingAndCancellingAreOneWrite() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
+
+        assertTrue(requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED));
+
+        final PaymentRequest closed = requests.byId(request.id()).orElseThrow();
+        assertAll(
+                () -> assertEquals(PaymentRequestStatus.EXPIRED, closed.status()),
+                () -> assertNotNull(closed.cancelRequested(),
+                        "a closed row whose bunq.me URL still works is a link somebody can pay,"
+                                + " and that payment lands on a reference nothing books"),
+                () -> assertEquals(List.of(request.reference()), references(requests.tabsToCancel()))
+        );
+    }
+
+    @Test
+    @DisplayName("closeAndRequestCancel refuses to be used as a settlement")
+    void closingIsNotPaying() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+
+        // PAID means money arrived and something has to be granted for it. Letting it through here
+        // would close the row without a grant, silently.
+        assertThrows(IllegalArgumentException.class,
+                () -> requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.PAID));
+        assertEquals(PaymentRequestStatus.OPEN, requests.byId(request.id()).orElseThrow().status());
+    }
+
+    @Test
+    @DisplayName("byId answers the one row the waiting purchase message is about")
+    void byIdFindsTheRow() {
+        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+
+        assertEquals(request.reference(), requests.byId(request.id()).orElseThrow().reference());
+        assertTrue(requests.byId(java.util.UUID.randomUUID()).isEmpty());
     }
 }

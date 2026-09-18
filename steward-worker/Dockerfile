@@ -48,7 +48,8 @@ COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN apt-get update \
     && apt-get install --no-install-recommends -y zstd \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p config \
+    && mkdir -p config bunq \
+    && chmod 700 bunq \
     && chmod +x /app/docker-entrypoint.sh
 
 # WHAT THIS CONTAINER IS FOR, and what it is not:
@@ -84,6 +85,23 @@ RUN apt-get update \
 # There is no setting for WHICH release to follow. It is always the newest published one.
 ENV NORDTAL_STEWARD_CONFIG_DIR=/app/config
 
+# THE BANK (steward/109). This container is the only one in the network that holds a bunq
+# credential, and /app/bunq is the `bunq-context` volume it used to share with discord-bot. The
+# context file is an installed API key bound to a device and an IP, so it is:
+#
+#   - kept in a Docker-managed volume, never on the host filesystem, mode 700;
+#   - REGENERATED after a move, never copied - a context created by another container will be
+#     rejected by bunq, and the failure is an HTTP error inside the poll rather than at startup.
+#
+#   NORDTAL_STEWARD_BUNQ_API_KEY      the bunq API key
+#   NORDTAL_STEWARD_BUNQ_ACCOUNT_ID   the bunq monetary account id
+#
+# Both or neither. Neither means this container starts, says "bunq is OFF" in one line, and no
+# payment is ever noticed - which is a valid season and is exactly why the two variables carry no
+# `:?` in compose.yml. That one line is the only thing that distinguishes it from a deployment
+# whose environment file still says NORDTAL_BOT_BUNQ_*.
+ENV NORDTAL_STEWARD_BUNQ_CONTEXT_PATH=/app/bunq/bunq-config.conf
+
 # The worker's own jar lives where it puts it: under volumes-root, beside the four Minecraft
 # volumes and the bot's, so that installing it needs no special case anywhere in the code.
 ENV JAR_DIR=/volumes/steward-worker
@@ -96,6 +114,6 @@ ENV JAR_PREFIX=steward-worker
 HEALTHCHECK --interval=10s --timeout=3s --start-period=120s --retries=30 \
     CMD test -f /tmp/steward-worker-ready
 
-VOLUME ["/app/config"]
+VOLUME ["/app/config", "/app/bunq"]
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

@@ -1,8 +1,15 @@
 # discord-bot — running it
 
-The one season 2 process with no Minecraft dependency. At runtime it talks to **PostgreSQL, the
-Discord gateway and bunq** and to nothing else, so it can be deployed and operated long before the
-proxy or any Paper backend exists.
+The one season 2 process with no Minecraft dependency. At runtime it talks to **PostgreSQL and the
+Discord gateway** and to nothing else, so it can be deployed and operated long before the proxy or
+any Paper backend exists.
+
+**It has no bunq key and no bunq SDK** (steward/109). Buying access still works exactly as it did
+from a member's side; what changed is who makes the call. The bot writes a row asking for a payment
+link, `steward-worker` — the only container in the network that holds a bank credential — creates the
+bunq.me tab and writes the link back, and `nordtal_payment` wakes the bot so the waiting message
+fills itself in. Money that arrives is found by the worker and *booked* here: the tier, the grant,
+the role, the DM and the public thank-you are all Discord's business and stayed.
 
 It does not apply the schema — the `steward-worker` container does, because a release that adds a table is a
 release that adds a migration and the two belong to one owner. The bot runs Flyway's `validate()` at
@@ -22,8 +29,11 @@ This file is only about starting the container; the deployment as a whole is
   no member cache, and both reconciles read that cache.
 - The **guild id, four role ids and the admin channel id**, plus a role and two channel ids per
   language. None has a usable default — the bot refuses to start until they are real.
-- A **bunq API key** and the numeric monetary account id.
 - Docker with the compose plugin.
+- If access is to be **sold**: a bunq API key and monetary account id, on the `steward-worker`
+  service as `NORDTAL_STEWARD_BUNQ_API_KEY` / `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`. Nothing here reads
+  them. A deployment without them runs perfectly and sells nothing; `steward-worker` says which of
+  the two it is in one line at startup.
 
 ## Configuration is environment variables only
 
@@ -101,17 +111,23 @@ The same compose file. What changes is `.env`:
 - Nothing is built — `docker compose pull` first.
 - `POSTGRES_BIND` stays on `127.0.0.1`. The proxy and the plugins reach the database over the compose
   network; the published port exists only for backups and a `psql` from the host.
-- `NORDTAL_BOT_BUNQ_ENVIRONMENT=PRODUCTION`, with the `bunq-context` volume emptied first — a bunq
-  context file belongs to exactly one environment.
+- The bunq credentials are not here at all any more. They belong to `steward-worker`, together with
+  the `bunq-context` volume; see [../steward-worker/README.md](../steward-worker/README.md).
 
 ## Things that bite
 
-- **The payment watermark stamps itself on the first start** and is never rewritten. Payments created
-  before it are ignored forever. On a fresh database leave `NORDTAL_ACCESS_PAYMENT_WATERMARK` empty.
-  Starting a *test* bot against what will later be the production database fixes the production
-  watermark at that moment.
-- **The bunq API context is registered from the host it is first used on.** Create the `bunq-context`
-  volume where the bot will actually run; never copy a context file from a laptop.
+- **`NORDTAL_ACCESS_PAYMENT_WATERMARK` and `NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT` are gone**
+  (steward/109). They are `NORDTAL_STEWARD_BUNQ_WATERMARK` and
+  `NORDTAL_STEWARD_BUNQ_RECENT_PAYMENT_COUNT` on the worker. The watermark is the *same row* in
+  `bot_setting`, so a deployment that has already stamped one keeps it across the move. A file that
+  still carries the old names loses those two lines with a WARN and a `.bak`, and the bot starts.
+- **`payment.request-ttl-hours` deliberately did not move.** The bot writes the `payment_request`
+  row, so that number becomes `expires` and is the same one the buyer is told the link is good for.
+  The worker expires rows by reading the column, never the setting.
+- **"Your payment link is being created" has three exits**, and all three are the bot's: the link,
+  the refusal (`tab_failed`), and — after ten minutes — a line naming the reference. An ephemeral
+  message cannot outlive this process, so a bot restarted mid-purchase leaves that message on its
+  last sentence; the request, its reference and its tab are all still in the table.
 - **The message publish and the role reconcile touch real channels and roles** the moment the ids
   point at a real guild. Against the production guild, point the language channels at admin-only
   channels first.
@@ -124,5 +140,9 @@ The same compose file. What changes is `.env`:
 - **That a grant actually lets somebody in** — grants are rows; only the proxy enforces them.
 - **`/phase`** — it writes the phase, but needs a plugin listening.
 
-Everything else — the purchase flow, tab creation and cancellation, settlement, the tier rules, roles,
-the reconciles, expiry DMs and the admin log — is exercisable with the bot alone.
+- **Anything that needs a bunq answer** — the link arriving, a refused tab, money being matched. The
+  bot's half of all three is a row it reads; producing that row needs `steward-worker` and a real
+  account.
+
+Everything else — the purchase flow, settlement, the tier rules, roles, the reconciles, expiry DMs
+and the admin log — is exercisable with the bot alone.

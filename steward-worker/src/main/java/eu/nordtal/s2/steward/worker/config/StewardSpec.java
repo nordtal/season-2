@@ -8,6 +8,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 import java.util.List;
 
@@ -278,6 +279,19 @@ public interface StewardSpec {
         return true;
     }
 
+    @Order(13)
+    @Key("bunq")
+    @Comment({
+            "The bank. This container is the only one in the network that holds a bunq credential",
+            "and the only one that makes a call to bunq (steward/109); the Discord bot asks for a",
+            "payment link by writing a row and reads back what happened.",
+            "",
+            "ALL OF IT IS OPTIONAL, both halves of the key together. A season without a bunq",
+            "account is a season where everything works except buying access."
+    })
+    @Explain("The bunq account payments arrive in. This is the only process in the network that holds the key; leave it empty for a season that sells nothing.")
+    BunqSpec bunq();
+
     @Order(15)
     @Key("docker")
     @Comment({
@@ -347,6 +361,122 @@ public interface StewardSpec {
     })
     @Explain("Keeps the Docker socket away from steward-ui - offers a list, a log, a search and one console line, never stop or start. Without a token below it refuses to serve at all.")
     ApiSpec api();
+
+    /**
+     * bunq: the credentials, where the API context file lives, and the poll that asks the bank what
+     * has arrived.
+     *
+     * <p>Moved here from {@code discord-bot}'s {@code BotSpec.BunqSpec} and
+     * {@code AccessSpec.PaymentSpec} on 2026-09-18 (steward/109). What came with it is everything
+     * that is a question about <em>bunq</em>; what stayed in {@code access.yml} is everything that is
+     * a question about a <em>purchase</em> - {@code request-ttl-hours} in particular, because the bot
+     * is what writes the row and stamps its expiry, and the sentence "this link is valid for N hours"
+     * is printed by the same process out of the same value.</p>
+     */
+    @ConfigSpec
+    interface BunqSpec {
+
+        @Order(1)
+        @Key("api-key")
+        @Comment({
+                "bunq API key. Set NORDTAL_STEWARD_BUNQ_API_KEY instead of filling this in.",
+                "",
+                "IT WAS NORDTAL_BOT_BUNQ_API_KEY until 2026-09-18 and is read by a different",
+                "container now. An environment file still carrying the old name leaves this empty,",
+                "which is a VALID state - so the stack comes up healthy and silently never notices",
+                "a payment again. That is why this container says which of the two it is, in one",
+                "line, on every start."
+        })
+        @Secret
+        @NoExplanationNeeded
+        default String apiKey() {
+            return "";
+        }
+
+        @Order(2)
+        @Key("account-id")
+        @Comment({
+                "The bunq monetary account id that is polled and billed.",
+                "A number. The worker will not start if it is set and not numeric."
+        })
+        @Explain("A number, not an IBAN or alias - the worker refuses to start if it is non-numeric, or if only one half of the key pair is filled in.")
+        default String accountId() {
+            return "";
+        }
+
+        // A PRODUCTION/SANDBOX `environment` key deliberately does not exist, and did not exist in
+        // BotSpec either: there is no sandbox key, so it would be a switch on the one code path
+        // that moves other people's money whose only remaining use is to be set wrongly. Do not
+        // reintroduce it without a sandbox key.
+
+        @Order(3)
+        @Key("context-path")
+        @Comment({
+                "Where the bunq API context file is kept. It holds credentials and lives in a",
+                "Docker-managed volume, never on the host filesystem.",
+                "Empty means the working directory.",
+                "",
+                "ITS CONTENTS ARE NEVER COPIED BETWEEN MACHINES OR CONTAINERS. bunq binds a",
+                "context to the device and address it was registered from, so a context carried",
+                "over from somewhere else is refused by the bank rather than reused. A fresh",
+                "container with an empty volume registers a new one on its first call."
+        })
+        @Explain("Where the bunq API context file (holds credentials) is kept. Never copy one in from elsewhere - bunq binds it to the device it was registered from.")
+        default String contextPath() {
+            return "";
+        }
+
+        @Order(4)
+        @Key("poll-interval-seconds")
+        @Comment({
+                "How often bunq is asked about open tabs and recent payments.",
+                "",
+                "This is the poll that COSTS SOMETHING - it is HTTP to a bank - which is why it is",
+                "its own number and not the seam's. The bot's side of the seam re-reads the",
+                "database on access.yml's payment.poll-interval-seconds, and both are woken early",
+                "by nordtal_payment; the polls are the guarantee underneath that."
+        })
+        @Explain("How often the bank itself is asked. This is an HTTP call to bunq, unlike the bot's own poll of the same purchase - the two are separate numbers on purpose.")
+        default int pollIntervalSeconds() {
+            return 30;
+        }
+
+        @Order(5)
+        @Key("watermark")
+        @Comment({
+                "Payments created before this instant are ignored, completely and forever.",
+                "",
+                "LEAVE THIS EMPTY. On its first start the process stamps the current instant into",
+                "the database and uses that from then on, so the cut-off is the moment this",
+                "deployment first ran rather than a date somebody guessed. The stored value is",
+                "written once and never rewritten - including across this setting moving here from",
+                "access.yml, because it is the same row in the same table.",
+                "",
+                "Set it only to deliberately choose a different cut-off; ISO-8601, UTC, e.g.",
+                "2026-09-01T00:00:00Z. A value here overrides the stored one without replacing it,",
+                "so emptying this again falls back to the original first-start instant.",
+                "",
+                "The cut-off is not an optimisation: bunq returns the last 50 payments on the",
+                "account whatever the database knows, so without one the first poll would book up",
+                "to 50 historical payments - grants, roles, DMs and public thank-yous included."
+        })
+        @Explain("Leave empty - the first start stamps this itself. Setting it manually risks booking historical payments the wrong side of the cut-off.")
+        default String watermark() {
+            return "";
+        }
+
+        @Order(6)
+        @Key("recent-payment-count")
+        @Comment({
+                "How many recent payments the fallback reference scan looks at per poll.",
+                "The primary match path is the tab's own result inquiries; this only catches",
+                "money that reached the account outside a tab."
+        })
+        @Explain("How many recent payments the fallback scan checks per poll, beyond the primary tab-matching path.")
+        default int recentPaymentCount() {
+            return 50;
+        }
+    }
 
     /** Where the daemon is, and which compose project is ours. */
     @ConfigSpec
@@ -712,6 +842,88 @@ public interface StewardSpec {
         @Explain("How long one volume's snapshot may run before this gives up and restarts the servers. The network stays down for the whole wait, so a FAILED result at the end pings the admin role rather than going unnoticed.")
         default int patienceMinutes() {
             return 30;
+        }
+
+        @Order(9)
+        @Key("remote")
+        @Comment({
+                "WHERE A COPY GOES THAT IS NOT ON THIS DISK. Empty endpoint means there is none,",
+                "which is what a fresh deployment has: every archive then lives on the same disk as",
+                "the volume it is a copy of, and backup.keep of them protect against a mistake and",
+                "against nothing else.",
+                "",
+                "THIS IS WHERE THE TARGET IS WRITTEN DOWN, AND NOT YET WHERE IT IS USED. The nightly",
+                "run still only writes into backup.output-root; nothing in this service uploads yet.",
+                "The keys are here rather than in setup.sh because a credential that only a shell",
+                "script knows cannot be changed from the interface, and steward/95 made the backup",
+                "page the one place the target is read and typed. steward/08 is the upload itself."
+        })
+        @Explain("Where a copy goes that is not on this disk. Empty endpoint means there is none, and every archive then lives on the same disk as the volume it is a copy of.")
+        RemoteSpec remote();
+
+        /**
+         * The offsite target: an S3 bucket, and the two credentials for it.
+         *
+         * <p><b>The two keys are {@link eu.nordtal.jcore.config.spec.annotation.Secret}, and that is
+         * what makes them typeable from a browser without being readable in one.</b>
+         * {@code ConfigApi} sends a secret as {@code filled: true} and no value, so the backup page can
+         * say that a key is set without the key itself ever being in a browser cache, a screen
+         * recording or the next XSS - and a new one can still be typed over it, because typing does not
+         * require having seen the old one. The leaf-key heuristic in {@code ConfigEntry} would catch
+         * both of these names anyway; the annotation is there so the masking does not depend on what
+         * the key happens to be called.</p>
+         */
+        @ConfigSpec
+        interface RemoteSpec {
+
+            @Order(1)
+            @Key("endpoint")
+            @Comment({
+                    "The S3 endpoint, with scheme - https://<region>.your-objectstorage.com for a",
+                    "Hetzner Storage Box. Empty means no offsite copy at all, and every other key here",
+                    "is then unread."
+            })
+            @Explain("Empty means there is no offsite copy - every archive then lives on the same disk as the thing it is a copy of.")
+            default String endpoint() {
+                return "";
+            }
+
+            @Order(2)
+            @Key("bucket")
+            @Comment("The bucket the archives are written into.")
+            @Explain("The bucket the archives are written into.")
+            default String bucket() {
+                return "";
+            }
+
+            @Order(3)
+            @Key("prefix")
+            @Comment({
+                    "A path inside the bucket, so one bucket can hold more than one deployment.",
+                    "Empty writes to the root of the bucket."
+            })
+            @Explain("Lets one bucket hold more than one deployment. Empty writes to the root of the bucket.")
+            default String prefix() {
+                return "";
+            }
+
+            @Order(4)
+            @Key("access-key")
+            @Secret
+            @Comment("The access key id. Sent to a browser as \"set\" or \"not set\", never as itself.")
+            @Explain("Never leaves this process: the interface is told whether it is set, not what it is.")
+            default String accessKey() {
+                return "";
+            }
+
+            @Order(5)
+            @Key("secret-key")
+            @Secret
+            @Comment("The secret access key. Sent to a browser as \"set\" or \"not set\", never as itself.")
+            @Explain("Never leaves this process: the interface is told whether it is set, not what it is.")
+            default String secretKey() {
+                return "";
+            }
         }
     }
 }

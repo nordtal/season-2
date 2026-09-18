@@ -30,12 +30,31 @@ import java.util.List;
  * This version does not override {@code delete()} - it delegates to the superclass - and does not
  * touch OkHttp internals.
  *
+ * <h2>Where it lives now, and what that changed (steward/109)</h2>
+ * It was in {@code discord-bot} until 2026-09-18, where JDA and the SDK genuinely shared a
+ * classpath. bunq moved to {@code steward-worker}, and <b>there is no JDA here</b>: measured on
+ * 2026-09-18, {@code :steward-worker:dependencies --configuration runtimeClasspath} resolves
+ * {@code com.squareup.okhttp3:okhttp:3.14.9}, brought by the SDK itself and by nothing else. So the
+ * conflict this class was written for does not exist in this module today.
+ *
+ * <p><b>It is kept anyway, deliberately.</b> It is compatible with both majors - every method it
+ * overrides is non-final and identically shaped in 3.14.9 - so what it costs is a file and what it
+ * buys is that the module does not depend on nothing ever putting OkHttp 5 on this classpath. A
+ * shim that only matters under a condition that is currently false is still cheaper than the
+ * {@code VerifyError} at class load that its absence produced once.</p>
+ *
+ * <p><b>The one behavioural consequence, written down rather than discovered:</b> on OkHttp 3 the
+ * inherited no-argument {@code delete()} calls {@code delete(Util.EMPTY_REQUEST)}, whose body is not
+ * a {@link BunqRequestBody}, so {@link #method(String, RequestBody)} below throws
+ * {@code BunqException}. Nothing in this repository reaches it - {@code BunqGateway} makes exactly
+ * four kinds of call (create, get, list, update: POST, GET, PUT) and never a DELETE - but a fifth
+ * one that did would fail here rather than at bunq.</p>
+ *
  * <h2>Rules</h2>
- * <b>Do not delete this file.</b> It is required as long as JDA and the bunq SDK share a
- * classpath, which they do in this module and only in this module. <b>Re-check it against the
- * SDK's own sources on any bunq SDK or JDA bump</b>: it is a copy, so a fix upstream does not
- * reach us, and a change upstream that we do not mirror silently reverts to old behaviour.
- * Diffed against the 1.28.0.6 sources on 2026-08-30.
+ * <b>Do not delete this file.</b> <b>Re-check it against the SDK's own sources on any bunq SDK or
+ * OkHttp bump</b>: it is a copy, so a fix upstream does not reach us, and a change upstream that we
+ * do not mirror silently reverts to old behaviour. Diffed against the 1.28.0.6 sources on
+ * 2026-08-30.
  */
 @Getter
 @Setter

@@ -4,7 +4,6 @@ import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequestStatus;
 import eu.nordtal.s2.common.payment.PaymentRequests;
 
-import eu.nordtal.s2.discordbot.access.bunq.BunqGateway;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 
 import lombok.extern.slf4j.Slf4j;
@@ -12,31 +11,42 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Optional;
 
 /**
- * The purchase state machine, without any Discord in it.
+ * The purchase state machine, without any Discord in it - and, since steward/109, without any bank
+ * in it either.
  * <p>
  * Everything that has to happen in a particular order lives here, so the Discord listener is glue
- * and the poll loop and the admin commands share the same rules rather than each having their own
- * copy.
+ * and the admin commands share the same rules rather than each having their own copy.
  * </p>
  *
- * <h2>Closing a request means closing its tab</h2>
- * {@link #close(PaymentRequest, PaymentRequestStatus)} calls bunq before it touches the row. A
- * request that is {@code SUPERSEDED} in our table while its bunq.me URL still works is a link
- * somebody can still pay - and that payment would then arrive against a reference the bot refuses
- * to book on its own, which is a support ticket rather than a purchase.
+ * <h2>It writes rows; steward-worker makes the calls</h2>
+ * {@link #confirm(PaymentRequest)} used to call bunq <b>synchronously, from inside a Discord
+ * interaction</b>, and {@link #close(PaymentRequest, PaymentRequestStatus)} called it again. Those
+ * two calls were the whole reason the bunq key had to live in this process: a Discord bot with a
+ * credential that moves money, blocking a worker thread on a bank while somebody waits on a button.
+ * <p>
+ * Both are now a column. {@code confirm} sets {@code tab_requested} and {@code close} sets
+ * {@code cancel_requested}; steward-worker holds the key, makes the call and writes the answer back,
+ * and {@code nordtal_payment} wakes both sides so neither waits for a poll. What the user sees in
+ * between is "your payment link is being created", and what they see if it fails is
+ * {@code tab_failed} - a state that exists precisely so that sentence has an exit.
+ * </p>
+ *
+ * <h2>Closing a request still means closing its tab</h2>
+ * A request that is {@code SUPERSEDED} in our table while its bunq.me URL still works is a link
+ * somebody can still pay - and that payment would then arrive against a reference nothing books
+ * automatically, which is a support ticket rather than a purchase. The difference is only that the
+ * closing and the asking are one transaction here and the bank call happens a second later, in
+ * another container.
  */
 @Slf4j
 public final class Purchases {
 
     private final PaymentRequests requests;
-    private final BunqGateway bunq;
     private final Tiers tiers;
     private final AccessSpec config;
 
-    public Purchases(final PaymentRequests requests, final BunqGateway bunq, final Tiers tiers,
-                     final AccessSpec config) {
+    public Purchases(final PaymentRequests requests, final Tiers tiers, final AccessSpec config) {
         this.requests = requests;
-        this.bunq = bunq;
         this.tiers = tiers;
         this.config = config;
     }
@@ -77,42 +87,36 @@ public final class Purchases {
     }
 
     /**
-     * Creates the bunq.me tab for an open request and stores it.
+     * Asks steward-worker for the bunq.me tab.
+     *
+     * <p>Returns as soon as the row is written - which is the point. The link does not exist yet and
+     * this process could not make it; the caller shows "your payment link is being created" and
+     * fills it in when {@code nordtal_payment} says the row has one, or shows {@code tab_failed}
+     * when the bank said no.</p>
+     *
+     * <p>Asking again is the retry: {@code requestTab} clears the previous failure in the same
+     * statement, so a row can go from refused back to pending without any state living in this
+     * process.</p>
      *
      * @param request the open request
-     * @return the same request with its tab and share URL filled in
-     * @throws IllegalStateException if the request was closed while the tab was being created
+     * @return {@code true} when a tab is now wanted; {@code false} when the request was closed
+     *         underneath us, or already has a tab - in which case the caller already has the link
      */
-    public PaymentRequest confirm(final PaymentRequest request) {
+    public boolean confirm(final PaymentRequest request) {
         if (request.tab().isPresent()) {
-            return request;
+            return false;
         }
-
-        final BunqGateway.Tab tab = bunq.createTab(request.amountCents(), request.reference());
-        if (!requests.attachTab(request.id(), tab.id(), tab.shareUrl())) {
-            // The row closed underneath us - an expiry sweep, or the user started another
-            // purchase in a second client. The tab would then be unreachable, so close it.
-            bunq.cancelTab(tab.id());
-            throw new IllegalStateException("Request " + request.reference() + " was closed while its "
-                    + "bunq.me tab was being created");
-        }
-
-        return new PaymentRequest(request.id(), request.reference(), request.discordId(), request.days(),
-                request.amountCents(), request.donationCents(), request.status(), tab.id(),
-                tab.shareUrl(), null, request.created(), request.expires(), null,
-                request.tabRequested(), request.tabFailed(), request.cancelRequested(),
-                request.tabCancelled(), request.matchedCents(), request.matchedBy());
+        return requests.requestTab(request.id());
     }
 
     /**
-     * Cancels a request's bunq tab and closes the row.
+     * Closes a request and asks for its bunq tab to be cancelled, in one transaction.
      *
      * @param request the request to close
      * @param status  {@code SUPERSEDED}, {@code EXPIRED} or {@code CANCELLED}
      */
     public void close(final PaymentRequest request, final PaymentRequestStatus status) {
-        request.tab().ifPresent(bunq::cancelTab);
-        if (requests.close(request.id(), status)) {
+        if (requests.closeAndRequestCancel(request.id(), status)) {
             log.info("Request {} is now {}", request.reference(), status);
         }
     }

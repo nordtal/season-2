@@ -97,15 +97,29 @@ class AdminSourceTest {
         // a root. /smp status is declared open - CatalogueTest names it and announce as the only
         // two - and a player who typed it got "Incorrect argument for command" with a red caret,
         // because the node had been hidden from their tree (finding 117, seen on the local stack).
+        //
+        // steward/106, 2026-09-17: the literal asked for here used to be
+        // `adminOnly(child) ? sub.requires(this::mayUse) : sub`. Both adapters now ask gate(child),
+        // which answers the same question about the admin flag AND the one steward/106 added about
+        // Surface.GAME, and returns null for a node that is open to everyone - so "gated only when
+        // something below it says so" is still exactly what is being read, through one method
+        // instead of one ternary. The behaviour behind both halves is held where a tree can
+        // actually be built: AdminCommandsAreGoneFromTheGameTest (paper-common) and
+        // VelocityCommandsGameSurfaceTest (network-control) assert /smp status stays open to a
+        // player while /smp farmreset and /access do not.
         for (final String relative : List.of(
                 "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/PaperCommands.java",
                 "network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityCommands.java")) {
             final String source = read(relative);
-            assertTrue(source.contains("adminOnly(child) ? sub.requires(this::mayUse) : sub"),
+            assertTrue(source.contains("builder.then(gate == null ? sub : sub.requires(gate));"),
                     relative + " gates every child of a root, so an open command declared under an"
                             + " admin root is invisible to the people it exists for");
             assertTrue(source.contains("declaration().adminOnly()"),
                     relative + " decides the gate without asking the declaration");
+            assertTrue(source.contains("declaration().surfaces().contains(") && source.contains("Surface.GAME)"),
+                    relative + " decides the gate without asking which surfaces the declaration"
+                            + " carries - steward/106: a command off Surface.GAME is not registered"
+                            + " for a player at all");
         }
         assertTrue(Catalogue.all().stream().anyMatch(declaration -> !declaration.adminOnly()
                         && declaration.path().size() > 1),

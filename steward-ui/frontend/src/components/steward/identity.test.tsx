@@ -253,6 +253,9 @@ describe("MinecraftFace - the name and the head, never the uuid", () => {
   it("says a name has not been observed yet, rather than showing nothing", () => {
     render(<MinecraftFace mcUuid={MC_UUID} now={NOW} />)
 
-    expect(screen.getByText(/no name observed yet/i)).toBeTruthy()
+    // Shortened from "no name observed yet" on 2026-09-17 (steward/103): the long form was drawn
+    // as `no name observed ye` at 390px. It now truncates properly as well, but a fallback label
+    // that has to truncate to fit is a label chosen too long.
+    expect(screen.getByText(/no name yet/i)).toBeTruthy()
   })
 })

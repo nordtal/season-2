@@ -85,8 +85,8 @@ final class FakeSnapshots implements Snapshots {
     }
 
     @Override
-    public @NotNull List<String> prune(final int keep) {
-        calls.add("prune:" + keep);
+    public @NotNull List<String> prune(final @NotNull eu.nordtal.s2.steward.worker.backup.Retention policy) {
+        calls.add("prune:" + policy.daily());
         return List.of();
     }
 }

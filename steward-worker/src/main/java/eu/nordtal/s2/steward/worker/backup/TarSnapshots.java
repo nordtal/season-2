@@ -288,29 +288,30 @@ public final class TarSnapshots implements Snapshots {
     }
 
     /**
-     * Keeps the newest {@code keep} archives <b>of each volume</b>.
+     * Applies the retention policy <b>to each series separately</b> - each volume, and the database
+     * dump.
      *
-     * <p>Per volume, never across: four volumes and {@code keep} 7 is 28 files, not 7. A sweep that
-     * counted them together would keep seven of whichever volume happened to be saved last and
-     * silently hold none of the other three - and it would look exactly like a working retention.
-     * The ordering is the stamp in the name, not the mtime, because a file that was copied off this
-     * host and back has a new mtime and the same age.</p>
+     * <p>Per volume, never across: four volumes and fourteen daily copies is 56 files, not 14. A
+     * sweep that counted them together would keep fourteen of whichever volume happened to be saved
+     * last and silently hold none of the other three - and it would look exactly like a working
+     * retention. The age of a file is the stamp in its name, not its mtime, because a file that was
+     * copied off this host and back has a new mtime and the same age.</p>
      *
      * <p>The database dump is one series more, counted apart from the volumes - see {@link #DUMP}
      * for why it is swept here at all and why it must not share a count with them.</p>
      *
-     * <p>A {@code .partial} older than a day is swept too, and is the one thing here that is
-     * deleted without being counted against {@code keep}: it is debris from a run that was killed
-     * mid-{@code tar}, it is never a backup ({@link #save} renames only after reading back), and a
-     * day of grace means a save running right now is never mistaken for debris.</p>
+     * <p><b>What to keep is {@link Retention}'s decision and not this method's</b> (steward/95,
+     * 2026-09-18). This one owns the directory, the naming scheme and the deleting; the arithmetic -
+     * the staggered daily/weekly/monthly schedule and the one-per-day collapse Till asked for - is a
+     * pure function next door, where it can be checked against dates written out by hand.</p>
+     *
+     * <p>A {@code .partial} older than a day is swept too, and is the one thing here that no policy
+     * governs: it is debris from a run that was killed mid-{@code tar}, it is never a backup
+     * ({@link #save} renames only after reading back), and a day of grace means a save running right
+     * now is never mistaken for debris.</p>
      */
     @Override
-    public @NotNull List<String> prune(final int keep) {
-        if (keep < 1) {
-            // Refused rather than obeyed: a retention of zero deletes every backup there is, and
-            // the likeliest way to arrive here is an unset config value read as 0.
-            throw new IllegalArgumentException("keep must be at least 1, was " + keep);
-        }
+    public @NotNull List<String> prune(final @NotNull Retention policy) {
         final List<String> removed = new ArrayList<>();
         final List<Path> files;
         try (Stream<Path> listing = Files.list(outputRoot)) {
@@ -323,18 +324,23 @@ public final class TarSnapshots implements Snapshots {
         // Grouped by the volume in the name, so only files this class itself named are ever
         // considered - the same guarantee backup.sh gives by globbing its own prefix. Anything an
         // operator dropped in the directory by hand matches neither pattern and is left alone.
-        final Map<String, List<Path>> byVolume = new LinkedHashMap<>();
-        final Instant debrisBefore = clock.instant().minus(Duration.ofDays(1));
+        final Map<String, List<Retention.Dated>> byVolume = new LinkedHashMap<>();
+        final Instant now = clock.instant();
+        final Instant debrisBefore = now.minus(Duration.ofDays(1));
         for (final Path file : files) {
             final String name = file.getFileName().toString();
             final Matcher archive = ARCHIVE.matcher(name);
             if (archive.matches()) {
-                byVolume.computeIfAbsent(archive.group("volume"), ignored -> new ArrayList<>()).add(file);
+                dated(name, archive.group("stamp")).ifPresent(one -> byVolume
+                        .computeIfAbsent(archive.group("volume"), ignored -> new ArrayList<>())
+                        .add(one));
                 continue;
             }
             final Matcher dump = DUMP.matcher(name);
             if (dump.matches()) {
-                byVolume.computeIfAbsent(DUMP_SERIES, ignored -> new ArrayList<>()).add(file);
+                dated(name, dump.group("stamp")).ifPresent(one -> byVolume
+                        .computeIfAbsent(DUMP_SERIES, ignored -> new ArrayList<>())
+                        .add(one));
                 continue;
             }
             final Matcher leftover = PARTIAL_ARCHIVE.matcher(name);
@@ -354,24 +360,39 @@ public final class TarSnapshots implements Snapshots {
             }
         }
 
-        for (final Map.Entry<String, List<Path>> volume : byVolume.entrySet()) {
-            final List<Path> newestFirst = volume.getValue().stream()
-                    .sorted(Comparator.comparing((Path path) -> path.getFileName().toString()).reversed())
-                    .toList();
-            final int keptHere = Math.min(keep, newestFirst.size());
-            for (final Path old : newestFirst.subList(keptHere, newestFirst.size())) {
-                final String name = old.getFileName().toString();
-                if (delete(old)) {
-                    log.info("pruning {} (keeping {} of {})", name, keep, volume.getKey());
-                    removed.add(name);
+        for (final Map.Entry<String, List<Retention.Dated>> series : byVolume.entrySet()) {
+            for (final Retention.Dated old : policy.expired(series.getValue(), now)) {
+                final Path file = outputRoot.resolve(old.name());
+                if (delete(file)) {
+                    log.info("pruning {} ({} of {} remain)", old.name(),
+                            series.getValue().size() - 1, series.getKey());
+                    removed.add(old.name());
                     // The mark goes with the archive it belongs to. Left behind it would be a
                     // warning about a file that is no longer there, which is how a directory fills
                     // up with notes nobody can act on.
-                    delete(old.resolveSibling(name + MARK));
+                    delete(file.resolveSibling(old.name() + MARK));
                 }
             }
         }
         return List.copyOf(removed);
+    }
+
+    /**
+     * One archive, with the moment its name says it was taken - or nothing, if the name looked like
+     * a stamp and is not one.
+     *
+     * <p>Nothing means <em>left alone</em>, never deleted: a file this class cannot date is a file
+     * it cannot judge the age of, and the only safe thing to do with a backup you cannot judge is
+     * to keep it and say so. {@code 20261301T000000Z} is the shape of it - the pattern accepts the
+     * digits and {@code LocalDateTime} refuses the thirteenth month.</p>
+     */
+    private static java.util.Optional<Retention.Dated> dated(final String name, final String stamp) {
+        try {
+            return java.util.Optional.of(new Retention.Dated(name, stampOf(stamp)));
+        } catch (final DateTimeParseException notADate) {
+            log.warn("leaving {} alone: {} looks like a timestamp and is not one", name, stamp);
+            return java.util.Optional.empty();
+        }
     }
 
     /**

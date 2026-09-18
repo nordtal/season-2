@@ -804,6 +804,12 @@ class TopologyTest {
                 };
             }
 
+            @Override
+            public RetentionSpec retention() {
+                return new RetentionSpec() {
+                };
+            }
+
         }.sourcesRoot() + "/";
 
         // THE DESTINATION IS PARSED FROM THE RIGHT, and the reason is five of these eight mounts:
@@ -915,6 +921,12 @@ class TopologyTest {
                         };
                     }
 
+                    @Override
+                    public RetentionSpec retention() {
+                        return new RetentionSpec() {
+                        };
+                    }
+
                 };
             }
 
@@ -941,6 +953,12 @@ class TopologyTest {
             @Override
             public RemoteSpec remote() {
                 return new RemoteSpec() {
+                };
+            }
+
+            @Override
+            public RetentionSpec retention() {
+                return new RetentionSpec() {
                 };
             }
 
@@ -1028,6 +1046,12 @@ class TopologyTest {
                                     @Override
                                     public RemoteSpec remote() {
                                         return new RemoteSpec() {
+                                        };
+                                    }
+
+                                    @Override
+                                    public RetentionSpec retention() {
+                                        return new RetentionSpec() {
                                         };
                                     }
 

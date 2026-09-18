@@ -499,6 +499,12 @@ class ApplierTest {
                         };
                     }
 
+                    @Override
+                    public RetentionSpec retention() {
+                        return new RetentionSpec() {
+                        };
+                    }
+
                 };
             }
 

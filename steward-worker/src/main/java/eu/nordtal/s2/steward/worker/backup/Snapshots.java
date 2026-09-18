@@ -43,10 +43,11 @@ public interface Snapshots {
                                                               @NotNull String why);
 
     /**
-     * Deletes the oldest archives until {@code keep} of each kind remain.
+     * Deletes whatever the policy no longer keeps, one series at a time.
      *
+     * @param policy the staggered schedule and the one-per-day collapse; see {@link Retention}
      * @return what was removed, for the report - a retention that quietly deletes is one nobody
      *         notices has been deleting the wrong thing
      */
-    @NotNull List<String> prune(int keep);
+    @NotNull List<String> prune(@NotNull Retention policy);
 }

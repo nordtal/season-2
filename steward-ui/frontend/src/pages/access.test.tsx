@@ -81,8 +81,16 @@ function backend(over: {
   commands?: () => Record<string, unknown>[]
   commandPost?: (body: unknown) => { status: number; body: unknown }
   journal?: () => Record<string, unknown>[]
+  playtimePost?: (url: string, body: unknown) => { status: number; body: unknown }
 } = {}) {
   return vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/playtime") && init?.method === "POST") {
+      const answer = over.playtimePost?.(url, JSON.parse(String(init.body))) ?? {
+        status: 200,
+        body: {},
+      }
+      return json(answer.status, answer.body)
+    }
     if (url === "/api/people") return json(200, over.people ? over.people() : PEOPLE)
     if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])
     if (url.startsWith("/api/journal")) return json(200, over.journal ? over.journal() : [])
@@ -266,6 +274,60 @@ describe("AccessPage - pagination filters the whole roster before it pages", () 
     fireEvent.click(screen.getByRole("button", { name: /next/i }))
 
     await waitFor(() => expect(screen.getAllByText(/searchable-/).length).toBe(1))
+  })
+})
+
+/**
+ * steward/119. Till, 2026-09-18: play time goes into the Steward user list and is overridable
+ * through a dialog. The reason it has to be there at all is `Prestige.java` - the tier is derived
+ * from play time on every render and stored nowhere, so `player_playtime.seconds` is the only lever
+ * that exists, and season-2-ingame/23 cannot be reviewed without it.
+ */
+describe("AccessPage - play time in the list, and overridable", () => {
+  it("prints an account's play time as a span, not as a number of seconds", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({ people: () => [person({ discordUsername: "alice", playtimeSeconds: 32400 })] }),
+    )
+    draw(<AccessPage />)
+
+    const cell = await screen.findByText("9 h")
+    expect(cell).not.toBeNull()
+    expect(screen.queryByText("32400")).toBeNull()
+  })
+
+  it("says nothing for somebody who has never been online, rather than no time at all", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({ people: () => [person({ discordUsername: "alice" })] }),
+    )
+    draw(<AccessPage />)
+
+    const row = await screen.findByText("alice")
+    expect(row).not.toBeNull()
+    expect(screen.queryByText("0 s")).toBeNull()
+  })
+
+  it("writes the override in seconds, from hours typed into the dialog", async () => {
+    const calls: { url: string; body: unknown }[] = []
+    const fetcher = backend({
+      people: () => [person({ discordUsername: "alice", playtimeSeconds: 3600 })],
+      playtimePost: (url, body) => {
+        calls.push({ url, body })
+        return { status: 200, body: { discordId: "100000000000000001", seconds: 43200 } }
+      },
+    })
+    vi.stubGlobal("fetch", fetcher)
+    draw(<AccessPage />)
+
+    fireEvent.click(await screen.findByRole("button", { name: /play ?time/i }))
+    const hours = await screen.findByLabelText(/hours/i)
+    fireEvent.change(hours, { target: { value: "12" } })
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+    await waitFor(() => expect(calls.length).toBe(1))
+    expect(calls[0].url).toBe("/api/people/100000000000000001/playtime")
+    expect(calls[0].body).toEqual({ seconds: 43200 })
   })
 })
 

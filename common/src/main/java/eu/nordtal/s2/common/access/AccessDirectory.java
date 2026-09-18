@@ -153,6 +153,18 @@ public interface AccessDirectory extends AutoCloseable {
     void setDonor(String discordId, boolean donor);
 
     /**
+     * Sets this account's total play time, in seconds, to exactly {@code seconds} (steward/119).
+     *
+     * <p>The prestige tier is derived from play time on every render and stored nowhere, so this is
+     * the one lever that moves it. The write is absolute and the row is made if it is missing; see
+     * {@code AccessDao#setPlaytimeSeconds} for how it sits beside the proxy's own additions.
+     *
+     * @param seconds never negative - the column's own CHECK refuses it, and a caller taking a
+     *                number from a person should say so before the database does
+     */
+    void setPlaytimeSeconds(String discordId, long seconds);
+
+    /**
      * Mirrors the Discord admin role into the database. An admin is appointed in Discord and is an
      * admin everywhere; there is no second list.
      *

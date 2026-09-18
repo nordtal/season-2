@@ -325,6 +325,26 @@ describe("PaymentsPage - settle as a row action", () => {
       arguments: { reference: "AB12CD" },
     })
   })
+
+  // steward/116: with a bunq.me link on the payment, an OPEN row draws both Tab and Settle -
+  // exactly the two-action case the column was measured against. jsdom does not lay out CSS, so
+  // there is no bounding box to assert on; what is real and checkable is the class that causes the
+  // wrap in the first place. `flex-wrap` on this container is what lets the two buttons stack
+  // instead of overflowing - which is the bug, because the column is narrower than both together.
+  it("keeps Tab and Settle on one line instead of letting them wrap", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        payments: () => [{ ...OPEN_PAYMENT, shareUrl: "https://bunq.me/xyz" }],
+        commands: () => [SETTLE_COMMAND],
+      }),
+    )
+    draw(<PaymentsPage />)
+
+    const tab = await screen.findByRole("link", { name: /tab/i })
+    const actions = tab.parentElement as HTMLElement
+    expect(actions.className).not.toMatch(/flex-wrap/)
+  })
 })
 
 describe("AccessPage - unlink as a row action", () => {

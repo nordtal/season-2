@@ -1275,7 +1275,16 @@ export function PaymentsPage() {
                           <TableHead className="w-[9rem]">Status</TableHead>
                           <TableHead className="w-[11rem]">Deadline</TableHead>
                           <TableHead className="w-[11rem]">Paid</TableHead>
-                          <TableHead className="w-[10rem]" />
+                          {/*
+                            steward/116: `Tab` and `Settle` are the two actions an OPEN row can
+                            carry, and `flex-wrap` on the cell below let them stack instead of
+                            overflowing once this column actually became visible (steward/114). One
+                            rem more of budget (70rem -> 71rem of 72) is what the ticket's own
+                            arithmetic finds - still under the 72rem card, but unverified in a real
+                            browser from here; if it still wraps or overflows at 1440px, the ticket
+                            names the popover as the next step, not a wider column again.
+                          */}
+                          <TableHead className="w-[11rem]" />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1341,7 +1350,8 @@ export function PaymentsPage() {
                                 {dateTime(payment.settled)}
                               </TableCell>
                               <TableCell>
-                                <div className="flex flex-wrap items-center justify-end gap-1">
+                                {/* No `flex-wrap` here - see steward/116 on the header above. */}
+                                <div className="flex items-center justify-end gap-1">
                                   {payment.shareUrl ? (
                                     <Button asChild variant="ghost" size="sm">
                                       <a

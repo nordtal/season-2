@@ -87,6 +87,24 @@ public final class PaymentRequests {
         return dao.booked(bunqPaymentId).isPresent();
     }
 
+    /**
+     * Open requests waiting for a bunq.me tab, oldest ask first - steward-worker's queue.
+     *
+     * @see PaymentRequestDao#tabsToCreate()
+     */
+    public List<PaymentRequest> tabsToCreate() {
+        return dao.tabsToCreate();
+    }
+
+    /**
+     * Requests whose bunq tab is supposed to be gone and is not yet - steward-worker's other queue.
+     *
+     * @see PaymentRequestDao#tabsToCancel()
+     */
+    public List<PaymentRequest> tabsToCancel() {
+        return dao.tabsToCancel();
+    }
+
     // ---------------------------------------------------------------- writes
 
     /**
@@ -197,6 +215,77 @@ public final class PaymentRequests {
      */
     public boolean noticeOnce(final long bunqPaymentId, final String reason, final String detail) {
         return dao.noticeOnce(bunqPaymentId, reason, detail) == 1;
+    }
+
+    // ---------------------------------------------------------------- the seam (concept §10d)
+
+    /**
+     * Asks steward-worker for a bunq.me tab, rather than calling bunq from wherever this runs.
+     * <p>
+     * Also the retry: the previous failure, if there was one, is cleared by the same statement.
+     * </p>
+     *
+     * @return {@code true} when a tab is now wanted; {@code false} when the request was closed or
+     *         already has one
+     */
+    public boolean requestTab(final UUID id) {
+        return dao.requestTab(id) == 1;
+    }
+
+    /**
+     * Records that bunq refused to make the tab, and takes the request out of the queue.
+     *
+     * @param reason what bunq said - this is what the user ends up being shown instead of a link
+     *               that never arrives
+     * @return {@code true} when the failure was recorded
+     */
+    public boolean failTab(final UUID id, final String reason) {
+        return dao.failTab(id, reason) == 1;
+    }
+
+    /**
+     * Asks steward-worker to cancel the request's bunq tab. Closing the row itself is a separate
+     * write, and the caller is expected to do both in one transaction.
+     *
+     * @return {@code true} when this call asked; {@code false} when it had already been asked for
+     */
+    public boolean requestCancel(final UUID id) {
+        return dao.requestCancel(id) == 1;
+    }
+
+    /**
+     * Records that the tab is gone at bunq.
+     *
+     * @return {@code true} when this call closed it out
+     */
+    public boolean recordCancelled(final UUID id) {
+        return dao.recordCancelled(id) == 1;
+    }
+
+    /**
+     * Attributes a payment to a request without booking it - what steward-worker writes when it
+     * finds money, leaving the grant, the DM and the thank-you to the bot.
+     * <p>
+     * The row stays {@code OPEN} and {@code settled} stays null, so
+     * {@code payment_request_settled_iff_paid} holds; {@link #settle(UUID, long)} remains the only
+     * statement that books.
+     * </p>
+     * <p>
+     * Unlike {@link #settle(UUID, long)} this does <b>not</b> swallow the unique violation on
+     * {@code bunq_payment_id}. Settling is called from a poll loop that legitimately races with
+     * itself, so "somebody else got there first" is an answer there. Attribution has one writer,
+     * and one payment claimed for two requests means that writer is wrong - absorbing it would turn
+     * a bug into money quietly attributed to nobody.
+     * </p>
+     *
+     * @return {@code true} when this call attributed it; {@code false} when the request was no
+     *         longer open or already carried a payment
+     * @throws UnableToExecuteStatementException when that payment is already claimed by another
+     *                                           request
+     */
+    public boolean recordMatch(final UUID id, final long bunqPaymentId, final int matchedCents,
+                               final PaymentMatch matchedBy) {
+        return dao.recordMatch(id, bunqPaymentId, matchedCents, matchedBy.name()) == 1;
     }
 
     // ---------------------------------------------------------------- helpers

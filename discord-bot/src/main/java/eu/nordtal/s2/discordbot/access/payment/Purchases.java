@@ -65,7 +65,9 @@ public final class Purchases {
                     && requests.reselect(open.id(), tier.days(), amountCents, donationCents)) {
                 return new PaymentRequest(open.id(), open.reference(), open.discordId(), tier.days(),
                         amountCents, donationCents, open.status(), null, null, null,
-                        open.created(), open.expires(), null);
+                        open.created(), open.expires(), null,
+                        open.tabRequested(), open.tabFailed(), open.cancelRequested(),
+                        open.tabCancelled(), open.matchedCents(), open.matchedBy());
             }
             close(open, PaymentRequestStatus.SUPERSEDED);
         }
@@ -97,7 +99,9 @@ public final class Purchases {
 
         return new PaymentRequest(request.id(), request.reference(), request.discordId(), request.days(),
                 request.amountCents(), request.donationCents(), request.status(), tab.id(),
-                tab.shareUrl(), null, request.created(), request.expires(), null);
+                tab.shareUrl(), null, request.created(), request.expires(), null,
+                request.tabRequested(), request.tabFailed(), request.cancelRequested(),
+                request.tabCancelled(), request.matchedCents(), request.matchedBy());
     }
 
     /**

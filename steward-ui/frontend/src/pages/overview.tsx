@@ -19,7 +19,7 @@ import {
   useSettings,
 } from "@/lib/queries"
 import { ActionRow } from "@/components/steward/actions"
-import { PageHeader } from "@/components/steward/page-header"
+import { OnlineLine, useOnline } from "@/components/steward/online"
 import { Panel } from "@/components/steward/panel"
 import { Sparkline } from "@/components/steward/sparkline"
 import { Stat, UsageBar } from "@/components/steward/stat"
@@ -48,21 +48,28 @@ import {
  * the other way around.
  *
  * **The traffic light is gone (steward/80).** It used to stand above the numbers as a banner that
- * appeared for `warn`/`down` and disappeared for `ok`. Its content is now the first tile in
+ * appeared for `warn`/`down` and disappeared for `ok`. Its content is now the last tile in
  * {@link MetricRow}, in the same shape every other tile there already has: a number, and beneath it
  * the names it is about. `health.ts`'s own warning still applies inside that tile - a settled "0"
  * must never look like "nothing has been read yet".
+ *
+ * **There is no page title (steward/64).** "Overview" named the page to somebody who was already
+ * standing on it, and the first line is now the one fact on this stack that changes minute to
+ * minute and that no tile below carries: how many people are in the game. See
+ * {@code components/steward/online.tsx} for the three shapes that were drawn for it and for why
+ * this one is in the product. The word still labels the route in the sidebar and in the
+ * breadcrumbs, where it is a destination rather than a heading.
  *
  * The service rows are deliberately read-only. No restart button lives here: restarting the SMP
  * throws every player out, and the place where that happens is the Operations page, where the
  * confirmation already stands. A row is for reading and for jumping onwards.
  */
 export function OverviewPage() {
+  const online = useOnline()
+
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Overview"
-      />
+      <OnlineLine online={online} />
 
       <MetricRow />
 
@@ -79,8 +86,8 @@ export function OverviewPage() {
 // --- the metric row -------------------------------------------------------------------------------
 
 /**
- * Issues, CPU, memory, disk, drift and the newest backup - six numbers on a phone, three rows of
- * two, exactly the width steward/80 asked for. This replaces the Host, Updates and Backups cards:
+ * CPU, memory, disk, the latest backup, drift and the issues - six numbers on a phone, three rows
+ * of two, exactly the width steward/80 asked for. This replaces the Host, Updates and Backups cards:
  * their remaining detail - the container limits, when the registry was last compared, the
  * unverifiable services, the last update run and the partial archives - is not lost with them. The
  * Operations page already showed every one of it before this change (Images table with its
@@ -91,6 +98,13 @@ export function OverviewPage() {
  * Mobile first: two tiles to a row is the width steward/64 asked for on a phone, three from
  * `26rem`, and only the desktop breakpoint spends the whole thing on one row of six - the layout
  * this row *ends* on, not the one it starts from.
+ *
+ * **The order is Till's, 2026-09-17:** CPU, Memory, Disk, Latest backup, Behind, Issues. The three
+ * resources come first because "how full is the box" is what the page is opened on a phone to
+ * answer, and the two counts that are zero on a healthy day come last - including Issues, which
+ * steward/80 had put first while it was still a banner pretending to be a tile. Nothing was added
+ * for this: "Issues" is that same tile moved, and "Latest backup" is the tile that used to be
+ * called "Newest backup" and is nothing else.
  */
 function MetricRow() {
   const host = useHost()
@@ -122,11 +136,9 @@ function MetricRow() {
 
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 min-[26rem]:grid-cols-3 lg:grid-cols-6">
-      <IssuesTile triggers={triggers} waiting={waiting} failed={failed} />
-
       {/*
         CPU is the only one of the six tiles that carries both a bar and a sparkline beneath its
-        number - Memory and Disk stop at the bar, and Issues/Behind/Newest backup have no meter at
+        number - Memory and Disk stop at the bar, and Latest backup/Behind/Issues have no meter at
         all. That makes it the tallest tile by a fixed ~34px (a gap plus the sparkline's own 28px),
         in every state, whether the sparkline is drawing a real curve or the flat placeholder it
         shows while `cpu.data.points` is still empty - `Sparkline` reserves the same height either
@@ -139,8 +151,9 @@ function MetricRow() {
         already hold it without a row-mate at all (steward/92: measured with `getBoundingClientRect`
         - the tile paired with CPU was 110px tall against its neighbours' 64-76px, and no amount of
         `items-*` changes that, since grid track sizing is content-based regardless of alignment).
-        The cell CPU vacates next to Issues is empty, not stretched - an empty grid cell costs
-        nothing to look at, the way the trailing cell in an odd-numbered row already does not.
+        CPU leads the row since steward/64 reordered it, so the cell it vacates is the second one
+        of the first row and stays empty rather than stretched - an empty grid cell costs nothing
+        to look at, the way the trailing cell in an odd-numbered row already does not.
       */}
       <MetricTile
         label="CPU"
@@ -187,24 +200,27 @@ function MetricRow() {
       </MetricTile>
 
       <MetricTile
+        label="Latest backup"
+        value={newest ? relative(newest.modified) : backups.data ? "none" : "–"}
+        tone={backups.data && !newest ? "down" : undefined}
+        hint={newest ? newest.human : backups.data ? "no finished backup" : "–"}
+      />
+
+      <MetricTile
         label="Behind"
         value={count(outdated.length)}
         tone={outdated.length > 0 ? "warn" : undefined}
         hint={outdated.length === 0 ? "up to date" : outdated.map((service) => service.service).join(", ")}
       />
 
-      <MetricTile
-        label="Newest backup"
-        value={newest ? relative(newest.modified) : backups.data ? "none" : "–"}
-        tone={backups.data && !newest ? "down" : undefined}
-        hint={newest ? newest.human : backups.data ? "no finished backup" : "–"}
-      />
+      <IssuesTile triggers={triggers} waiting={waiting} failed={failed} />
     </div>
   )
 }
 
 /**
- * What used to be the traffic light, now the first tile in {@link MetricRow} (steward/80). Till:
+ * What used to be the traffic light, now the last tile in {@link MetricRow} (steward/80 put it in
+ * the row, steward/64 moved it to the end of it). Till:
  * "the alert-style banner disappears entirely and its information is folded into the area that
  * already says 'Behind 2 steward-worker, steward-ui'" - so this tile is deliberately built like
  * `Behind`: a count, and beneath it the names the count is about.

@@ -388,3 +388,75 @@ describe("OverviewPage - the CPU tile never shares a row with a shorter one (ste
     expect(tile?.className).toContain("lg:col-span-1")
   })
 })
+
+/**
+ * The order Till named on 2026-09-17, and the two names in it (steward/64).
+ *
+ * He named it as a sequence and as one rename, nothing else: CPU, Memory, Disk, Latest backup
+ * (the tile formerly called "Newest backup"), then Behind, and Issues last - the resources first, because they are the reason the page is opened on a phone at
+ * all, and the two counts that are normally zero last. `Issues` is not a new tile: steward/80 had
+ * already turned the traffic-light banner into one and put it first, so this ticket moves it to
+ * the end rather than adding anything.
+ *
+ * The labels are read out of the grid in DOM order rather than looked up one by one, because the
+ * defect this guards against is an order, and six `getByText` calls pass in any order at all.
+ */
+function metricLabels(): string[] {
+  const grid = screen.getByText("CPU").closest("div")?.parentElement?.parentElement
+  return Array.from(grid?.children ?? []).map(
+    (tile) => tile.querySelector("span")?.textContent ?? "",
+  )
+}
+
+describe("OverviewPage - the order of the number row (steward/64)", () => {
+  it("reads CPU, Memory, Disk, Latest backup, Behind, Issues", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+
+    await waitFor(() => expect(screen.getByText("CPU")).toBeTruthy())
+    expect(metricLabels()).toEqual([
+      "CPU",
+      "Memory",
+      "Disk",
+      "Latest backup",
+      "Behind",
+      "Issues",
+    ])
+  })
+})
+
+/**
+ * What stands where the word "Overview" used to (steward/64).
+ *
+ * Till: the title goes, and what replaces it is how many people are in the game. The count is
+ * `network-control`'s own row - the proxy sees every player exactly once, where a sum over the
+ * three backends silently drops a server whose row is stale.
+ *
+ * The dash matters as much as the number: `players` is optional on purpose (see `Service` in
+ * `api.ts`), and "nobody has said" must never settle into a confident `0`.
+ */
+describe("OverviewPage - the heading is how many are in the game (steward/64)", () => {
+  it("says the count instead of the page's own name", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        services: [service(), service({ service: "network-control", players: 7 })],
+      }),
+    )
+    draw()
+
+    await waitFor(() =>
+      expect(screen.getByText("players online").closest("p")?.textContent).toContain("7"),
+    )
+    expect(screen.queryByRole("heading", { name: "Overview" })).toBeNull()
+  })
+
+  it("draws a dash, not a zero, when no row carries a player count", async () => {
+    vi.stubGlobal("fetch", backend({ services: [service()] }))
+    draw()
+
+    const line = await screen.findByText("players online")
+    expect(line.closest("p")?.textContent).toContain("–")
+    expect(line.closest("p")?.textContent).not.toContain("0")
+  })
+})

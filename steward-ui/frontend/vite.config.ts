@@ -44,5 +44,13 @@ export default defineConfig({
     // No globals. `describe`, `it` and `expect` are imported in every test file, so a reader can
     // see where they come from and the type-check covers them like any other import.
     globals: false,
+    // A CEILING, NOT A TUNING (season-2-ops/114). Each worker builds its own jsdom - 53 of them per
+    // run, measured at ~350 MB a piece - and vitest's default is one per core. On the dev host that
+    // is six workers on a six-core machine that is also running three Minecraft servers, Postgres
+    // and the proxy, with no swap; on 2026-09-18 a full build there took the load average to 90 and
+    // the kernel's OOM killer answered by shooting the SMP server. Four is deliberately not a
+    // measured optimum: it is the largest number that cannot, on its own, be the reason something
+    // else on the machine dies. A CI runner has four cores anyway, so it loses nothing here.
+    maxWorkers: 4,
   },
 });

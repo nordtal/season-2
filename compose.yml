@@ -845,6 +845,16 @@ services:
       # member list for no gain - the token is already on this host, in the service next door.
       # Empty is fine: the pickers fall back to a text field and the ids still work.
       NORDTAL_STEWARD_UI_DISCORD_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:-}
+      # Web Push (steward/98). A VAPID keypair, generated once per deployment with
+      # `docker exec nordtal-s2-steward-ui-1 steward-ui generate-vapid-keys` (the image ships
+      # that wrapper on purpose - see its Dockerfile) - never `:?`, because both
+      # blank is the ordinary "not configured yet" state WebPushSpec already reads it as, the same
+      # shape worker.token and deployer.token use above. jcore treats a set-but-empty variable as
+      # unset (EnvOverlay#applyTo, `raw.isBlank()`), so leaving these two empty here never
+      # overwrites a keypair a previous run already wrote into steward-ui.yml - it only matters on
+      # the very first start, before the file has one.
+      NORDTAL_STEWARD_UI_WEB_PUSH_PUBLIC_KEY: ${STEWARD_UI_WEB_PUSH_PUBLIC_KEY:-}
+      NORDTAL_STEWARD_UI_WEB_PUSH_PRIVATE_KEY: ${STEWARD_UI_WEB_PUSH_PRIVATE_KEY:-}
     volumes:
       - steward-ui-config:/app/config
       # THE STACK'S CONFIGURATION IS NOT MOUNTED HERE, AND THAT IS THE DECISION (Till, 2026-09-14).

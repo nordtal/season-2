@@ -26,7 +26,10 @@ import {
 import {
   entryHaystack,
   messageEntryHaystack,
+  rankHits,
+  rankValue,
   searchSettingsAndMessages,
+  searchValue,
   setPendingJump,
   setPendingMessageJump,
 } from "@/lib/settings-search"
@@ -54,13 +57,15 @@ const MAX_SETTINGS_HITS = 30
  * always type English. See that file for why one of those words is German rather than English.
  */
 function runSearchValue(run: Run): string {
-  return [
+  return searchValue(
     `run #${run.id}`,
-    RUN_KIND[run.kind] ?? run.kind,
-    RUN_STATUS[run.status] ?? run.status,
-    dateTime(run.requested),
-    ...(RUN_KIND_SEARCH_TERMS[run.kind] ?? []),
-  ].join(" ")
+    [
+      RUN_KIND[run.kind] ?? run.kind,
+      RUN_STATUS[run.status] ?? run.status,
+      dateTime(run.requested),
+      ...(RUN_KIND_SEARCH_TERMS[run.kind] ?? []),
+    ].join(" "),
+  )
 }
 
 /**
@@ -110,7 +115,10 @@ export function CommandPalette() {
       location,
       bundle: bundleDocuments[index]?.data,
     }))
-    return searchSettingsAndMessages(configPairs, messagePairs, search)
+    // Ranked here, not only by the filter below: `MAX_SETTINGS_HITS` cuts this list before cmdk
+    // ever sees it, so an unranked list would hand it the first thirty rather than the best thirty
+    // (steward/105).
+    return rankHits(searchSettingsAndMessages(configPairs, messagePairs, search), search)
   }, [locations, documents, bundleLocations, bundleDocuments, search])
 
   // The listener is registered once, so it would otherwise read the `open` of the render it was
@@ -148,6 +156,15 @@ export function CommandPalette() {
       title="Search"
       description="Jump to a page"
       label="Search pages, runs, settings"
+      /*
+        steward/105: cmdk's default filter matches a *subsequence*, so "donor" matched every
+        service page through the d-o-n-o-r hidden in "window and console for … restart", and the
+        setting actually called Donor sat below all ten of them - the Settings group is written
+        last and cmdk 1.1.1 cannot reorder groups (see `rankValue` for both measurements). This
+        asks for a substring instead, and scores a name above a mere mention, which is the same
+        rule `matchesQuery` has always used to decide what a hit even is.
+      */
+      filter={rankValue}
       className="top-[20%] translate-y-0"
     >
       <CommandInput
@@ -166,9 +183,13 @@ export function CommandPalette() {
                 return (
                   <CommandItem
                     key={entry.id}
-                    value={[entry.label, group.label, entry.note, ...(entry.keywords ?? [])]
-                      .filter(Boolean)
-                      .join(" ")}
+                    // The label alone on the first line, its group, note and keywords after it:
+                    // a page is found by its note, but never *ahead of* a row that is named what
+                    // was typed (steward/105).
+                    value={searchValue(
+                      entry.label,
+                      [group.label, entry.note, ...(entry.keywords ?? [])].filter(Boolean).join(" "),
+                    )}
                     onSelect={() => {
                       setOpen(false)
                       void navigate({ to: entry.to, params: entry.params as never })

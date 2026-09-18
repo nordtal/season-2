@@ -10,6 +10,8 @@ import type {
 } from "@/lib/api"
 import {
   entryHaystack,
+  rankValue,
+  searchValue,
   matchesMessageQuery,
   matchesQuery,
   messageEntryHaystack,
@@ -438,5 +440,62 @@ describe("pending message jump", () => {
     setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "b" })
     expect(seen).toEqual(["notified"]) // unsubscribed: no second notification
     takePendingMessageJump("smp") // clean up, so this jump does not leak into a later test
+  })
+})
+
+/**
+ * steward/105: what "Donor" is allowed to find, and in which order.
+ *
+ * The values below are the real ones, taken from what `command-palette.tsx` hands cmdk and from
+ * this host's own `discord-bot/access.yml` (2026-09-18). Each case is one of the two faults the
+ * ticket is about: a row that must not match at all, and a row that must not come first.
+ */
+describe("rankValue - a name outranks a mention, and a subsequence is not a match (steward/105)", () => {
+  const donor = searchValue(
+    "Donor",
+    "roles.donor",
+    "Granted on a donation and never revoked - safe to hand out manually in Discord.",
+  )
+  const donationCents = searchValue(
+    "Donation cents",
+    "donation-cents",
+    "The extra amount that grants the donor role - also how a payment above the order total is recognised as a donation.",
+  )
+  const smpPage = searchValue("smp", "Services Log window and console for smp. container log console restart")
+
+  it("scores a setting whose whole name was typed at the top of the scale", () => {
+    expect(rankValue(donor, "Donor")).toBe(1)
+  })
+
+  it("refuses the service page that only contains those letters in order", () => {
+    // d-o-n-o-r is hidden in "win(d)ow and c(o)ns(o)le … (r)estart", which is exactly what cmdk's
+    // default filter matched and why every service was offered.
+    expect(rankValue(smpPage, "donor")).toBe(0)
+  })
+
+  it("keeps a setting that merely mentions a donor, but below the one that is named it", () => {
+    expect(rankValue(donationCents, "donor")).toBeGreaterThan(0)
+    expect(rankValue(donationCents, "donor")).toBeLessThan(rankValue(donor, "donor"))
+  })
+
+  it("still finds a setting by a fragment of its explanation - the half that already worked", () => {
+    expect(rankValue(donor, "Granted on")).toBeGreaterThan(0)
+    expect(rankValue(donationCents, "Granted on")).toBe(0)
+  })
+
+  it("treats a hyphen and a space as the same spelling, which is the one thing cmdk got right", () => {
+    expect(rankValue(searchValue("steward-ui", "Services"), "steward ui")).toBe(1)
+    expect(rankValue(searchValue("Base url", "worker.base-url"), "base-url")).toBeGreaterThan(0)
+  })
+
+  it("ranks the start of a name above the middle of one", () => {
+    const start = searchValue("Donor role", "")
+    const middle = searchValue("Payment donor", "")
+    expect(rankValue(start, "donor")).toBeGreaterThan(rankValue(middle, "donor"))
+  })
+
+  it("scores nothing for an empty query - an unopened search is not a match", () => {
+    expect(rankValue(donor, "")).toBe(0)
+    expect(rankValue(donor, "   ")).toBe(0)
   })
 })

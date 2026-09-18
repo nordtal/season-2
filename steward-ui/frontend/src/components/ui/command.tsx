@@ -48,6 +48,7 @@ function CommandDialog({
   title = "Command Palette",
   description = "Search for a command to run...",
   label,
+  filter,
   children,
   className,
   showCloseButton = false,
@@ -56,6 +57,13 @@ function CommandDialog({
   title?: string
   description?: string
   label?: string
+  /**
+   * How a row is scored against what was typed, handed straight to `cmdk`'s own `filter`.
+   *
+   * Named here rather than left to the spread above, because the spread goes to `Dialog` and would
+   * have dropped it silently (steward/105). Undefined keeps cmdk's default subsequence filter.
+   */
+  filter?: React.ComponentProps<typeof CommandPrimitive>["filter"]
   className?: string
   showCloseButton?: boolean
 }) {
@@ -72,7 +80,9 @@ function CommandDialog({
         )}
         showCloseButton={showCloseButton}
       >
-        <Command label={label ?? title}>{children}</Command>
+        <Command label={label ?? title} filter={filter}>
+          {children}
+        </Command>
       </DialogContent>
     </Dialog>
   )

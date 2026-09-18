@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { AccessPage, PaymentsPage } from "@/pages/access"
+import { AccessPage, JournalPage, PaymentsPage } from "@/pages/access"
 import { IDENTIFIER_PATTERN } from "@/components/steward/identity"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -80,10 +80,12 @@ function backend(over: {
   payments?: () => Record<string, unknown>[]
   commands?: () => Record<string, unknown>[]
   commandPost?: (body: unknown) => { status: number; body: unknown }
+  journal?: () => Record<string, unknown>[]
 } = {}) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/people") return json(200, over.people ? over.people() : PEOPLE)
     if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])
+    if (url.startsWith("/api/journal")) return json(200, over.journal ? over.journal() : [])
     if (url === "/api/settings") {
       return json(200, { greenDays: 3, yellowDays: 7, minecraftHeadBaseUrl: "https://crafatar.com/avatars" })
     }
@@ -477,5 +479,87 @@ describe("AccessPage - the generic command card is gone", () => {
 
     await screen.findByText("Ally")
     expect(screen.queryByText("Access commands")).toBeNull()
+  })
+})
+
+/**
+ * steward/114: a table cell is a field by default (shadcn's `TableCell` carries
+ * `whitespace-nowrap`), and that is right for a date or an id. `audit_log.detail` is the one
+ * column on these four pages that is running prose rather than a field, and prose that never
+ * wraps makes the row as wide as its longest sentence - at any width, not only the stacked one
+ * `index.css` already covers. The distinction is "field vs. running text", not "table vs. card".
+ */
+describe("JournalPage - Detail is running text, not a field", () => {
+  it("lets the Detail cell wrap, rather than forcing it onto one unbroken line", async () => {
+    const LONG_DETAIL =
+      "30 days granted by hm.till from the admin panel; the Minecraft account was linked beforehand"
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        journal: () => [
+          {
+            id: "j1",
+            occurred: "2026-09-18T09:00:00Z",
+            action: "GRANT_ACCESS",
+            actor: "hm.till",
+            subject: "214906139328839681",
+            detail: LONG_DETAIL,
+          },
+        ],
+      }),
+    )
+    draw(<JournalPage />)
+
+    const cell = (await screen.findByText(LONG_DETAIL)).closest("td") as HTMLElement
+    expect(
+      cell.className,
+      "TableCell's own `whitespace-nowrap` must not survive on the Detail cell - it is the one" +
+        " column here that is prose, not a field.",
+    ).not.toMatch(/(^|\s)whitespace-nowrap(\s|$)/)
+  })
+})
+
+/**
+ * steward/114: at 1440px the ten declared column widths of the Payments table summed to 95rem
+ * (1520px) in a 1152px (72rem) card - a budget problem independent of wrapping, since every one of
+ * those columns is a field. Fixing it needed fewer columns (the ticket's own exit clause), not
+ * narrower ones: `Created` moved to a title attribute on `Reference` and `Donation` folded into
+ * `Amount`, which is real data preserved, not data dropped.
+ */
+describe("PaymentsPage - the column budget fits the card at 1440px", () => {
+  it("keeps the declared header widths under 1152px (72rem), the measured card width", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        payments: () => [
+          {
+            id: "p1",
+            reference: "AB12CD",
+            discordId: "214906139328839681",
+            days: 30,
+            amountCents: 500,
+            donationCents: 0,
+            status: "OPEN",
+            created: "2026-09-01T00:00:00Z",
+            expires: "2026-09-20T00:00:00Z",
+          },
+        ],
+      }),
+    )
+    draw(<PaymentsPage />)
+
+    await screen.findByText("AB12CD")
+    const headers = screen.getAllByRole("columnheader")
+    const remWidths = headers.map((header) => {
+      const match = header.className.match(/w-\[(\d+(?:\.\d+)?)rem\]/)
+      return match ? Number.parseFloat(match[1]) : 0
+    })
+    const total = remWidths.reduce((sum, width) => sum + width, 0)
+
+    expect(
+      total,
+      `declared column widths summed to ${total}rem against a 72rem (1152px) card - ` +
+        `steward/114 measured the unfixed table at 95rem`,
+    ).toBeLessThan(72)
   })
 })

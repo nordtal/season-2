@@ -68,17 +68,28 @@ describe("the header is gone and does not grow back (steward/89)", () => {
     ).toContain("defaultOpen")
   })
 
-  it("keeps a way to the command palette in every shell", () => {
+  it("keeps a way to the command palette, which the bar used to carry", () => {
     const frames = shellSources().find(({ file }) => file === "frames.tsx")!.text
-    const shells = frames.split(/export function Shell/).slice(1)
+    const frame = frames.split("export function AppFrame")[1] ?? ""
 
-    expect(shells.length, "Nine shells are being compared (steward/89, 2026-09-17).").toBe(9)
-    for (const shell of shells) {
-      expect(
-        /Search(Button|Row)/.test(shell),
-        "A phone has no `⌘K`. A shell with nothing to tap has no command palette at all, so" +
-          " each of the three has to put the search somewhere and say where in a comment.",
-      ).toBe(true)
-    }
+    expect(frame, "The frame is `AppFrame` in `frames.tsx` (steward/89).").not.toEqual("")
+    expect(
+      /SearchButton/.test(frame),
+      "A phone has no `⌘K`. A frame with nothing to tap has no command palette at all, so the" +
+        " search has to be somewhere on it and the comment there has to say where.",
+    ).toBe(true)
   })
+
+  it("does not grow a second shell back behind a query parameter", () => {
+    // Nine shells stood side by side while steward/89 was a question (`?shell=a` … `?shell=i`).
+    // Till answered it on 2026-09-17, and the eight he did not pick were deleted rather than kept
+    // - a comparison nobody is standing at is a fork in the code, and each of those shells had its
+    // own answer to where the search goes.
+    const offenders = shellSources()
+      .filter(({ text }) => /export function Shell[A-Z]\b/.test(text))
+      .map(({ file }) => file)
+
+    expect(offenders, "The shell comparison is over; there is one frame.").toEqual([])
+  })
+
 })

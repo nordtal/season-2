@@ -8,15 +8,14 @@ import {
 } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { ReactNode } from "react"
 
-import { ShellA, ShellB, ShellC, ShellD, ShellE, ShellF, ShellG, ShellH, ShellI } from "@/app/frames"
+import { AppFrame } from "@/app/frames"
 import type { Me } from "@/lib/api"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The nine shells of steward/89, each actually drawn.
+ * The frame of steward/89, actually drawn.
  *
  * `shell.test.tsx` says in its own closing note that the signed-in branch is not reachable in a
  * test, because it needs a router with a route tree and a memory history. That note is why this
@@ -24,6 +23,8 @@ import { TooltipProvider } from "@/components/ui/tooltip"
  * and nothing behind them - so that the one thing no source rule can prove is proved by rendering.
  * **There is no header element in the document.** Till's order, and the first thing anybody would
  * put back.
+ *
+ * It was nine shells until 2026-09-17 and is one now; what the eight others tried is in the ticket.
  *
  * What it does not prove is what a phone looks like: jsdom has no layout, so an island drawn 80px
  * off the right edge has the same box here as one that fits. That is measured in a browser, and
@@ -56,11 +57,13 @@ const PATHS = [
   "/settings",
 ]
 
-function drawAt(path: string, frame: (me: Me) => ReactNode) {
+function drawAt(path: string, { open = true }: { open?: boolean } = {}) {
   const root = createRootRoute({
     component: () => (
       <TooltipProvider delayDuration={300}>
-        <SidebarProvider defaultOpen>{frame(ME)}</SidebarProvider>
+        <SidebarProvider defaultOpen={open}>
+          <AppFrame me={ME} />
+        </SidebarProvider>
       </TooltipProvider>
     ),
   })
@@ -82,18 +85,6 @@ function drawAt(path: string, frame: (me: Me) => ReactNode) {
   )
 }
 
-const shells: Array<[string, (me: Me) => ReactNode]> = [
-  ["A", (me) => <ShellA me={me} />],
-  ["B", (me) => <ShellB me={me} />],
-  ["C", (me) => <ShellC me={me} />],
-  ["D", (me) => <ShellD me={me} />],
-  ["E", (me) => <ShellE me={me} />],
-  ["F", (me) => <ShellF me={me} />],
-  ["G", (me) => <ShellG me={me} />],
-  ["H", (me) => <ShellH me={me} />],
-  ["I", (me) => <ShellI me={me} />],
-]
-
 beforeEach(() => {
   // The sidebar's service rows carry a health dot, so the shell opens one query on mount.
   vi.stubGlobal(
@@ -112,31 +103,41 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe.each(shells)("shell %s", (name, frame) => {
+describe("the frame", () => {
   it("draws the page it was asked for, with no header anywhere", async () => {
-    drawAt("/services/smp", frame)
+    drawAt("/services/smp")
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
     expect(
       document.querySelector("header"),
-      `Shell ${name} has a header element. The top bar went on Till's order (steward/89), in both` +
-        " states, and what it carried is the island and the account picture.",
+      "The top bar went on Till's order (steward/89), in both states, and what it carried is the" +
+        " island and the account picture.",
     ).toBeNull()
   })
 
-  it("puts the path of the page in the island", async () => {
-    drawAt("/services/smp", frame)
+  it("puts the path of the page in the island while the navigation is closed", async () => {
+    drawAt("/services/smp", { open: false })
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
-    const island = screen.getAllByRole("button", { name: "Navigation" })[0]
-    expect(island).toBeTruthy()
-    // The crumb is inside the island in shell C and beside its toggle in A and B, so the question
-    // is asked of the document: the path of the page is on the screen without a bar to carry it.
-    expect(document.body.textContent).toContain("smp")
+    const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
+    expect(island.textContent).toContain("Steward")
+    expect(island.textContent).toContain("smp")
+  })
+
+  it("takes the path back out of the island while the navigation is open", async () => {
+    // Till's third correction of 2026-09-17. The question this asks of the island rather than of
+    // the document is deliberate: "smp" is also a row in the navigation that is now standing
+    // open, so a document-wide search would pass no matter what the head does.
+    drawAt("/services/smp", { open: true })
+
+    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
+    const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
+    expect(island.textContent).toContain("Steward")
+    expect(island.textContent).not.toContain("smp")
   })
 
   it("has the account within reach of the island, and opens the settings from it", async () => {
-    drawAt("/", frame)
+    drawAt("/")
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
     fireEvent.click(screen.getByRole("button", { name: /Account/ }))
@@ -146,18 +147,19 @@ describe.each(shells)("shell %s", (name, frame) => {
   })
 
   it("answers the navigation toggle", async () => {
-    drawAt("/", frame)
+    drawAt("/")
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
 
-    const toggle = screen.getAllByRole("button", { name: "Navigation" })[0]
+    const toggle = screen.getByRole("button", { name: "Navigation" })
+    expect(toggle.getAttribute("aria-expanded")).toBe("true")
     fireEvent.click(toggle)
 
-    // Whatever the toggle does in this shell - collapse a column, or drop a panel - the state it
-    // reports has to change, because it is what a screen reader has instead of the animation.
+    // The state it reports has to change, because it is what a screen reader has instead of the
+    // animation.
     await waitFor(() =>
       expect(
-        screen.getAllByRole("button", { name: "Navigation" })[0].getAttribute("aria-expanded"),
-      ).toBe(name === "C" ? "true" : "false"),
+        screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded"),
+      ).toBe("false"),
     )
   })
 })

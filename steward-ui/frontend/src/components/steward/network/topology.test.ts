@@ -2,37 +2,22 @@ import { describe, expect, it } from "vitest"
 
 import { SERVICES } from "@/app/navigation"
 
-import { FLOW, FLOW_SINK } from "./flow"
-import { LAYERS } from "./layers"
-import { FLOOR, HUB, RING } from "./ring"
 import { EDGES, INGRESS, imageTag, layoutFaults, type NodeId } from "./topology"
 
 /**
- * The three drafts each arrange the ten services by hand, and a hand-written arrangement is where
- * the eleventh service goes missing.
+ * A draft arranges the ten services by hand, and a hand-written arrangement is where the eleventh
+ * service goes missing.
  *
- * It goes missing **silently**: a box that is not drawn looks exactly like a box further down the
+ * It goes missing **silently**: a card that is not drawn looks exactly like a card further down the
  * page, and nothing about the picture says a name is absent from it. This is the same trade
  * `Topology.java` names for `compose.yml` and `Glyphs` for `default.json` - two copies of one fact,
  * and a failing test rather than a memory is what keeps them equal.
+ *
+ * **That each draft actually places all ten is asserted in `geometry.test.ts`**, against the plans
+ * themselves rather than against a second list of members kept here - which is what this file did
+ * until the third round, and it was a third copy of the same fact.
  */
-describe("every draft places every service, once (steward/81)", () => {
-  const drafts: Array<[string, NodeId[]]> = [
-    ["a, the flow", [...FLOW.flat(), FLOW_SINK]],
-    ["b, the layers", LAYERS.flatMap((layer) => layer.members)],
-    ["c, the ring", [HUB, ...RING.map((spoke) => spoke.id), ...FLOOR]],
-  ]
-
-  for (const [name, placed] of drafts) {
-    it(`draft ${name} draws all ten services and the entry box`, () => {
-      expect(
-        layoutFaults(placed),
-        `Draft ${name} does not match SERVICES in navigation.ts. A network view keeping its own` +
-          " list of names is the second copy that stops matching compose.",
-      ).toEqual([])
-    })
-  }
-
+describe("layoutFaults names what an arrangement forgot (steward/81)", () => {
   it("notices a service that no draft placed, which is the failure it exists for", () => {
     const short = SERVICES.filter((name) => name !== "limbo")
     expect(layoutFaults([INGRESS, ...short])).toEqual(["limbo is placed nowhere"])

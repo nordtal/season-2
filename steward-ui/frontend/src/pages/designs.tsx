@@ -11,20 +11,15 @@
  * **These routes are temporary and their deletion is part of the ticket that owns them.** When a
  * variant is chosen it moves to where it belongs and this file loses the others.
  *
- * <h2>Two rounds</h2>
- * `a`, `b` and `c` were the first round and drew the same boxes, the same edges and the same
- * colours - see `components/steward/network/node.tsx`, which every one of the seven drafts renders
- * - so that the only thing being chosen between them was shape. The orchestrator's own read of
- * their screenshots found the lines themselves close to unreadable regardless of shape - a
- * `strokeOpacity` of 0.18-0.4 on a near-black background, edges hidden underneath boxes rather than
- * routed around them, and seven database edges fanning into `postgres` from every direction at
- * once. `d`, `e`, `f` and `g` are the second round, built to answer that finding directly: every one
- * of them draws in two named colours rather than one faint one, rounds every corner, and gives each
- * node a small toolbar - `open` and, where the deployer allows it, `recreate` - because Till asked
- * for the whole section to be "sehr interaktiv" and not only a picture. What still differs between
- * `d`-`g` is no longer only shape; it is what a reader is asked to do to read the database edges at
- * all: always look at a rail (`d`), look at one node at a time (`e`), never have to look far because
- * the layout already put the ends close together (`f`), or not look at them until asked (`g`).
+ * <h2>Three rounds, and only the third is still here</h2>
+ * `a` to `c` were the first round and `d` to `g` the second; both are deleted. Till chose no letter
+ * out of the seven and replied with seven changes instead (steward/81, 2026-09-17): curved lines
+ * rather than the orthogonal routing of `d`/`f`/`g`, real space between cards so a connection can
+ * be seen at all, an arrangement that is not a grid, every card the same size and smaller -
+ * `postgres` included, which was a bar across three of them - a ghost recreate, two more tooltips,
+ * and the half-dark tooltip finished. Every one of those is a change to what all seven drafts
+ * shared, so keeping them would have meant carrying seven rejected arrangements through a rewrite
+ * of the thing they were made of. They are gone, and what replaced them is `h` and `i`.
  *
  * **They are drawn at the width of the page, not of their eventual home.** steward/81 puts the
  * winner in the left half of a split section, so each draft reacts to its own container rather than
@@ -39,34 +34,24 @@ import { useRouterState } from "@tanstack/react-router"
 import { PageHeader } from "@/components/steward/page-header"
 import { Empty, Failure, Loading } from "@/components/steward/query-state"
 import { useNetwork } from "@/components/steward/network/data"
-import { RouteMapDraft } from "@/components/steward/network/d"
-import { FocusDraft } from "@/components/steward/network/e"
-import { FlowDraft } from "@/components/steward/network/flow"
-import { NeighbourhoodDraft } from "@/components/steward/network/f"
-import { ChannelDraft } from "@/components/steward/network/g"
-import { LayersDraft } from "@/components/steward/network/layers"
-import { RingDraft } from "@/components/steward/network/ring"
+import { DeltaDraft } from "@/components/steward/network/h"
+import { LensDraft } from "@/components/steward/network/i"
 import { Button } from "@/components/ui/button"
 
-const VARIANTS = ["a", "b", "c", "d", "e", "f", "g"] as const
+const VARIANTS = ["h", "i"] as const
 
 type Variant = (typeof VARIANTS)[number]
 
-/** `?v=a` - anything else is `a`, so a hand-typed address never shows an empty page. */
+/** `?v=h` - anything else is `h`, so a hand-typed address never shows an empty page. */
 export function useVariant(): Variant {
   const search = useRouterState({ select: (state) => state.location.searchStr })
   const asked = new URLSearchParams(search).get("v")
-  return (VARIANTS as readonly string[]).includes(asked ?? "") ? (asked as Variant) : "a"
+  return (VARIANTS as readonly string[]).includes(asked ?? "") ? (asked as Variant) : "h"
 }
 
 const DRAFTS: Record<Variant, ComponentType> = {
-  a: FlowDraft,
-  b: LayersDraft,
-  c: RingDraft,
-  d: RouteMapDraft,
-  e: FocusDraft,
-  f: NeighbourhoodDraft,
-  g: ChannelDraft,
+  h: DeltaDraft,
+  i: LensDraft,
 }
 
 export function NetworkDesignsPage() {

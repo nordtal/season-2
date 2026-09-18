@@ -1,8 +1,8 @@
 import { CommandPalette } from "@/app/command-palette"
-import { ShellA, ShellB, ShellC, ShellD, ShellE, ShellF, ShellG, ShellH, ShellI } from "@/app/frames"
+import { AppFrame } from "@/app/frames"
 import { HoldKeyPage } from "@/app/hold-key"
 import { SecurityKeyPage } from "@/app/security-key"
-import { sidebarDefaultOpen, useShellVariant } from "@/app/shell-variant"
+import { sidebarDefaultOpen } from "@/app/sidebar-state"
 import { StepUp } from "@/app/step-up"
 import { SignInPage } from "@/app/sign-in"
 import { StewardMark } from "@/app/steward-mark"
@@ -23,8 +23,8 @@ export { breadcrumbsFor } from "@/app/breadcrumbs"
  *
  * **There is no header any more** (steward/89, Till 2026-09-17). It is gone in both states, with
  * its border, and what it carried is now an island at the top left and the account picture level
- * with it. `app/frames.tsx` holds the three shells that are being compared and says what each of
- * them does differently; `the-header-is-gone.test.ts` is what keeps the header from growing back.
+ * with it. `app/frames.tsx` holds the frame Till chose out of the nine that were built for that
+ * comparison; `the-header-is-gone.test.ts` is what keeps the header from growing back.
  *
  * The document itself does not scroll. An operator watching a log window and a service table at
  * the same time should not lose their place to do it, so only the content column moves.
@@ -86,8 +86,6 @@ export function Shell() {
  * with no route tree at all, which is exactly what makes those four testable.
  */
 function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
-  const variant = useShellVariant()
-
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider
@@ -99,25 +97,7 @@ function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
         defaultOpen={sidebarDefaultOpen(document.cookie)}
         style={{ "--sidebar-width": "13rem" } as React.CSSProperties}
       >
-        {variant === "c" ? (
-          <ShellC me={me} />
-        ) : variant === "b" ? (
-          <ShellB me={me} />
-        ) : variant === "d" ? (
-          <ShellD me={me} />
-        ) : variant === "e" ? (
-          <ShellE me={me} />
-        ) : variant === "f" ? (
-          <ShellF me={me} />
-        ) : variant === "g" ? (
-          <ShellG me={me} />
-        ) : variant === "h" ? (
-          <ShellH me={me} />
-        ) : variant === "i" ? (
-          <ShellI me={me} />
-        ) : (
-          <ShellA me={me} />
-        )}
+        <AppFrame me={me} />
         {/*
           Bottom right on a desktop, bottom centre on a phone - a thumb is in the middle, and a
           corner toast on a narrow screen covers whatever control is in that corner. One Toaster

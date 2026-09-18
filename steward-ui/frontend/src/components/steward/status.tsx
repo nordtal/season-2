@@ -38,7 +38,25 @@ export function StatusBadge({
   className?: string
 }) {
   const badge = (
-    <Badge variant="outline" className={cn("font-medium", TONES[tone], className)}>
+    <Badge
+      variant="outline"
+      // WHY `max-w-full` AND `truncate` ARE NOT DECORATION (steward/103, measured 2026-09-17).
+      //
+      // shadcn's `Badge` is `w-fit shrink-0 whitespace-nowrap overflow-hidden`. Every one of those
+      // four is deliberate for a badge sitting in a header; together, in a 390px table card, they
+      // are a box as wide as its text, refusing to shrink, refusing to wrap, and clipping the
+      // remainder WITHOUT an ellipsis. That is the whole of what `/access` looked like at 390px:
+      // `active until 1 Dec 2026, 00:0`, the last digit simply gone and nothing saying so.
+      //
+      // `index.css`'s `.steward-table td > * { max-width: 100% }` does not reach it, because it is
+      // one level too shallow - when this badge carries a `title` it sits inside the tooltip's own
+      // span, and it is that span the rule caps. So the cap is repeated here, on the thing that
+      // actually refuses to shrink, and `truncate` turns the silent cut into an ellipsis.
+      //
+      // A badge that ends in `…` is still a compromise. Where the text is a DATE the answer is a
+      // shorter format instead - see `format.ts#date`; abbreviated is a reading, truncated is not.
+      className={cn("max-w-full truncate font-medium", TONES[tone], className)}
+    >
       {children}
     </Badge>
   )
@@ -46,7 +64,9 @@ export function StatusBadge({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={0} className="rounded-full focus-visible:outline-none">
+        {/* `max-w-full` here too: this span is the grid item in a table card, and a badge capped
+          * at 100% of a span that is itself wider than the cell is capped at nothing. */}
+        <span tabIndex={0} className="inline-flex max-w-full rounded-full focus-visible:outline-none">
           {badge}
         </span>
       </TooltipTrigger>

@@ -269,8 +269,9 @@ public final class PaperCommands {
                     // The root is gated when everything under it is admin-only, which matters for a
                     // root whose bare form is itself a command: requires on the first-level children
                     // alone would leave that ungated. An open extra keeps the root open.
-                    if (adminOnly(root) && !openExtras.containsKey(root.literal)) {
-                        builder.requires(this::mayUse);
+                    final Predicate<CommandSourceStack> gate = gate(root);
+                    if (gate != null && !openExtras.containsKey(root.literal)) {
+                        builder.requires(gate);
                     }
                     // Gated here, because the root carries no requires unless the line above put one
                     // there - an extra not gated here is not gated at all.
@@ -308,6 +309,45 @@ public final class PaperCommands {
         return node.children.values().stream().allMatch(PaperCommands::adminOnly);
     }
 
+    /**
+     * Whether nothing runnable at or below this node carries {@link
+     * eu.nordtal.s2.commands.Surface#GAME} - the same shape as {@link #adminOnly(Node)}, and asked
+     * for the same reason: one command below that a player may type keeps the whole subtree in
+     * their tree, because {@code requires} is inherited downwards.
+     */
+    private static boolean offGame(final Node node) {
+        if (node.command != null
+                && node.command.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.GAME)) {
+            return false;
+        }
+        return node.children.values().stream().allMatch(PaperCommands::offGame);
+    }
+
+    /**
+     * What has to be true of a source for this node to exist for it at all, or {@code null} when
+     * the node is open to everyone.
+     *
+     * <h2>{@code requires} is how a command is "not registered in game"</h2>
+     * steward/106 asks for the commands {@code season-2-ops/18} took off {@link
+     * eu.nordtal.s2.commands.Surface#GAME} to <b>disappear</b> rather than answer with "that
+     * command moved". There is one Brigadier tree per server and not one per audience, so the only
+     * place that question can be answered is here: a node whose requirement no {@link Player}
+     * passes is left out of the tree sent to every client, is refused by the server's own parse,
+     * and reads to the person typing as Brigadier's "Unknown command". That is the ticket's own
+     * fallback sentence ("eine Registrierung, die nur den Konsolen-Sender zulässt"), and Till took
+     * the "Unknown command" cost deliberately.
+     *
+     * <p>The console is never gated out: {@link #mayUse(CommandSender, Predicate)} already lets
+     * only a {@link ConsoleCommandSender} through for a non-player, so the off-game gate is that
+     * one plus "not a player".</p>
+     */
+    private Predicate<CommandSourceStack> gate(final Node node) {
+        if (offGame(node)) {
+            return source -> !(source.getSender() instanceof Player) && mayUse(source);
+        }
+        return adminOnly(node) ? this::mayUse : null;
+    }
+
     private LiteralArgumentBuilder<CommandSourceStack> materialise(final Node node) {
         final LiteralArgumentBuilder<CommandSourceStack> builder = Commands.literal(node.literal);
         for (final Node child : node.children.values()) {
@@ -315,7 +355,8 @@ public final class PaperCommands {
             // that also carries somebody else's open command. Brigadier inherits requires down a
             // subtree, which is also why a subtree with anything open in it may not carry one.
             final LiteralArgumentBuilder<CommandSourceStack> sub = materialise(child);
-            builder.then(adminOnly(child) ? sub.requires(this::mayUse) : sub);
+            final Predicate<CommandSourceStack> gate = gate(child);
+            builder.then(gate == null ? sub : sub.requires(gate));
         }
 
         final boolean runnableHere = node.command != null && arguments(builder, node.command);
@@ -410,6 +451,18 @@ public final class PaperCommands {
             below.removeIf(Declaration::adminOnly);
             if (below.isEmpty()) {
                 user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
+                return Command.SINGLE_SUCCESS;
+            }
+        }
+        // And the same rule for the surface (steward/106): a command that is not in this player's
+        // tree must not be listed to them either. Without this, a bare /smp typed by an admin in
+        // chat would name /smp farmreset now - a command they would then be told does not exist,
+        // which is a worse lie than the sentence steward/106 removed.
+        if (user.origin() == NordtalUser.Origin.GAME) {
+            below.removeIf(declaration ->
+                    !declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.GAME));
+            if (below.isEmpty()) {
+                user.reply("command.unknown", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -617,18 +670,19 @@ public final class PaperCommands {
             return Command.SINGLE_SUCCESS;
         }
 
-        // The symmetric case, added for ops/18 ("alles Admin nur noch Konsole und Web"): a player
-        // who still knows the old chat form of an admin command that just lost Surface.GAME must
-        // not be told the command does not exist (command.unknown) - Brigadier's tree already hid
-        // it from them by the requires on this node, so reaching this line at all means the tree
-        // let them past that gate some other way (a root's own executes(), for instance) rather
-        // than that they typed something meaningless. Which of the two hints depends on whether the
-        // command still has anywhere a player themself could reach it: Surface.WEB.
+        // The symmetric case. This is the lock behind gate()'s requires, not the gate: a command
+        // without Surface.GAME is left out of every player's tree, so the ordinary way to reach
+        // this line is not to reach it at all, and Minecraft answers "Unknown command" instead.
+        //
+        // steward/106, 2026-09-17: it used to answer command.not-in-game here ("that command still
+        // exists, but not here any more"). Till saw that sentence in game and called it a misreading
+        // of his own requirement - the commands are to be gone, "Unknown command" and all. So the
+        // reply here is the project's own command.unknown: a player who does get past the tree by
+        // some path this adapter did not foresee must read the same answer the tree would have
+        // given them, and not a hint that the command is somewhere else.
         if (user.origin() == NordtalUser.Origin.GAME
                 && !entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.GAME)) {
-            final String key = entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.WEB)
-                    ? "command.not-in-game.web" : "command.not-in-game";
-            user.reply(key, Map.of(), Feedback.REFUSED, Tone.BAD);
+            user.reply("command.unknown", Map.of(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 

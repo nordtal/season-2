@@ -335,12 +335,25 @@ describe("AccessPage - unlink as a row action", () => {
     arguments: [{ name: "member", kind: "ACCOUNT", required: true }],
   }
 
+  /**
+   * Ally carries four actions (steward/106), so hers are behind a popover and the row holds one
+   * button. Opening it is part of reaching any of them - which is the interface, not the test
+   * working around it.
+   */
+  async function openActions(name: string): Promise<HTMLElement> {
+    const row = (await screen.findByText(name)).closest("tr") as HTMLElement
+    const trigger = within(row).queryByRole("button", { name: /^Actions for/ })
+    if (!trigger) return row
+    fireEvent.click(trigger)
+    return (await screen.findByRole("dialog")) as HTMLElement
+  }
+
   it("offers Unlink on a person once the command is released to the web", async () => {
     vi.stubGlobal("fetch", backend({ commands: () => [UNLINK_COMMAND] }))
     draw(<AccessPage />)
 
-    const row = (await screen.findByText("Ally")).closest("tr") as HTMLElement
-    expect(within(row).getByRole("button", { name: /unlink/i })).toBeTruthy()
+    const actions = await openActions("Ally")
+    expect(within(actions).getByRole("button", { name: /unlink/i })).toBeTruthy()
   })
 
   it("sends that person's own Discord id, with no picker to get wrong", async () => {
@@ -348,8 +361,8 @@ describe("AccessPage - unlink as a row action", () => {
     vi.stubGlobal("fetch", fetched)
     draw(<AccessPage />)
 
-    const row = (await screen.findByText("Ally")).closest("tr") as HTMLElement
-    fireEvent.click(within(row).getByRole("button", { name: /unlink/i }))
+    const actions = await openActions("Ally")
+    fireEvent.click(within(actions).getByRole("button", { name: /unlink/i }))
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: "Unlink" }))
 
@@ -372,8 +385,88 @@ describe("AccessPage - unlink as a row action", () => {
     vi.stubGlobal("fetch", backend({ commands: () => [] }))
     draw(<AccessPage />)
 
-    const row = (await screen.findByText("Ally")).closest("tr") as HTMLElement
-    expect(within(row).queryByRole("button", { name: /unlink/i })).toBeNull()
+    const actions = await openActions("Ally")
+    expect(within(actions).queryByRole("button", { name: /unlink/i })).toBeNull()
+  })
+})
+
+/**
+ * steward/47 + steward/106: an action is drawn when the state of THIS row allows it, and not
+ * otherwise.
+ *
+ * Till's finding of 2026-09-17, in one sentence: "Unlink" and "Periods" stood against every person
+ * alike. Ally is linked, paid and running; Bob is none of the three. The whole of this block is
+ * that those two rows must not look the same.
+ */
+describe("AccessPage - the actions of a row depend on that row", () => {
+  const UNLINK_COMMAND = {
+    name: "/access unlink",
+    path: ["access", "unlink"],
+    target: "DISCORD_BOT",
+    adminOnly: true,
+    irreversible: true,
+    arguments: [{ name: "member", kind: "ACCOUNT", required: true }],
+  }
+
+  /** Every control offered against one person, whether it is inline or inside the popover. */
+  async function actionsOf(name: string): Promise<string[]> {
+    const row = (await screen.findByText(name)).closest("tr") as HTMLElement
+    const trigger = within(row).queryByRole("button", { name: /^Actions for/ })
+    const scope = trigger
+      ? (fireEvent.click(trigger), (await screen.findByRole("dialog")) as HTMLElement)
+      : row
+    return within(scope)
+      .queryAllByRole("button")
+      .map((button) => (button.textContent ?? "").trim())
+      .filter((label) => label !== "")
+  }
+
+  it("offers nothing to unlink for somebody with no Minecraft account", async () => {
+    vi.stubGlobal("fetch", backend({ commands: () => [UNLINK_COMMAND] }))
+    draw(<AccessPage />)
+
+    // bob has no minecraftUuid. The command IS released to the web, so the only thing that can
+    // hide the button is the row's own state - which is exactly what was missing.
+    expect(await actionsOf("bob")).not.toContain("Unlink")
+    expect(await actionsOf("Ally")).toContain("Unlink")
+  })
+
+  it("offers no Periods to somebody who has never had one", async () => {
+    vi.stubGlobal("fetch", backend({ commands: () => [] }))
+    draw(<AccessPage />)
+
+    // `accessUntil` absent means no period was ever written - the dialog would open on nothing.
+    expect(await actionsOf("bob")).not.toContain("Periods")
+    expect(await actionsOf("Ally")).toContain("Periods")
+  })
+
+  it("offers no Revoke where there is nothing running to take away", async () => {
+    vi.stubGlobal("fetch", backend({ commands: () => [] }))
+    draw(<AccessPage />)
+
+    expect(await actionsOf("bob")).not.toContain("Revoke")
+    expect(await actionsOf("Ally")).toContain("Revoke")
+  })
+
+  it("always offers Grant, because more access can always be given", async () => {
+    vi.stubGlobal("fetch", backend({ commands: () => [] }))
+    draw(<AccessPage />)
+
+    expect(await actionsOf("bob")).toContain("Grant")
+    expect(await actionsOf("Ally")).toContain("Grant")
+  })
+
+  it("puts a row's actions behind one popover as soon as there are more than two", async () => {
+    vi.stubGlobal("fetch", backend({ commands: () => [UNLINK_COMMAND] }))
+    draw(<AccessPage />)
+
+    // Ally has four; bob has one, and a popover holding a single button would be a click for
+    // nothing.
+    const ally = (await screen.findByText("Ally")).closest("tr") as HTMLElement
+    const bob = (await screen.findByText("bob")).closest("tr") as HTMLElement
+    expect(within(ally).getByRole("button", { name: /^Actions for/ })).toBeTruthy()
+    expect(within(bob).queryByRole("button", { name: /^Actions for/ })).toBeNull()
+    expect(within(bob).getByRole("button", { name: "Grant" })).toBeTruthy()
   })
 })
 

@@ -1,5 +1,6 @@
 import {
   ArrowSquareOutIcon,
+  ClockCounterClockwiseIcon,
   HandCoinsIcon,
   LinkBreakIcon,
   MagnifyingGlassIcon,
@@ -13,7 +14,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Grant, JournalEntry, Payment, Person } from "@/lib/api"
-import { count, dateTime, euros, relative } from "@/lib/format"
+import { count, date, dateTime, euros, relative } from "@/lib/format"
 import {
   useAvatarBaseUrl,
   useCommands,
@@ -28,6 +29,7 @@ import {
 import { MinecraftFace, PersonIdentity } from "@/components/steward/identity"
 import { InlineCommandAction } from "@/components/steward/inline-command"
 import { PageHeader } from "@/components/steward/page-header"
+import { RowActions, type RowAction } from "@/components/steward/row-actions"
 import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
 import { Empty, Failure, Loading, QueryState } from "@/components/steward/query-state"
@@ -155,8 +157,11 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
 
   if (person.accessActive) {
     return (
-      <StatusBadge tone="ok" title={`An unrevoked period covers right now.`}>
-        active until {dateTime(person.accessUntil)}
+      <StatusBadge
+        tone="ok"
+        title={`An unrevoked period covers right now, until ${dateTime(person.accessUntil)}.`}
+      >
+        active until {date(person.accessUntil)}
       </StatusBadge>
     )
   }
@@ -321,6 +326,13 @@ export function AccessPage() {
   // The person whose access is being revoked. Separate from `selected` on purpose: opening this
   // one closes the other, so there is never a dialog inside a dialog.
   const [revoking, setRevoking] = useState<Person | null>(null)
+  // And the same for the other two writes, for a second reason on top of that one (steward/106):
+  // a row's actions live in a popover once there are more than two of them, and a Radix popover
+  // closes on any interaction outside itself - which a dialog's overlay is. A dialog rendered
+  // inside the popover is therefore unmounted by the click that opened it. So every dialog on this
+  // page is rendered here, beside the table, and the row holds nothing but buttons.
+  const [unlinking, setUnlinking] = useState<Person | null>(null)
+  const [granting, setGranting] = useState<Person | null>(null)
   // One clock for the whole render, so that two badges in one row cannot disagree about "now".
   const now = Date.now()
 
@@ -349,18 +361,32 @@ export function AccessPage() {
           <CardTitle className="text-sm font-medium">People</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex w-full min-w-0 flex-1 items-center gap-2 sm:min-w-64">
+          {/*
+            steward/103, measured at 390px on 2026-09-17. This row was `flex flex-wrap` with the
+            field `w-full flex-1`: `flex-1` sets `flex-basis: 0%`, which beats `w-full`, so the two
+            never wrapped onto separate lines - they shared one line about 100px too narrow for
+            them. The field could not shrink out of the way either, because an `<input>` has an
+            intrinsic minimum width and the `min-w-0` that would have released it sat on the
+            wrapper rather than on the input itself. So the switch was pushed against the card edge
+            and the placeholder was cut at `Filter by name`.
+
+            Two lines below `sm`, one above, and `min-w-0` on the input where it belongs.
+          */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+            <div className="flex w-full min-w-0 items-center gap-2 sm:min-w-64 sm:flex-1">
               <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <Input
                 value={needle}
                 onChange={(event) => changeNeedle(event.target.value)}
-                placeholder="Filter by name, Discord id, or Minecraft account…"
-                aria-label="Filter people"
+                // Short enough to be readable at 390px rather than cut mid-word. The long sentence
+                // it replaces is now the accessible name, where nothing clips it.
+                placeholder="Filter by name or id"
+                aria-label="Filter people by name, Discord id, or Minecraft account"
+                className="min-w-0"
                 autoComplete="off"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <Switch
                 id="only-with-access"
                 checked={onlyWithAccess}
@@ -499,36 +525,16 @@ export function AccessPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap items-center justify-end gap-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSelected(person)}
-                              >
-                                Periods
-                              </Button>
-                              {/* No greyed-out button for somebody without access: there is
-                               * nothing to take away, and a disabled destructive control reads as
-                               * "not allowed" rather than "not applicable". */}
-                              {person.accessActive ? <RevokeDialog person={person} /> : null}
-                              {/*
-                                steward/47: `unlink` moved here from the generic command card,
-                                as an action against the person the row already names. Drawn only
-                                when `/access unlink` is one of the declarations `/api/commands`
-                                actually released to the web - the same rule the card it replaced
-                                followed for its own list.
-                              */}
-                              <InlineCommandAction
-                                command={unlinkCommand}
-                                argumentName="member"
-                                value={person.discordId}
-                                label="Unlink"
-                                icon={LinkBreakIcon}
-                                destructive
-                                confirmDescription="Breaks the link between this Discord account and its Minecraft account. The paid period is untouched; the person can link a Minecraft account again afterwards."
-                              />
-                            </div>
+                            <RowActions
+                              label={`Actions for ${personName(person)}`}
+                              actions={rowActions(person, {
+                                unlinkable: unlinkCommand !== undefined,
+                                onPeriods: () => setSelected(person),
+                                onGrant: () => setGranting(person),
+                                onRevoke: () => setRevoking(person),
+                                onUnlink: () => setUnlinking(person),
+                              })}
+                            />
                           </TableCell>
                         </TableRow>
                       ))}
@@ -594,8 +600,137 @@ export function AccessPage() {
           onOpenChange={(open) => (open ? null : setRevoking(null))}
         />
       ) : null}
+
+      {/* Both rendered here rather than in the row, for the reason `unlinking` is declared with. */}
+      {unlinking ? (
+        <InlineCommandAction
+          command={unlinkCommand}
+          argumentName="member"
+          value={unlinking.discordId}
+          label="Unlink"
+          icon={LinkBreakIcon}
+          destructive
+          confirmDescription="Breaks the link between this Discord account and its Minecraft account. The paid period is untouched; the person can link a Minecraft account again afterwards."
+          open
+          onOpenChange={(open) => (open ? null : setUnlinking(null))}
+        />
+      ) : null}
+
+      {granting ? (
+        <GrantDialog
+          person={granting}
+          open
+          onOpenChange={(open) => (open ? null : setGranting(null))}
+        />
+      ) : null}
     </div>
   )
+}
+
+/** What to call somebody in a control's accessible name, in the order the table itself reads. */
+function personName(person: Person): string {
+  return person.discordDisplayName ?? person.discordUsername ?? person.mcName ?? person.discordId
+}
+
+/**
+ * WHICH ACTIONS ONE ROW OFFERS - the whole of steward/47's second finding, in one function.
+ *
+ * Till looked at this table on a phone on 2026-09-17 and found "Unlink" and "Periods" drawn
+ * against every person alike, whatever their state; he asked for actions and information per person
+ * to be shown dynamically instead. So every entry below is conditional on something this row
+ * actually knows, and the conditions are the point:
+ *
+ * - **Periods** only when a period exists. `accessUntil` is the end of the latest period *on
+ *   record*, revoked ones included, so `null` means the dialog would open on nothing at all.
+ * - **Grant** always. There is no state in which more access cannot be given - that is exactly
+ *   what the header's own button does, and this one arrives with the person already filled in.
+ * - **Revoke** only while access is active. No greyed-out button for somebody without any: there
+ *   is nothing to take away, and a disabled destructive control reads as "not allowed" rather than
+ *   "not applicable".
+ * - **Unlink** only when a Minecraft account is linked - the bug Till found. It was drawn for
+ *   everybody, including the people with nothing to unlink. It is still additionally conditional
+ *   on `/access unlink` being declared for `Surface.WEB` in `/api/commands`, which is steward/47's
+ *   original rule and unchanged: a withdrawn declaration hides the button rather than producing a
+ *   404.
+ *
+ * <h2>The two of the five that are deliberately not here</h2>
+ * steward/106 names five `access` commands for this table. `settle` is not one of these rows'
+ * business: it books one payment reference, not one person, and steward/47 already moved it to the
+ * Payments page where the row names the reference. `status` is the row itself plus the Periods
+ * dialog - both read the same tables directly - and it is declared `CONSOLE` only, so a command
+ * button for it could not be drawn even if it were wanted.
+ */
+function rowActions(
+  person: Person,
+  on: {
+    unlinkable: boolean
+    onPeriods: () => void
+    onGrant: () => void
+    onRevoke: () => void
+    onUnlink: () => void
+  },
+): RowAction[] {
+  const actions: RowAction[] = []
+
+  if (person.accessUntil) {
+    actions.push({
+      key: "periods",
+      node: (
+        <Button type="button" variant="ghost" size="sm" onClick={on.onPeriods}>
+          <ClockCounterClockwiseIcon aria-hidden />
+          Periods
+        </Button>
+      ),
+    })
+  }
+
+  actions.push({
+    key: "grant",
+    node: (
+      <Button type="button" variant="ghost" size="sm" onClick={on.onGrant}>
+        <UserPlusIcon aria-hidden />
+        Grant
+      </Button>
+    ),
+  })
+
+  if (person.accessActive) {
+    actions.push({
+      key: "revoke",
+      node: (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-destructive"
+          onClick={on.onRevoke}
+        >
+          <ShieldSlashIcon aria-hidden />
+          Revoke
+        </Button>
+      ),
+    })
+  }
+
+  if (person.minecraftUuid && on.unlinkable) {
+    actions.push({
+      key: "unlink",
+      node: (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-destructive"
+          onClick={on.onUnlink}
+        >
+          <LinkBreakIcon aria-hidden />
+          Unlink
+        </Button>
+      ),
+    })
+  }
+
+  return actions
 }
 
 /*
@@ -632,21 +767,33 @@ function AccessColumnHead() {
  * starts on the opening day. Writing them here is the only way the person clicking can predict what
  * the row will say afterwards.
  */
-function GrantDialog() {
+function GrantDialog({
+  person,
+  open,
+  onOpenChange,
+}: {
+  /** Prefills the id, for the row-level "Grant" of steward/106. */
+  person?: Person
+  /** When given, the dialog is controlled from outside and draws no trigger of its own. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+} = {}) {
   const grant = useGrantAccess()
-  const [discordId, setDiscordId] = useState("")
+  const [discordId, setDiscordId] = useState(person?.discordId ?? "")
   const [days, setDays] = useState("30")
   const parsedDays = Number.parseInt(days, 10)
   const usable = discordId.trim().length > 0 && Number.isFinite(parsedDays) && parsedDays > 0
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button type="button">
-          <UserPlusIcon aria-hidden />
-          Grant access
-        </Button>
-      </AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      {open === undefined ? (
+        <AlertDialogTrigger asChild>
+          <Button type="button">
+            <UserPlusIcon aria-hidden />
+            Grant access
+          </Button>
+        </AlertDialogTrigger>
+      ) : null}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Grant access by hand</AlertDialogTitle>
@@ -713,7 +860,7 @@ function GrantDialog() {
                         written.validUntil,
                       )}. A journal line names you.`,
                     })
-                    setDiscordId("")
+                    setDiscordId(person?.discordId ?? "")
                   },
                   onError: (error) => {
                     toast.error("No access was granted", { description: String(error) })

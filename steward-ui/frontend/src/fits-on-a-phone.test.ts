@@ -18,6 +18,16 @@ const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
  * The measurement itself lives in `/home/dev/ui-shots/tool/overflow.mjs` on the dev server: it
  * walks every box on every page at 390px and prints the ones that stick out. Run that after a
  * layout change; this file only keeps the two known answers from being lost.
+ *
+ * **THIS FILE CANNOT TELL YOU THAT THE INTERFACE FITS. It can only tell you that a rule which once
+ * made it fit has not been deleted.** Written out on 2026-09-17 because steward/103 found four
+ * boxes running off the right edge of `/access` and every test here was green while they did -
+ * correctly, because a width is a number jsdom does not have and no assertion over source text can
+ * produce. The only instrument that sees a width is a picture: `/home/dev/ui-shots/tool/preview.mjs
+ * --target=/access --width=390 --out=…` renders the built frontend against the fixtures in
+ * `/home/dev/ui-shots/fixtures` with no server and no session, and `overflow.mjs` measures the same
+ * thing in numbers when a deployment is running. A guard that is trusted further than it can see is
+ * worse than no guard, so: **if the change is about how wide something is, take the picture.**
  */
 /**
  * Every string in the sources that is a list of Tailwind classes - wherever it is written.
@@ -109,6 +119,32 @@ describe("the rules that make it fit on a phone", () => {
         " line, the scroll area clips at the screen's width and renders no horizontal bar, and the" +
         " right-hand third of the interface is drawn where no finger can reach it.",
     ).toContain("[&>div]:!block")
+  })
+
+  it("caps a status badge at the width of the cell it sits in", () => {
+    // MEASURED 2026-09-17 at 390px, steward/103. shadcn's `Badge` is `w-fit shrink-0
+    // whitespace-nowrap overflow-hidden`: as wide as its text, refusing to shrink, refusing to
+    // wrap, and clipping the rest WITHOUT an ellipsis. In a table card that is a date drawn as
+    // `active until 1 Dec 2026, 00:0` - the last digit simply gone, and nothing on screen saying
+    // so. `index.css`'s `.steward-table td > *` rule does not reach it, because the badge sits one
+    // level deeper inside the tooltip's own span.
+    //
+    // This is the one half of that finding a source rule can hold: not "the badge fits", which
+    // needs a picture, but "the cap somebody measured is still written down". It is the same shape
+    // as the scroll-area rule above and it fails for the same reason - somebody tidying away a
+    // class that looks redundant on a desktop.
+    const status = fs.readFileSync(path.join(source, "components/steward/status.tsx"), "utf8")
+    const classes = [...status.matchAll(/"([^"\n]*)"/g)].map((m) => m[1]).join(" ")
+
+    expect(
+      classes,
+      "StatusBadge must cap itself at `max-w-full` and end in an ellipsis rather than a hard cut." +
+        " Badge is `w-fit shrink-0 whitespace-nowrap overflow-hidden`, so without this it is drawn" +
+        " at its full text width and the table container clips it silently.",
+    ).toMatch(/max-w-full/)
+    expect(classes, "…and `truncate`, so what does not fit ends in an ellipsis.").toMatch(
+      /truncate/,
+    )
   })
 
   it("lets an image reference break inside a table card", () => {

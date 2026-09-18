@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Failure } from "@/components/steward/query-state"
 import { StatusBadge } from "@/components/steward/status"
 
@@ -35,9 +36,33 @@ import { StatusBadge } from "@/components/steward/status"
 export function RecreateButton({
   service,
   size = "sm",
+  variant = "outline",
+  compact = false,
 }: {
   service: string
   size?: "sm" | "default"
+  /**
+   * `outline` on a page, `ghost` on a picture.
+   *
+   * Till, 2026-09-17 on the network view: the thick recreate button may become a ghost. It is not
+   * made ghost everywhere, and the reason is what the two places are: on
+   * `/services/<name>` recreating **is** the action of the page and a filled-enough button is
+   * honest about that; inside a node of a topology picture it is one of ten identical toolbars,
+   * and ten outlined buttons are ten little rectangles competing with the lines that are the
+   * actual subject. Same component, same dialog, same warning - only the weight differs.
+   */
+  variant?: "outline" | "ghost"
+  /**
+   * The icon alone, named rather than labelled.
+   *
+   * A node in the network view is 144px wide (steward/81, 2026-09-17: every card the same size,
+   * and smaller), and the word "Recreate" is most of that. The
+   * accessible name keeps the word - `aria-label` still says "Recreate <service>" - so a screen
+   * reader, a test and the tooltip all read the same thing a sighted user reads on the page
+   * version. It is never the default: a button whose whole meaning is a warning does not lose its
+   * word anywhere there is room for it.
+   */
+  compact?: boolean
 }) {
   const deployer = useDeployer()
   const [open, setOpen] = useState(false)
@@ -98,17 +123,33 @@ export function RecreateButton({
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size={size}
-          disabled={unavailable}
-          title={title}
-        >
-          <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
-          Recreate
-        </Button>
-      </DialogTrigger>
+      {compact ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger asChild>
+              <Button
+                variant={variant}
+                size="icon-xs"
+                disabled={unavailable}
+                aria-label={`Recreate ${service}`}
+              >
+                <ArrowsClockwiseIcon aria-hidden />
+              </Button>
+            </DialogTrigger>
+          </TooltipTrigger>
+          {/* The `title` attribute is what carries the deployer's own reason on the page version,
+              and a disabled button never shows one on hover in any browser. In the picture the
+              reason is the tooltip, which a disabled trigger still opens. */}
+          <TooltipContent>{title}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <DialogTrigger asChild>
+          <Button variant={variant} size={size} disabled={unavailable} title={title}>
+            <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
+            Recreate
+          </Button>
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-xl">
         <DialogHeader>

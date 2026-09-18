@@ -2,11 +2,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { MenuIsland, PathIsland } from "@/app/island"
+import { Island } from "@/app/island"
 import { UserMenu, initials } from "@/app/user-menu"
-import { resolveShellVariant, sidebarDefaultOpen } from "@/app/shell-variant"
+import { sidebarDefaultOpen } from "@/app/sidebar-state"
 import type { Me } from "@/lib/api"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 /**
  * The two objects the header became (steward/89): the island at the top left, and the account
@@ -58,10 +57,14 @@ afterEach(() => {
 describe("the island carries the path and the toggle", () => {
   it("draws the trail and calls back when the toggle is tapped", () => {
     const toggle = vi.fn()
-    render(<PathIsland crumbs={CRUMBS} expanded={false} onToggle={toggle} />)
+    render(<Island crumbs={CRUMBS} expanded={false} onToggle={toggle} />)
 
     expect(screen.getByText("steward-worker")).toBeTruthy()
-    expect(screen.getByText("Overview")).toBeTruthy()
+    // "Overview" is drawn as the Nordtal mark and the bare word, which is the island's first
+    // element by order (steward/89) - the label of `crumbs[0]` never appears.
+    expect(screen.getByText("Steward")).toBeTruthy()
+    expect(screen.queryByText("Overview")).toBeNull()
+    expect(screen.getByText("Services")).toBeTruthy()
 
     fireEvent.click(screen.getByRole("button", { name: "Navigation" }))
     expect(toggle).toHaveBeenCalledTimes(1)
@@ -74,7 +77,7 @@ describe("the island carries the path and the toggle", () => {
     // the current page was the one crumb squeezed to nothing - a trail ending in a separator
     // pointing at empty space. Both halves are load-bearing and neither is obvious a year from
     // now, which is why the classes are asserted rather than trusted.
-    render(<PathIsland crumbs={CRUMBS} expanded={false} onToggle={() => undefined} />)
+    render(<Island crumbs={CRUMBS} expanded={false} onToggle={() => undefined} />)
 
     const items = Array.from(document.querySelectorAll("li")).filter(
       (li) => li.getAttribute("data-slot") === "breadcrumb-item",
@@ -89,7 +92,10 @@ describe("the island carries the path and the toggle", () => {
     }
 
     const page = items[items.length - 1]!
-    for (const ancestor of items.slice(0, -1)) {
+    // The brand crumb is exempt and has its own reason, written out in `Crumbs`: it carries the
+    // mark and the bare word "Steward", and a head that lets that go to an ellipsis before an
+    // in-between segment does is un-branding itself under its own name.
+    for (const ancestor of items.slice(1, -1)) {
       expect(
         ancestor.className,
         "An ancestor has to give way first: a flex item sheds space in proportion to its shrink" +
@@ -100,37 +106,34 @@ describe("the island carries the path and the toggle", () => {
   })
 
   it("says whether the navigation is open, for anything that cannot see the icon", () => {
-    render(<PathIsland crumbs={CRUMBS} expanded onToggle={() => undefined} />)
+    render(<Island crumbs={CRUMBS} expanded onToggle={() => undefined} />)
     expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded"))
       .toBe("true")
   })
 
-  it("really opens a menu when it is a menu trigger", () => {
-    // The wiring, not the shape: `MenuIsland` hands everything a trigger gives it - the click,
-    // the ref and `aria-expanded` - straight to its button. Get that wrong and shell C has an
-    // island that looks right and opens nothing, which no source rule would notice.
-    render(
-      <Popover>
-        <PopoverTrigger asChild>
-          <MenuIsland crumbs={CRUMBS} expanded={false} />
-        </PopoverTrigger>
-        <PopoverContent>Every page</PopoverContent>
-      </Popover>,
-    )
+  it("shows the mark and the word instead of the path once the column is open", () => {
+    // Till's third correction of 2026-09-17: with the navigation standing open the head carries
+    // only the logo, "Steward" and the toggle. The column itself is the better answer to "where
+    // am I" at that point - the current page is the row marked in blue - and two answers to one
+    // question is the weaker one winning half the time.
+    render(<Island crumbs={CRUMBS} expanded onToggle={() => undefined} />)
 
-    expect(screen.queryByText("Every page")).toBeNull()
-    fireEvent.click(screen.getByRole("button", { name: "Navigation" }))
-    expect(screen.getByText("Every page")).toBeTruthy()
+    expect(screen.getByText("Steward")).toBeTruthy()
+    expect(screen.queryByText("steward-worker")).toBeNull()
+    expect(screen.queryByText("Services")).toBeNull()
   })
 
-  it("is one button in the shell where the whole island opens the navigation", () => {
-    // Shell C's entire point: on a phone the target is the island rather than a 44px square in
-    // the corner, so the path is text inside the button and not a set of links beside it.
-    render(<MenuIsland crumbs={CRUMBS} expanded={false} />)
+  it("has no border of its own once it is the head of the column, and stops before its edge", () => {
+    // The first and the fourth correction, and both are invisible to jsdom as pixels but plain as
+    // classes. The border: the grown island IS the head of the column, so a line under it cuts
+    // the column in two. The width: at the full `--sidebar-width` this element lies on top of the
+    // column's own right border, which is what Till saw as the island covering it.
+    const { container } = render(<Island crumbs={CRUMBS} expanded onToggle={() => undefined} />)
+    const head = container.firstElementChild as HTMLElement
 
-    const button = screen.getByRole("button", { name: "Navigation" })
-    expect(button.textContent).toContain("steward-worker")
-    expect(screen.queryByRole("link")).toBeNull()
+    expect(head.className).toContain("border-0")
+    expect(head.className).not.toContain("border-b-")
+    expect(head.className).toContain("w-[calc(var(--sidebar-width)-1px)]")
   })
 })
 
@@ -228,29 +231,6 @@ describe("initials, taken as they are written", () => {
   it("draws something for an account with no name at all", () => {
     expect(initials(undefined)).toBe("?")
     expect(initials("   ")).toBe("?")
-  })
-})
-
-describe("which shell an address asks for", () => {
-  it("is A for anything that is not B or C", () => {
-    expect(resolveShellVariant("", null)).toBe("a")
-    expect(resolveShellVariant("?shell=", null)).toBe("a")
-    expect(resolveShellVariant("?shell=z", null)).toBe("a")
-    expect(resolveShellVariant("?shell=a", "c")).toBe("a")
-  })
-
-  it("reads B and C, in either case", () => {
-    expect(resolveShellVariant("?shell=b", null)).toBe("b")
-    expect(resolveShellVariant("?shell=C", null)).toBe("c")
-    expect(resolveShellVariant("?page=2&shell=b", null)).toBe("b")
-  })
-
-  it("keeps the last answer when the address says nothing", () => {
-    // The whole reason the memory exists: a sidebar link goes to `/services/smp` without carrying
-    // the query, so a shell picked once would otherwise last exactly one page.
-    expect(resolveShellVariant("", "b")).toBe("b")
-    expect(resolveShellVariant("?page=2", "c")).toBe("c")
-    expect(resolveShellVariant("?shell=a", "b")).toBe("a")
   })
 })
 

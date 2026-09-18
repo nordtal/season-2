@@ -1,39 +1,36 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import type { ReactNode, RefObject } from "react"
+import type { ReactNode } from "react"
 
 import { EDGES, type Edge, type EdgeKind, type NodeId } from "./topology"
 
 /**
- * The lines, and the reason this is the expensive half of steward/81.
+ * The lines, which are the picture - the cards are only where the lines end.
  *
- * <h2>Measured, not tabulated</h2>
- * The obvious way to draw a graph is a table of coordinates and absolutely positioned boxes. It is
- * also the way that has to be written three times - once for the wide layout, once for the narrow
- * one, once more the day a box grows a second line - and the three copies drift. So the boxes are
- * laid out by ordinary CSS, each one marked `data-node="<id>"`, and this reads back where they
- * ended up. One edge list then survives a layout that turns ninety degrees on a phone, a font that
- * loads late and a player count that appears mid-render.
+ * <h2>Planned, not measured</h2>
+ * The first two rounds of steward/81 laid the cards out with CSS grids and read their positions
+ * back out of the DOM, because a grid decides where a box lands and only the browser knows. That
+ * bought layouts that reflow for free and cost the one thing the drawing needed: nothing could be
+ * checked without a browser, jsdom saw every rectangle as zero, and a line that ran through the
+ * middle of a card was only ever found by looking at a screenshot.
  *
- * <h2>Why it cannot loop</h2>
- * The measurement runs after **every** render, with no dependency list, which is the only way to
- * catch a box that changed size without anything above it re-rendering. It writes state only when
- * the numbers actually differ, so a render that measures the same thing twice stops there.
+ * Till's note of 2026-09-17 - the grid arrangement is boring, be more creative - removes the
+ * reason to keep it. A card is now placed at a point a draft names
+ * (see `place.tsx`), so every rectangle in the picture is known before anything renders, geometry
+ * is a pure function of the plan, and a test can ask whether two cards overlap or whether a line
+ * crosses a card it has no business in. That is the trade: hand-placed arrangements in exchange for
+ * an arrangement that can be reasoned about.
  *
- * <h2>What it does in a test</h2>
- * jsdom has no layout: every rectangle is zero. `Wires` draws nothing at all in that case rather
- * than a pile of zero-length paths, so a rendering test sees the boxes, the counts and the dots -
- * which is what a rendering test can honestly check - and the geometry is left to the browser and
- * to `/home/dev/ui-shots/tool/preview.mjs`, which is where it can be seen.
+ * <h2>Two kinds of line, told apart by colour and by shape</h2>
+ * `traffic` is the path a request takes and is drawn in the interface's one accent colour, solid,
+ * with an arrowhead. `data` is bookkeeping - seven services writing to one database - drawn in the
+ * quiet neutral, dashed, thinner, and **merged**: Till asked for lines to be brought together where
+ * that makes sense, and seven separate strokes converging on one card from seven directions is the
+ * clearest case there is. See {@link bundle}.
  *
- * <h2>What changed for steward/81's second round</h2>
- * The first three drafts drew every line at `strokeOpacity` 0.4 (traffic) and 0.18 (data) in
- * `currentColor` - on the near-black background that is barely more than nothing, which is the
- * single biggest reason the orchestrator's screenshots called the drafts unreadable. Lines are now
- * drawn in two named colours rather than one faint one - `--primary` for the path a request takes,
- * `--muted-foreground` for the bookkeeping line to the database - at opacities a screenshot can
- * actually show, with rounded caps and joins throughout. Every corner in {@link orthogonal} is
- * rounded by {@link roundedPath} rather than a hard right angle, because Till asked for exactly
- * that - the lines would be better off rounded.
+ * <h2>Curved, because Till chose curved</h2>
+ * He picked the sweeping, rounded lines of draft `b` over the rest. Every line here is a cubic
+ * leaving the side of a card that faces its target - the orthogonal routing of drafts `d`, `f` and
+ * `g` is gone, and with it the failure the orchestrator photographed, where a vertical segment sat
+ * exactly on the seam between two cards and read as a border rather than a connection.
  */
 
 export type Box = { x: number; y: number; width: number; height: number }
@@ -41,101 +38,49 @@ export type Point = { x: number; y: number }
 
 export type Geometry = { boxes: Record<string, Box>; width: number; height: number }
 
-const NOTHING: Geometry = { boxes: {}, width: 0, height: 0 }
-
-export function useNodeBoxes(host: RefObject<HTMLElement | null>): Geometry {
-  const [geometry, setGeometry] = useState<Geometry>(NOTHING)
-  const last = useRef("")
-
-  const measure = useCallback(() => {
-    const element = host.current
-    if (!element) return
-    const base = element.getBoundingClientRect()
-    const boxes: Record<string, Box> = {}
-    for (const node of element.querySelectorAll<HTMLElement>("[data-node]")) {
-      const box = node.getBoundingClientRect()
-      const id = node.dataset.node
-      if (!id) continue
-      boxes[id] = {
-        x: box.left - base.left,
-        y: box.top - base.top,
-        width: box.width,
-        height: box.height,
-      }
-    }
-    const next: Geometry = { boxes, width: base.width, height: base.height }
-    const serialised = JSON.stringify(next)
-    if (serialised === last.current) return
-    last.current = serialised
-    setGeometry(next)
-  }, [host])
-
-  // No dependency list: a box can change size without this component rendering, and the guard
-  // above is what makes running it every time free.
-  useLayoutEffect(measure)
-
-  useEffect(() => {
-    const element = host.current
-    if (!element || typeof ResizeObserver === "undefined") return
-    const observer = new ResizeObserver(measure)
-    observer.observe(element)
-    for (const node of element.querySelectorAll("[data-node]")) observer.observe(node)
-    window.addEventListener("resize", measure)
-    return () => {
-      observer.disconnect()
-      window.removeEventListener("resize", measure)
-    }
-  }, [host, measure])
-
-  return geometry
-}
-
 export const centre = (box: Box): Point => ({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
 
-function dist(a: Point, b: Point): number {
-  return Math.hypot(b.x - a.x, b.y - a.y)
+/** Do two cards share any area? The one question a hand-placed arrangement has to answer. */
+export function overlaps(a: Box, b: Box): boolean {
+  return (
+    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+  )
 }
 
-/** The point `distance` px from `from`, on the straight line toward `to`. */
-function towards(from: Point, to: Point, distance: number): Point {
-  const d = dist(from, to)
-  if (d === 0) return from
-  const t = distance / d
-  return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
-}
-
-/**
- * A polyline with every interior corner replaced by a rounded one.
- *
- * The technique is the same one a rounded rectangle uses: stop short of the corner by `radius`,
- * curve through it, and carry on. `radius` is clamped to half of whichever neighbouring segment is
- * shorter, so a corner on a short stub never overshoots past its own ends and folds back on itself.
- */
-export function roundedPath(points: Point[], radius: number): string {
-  if (points.length < 2) return ""
-  let d = `M ${points[0].x} ${points[0].y}`
-  for (let i = 1; i < points.length - 1; i++) {
-    const prev = points[i - 1]
-    const curr = points[i]
-    const next = points[i + 1]
-    const r = Math.min(radius, dist(prev, curr) / 2, dist(curr, next) / 2)
-    const a = towards(curr, prev, r)
-    const b = towards(curr, next, r)
-    d += ` L ${a.x} ${a.y} Q ${curr.x} ${curr.y} ${b.x} ${b.y}`
-  }
-  const last = points[points.length - 1]
-  d += ` L ${last.x} ${last.y}`
-  return d
+/** Is a point inside a card, with `pad` of slack around it? Used to check a drawn line. */
+export function inside(box: Box, point: Point, pad = 0): boolean {
+  return (
+    point.x > box.x - pad &&
+    point.x < box.x + box.width + pad &&
+    point.y > box.y - pad &&
+    point.y < box.y + box.height + pad
+  )
 }
 
 /**
- * A curve from one box to the next, leaving whichever side actually faces the other one.
+ * A cubic Bézier from one card to the next, leaving the side that actually faces the other one.
  *
- * The axis is chosen by which distance is larger, so the same edge is a horizontal curve in a
- * left-to-right layout and a vertical one once that layout has stacked on a phone. Nothing in the
- * drafts has to know which of the two it is.
+ * The axis is chosen by which distance is larger, so the same edge is a horizontal sweep between
+ * two cards side by side and a vertical one between two stacked - a draft never has to say which.
+ *
+ * <h2>The handles reach in both directions, and that is a fix</h2>
+ * A handle length of half the gap **along the chosen axis alone** produces a hook rather than a
+ * sweep whenever the other axis is the long one: two cards 40px apart horizontally and 140px apart
+ * vertically got a 20px handle and bent almost at a right angle. The reach is therefore the larger
+ * of half the axis span and two fifths of the cross span, which is what makes an offset pair read
+ * as one continuous S - the shape Till picked out of draft `b`.
+ *
+ * <h2>`bow`</h2>
+ * Two edges leaving the same card for two cards stacked under one another are the same line until
+ * the last moment, and the far one runs straight through the near one. `bow` pushes the handles
+ * sideways off the chord, so the far sibling takes a visible detour around its neighbour; the
+ * midpoint of the curve moves by three quarters of it. A draft names the value per edge rather than
+ * computing one, because which side is free is a fact about that arrangement and nothing else.
+ *
+ * `standoff` lifts both ends a couple of pixels clear of the card so an arrowhead lands beside the
+ * border instead of under it. It is small on purpose: any more and short hops look detached.
  */
-function curve(from: Box, to: Box): string {
+export function curve(from: Box, to: Box, bow = 0, standoff = 3): string {
   const a = centre(from)
   const b = centre(to)
   const dx = b.x - a.x
@@ -143,199 +88,133 @@ function curve(from: Box, to: Box): string {
 
   if (Math.abs(dx) >= Math.abs(dy)) {
     const way = Math.sign(dx) || 1
-    const start = way > 0 ? from.x + from.width : from.x
-    const end = way > 0 ? to.x : to.x + to.width
-    const bend = Math.max(Math.abs(end - start) / 2, 12)
-    return `M ${start} ${a.y} C ${start + way * bend} ${a.y}, ${end - way * bend} ${b.y}, ${end} ${b.y}`
+    const start = (way > 0 ? from.x + from.width : from.x) + way * standoff
+    const end = (way > 0 ? to.x : to.x + to.width) - way * standoff
+    const reach = Math.max(Math.abs(end - start) / 2, Math.abs(dy) * 0.4, 16)
+    return `M ${start} ${a.y} C ${start + way * reach} ${a.y + bow}, ${end - way * reach} ${b.y + bow}, ${end} ${b.y}`
   }
 
   const way = Math.sign(dy) || 1
-  const start = way > 0 ? from.y + from.height : from.y
-  const end = way > 0 ? to.y : to.y + to.height
-  const bend = Math.max(Math.abs(end - start) / 2, 12)
-  return `M ${a.x} ${start} C ${a.x} ${start + way * bend}, ${b.x} ${end - way * bend}, ${b.x} ${end}`
+  const start = (way > 0 ? from.y + from.height : from.y) + way * standoff
+  const end = (way > 0 ? to.y : to.y + to.height) - way * standoff
+  const reach = Math.max(Math.abs(end - start) / 2, Math.abs(dx) * 0.4, 16)
+  return `M ${a.x} ${start} C ${a.x + bow} ${start + way * reach}, ${b.x + bow} ${end - way * reach}, ${b.x} ${end}`
 }
 
 /**
- * Centre to centre, straight.
+ * Sample a cubic Bézier the way a browser draws it, so a test can walk along a line.
  *
- * The right answer for a radial arrangement, where a curve that leaves the "nearest side" of a box
- * sitting at four o'clock leaves it from the wrong corner. It works because the boxes are opaque
- * and sit above this layer: the line is hidden underneath them and appears to start at the edge.
+ * Only the `M x y C …` form this file produces is understood; anything else returns nothing rather
+ * than guessing, because a parser that silently mis-reads a path would make a test that passes for
+ * the wrong reason - the one failure worse than no test.
  */
-function spoke(from: Box, to: Box): string {
-  const a = centre(from)
-  const b = centre(to)
-  return `M ${a.x} ${a.y} L ${b.x} ${b.y}`
-}
-
-/**
- * Two straight segments and one rounded corner, never a diagonal.
- *
- * Chooses the same axis {@link curve} does - horizontal first when the boxes are further apart in
- * x, vertical first otherwise - so a layout that stacks on a phone keeps the same routing rule. The
- * one turn sits exactly halfway between the two boxes on the axis that changes, which is what keeps
- * parallel edges between the same two columns from overlapping.
- */
-export function orthogonal(from: Box, to: Box, radius = 8): string {
-  const a = centre(from)
-  const b = centre(to)
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-
-  let points: Point[]
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    const way = Math.sign(dx) || 1
-    const start = { x: way > 0 ? from.x + from.width : from.x, y: a.y }
-    const end = { x: way > 0 ? to.x : to.x + to.width, y: b.y }
-    const midX = (start.x + end.x) / 2
-    points = [start, { x: midX, y: start.y }, { x: midX, y: end.y }, end]
-  } else {
-    const way = Math.sign(dy) || 1
-    const start = { x: a.x, y: way > 0 ? from.y + from.height : from.y }
-    const end = { x: b.x, y: way > 0 ? to.y : to.y + to.height }
-    const midY = (start.y + end.y) / 2
-    points = [start, { x: start.x, y: midY }, { x: end.x, y: midY }, end]
+export function samplePath(d: string, steps = 40): Point[] {
+  const numbers = d.match(/-?\d+(\.\d+)?/g)
+  if (!d.startsWith("M") || !d.includes("C") || !numbers || numbers.length < 8) return []
+  const [x0, y0, x1, y1, x2, y2, x3, y3] = numbers.slice(0, 8).map(Number)
+  const points: Point[] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const u = 1 - t
+    points.push({
+      x: u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3,
+      y: u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3,
+    })
   }
-  return roundedPath(points, radius)
+  return points
 }
 
 /**
- * Every source bundled into one rail, routed through a lane that no box ever stands in.
+ * Seven lines into one, and one line into the card - the "duck feet" of a service map.
  *
- * <h2>Why a straight drop is not enough</h2>
- * `postgres` sits under several rows, not one, and the seven services that write to it are spread
- * across all of them. A straight vertical line from a source in an upper row would cut across
- * whatever the layout has placed directly beneath it before it ever reached the row `postgres` is
- * actually in - which is the exact defect the ring draft shipped in the first round. Exiting
- * sideways into a lane that is never given to a box, and only turning down once inside it, is what
- * keeps that from happening regardless of how many rows sit between a source and the sink.
+ * Every service that writes to the database has the same line to draw, and drawing seven of them
+ * separately is what made `postgres` look like it was under attack from all sides in the first
+ * round of this ticket. They are gathered instead: each source curves into a single junction that
+ * sits in a lane no card ever stands in, and one trunk leaves the junction for the sink. What a
+ * reader then has to follow is one thick line with a fan at the top, and counting the strands of
+ * the fan answers "how many services write to the database" without reading a single label.
  *
- * <h2>The lane is the caller's to keep empty</h2>
- * This function trusts `laneX`; it is the caller's job to reserve that column - a `padding-right`
- * on every row above the sink and none on the sink's own row is how `d` and `f` do it, so the sink
- * spans the full width while nothing else ever reaches into the last few pixels of it.
- *
- * <h2>The rounded kink Till asked for</h2>
- * Each stub is drawn as if it kept travelling a little further in the sink's direction once it
- * reaches the lane, so {@link roundedPath} has a real corner to round rather than a bare T-junction
- * - which is what makes the branch look like it is joining the rail instead of merely touching it.
+ * The junction is the caller's to choose, and choosing it badly is the one way this goes wrong: it
+ * has to sit somewhere no card does, or the fan crosses the cards it came from. `place.ts` reserves
+ * that lane, and a test checks it is still empty.
  */
-export function railToSink(
+export function bundle(
   sources: readonly Box[],
   sink: Box,
-  laneX: number,
-  radius = 10,
-): { stubs: string[]; rail: string } {
-  if (sources.length === 0) return { stubs: [], rail: "" }
-  const sinkY = sink.y + sink.height / 2
-  const stubs = sources.map((box) => {
-    const y = box.y + box.height / 2
-    const exit = { x: box.x + box.width, y }
-    const bend = { x: laneX, y }
-    // A short step further in the rail's own direction - toward the sink - so the join is a
-    // rounded corner rather than a hard T where the stub meets the vertical line.
-    const after = { x: laneX, y: y + Math.sign(sinkY - y || 1) * 14 }
-    return roundedPath([exit, bend, after], radius)
+  junction: Point,
+): { feet: string[]; trunk: string } {
+  if (sources.length === 0) return { feet: [], trunk: "" }
+  const feet = sources.map((box) => {
+    const from = centre(box)
+    const down = junction.y > from.y
+    const way = down ? 1 : -1
+    // A strand leaves through the side that faces the lane, not through the bottom, unless the card
+    // is standing on the lane already. Leaving through the bottom is what put a strand straight
+    // through whatever the arrangement had placed underneath its own source - the failure the first
+    // round of this ticket shipped, one layer down.
+    const sideways = Math.abs(junction.x - from.x) > box.width / 2
+    const exit = sideways
+      ? { x: junction.x > from.x ? box.x + box.width : box.x, y: from.y }
+      : { x: from.x, y: down ? box.y + box.height : box.y }
+    const reach = Math.max(Math.abs(junction.y - exit.y) / 2, 24)
+    // The sideways handle never reaches past the lane it is aiming at. Letting it run a flat
+    // distance overshot on a narrow canvas - the strand swung out beyond the lane and came back,
+    // and on the way back it went through whatever card was standing on the other side.
+    const span = Math.abs(junction.x - exit.x)
+    const handle = sideways
+      ? { x: exit.x + (junction.x > from.x ? 1 : -1) * Math.min(reach, span * 0.8), y: exit.y }
+      : { x: exit.x, y: exit.y + way * reach }
+    return `M ${exit.x} ${exit.y} C ${handle.x} ${handle.y}, ${junction.x} ${junction.y - way * reach}, ${junction.x} ${junction.y}`
   })
-  const top = Math.min(...sources.map((box) => box.y + box.height / 2), sinkY)
-  const bottom = Math.max(...sources.map((box) => box.y + box.height / 2), sinkY)
-  return { stubs, rail: `M ${laneX} ${top} L ${laneX} ${bottom}` }
+  return { feet, trunk: `M ${junction.x} ${junction.y} L ${junction.x} ${sink.y}` }
 }
-
-export type Routing = "curve" | "spoke" | "orthogonal"
-
-const ROUTERS: Record<Routing, (from: Box, to: Box) => string> = { curve, spoke, orthogonal }
 
 /**
  * What each edge kind is drawn in, and how thick.
  *
- * Colour carries the distinction now, not just opacity: `traffic` is the path a request takes and
- * is drawn in the interface's one accent colour, the same blue every primary action already uses.
- * `data` is bookkeeping - seven identical lines into the same box - and is drawn in the quiet
- * neutral the rest of the interface uses for a fact nobody needs to act on.
+ * Colour carries the distinction, not opacity: `traffic` is the path a request takes and is drawn
+ * in the interface's one accent colour, the same blue every primary action already uses. `data` is
+ * bookkeeping and is drawn in the quiet neutral the rest of the interface uses for a fact nobody
+ * needs to act on.
  */
 export const EDGE_COLOR: Record<EdgeKind, string> = {
   traffic: "var(--primary)",
   data: "var(--muted-foreground)",
 }
 
-export const BASE_WIDTH: Record<EdgeKind, number> = { traffic: 2, data: 1.25 }
-
-/** The resting opacity for every draft that is not steward/81's "focus" draft (`e`). */
-const EDGE_OPACITY: Record<EdgeKind, number> = { traffic: 0.85, data: 0.55 }
+const WIDTH: Record<EdgeKind, number> = { traffic: 2, data: 1.25 }
+const OPACITY: Record<EdgeKind, number> = { traffic: 0.9, data: 0.5 }
 
 /**
- * `e`'s resting opacity - deliberately quieter than {@link EDGE_OPACITY}, because that draft's
- * whole idea is that nothing competes for attention until a node is hovered, focused or tapped.
- */
-const REST_OPACITY: Record<EdgeKind, number> = { traffic: 0.26, data: 0.14 }
-
-/** What an edge touching the active node is boosted to, only when `focusable` is set. */
-const FOCUS_OPACITY: Record<EdgeKind, number> = { traffic: 1, data: 0.85 }
-
-/**
- * Every edge that has two measured boxes, drawn under the boxes.
+ * Every edge that has two planned cards, drawn under the cards.
  *
- * <h2>`focusable` and `active`</h2>
- * Draft `e` is the one place a resting line is meant to be quiet and an active one is meant to be
- * loud. `focusable` switches on that whole scheme (quiet baseline, full-strength edges touching
- * `active`, everything else dimmed further while something is active); every other draft leaves it
- * off and keeps the plain, always-legible styling.
- *
- * <h2>`children`</h2>
- * Extra `<path>` elements in the same coordinate space, drawn after the mapped edges - this is how
- * `d` layers its bundled database rail and `g` its collapsed channel on top of (or instead of) the
- * plain per-edge routing, without a second `<svg>` that would have to be kept in sync with this
- * one's size by hand.
+ * `children` are extra `<path>` elements in the same coordinate space, drawn after the mapped
+ * edges - which is how a draft adds its bundled database trunk without a second `<svg>` whose size
+ * would have to be kept in step with this one by hand.
  */
 export function Wires({
   geometry,
-  routing = "curve",
-  arrows = false,
   edges = EDGES,
+  bows = {},
   id,
-  active = null,
-  focusable = false,
   children,
 }: {
   geometry: Geometry
-  routing?: Routing
-  /** Arrowheads, which only a draft that claims a direction should pay for. */
-  arrows?: boolean
   edges?: Edge[]
+  /** Per-edge detours, keyed `from-to`. See {@link curve}. */
+  bows?: Record<string, number>
   /** Unique per draft, because an SVG marker is addressed by a document-wide id. */
   id: string
-  /** The node whose edges should read as "on" right now. Ignored unless `focusable` is set. */
-  active?: NodeId | null
-  /** Switches on the quiet-baseline / bright-on-focus scheme `e` needs. See the class comment. */
-  focusable?: boolean
   children?: ReactNode
 }) {
   if (geometry.width === 0 || geometry.height === 0) return null
 
-  const route = ROUTERS[routing]
   const drawn: Array<{ edge: Edge; d: string }> = []
   for (const edge of edges) {
     const from = geometry.boxes[edge.from as NodeId]
     const to = geometry.boxes[edge.to as NodeId]
     if (!from || !to) continue
-    drawn.push({ edge, d: route(from, to) })
-  }
-
-  const touchesActive = (edge: Edge) =>
-    active != null && (edge.from === active || edge.to === active)
-
-  const opacityFor = (edge: Edge): number => {
-    if (!focusable) return EDGE_OPACITY[edge.kind]
-    if (touchesActive(edge)) return FOCUS_OPACITY[edge.kind]
-    if (active != null) return REST_OPACITY[edge.kind] * 0.4
-    return REST_OPACITY[edge.kind]
-  }
-
-  const widthFor = (edge: Edge): number => {
-    const base = BASE_WIDTH[edge.kind]
-    return focusable && touchesActive(edge) ? base + 0.75 : base
+    drawn.push({ edge, d: curve(from, to, bows[`${edge.from}-${edge.to}`] ?? 0) })
   }
 
   return (
@@ -346,33 +225,32 @@ export function Wires({
       viewBox={`0 0 ${geometry.width} ${geometry.height}`}
       aria-hidden
     >
-      {arrows ? (
-        <defs>
-          <marker
-            id={`${id}-arrow`}
-            viewBox="0 0 8 8"
-            refX="7"
-            refY="4"
-            markerWidth="5"
-            markerHeight="5"
-            orient="auto-start-reverse"
-          >
-            <path d="M 0 1 L 7 4 L 0 7 z" fill={EDGE_COLOR.traffic} fillOpacity="0.9" />
-          </marker>
-        </defs>
-      ) : null}
+      <defs>
+        <marker
+          id={`${id}-arrow`}
+          viewBox="0 0 8 8"
+          refX="7"
+          refY="4"
+          markerWidth="5"
+          markerHeight="5"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 1 L 7 4 L 0 7 z" fill={EDGE_COLOR.traffic} fillOpacity="0.9" />
+        </marker>
+      </defs>
       {drawn.map(({ edge, d }) => (
         <path
           key={`${edge.from}-${edge.to}`}
+          data-edge={`${edge.from}-${edge.to}`}
           d={d}
           fill="none"
           stroke={EDGE_COLOR[edge.kind]}
-          strokeWidth={widthFor(edge)}
-          strokeOpacity={opacityFor(edge)}
+          strokeWidth={WIDTH[edge.kind]}
+          strokeOpacity={OPACITY[edge.kind]}
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeDasharray={edge.kind === "data" ? "2 6" : undefined}
-          markerEnd={arrows && edge.kind === "traffic" ? `url(#${id}-arrow)` : undefined}
+          markerEnd={edge.kind === "traffic" ? `url(#${id}-arrow)` : undefined}
         />
       ))}
       {children}

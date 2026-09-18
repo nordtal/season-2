@@ -35,6 +35,7 @@ const DATE_TIME = new Intl.DateTimeFormat(LOCALE, {
   timeStyle: "short",
 })
 const TIME = new Intl.DateTimeFormat(LOCALE, { timeStyle: "medium" })
+const DATE_ONLY = new Intl.DateTimeFormat(LOCALE, { dateStyle: "medium" })
 
 const UNITS = ["B", "kB", "MB", "GB", "TB", "PB"] as const
 
@@ -128,6 +129,20 @@ export function parseInstant(value: string | null | undefined): Date | null {
 export function dateTime(value: string | Date | null | undefined): string {
   const date = value instanceof Date ? value : parseInstant(value)
   return date == null ? "–" : DATE_TIME.format(date)
+}
+
+/**
+ * The day only, without the clock - for a phone (steward/103).
+ *
+ * `active until 1 Dec 2026, 00:00` does not fit the access badge on a 390px screen, and a badge
+ * clips rather than wraps, so it was drawn as `active until 1 Dec 2026, 00:0` - a date that looks
+ * like a number and is not one. Cutting the clock is the answer rather than an ellipsis: a period
+ * always ends at midnight, so the four characters that did not fit were the four that carried no
+ * information. An ellipsis would have been honest about being cut and still unreadable.
+ */
+export function date(value: string | Date | null | undefined): string {
+  const parsed = value instanceof Date ? value : parseInstant(value)
+  return parsed == null ? "\u2013" : DATE_ONLY.format(parsed)
 }
 
 /** The clock only - for a log line, where the date is the same for every line on screen. */

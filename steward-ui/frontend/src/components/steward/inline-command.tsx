@@ -33,6 +33,13 @@ import { Failure } from "@/components/steward/query-state"
  * `command` is the matching `Declaration` out of `/api/commands`, or absent. Absent means the
  * command does not carry `Surface.WEB` right now (or has not loaded yet), and this component draws
  * nothing rather than a button that would 404 - the same rule `CommandCard` follows for its list.
+ *
+ * **`open` / `onOpenChange` make it trigger-less**, the same shape `RevokeDialog` already uses in
+ * `access.tsx`. A row whose actions have moved into a popover (steward/106) cannot render its own
+ * dialog: the popover closes on an interaction outside itself, the dialog's overlay *is* outside
+ * itself, and the dialog is unmounted by the click that opened it. So the page renders this one
+ * beside the table and the popover holds a plain button that sets the state. Uncontrolled - no
+ * `open` prop - still draws its own button and is unchanged.
  */
 export function InlineCommandAction({
   command,
@@ -42,6 +49,8 @@ export function InlineCommandAction({
   icon: Icon,
   destructive = false,
   confirmDescription,
+  open,
+  onOpenChange,
 }: {
   command: AdminCommand | undefined
   argumentName: string
@@ -50,11 +59,20 @@ export function InlineCommandAction({
   icon: Icon
   destructive?: boolean
   confirmDescription: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
   const ask = useAdminCommand()
   const [confirming, setConfirming] = useState(false)
   const [runningId, setRunningId] = useState<string | null>(null)
   const run = useCommandRun(runningId)
+  const controlled = open !== undefined
+  const showing = controlled ? open : confirming
+
+  function setShowing(next: boolean) {
+    if (controlled) onOpenChange?.(next)
+    else setConfirming(next)
+  }
 
   if (!command) return null
 
@@ -65,7 +83,7 @@ export function InlineCommandAction({
       {
         onSuccess: (started) => {
           setRunningId(started.id)
-          setConfirming(false)
+          setShowing(false)
         },
       },
     )
@@ -73,27 +91,29 @@ export function InlineCommandAction({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className={destructive ? "text-destructive" : undefined}
-        onClick={() => setConfirming(true)}
-      >
-        <Icon aria-hidden />
-        {label}
-      </Button>
+      {controlled ? null : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={destructive ? "text-destructive" : undefined}
+          onClick={() => setShowing(true)}
+        >
+          <Icon aria-hidden />
+          {label}
+        </Button>
+      )}
 
       {/* Same reasoning as `command-card.tsx`'s `CommandRow`: while the confirmation covers this
        * row, the last outcome is shown inside the dialog instead, or it would sit behind a modal
        * nobody can read. */}
       {run.error ? (
         <Failure error={run.error} onRetry={() => void run.refetch()} />
-      ) : run.data && !confirming ? (
+      ) : run.data && !showing ? (
         <Outcome run={run.data} />
       ) : null}
 
-      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+      <AlertDialog open={showing} onOpenChange={setShowing}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{label}?</AlertDialogTitle>

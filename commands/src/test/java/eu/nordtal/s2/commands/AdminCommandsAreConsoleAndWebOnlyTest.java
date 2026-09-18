@@ -62,6 +62,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>{@link PhaseCommands}'s four admin declarations ({@code show}, {@code set}, {@code launch},
  * {@code smp-start}) were <b>not</b> in that red output, and are not named above - see
  * {@link #EXCEPTIONS} for why they stay out of this test's scope entirely rather than being cut.</p>
+ *
+ * <h2>What this test holds after steward/106, 2026-09-17 - the question the ticket asked</h2>
+ * Both assertions below are unchanged, word for word. What changed underneath them is what the
+ * claim <em>buys</em>, and that is worth writing down rather than leaving the reader to assume this
+ * file still means what it meant on 2026-09-15.
+ *
+ * <p>Until 2026-09-17 a missing {@link Surface#GAME} was read once, at the moment somebody typed
+ * the command, and all it decided was <em>which sentence to refuse them with</em>. The command was
+ * still registered, still tab-completed, still in the tree. steward/106 moved that same reading
+ * forward to where the Brigadier tree is built ({@code PaperCommands#gate},
+ * {@code VelocityCommands#gate}), so the declaration now decides whether the command
+ * <b>exists</b> for a player at all. The set asserted here is therefore no longer a description of
+ * a refusal - it is the registration itself.</p>
+ *
+ * <p>Two consequences, and both are the reason this file was answered rather than deleted:</p>
+ * <ul>
+ *   <li>{@link #adminCommandsStayOffGameAndDiscord()} is now the <em>cause</em> of twenty-two
+ *       commands being absent from every player's client. Adding {@link Surface#GAME} back to one
+ *       of them no longer softens a message; it puts the command back in the game.</li>
+ *   <li>{@link #consoleIsNeverTakenAway()} became load-bearing rather than tidy. Before, a
+ *       declaration that lost {@link Surface#CONSOLE} was still registered and would merely have
+ *       answered {@code command.not-from-console}; now it is gated out of the player's tree by the
+ *       surface check <em>and</em> refused at the console by its own, which leaves it reachable
+ *       from nowhere a human sits. Its failure message says so.</li>
+ * </ul>
+ *
+ * <p>What this file still cannot see is the tree itself - it holds the catalogue and no adapter. The
+ * other half is held where a tree can be built: {@code AdminCommandsAreGoneFromTheGameTest}
+ * (paper-common) and {@code VelocityCommandsGameSurfaceTest} (network-control), both of which ask a
+ * built node's {@code requires} for an admin player and for the console.</p>
  */
 class AdminCommandsAreConsoleAndWebOnlyTest {
 
@@ -144,6 +174,9 @@ class AdminCommandsAreConsoleAndWebOnlyTest {
         }
         assertTrue(lost.isEmpty(),
                 "these admin commands lost Surface.CONSOLE - STOP, this is the one surface that must"
-                        + " never be lost:\n  " + String.join("\n  ", lost));
+                        + " never be lost. Since steward/106 losing it is not an inconvenience: the"
+                        + " adapters keep a command without Surface.GAME out of every player's tree,"
+                        + " so one without CONSOLE as well can be reached from nowhere a human"
+                        + " sits:\n  " + String.join("\n  ", lost));
     }
 }

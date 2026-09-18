@@ -146,7 +146,12 @@ export function PersonIdentity(props: PersonIdentityProps) {
         <button
           type="button"
           className={
-            "inline-flex min-w-0 items-center gap-2 rounded-full text-left outline-none " +
+            // `max-w-full` alongside `min-w-0` (steward/103): `min-w-0` only lets this box shrink,
+            // it does not cap it, so with nothing to shrink against the button sized itself to the
+            // name and the cell clipped the remainder with no ellipsis - `no Discord name on
+            // recora`, measured at 1440px on 2026-09-17. The `truncate` below cannot act until the
+            // box it lives in has an upper bound.
+            "inline-flex min-w-0 max-w-full items-center gap-2 rounded-full text-left outline-none " +
             "hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
             (props.className ?? "")
           }
@@ -362,17 +367,24 @@ export function MinecraftFace({
 }) {
   const stale = isStale(mcNameUpdated, now)
   return (
-    <span className="inline-flex items-center gap-1.5">
+    // `min-w-0` on both boxes and `truncate` on the text (steward/103): without it the name is
+    // drawn at its full width straight past the right edge of a 390px card, where the table
+    // container clips it with no ellipsis - `no name observed ye`.
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
       <MinecraftHead mcUuid={mcUuid} baseUrl={avatarBaseUrl} />
       <span
-        className={mcName ? "text-sm" : "text-sm text-muted-foreground italic"}
+        className={
+          mcName
+            ? "min-w-0 truncate text-sm"
+            : "min-w-0 truncate text-sm text-muted-foreground italic"
+        }
         title={
           mcName && stale
             ? `Not confirmed recently - last seen ${relative(mcNameUpdated, now)}.`
             : undefined
         }
       >
-        {mcName ?? "no name observed yet"}
+        {mcName ?? "no name yet"}
         {mcName && stale ? <span aria-hidden> *</span> : null}
       </span>
     </span>

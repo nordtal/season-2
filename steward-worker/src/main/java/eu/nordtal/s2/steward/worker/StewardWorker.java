@@ -4,6 +4,9 @@ import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.online.OnlineDirectory;
 import eu.nordtal.s2.common.online.OnlineRoster;
+import eu.nordtal.s2.common.payment.PaymentGateway;
+import eu.nordtal.s2.common.payment.PaymentRequests;
+import eu.nordtal.s2.common.payment.Watermark;
 import eu.nordtal.s2.common.audit.AuditDirectory;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.metric.MetricDirectory;
@@ -14,6 +17,9 @@ import eu.nordtal.s2.steward.worker.backup.Backups;
 import eu.nordtal.s2.steward.worker.backup.NightlyClock;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.backup.TarSnapshots;
+import eu.nordtal.s2.steward.worker.bunq.BunqGateway;
+import eu.nordtal.s2.steward.worker.bunq.PaymentLoop;
+import eu.nordtal.s2.steward.worker.bunq.Payments;
 import eu.nordtal.s2.steward.worker.config.Configs;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
@@ -44,6 +50,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
@@ -490,6 +497,18 @@ public final class StewardWorker {
                                 + " is affected, and nothing will say so at 04:45 either.");
                     }
 
+                // §10d / steward/109: THE BANK. This container is the only one in the network that
+                // holds a bunq credential and the only one that calls bunq; the bot asks for a
+                // payment link by writing a row and reads back what happened.
+                //
+                // The line below is the whole of the evidence that it works, and it is written
+                // whichever way the answer falls. Both variables are deliberately optional in
+                // compose.yml, so an environment file carrying the pre-move NORDTAL_BOT_BUNQ_*
+                // names produces a healthy stack that silently never notices a payment again -
+                // there is no error to look for, only an absence. steward/101 is the checklist that
+                // reads this line after a rollout.
+                try (PaymentLoop paymentLoop = startPayments(config, databaseConfig, database)) {
+
                 try (UpdateServer server = new UpdateServer(
                         updates,
                         new Runner(config, database, containers, backups, updates),
@@ -505,9 +524,72 @@ public final class StewardWorker {
                 }
                 }
                 }
+                }
             }
         }
         return 0;
+    }
+
+    /**
+     * Says out loud whether this deployment can take money, records it for the bot, and starts the
+     * bunq loop when it can.
+     *
+     * <h2>The line is not conditional and the loop is</h2>
+     * An empty pair of credentials is a <b>valid</b> configuration - a season without a bank account
+     * is a season where everything works except buying access - so there is nothing here to refuse
+     * and nothing to fail. What there is, is a way for a rename in one file and not the other to
+     * turn payments off without a single thing going red. That is what the line is for, and it is
+     * why it is written on the "off" branch too, at WARN.
+     *
+     * <p>{@code PaymentGateway.announce} carries the same answer into {@code bot_setting}, because
+     * the process that offers the purchase button is {@code discord-bot} and it has no bunq
+     * configuration of its own any more. The bot waits for this container's health marker before it
+     * starts, so the value it reads is this deployment's and not the previous boot's.</p>
+     *
+     * @return the running loop, or {@code null} when there is no bunq to poll - which
+     *         try-with-resources handles by not closing anything
+     */
+    private static PaymentLoop startPayments(final StewardSpec config,
+                                             final DatabaseSpec databaseConfig,
+                                             final Database database) {
+        final BunqGateway bunq = new BunqGateway(config.bunq());
+        final Duration poll = Duration.ofSeconds(config.bunq().pollIntervalSeconds());
+
+        try {
+            PaymentGateway.announce(database.jdbi(), bunq.configured());
+        } catch (final RuntimeException failure) {
+            // One row in bot_setting, for one log line in another container. Not a reason to refuse
+            // to serve four Minecraft servers.
+            log.warn("Could not record whether bunq is configured; the bot will say it does not"
+                    + " know rather than saying it is off.", failure);
+        }
+
+        // THE LINE IS WRITTEN ON BOTH BRANCHES, at WARN when there is no bunq and INFO when there
+        // is. BunqGateway owns the level as well as the words, because the two are one message and
+        // because that is what makes both halves provable from a test rather than from a rollout.
+        bunq.logStartupLine(poll);
+        if (!bunq.configured()) {
+            return null;
+        }
+
+        // The cut-off, resolved once: the first start that finds none stamps its own instant into
+        // bot_setting and every later start reads it back. It is the SAME ROW access.yml's
+        // payment.watermark used to write, in the same table - the setting moved between processes
+        // and the value did not, which is what stops the move itself from re-booking history.
+        final Instant watermark =
+                Watermark.resolve(database.jdbi(), config.bunq().watermark());
+
+        return PaymentLoop.start(
+                new Payments(bunq, new PaymentRequests(database.jdbi()), watermark,
+                        config.bunq().recentPaymentCount()),
+                eu.nordtal.s2.common.notify.PostgresNotifications.connector(
+                        databaseConfig.jdbcUrl(),
+                        databaseConfig.username(),
+                        databaseConfig.password(),
+                        databaseConfig.queryTimeoutSeconds(),
+                        "steward-worker-payment-listener",
+                        java.util.List.of(PaymentLoop.channel())),
+                poll);
     }
 
     /**

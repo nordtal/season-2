@@ -64,6 +64,15 @@ public final class PaymentRequests {
         return dao.findByReference(reference.trim().toUpperCase(Locale.ROOT));
     }
 
+    /**
+     * One request by id - what a caller uses that is waiting for a particular row to change.
+     *
+     * @see PaymentRequestDao#findById(UUID)
+     */
+    public Optional<PaymentRequest> byId(final UUID id) {
+        return dao.findById(id);
+    }
+
     public List<PaymentRequest> recentOf(final String discordId, final int limit) {
         return dao.findByUser(discordId, limit);
     }
@@ -103,6 +112,20 @@ public final class PaymentRequests {
      */
     public List<PaymentRequest> tabsToCancel() {
         return dao.tabsToCancel();
+    }
+
+    /**
+     * Requests steward-worker has attributed money to and nobody has booked - the bot's queue.
+     *
+     * @see PaymentRequestDao#matchedAwaitingBooking()
+     */
+    public List<PaymentRequest> matchedAwaitingBooking() {
+        return dao.matchedAwaitingBooking();
+    }
+
+    /** Payments that need a human and have not been put in the admin channel yet. */
+    public List<PaymentNotice> unpostedNotices() {
+        return dao.unpostedNotices();
     }
 
     // ---------------------------------------------------------------- writes
@@ -217,6 +240,17 @@ public final class PaymentRequests {
         return dao.noticeOnce(bunqPaymentId, reason, detail) == 1;
     }
 
+    /**
+     * Claims a notice for the admin channel.
+     *
+     * @return {@code true} when this call claimed it and must post it, {@code false} when somebody
+     *         already has
+     * @see PaymentRequestDao#claimNotice(long)
+     */
+    public boolean claimNotice(final long bunqPaymentId) {
+        return dao.claimNotice(bunqPaymentId) == 1;
+    }
+
     // ---------------------------------------------------------------- the seam (concept §10d)
 
     /**
@@ -251,6 +285,38 @@ public final class PaymentRequests {
      */
     public boolean requestCancel(final UUID id) {
         return dao.requestCancel(id) == 1;
+    }
+
+    /**
+     * Closes a request and asks for its bunq tab to go away, in one transaction.
+     *
+     * <p>This is what {@code Purchases.close()} used to do with a synchronous
+     * {@code BunqGateway#cancelTab} in front of a status write (steward/109). The two halves are one
+     * transaction rather than two statements because of the window between them: a row that is
+     * closed but has not asked for the cancel is a live bunq.me URL somebody can still pay, and a
+     * row that has asked but is still {@code OPEN} can be given a tab by the worker's other queue in
+     * the same instant - which is why {@code tabsToCreate} carries a {@code cancel_requested IS
+     * NULL} clause as well. Neither state exists for longer than this transaction.</p>
+     *
+     * <p>The cancel is asked for unconditionally, tab or no tab: {@code tabsToCancel} requires a
+     * {@code bunq_tab_id}, so a row that never reached bunq simply never appears there, and the
+     * alternative - deciding here, from a row that may be a poll old - is a decision made against a
+     * tab that arrived in between.</p>
+     *
+     * @param id     the request
+     * @param status anything but {@code PAID}
+     * @return {@code true} when this call closed it; {@code false} when something else already had,
+     *         in which case the cancel was still asked for
+     */
+    public boolean closeAndRequestCancel(final UUID id, final PaymentRequestStatus status) {
+        if (status == PaymentRequestStatus.PAID) {
+            throw new IllegalArgumentException("use settle() to mark a request paid");
+        }
+        return jdbi.inTransaction(handle -> {
+            final PaymentRequestDao attached = handle.attach(PaymentRequestDao.class);
+            attached.requestCancel(id);
+            return attached.close(id, status.name()) == 1;
+        });
     }
 
     /**

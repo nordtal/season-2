@@ -796,6 +796,14 @@ class TopologyTest {
         @SuppressWarnings("unchecked")
         final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
         final String root = new StewardSpec.BackupSpec() {
+            // backup.remote is a section without a default, exactly as backup itself is - so an
+            // anonymous spec has to hand back its defaults by name (steward/95).
+            @Override
+            public RemoteSpec remote() {
+                return new RemoteSpec() {
+                };
+            }
+
         }.sourcesRoot() + "/";
 
         // THE DESTINATION IS PARSED FROM THE RIGHT, and the reason is five of these eight mounts:
@@ -875,6 +883,14 @@ class TopologyTest {
     private static StewardSpec defaults() {
         return new StewardSpec() {
             @Override
+            public BunqSpec bunq() {
+                // Defaults: empty credentials, which is "no bank account" and is a valid season.
+                // Nothing in this test asks bunq anything (steward/109).
+                return new BunqSpec() {
+                };
+            }
+
+            @Override
             public ApiSpec api() {
                 // Defaults: nothing here serves HTTP.
                 return new ApiSpec() {
@@ -891,6 +907,14 @@ class TopologyTest {
             @Override
             public BackupSpec backup() {
                 return new BackupSpec() {
+                    // backup.remote is a section without a default, exactly as backup itself is - so an
+                    // anonymous spec has to hand back its defaults by name (steward/95).
+                    @Override
+                    public RemoteSpec remote() {
+                        return new RemoteSpec() {
+                        };
+                    }
+
                 };
             }
 
@@ -912,6 +936,14 @@ class TopologyTest {
         // nightly run fails on a directory that does not exist, every night, while the volume
         // archives beside it keep succeeding and the report still looks mostly green.
         final StewardSpec.BackupSpec backup = new StewardSpec.BackupSpec() {
+            // backup.remote is a section without a default, exactly as backup itself is - so an
+            // anonymous spec has to hand back its defaults by name (steward/95).
+            @Override
+            public RemoteSpec remote() {
+                return new RemoteSpec() {
+                };
+            }
+
         };
         final String directory = backup.outputRoot();
 
@@ -966,6 +998,14 @@ class TopologyTest {
                                 + " changed from the interface."),
                 () -> assertTrue(new StewardSpec() {
                             @Override
+                            public BunqSpec bunq() {
+                                // Defaults: empty credentials, which is "no bank account" and is a valid season.
+                                // Nothing in this test asks bunq anything (steward/109).
+                                return new BunqSpec() {
+                                };
+                            }
+
+                            @Override
                             public ApiSpec api() {
                                 // Defaults: nothing here serves HTTP.
                                 return new ApiSpec() {
@@ -983,6 +1023,14 @@ class TopologyTest {
                             public BackupSpec backup() {
                                 // Defaults throughout: this test is not about a backup.
                                 return new BackupSpec() {
+                                    // backup.remote is a section without a default, exactly as backup itself is - so an
+                                    // anonymous spec has to hand back its defaults by name (steward/95).
+                                    @Override
+                                    public RemoteSpec remote() {
+                                        return new RemoteSpec() {
+                                        };
+                                    }
+
                                 };
                             }
 

@@ -187,7 +187,8 @@ services:
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
-  # The Discord bot. No Minecraft dependency: PostgreSQL, the Discord gateway and bunq. It validates
+  # The Discord bot. No Minecraft dependency and, since steward/109, no bank either: PostgreSQL and
+  # the Discord gateway. It asks steward-worker for a payment link by writing a row. It validates
   # the schema and refuses to start on a database nobody migrated. Runbook: discord-bot/README.md.
   #
   # THE SERVICE NAME IS `discord-bot` AND IT IS THE SAME STRING AS EVERYTHING ELSE ABOUT THIS JAR:
@@ -244,10 +245,10 @@ services:
 
       # --- bot.yml -----------------------------------------------------------------------
       NORDTAL_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:?set NORDTAL_BOT_TOKEN in .env}
-      # Optional, and deliberately not `:?`: a season without a bunq account is a season whose bot
-      # does everything except take payments. deploy/setup.sh offers them and accepts Enter.
-      NORDTAL_BOT_BUNQ_API_KEY: ${NORDTAL_BOT_BUNQ_API_KEY:-}
-      NORDTAL_BOT_BUNQ_ACCOUNT_ID: ${NORDTAL_BOT_BUNQ_ACCOUNT_ID:-}
+      # NORDTAL_BOT_BUNQ_API_KEY and NORDTAL_BOT_BUNQ_ACCOUNT_ID were here until steward/109. They
+      # are NORDTAL_STEWARD_BUNQ_* on the steward-worker service now - this process has neither the
+      # key nor the bunq SDK. An environment file that still carries the old names hands them to
+      # nobody, and the only thing that says so is steward-worker's start line.
 
       # --- access.yml --------------------------------------------------------------------
       # TWO OF THESE ARE REQUIRED AND THE REST ARE FEATURES. The guild says where the bot lives;
@@ -269,13 +270,13 @@ services:
       NORDTAL_ACCESS_LANGUAGES: ${NORDTAL_ACCESS_LANGUAGES:-}
       NORDTAL_ACCESS_TIERS: ${NORDTAL_ACCESS_TIERS:-}
       NORDTAL_ACCESS_DONATION_CENTS: ${NORDTAL_ACCESS_DONATION_CENTS:-}
+      # How often the bot re-reads the payment seam in THIS database. It is not a bank call any
+      # more; NORDTAL_STEWARD_BUNQ_POLL_INTERVAL_SECONDS is the one that costs an HTTP request.
       NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS: ${NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS:-}
+      # Stays with the bot: it writes the payment_request row, so this number becomes `expires` and
+      # is the same one the buyer is told the link is good for. NORDTAL_ACCESS_PAYMENT_WATERMARK and
+      # NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT moved with the bank (steward/109).
       NORDTAL_ACCESS_PAYMENT_REQUEST_TTL_HOURS: ${NORDTAL_ACCESS_PAYMENT_REQUEST_TTL_HOURS:-}
-      # Leave empty on a fresh database: the first start stamps its own instant into bot_setting and
-      # no later start rewrites it. Without it the first poll books up to 50 historical bunq
-      # payments, roles, DMs and public thank-yous included.
-      NORDTAL_ACCESS_PAYMENT_WATERMARK: ${NORDTAL_ACCESS_PAYMENT_WATERMARK:-}
-      NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT: ${NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT:-}
       NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS: ${NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS:-}
       NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES: ${NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES:-}
     volumes:
@@ -283,9 +284,6 @@ services:
       # The jar itself. steward-worker writes into this same volume as /volumes/discord-bot; here
       # it is /app/lib, where the entrypoint looks.
       - bot-jar:/app/lib
-      # bunq binds an API context to the device it was registered from: this must be created on
-      # the host that will use it, never copied over from a laptop.
-      - bunq-context:/app/bunq
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
@@ -652,8 +650,37 @@ services:
       # would mean an update whose image has moved can never recreate the container it stopped -
       # so it is required rather than optional, exactly like the api token above.
       NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui, steward-worker and steward-deployer share, `openssl rand -hex 32`}
+
+      # --- steward.yml#bunq (steward/109) -------------------------------------------------
+      # THE ONLY BANK CREDENTIAL IN THIS FILE, and the only container that gets one. It was
+      # NORDTAL_BOT_BUNQ_* on discord-bot until steward/109; the bot now asks for a payment link by
+      # writing a row and is told the answer by a notification.
+      #
+      # Optional, and deliberately not `:?` - a season without a bunq account is a season that does
+      # everything except take money. That is also what makes a renamed variable invisible: an
+      # environment file still carrying NORDTAL_BOT_BUNQ_* produces a stack where every container is
+      # healthy and no payment is ever noticed. The ONE thing that says which it is, is the line
+      # steward-worker logs at startup - "bunq is ON: ..." or "bunq is OFF: ...". Read it after a
+      # deploy that touched these. deploy/setup.sh asks for both and accepts Enter for neither.
+      NORDTAL_STEWARD_BUNQ_API_KEY: ${NORDTAL_STEWARD_BUNQ_API_KEY:-}
+      NORDTAL_STEWARD_BUNQ_ACCOUNT_ID: ${NORDTAL_STEWARD_BUNQ_ACCOUNT_ID:-}
+      # How often bunq itself is asked, and how far back the fallback reference scan looks. Both
+      # cost an HTTP call to a bank, unlike the bot's NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS.
+      NORDTAL_STEWARD_BUNQ_POLL_INTERVAL_SECONDS: ${NORDTAL_STEWARD_BUNQ_POLL_INTERVAL_SECONDS:-}
+      NORDTAL_STEWARD_BUNQ_RECENT_PAYMENT_COUNT: ${NORDTAL_STEWARD_BUNQ_RECENT_PAYMENT_COUNT:-}
+      # Leave empty on a fresh database: the first start stamps its own instant into bot_setting and
+      # no later start rewrites it. Without it the first poll books up to 50 historical bunq
+      # payments, roles, DMs and public thank-yous included. It is the SAME ROW the bot used to
+      # write under NORDTAL_ACCESS_PAYMENT_WATERMARK, which is what stops this move from re-reading
+      # a season of history.
+      NORDTAL_STEWARD_BUNQ_WATERMARK: ${NORDTAL_STEWARD_BUNQ_WATERMARK:-}
     volumes:
       - steward-worker-config:/app/config
+      # bunq binds an API context to the device and IP it was registered from: the contents are
+      # created by the container that will use it and are never copied from anywhere - not from a
+      # laptop and not from the discord-bot container this volume was mounted into until
+      # steward/109. See steward/101 for the one ops step that makes that true.
+      - bunq-context:/app/bunq
       # Everything this module owns, under the names Topology expects beneath volumes-root. Writable,
       # because `apply` puts the jars here and writes network-control's pack.yml.
       - mc-network-control:/volumes/network-control
@@ -1007,6 +1034,10 @@ volumes:
   # `steward-worker bootstrap`.
   bot-jar:
   steward-worker-jar:
+  # The installed bunq API context. steward-worker's since steward/109; it hung off discord-bot
+  # before that. Its CONTENTS ARE NEVER COPIED between containers or hosts - bunq binds an installed
+  # key to a device and an IP, so a copied context is refused by the API and the refusal only shows
+  # up inside a poll. Deliberately not backed up for the same reason.
   bunq-context:
   mc-network-control:
   mc-limbo:

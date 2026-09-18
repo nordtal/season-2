@@ -52,6 +52,16 @@ displaytags = "latest.release"
 chunky = "1.5.3"
 jda = "6.0.0-rc.4"
 bunq = "1.28.0.6"
+# OkHttp, and it is HERE only because steward-worker carries a patched copy of one of the bunq SDK's
+# own classes (com/bunq/sdk/http/BunqRequestBuilder.java) and therefore has to COMPILE against
+# OkHttp, while the SDK only brings it at runtime scope.
+#
+# IT MUST BE WHAT THE BUNQ SDK ITSELF RESOLVES, and it is declared `implementation` rather than
+# `compileOnly` precisely so it cannot drift: Gradle picks the higher of this and the SDK's
+# transitive one for BOTH the compile and the runtime classpath, so the two can never disagree.
+# Measured 2026-09-18 with `:steward-worker:dependencies --configuration runtimeClasspath`:
+# com.github.bunq:sdk_java:1.28.0.6 brings com.squareup.okhttp3:okhttp:3.14.9.
+okhttp = "3.14.9"
 guava = "33.6.0-jre"
 logback = "1.5.18"
 adventure = "5.2.0"
@@ -142,6 +152,7 @@ display-tags = { module = "com.github.nordtal:papermc-display-tags", version.ref
 chunky = { module = "org.popcraft:chunky-common", version.ref = "chunky" }
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
 bunq-sdk = { module = "com.github.bunq:sdk_java", version.ref = "bunq" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 adventure-api = { module = "net.kyori:adventure-api", version.ref = "adventure" }

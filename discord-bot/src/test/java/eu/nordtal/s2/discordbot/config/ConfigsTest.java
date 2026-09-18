@@ -106,8 +106,6 @@ class ConfigsTest {
             payment:
               poll-interval-seconds: 30
               request-ttl-hours: 24
-              watermark: ''
-              recent-payment-count: 50
             expiry-reminder-lead-days: 3
             role-reconcile-interval-minutes: 10
             """;
@@ -535,21 +533,35 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("an empty watermark is the normal case - the bot stamps its own")
-    void emptyWatermarkIsAccepted() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), access());
+    @DisplayName("a deployed access.yml carrying the moved payment keys loses them and keeps the bot")
+    void theMovedPaymentKeysAreDropped() throws Exception {
+        // payment.watermark and payment.recent-payment-count were this file's until steward/109 and
+        // are steward-worker's bunq: block now. A deployed access.yml in a volume still carries
+        // both, and the operator's only possible move would be to delete them by hand - so jcore
+        // deletes them instead, with a WARN and a .bak, and the bot starts.
+        //
+        // The other half is what this is really for: nobody may quietly re-declare either key here
+        // to make an upgrade smoother. A watermark read by a process with no bunq connection is a
+        // setting that cannot do anything except disagree with the one that can.
+        Files.writeString(directory.resolve("access.yml"), access()
+                .replace("""
+                        payment:
+                          poll-interval-seconds: 30
+                        """, """
+                        payment:
+                          poll-interval-seconds: 30
+                          watermark: '2026-09-01T00:00:00Z'
+                          recent-payment-count: 50
+                        """));
 
-        assertEquals("", Configs.access().get().payment().watermark());
-    }
+        Configs.access();
 
-    @Test
-    @DisplayName("a watermark override that is not an instant stops the bot")
-    void badWatermarkStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("access.yml"),
-                access().replace("watermark: ''", "watermark: '1 September 2026'"));
-
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
-        assertTrue(error.getMessage().contains("ISO-8601"), error.getMessage());
+        final String written = Files.readString(directory.resolve("access.yml"));
+        assertFalse(written.lines().anyMatch(line -> line.strip().startsWith("watermark:")),
+                "access.yml still carries payment.watermark after a load - something re-declared"
+                        + " it in AccessSpec: " + written);
+        assertFalse(written.lines().anyMatch(line -> line.strip().startsWith("recent-payment-count:")),
+                "access.yml still carries payment.recent-payment-count after a load: " + written);
     }
 
     @Test
@@ -631,49 +643,34 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("a non-numeric bunq account id is caught at startup, not in the poll loop")
-    void nonNumericAccountIdStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("bot.yml"), """
-                token: a-token
-                bunq:
-                  api-key: a-key
-                  account-id: not-a-number
-                  context-path: ''
-                """);
-
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, Configs::bot);
-        assertTrue(error.getMessage().contains("must be a number"), error.getMessage());
-    }
-
-    @Test
-    @DisplayName("a deployed bot.yml carrying the retired sandbox switch loses the line and keeps the bot")
-    void theRetiredEnvironmentKeyIsDroppedByName() throws Exception {
-        // bunq.environment was PRODUCTION or SANDBOX until 2026-09-09, when the sandbox run it
-        // existed for was struck (finding 152). A deployed bot.yml in a volume still carries the
-        // line, and the operator's only possible move would have been to delete it by hand - so
-        // jcore 3.1.0 deletes it instead, with a WARN and a .bak, and the bot starts.
+    @DisplayName("a deployed bot.yml still carrying the whole bunq block loses it and keeps the bot")
+    void theMovedBunqBlockIsDropped() throws Exception {
+        // bunq lived in this file until steward/109 - api-key, account-id, context-path, and a
+        // retired `environment` switch that jcore was already dropping by name. The whole block is
+        // steward-worker's now, and a bot.yml sitting in the config volume of a running deployment
+        // still has every line of it.
         //
-        // What this test is really for is the other half: nobody may quietly re-declare the key as
-        // a no-op to make an upgrade smoother. If it comes back, it comes back with a sandbox key
-        // in somebody's hand and a reason.
+        // What must NOT happen is a refusal to start: an unknown key costs a WARN and a .bak. What
+        // must also not happen is somebody re-declaring the block here as a no-op to make an
+        // upgrade quiet - that would put a bunq API key back into the Discord process, which is the
+        // entire thing the move was for.
         Files.writeString(directory.resolve("bot.yml"), """
                 token: a-token
                 bunq:
                   api-key: a-key
                   account-id: '1234'
+                  context-path: ''
                   environment: SANDBOX
                 """);
 
-        Configs.bot();
+        assertEquals("a-token", Configs.bot().get().token());
 
         final String written = Files.readString(directory.resolve("bot.yml"));
-        // The key, not the word: this file's own header explains that an environment value is
-        // never written back into it, so a substring search passes and fails for the wrong reason.
-        assertFalse(written.lines().anyMatch(line -> line.strip().startsWith("environment:")),
-                "bot.yml still carries the retired bunq.environment key after a load. jcore drops a"
-                        + " key the interface does not declare - if it survived, something declared"
-                        + " it again: " + written);
+        assertFalse(written.lines().anyMatch(line -> line.strip().startsWith("bunq:")),
+                "bot.yml still carries the bunq block after a load. jcore drops a key the interface"
+                        + " does not declare - if it survived, something declared it again: " + written);
+        assertFalse(written.contains("a-key"),
+                "the bunq API key survived into the rewritten bot.yml: " + written);
     }
 
     @Test
@@ -696,9 +693,16 @@ class ConfigsTest {
                         "the token slot is written empty, never guessed"),
                 () -> assertTrue(Files.isRegularFile(schema),
                         "the schema is written beside it, under the config's own base name"),
-                () -> assertTrue(Files.readString(schema).contains("LEAVE THESE EMPTY"),
+                // "THIS" and not "THESE" since steward/109: bot.yml has one setting left, because
+                // the bunq credentials moved to steward-worker. The sentence is still the only
+                // place NORDTAL_BOT_TOKEN is explained to somebody looking at this file.
+                () -> assertTrue(Files.readString(schema).contains("LEAVE THIS EMPTY"),
                         "and the schema's root explanation carries the header that says so"),
-                () -> assertFalse(Files.readString(file).contains("LEAVE THESE EMPTY"),
+                () -> assertTrue(Files.readString(schema).contains("NORDTAL_STEWARD_BUNQ_API_KEY"),
+                        "the header also has to say where the bunq key went, because the one thing"
+                                + " an operator will look for in bot.yml is the setting that is no"
+                                + " longer in it"),
+                () -> assertFalse(Files.readString(file).contains("LEAVE THIS EMPTY"),
                         "the YAML itself stays comment-free - that is what jcore 4.0.0 decided")
         );
     }

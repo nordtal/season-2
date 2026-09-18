@@ -75,6 +75,7 @@ public final class Configs {
                     requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
                     requirePositive("poll-interval-seconds", config.pollIntervalSeconds());
                     requireBackup(config.backup());
+                    requireBunq(config.bunq());
                 })
                 .load();
 
@@ -102,7 +103,61 @@ public final class Configs {
         }
     }
 
+    /**
+     * What bunq has to get right before this container is allowed to touch a bank account
+     * (steward/109; the same three rules {@code discord-bot}'s {@code Configs.bot()} used to hold).
+     *
+     * <h2>Empty is allowed, half is not</h2>
+     * A season with no bank account is a season whose network does everything except take money, and
+     * it has to be able to start - the account is the one thing here that cannot be created from a
+     * terminal. Half of it is always a setup that stopped in the middle, or an environment file that
+     * was renamed in one place and not the other, so it is refused by name rather than run.
+     *
+     * <h2>The account id is parsed here</h2>
+     * Not in the poll loop minutes later, and not inside a Discord interaction: a non-numeric id is
+     * a value somebody typed, and the place to say so is the start.
+     */
+    private static void requireBunq(final StewardSpec.BunqSpec bunq) {
+        final boolean key = isSet(bunq.apiKey());
+        final boolean account = isSet(bunq.accountId());
+        if (key != account) {
+            throw new IllegalArgumentException("bunq needs both api-key and account-id or neither,"
+                    + " and only " + (key ? "api-key" : "account-id") + " is set. Leave both empty"
+                    + " to run without payments. If this deployment used to work, check whether its"
+                    + " environment file still says NORDTAL_BOT_BUNQ_* - those two variables became"
+                    + " NORDTAL_STEWARD_BUNQ_* when bunq moved into this container.");
+        }
+        if (account) {
+            try {
+                Long.parseLong(bunq.accountId().trim());
+            } catch (final NumberFormatException e) {
+                throw new IllegalArgumentException("bunq.account-id must be a number, was '"
+                        + bunq.accountId() + "'");
+            }
+        }
+
+        requirePositive("bunq.poll-interval-seconds", bunq.pollIntervalSeconds());
+        requirePositive("bunq.recent-payment-count", bunq.recentPaymentCount());
+
+        // Blank is the normal case: the first start stamps its own instant into bot_setting and
+        // every later start reads it back. A value here is an explicit override and has to be
+        // readable, because an unreadable one would surface as a poll that books nothing.
+        final String watermark = bunq.watermark();
+        if (watermark != null && !watermark.isBlank()) {
+            try {
+                java.time.Instant.parse(watermark.trim());
+            } catch (final java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException("bunq.watermark must be empty or an ISO-8601"
+                        + " instant such as 2026-09-01T00:00:00Z, was: " + watermark);
+            }
+        }
+    }
+
     // ------------------------------------------------------------------ validation helpers
+
+    private static boolean isSet(final String value) {
+        return value != null && !value.isBlank();
+    }
 
     /**
      * What a backup may be pointed at. {@code postgres-data} is refused by name: a snapshot of a

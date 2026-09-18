@@ -12,8 +12,6 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -113,30 +111,17 @@ public final class Configs {
         });
     }
 
+    /**
+     * {@code bot.yml}, which since steward/109 holds one setting.
+     *
+     * <p>The "both halves of bunq or neither" check that used to be here went with the credentials
+     * into {@code steward-worker}'s {@code Configs.requireBunq}. It is the same rule and the same
+     * sentence; it simply has to be made in the process that has something to be half-configured.
+     * </p>
+     */
     public static @NotNull ConfigHandle<BotSpec> bot() throws ConfigException {
-        return load("bot", BotSpec.class, "NORDTAL_BOT", config -> {
-            requireSecret("token", "NORDTAL_BOT_TOKEN", config.token());
-
-            // bunq is OPTIONAL, both halves of it together. A season with no bank account is a
-            // season whose bot does everything except take money, and it must be able to start:
-            // the account is the one thing here that cannot be created from a terminal. Half of it
-            // is still a mistake, because it is always a setup that stopped in the middle.
-            final boolean key = Configured.isSet(config.bunq().apiKey());
-            final boolean account = Configured.isSet(config.bunq().accountId());
-            if (key != account) {
-                throw new IllegalArgumentException("bunq needs both api-key and account-id or "
-                        + "neither, and only " + (key ? "api-key" : "account-id") + " is set. "
-                        + "Leave both empty to run without payments.");
-            }
-            if (account) {
-                try {
-                    Long.parseLong(config.bunq().accountId().trim());
-                } catch (final NumberFormatException e) {
-                    // Parsed here so a wrong value cannot surface inside the poll loop minutes later.
-                    throw new IllegalArgumentException("bunq.account-id must be a number");
-                }
-            }
-        });
+        return load("bot", BotSpec.class, "NORDTAL_BOT",
+                config -> requireSecret("token", "NORDTAL_BOT_TOKEN", config.token()));
     }
 
     public static @NotNull ConfigHandle<AccessSpec> access() throws ConfigException {
@@ -175,20 +160,11 @@ public final class Configs {
         requirePositive("role-reconcile-interval-minutes", config.roleReconcileIntervalMinutes());
         requirePositive("payment.poll-interval-seconds", config.payment().pollIntervalSeconds());
         requirePositive("payment.request-ttl-hours", config.payment().requestTtlHours());
-        requirePositive("payment.recent-payment-count", config.payment().recentPaymentCount());
 
-        // Blank is the normal case: the bot stamps its own first-start instant into the database
-        // and uses that. A value here is an explicit override and has to be readable.
-        final String watermark = config.payment().watermark();
-        if (watermark != null && !watermark.isBlank()) {
-            try {
-                Instant.parse(watermark.trim());
-            } catch (final DateTimeParseException e) {
-                throw new IllegalArgumentException(
-                        "payment.watermark must be empty or an ISO-8601 instant such as "
-                                + "2026-09-01T00:00:00Z, was: " + watermark);
-            }
-        }
+        // payment.watermark and payment.recent-payment-count were checked here until steward/109.
+        // Both are steward-worker's now, and so are their checks - see StewardSpec.BunqSpec. A
+        // deployment that still has them in access.yml loses them the way jcore loses any unknown
+        // key: with a warning and a .bak beside the file.
     }
 
     /**

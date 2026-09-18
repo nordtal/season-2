@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -33,13 +34,16 @@ class SchemaSecretsTest {
     }
 
     @Test
-    @DisplayName("bot.yml's bunq.api-key is declared @Secret in its schema")
-    void bunqApiKeyIsSecret() {
-        final SchemaNode bunq = SchemaWriter.build(BotSpec.class).children().get("bunq");
-        assertNotNull(bunq, "BotSpec's schema has no 'bunq' entry at all");
-        final SchemaNode apiKey = bunq.children().get("api-key");
-        assertNotNull(apiKey, "BunqSpec's schema has no 'api-key' entry at all");
-        assertTrue(apiKey.secret(), "bunq.api-key is a bunq API credential and must be @Secret");
+    @DisplayName("bot.yml declares no bunq credential at all any more")
+    void thereIsNoBunqKeyHere() {
+        // The assertion that bunq.api-key is @Secret moved to steward-worker's SchemaSecretsTest
+        // with the credential itself (steward/109). It is asserted here in the negative, because a
+        // guard that simply disappears takes its protection with it without anything going red:
+        // re-adding a bunq block to BotSpec would put a bank credential back into the Discord
+        // process, and it would arrive unannotated and unnoticed.
+        assertNull(SchemaWriter.build(BotSpec.class).children().get("bunq"),
+                "BotSpec declares a bunq block again. The key belongs to steward-worker - see"
+                        + " StewardSpec.BunqSpec and steward-worker's SchemaSecretsTest.");
     }
 
     @Test

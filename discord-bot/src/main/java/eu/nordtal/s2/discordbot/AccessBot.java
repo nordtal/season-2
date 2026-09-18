@@ -4,7 +4,6 @@ import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
-import eu.nordtal.s2.discordbot.access.bunq.BunqGateway;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.BotSpec;
@@ -27,9 +26,9 @@ import eu.nordtal.s2.discordbot.discord.UpdateCommand;
 import eu.nordtal.s2.discordbot.discord.UpdateFeed;
 import eu.nordtal.s2.discordbot.access.discord.PurchaseFlow;
 import eu.nordtal.s2.discordbot.access.payment.PaymentProcessor;
+import eu.nordtal.s2.common.payment.PaymentGateway;
 import eu.nordtal.s2.common.payment.PaymentRequests;
 import eu.nordtal.s2.discordbot.access.payment.Purchases;
-import eu.nordtal.s2.common.payment.Watermark;
 import eu.nordtal.s2.discordbot.access.payment.Tiers;
 import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.discordbot.hungergames.RegisterFlow;
@@ -39,6 +38,9 @@ import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.network.SnapshotDirectory;
+import eu.nordtal.s2.common.notify.Channels;
+import eu.nordtal.s2.common.notify.NotificationListener;
+import eu.nordtal.s2.common.notify.PostgresNotifications;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 
@@ -52,6 +54,7 @@ import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -61,7 +64,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Entry point and owner of everything with a lifecycle: the connection pool, the JDA session, the
- * bunq poll loop and the two sweeps.
+ * payment listener and the sweeps.
  *
  * <p>The startup order is deliberate: configuration first, so a bad value stops the process here
  * naming the file and the setting; then the database, so bad credentials and a schema this jar was
@@ -79,9 +82,26 @@ public class AccessBot implements AutoCloseable {
     private final JDA jda;
 
     /**
-     * Everything that blocks: bunq HTTP calls and the database work behind an interaction. JDA's
-     * gateway threads must not do either - an interaction that is not acknowledged within three
-     * seconds is dead, and a gateway thread waiting on a bank stalls every other interaction.
+     * {@code LISTEN nordtal_payment} - what makes the payment seam feel instant.
+     *
+     * <p>A dedicated connection, never the pool's: {@code LISTEN} is session state and a pool hands
+     * sessions back out. It carries no guarantee of its own; the timer in {@link #schedule} does
+     * that, and this only decides when.</p>
+     */
+    private final NotificationListener paymentListener;
+
+    /**
+     * Bounds a database that has gone away without closing the socket. It is <b>not</b> the wait:
+     * pgjdbc overrides the socket timeout for the duration of a {@code getNotifications} call, so
+     * this only applies to the liveness check and the reconnect.
+     */
+    private static final int LISTENER_SOCKET_TIMEOUT_SECONDS = 30;
+
+    /**
+     * Everything that blocks: the database work behind an interaction and the REST calls that
+     * follow it. JDA's gateway threads must not do either - an interaction that is not acknowledged
+     * within three seconds is dead, and a gateway thread waiting on anything stalls every other
+     * interaction in the guild.
      */
     private final ExecutorService worker = Executors.newFixedThreadPool(4, runnable -> {
         final Thread thread = new Thread(runnable, "access-bot-worker");
@@ -140,14 +160,18 @@ public class AccessBot implements AutoCloseable {
                     AccessBot.class.getClassLoader(), "messages/commands",
                     Configs.messagesDirectory(), languages.locales());
             final Tiers tiers = Tiers.of(accessConfig);
-            final BunqGateway bunq = new BunqGateway(botConfig);
 
             // What is NOT configured, once, by name. Every consumer below degrades quietly when an
             // id is empty - which is right at the call site and wrong as the only record of it, so
             // this is the line that answers "why is nothing appearing in that channel".
-            Configured.report(accessConfig, bunq.configured());
+            //
+            // bunq is in that list and is no longer this process's own answer: since steward/109
+            // the key lives in steward-worker, so what is read here is the row that worker wrote at
+            // its own start. Compose makes the bot wait for the worker's health marker, so the
+            // value is this deployment's and not the previous boot's.
+            Configured.report(accessConfig, PaymentGateway.state(database.jdbi()));
             final PaymentRequests requests = new PaymentRequests(database.jdbi());
-            final Purchases purchases = new Purchases(requests, bunq, tiers, accessConfig);
+            final Purchases purchases = new Purchases(requests, tiers, accessConfig);
 
             // GUILD_MEMBERS is privileged and must be enabled in Discord's developer portal:
             // without it there is no member cache, so both reconciles have nothing to read.
@@ -167,12 +191,12 @@ public class AccessBot implements AutoCloseable {
             // NULL starts now instead of at the SMP opening, which is allowed and has to be loud.
             final SeasonStart seasonStart = new SeasonStart(phases, admin);
             final AccessRoles roles = new AccessRoles(jda, accessConfig, access, messages, admin, database.jdbi());
-            // Resolved once: the first start stamps its instant into bot_setting and every later
-            // start reads it back. Payments older than it are ignored forever, which is what stops
-            // an empty database from booking historical payments on the first poll.
-            final PaymentProcessor processor = new PaymentProcessor(accessConfig, languages, bunq, requests,
-                    purchases, tiers, access, roles, admin, messages, jda,
-                    seasonStart, Watermark.resolve(database.jdbi(), accessConfig.payment().watermark()));
+            // The bot's half of the payment seam: it books what steward-worker has already found
+            // and attributed, and posts what the worker could not act on. No watermark here any
+            // more - it decided which bunq payments were old enough to ignore, which is a question
+            // only the process that reads bunq can be asked.
+            final PaymentProcessor processor = new PaymentProcessor(languages, requests,
+                    tiers, access, roles, admin, messages, jda, seasonStart);
             final GuildState guildState = new GuildState(jda, accessConfig, languages, access, database.jdbi());
             final Teams teams = new Teams(database.jdbi());
 
@@ -181,9 +205,14 @@ public class AccessBot implements AutoCloseable {
                     new UpdateCommand(updates, admin, database.jdbi(), messages, worker,
                             timers);
 
+            // Held rather than only registered: the payment seam has to be able to reach back into
+            // it and finish the ephemeral messages that are waiting for a link.
+            final PurchaseFlow purchaseFlow = new PurchaseFlow(accessConfig, tiers, purchases,
+                    requests, messages, roles, admin, worker);
+
             jda.addEventListener(
                     guildState,
-                    new PurchaseFlow(accessConfig, tiers, purchases, requests, messages, roles, admin, worker),
+                    purchaseFlow,
                     new LinkFlow(access, roles, messages, admin,
                             new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), Clock.systemUTC()),
                             worker),
@@ -273,7 +302,12 @@ public class AccessBot implements AutoCloseable {
                     new UpdateFeed(updates, UpdateFeed.Board.of(admin), messages);
             updateFeed.start();
 
-            schedule(accessConfig, processor, bunq.configured(), roles, status, updateFeed);
+            schedule(accessConfig, processor, purchaseFlow, roles, status, updateFeed);
+
+            // The other half of what drives the payment seam. Started last of the payment wiring,
+            // because it refreshes immediately on connect and both refreshes touch JDA.
+            this.paymentListener = listenForPayments(databaseConfig, accessConfig, processor,
+                    purchaseFlow);
 
             // The readiness marker sits last on purpose: nothing above writes one, so a marker on
             // disk means this bot got all the way through its constructor. It shares the timer
@@ -297,18 +331,19 @@ public class AccessBot implements AutoCloseable {
      * and the failure mode of that is a bot that looks healthy and stops booking payments.
      */
     private void schedule(final AccessSpec config, final PaymentProcessor processor,
-                          final boolean payments, final AccessRoles roles,
+                          final PurchaseFlow purchaseFlow, final AccessRoles roles,
                           final StatusChannels status, final UpdateFeed updateFeed) {
-        // No bunq, no poll. Scheduling it anyway would turn "there is no bank account configured"
-        // into a RuntimeException every few seconds, and `guarded` would keep it running - a log
-        // full of the same failure is how a real one gets missed.
-        if (payments) {
-            final int poll = config.payment().pollIntervalSeconds();
-            timers.scheduleWithFixedDelay(guarded("payment poll", processor::poll), poll, poll, TimeUnit.SECONDS);
-        } else {
-            log.warn("bunq is not configured, so no payment is ever polled for and nothing can be "
-                    + "bought. Everything else the bot does is unaffected.");
-        }
+        // Unconditional since steward/109, and that is a change worth naming. It used to be gated
+        // on "is bunq configured", because the pass itself called a bank and calling one without a
+        // key is an exception every few seconds. It now reads two queues in this database - rows
+        // steward-worker wrote - so there is nothing to be unconfigured about, and the gate would
+        // have to ask another container's configuration to decide. A deployment with no bunq simply
+        // has two empty queues.
+        final int poll = config.payment().pollIntervalSeconds();
+        timers.scheduleWithFixedDelay(guarded("payment seam", () -> {
+            processor.poll();
+            purchaseFlow.fillIn();
+        }), poll, poll, TimeUnit.SECONDS);
 
         final int reconcile = config.roleReconcileIntervalMinutes();
         timers.scheduleWithFixedDelay(guarded("role reconcile", roles::reconcile),
@@ -339,6 +374,42 @@ public class AccessBot implements AutoCloseable {
                 UpdateFeed.INTERVAL.toSeconds(), UpdateFeed.INTERVAL.toSeconds(), TimeUnit.SECONDS);
     }
 
+    /**
+     * Starts the {@code nordtal_payment} listener.
+     *
+     * <p>Two refreshes, because two different things are waiting on the same signal: money that has
+     * been attributed and not yet booked, and an ephemeral message that has been promised a payment
+     * link. Both are handed to {@code worker} rather than run on the listener thread - they call
+     * Discord, and a listener thread inside a REST call is a listener that is not listening.</p>
+     *
+     * <p>Every refresh also runs on connect and on every reconnect, before anything is waited for,
+     * which is what covers a notification published while this process was not connected.</p>
+     */
+    private NotificationListener listenForPayments(final DatabaseSpec databaseConfig,
+                                                   final AccessSpec accessConfig,
+                                                   final PaymentProcessor processor,
+                                                   final PurchaseFlow purchaseFlow) {
+        final Duration wait = Duration.ofSeconds(accessConfig.payment().pollIntervalSeconds());
+        final NotificationListener listener = new NotificationListener(
+                PostgresNotifications.connector(
+                        databaseConfig.jdbcUrl(),
+                        databaseConfig.username(),
+                        databaseConfig.password(),
+                        LISTENER_SOCKET_TIMEOUT_SECONDS,
+                        "access-bot-payment-listener",
+                        List.of(Channels.PAYMENT)),
+                "access-bot-payment-listener",
+                List.of(
+                        new NotificationListener.Refresh("matched payments",
+                                () -> worker.execute(guarded("payment booking", processor::poll))),
+                        new NotificationListener.Refresh("waiting payment links",
+                                () -> worker.execute(guarded("payment links", purchaseFlow::fillIn)))),
+                log,
+                wait);
+        listener.start();
+        return listener;
+    }
+
     private Runnable guarded(final String name, final Runnable task) {
         return () -> {
             try {
@@ -358,6 +429,7 @@ public class AccessBot implements AutoCloseable {
     @Override
     public void close() {
         log.info("Shutting down");
+        paymentListener.close();
         timers.shutdownNow();
         worker.shutdownNow();
         try {

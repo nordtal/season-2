@@ -156,4 +156,100 @@ class ConfigsTest {
                 "the old content is not in a .bak, so an operator who wanted those lines back has"
                         + " nowhere to read them from");
     }
+
+    // ---------------------------------------------------------------- bunq (steward/109)
+
+    @Test
+    @DisplayName("a fresh file has no bunq credentials, and that is a valid deployment")
+    void aFreshFileHasNoBankAccount() throws Exception {
+        final StewardSpec.BunqSpec bunq = Configs.steward(directory, LOGGER).get().bunq();
+
+        // Empty is the default and the load succeeded, which is the whole assertion: a season
+        // without a bank account is a season where everything works except buying access, and it
+        // must be able to start. The account is the one thing in this file that cannot be created
+        // from a terminal.
+        assertEquals("", bunq.apiKey());
+        assertEquals("", bunq.accountId());
+        assertEquals(30, bunq.pollIntervalSeconds());
+        assertEquals(50, bunq.recentPaymentCount());
+        assertEquals("", bunq.watermark(), "the first start stamps its own instant; see Watermark");
+    }
+
+    @Test
+    @DisplayName("half a bunq credential is refused, and the message names the old variables")
+    void halfABunqCredentialIsRefused() throws Exception {
+        // This is the failure the rename actually produces: somebody sets NORDTAL_STEWARD_BUNQ_API_KEY
+        // in the environment file and leaves NORDTAL_BOT_BUNQ_ACCOUNT_ID where it was. Refusing to
+        // start is right - a key with no account is always a setup that stopped in the middle - and
+        // the message has to say what happened, because the variable that IS set looks correct.
+        Files.writeString(directory.resolve("steward.yml"), """
+                bunq:
+                  api-key: 'a-key'
+                  account-id: ''
+                """);
+
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.steward(directory, LOGGER));
+
+        final String message = String.valueOf(error.getMessage()) + error.getCause();
+        assertTrue(message.contains("both api-key and account-id or neither"), message);
+        assertTrue(message.contains("NORDTAL_BOT_BUNQ_"),
+                "the message has to name the names this deployment probably still uses: " + message);
+    }
+
+    @Test
+    @DisplayName("a non-numeric bunq account id is caught at startup, not inside a poll")
+    void aNonNumericAccountIdIsRefused() throws Exception {
+        Files.writeString(directory.resolve("steward.yml"), """
+                bunq:
+                  api-key: 'a-key'
+                  account-id: 'NL91BUNQ0417164300'
+                """);
+
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.steward(directory, LOGGER));
+
+        // An IBAN is the wrong answer somebody will actually give, and BunqGateway parses the id
+        // with Long.parseLong in its constructor - so without this the failure is a
+        // NumberFormatException at startup with no sentence attached to it.
+        final String message = String.valueOf(error.getMessage()) + error.getCause();
+        assertTrue(message.contains("must be a number"), message);
+    }
+
+    @Test
+    @DisplayName("a watermark override that is not an instant is refused")
+    void anUnreadableWatermarkIsRefused() throws Exception {
+        // Moved here from discord-bot's ConfigsTest with the setting itself. An unreadable
+        // watermark would otherwise surface as a poll that books nothing, which is indistinguishable
+        // from a quiet bank.
+        Files.writeString(directory.resolve("steward.yml"), """
+                bunq:
+                  watermark: '1 September 2026'
+                """);
+
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.steward(directory, LOGGER));
+
+        final String message = String.valueOf(error.getMessage()) + error.getCause();
+        assertTrue(message.contains("ISO-8601"), message);
+    }
+
+    @Test
+    @DisplayName("a complete bunq block loads, and the id keeps its own text")
+    void aCompleteBunqBlockLoads() throws Exception {
+        Files.writeString(directory.resolve("steward.yml"), """
+                bunq:
+                  api-key: 'a-key'
+                  account-id: '987654'
+                  poll-interval-seconds: 45
+                  recent-payment-count: 10
+                  watermark: '2026-09-01T00:00:00Z'
+                """);
+
+        final StewardSpec.BunqSpec bunq = Configs.steward(directory, LOGGER).get().bunq();
+        assertEquals("987654", bunq.accountId());
+        assertEquals(45, bunq.pollIntervalSeconds());
+        assertEquals(10, bunq.recentPaymentCount());
+        assertEquals("2026-09-01T00:00:00Z", bunq.watermark());
+    }
 }

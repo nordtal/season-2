@@ -28,20 +28,20 @@ WORKDIR /app
 COPY build/libs/discord-bot-*.jar /app/app.jar
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
-RUN mkdir -p config bunq lib \
-    && chmod 700 bunq \
+RUN mkdir -p config lib \
     && chmod +x /app/docker-entrypoint.sh
 
-# The bunq API context holds credentials and is kept in a Docker-managed volume, never on
-# the host filesystem.
+# THERE IS NO /app/bunq HERE ANY MORE, and no bunq variable either (steward/109). The API context
+# holds credentials and is bound to the device and IP that registered it, so it lives in exactly one
+# container: steward-worker, at /app/bunq, on the same `bunq-context` volume this image used to
+# mount. The volume's contents are REGENERATED after the move, never copied - see steward/101.
 #
 # CONFIGURATION - three files, one environment namespace each:
 #
-#   config/bot.yml                 config/database.yml          config/access.yml
-#   NORDTAL_BOT_TOKEN              NORDTAL_DATABASE_JDBC_URL    NORDTAL_ACCESS_*
-#   NORDTAL_BOT_BUNQ_API_KEY       NORDTAL_DATABASE_USERNAME
-#   NORDTAL_BOT_BUNQ_ACCOUNT_ID    NORDTAL_DATABASE_PASSWORD
-#   NORDTAL_BOT_BUNQ_ENVIRONMENT
+#   config/bot.yml       config/database.yml          config/access.yml
+#   NORDTAL_BOT_TOKEN    NORDTAL_DATABASE_JDBC_URL    NORDTAL_ACCESS_*
+#                        NORDTAL_DATABASE_USERNAME
+#                        NORDTAL_DATABASE_PASSWORD
 #
 # Every setting in every file can be overridden this way: the variable is the setting's path
 # with '.' and '-' turned into '_'. So the price of the 30-day tier is
@@ -53,19 +53,19 @@ RUN mkdir -p config bunq lib \
 # are empty and the bot refuses to start until they are filled in. That is deliberate: a
 # default id would be a real channel in somebody's guild.
 #
-# NORDTAL_ACCESS_PAYMENT_WATERMARK matters on a first deploy. Payments created before it are
-# ignored forever; without it the first poll books up to 50 historical payments on the bunq
-# account, roles, DMs and public thank-yous included.
+# NORDTAL_ACCESS_PAYMENT_WATERMARK is NOT read here any more - it is
+# NORDTAL_STEWARD_BUNQ_WATERMARK, on the container that talks to the bank. It still matters on a
+# first deploy for the same reason: payments created before it are ignored forever, and without one
+# the first poll books up to 50 historical payments, roles, DMs and public thank-yous included.
 #
 # The bot REFUSES TO START on a config it cannot read, a setting that does not exist, or an
 # empty credential. It never falls back to defaults.
-ENV NORDTAL_BOT_BUNQ_CONTEXT_PATH=/app/bunq/bunq-config.conf
 
 # Where steward-worker puts this container's jar, and what it is called. The same volume is mounted
 # into the worker at /volumes/discord-bot, which is where it writes.
 ENV JAR_DIR=/app/lib
 ENV JAR_PREFIX=discord-bot
 
-VOLUME ["/app/config", "/app/bunq", "/app/lib"]
+VOLUME ["/app/config", "/app/lib"]
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

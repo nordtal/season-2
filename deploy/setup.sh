@@ -544,18 +544,45 @@ ask_for NORDTAL_ACCESS_ROLES_ADMIN plain looks_like_snowflake \
         is what decides who may sign in to the interface at all. Right-click the role -> Copy Role ID,
         and make sure your own account has it."
 
-# bunq is the one answer with a real "no". Without it the bot simply does not poll for payments and
-# nobody can buy access; every other part of the deployment is unaffected. Saying so at the prompt is
-# cheaper than a person inventing a key to get past a question.
-if ask_for NORDTAL_BOT_BUNQ_API_KEY optional-secret - \
+# bunq is the one answer with a real "no". Without it nothing polls for payments and nobody can buy
+# access; every other part of the deployment is unaffected. Saying so at the prompt is cheaper than a
+# person inventing a key to get past a question.
+#
+# THE VARIABLES WERE RENAMED IN steward/109, from NORDTAL_BOT_BUNQ_* to NORDTAL_STEWARD_BUNQ_*: the
+# key lives in steward-worker now and the bot has neither it nor the bunq SDK. A host whose
+# environment file still carries the old names is answered by the block right below this one, which
+# is the only thing between it and a stack where every container is healthy and no payment is ever
+# noticed.
+if ask_for NORDTAL_STEWARD_BUNQ_API_KEY optional-secret - \
     "The bunq API key, if payments should work. Press Enter to skip." \
-    "Without it the bot starts and runs; it just never polls bunq, and access can only be granted by
-        hand - through the interface or through /access in Discord."; then
-    ask_for NORDTAL_BOT_BUNQ_ACCOUNT_ID plain "-" \
+    "Without it the whole stack starts and runs; steward-worker just never polls bunq, and access
+        can only be granted by hand - through the interface or through /access in Discord."; then
+    ask_for NORDTAL_STEWARD_BUNQ_ACCOUNT_ID plain "-" \
         "The bunq monetary account id the payments arrive in." \
-        "A number. The bot refuses to start with a key and no account, because a poll loop with
-        nowhere to look would be a silent one."
+        "A number. steward-worker refuses to start with a key and no account, because a poll loop
+        with nowhere to look would be a silent one."
 fi
+
+# THE OLD NAMES, AND WHY THIS BLOCK EXISTS (steward/109, steward/101).
+#
+# Both bunq variables are optional by design - a season without a bank account is a valid season -
+# so neither compose nor any container complains about a name nothing reads. That is exactly what
+# makes the rename dangerous: an environment file carrying NORDTAL_BOT_BUNQ_API_KEY hands it to
+# nobody, every service comes up healthy, and the first sign is that no payment is ever noticed.
+#
+# The values are NOT copied across automatically. A bunq API key is installed against a device and
+# an IP, and the context volume it produced belongs to the container that made it; the correct move
+# is to put the key in under its new name and let steward-worker register a fresh context. Copying
+# the old value is the one step that looks like it worked and then fails inside a poll.
+for stale in NORDTAL_BOT_BUNQ_API_KEY NORDTAL_BOT_BUNQ_ACCOUNT_ID; do
+    if [[ -n "$(env_value "$ENV_FILE" "$stale")" ]]; then
+        warn "$ENV_FILE still has $stale. Nothing reads it any more - bunq moved into
+       steward-worker in steward/109 and the names are NORDTAL_STEWARD_BUNQ_API_KEY and
+       NORDTAL_STEWARD_BUNQ_ACCOUNT_ID. Delete the old line once the new one is in, and read
+       steward-worker's first log line after the next deploy: it says 'bunq is ON' or 'bunq is
+       OFF' in one sentence, and that sentence is the only confirmation there is."
+    fi
+done
 
 # --- 3 · which deployment this is --------------------------------------------------------------------
 # The project name decides which volumes the stack finds. Deploying under a different one does not

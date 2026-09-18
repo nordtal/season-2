@@ -1,5 +1,7 @@
 package eu.nordtal.s2.discordbot.config;
 
+import eu.nordtal.s2.common.payment.PaymentGateway;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -21,8 +23,9 @@ import java.util.List;
  * A feature that is silently off is indistinguishable from one that is broken. Every consumer below
  * degrades quietly at the call site - a donation with no contribution channel is not an error, it
  * is a deployment that has not picked one yet - so the one place that must not be quiet is the
- * start. {@link #report(AccessSpec)} writes a single line naming what is unconfigured, so the
- * answer to "why did nothing appear in the channel" is in the log the operator already has.
+ * start. {@link #report(AccessSpec, PaymentGateway.State)} writes a single line naming what is
+ * unconfigured, so the answer to "why did nothing appear in the channel" is in the log the operator
+ * already has.
  *
  * @see Configs#access()
  */
@@ -51,17 +54,29 @@ public final class Configured {
     /**
      * Says once, at startup, which features have no id behind them.
      *
-     * @param config   the loaded and validated access configuration
-     * @param payments whether bunq is configured; it lives in {@code bot.yml} rather than here, and
-     *                 is passed in so that this one line is the whole answer to "what is switched
-     *                 off" rather than one of two places to look
+     * @param config  the loaded and validated access configuration
+     * @param gateway what steward-worker last said about its bunq credentials. Since steward/109
+     *                this bot has no bunq key of its own, so it cannot answer the question by
+     *                looking at a file - it reads the answer the worker wrote. It is carried here
+     *                rather than logged separately so that this one line stays the whole list of
+     *                what is switched off, instead of being one of two places to look.
      */
-    public static void report(final AccessSpec config, final boolean payments) {
+    public static void report(final AccessSpec config, final PaymentGateway.State gateway) {
         final List<String> off = new ArrayList<>();
 
-        if (!payments) {
-            off.add("bunq.api-key / bunq.account-id in bot.yml - nothing is ever polled for and "
-                    + "nothing can be bought; the rest of the bot is unaffected");
+        switch (gateway) {
+            case OFF -> off.add("bunq in steward-worker's steward.yml - the worker started and "
+                    + "found no key, so nothing is ever polled for and nothing can be bought; the "
+                    + "rest of the bot is unaffected");
+            // Not "off": nobody has said. The distinction matters on the day the two variables are
+            // renamed, because a worker that never started and a worker that started without a key
+            // are different problems with the same symptom.
+            case UNKNOWN -> off.add("bunq - no steward-worker has said whether it has a key since "
+                    + "this database was created. Read steward-worker's own start line: it says "
+                    + "'bunq is ON' or 'bunq is OFF' in one sentence");
+            case ON -> {
+                // Nothing to report. A gateway that is on is not a feature that is switched off.
+            }
         }
 
         if (!isSet(config.roles().access())) {

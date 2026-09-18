@@ -460,6 +460,14 @@ class ApplierTest {
     private ApplyResult apply(final Fetcher fetcher, final UpdatePlan plan) {
         final StewardSpec config = new StewardSpec() {
             @Override
+            public BunqSpec bunq() {
+                // Defaults: empty credentials, which is "no bank account" and is a valid season.
+                // Nothing in this test asks bunq anything (steward/109).
+                return new BunqSpec() {
+                };
+            }
+
+            @Override
             public ApiSpec api() {
                 // Defaults: nothing here serves HTTP.
                 return new ApiSpec() {
@@ -483,6 +491,14 @@ class ApplierTest {
                 // Defaults throughout: this test is not about a backup, and BackupSpec's own
                 // defaults are the production ones.
                 return new BackupSpec() {
+                    // backup.remote is a section without a default, exactly as backup itself is - so an
+                    // anonymous spec has to hand back its defaults by name (steward/95).
+                    @Override
+                    public RemoteSpec remote() {
+                        return new RemoteSpec() {
+                        };
+                    }
+
                 };
             }
 

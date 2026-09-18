@@ -96,6 +96,15 @@
         },
         {
             "type": "bitmap",
+            "file": "nordtal:ui/gui/row_pill_short.png",
+            "ascent": -24,
+            "height": 14,
+            "chars": [
+                "\udbb8\udd08"
+            ]
+        },
+        {
+            "type": "bitmap",
             "file": "nordtal:ui/gui/row_icons.png",
             "ascent": -27,
             "height": 8,

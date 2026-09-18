@@ -240,6 +240,32 @@ class ObjectivePanelTest {
     }
 
     @Test
+    @DisplayName("the plate under the share line stops before the page buttons, not behind them")
+    void theSharePlateShortensForTheControls() {
+        final String font = Glyphs.FONT_GUI_ROWS[ObjectivePanel.SHARE_ROW];
+
+        final Run full = PanelWalk.find(PanelWalk.runs(surface(FOUR, false, false)), font,
+                Glyphs.GUI_ROW_PILL);
+        assertEquals(ObjectivePanel.PILL_X, full.x(),
+                "with no controls the share line keeps the full-width plate every other row has");
+
+        final Run short_ = PanelWalk.find(PanelWalk.runs(surface(FOUR, false, true)), font,
+                Glyphs.GUI_ROW_PILL_SHORT);
+        assertEquals(ObjectivePanel.PILL_X, short_.x(), "the plate still starts where every plate does");
+        // end is x + advance and an advance is the drawn width plus one, so the last grey pixel
+        // is end - 2. Till's complaint (season-2-ingame/17) is that it was right of the arrows.
+        assertTrue(short_.end() - 2 < SlotGeometry.x(7) + ObjectivePanel.INSET,
+                "the grey island runs under the page buttons: it ends at " + (short_.end() - 2)
+                        + " and the first button plate starts at "
+                        + (SlotGeometry.x(7) + ObjectivePanel.INSET));
+        assertEquals(0, PanelWalk.runs(surface(FOUR, false, true)).stream()
+                        .filter(run -> run.font().equals(font))
+                        .filter(run -> run.content().equals(Glyphs.GUI_ROW_PILL))
+                        .count(),
+                "the full-width plate is replaced on a paged menu, not drawn underneath the short one");
+    }
+
+    @Test
     @DisplayName("the share line gets out of the page buttons' way rather than running under them")
     void theShareLineShortensForTheControls() {
         final String font = Glyphs.FONT_GUI_ROWS[ObjectivePanel.SHARE_ROW];

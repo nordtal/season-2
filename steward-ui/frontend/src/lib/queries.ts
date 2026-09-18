@@ -740,6 +740,28 @@ export function useRevokeAccess() {
   })
 }
 
+/**
+ * Sets an account's total play time outright (steward/119).
+ *
+ * Seconds and not hours, because seconds is what the column holds; the dialog does the arithmetic
+ * so that the wire and the database agree on a unit. The journal is invalidated as well - this is a
+ * write with an admin's name on it, the same as a grant.
+ */
+export function useSetPlaytime() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ discordId, seconds }: { discordId: string; seconds: number }) =>
+      api<{ discordId: string; seconds: number }>(`/api/people/${discordId}/playtime`, {
+        method: "POST",
+        body: { seconds },
+      }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: keys.people })
+      client.invalidateQueries({ queryKey: ["journal"] })
+    },
+  })
+}
+
 export function useSetPhase() {
   const client = useQueryClient()
   return useMutation({

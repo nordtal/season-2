@@ -483,6 +483,14 @@ export type Person = {
   discordAvatarUrlUpdated?: string
   mcName?: string
   mcNameUpdated?: string
+  /**
+   * Total online time across the network, in seconds, out of `player_playtime` (steward/119).
+   *
+   * Absent - not zero - for somebody who has never been online: the proxy writes the row on its
+   * first flush, so "no row" and "no time" are different facts and the list says so. The prestige
+   * tier is derived from this number and stored nowhere, which is why a roster prints it.
+   */
+  playtimeSeconds?: number | null
 }
 
 export type Payment = {

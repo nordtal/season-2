@@ -108,6 +108,12 @@ public final class StewardUi {
      */
     private static final int MOST_DAYS = 3650;
 
+    /**
+     * The ceiling on a play time somebody may type (steward/119): ten years of wall clock, which
+     * nobody reaches and a slipped digit does.
+     */
+    private static final long MOST_PLAYTIME_SECONDS = 10L * 365 * 24 * 3600;
+
     /** The default: serve. Named so that spelling it out is not an error. */
     private static final String SERVE = "serve";
 
@@ -762,6 +768,34 @@ public final class StewardUi {
                                 + " until " + granted.validUntil());
                 log.info("{} granted {} {} days of access", who.name(), ask.discordId, ask.days);
                 ctx.status(201).json(granted);
+            }, Gate.KEY_FRESH);
+
+            // Play time, set outright (steward/119). A write, so KEY_FRESH and a journal line,
+            // exactly like a grant - and for the same reason: this moves somebody's prestige tier,
+            // which is derived from this number and stored nowhere, so "who set this to nine
+            // hours" has to stay answerable.
+            cfg.routes.post("/api/people/{id}/playtime", ctx -> {
+                final Playtime ask = ctx.bodyAsClass(Playtime.class);
+                if (ask == null || ask.seconds == null || ask.seconds < 0) {
+                    throw new BadRequestResponse("seconds is the new total, and is never negative");
+                }
+                if (ask.seconds > MOST_PLAYTIME_SECONDS) {
+                    // A century of play time is a typo, and the column is a bigint that would take
+                    // it without complaint.
+                    throw new BadRequestResponse("seconds is at most " + MOST_PLAYTIME_SECONDS);
+                }
+                final String discordId = ctx.pathParam("id");
+                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                // The same ensureUser the grant does, and for the same reason: player_playtime has
+                // a foreign key onto discord_user, and "this person has not spoken to the bot yet"
+                // is a worse error than simply making the row.
+                data.access().ensureUser(discordId);
+                data.access().setPlaytimeSeconds(discordId, ask.seconds);
+                data.audit().record("SET_PLAYTIME", who.id(), discordId, null,
+                        ask.seconds + " seconds set by " + who.name() + " from the web interface");
+                log.info("{} set the play time of {} to {} seconds",
+                        who.name(), discordId, ask.seconds);
+                ctx.json(Map.of("discordId", discordId, "seconds", ask.seconds));
             }, Gate.KEY_FRESH);
 
             cfg.routes.post("/api/access/revoke", ctx -> {
@@ -1684,6 +1718,11 @@ public final class StewardUi {
     private static final class Grant {
         private String discordId;
         private Integer days;
+    }
+
+    /** The body of {@code POST /api/people/{id}/playtime}: the new total, in seconds. */
+    private static final class Playtime {
+        private Long seconds;
     }
 
     /** The body of both season endpoints. Each uses the fields it needs. */

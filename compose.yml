@@ -347,6 +347,12 @@ services:
       # property of the season and not of a deployment. TopologyTest holds this against the constant.
       SERVER_VERSION: "4.0.0"
       HEAP: ${PROXY_HEAP:-1G}
+      # The whole java command line, and therefore an ESCAPE HATCH RATHER THAN A SETTING: what
+      # entrypoint.sh builds out of HEAP is the default it replaces, so a value here that forgets
+      # -Xmx silently drops the heap size with it. Empty by default, which is how it stays the
+      # default (season-2-ops/08 - it was documented in dev.env.example and read by the entrypoint,
+      # and compose handed it to nobody, so setting it did nothing at all until 2026-09-18).
+      JVM_OPTS: ${PROXY_JVM_OPTS:-}
       # Modern forwarding. The same value reaches the three backends below as
       # PAPER_VELOCITY_SECRET, so there is nothing to paste into a config file any more.
       VELOCITY_FORWARDING_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
@@ -414,6 +420,7 @@ services:
       # admitted here by the plugin - see common's FullServerAdmission.
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${LIMBO_HEAP:-1G}
+      JVM_OPTS: ${LIMBO_JVM_OPTS:-}
       # No LEVEL_NAME and no LEVEL_SEED, deliberately: limbo builds its own empty world at enable and
       # moves every player into it, so whatever Paper generates as `world` is never seen.
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
@@ -445,6 +452,7 @@ services:
       EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
+      JVM_OPTS: ${HUNGER_GAMES_JVM_OPTS:-}
       # The hand-built event world. The plugin does NOT load a world of its own - it disables itself
       # when that world is not there - so level-name is what brings it up. The two defaults are
       # asserted against each other by :hunger-games' ComposeWorldTest, which reads this file.
@@ -507,6 +515,7 @@ services:
       EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${SMP_HEAP:-6G}
+      JVM_OPTS: ${SMP_JVM_OPTS:-}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
       # A Paper server given a forwarding secret is a backend: the entrypoint sets
       # online-mode=false and seeds modern forwarding for it. Paper reads the secret from

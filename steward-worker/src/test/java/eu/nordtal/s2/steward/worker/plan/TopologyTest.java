@@ -1170,6 +1170,62 @@ class TopologyTest {
         });
     }
 
+    @Test
+    @DisplayName("every variable the Minecraft entrypoint reads is a variable compose.yml passes in")
+    void theEntrypointsKnobsReachTheContainer() throws IOException {
+        // season-2-ops/08, found 2026-09-11 and unfixed until 2026-09-18: `deploy/dev.env.example`
+        // documented JVM_OPTS, `entrypoint.sh` read it, and compose.yml handed it to nobody. A value
+        // set in the env file therefore changed nothing at all, silently - the worst shape a
+        // configuration bug can take, because the file says it works.
+        //
+        // Written as "every knob", not "JVM_OPTS": the next variable the entrypoint learns to read
+        // will arrive the same way, and a test naming one string would not notice.
+        final String entrypoint = Files.readString(
+                findUpwards("deploy/minecraft/entrypoint.sh"), StandardCharsets.UTF_8);
+
+        // `VAR="${VAR:-...}"` is how the entrypoint states a knob with a default - the optional
+        // quote is part of the shape and not noise, since that is exactly how the line is written.
+        // HEAP and the rest are read plainly and are passed in already.
+        final java.util.Set<String> knobs = new LinkedHashSet<>();
+        final java.util.regex.Matcher reads = java.util.regex.Pattern
+                .compile("^([A-Z][A-Z0-9_]+)=\"?\\$\\{\\1:-", java.util.regex.Pattern.MULTILINE)
+                .matcher(entrypoint);
+        while (reads.find()) {
+            knobs.add(reads.group(1));
+        }
+        assertTrue(knobs.contains("JVM_OPTS"),
+                "the entrypoint no longer reads JVM_OPTS the way this test recognises a knob - "
+                        + knobs);
+
+        // Two of the knobs are deliberately not offered to an operator, and saying so here is the
+        // point of the list: a knob added to the entrypoint has to be either wired into compose or
+        // written down as internal, and neither can happen by accident.
+        //
+        // DATA is where the server lives inside the container - the volume mount decides that, and
+        // a second way to say it would be a way to say it wrongly. LEVEL_NAME is the world folder;
+        // nobody has asked to change it, and doing so on a running deployment means moving
+        // directories in a volume rather than setting a variable.
+        final java.util.Set<String> internal = java.util.Set.of("DATA", "LEVEL_NAME");
+        knobs.removeAll(internal);
+
+        final List<String> deaf = new java.util.ArrayList<>();
+        services.forEach((name, definition) -> {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> environment =
+                    (Map<String, Object>) ((Map<String, Object>) definition).get("environment");
+            if (environment == null || !environment.containsKey("SERVER_KIND")) {
+                return;
+            }
+            knobs.stream()
+                    .filter(knob -> !environment.containsKey(knob))
+                    .forEach(knob -> deaf.add(name + " ignores " + knob));
+        });
+
+        assertEquals(List.of(), deaf,
+                "a Minecraft service that does not receive a variable its own entrypoint reads is a"
+                        + " setting somebody can write and nothing can apply.");
+    }
+
     private static java.util.List<String> smpPlugins() {
         return Topology.SERVICES.stream()
                 .filter(service -> service.name().equals(Topology.SMP))

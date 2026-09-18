@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 
-import { EDGES, type Edge, type EdgeKind, type NodeId } from "./topology"
+import { EDGES, type Edge, type EdgeKind } from "./topology"
 
 /**
  * The lines, which are the picture - the cards are only where the lines end.
@@ -36,7 +36,17 @@ import { EDGES, type Edge, type EdgeKind, type NodeId } from "./topology"
 export type Box = { x: number; y: number; width: number; height: number }
 export type Point = { x: number; y: number }
 
-export type Geometry = { boxes: Record<string, Box>; width: number; height: number }
+export type Geometry = {
+  boxes: Record<string, Box>
+  /** A group's own frame, keyed by the group id an arrangement chose. Empty for a plan with no
+   *  groups - `i` today - rather than absent, so a caller never has to guard against `undefined`
+   *  on top of an empty map. See `place.tsx`. */
+  groups: Record<string, Box>
+  /** Which group a member belongs to, if any - the map {@link resolveEndpoint} collapses through. */
+  memberOf: Record<string, string>
+  width: number
+  height: number
+}
 
 export const centre = (box: Box): Point => ({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
 
@@ -170,6 +180,59 @@ export function bundle(
 }
 
 /**
+ * Where an edge actually ends: a member's own box, or - when the member sits inside a group -
+ * the group's frame instead, addressed by the group's own id.
+ *
+ * This is the one seam that makes "one arrow into the group" (Till, 2026-09-18) fall out of the
+ * existing edge list rather than needing a second one written for it: `network-control -> smp`,
+ * `-> hunger-games` and `-> limbo` all resolve their `to` end to the same key, the Paper group's
+ * id, and the caller below draws one key once instead of three paths to three boxes.
+ */
+function resolveEndpoint(id: string, geometry: Geometry): { key: string; box: Box } | undefined {
+  const group = geometry.memberOf[id]
+  if (group) {
+    const box = geometry.groups[group]
+    if (box) return { key: group, box }
+  }
+  const box = geometry.boxes[id]
+  return box ? { key: id, box } : undefined
+}
+
+/**
+ * A set of ids, resolved through `resolveEndpoint` and deduplicated by the resulting key - the
+ * general form `collapseToGroups` below hands to `bundle`, and the one a test needs the key from
+ * as well as the box, to know which of the resolved boxes a given foot in `bundle`'s output
+ * belongs to.
+ */
+export function resolvedSources(
+  ids: readonly string[],
+  geometry: Geometry,
+): Array<{ key: string; box: Box }> {
+  const seen = new Set<string>()
+  const resolved: Array<{ key: string; box: Box }> = []
+  for (const id of ids) {
+    const endpoint = resolveEndpoint(id, geometry)
+    if (!endpoint || seen.has(endpoint.key)) continue
+    seen.add(endpoint.key)
+    resolved.push(endpoint)
+  }
+  return resolved
+}
+
+/**
+ * The boxes a set of ids actually draws from, once every grouped id has folded into its group's
+ * frame and repeats have been dropped.
+ *
+ * Used for the database fan: the three Paper services collapse into the one frame around them, so
+ * `bundle` receives one source where it used to get three, and "one line per group to postgres"
+ * holds without `bundle` itself having to know groups exist - it still just draws a foot per box
+ * it is handed.
+ */
+export function collapseToGroups(ids: readonly string[], geometry: Geometry): Box[] {
+  return resolvedSources(ids, geometry).map((entry) => entry.box)
+}
+
+/**
  * What each edge kind is drawn in, and how thick.
  *
  * Colour carries the distinction, not opacity: `traffic` is the path a request takes and is drawn
@@ -209,12 +272,20 @@ export function Wires({
 }) {
   if (geometry.width === 0 || geometry.height === 0) return null
 
-  const drawn: Array<{ edge: Edge; d: string }> = []
+  // Resolved through `resolveEndpoint` rather than `geometry.boxes` directly, and deduplicated by
+  // the resulting key: several edges that all resolve to the same group on both ends - the three
+  // traffic edges into the Paper group, `steward-ui`'s two into the deploy group - are the same
+  // drawn line once their endpoints collapse, and only the first is kept.
+  const drawn: Array<{ key: string; kind: EdgeKind; d: string }> = []
+  const seen = new Set<string>()
   for (const edge of edges) {
-    const from = geometry.boxes[edge.from as NodeId]
-    const to = geometry.boxes[edge.to as NodeId]
+    const from = resolveEndpoint(edge.from, geometry)
+    const to = resolveEndpoint(edge.to, geometry)
     if (!from || !to) continue
-    drawn.push({ edge, d: curve(from, to, bows[`${edge.from}-${edge.to}`] ?? 0) })
+    const key = `${from.key}-${to.key}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    drawn.push({ key, kind: edge.kind, d: curve(from.box, to.box, bows[key] ?? 0) })
   }
 
   return (
@@ -238,19 +309,19 @@ export function Wires({
           <path d="M 0 1 L 7 4 L 0 7 z" fill={EDGE_COLOR.traffic} fillOpacity="0.9" />
         </marker>
       </defs>
-      {drawn.map(({ edge, d }) => (
+      {drawn.map(({ key, kind, d }) => (
         <path
-          key={`${edge.from}-${edge.to}`}
-          data-edge={`${edge.from}-${edge.to}`}
+          key={key}
+          data-edge={key}
           d={d}
           fill="none"
-          stroke={EDGE_COLOR[edge.kind]}
-          strokeWidth={WIDTH[edge.kind]}
-          strokeOpacity={OPACITY[edge.kind]}
+          stroke={EDGE_COLOR[kind]}
+          strokeWidth={WIDTH[kind]}
+          strokeOpacity={OPACITY[kind]}
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeDasharray={edge.kind === "data" ? "2 6" : undefined}
-          markerEnd={edge.kind === "traffic" ? `url(#${id}-arrow)` : undefined}
+          strokeDasharray={kind === "data" ? "2 6" : undefined}
+          markerEnd={kind === "traffic" ? `url(#${id}-arrow)` : undefined}
         />
       ))}
       {children}

@@ -6,15 +6,19 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router"
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
+import { cleanup, render, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { SERVICES } from "@/app/navigation"
-import { NetworkDesignsPage } from "@/pages/designs"
+import { NetworkPanel } from "@/components/steward/network/view"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The drafts of steward/81's third round, rendered against a fake `/api/services`.
+ * The network view, rendered against a fake `/api/services`.
+ *
+ * It was two drafts under a throwaway route until Till chose `h` on 2026-09-18; the route and the
+ * loser are deleted and every assertion below now runs once, against the panel the start page
+ * actually holds, rather than twice against two letters.
  *
  * <h2>What a test here can and cannot answer</h2>
  * jsdom has no layout, so nothing about where a box ended up or where a line was drawn is visible
@@ -71,7 +75,7 @@ function json(body: unknown): Response {
   })
 }
 
-function draw(variant: string, table: unknown = TABLE) {
+function draw(table: unknown = TABLE) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
@@ -80,18 +84,21 @@ function draw(variant: string, table: unknown = TABLE) {
       // component asks `/api/deployer` unconditionally to know whether to disable itself - not
       // something a rendering test of the graph itself has any reason to special-case per node.
       if (url === "/api/deployer") return json({ available: true })
-      throw new Error(`the draft asked for ${url}, which this test did not expect`)
+      throw new Error(`the view asked for ${url}, which this test did not expect`)
     }),
   )
 
+  // A real router, because a node's identifier is a `Link` into `/services/$name`. The panel itself
+  // has no route of its own any more - it is half of the start page - so the tree here is the one
+  // thing it links into and a root that draws it.
   const root = createRootRoute()
   const routeTree = root.addChildren([
-    createRoute({ getParentRoute: () => root, path: "/designs/network", component: NetworkDesignsPage }),
+    createRoute({ getParentRoute: () => root, path: "/", component: NetworkPanel }),
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: () => null }),
   ])
   const router = createRouter({
     routeTree,
-    history: createMemoryHistory({ initialEntries: [`/designs/network?v=${variant}`] }),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
@@ -116,9 +123,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe.each([["h"], ["i"]])("draft %s", (variant) => {
+describe("the network view", () => {
   it("draws every service in navigation.ts, plus the box the traffic comes from", async () => {
-    draw(variant)
+    draw()
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
     const drawn = [...document.querySelectorAll("[data-node]")].map(
@@ -126,12 +133,12 @@ describe.each([["h"], ["i"]])("draft %s", (variant) => {
     )
     for (const name of SERVICES) expect(drawn, `${name} is not drawn`).toContain(name)
     expect(drawn).toContain("players")
-    // One box each. A draft that drew a service twice would draw its lines twice too.
+    // One box each. An arrangement that placed a service twice would draw its lines twice too.
     expect(new Set(drawn).size).toBe(drawn.length)
   })
 
   it("draws the healthy ones green, which the sidebar does not", async () => {
-    draw(variant)
+    draw()
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     const dot = within(box("smp")).getByLabelText("healthy")
@@ -141,7 +148,7 @@ describe.each([["h"], ["i"]])("draft %s", (variant) => {
   })
 
   it("puts a count on the four that have one and nothing at all on the six that do not", async () => {
-    draw(variant)
+    draw()
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
     expect(within(box("smp")).getByTitle("players").textContent).toBe("3")
@@ -179,7 +186,7 @@ describe.each([["h"], ["i"]])("draft %s", (variant) => {
    * is the one thing a jsdom test can say about a layout it cannot measure.
    */
   it("never puts the count on the identifier's own row, which is what truncated it", async () => {
-    draw(variant)
+    draw()
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
     for (const name of ["smp", "limbo", "network-control", "hunger-games"]) {
@@ -201,7 +208,7 @@ describe.each([["h"], ["i"]])("draft %s", (variant) => {
   })
 
   it("marks the three image states that are not current, and leaves the current one unmarked", async () => {
-    draw(variant)
+    draw()
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
     expect(within(box("hunger-games")).getByLabelText("a newer image exists")).toBeTruthy()
@@ -216,7 +223,7 @@ describe.each([["h"], ["i"]])("draft %s", (variant) => {
   })
 
   it("puts the running tag under the name, not the whole reference", async () => {
-    draw(variant)
+    draw()
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
     expect(box("smp").textContent).toContain("1.4.0")
@@ -236,7 +243,7 @@ describe.each([["h"], ["i"]])("draft %s", (variant) => {
         return without
       }),
     }
-    draw(variant, silent)
+    draw(silent)
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
     for (const name of ["smp", "hunger-games", "limbo", "network-control", "players"]) {
@@ -246,14 +253,32 @@ describe.each([["h"], ["i"]])("draft %s", (variant) => {
   })
 })
 
-describe("the drafts are reachable from one another", () => {
-  it("offers both letters, with the one on screen marked", async () => {
-    draw("i")
+/**
+ * The dedup that makes "one arrow into the group" true lives in `wires.tsx`'s `Wires` component,
+ * not in the geometry model `geometry.test.ts` checks - that file recomputes the same resolution
+ * independently of `Wires` itself, so it would stay green even if `Wires`'s own deduplication broke
+ * (checked by breaking it: commenting out the `seen`/dedup lines there left every assertion in
+ * `geometry.test.ts` passing, because none of them render anything). This is the one test that
+ * actually renders `h` and counts the `<path>` elements the browser would draw.
+ */
+describe("the view collapses a group's edges into one drawn line each (Till, 2026-09-18)", () => {
+  it("draws one traffic edge into each group and one data foot out of each group", async () => {
+    draw()
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
-    for (const letter of ["h", "i"]) {
-      const link = screen.getByRole("link", { name: letter })
-      expect(link.getAttribute("href")).toBe(`/designs/network?v=${letter}`)
-    }
+    const edgeKeys = [...document.querySelectorAll("[data-edge]")].map(
+      (el) => (el as HTMLElement).dataset.edge,
+    )
+    // Three raw edges - network-control to each of smp, hunger-games and limbo - collapse to this
+    // one key; two more - steward-ui to steward-worker and to steward-deployer - collapse to the
+    // other. The three edges that were never grouped (players to network-control, players to caddy,
+    // caddy to steward-ui) are untouched by the collapse and still draw one each.
+    expect(edgeKeys.filter((key) => key === "network-control-paper")).toHaveLength(1)
+    expect(edgeKeys.filter((key) => key === "steward-ui-steward-ops")).toHaveLength(1)
+    expect(edgeKeys).toHaveLength(5)
+
+    // The database fan: five sources once the Paper trio and the deploy pair have each collapsed
+    // to their group's own frame, down from the seven raw database clients in topology.ts.
+    expect(document.querySelectorAll("[data-foot]")).toHaveLength(5)
   })
 })

@@ -1,10 +1,8 @@
-import { CaretRightIcon, ScrollIcon, TerminalIcon } from "@phosphor-icons/react"
 import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 import { cn } from "cn"
 
-import type { Service } from "@/lib/api"
-import { bytes, count, dateTime, percent, relative, since } from "@/lib/format"
+import { bytes, count, dateTime, percent, relative } from "@/lib/format"
 import { summarise } from "@/lib/health"
 import { seasonPhaseLabel } from "@/lib/season-phases"
 import {
@@ -19,21 +17,13 @@ import {
   useSettings,
 } from "@/lib/queries"
 import { ActionRow } from "@/components/steward/actions"
+import { NetworkPanel } from "@/components/steward/network/view"
 import { OnlineLine, useOnline } from "@/components/steward/online"
 import { Panel } from "@/components/steward/panel"
 import { Sparkline } from "@/components/steward/sparkline"
 import { Stat, UsageBar } from "@/components/steward/stat"
-import { DriftBadge, ServiceState } from "@/components/steward/status"
 import { Empty, Failure, Loading } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 
 /**
  * The landing page (concept §10c).
@@ -60,9 +50,12 @@ import {
  * this one is in the product. The word still labels the route in the sidebar and in the
  * breadcrumbs, where it is a destination rather than a heading.
  *
- * The service rows are deliberately read-only. No restart button lives here: restarting the SMP
- * throws every player out, and the place where that happens is the Operations page, where the
- * confirmation already stands. A row is for reading and for jumping onwards.
+ * **The service table is gone (steward/81).** Ten rows of name, state, drift and uptime behind a
+ * `<details>` were what steward/64 had already reduced the ten cards to; the network picture in the
+ * bottom section now carries the same ten services with their health, their image state and their
+ * player counts, and the whole table lives on the Operations page for whoever wants the columns.
+ * Nothing on this page restarts anything, which was true of the table as well and stays true of the
+ * picture: a restart throws every player out, and it belongs where the confirmation already stands.
  */
 export function OverviewPage() {
   const online = useOnline()
@@ -73,11 +66,32 @@ export function OverviewPage() {
 
       <MetricRow />
 
-      <ServiceTable />
+      {/*
+        The bottom section, split into two halves on desktop exactly as Till asked (steward/81):
+        the network picture on the left, and on the right the season above the latest actions.
 
+        **Why the right half is a stack of two and not one panel.** Till named the two halves - a
+        network view and the action list - and said nothing about Season, which was standing in the
+        left half at the time. Deleting it was never asked for and it has no other home on this
+        page, so it keeps its place in the section and moves over: the picture is one tall column,
+        and two short panels beside it is what fills the same height. The alternative, a full-width
+        Season strip above the section, spends a whole row of the page on three dates that change
+        twice a season.
+
+        **On a phone the picture goes last**, which is the one place this layout is not simply the
+        desktop one stacked. The narrow arrangement is 940px tall on purpose and scrolls; putting it
+        above Season and the actions would mean a screen and a half of drawing before the first
+        thing that changed today. It replaced a one-line disclosure, and a one-line disclosure is
+        what was cheap to scroll past - so the order changes rather than the picture.
+      */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SeasonPanel />
-        <ActionsPanel />
+        <div className="order-last lg:order-first">
+          <NetworkPanel />
+        </div>
+        <div className="flex flex-col gap-6">
+          <SeasonPanel />
+          <ActionsPanel />
+        </div>
       </div>
     </div>
   )
@@ -382,206 +396,5 @@ function ActionsPanel() {
         <Link to="/journal">The whole journal</Link>
       </Button>
     </section>
-  )
-}
-
-// --- the service table --------------------------------------------------------------------------
-
-/**
- * Three groups, and the membership is a decision rather than an alphabet.
- *
- * A service this list does not know still appears - under "Other". A new compose service that
- * silently vanished from the start page would be exactly the kind of thing nobody notices until it
- * is the one that is down.
- */
-const GROUPS: Array<{ label: string; note: string; members: string[] }> = [
-  {
-    label: "Minecraft",
-    note: "What players see. A restart here throws everybody out.",
-    members: ["network-control", "limbo", "hunger-games", "smp"],
-  },
-  {
-    label: "Steward",
-    note: "This interface, the daemon access and the rollout.",
-    members: ["steward-ui", "steward-worker", "steward-deployer"],
-  },
-  {
-    label: "Infrastructure",
-    note: "Database, delivery and the bot.",
-    members: ["postgres", "caddy", "discord-bot"],
-  },
-]
-
-/** A container Docker is happy with - the same rule `health.ts` judges the traffic light by. */
-function isHealthy(service: Service): boolean {
-  return service.state === "running" && service.health !== "unhealthy"
-}
-
-/**
- * A disclosure, not a table, by default.
- *
- * steward/64: ten rows of name, state, drift and uptime were the single biggest thing standing
- * between "open the page" and "see the numbers" on a phone, where each row is a seven-line card
- * (see `.steward-table`'s narrow layout in `index.css`). The default state is one line - how many
- * of how many are fine, and which ones are not if any are not - and the full table is one tap away
- * rather than the first thing scrolled past. `<details>` rather than a component of its own: it is
- * the platform's own disclosure widget, keyboard- and screen-reader-accessible for free, and it
- * needs no state this file would otherwise have to own.
- */
-function ServiceTable() {
-  const services = useServices()
-
-  if (services.isPending) return <Loading rows={3} />
-  if (services.error) return <Failure error={services.error} onRetry={services.refetch} />
-
-  const all = services.data?.services ?? []
-
-  if (all.length === 0) {
-    return (
-      <Empty
-        title="No container in the project"
-        note="steward-worker answered, but no container carries the compose project label. Is the stack running?"
-      />
-    )
-  }
-
-  const problems = all.filter((service) => !isHealthy(service))
-
-  return (
-    <details className="group rounded-md border border-border">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm select-none [&::-webkit-details-marker]:hidden">
-        <CaretRightIcon
-          className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
-          aria-hidden
-        />
-        {problems.length === 0 ? (
-          <span>
-            Services: {all.length} of {all.length} healthy
-          </span>
-        ) : (
-          <span>
-            <span className="font-medium text-destructive">
-              Services: {problems.length} of {all.length} need attention
-            </span>{" "}
-            <span className="text-muted-foreground">
-              - {problems.map((service) => service.service).join(", ")}
-            </span>
-          </span>
-        )}
-      </summary>
-      <div className="border-t border-border px-1 pb-1">
-        <Table className="steward-table">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[18rem]">Service</TableHead>
-              <TableHead className="w-[7rem]">State</TableHead>
-              <TableHead className="w-[7rem]">Image</TableHead>
-              <TableHead className="w-[8rem]">Uptime</TableHead>
-              <TableHead className="w-[8rem] text-right">RAM</TableHead>
-              <TableHead className="w-[6rem] text-right">CPU</TableHead>
-              <TableHead className="w-[9rem]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {groupsOf(all)
-              .filter((group) => group.rows.length > 0)
-              .map((group) => (
-                <GroupRows key={group.label} {...group} />
-              ))}
-          </TableBody>
-        </Table>
-      </div>
-    </details>
-  )
-}
-
-function groupsOf(all: Service[]) {
-  const known = new Set(GROUPS.flatMap((group) => group.members))
-  const groups = GROUPS.map((group) => ({
-    ...group,
-    rows: group.members
-      .map((name) => all.find((service) => service.service === name))
-      .filter((service): service is Service => service !== undefined),
-  }))
-  const others = all.filter((service) => !known.has(service.service))
-  if (others.length > 0) {
-    groups.push({
-      label: "Other",
-      note: "Services this interface does not know - new in compose.yml?",
-      members: [],
-      rows: others,
-    })
-  }
-  return groups
-}
-
-function GroupRows({
-  label,
-  note,
-  rows,
-}: {
-  label: string
-  note: string
-  rows: Service[]
-}) {
-  return (
-    <>
-      <TableRow className="hover:bg-transparent">
-        <TableCell colSpan={7} className="bg-secondary/40">
-          <span className="text-xs font-semibold">{label}</span>
-          <span className="ml-2 text-xs text-muted-foreground">{note}</span>
-        </TableCell>
-      </TableRow>
-      {rows.map((service) => (
-        <TableRow key={service.service}>
-          <TableCell data-label="Service" className="font-medium">
-            <Link
-              to="/services/$name"
-              params={{ name: service.service }}
-              className="underline-offset-4 hover:text-primary hover:underline"
-            >
-              {service.service}
-            </Link>
-            {service.unreadable ? (
-              <span className="ml-2 text-xs text-warning">{service.unreadable}</span>
-            ) : null}
-          </TableCell>
-          <TableCell data-label="State">
-            <ServiceState state={service.state} health={service.health} />
-          </TableCell>
-          <TableCell data-label="Image">
-            <DriftBadge drift={service.drift} />
-          </TableCell>
-          <TableCell data-label="Uptime" className="text-muted-foreground">
-            {service.startedAt ? since(service.startedAt) : "–"}
-          </TableCell>
-          <TableCell data-label="RAM" className="text-right tnum">{bytes(service.memoryBytes)}</TableCell>
-          <TableCell data-label="CPU" className="text-right tnum">{percent(service.cpuPercent)}</TableCell>
-          <TableCell>
-            <div className="flex items-center justify-end gap-1">
-              <Button asChild variant="ghost" size="sm">
-                <Link to="/services/$name" params={{ name: service.service }}>
-                  <ScrollIcon aria-hidden />
-                  Log
-                </Link>
-              </Button>
-              {/* No greyed-out console: a service without one simply does not offer the link. */}
-              {service.hasConsole ? (
-                <Button asChild variant="ghost" size="sm">
-                  <Link
-                    to="/services/$name"
-                    params={{ name: service.service }}
-                    hash="console"
-                  >
-                    <TerminalIcon aria-hidden />
-                    Console
-                  </Link>
-                </Button>
-              ) : null}
-            </div>
-          </TableCell>
-        </TableRow>
-      ))}
-    </>
   )
 }

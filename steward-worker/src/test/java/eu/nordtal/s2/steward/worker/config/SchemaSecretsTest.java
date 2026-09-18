@@ -44,9 +44,29 @@ class SchemaSecretsTest {
         assertTrue(apiKey.secret(), "bunq.api-key is a bunq API credential and must be @Secret");
     }
 
-    // There is deliberately no assertion here about api.token or deployer.token. Measured
-    // 2026-09-18: neither carries @Secret today, and both are masked in the browser only by
-    // ConfigEntry.isSecretKey's `token` substring. That is a real gap and it is not this ticket's -
-    // adding the annotation is a change to settings steward/109 does not touch, and a test written
-    // red against somebody else's line is a test that gets deleted rather than fixed.
+    @Test
+    @DisplayName("steward.yml's api.token is declared @Secret in its schema")
+    void apiTokenIsSecret() {
+        final SchemaNode api = SchemaWriter.build(StewardSpec.class).children().get("api");
+        assertNotNull(api, "StewardSpec's schema has no 'api' entry at all");
+        final SchemaNode token = api.children().get("token");
+        assertNotNull(token, "ApiSpec's schema has no 'token' entry at all");
+        assertTrue(token.secret(), "api.token is the shared secret steward-ui sends as"
+                + " X-Steward-Token and must be @Secret - without the annotation it is masked only"
+                + " by ConfigEntry.isSecretKey's 'token' substring heuristic, which a rename of this"
+                + " key would silently break (steward/115)");
+    }
+
+    @Test
+    @DisplayName("steward.yml's deployer.token is declared @Secret in its schema")
+    void deployerTokenIsSecret() {
+        final SchemaNode deployer = SchemaWriter.build(StewardSpec.class).children().get("deployer");
+        assertNotNull(deployer, "StewardSpec's schema has no 'deployer' entry at all");
+        final SchemaNode token = deployer.children().get("token");
+        assertNotNull(token, "DeployerSpec's schema has no 'token' entry at all");
+        assertTrue(token.secret(), "deployer.token is the shared secret sent to steward-deployer as"
+                + " X-Steward-Token and must be @Secret - without the annotation it is masked only"
+                + " by ConfigEntry.isSecretKey's 'token' substring heuristic, which a rename of this"
+                + " key would silently break (steward/115)");
+    }
 }

@@ -553,6 +553,7 @@ public interface StewardSpec {
                 "It comes from the environment in a deployment (NORDTAL_STEWARD_API_TOKEN), so",
                 "this file holds an empty string rather than a secret somebody might commit."
         })
+        @Secret
         @Explain("Empty disables just this internal API - the rest of the service, including update runs, keeps working without it. Comes from the environment in a real deployment, never committed here.")
         default String token() {
             return "";
@@ -617,6 +618,7 @@ public interface StewardSpec {
                 "deployment (NORDTAL_STEWARD_DEPLOYER_TOKEN), so this file holds an empty string",
                 "rather than a secret somebody might commit."
         })
+        @Secret
         @Explain("Shares the same secret steward-ui already sends to steward-deployer, not a second one to keep in step. Empty means this container never asks for a recreate, leaving a stale service on its old image rather than half-recreating it.")
         default String token() {
             return "";

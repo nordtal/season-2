@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.worker.api;
 import com.google.gson.Gson;
 import eu.nordtal.s2.common.audit.AuditDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.online.OnlineDirectory;
+import eu.nordtal.s2.common.online.OnlinePlayer;
 import eu.nordtal.s2.steward.worker.backup.NightlyClock;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
 import eu.nordtal.s2.steward.worker.docker.Console;
@@ -236,9 +236,12 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     /**
-     * @param online where the player counts come from, or {@code null} for a deployment with no
-     *               database behind this API. See {@link ServicesApi} for why a subject it cannot
-     *               vouch for is left out of the answer rather than sent as {@code 0} (steward/86).
+     * @param online where the player counts and the player list come from, or {@code null} for a
+     *               deployment with no database behind this API. A {@link ServicesApi} and not the
+     *               two directories behind it: what it reads (two tables today) is its business,
+     *               and what this class needs is one answer per response. See {@link ServicesApi}
+     *               for why a subject it cannot vouch for is left out of the answer rather than
+     *               sent as {@code 0} or an empty list (steward/86, steward/111).
      */
     public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
                      final @NotNull Console console, final @NotNull HostMetrics host,
@@ -247,8 +250,8 @@ public final class WorkerApi implements AutoCloseable {
                      final @org.jetbrains.annotations.Nullable Path volumesRoot,
                      final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
                      final @NotNull Nightly nightly,
-                     final @org.jetbrains.annotations.Nullable OnlineDirectory online) {
-        this.players = online == null ? null : new ServicesApi(online);
+                     final @org.jetbrains.annotations.Nullable ServicesApi online) {
+        this.players = online;
         this.docker = docker;
         this.ops = ops;
         this.console = console;
@@ -520,7 +523,7 @@ public final class WorkerApi implements AutoCloseable {
                 .toList();
         // Once for the whole table, not once per row: it is a single read of four rows, and four
         // reads of it would also let two rows of one answer disagree about the same instant.
-        final Map<String, Integer> counts = online();
+        final ServicesApi.Online counts = online();
         final List<Map<String, Object>> all;
         try (var scope = Executors.newVirtualThreadPerTaskExecutor()) {
             all = scope.invokeAll(containers.stream()
@@ -571,9 +574,15 @@ public final class WorkerApi implements AutoCloseable {
      * "nobody is connected" and "network-control has not said" are different answers and a dashboard
      * that draws the second as the first is the failure {@code ImageResult.State.UNKNOWN} already
      * exists to prevent. See {@link ServicesApi} (steward/86).
+     *
+     * <p>{@code roster} follows the same rule one step further (steward/111): it appears only for a
+     * service that has fresh players, it is never an empty array, and it is never sent for a service
+     * nobody is on. It enriches {@code players} and never contradicts it - both come out of one
+     * {@link ServicesApi#read()} taken once for the whole response, so no two rows of one answer can
+     * disagree about the same instant.
      */
     private Map<String, Object> describe(final Docker.Container container, final ImageResult drift,
-                                         final Map<String, Integer> counts) {
+                                         final ServicesApi.Online counts) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("service", container.service());
         row.put("containerId", container.id());
@@ -582,10 +591,7 @@ public final class WorkerApi implements AutoCloseable {
         row.put("status", container.status());
         row.put("hasConsole", Console.has(container.service()));
         row.put("drift", drift.state(container.service()).name());
-        final Integer connected = counts.get(container.service());
-        if (connected != null) {
-            row.put("players", connected);
-        }
+        putOnline(row, container.service(), counts);
         if (container.isRunning()) {
             try {
                 final Docker.Inspection inspection = docker.inspect(container.id());
@@ -604,9 +610,54 @@ public final class WorkerApi implements AutoCloseable {
         return row;
     }
 
-    /** The player counts as they stand, or an empty map - never a guessed zero. */
-    private Map<String, Integer> online() {
-        return players == null ? Map.of() : players.players();
+    /** The counts and the list as they stand, or nothing at all - never a guessed zero. */
+    private ServicesApi.Online online() {
+        return players == null ? ServicesApi.Online.NONE : players.read();
+    }
+
+    /**
+     * Writes {@code players} and {@code roster} onto a row - or writes neither, which is the point.
+     *
+     * <p>Package-private and static so that the rule above is a thing a test can hold, without a
+     * Docker daemon and without an HTTP round trip: the two {@code null} checks here are the whole
+     * of the "absence is not zero" contract at this end, and they are two lines that a later edit
+     * could turn into {@code getOrDefault} without anything else noticing.
+     *
+     * @param service the compose service name this row is about - the key both maps are keyed by
+     */
+    static void putOnline(final Map<String, Object> row, final String service,
+                          final ServicesApi.Online online) {
+        final Integer connected = online.counts().get(service);
+        if (connected != null) {
+            row.put("players", connected);
+        }
+        final List<OnlinePlayer> roster = online.roster().get(service);
+        if (roster != null) {
+            row.put("roster", named(roster));
+        }
+    }
+
+    /**
+     * The two fields of a player that leave this process, and no others.
+     *
+     * <p>{@code updated} stays behind because it has already been used - {@link ServicesApi} spent
+     * it deciding whether this player is worth sending at all, and a second copy of it on the wire
+     * would invite a second, different freshness rule in the interface. {@code subject} stays behind
+     * because the row it is sitting in already is that subject.
+     *
+     * <p>Built as maps rather than handed over as records: this API's JSON is Gson's (see
+     * {@code JavalinGson} above), and the uuid is written as its canonical 8-4-4-4-12 text - the
+     * shape {@code steward-ui}'s own {@code IDENTIFIER_PATTERN} and the head service both expect.
+     */
+    private static List<Map<String, Object>> named(final List<OnlinePlayer> roster) {
+        final List<Map<String, Object>> people = new ArrayList<>(roster.size());
+        for (final OnlinePlayer player : roster) {
+            final Map<String, Object> person = new LinkedHashMap<>();
+            person.put("uuid", player.uuid().toString());
+            person.put("name", player.name());
+            people.add(person);
+        }
+        return List.copyOf(people);
     }
 
     private Optional<Map<String, Object>> service(final String name) {

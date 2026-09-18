@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.worker;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.online.OnlineDirectory;
+import eu.nordtal.s2.common.online.OnlineRoster;
 import eu.nordtal.s2.common.audit.AuditDirectory;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.metric.MetricDirectory;
@@ -460,9 +461,12 @@ public final class StewardWorker {
                         config.api().token(), Path.of(config.api().configsRoot()),
                         Path.of(config.volumesRoot()), updates, audit,
                         new WorkerApi.Nightly(config.backup().at(), ZoneId.systemDefault()),
-                        // The player counts network-control writes (steward/86). Same pool again -
-                        // four rows read per service table, and no second connection for them.
-                        OnlineDirectory.using(database.dataSource()))) {
+                        // The player counts network-control writes (steward/86) and, since
+                        // steward/111, the player list next to them. Same pool again - two small
+                        // reads per service table, and no second connection for either.
+                        new eu.nordtal.s2.steward.worker.api.ServicesApi(
+                                OnlineDirectory.using(database.dataSource()),
+                                OnlineRoster.using(database.dataSource())))) {
                     if (config.api().token().isBlank()) {
                         log.warn("api.token is empty, so the internal API is not listening and"
                                 + " steward-ui cannot read this container. Updates and backups are"

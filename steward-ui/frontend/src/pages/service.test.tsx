@@ -10,7 +10,7 @@ import { ServiceHead } from "@/pages/service"
  * the page of each Minecraft service shows none.
  *
  * The rule the start page already follows holds here too: **absent is not zero.** Only four
- * services carry a count at all, and one of those four carries none while network-control has not
+ * services carry a count at all, and one of those four carries none while proxy has not
  * written recently enough for the worker to trust the row - printing `0` there would turn "nobody
  * has said" into "nobody is on".
  */
@@ -53,5 +53,33 @@ describe("ServiceHead - the player count on a Minecraft service's own page (stew
     draw(<ServiceHead service={service()} />)
 
     expect(screen.queryByText("Players")).toBeNull()
+  })
+})
+
+/**
+ * season-2-ops/125: a service that is down because somebody pressed Down and a service that is down
+ * because it fell over are the same container to Docker - stopped, with an exit code. The whole
+ * difference lives in `service_hold`, arrives on the row as `hold`, and this head is where a person
+ * sees it. Absent is not false, the same rule `players` follows above.
+ */
+describe("ServiceHead - a service somebody is holding down (season-2-ops/125)", () => {
+  it("says so when the row carries a hold", () => {
+    draw(
+      <ServiceHead
+        service={service({
+          state: "exited",
+          status: "Exited (143) 4 minutes ago",
+          hold: { since: "2026-09-19T10:00:00Z", by: "till (1)" },
+        })}
+      />,
+    )
+
+    expect(screen.queryByText("Held down")).not.toBeNull()
+  })
+
+  it("says nothing of the sort about a service that merely stopped", () => {
+    draw(<ServiceHead service={service({ state: "exited", status: "Exited (1) 4 minutes ago" })} />)
+
+    expect(screen.queryByText("Held down")).toBeNull()
   })
 })

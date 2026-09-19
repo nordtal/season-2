@@ -57,7 +57,7 @@ const TABLE = {
     service({ service: "smp", players: 3 }),
     service({ service: "hunger-games", players: 0, drift: "OUTDATED" }),
     service({ service: "limbo", players: 4, health: "starting" }),
-    service({ service: "network-control", players: 7, drift: "LOCAL" }),
+    service({ service: "proxy", players: 7, drift: "LOCAL" }),
     service({ service: "discord-bot", drift: "UNKNOWN" }),
     service({ service: "postgres", image: "postgres:17-alpine" }),
     service({ service: "caddy", image: "caddy:2" }),
@@ -153,11 +153,11 @@ describe("the network view", () => {
 
     expect(within(box("smp")).getByTitle("players").textContent).toBe("3")
     expect(within(box("limbo")).getByTitle("players").textContent).toBe("4")
-    expect(within(box("network-control")).getByTitle("players").textContent).toBe("7")
+    expect(within(box("proxy")).getByTitle("players").textContent).toBe("7")
     // Nobody is on, and that is a number: a server with zero players is a running server, and the
     // box has to say so rather than look like one that never answered (steward/86).
     expect(within(box("hunger-games")).getByTitle("players").textContent).toBe("0")
-    // The entry box carries the network's total, which is network-control's own row.
+    // The entry box carries the network's total, which is proxy's own row.
     expect(within(box("players")).getByTitle("players").textContent).toBe("7")
 
     for (const silent of ["postgres", "caddy", "steward-ui", "steward-worker", "discord-bot"]) {
@@ -176,7 +176,7 @@ describe("the network view", () => {
    * two-column grid there, two of them narrowed it further with the rail margin their database bus
    * needed, and the identifier - which
    * carries `truncate` so that it yields rather than break the box - was the thing that yielded.
-   * `network-control` and `hunger-games` rendered as `network-co…` and `hunger-ga…`, and the
+   * `proxy` and `hunger-games` rendered as `network-co…` and `hunger-ga…`, and the
    * identifier is the *first* of the four things steward/81 says a node carries. It must not be the
    * first to go.
    *
@@ -189,7 +189,7 @@ describe("the network view", () => {
     draw()
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
-    for (const name of ["smp", "limbo", "network-control", "hunger-games"]) {
+    for (const name of ["smp", "limbo", "proxy", "hunger-games"]) {
       const identifier = within(box(name)).getByRole("link", { name })
       const count = within(box(name)).getByTitle("players")
       expect(
@@ -212,7 +212,7 @@ describe("the network view", () => {
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
     expect(within(box("hunger-games")).getByLabelText("a newer image exists")).toBeTruthy()
-    expect(within(box("network-control")).getByLabelText("built on this host")).toBeTruthy()
+    expect(within(box("proxy")).getByLabelText("built on this host")).toBeTruthy()
     expect(within(box("discord-bot")).getByLabelText("image not compared")).toBeTruthy()
 
     // Up to date says nothing, the way the sidebar's dot and the Issues tile say nothing.
@@ -232,7 +232,7 @@ describe("the network view", () => {
   })
 
   it("drops a count that the worker no longer trusts, rather than drawing a zero", async () => {
-    // network-control stopped writing, so `/api/services` omits `players` everywhere. That is not
+    // proxy stopped writing, so `/api/services` omits `players` everywhere. That is not
     // an empty network; it is nobody having said (steward/86). Four boxes lose an item and the
     // picture keeps its shape.
     const silent = {
@@ -246,7 +246,7 @@ describe("the network view", () => {
     draw(silent)
     await waitFor(() => expect(box("smp")).toBeTruthy())
 
-    for (const name of ["smp", "hunger-games", "limbo", "network-control", "players"]) {
+    for (const name of ["smp", "hunger-games", "limbo", "proxy", "players"]) {
       expect(within(box(name)).queryByTitle("players"), `${name} must draw no count`).toBeNull()
     }
     expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy()
@@ -269,11 +269,11 @@ describe("the view collapses a group's edges into one drawn line each (Till, 202
     const edgeKeys = [...document.querySelectorAll("[data-edge]")].map(
       (el) => (el as HTMLElement).dataset.edge,
     )
-    // Three raw edges - network-control to each of smp, hunger-games and limbo - collapse to this
+    // Three raw edges - proxy to each of smp, hunger-games and limbo - collapse to this
     // one key; two more - steward-ui to steward-worker and to steward-deployer - collapse to the
-    // other. The three edges that were never grouped (players to network-control, players to caddy,
+    // other. The three edges that were never grouped (players to proxy, players to caddy,
     // caddy to steward-ui) are untouched by the collapse and still draw one each.
-    expect(edgeKeys.filter((key) => key === "network-control-paper")).toHaveLength(1)
+    expect(edgeKeys.filter((key) => key === "proxy-paper")).toHaveLength(1)
     expect(edgeKeys.filter((key) => key === "steward-ui-steward-ops")).toHaveLength(1)
     expect(edgeKeys).toHaveLength(5)
 

@@ -100,7 +100,7 @@ afterEach(() => {
 })
 
 describe("the file row", () => {
-  it("shows the plain-text file name, and keeps the raw one beside it", async () => {
+  it("shows the plain-text file name and no second line with the path", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -116,7 +116,10 @@ describe("the file row", () => {
     draw(<ServiceConfiguration service="steward-worker" />)
 
     await screen.findByText("Steward")
-    screen.getByText("steward.yml")
+    // season-2-ops/130: the path used to sit under the name in monospace and made every row in the
+    // list two lines tall. The assertion is the absence, because the name alone reads the same as
+    // it did before and would pass either way.
+    expect(screen.queryByText("steward.yml")).toBeNull()
   })
 })
 

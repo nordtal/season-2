@@ -60,7 +60,7 @@ export function minecraftHeadUrl(baseUrl: string | undefined, mcUuid: string): s
  * The pattern `identity.test.tsx` and `access.test.tsx` hold a page's rendered text against.
  *
  * A Discord snowflake is a 17-20 digit decimal number (Discord's own range as ids have grown since
- * 2015); a Minecraft UUID is the standard 8-4-4-4-12 hex form network-control and the database both
+ * 2015); a Minecraft UUID is the standard 8-4-4-4-12 hex form proxy and the database both
  * use. Deliberately loose about digits either side - a test wants to catch an id sitting in plain
  * text, not verify it is exactly one of those two shapes.
  */

@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
  *
  * <h2>The count is real; the faces are not available yet, and that is not a bug in this file</h2>
  * `online_count` is counts and nothing else - its own migration says so in as many words: *"an
- * identifier, not prose … never a container id and never a player name."* network-control knows who
+ * identifier, not prose … never a container id and never a player name."* proxy knows who
  * is connected (it has the Velocity API and a `LoginRoster`), but nothing writes that down, so
  * Steward can know that seven people are playing and cannot know which seven.
  *
@@ -30,7 +30,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
  * <h2>Nobody online is the normal case on this host, so it is drawn, not handled</h2>
  * The number is the anchor of all three variants and the faces are what hangs off it, which is
  * exactly why none of them falls apart at zero: `0 players online` is a sentence about a fact.
- * What must never happen is the other thing - a settled `0` where the truth is "network-control has
+ * What must never happen is the other thing - a settled `0` where the truth is "proxy has
  * not written recently enough to be believed". That is a dash, everywhere, the same rule
  * `ServicesApi` and the metric row already follow. `players` being absent is load-bearing and
  * `players ?? 0` is the one expression this file may not contain.
@@ -43,7 +43,7 @@ export type OnlinePlayer = { uuid?: string; name?: string }
 const SERVERS = ["limbo", "hunger-games", "smp"] as const
 
 export type Online = {
-  /** The network total, from `network-control`. `undefined` means nobody has said, not nobody. */
+  /** The network total, from `proxy`. `undefined` means nobody has said, not nobody. */
   total?: number
   /** Per server, in {@link SERVERS} order, and only the ones that answered. */
   servers: Array<{ service: string; players: number }>
@@ -55,14 +55,14 @@ export type Online = {
 /**
  * The one query all three variants read, so they are compared on the same numbers.
  *
- * The total is `network-control`'s own row rather than the sum of the three servers: a player is on
+ * The total is `proxy`'s own row rather than the sum of the three servers: a player is on
  * exactly one backend, so the two agree whenever every row is fresh - and when one is not, the sum
  * silently drops that server's people while the proxy's own count still has them.
  */
 export function useOnline(roster?: OnlinePlayer[]): Online {
   const services = useServices()
   const rows = services.data?.services ?? []
-  const proxy = rows.find((row) => row.service === "network-control")
+  const proxy = rows.find((row) => row.service === "proxy")
   return {
     total: proxy?.players,
     servers: SERVERS.flatMap((name) => {

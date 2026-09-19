@@ -25,8 +25,10 @@ import { Textarea } from "@/components/ui/textarea"
  * The plain-text file name Till asked for, instead of `nordtal-smp/config.yml` verbatim
  * (steward/56) - mechanical, the same way `Labels.of` on the backend turns a YAML key into a
  * label: strip the extension, split on the characters a path uses to separate words, lower-case
- * them, capitalise the first letter of the result. The raw name is still shown beside it, in
- * monospace, because a path is exactly what an error message or a support request will name.
+ * them, capitalise the first letter of the result. The path is no longer shown under it
+ * (season-2-ops/130): the words of the path are already in the name this builds, and a second
+ * monospace line made every row in the list two lines tall. Where the path itself is what matters -
+ * an error about a file that could not be parsed - it is named there, not in the browsing list.
  *
  * It lives here rather than in `configuration.tsx`, the same reason `discordId` does (steward/57):
  * `config-search.tsx`'s global and per-service search results (steward/58) need it too, and a

@@ -184,7 +184,7 @@ export function bundle(
  * the group's frame instead, addressed by the group's own id.
  *
  * This is the one seam that makes "one arrow into the group" (Till, 2026-09-18) fall out of the
- * existing edge list rather than needing a second one written for it: `network-control -> smp`,
+ * existing edge list rather than needing a second one written for it: `proxy -> smp`,
  * `-> hunger-games` and `-> limbo` all resolve their `to` end to the same key, the Paper group's
  * id, and the caller below draws one key once instead of three paths to three boxes.
  */

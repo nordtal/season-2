@@ -37,13 +37,30 @@ public final class Runs {
      * Writes nothing.
      */
     public static @NotNull UpdatePlan resolve(final @NotNull StewardSpec config) {
+        return resolve(config, eu.nordtal.s2.common.plugin.PluginDirectory.NONE);
+    }
+
+    /**
+     * The same, with the plugins an admin added from the interface merged in (season-2-ops/129).
+     *
+     * <p><b>Every caller that has a database hands one in</b>, and that is not optional style: the
+     * whole reason this class exists is that the command line and the daemon must produce the same
+     * report, and a resolve that leaves the added plugins out is a second program. The overload
+     * above exists for the one caller that genuinely has no pool - and it answers
+     * {@code PluginDirectory#NONE}, which resolves exactly what this method resolved before the
+     * table existed.</p>
+     */
+    public static @NotNull UpdatePlan resolve(
+            final @NotNull StewardSpec config,
+            final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
         final Http http = new JdkHttp(Duration.ofSeconds(config.httpTimeoutSeconds()), config.githubToken());
         return new Resolver(
                 config,
                 new GitHubReleases(http),
                 new Modrinth(http),
                 new PaperFill(http),
-                Clock.systemUTC()).resolve();
+                Clock.systemUTC(),
+                plugins).resolve();
     }
 
     /**

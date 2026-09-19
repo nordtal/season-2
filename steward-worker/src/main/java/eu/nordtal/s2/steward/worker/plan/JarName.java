@@ -9,7 +9,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <pre>
  *   smp-0.2.0.jar                     -&gt; smp                  / 0.2.0
- *   network-control-0.2.0.jar         -&gt; network-control      / 0.2.0
+ *   proxy-0.2.0.jar         -&gt; proxy      / 0.2.0
  *   papermc-display-tags-2.0.0.jar    -&gt; papermc-display-tags / 2.0.0
  *   packetevents-spigot-2.13.0.jar    -&gt; packetevents-spigot  / 2.13.0
  *   Chunky-Bukkit-1.5.3.jar           -&gt; Chunky-Bukkit        / 1.5.3

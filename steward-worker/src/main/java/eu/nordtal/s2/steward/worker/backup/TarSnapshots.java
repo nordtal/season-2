@@ -34,7 +34,7 @@ import java.util.stream.Stream;
  *
  * <h2>Why this exists at all</h2>
  * It replaces asking a management panel to snapshot a volume over its REST API. On 2026-09-12 run 23 stopped
- * {@code smp}, {@code network-control} and {@code discord-bot}, lost <em>every</em> volume snapshot
+ * {@code smp}, {@code proxy} and {@code discord-bot}, lost <em>every</em> volume snapshot
  * to {@code HTTP 403}, started them again and reported success - 66 seconds of network down and
  * zero backups. Nothing in that report made the zero visible, because nothing
  * in it was a size. So the shape here is the opposite one: a size and a duration come back from

@@ -24,22 +24,47 @@ import java.util.List;
  * Neither has a {@code plugins/} folder or a server jar; each <em>is</em> a jar in a volume of its
  * own. {@link #STANDALONE_JARS} is where they are named, and everything downstream treats them as
  * services with exactly one artefact and no subdirectory.
+ *
+ * <h2>How a service is named</h2>
+ * A service is named after its <em>role</em> and not after the software that fills it - which is
+ * why {@link #PROXY} is {@code proxy} and not {@code velocity}, and why the rename of
+ * {@code network-control} happened before anything was built on top of it (season-2-ops/117).
+ * <b>A replacement instance of a service is that same name plus {@code -standby}</b> -
+ * {@code proxy-standby}, {@code limbo-standby} - and never a colour or a number: a standby takes
+ * the ordinary role of the service it stands in for, running the same jar under the same
+ * configuration, so the suffix is the only thing that has to distinguish the two.
  */
 public final class Topology {
 
     /** What kind of server jar a service runs, which is also the Fill API's project name. */
     public enum Kind {
-        PAPER("paper"),
-        VELOCITY("velocity");
+        PAPER("paper", "paper"),
+        VELOCITY("velocity", "velocity");
 
         private final String fillProject;
+        private final String modrinthLoader;
 
-        Kind(final String fillProject) {
+        Kind(final String fillProject, final String modrinthLoader) {
             this.fillProject = fillProject;
+            this.modrinthLoader = modrinthLoader;
         }
 
         public @NotNull String fillProject() {
             return fillProject;
+        }
+
+        /**
+         * What Modrinth calls this platform - the {@code loaders} filter on a version query and
+         * the {@code categories} facet on a search.
+         *
+         * <p><b>Kept apart from {@link #fillProject()} even though the two strings are equal
+         * today.</b> They are two vendors' vocabularies and nothing keeps them in step: one is
+         * PaperMC's Fill API naming its own downloads, the other is Modrinth naming a loader in a
+         * tag anybody can apply. Collapsing them into one field would make the day they diverge a
+         * silent wrong query rather than a compile error.</p>
+         */
+        public @NotNull String modrinthLoader() {
+            return modrinthLoader;
         }
     }
 
@@ -89,7 +114,7 @@ public final class Topology {
     // (packetevents -> packetevents-spigot-2.13.0.jar, chunky -> Chunky-Bukkit-1.5.3.jar), which
     // is exactly why the prefix is read back off the resolved filename instead of being assumed.
 
-    public static final String NETWORK_CONTROL = "network-control";
+    public static final String PROXY = "proxy";
     public static final String LIMBO = "limbo";
     public static final String HUNGER_GAMES = "hunger-games";
     public static final String SMP = "smp";
@@ -171,7 +196,7 @@ public final class Topology {
      * </p>
      */
     public static final List<String> SEASON_JARS =
-            List.of(NETWORK_CONTROL, LIMBO, HUNGER_GAMES, SMP, DISCORD_BOT, STEWARD_WORKER);
+            List.of(PROXY, LIMBO, HUNGER_GAMES, SMP, DISCORD_BOT, STEWARD_WORKER);
 
     /**
      * The two artefacts that are a whole container each.
@@ -206,7 +231,7 @@ public final class Topology {
             // The proxy carries voice chat's proxy half, which is what makes one published UDP port
             // enough for the whole network - see VOICE_CHAT_PROXY. It is optional here for the
             // strongest reason anything on this list is: this container is the network.
-            new Service(NETWORK_CONTROL, Kind.VELOCITY, List.of(NETWORK_CONTROL, VOICE_CHAT_PROXY),
+            new Service(PROXY, Kind.VELOCITY, List.of(PROXY, VOICE_CHAT_PROXY),
                     List.of(VOICE_CHAT_PROXY)),
             new Service(LIMBO, Kind.PAPER, List.of(LIMBO)),
             // Voice chat is on the two servers people play on and not on limbo: the waiting room
@@ -226,6 +251,83 @@ public final class Topology {
             new Service(SMP, Kind.PAPER,
                     List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY, VOICE_CHAT, CORE_PROTECT),
                     List.of(VOICE_CHAT, CORE_PROTECT)));
+
+    // ---------------------------------------------------------------- the added half
+
+    /**
+     * The four services with every plugin an admin added folded in (season-2-ops/129).
+     *
+     * <h2>This method is the feature</h2>
+     * A plugin picked off Modrinth in the interface cannot land in {@link #SERVICES} - that is a
+     * {@code List.of(...)} inside a jar that is already built. So it lands in {@code service_plugin}
+     * instead, and this is where the two lists become one. Everything downstream - the resolve, the
+     * plan, the report, the install, the swap, the restart - then treats an added plugin exactly
+     * like DisplayTags, which is the whole ask: an added plugin rides the update cycle.
+     *
+     * <p><b>Every added plugin is {@link Service#optional() optional}, without exception.</b> That
+     * is not a shortcut, it is the CoreProtect rule applied to the general case: {@code guarded()}
+     * is what {@code EXPECTED_PLUGINS} refuses to start a container without, and a plugin somebody
+     * added on a Tuesday must never be able to keep the SMP down because its author has not shipped
+     * a build for the next Minecraft drop yet. The fixed rows are guarded because the jar beside
+     * them does not work without them; nothing can be true of an arbitrary Modrinth project.</p>
+     *
+     * <p><b>A row naming a service that does not exist is ignored</b> rather than refused. Services
+     * are renamed (season-2-ops/117 renamed {@code network-control} to {@code proxy}), and a
+     * leftover row must not be able to fail a resolve for the other three services. It shows up as
+     * an added plugin that never installs, which is visible in the interface.</p>
+     *
+     * <p><b>A row naming an artefact the fixed list already carries is ignored too.</b> The fixed
+     * entry wins: it is the one with a reason behind it, and two rows for one jar would resolve
+     * twice and fight over the same file on disk.</p>
+     *
+     * @param added every row of {@code service_plugin}, from {@code PluginDirectory#all()}
+     * @return the same four services, in the same order, each carrying its own extra plugins
+     */
+    public static @NotNull List<Service> servicesWith(
+            final @NotNull java.util.Collection<eu.nordtal.s2.common.plugin.ManagedPlugin> added) {
+        if (added.isEmpty()) {
+            return SERVICES;
+        }
+        final List<Service> merged = new java.util.ArrayList<>(SERVICES.size());
+        for (final Service service : SERVICES) {
+            final List<String> plugins = new java.util.ArrayList<>(service.plugins());
+            final List<String> optional = new java.util.ArrayList<>(service.optional());
+            for (final eu.nordtal.s2.common.plugin.ManagedPlugin plugin : added) {
+                if (!plugin.service().equals(service.name())) {
+                    continue;
+                }
+                final String artifact = addedArtifact(plugin.artifact(), service.kind());
+                if (plugins.contains(artifact)) {
+                    continue;
+                }
+                plugins.add(artifact);
+                optional.add(artifact);
+            }
+            merged.add(plugins.size() == service.plugins().size()
+                    ? service
+                    : new Service(service.name(), service.kind(), plugins, optional));
+        }
+        return List.copyOf(merged);
+    }
+
+    /**
+     * The artefact id an added plugin resolves under on a service of this kind.
+     *
+     * <h2>Why the loader is in the id at all</h2>
+     * Because one Modrinth project can be two jars that move separately, and the network already
+     * runs such a project: Simple Voice Chat is {@link #VOICE_CHAT} on the backends and
+     * {@link #VOICE_CHAT_PROXY} on the proxy, one project id asked twice with a different loader.
+     * The resolver keys what it found by artefact id, so the same slug added on {@code smp} and on
+     * {@code proxy} would otherwise be one entry holding whichever jar was resolved last - a
+     * Velocity plugin in a Paper plugins folder, or the other way round.
+     *
+     * <p>The suffix is spelled exactly as the hand-written constant above spells it, so that the
+     * two halves of a project look the same in a report whether they were written in Java or picked
+     * in a browser.</p>
+     */
+    public static @NotNull String addedArtifact(final @NotNull String slug, final @NotNull Kind kind) {
+        return kind == Kind.VELOCITY ? slug + "-velocity" : slug;
+    }
 
     private Topology() {
     }

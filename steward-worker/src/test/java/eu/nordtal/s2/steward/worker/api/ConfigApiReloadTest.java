@@ -153,7 +153,7 @@ class ConfigApiReloadTest {
     @Test
     @DisplayName("the open form is told a restart is needed before anybody saves anything")
     void documentCarriesRestartRequiredForAFileNothingReloads() {
-        final ConfigLocation loc = location("network-control", "network-control/network.yml");
+        final ConfigLocation loc = location("proxy", "proxy/network.yml");
         final ConfigDocument read = new ConfigDocument(loc.file(), "rev-1", List.of(), List.of());
 
         final Map<String, Object> document = ConfigApi.document(loc, read);

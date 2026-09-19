@@ -271,10 +271,10 @@ class ApplierTest {
     @Test
     @DisplayName("the pack's two lines are written from the release, hash included")
     void writesThePack() throws IOException {
-        install("network-control", "plugins/network-control-0.1.0.jar");
+        install("proxy", "plugins/proxy-0.1.0.jar");
         writePackYml();
 
-        final Change pack = new Change("network-control", "resource-pack", Change.Status.OUTDATED,
+        final Change pack = new Change("proxy", "resource-pack", Change.Status.OUTDATED,
                 "0000000000000000000000000000000000000000",
                 new RemoteFile("resource-pack", "0.2.0", "nordtal-resource-pack-0.2.0.zip",
                         URI.create("https://github.com/nordtal/season-2/releases/download/v0.2.0/"
@@ -284,12 +284,12 @@ class ApplierTest {
 
         final ApplyResult result = apply(new Fake(), plan(pack));
 
-        final String written = Files.readString(PackState.fileIn(volumes.resolve("network-control")));
+        final String written = Files.readString(PackState.fileIn(volumes.resolve("proxy")));
         assertTrue(written.contains("sha1: " + SHA1), written);
         assertTrue(written.contains("releases/download/v0.2.0/"), written);
-        assertEquals(ApplyResult.Status.DONE, outcome(result, "network-control", "resource-pack").status());
+        assertEquals(ApplyResult.Status.DONE, outcome(result, "proxy", "resource-pack").status());
         // The zip itself is never downloaded: the client fetches it, the proxy only describes it.
-        assertFalse(Files.exists(volumes.resolve("network-control/plugins/nordtal-resource-pack-0.2.0.zip")));
+        assertFalse(Files.exists(volumes.resolve("proxy/plugins/nordtal-resource-pack-0.2.0.zip")));
     }
 
     @Test
@@ -394,22 +394,22 @@ class ApplierTest {
     @Test
     @DisplayName("M1: a pack that cannot be resolved falls back and does not hold the jars back")
     void anUnresolvablePackDoesNotBlockTheProxy() throws IOException {
-        install("network-control", "plugins/network-control-0.1.0.jar");
+        install("proxy", "plugins/proxy-0.1.0.jar");
 
         // A release that published no .sha1 beside the pack zip. This used to skip the whole
         // service - the proxy plugin and the Velocity jar with it - while the three backends
         // updated regardless, which is precisely the split network the all-or-nothing rule exists
         // to prevent.
         final ApplyResult result = apply(new Fake(), plan(
-                Change.unresolved("network-control", Topology.RESOURCE_PACK,
+                Change.unresolved("proxy", Topology.RESOURCE_PACK,
                         "the release published no .sha1 asset"),
-                outdated("network-control", "network-control",
-                        "network-control-0.1.0.jar", "network-control-0.2.0.jar")));
+                outdated("proxy", "proxy",
+                        "proxy-0.1.0.jar", "proxy-0.2.0.jar")));
 
-        assertTrue(Files.exists(volumes.resolve("network-control/plugins/network-control-0.2.0.jar")),
+        assertTrue(Files.exists(volumes.resolve("proxy/plugins/proxy-0.2.0.jar")),
                 "the proxy plugin was held back because the pack could not be checked");
 
-        final ApplyResult.Outcome pack = outcome(result, "network-control", Topology.RESOURCE_PACK);
+        final ApplyResult.Outcome pack = outcome(result, "proxy", Topology.RESOURCE_PACK);
         assertEquals(ApplyResult.Status.SKIPPED, pack.status(),
                 "a pack that could not be checked must not read as UNCHANGED - the client is still"
                         + " being sent the previous one, and that is a fallback, not a no-op");
@@ -423,11 +423,11 @@ class ApplierTest {
         // The early return used to skip applyPack entirely, so a run that skipped this service said
         // nothing at all about what the client is being sent - the one row here a player can see.
         final ApplyResult result = apply(new Fake(), plan(
-                Change.unresolved("network-control", "network-control", "GitHub answered 403"),
-                new Change("network-control", Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE,
+                Change.unresolved("proxy", "proxy", "GitHub answered 403"),
+                new Change("proxy", Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE,
                         "abc123", null, null)));
 
-        final ApplyResult.Outcome pack = outcome(result, "network-control", Topology.RESOURCE_PACK);
+        final ApplyResult.Outcome pack = outcome(result, "proxy", Topology.RESOURCE_PACK);
         assertNotNull(pack, "the pack row vanished from a report for a service that was skipped");
     }
 
@@ -542,7 +542,7 @@ class ApplierTest {
     }
 
     private void writePackYml() throws IOException {
-        final Path file = PackState.fileIn(volumes.resolve("network-control"));
+        final Path file = PackState.fileIn(volumes.resolve("proxy"));
         Files.createDirectories(file.getParent());
         Files.writeString(file, """
                 enabled: true

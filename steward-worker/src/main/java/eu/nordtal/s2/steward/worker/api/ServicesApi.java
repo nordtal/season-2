@@ -20,7 +20,7 @@ import java.util.Objects;
 
 /**
  * Feeds {@code /api/services} the player counts steward/86 asked for and the names steward/111
- * added: {@code smp}, {@code hunger-games} and {@code limbo} each their own, {@code network-control}
+ * added: {@code smp}, {@code hunger-games} and {@code limbo} each their own, {@code proxy}
  * the network's total and the network's whole list.
  *
  * <h2>The contract with whoever assembles a row</h2>
@@ -32,11 +32,11 @@ import java.util.Objects;
  * the traffic light, applied here to a player count and a player list instead.
  *
  * <h2>Why the whole answer can go missing at once, not just one entry</h2>
- * network-control is the <em>only</em> writer of every row in {@code online_count} and
+ * proxy is the <em>only</em> writer of every row in {@code online_count} and
  * {@code online_player} - not just its own. A stopped {@code smp} container legitimately reads
  * {@code 0} (nobody can be connected to it, and the proxy is still there to say so);
- * network-control itself being down or still starting is a different fact, and it takes every
- * subject's freshness with it at once, {@code network-control}'s own included. {@link #STALE_AFTER}
+ * proxy itself being down or still starting is a different fact, and it takes every
+ * subject's freshness with it at once, {@code proxy}'s own included. {@link #STALE_AFTER}
  * is what tells the two apart - a row older than that is treated exactly like no row at all, for a
  * count and for a player alike.
  *
@@ -61,7 +61,7 @@ public final class ServicesApi {
      * <p>Three times {@link OnlineDirectory#WRITE_INTERVAL}: one missed write is noise - a slow GC
      * pause on the proxy, one tick that raced a database hiccup, exactly the case
      * {@code OnlineWriter} already logs and moves past without retrying out of turn. Three in a row
-     * is network-control no longer writing at all, which is the state this cutoff exists to catch
+     * is proxy no longer writing at all, which is the state this cutoff exists to catch
      * before a stale number sits on the dashboard looking like a live one.
      */
     static final Duration STALE_AFTER = OnlineDirectory.WRITE_INTERVAL.multipliedBy(3);
@@ -70,11 +70,11 @@ public final class ServicesApi {
      * The proxy's own subject - the network total in {@code online_count}, and here also the key
      * under which the network's whole player list is offered.
      *
-     * <p>Written out rather than imported: {@code OnlineCounts.NETWORK_CONTROL} lives in
-     * network-control, which steward-worker neither depends on nor should. The string is the compose
+     * <p>Written out rather than imported: {@code OnlineCounts.PROXY} lives in
+     * proxy, which steward-worker neither depends on nor should. The string is the compose
      * service name, and the service list is keyed by compose service names throughout.
      */
-    static final String NETWORK_CONTROL = "network-control";
+    static final String PROXY = "proxy";
 
     /**
      * Two people called {@code Ada} and {@code ada} still have to come back in the same order twice
@@ -126,7 +126,7 @@ public final class ServicesApi {
     /**
      * The fresh players, grouped the way the service table is keyed.
      *
-     * <p>Every fresh player appears under {@value #NETWORK_CONTROL}, because that row <em>is</em>
+     * <p>Every fresh player appears under {@value #PROXY}, because that row <em>is</em>
      * the network, and additionally under the backend they are on when the writer knew one. A player
      * the proxy has and no backend does yet (mid-transfer, one step past login) therefore counts
      * towards the network's list and towards no server's - the same way the proxy's own count
@@ -149,7 +149,7 @@ public final class ServicesApi {
                     bySubject.computeIfAbsent(subject, key -> new ArrayList<>()).add(player));
         }
         if (!network.isEmpty()) {
-            bySubject.put(NETWORK_CONTROL, network);
+            bySubject.put(PROXY, network);
         }
         bySubject.values().forEach(players -> players.sort(BY_NAME));
         return bySubject;

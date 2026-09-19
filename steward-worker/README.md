@@ -35,7 +35,7 @@ the service's own `command` — always name the subcommand.
 | PacketEvents, Chunky | Modrinth v2, filtered to the Minecraft version and `paper` |
 | Paper, Velocity | PaperMC Fill v3, newest `STABLE` build |
 | what is installed | the six volumes under `volumes-root` |
-| what pack the proxy offers | `pack.yml` in the `network-control` volume |
+| what pack the proxy offers | `pack.yml` in the `proxy` volume |
 
 The report prints one row per artefact per server: up to date, `OUTDATED old -> new`, not installed,
 *unknown*, or *UNRESOLVED*. The last two exist so that "nothing to do" and "nothing could be asked"

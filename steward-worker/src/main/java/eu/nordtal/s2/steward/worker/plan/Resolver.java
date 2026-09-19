@@ -44,14 +44,30 @@ public final class Resolver {
     private final Modrinth modrinth;
     private final PaperFill fill;
     private final Clock clock;
+    private final eu.nordtal.s2.common.plugin.PluginDirectory plugins;
 
     public Resolver(final StewardSpec config, final GitHubReleases github, final Modrinth modrinth,
                     final PaperFill fill, final Clock clock) {
+        this(config, github, modrinth, fill, clock,
+                eu.nordtal.s2.common.plugin.PluginDirectory.NONE);
+    }
+
+    /**
+     * @param plugins the plugins an admin added from the interface (season-2-ops/129), merged into
+     *                the fixed topology by {@link Topology#servicesWith}. {@code PluginDirectory#NONE}
+     *                for a caller with no database - the command-line {@code report}, and every
+     *                test that is about the fixed rows - which resolves exactly what this class
+     *                resolved before the table existed
+     */
+    public Resolver(final StewardSpec config, final GitHubReleases github, final Modrinth modrinth,
+                    final PaperFill fill, final Clock clock,
+                    final eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
         this.config = config;
         this.github = github;
         this.modrinth = modrinth;
         this.fill = fill;
         this.clock = clock;
+        this.plugins = plugins;
     }
 
     public @NotNull UpdatePlan resolve() {
@@ -74,11 +90,21 @@ public final class Resolver {
         resolvePaper(newest, failures);
         resolveVelocity(newest, failures, notes);
 
+        // season-2-ops/129: the plugins somebody added in the interface. Read once, before
+        // anything is compared, because the merged topology is what the whole loop below walks -
+        // the added rows are not a second pass and not a second report, they are extra plugins on
+        // the services that already exist. A database that cannot be read costs the added rows and
+        // nothing else: PluginDirectory answers an empty list rather than throwing, so the network's
+        // own jars still resolve.
+        final List<eu.nordtal.s2.common.plugin.ManagedPlugin> added = readAdded();
+        final List<Topology.Service> services = Topology.servicesWith(added);
+        resolveAdded(newest, failures, unsupported, added, services);
+
         final List<Change> changes = new ArrayList<>();
         final List<UpdatePlan.Unclaimed> unclaimed = new ArrayList<>();
         final Path root = Path.of(config.volumesRoot());
 
-        for (final Topology.Service service : Topology.SERVICES) {
+        for (final Topology.Service service : services) {
             final Installation installed = scan(service.name(), root.resolve(service.name()));
 
             // Every jar the topology accounts for on this service, by filename prefix. What is left
@@ -114,6 +140,55 @@ public final class Resolver {
                 List.copyOf(changes),
                 List.copyOf(unclaimed),
                 List.copyOf(notes));
+    }
+
+    // ---------------------------------------------------------------- the added plugins
+
+    /**
+     * The rows of {@code service_plugin}, or none of them.
+     *
+     * <p>A database that cannot be read must not cost the network its report. Everything else here
+     * already works that way - one unreachable source costs only its own rows - and this is the
+     * same rule for the one source that is not over the internet.</p>
+     */
+    private List<eu.nordtal.s2.common.plugin.ManagedPlugin> readAdded() {
+        try {
+            return plugins.all();
+        } catch (final RuntimeException failed) {
+            log.warn("Could not read the added plugins, so this plan carries only the ones the"
+                    + " topology names: {}", failed.toString());
+            return List.of();
+        }
+    }
+
+    /**
+     * Asks Modrinth for every added plugin, once per artefact id.
+     *
+     * <p>The loader comes from the service the row names, which is why this walks the merged
+     * services rather than the rows: one slug added on {@code smp} and on {@code proxy} is two
+     * artefact ids and two questions, exactly as Simple Voice Chat already is
+     * ({@link Topology#addedArtifact}).</p>
+     */
+    private void resolveAdded(final Map<String, RemoteFile> newest, final Map<String, String> failures,
+                              final Map<String, String> unsupported,
+                              final List<eu.nordtal.s2.common.plugin.ManagedPlugin> added,
+                              final List<Topology.Service> services) {
+        for (final Topology.Service service : services) {
+            for (final eu.nordtal.s2.common.plugin.ManagedPlugin plugin : added) {
+                if (!plugin.service().equals(service.name())) {
+                    continue;
+                }
+                final String artifact = Topology.addedArtifact(plugin.artifact(), service.kind());
+                // Already answered - the same plugin on two services of the same kind is one
+                // question, and the fixed topology owning the id means the fixed row wins.
+                if (newest.containsKey(artifact) || unsupported.containsKey(artifact)
+                        || failures.containsKey(artifact)) {
+                    continue;
+                }
+                resolveModrinth(newest, failures, unsupported, artifact, plugin.projectId(),
+                        service.kind().modrinthLoader());
+            }
+        }
     }
 
     // ---------------------------------------------------------------- sources
@@ -249,7 +324,7 @@ public final class Resolver {
      * The newest stable build inside {@link Platform#VELOCITY_FAMILY}, so the proxy follows
      * Velocity's minors where Paper stays on one exact version.
      *
-     * <p>A run that moves past {@link Platform#VELOCITY_API} leaves {@code network-control} running
+     * <p>A run that moves past {@link Platform#VELOCITY_API} leaves {@code proxy} running
      * on an API it was not built for. That is noted rather than refused: the skew is usually
      * harmless, and blocking the proxy's update over it is the worse failure.</p>
      */
@@ -260,7 +335,7 @@ public final class Resolver {
             newest.put(Topology.VELOCITY, fill.newestStable(Topology.VELOCITY, version));
 
             if (!Platform.VELOCITY_API.equals(version)) {
-                notes.add("the proxy resolves to Velocity " + version + ", and network-control is"
+                notes.add("the proxy resolves to Velocity " + version + ", and proxy is"
                         + " compiled against " + Platform.VELOCITY_API + " - a plugin running on an"
                         + " API it was not built for. Nothing is blocked; the fix is one line in"
                         + " gradle/libs.versions.toml and a release.");
@@ -338,23 +413,23 @@ public final class Resolver {
                                final Map<String, String> failures) {
         final RemoteFile wanted = newest.get(Topology.RESOURCE_PACK);
         if (wanted == null) {
-            return Change.unresolved(Topology.NETWORK_CONTROL, Topology.RESOURCE_PACK,
+            return Change.unresolved(Topology.PROXY, Topology.RESOURCE_PACK,
                     failures.getOrDefault(Topology.RESOURCE_PACK, "no source answered for the pack"));
         }
 
         final PackState state;
         try {
-            state = PackState.read(root.resolve(Topology.NETWORK_CONTROL));
+            state = PackState.read(root.resolve(Topology.PROXY));
         } catch (final IOException failed) {
-            return Change.unresolved(Topology.NETWORK_CONTROL, Topology.RESOURCE_PACK,
+            return Change.unresolved(Topology.PROXY, Topology.RESOURCE_PACK,
                     "could not read pack.yml: " + failed.getMessage());
         }
 
         if (!state.present() || state.sha1() == null) {
-            return new Change(Topology.NETWORK_CONTROL, Topology.RESOURCE_PACK, Change.Status.MISSING,
+            return new Change(Topology.PROXY, Topology.RESOURCE_PACK, Change.Status.MISSING,
                     null, wanted, state.present()
                             ? "pack.yml has no sha1"
-                            : PackState.fileIn(root.resolve(Topology.NETWORK_CONTROL))
+                            : PackState.fileIn(root.resolve(Topology.PROXY))
                                     + " does not exist yet");
         }
 
@@ -363,10 +438,10 @@ public final class Resolver {
         final Checksum checksum = wanted.checksum();
         final String wantedSha1 = checksum == null ? null : checksum.hex();
         if (wantedSha1 != null && wantedSha1.equalsIgnoreCase(state.sha1())) {
-            return new Change(Topology.NETWORK_CONTROL, Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE,
+            return new Change(Topology.PROXY, Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE,
                     state.sha1(), wanted, null);
         }
-        return new Change(Topology.NETWORK_CONTROL, Topology.RESOURCE_PACK, Change.Status.OUTDATED,
+        return new Change(Topology.PROXY, Topology.RESOURCE_PACK, Change.Status.OUTDATED,
                 state.sha1(), wanted, null);
     }
 

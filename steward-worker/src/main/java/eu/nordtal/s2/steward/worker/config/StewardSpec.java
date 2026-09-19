@@ -176,7 +176,7 @@ public interface StewardSpec {
             "Where the four Minecraft volumes are mounted inside this container - one",
             "directory per compose service, named exactly as the service is:",
             "",
-            "  <volumes-root>/network-control    <volumes-root>/limbo",
+            "  <volumes-root>/proxy    <volumes-root>/limbo",
             "  <volumes-root>/hunger-games       <volumes-root>/smp",
             "",
             "A directory that is not there is reported as such rather than being created. This",
@@ -237,7 +237,7 @@ public interface StewardSpec {
             "How often `steward-worker serve` looks in update_request for work it was not told about.",
             "",
             "THIS POLL - not the LISTEN/NOTIFY path - is the guarantee, exactly as it is for the",
-            "season phase (network-control's gate.yml says the same thing about the same trade).",
+            "season phase (proxy's gate.yml says the same thing about the same trade).",
             "Notifications are lost while a process is disconnected, so a listener that missed one",
             "must still find the work; the listener only makes a request feel instant.",
             "",
@@ -657,7 +657,7 @@ public interface StewardSpec {
                 "",
                 "WHY THESE AND NOT THE OTHERS. mc-smp is Nordtal - a hand-built world in no",
                 "repository and in no release, and the only thing here that cannot be rebuilt.",
-                "mc-network-control carries velocity.toml and the forwarding secret. bot-config",
+                "mc-proxy carries velocity.toml and the forwarding secret. bot-config",
                 "is the bot's. The four *-plugins volumes",
                 "are new on 2026-09-08 and hold the only hand-edited files in the deployment:",
                 "every plugin's config.yml, smp's milestones.yml and sounds.yml, and the proxy's",
@@ -688,8 +688,8 @@ public interface StewardSpec {
         default List<String> volumes() {
             return List.of("nordtal-s2_mc-smp",
                     "nordtal-s2_mc-smp-plugins",
-                    "nordtal-s2_mc-network-control",
-                    "nordtal-s2_mc-network-control-plugins",
+                    "nordtal-s2_mc-proxy",
+                    "nordtal-s2_mc-proxy-plugins",
                     "nordtal-s2_mc-limbo-plugins",
                     "nordtal-s2_mc-hunger-games-plugins",
                     "nordtal-s2_bot-config",
@@ -725,7 +725,7 @@ public interface StewardSpec {
         })
         @Explain("Compose service names taken from Topology rather than typed by hand - a stale literal here once left a service running through its own snapshot, when its compose name changed and this string did not.")
         default List<String> stopServices() {
-            return List.of(Topology.SMP, Topology.NETWORK_CONTROL, Topology.DISCORD_BOT);
+            return List.of(Topology.SMP, Topology.PROXY, Topology.DISCORD_BOT);
         }
 
         @Order(3)

@@ -22,7 +22,7 @@ import java.util.Set;
  *
  * <h2>Four services have one, six do not</h2>
  * The four Minecraft servers run a console because they have one. {@code postgres} and
- * {@code proxy} have no such thing; {@code discord-bot}'s interface is Discord; steward-worker's
+ * {@code caddy} have no such thing; {@code discord-bot}'s interface is Discord; steward-worker's
  * own is this. The rule lives here rather than in {@link Docker} deliberately: a general-purpose
  * exec that quietly refuses some containers is a puzzle, while a named boundary is a boundary. It
  * is also why the interface shows no console field at all for those six, rather than a disabled
@@ -34,7 +34,7 @@ public final class Console {
 
     /** The four that have a console. Everything else is refused by name. */
     public static final Set<String> WITH_A_CONSOLE = Set.of(
-            Topology.NETWORK_CONTROL, Topology.LIMBO, Topology.HUNGER_GAMES, Topology.SMP);
+            Topology.PROXY, Topology.LIMBO, Topology.HUNGER_GAMES, Topology.SMP);
 
     private final Docker docker;
     private final String project;
@@ -100,7 +100,11 @@ public final class Console {
             case Topology.STEWARD_WORKER -> "its console is this interface";
             case "postgres" -> "a database is not driven by typing into a terminal, and `psql` on "
                     + "the host is the tool for the times when it is";
-            case "proxy" -> "a reverse proxy has no console; its configuration is a file";
+            // caddy, and it says "reverse proxy" rather than naming the service because that is
+            // what it is. NOT the Velocity proxy: since season-2-ops/117 the service called
+            // `proxy` is a Minecraft server and is in WITH_A_CONSOLE, so this branch is
+            // unreachable for it - which is exactly why it had to stop saying "proxy".
+            case "caddy" -> "a reverse proxy has no console; its configuration is a file";
             default -> "it runs no console";
         };
     }

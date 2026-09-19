@@ -53,6 +53,21 @@ public final class Modrinth {
 
     private static final String API = "https://api.modrinth.com/v2/project/";
 
+    private static final String SEARCH = "https://api.modrinth.com/v2/search";
+
+    /** Where a project's own page lives, which is the link the interface offers next to a hit. */
+    private static final String PAGE = "https://modrinth.com/plugin/";
+
+    /**
+     * How many hits one search asks for.
+     *
+     * <p>Twenty, and it is a constant rather than a parameter because the caller that would set it
+     * is a browser and this is somebody else's API. A person looking for a plugin types its name;
+     * a person scrolling to hit ninety has not found it and needs a better search term, not a
+     * longer list.</p>
+     */
+    public static final int SEARCH_LIMIT = 20;
+
     /**
      * The artefact ids for which a {@code beta} or an {@code alpha} counts, and there is exactly
      * one: {@code voicechat-velocity}, Simple Voice Chat's proxy half.
@@ -182,6 +197,98 @@ public final class Modrinth {
                 Json.string(file, "filename", what),
                 URI.create(Json.string(file, "url", what)),
                 sha512 == null ? null : Checksum.sha512(sha512));
+    }
+
+    // ---------------------------------------------------------------- the search (season-2-ops/129)
+
+    /**
+     * One hit of a plugin search, in the shape the interface draws it.
+     *
+     * @param projectId   Modrinth's immutable id. <b>This is the identity</b> - what
+     *                    {@link #newest} is asked with, and what makes a slug rename cost nothing
+     * @param slug        the readable id, which becomes the artefact id of an added plugin
+     * @param title       the project's name
+     * @param description the one-line summary Modrinth calls {@code description}
+     * @param iconUrl     the thumbnail, on {@code cdn.modrinth.com}, or {@code null} for a project
+     *                    that has none. <b>The browser loads this from Modrinth directly</b>
+     *                    (owner, 2026-09-19) - which is why any Content-Security-Policy in front of
+     *                    steward-ui has to allow that host, or the images silently stay blank
+     * @param pageUrl     the project's own page, for the link next to the install button
+     * @param downloads   how many times it has been downloaded - the only number here that says
+     *                    anything about whether a stranger's plugin is worth trusting
+     */
+    public record Hit(@NotNull String projectId, @NotNull String slug, @NotNull String title,
+                      @Nullable String description, @Nullable String iconUrl,
+                      @NotNull String pageUrl, long downloads) {
+    }
+
+    /**
+     * Plugins matching {@code query} that are tagged for {@code gameVersion} on {@code loader}.
+     *
+     * <h2>Filtered, never merely sorted</h2>
+     * The facets are the whole point of searching here rather than on the project's own site: a
+     * list somebody can install from must not contain a plugin that cannot run on this network.
+     * Measured against the live API on 2026-09-19, {@code categories:velocity} with
+     * {@code versions:26.2} answers 310 projects and {@code categories:paper} answers a far larger
+     * set - so the fallback the ticket describes, narrowing the proxy's search to its own loader
+     * and accepting a shorter list, is simply what this does for both platforms.
+     *
+     * <p><b>{@code categories}, not {@code loaders}.</b> The two filters are spelled differently on
+     * the two endpoints - a version query takes {@code loaders}, a search takes the loader as a
+     * {@code categories} facet - and that asymmetry is Modrinth's own. Getting it wrong is not an
+     * error: the facet simply matches nothing and the search comes back empty, which reads exactly
+     * like a plugin nobody has written.</p>
+     *
+     * <p>A hit is <b>not</b> a promise that the plugin can be installed. The search index answers
+     * per project; {@link #newest} answers per version and is what decides, which is why adding a
+     * plugin asks it rather than trusting the hit.</p>
+     *
+     * @param query       what was typed. Blank is allowed and means "the most popular ones", which
+     *                    is what an empty search box should show rather than nothing
+     * @param gameVersion the Minecraft version this service runs
+     * @param loader      {@code paper} or {@code velocity} - {@code Topology.Kind#modrinthLoader}
+     * @throws IOException if the API could not be read
+     */
+    public @NotNull List<Hit> search(final @NotNull String query, final @NotNull String gameVersion,
+                                     final @NotNull String loader) throws IOException {
+        // Modrinth's own shape: facets is a JSON array of arrays, AND between the outer entries,
+        // OR inside each. So this reads "on this loader, AND for this Minecraft version, AND a
+        // plugin" - three separate requirements rather than three alternatives.
+        final String facets = "[[\"categories:" + loader + "\"],[\"versions:" + gameVersion
+                + "\"],[\"project_type:plugin\"]]";
+        final URI uri = URI.create(SEARCH
+                + "?query=" + encode(query.strip())
+                + "&limit=" + SEARCH_LIMIT
+                + "&facets=" + encode(facets));
+
+        final String what = "Modrinth search for \"" + query.strip() + "\" on " + loader + "/" + gameVersion;
+        final JsonObject answer = Json.object(http.get(uri), what);
+        final JsonElement hits = answer.get("hits");
+        if (hits == null || !hits.isJsonArray()) {
+            throw new IOException(what + ": the answer carries no \"hits\" array.");
+        }
+
+        final List<Hit> found = new ArrayList<>();
+        for (final JsonElement element : hits.getAsJsonArray()) {
+            final JsonObject hit = element.getAsJsonObject();
+            final String projectId = Json.optionalString(hit, "project_id");
+            final String slug = Json.optionalString(hit, "slug");
+            if (projectId == null || slug == null) {
+                // Skipped rather than refused: one odd row out of twenty must not cost the other
+                // nineteen their search, and a hit with no id is one nothing could be installed
+                // from anyway.
+                continue;
+            }
+            found.add(new Hit(
+                    projectId,
+                    slug,
+                    java.util.Objects.requireNonNullElse(Json.optionalString(hit, "title"), slug),
+                    Json.optionalString(hit, "description"),
+                    Json.optionalString(hit, "icon_url"),
+                    PAGE + slug,
+                    Json.number(hit, "downloads", 0L)));
+        }
+        return List.copyOf(found);
     }
 
     private static @Nullable JsonObject primaryFile(final @NotNull JsonObject version) {

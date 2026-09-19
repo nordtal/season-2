@@ -32,7 +32,7 @@ class JarNameTest {
                 "smp-0.2.0.jar,                  smp,                  0.2.0",
                 "limbo-0.2.0.jar,                limbo,                0.2.0",
                 "hunger-games-0.2.0.jar,         hunger-games,         0.2.0",
-                "network-control-0.2.0.jar,      network-control,      0.2.0",
+                "proxy-0.2.0.jar,      proxy,      0.2.0",
                 "discord-bot-0.2.0.jar,          discord-bot,          0.2.0",
                 "papermc-display-tags-2.0.0.jar, papermc-display-tags, 2.0.0",
                 "packetevents-spigot-2.13.0.jar, packetevents-spigot,  2.13.0",

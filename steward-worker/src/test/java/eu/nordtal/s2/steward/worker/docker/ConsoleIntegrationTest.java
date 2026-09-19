@@ -39,7 +39,7 @@ class ConsoleIntegrationTest {
     @Test
     @DisplayName("a service without a console is refused, and told what it has instead")
     void refusesTheSix() {
-        for (final String service : List.of(Topology.DISCORD_BOT, "postgres", "proxy",
+        for (final String service : List.of(Topology.DISCORD_BOT, "postgres", "caddy",
                 Topology.STEWARD_WORKER)) {
             final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
                     () -> console.send(service, "list"));

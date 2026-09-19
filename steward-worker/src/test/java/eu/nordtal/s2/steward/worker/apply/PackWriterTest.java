@@ -33,7 +33,7 @@ class PackWriterTest {
         packYml = directory.resolve("pack.yml");
         Files.writeString(packYml, """
                 # -------------------------------------------------------------------
-                #   network-control - the resource pack offered in the waiting room
+                #   proxy - the resource pack offered in the waiting room
                 # -------------------------------------------------------------------
 
                 # Whether a pack is offered at all.
@@ -143,7 +143,7 @@ class PackWriterTest {
     @Test
     @DisplayName("the parent directory is created with the file")
     void createsThePluginDataDirectoryToo() throws IOException {
-        final Path nested = directory.resolve("plugins/network-control/pack.yml");
+        final Path nested = directory.resolve("plugins/proxy/pack.yml");
 
         assertTrue(PackWriter.write(nested, URL, SHA1));
         assertTrue(Files.isRegularFile(nested));

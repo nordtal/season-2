@@ -38,6 +38,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * destination where arriving without a decision costs nothing: the pack station is standing there,
  * and it releases them through {@link PlayerRouter} like any other arrival.
  *
+ * <p><b>Both waiting rooms, since season-2-ops/120.</b> This class held the single name
+ * {@code gate.yml#server-limbo} until then, and that made it the one place that would have undone
+ * the whole swap: {@code Evacuation} moves players with a bare {@code fireAndForget} and registers
+ * no intent - it does not need one, the destination is a waiting room - so an evacuation into
+ * {@code limbo-standby} would have been refused here for every non-admin on the network. They would
+ * have stayed on a backend that was about to stop, which is the outage the ticket exists to
+ * prevent, arrived at through the check that was supposed to make routing safe. It is asked through
+ * {@link PhaseServers#isWaitingRoom} now, like everywhere else.
+ *
  * <h2>An intent is consumed, and outliving one is not an error</h2>
  * A connection request that fails leaves its intent behind; the next one for the same player
  * replaces it. Both are fine, because an intent is only ever a permission to go somewhere this
@@ -47,19 +56,20 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class RouteIntents {
 
     private final LoginRoster roster;
-    private final String waitingRoom;
+    private final PhaseServers servers;
     private final Logger logger;
 
     private final ConcurrentHashMap<UUID, String> intents = new ConcurrentHashMap<>();
 
     /**
-     * @param roster      who is an admin, from the login query - a map lookup and never a query,
-     *                    the same source {@code CommandGate} uses
-     * @param waitingRoom {@code gate.yml#server-limbo}, the one destination that needs no intent
+     * @param roster  who is an admin, from the login query - a map lookup and never a query, the
+     *                same source {@code CommandGate} uses
+     * @param servers the backend names, for the two destinations that need no intent - see the
+     *                class comment on why it is two and not one
      */
-    public RouteIntents(final LoginRoster roster, final String waitingRoom, final Logger logger) {
+    public RouteIntents(final LoginRoster roster, final PhaseServers servers, final Logger logger) {
         this.roster = Objects.requireNonNull(roster, "roster");
-        this.waitingRoom = Objects.requireNonNull(waitingRoom, "waitingRoom");
+        this.servers = Objects.requireNonNull(servers, "servers");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
@@ -85,11 +95,10 @@ public final class RouteIntents {
         }
 
         final String destination = event.getOriginalServer().getServerInfo().getName();
-        if (destination.equals(waitingRoom)) {
-            return;
-        }
-        if (destination.equals(intents.get(uuid))) {
-            intents.remove(uuid);
+        if (allows(servers, destination, intents.get(uuid))) {
+            // Consumed only when it was the intent that allowed it; a waiting room needs none and
+            // must not eat the one the player is holding for where they are actually going.
+            intents.remove(uuid, destination);
             return;
         }
 
@@ -101,6 +110,20 @@ public final class RouteIntents {
                 + "destination. If this is a route this plugin takes, it is missing its "
                 + "RouteIntents#intend call.", player.getUsername(), destination);
         event.setResult(ServerPreConnectEvent.ServerResult.denied());
+    }
+
+    /**
+     * The decision, without Velocity - the same split {@code BackendKick#decide} has, and for the
+     * same reason: a rule that needs a running proxy to be exercised is a rule nothing holds.
+     *
+     * @param servers     the backend names
+     * @param destination where the connection is going
+     * @param intended    where this plugin last decided to send the player, or {@code null}
+     * @return whether the connection may go through
+     */
+    static boolean allows(final PhaseServers servers, final String destination,
+                          final String intended) {
+        return servers.isWaitingRoom(destination) || destination.equals(intended);
     }
 
     @Subscribe

@@ -54,12 +54,12 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -592,8 +592,8 @@ export function AccessPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={selected !== null} onOpenChange={(open) => (open ? null : setSelected(null))}>
-        <DialogContent className="max-w-2xl">
+      <ResponsiveDialog open={selected !== null} onOpenChange={(open) => (open ? null : setSelected(null))}>
+        <ResponsiveDialogContent className="max-w-2xl">
           {selected ? (
             <PersonGrants
               person={selected}
@@ -605,8 +605,8 @@ export function AccessPage() {
               }}
             />
           ) : null}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {revoking ? (
         <RevokeDialog
@@ -1017,7 +1017,7 @@ function PlaytimeDialog({
  *
  * Till asked for both doors (2026-09-13). They are not nested: the button inside the person dialog
  * CLOSES that dialog and opens this one at page level, because an AlertDialog inside an open
- * Dialog is two focus traps on one screen, and which of them gets the keyboard back afterwards is
+ * ResponsiveDialog is two focus traps on one screen, and which of them gets the keyboard back afterwards is
  * not something anybody here can verify without a browser.
  *
  * @param open when given, the dialog is controlled from outside and draws no trigger of its own
@@ -1119,8 +1119,8 @@ function PersonGrants({
 
   return (
     <>
-      <DialogHeader>
-        <DialogTitle className="flex flex-wrap items-center justify-between gap-3 pr-6">
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle className="flex flex-wrap items-center justify-between gap-3 pr-6">
           <PersonIdentity
             discordId={person.discordId}
             discordUsername={person.discordUsername}
@@ -1147,12 +1147,12 @@ function PersonGrants({
               Revoke
             </Button>
           ) : null}
-        </DialogTitle>
-        <DialogDescription>
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription>
           Request → tab → paid → access → linked. This is the fourth link: every period, its source
           and - for a purchase - the payment request it came from.
-        </DialogDescription>
-      </DialogHeader>
+        </ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
 
       <div className="flex flex-wrap gap-6">
         <Stat label="Guild" value={<MemberBadge state={person.memberState} />} />

@@ -22,13 +22,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -188,8 +188,8 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
 
   return (
     <>
-      <Dialog open={state.adding} onOpenChange={(open) => open || state.closeAdding()}>
-        <DialogContent className="sm:max-w-md">
+      <ResponsiveDialog open={state.adding} onOpenChange={(open) => open || state.closeAdding()}>
+        <ResponsiveDialogContent className="sm:max-w-md">
           <form
             className="flex flex-col gap-4"
             onSubmit={(event) => {
@@ -202,13 +202,13 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
               })
             }}
           >
-            <DialogHeader>
-              <DialogTitle>Add a security key</DialogTitle>
-              <DialogDescription>
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>Add a security key</ResponsiveDialogTitle>
+              <ResponsiveDialogDescription>
                 Registered to {state.relyingPartyId}, so it keeps working when Steward moves to its
                 production address.
-              </DialogDescription>
-            </DialogHeader>
+              </ResponsiveDialogDescription>
+            </ResponsiveDialogHeader>
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="new-key-label">What do you call this one?</Label>
@@ -229,7 +229,7 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
               </p>
             ) : null}
 
-            <DialogFooter className="gap-2 sm:gap-2">
+            <ResponsiveDialogFooter className="gap-2 sm:gap-2">
               <Button type="button" variant="ghost" onClick={state.closeAdding}>
                 Cancel
               </Button>
@@ -237,13 +237,13 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
                 <FingerprintIcon aria-hidden />
                 {add.isPending ? "Waiting for the key…" : "Register"}
               </Button>
-            </DialogFooter>
+            </ResponsiveDialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
-      <Dialog open={state.renaming !== null} onOpenChange={(open) => open || state.closeRenaming()}>
-        <DialogContent className="sm:max-w-md">
+      <ResponsiveDialog open={state.renaming !== null} onOpenChange={(open) => open || state.closeRenaming()}>
+        <ResponsiveDialogContent className="sm:max-w-md">
           <form
             className="flex flex-col gap-4"
             onSubmit={(event) => {
@@ -256,12 +256,12 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
               )
             }}
           >
-            <DialogHeader>
-              <DialogTitle>Rename this key</DialogTitle>
-              <DialogDescription>
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>Rename this key</ResponsiveDialogTitle>
+              <ResponsiveDialogDescription>
                 The name is how you tell two identical keys apart before removing one.
-              </DialogDescription>
-            </DialogHeader>
+              </ResponsiveDialogDescription>
+            </ResponsiveDialogHeader>
 
             <Input
               aria-label={`New name for ${state.renaming?.label ?? ""}`}
@@ -278,17 +278,17 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
               </p>
             ) : null}
 
-            <DialogFooter className="gap-2 sm:gap-2">
+            <ResponsiveDialogFooter className="gap-2 sm:gap-2">
               <Button type="button" variant="ghost" onClick={state.closeRenaming}>
                 Cancel
               </Button>
               <Button type="submit" disabled={rename.isPending || !state.newLabel.trim()}>
                 Save
               </Button>
-            </DialogFooter>
+            </ResponsiveDialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {/*
         A question rather than a button that just does it. Removing the LAST key is allowed - it

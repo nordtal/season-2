@@ -8,13 +8,13 @@ import { browserHasSecurityKeys } from "@/lib/webauthn"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog"
 
 /**
  * The question in front of anything that changes something.
@@ -92,21 +92,21 @@ export function StepUp() {
   const minutes = me.data?.stepUpMinutes ?? 5
 
   return (
-    <Dialog
+    <ResponsiveDialog
       open={asking}
       onOpenChange={(open) => {
         if (open || busy) return
         settle(new Error("Steward needs your security key for this, and the question was closed."))
       }}
     >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Steward needs your security key</DialogTitle>
-          <DialogDescription>
+      <ResponsiveDialogContent className="sm:max-w-md">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Steward needs your security key</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             This one changes something, so it is asked for. One touch covers everything for the
             next {minutes} minutes.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         {browserHasSecurityKeys() ? null : (
           <Alert variant="destructive">
@@ -127,7 +127,7 @@ export function StepUp() {
           </Alert>
         ) : null}
 
-        <DialogFooter className="gap-2 sm:gap-2">
+        <ResponsiveDialogFooter className="gap-2 sm:gap-2">
           <Button
             type="button"
             variant="ghost"
@@ -142,8 +142,8 @@ export function StepUp() {
             <FingerprintIcon aria-hidden />
             {busy ? "Waiting for the key…" : failure ? "Try again" : "Hold your key"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }

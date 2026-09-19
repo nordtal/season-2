@@ -222,9 +222,11 @@ export const NAVIGATION: NavGroup[] = [
         // a lead time.
         note: "Steward itself: who is signed in, their keys, and when the light turns.",
         icon: GearIcon,
-        // `notifications` stays as a keyword although the page has none. Somebody looking for them
-        // should land here, where the thresholds are, rather than nowhere - the search is about
-        // where to go looking, not about what to promise.
+        // `notifications` stays as a keyword although the page has none - and since steward/98 it
+        // is no longer "none anywhere": the switches are in the dialog behind the round picture,
+        // which is not a route and therefore cannot be an entry here. Landing on this page is
+        // still the closest a search can get, because the numbers the notifications fire on are
+        // exactly what stands here.
         keywords: ["settings", "account", "notifications"],
       },
     ],

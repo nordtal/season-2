@@ -279,6 +279,32 @@ export type WebPushPublicKey = {
   publicKey: string
 }
 
+/**
+ * What a notification can be about - `AlertType`'s own keys, spelled the same way.
+ *
+ * A union and not `string`: the notifications dialog draws one row per type with a label of its
+ * own, and a type added on the server without a label here should be a type error rather than a
+ * switch with no words next to it.
+ */
+export type AlertTypeKey = "service" | "backup" | "disk" | "memory" | "drift"
+
+/** `GET /api/web-push/preferences` - every type, with this account's effective answer. */
+export type WebPushPreferences = Record<AlertTypeKey, boolean>
+
+/**
+ * One row of `GET /api/web-push/devices` - a browser this account has subscribed.
+ *
+ * `device` is absent when the row predates the column or the browser sent no User-Agent; the
+ * interface writes its own words for that rather than the server storing a placeholder. `endpoint`
+ * is what this browser compares its own subscription against to know which row is itself.
+ */
+export type PushDevice = {
+  endpoint: string
+  device?: string
+  subscribedAt: string
+  lastSentAt?: string
+}
+
 /** Docker's own words, passed through. `state` is the container state, `status` its sentence. */
 export type Service = {
   service: string

@@ -19,6 +19,7 @@ import eu.nordtal.s2.steward.worker.host.HostSnapshot;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.plan.Change;
 import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
+import eu.nordtal.s2.steward.worker.plan.Topology;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -777,6 +778,7 @@ public final class WorkerApi implements AutoCloseable {
         row.put("hasConsole", Console.has(container.service()));
         row.put("drift", drift.state(container.service()).name());
         putOnline(row, container.service(), counts);
+        putStandby(row, container.service());
         // Same rule as `players`: the key is absent for a service nobody is holding, rather than
         // present and false. "Not held" and "held by nobody in particular" are different answers.
         final ServiceHold hold = holds.get(container.service());
@@ -807,6 +809,32 @@ public final class WorkerApi implements AutoCloseable {
     /** The counts and the list as they stand, or nothing at all - never a guessed zero. */
     private ServicesApi.Online online() {
         return players == null ? ServicesApi.Online.NONE : players.read();
+    }
+
+    /**
+     * Marks the row of a service whose normal state is <em>stopped</em>.
+     *
+     * <p><b>A standby is not down, it is off</b> (steward/125). {@code proxy-standby} and
+     * {@code limbo-standby} live in the {@code standby} compose profile and are stopped for all but
+     * a minute of the season, so a dashboard that reads "not running" as a fault reports two faults
+     * on a perfectly healthy stack - every day, which is precisely how a fault counter stops being
+     * read and how the third fault goes unnoticed.</p>
+     *
+     * <p>It has to be said <em>here</em> because it cannot be seen anywhere else: to Docker a
+     * stopped standby and a crashed backend are the same container state, and the frontend has
+     * nothing but the name to go on. {@link Topology#standbyNames()} is the only thing that knows,
+     * and this is the one place it is asked.</p>
+     *
+     * <p>Same rule as {@code players} and {@code hold}: the key is <em>absent</em> for every
+     * ordinary service rather than present and false, so {@code standby === true} is the only way
+     * to read it and a missing field can never be mistaken for a denial.</p>
+     *
+     * @param service the compose service name this row is about
+     */
+    static void putStandby(final Map<String, Object> row, final String service) {
+        if (Topology.standbyNames().contains(service)) {
+            row.put("standby", true);
+        }
     }
 
     /**

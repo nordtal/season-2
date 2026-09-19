@@ -418,6 +418,14 @@ export type Run = {
   status: string
   source: string
   requestedBy: string
+  /**
+   * `requestedBy`, already picked apart on the backend - see `StewardUi.ActorFields`, the same
+   * reading `ActionEntry` gives the unified actions feed. Never absent: an empty string is "none of
+   * this applies", not "the backend has not been asked yet" (Gson never drops one).
+   */
+  actorDiscordId: string
+  actorLabel: string
+  system: boolean
   requested: string
   notBefore: string
   started: string

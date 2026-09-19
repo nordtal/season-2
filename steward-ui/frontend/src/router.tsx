@@ -6,10 +6,9 @@ import {
   OperationsRunPage,
   OperationsPage,
   OperationsPlanPage,
-  OperationsBackupPage,
   OperationsRestorePage,
 } from "@/pages/operations"
-import { BackupsPage } from "@/pages/backups"
+import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
 import { ServicePage } from "@/pages/service"
 import { SettingsPage } from "@/pages/settings"
 import { SeasonPage } from "@/pages/season"
@@ -48,10 +47,15 @@ const routes = [
     path: "/operations/backups",
     component: BackupsPage,
   }),
+  // steward/95's second round: this used to be one archive file's own page, keyed by filename
+  // (`operations.tsx`'s OperationsBackupPage, left in place but unreferenced - see the ticket for
+  // why it was not deleted). A run writes several archives, not one, and "a backup" everywhere
+  // else on the Backups page already means the run - so the id here is a run id now, and the page
+  // lists that run's own archives, each one downloadable.
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/operations/backups/$id",
-    component: OperationsBackupPage,
+    component: BackupRunDetailPage,
   }),
   createRoute({
     getParentRoute: () => rootRoute,

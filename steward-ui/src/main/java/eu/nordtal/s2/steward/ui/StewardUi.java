@@ -35,6 +35,7 @@ import io.javalin.http.NotFoundResponse;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JavalinGson;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +60,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Nordtal Steward - the web interface.
@@ -559,6 +562,12 @@ public final class StewardUi {
             // What "tonight" means on the host, rather than in whatever zone the browser is in.
             cfg.routes.get("/api/schedule", ctx -> passThrough(ctx, "/api/schedule"), Gate.KEY_HELD);
             cfg.routes.get("/api/backups", ctx -> passThrough(ctx, "/api/backups"), Gate.KEY_HELD);
+
+            // steward/95's download: reading a backup off the disk is no more a write than
+            // watching its log is, so this is KEY_HELD like every other read here - not
+            // KEY_FRESH, which is for the routes that change something on the other side.
+            cfg.routes.get("/api/backups/{name}/download",
+                    ctx -> downloadBackup(ctx, ctx.pathParam("name")), Gate.KEY_HELD);
 
             // The log follow, proxied line by line. A redirect would be simpler and would hand the
             // browser the worker's address and its token, which is the one thing this whole split
@@ -1693,6 +1702,17 @@ public final class StewardUi {
         row.put("status", request.status().name());
         row.put("source", request.source().name());
         row.put("requestedBy", request.requestedBy());
+        // steward/95: the same three fields the unified actions feed already carries, and read the
+        // same way - see steward-worker's `ActionEntry.of(UpdateRequest)`, which this mirrors
+        // rather than a copy the two could drift from independently. It cannot be the same method
+        // call: that one lives in a different module, behind a package-private constructor, and
+        // reading `requested_by` apart is a five-line regex, not an algorithm worth a shared
+        // dependency for. Kept here so the frontend never has to parse this string itself and never
+        // has to show the raw id inside it - see PersonIdentity's own javadoc for why that matters.
+        final ActorFields actor = ActorFields.of(request.requestedBy());
+        row.put("actorDiscordId", actor.discordId);
+        row.put("actorLabel", actor.label);
+        row.put("system", actor.system);
         row.put("requested", String.valueOf(request.requested()));
         row.put("notBefore", String.valueOf(request.notBefore()));
         row.put("started", String.valueOf(request.started()));
@@ -1706,6 +1726,36 @@ public final class StewardUi {
                     () -> row.put("resultText", request.result()));
         }
         return row;
+    }
+
+    /**
+     * {@code requested_by}, picked apart into what the frontend's {@code PersonIdentity} needs: a
+     * Discord id to resolve through the roster, plain text when there is an actor but no id to
+     * resolve it by, or a flag saying Steward itself is the one credited.
+     *
+     * <p>Same rule as {@code ActionEntry.of(UpdateRequest)}: a row with no requester, or one
+     * prefixed {@code steward-worker}, is the nightly clock or an unattended sweep, never a
+     * person. Everything else is either {@code "name (1234567890123456789)"} - a name and the id
+     * that goes with it, written wherever a request is asked for through this interface - and the
+     * id in parentheses is exactly what must never reach the page as plain text (see
+     * {@code IDENTIFIER_PATTERN} in {@code identity.tsx}), or a bare tool identifier such as
+     * {@code "token-rotation-check"} with nothing to resolve it by.</p>
+     */
+    record ActorFields(@NotNull String discordId, @NotNull String label, boolean system) {
+
+        private static final Pattern TRAILING_SNOWFLAKE = Pattern.compile("^.*\\((\\d{17,20})\\)\\s*$");
+
+        static ActorFields of(final String requestedBy) {
+            final boolean system = requestedBy == null || requestedBy.startsWith("steward-worker");
+            if (system) {
+                return new ActorFields("", "", true);
+            }
+            final Matcher match = TRAILING_SNOWFLAKE.matcher(requestedBy);
+            if (match.matches()) {
+                return new ActorFields(match.group(1), "", false);
+            }
+            return new ActorFields("", requestedBy, false);
+        }
     }
 
     /** The body of {@code POST /api/updates}. */
@@ -1838,6 +1888,41 @@ public final class StewardUi {
     private void passThrough(final Context ctx, final String path) {
         ctx.contentType("application/json").result(worker.get(path));
     }
+
+    /**
+     * One archive, proxied straight through rather than parsed a second time.
+     *
+     * <p>The filename validation and the path-containment check both live on
+     * {@code WorkerApi#downloadBackup} and only there - repeating a naming pattern on both sides of
+     * a proxy is exactly the kind of second copy that drifts out of step with the first one. This
+     * side trusts nothing about {@code name} beyond passing it on; a bad one comes back as the
+     * {@link InternalClient.Failure} the route above already knows how to turn into a response.</p>
+     *
+     * <p>Streamed, never buffered - {@code worker.stream} is the same call the log follow makes,
+     * reused rather than re-invented, because steward-ui has no more business holding a few hundred
+     * megabytes in memory than steward-worker does.</p>
+     *
+     * <h2>The one thing this side does check, and it is not the naming rule</h2>
+     * {@code name} becomes two things here that it is not on the worker: a segment of a URL this
+     * process builds, and the text of a response header. So it is held to the shape of a filename
+     * - letters, digits, dot, dash, underscore - before either happens. That is not a copy of what
+     * an archive is called (the worker owns that, and a name this accepts can still be refused
+     * there); it is the alphabet a path segment and a header value are allowed to be written in.
+     * Nothing can reach it today - Jetty refuses an encoded separator with 400 long before this
+     * runs, measured in {@code WorkerApiIntegrationTest#downloadRefusesAnEncodedTraversal} - which
+     * is exactly why it is three lines and not a test somebody has to keep red.
+     */
+    private void downloadBackup(final Context ctx, final String name) {
+        if (!FILENAME.matcher(name).matches()) {
+            throw new BadRequestResponse("not the name of a backup: " + name);
+        }
+        ctx.contentType("application/octet-stream")
+                .header("Content-Disposition", "attachment; filename=\"" + name + "\"")
+                .result(worker.stream("/api/backups/" + name + "/download"));
+    }
+
+    /** What a name is allowed to be made of before it becomes a URL segment and a header value. */
+    private static final Pattern FILENAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
 
     private void follow(final io.javalin.http.sse.SseClient client, final Upstream upstream,
                         final String name, final String query) {

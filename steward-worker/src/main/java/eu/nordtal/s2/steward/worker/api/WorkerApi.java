@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.online.OnlinePlayer;
 import eu.nordtal.s2.steward.worker.backup.NightlyClock;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
+import eu.nordtal.s2.steward.worker.backup.TarSnapshots;
 import eu.nordtal.s2.steward.worker.docker.Console;
 import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
@@ -17,6 +18,7 @@ import eu.nordtal.s2.steward.worker.host.HostSnapshot;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
+import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.http.sse.SseClient;
@@ -452,6 +454,12 @@ public final class WorkerApi implements AutoCloseable {
             // report is a list of things somebody meant to write.
             config.routes.get("/api/backups", ctx -> ctx.json(archives()));
 
+            // steward/95's download: one archive, streamed rather than read into memory - these are
+            // hundreds of megabytes. `{name}` is a single path segment, so a literal `/` in it is
+            // already refused by the router before this ever runs; downloadBackup itself does not
+            // rely on that alone. See its own javadoc for the two checks it does make.
+            config.routes.get("/api/backups/{name}/download", ctx -> downloadBackup(ctx, ctx.pathParam("name")));
+
             // steward-ui's push watch (steward/98): a small derived reading, not the service table
             // again - see AlertLevel's own javadoc for why it is a subset of health.ts's summarise
             // and reads the same maps this class already built rather than a copy of their shape.
@@ -747,6 +755,55 @@ public final class WorkerApi implements AutoCloseable {
         all.sort((left, right) -> String.valueOf(right.get("modified"))
                 .compareTo(String.valueOf(left.get("modified"))));
         return all;
+    }
+
+    /**
+     * Streams one archive or dump out of {@link #backups}, for steward/95's detail page.
+     *
+     * <h2>Two checks, not one</h2>
+     * {@link eu.nordtal.s2.steward.worker.backup.TarSnapshots#isFinishedArchive} refuses anything
+     * that is not a finished archive name - but that regex's {@code .} matches a {@code /} exactly
+     * as readily as any other character, so {@code ../../etc/passwd-20260913T044507Z.tar.zst}
+     * matches it too (proven in {@code TarSnapshotsTest}). The second check is the one that
+     * actually stops that: resolve the name against {@link #backups} and refuse anything whose
+     * normalised path has left that directory. Neither check alone is the defence; both together
+     * are.
+     *
+     * <h2>Streamed, never buffered</h2>
+     * These files are hundreds of megabytes, so the body is an open {@link java.io.InputStream}
+     * handed to {@code ctx.result} rather than a byte array read in full first. Javalin's own
+     * documentation says {@code ctx.result(InputStream)} writes and closes the stream for the
+     * caller; that was not independently re-verified against the Javalin 7.2.3 jar in this session
+     * and is worth a second look before this route sees real traffic (noted in the ticket).
+     */
+    private void downloadBackup(final Context ctx, final String name) {
+        if (!TarSnapshots.isFinishedArchive(name)) {
+            throw new BadRequestResponse("not the name of a finished backup: " + name);
+        }
+        final Path resolved = backups.resolve(name).normalize();
+        if (!resolved.startsWith(backups.normalize()) || !resolved.getParent().equals(backups.normalize())) {
+            // Never reached by a plain filename, since `{name}` cannot itself carry a `/` - this
+            // is the second, independent line the javadoc above promises, for the day the first
+            // one is weakened without anybody noticing.
+            throw new BadRequestResponse("not the name of a finished backup: " + name);
+        }
+        if (!Files.isRegularFile(resolved)) {
+            throw new NotFoundResponse("no such backup: " + name);
+        }
+        final long size;
+        try {
+            size = Files.size(resolved);
+        } catch (IOException unreadable) {
+            throw new NotFoundResponse("no such backup: " + name);
+        }
+        ctx.contentType("application/octet-stream");
+        ctx.header("Content-Disposition", "attachment; filename=\"" + resolved.getFileName() + "\"");
+        ctx.header("Content-Length", String.valueOf(size));
+        try {
+            ctx.result(Files.newInputStream(resolved));
+        } catch (IOException gone) {
+            throw new NotFoundResponse("no such backup: " + name);
+        }
     }
 
     private Optional<String> containerOf(final String service) {

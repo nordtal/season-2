@@ -32,6 +32,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p><b>A failure here is not a style complaint.</b> It means a player parked on the standby during
  * a swap is invisible to whatever that line belongs to - and the way that shows up in the world is
  * somebody sitting in a waiting room that never lets them out.</p>
+ *
+ * <h2>The second rule is the root of the first, and it is the one that caught a real miss</h2>
+ * The shape rule above looks for the comparison. It found four places and it missed a fifth,
+ * {@code RouteIntents}, because that class never wrote the comparison: it was handed
+ * {@code gateConfig.serverLimbo()} at construction and kept it in a field called
+ * {@code waitingRoom}. The consequence was the worst one available - an evacuation into
+ * {@code limbo-standby} refused for every non-admin on the network, by the class whose whole job is
+ * to make routing safe - and no regex over the call site could have seen it.
+ *
+ * <p>So the second rule is on the source rather than on the use: <b>{@code GateSpec#serverLimbo()}
+ * is read by {@link PhaseServers} and by the validation that checks it is not blank, and by nothing
+ * else.</b> One name cannot spread if only one class may ask for it.</p>
  */
 class NobodyComparesAgainstOneLimboTest {
 
@@ -55,24 +67,16 @@ class NobodyComparesAgainstOneLimboTest {
     @Test
     @DisplayName("no proxy source decides 'is this the waiting room' against one name")
     void nobodyComparesAgainstTheOneLimbo() throws IOException {
-        final Path sources = repositoryRoot().resolve("proxy/src/main");
-        assertTrue(Files.isDirectory(sources), sources + " does not exist - if the module moved,"
-                + " this path has to move with it, because a missing directory is a check that"
-                + " silently stops running");
-
         final List<String> offences = new ArrayList<>();
-        try (Stream<Path> tree = Files.walk(sources)) {
-            for (final Path file : tree.filter(Files::isRegularFile)
-                    .filter(path -> path.toString().endsWith(".java")).toList()) {
-                final String relative = repositoryRoot().relativize(file).toString();
-                if (EXEMPT.containsKey(relative)) {
-                    continue;
-                }
-                final Matcher matcher = FORBIDDEN.matcher(blankComments(
-                        Files.readString(file, StandardCharsets.UTF_8)));
-                while (matcher.find()) {
-                    offences.add(relative + ": " + matcher.group().trim());
-                }
+        for (final Path file : proxySources()) {
+            final String relative = repositoryRoot().relativize(file).toString();
+            if (EXEMPT.containsKey(relative)) {
+                continue;
+            }
+            final Matcher matcher = FORBIDDEN.matcher(blankComments(
+                    Files.readString(file, StandardCharsets.UTF_8)));
+            while (matcher.find()) {
+                offences.add(relative + ": " + matcher.group().trim());
             }
         }
 
@@ -85,12 +89,72 @@ class NobodyComparesAgainstOneLimboTest {
     }
 
     /**
+     * {@code serverLimbo()} anywhere, however it is spelled - {@code config.serverLimbo()},
+     * {@code gateConfig.serverLimbo()}, a method reference.
+     */
+    private static final Pattern READS_THE_CONFIG_KEY = Pattern.compile("serverLimbo\\s*\\(");
+
+    /**
+     * The two files allowed to ask {@code gate.yml} for the one limbo name, and why.
+     *
+     * <p>Neither of them can spread it: one turns it into a {@link PhaseServers}, which is the
+     * object every other class is given, and the other only asks whether it is blank.</p>
+     */
+    private static final Map<String, String> MAY_READ_THE_CONFIG_KEY = Map.of(
+            "proxy/src/main/java/eu/nordtal/s2/proxy/routing/PhaseServers.java",
+            "builds the object everybody else is handed",
+            "proxy/src/main/java/eu/nordtal/s2/proxy/config/Configs.java",
+            "refuses a blank name at load, which is a check and not a use",
+            "proxy/src/main/java/eu/nordtal/s2/proxy/config/GateSpec.java",
+            "declares the key");
+
+    @Test
+    @DisplayName("only PhaseServers reads gate.yml's single limbo name out of the config")
+    void onlyPhaseServersReadsTheConfigKey() throws IOException {
+        final List<String> offences = new ArrayList<>();
+        for (final Path file : proxySources()) {
+            final String relative = repositoryRoot().relativize(file).toString();
+            if (MAY_READ_THE_CONFIG_KEY.containsKey(relative)) {
+                continue;
+            }
+            final Matcher matcher = READS_THE_CONFIG_KEY.matcher(blankComments(
+                    Files.readString(file, StandardCharsets.UTF_8)));
+            if (matcher.find()) {
+                offences.add(relative);
+            }
+        }
+
+        assertTrue(offences.isEmpty(),
+                "these files take the name of ONE waiting room straight out of gate.yml. That is"
+                        + " how RouteIntents ended up refusing every evacuation into"
+                        + " 'limbo-standby': not by comparing against one name, but by being"
+                        + " handed one and keeping it. Take PhaseServers instead and ask"
+                        + " isWaitingRoom:" + System.lineSeparator()
+                        + String.join(System.lineSeparator(), offences));
+    }
+
+    /**
      * Comments blanked rather than removed, so a match's position is still the position in the
      * file. The same shape the frontend's source rules use, for the same reason: a rule that reads
      * its own explanation as a violation teaches people to stop explaining.
      */
     private static String blankComments(final String source) {
         return source.replaceAll("(?s)/\\*.*?\\*/", "").replaceAll("(?m)//.*$", "");
+    }
+
+    /**
+     * Every {@code .java} under {@code proxy/src/main}, {@code src/main/templates} included - the
+     * proxy's annotated plugin class lives there, and it is the file that wired the miss.
+     */
+    private static List<Path> proxySources() throws IOException {
+        final Path sources = repositoryRoot().resolve("proxy/src/main");
+        assertTrue(Files.isDirectory(sources), sources + " does not exist - if the module moved,"
+                + " this path has to move with it, because a missing directory is a check that"
+                + " silently stops running");
+        try (Stream<Path> tree = Files.walk(sources)) {
+            return tree.filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".java")).toList();
+        }
     }
 
     /** Anchors on the directory holding settings.gradle.kts, never on the nearest file by name. */

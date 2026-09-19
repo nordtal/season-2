@@ -238,7 +238,7 @@ public final class ProxyPlugin {
         if (offer == null) {
             logger.warn("pack.yml#enabled is false: NO RESOURCE PACK IS OFFERED. Players still pass "
                     + "through '{}', but every glyph in the tab list, the nametags, the boards and "
-                    + "the HUD will render as a missing-glyph box.", gateConfig.serverLimbo());
+                    + "the HUD will render as a missing-glyph box.", phaseServers.limbo());
         } else {
             logger.info("Offering the resource pack from {} (sha1 {}, forced: {})", packConfig.url(),
                     packConfig.sha1(), packConfig.force());
@@ -260,7 +260,7 @@ public final class ProxyPlugin {
         // own /server is open to every player, so /server hunger-games during the SMP phase put
         // somebody there past the phase, past that backend's access check and past the pack.
         final RouteIntents intents =
-                new RouteIntents(roster, gateConfig.serverLimbo(), logger);
+                new RouteIntents(roster, phaseServers, logger);
         proxy.getEventManager().register(this, intents);
 
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
@@ -594,7 +594,7 @@ public final class ProxyPlugin {
                         + "{}s, waiting room '{}' swept every {}s)",
                 phaseWatch.lastKnown(), databaseConfig.queryTimeoutSeconds(),
                 gateConfig.fallbackCacheWindowMinutes(), gateConfig.expiryCheckIntervalSeconds(),
-                pollInterval.toSeconds(), flushInterval.toSeconds(), gateConfig.serverLimbo(),
+                pollInterval.toSeconds(), flushInterval.toSeconds(), phaseServers.limbo(),
                 sweepInterval.toSeconds());
         logger.info("The network takes {} players, the browser is told so, and every Paper backend "
                         + "is set to the same number. MOTD refreshed every {}s.",

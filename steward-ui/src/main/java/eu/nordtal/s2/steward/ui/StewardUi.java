@@ -18,7 +18,9 @@ import eu.nordtal.s2.steward.ui.auth.Sessions;
 import eu.nordtal.s2.steward.ui.auth.WebAuthn;
 import eu.nordtal.s2.steward.ui.discord.DiscordApi;
 import eu.nordtal.s2.steward.ui.discord.DiscordDirectory;
+import eu.nordtal.s2.steward.ui.push.AlertType;
 import eu.nordtal.s2.steward.ui.push.AlertWatch;
+import eu.nordtal.s2.steward.ui.push.PushPreferences;
 import eu.nordtal.s2.steward.ui.push.PushSubscriptions;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.steward.ui.config.Configs;
@@ -177,6 +179,7 @@ public final class StewardUi {
      * {@code UiSpec.WebPushSpec}'s own comment.</p>
      */
     private final PushSubscriptions pushSubscriptions;
+    private final PushPreferences pushPreferences;
     private final com.interaso.webpush.VapidKeys vapidKeys;
     private final AlertWatch alertWatch;
 
@@ -245,9 +248,16 @@ public final class StewardUi {
         this.deployments = new DeployerApi(deployer, data, ctx -> account(ctx).orElseThrow(),
                 !config.deployer().token().isBlank());
         this.pushSubscriptions = data == null ? null : new PushSubscriptions(data.dataSource());
+        this.pushPreferences = data == null ? null : new PushPreferences(data.dataSource());
         this.vapidKeys = vapidKeysOf(config.webPush());
+        // THE SAME THREE NUMBERS /api/settings ALREADY ANSWERS, and the same three the start page's
+        // tile compares against - handed to the watch rather than re-read anywhere, so that a lock
+        // screen and a browser tab can never disagree about what "full" means. See Alerts.
         this.alertWatch = (data == null || vapidKeys == null) ? null
-                : new AlertWatch(worker, pushSubscriptions, config.webPush().subject(), vapidKeys);
+                : new AlertWatch(worker, pushSubscriptions, pushPreferences,
+                        config.webPush().subject(), vapidKeys,
+                        config.alerts().diskPercent(), config.alerts().memoryPercent(),
+                        config.alerts().backupAgeHours());
     }
 
     /**
@@ -527,6 +537,15 @@ public final class StewardUi {
             cfg.routes.get("/api/web-push/public-key", this::webPushPublicKey, Gate.KEY_HELD);
             cfg.routes.post("/api/web-push/subscribe", this::subscribeWebPush, Gate.KEY_FRESH);
             cfg.routes.delete("/api/web-push/subscribe", this::unsubscribeWebPush, Gate.KEY_FRESH);
+
+            // The notifications dialog behind the avatar (steward/98, Till's review of 2026-09-18):
+            // every browser of this account, which kinds of alert it wants, and one send it asked
+            // for. Reading is KEY_HELD, the two writes are KEY_FRESH - and a test send IS a write:
+            // it makes this service reach out to a push service in somebody's name.
+            cfg.routes.get("/api/web-push/devices", this::webPushDevices, Gate.KEY_HELD);
+            cfg.routes.get("/api/web-push/preferences", this::webPushPreferences, Gate.KEY_HELD);
+            cfg.routes.put("/api/web-push/preferences", this::setWebPushPreference, Gate.KEY_FRESH);
+            cfg.routes.post("/api/web-push/test", this::testWebPush, Gate.KEY_FRESH);
 
             // --- everything about a container comes from steward-worker -----------------------
             cfg.routes.get("/api/services", ctx -> passThrough(ctx, "/api/services"), Gate.KEY_HELD);
@@ -1581,7 +1600,10 @@ public final class StewardUi {
             throw new BadRequestResponse("that is not a PushSubscription - endpoint and"
                     + " keys.p256dh/keys.auth are required");
         }
-        pushSubscriptions.subscribe(who.discordId(), body.endpoint, body.keys.p256dh, body.keys.auth);
+        // The User-Agent is read here and stored nowhere: PushSubscriptions turns it into a short
+        // name for the device list and keeps only that. See Devices for what that name is.
+        pushSubscriptions.subscribe(who.discordId(), body.endpoint, body.keys.p256dh, body.keys.auth,
+                ctx.header("User-Agent"));
         data.audit().record("WEB_PUSH_SUBSCRIBE", who.discordId(), who.discordId(), null,
                 "subscribed a browser to the traffic light's web push");
         ctx.status(204);
@@ -1600,6 +1622,118 @@ public final class StewardUi {
         data.audit().record("WEB_PUSH_UNSUBSCRIBE", who.discordId(), who.discordId(), null,
                 "unsubscribed a browser from the traffic light's web push");
         ctx.status(204);
+    }
+
+    /**
+     * {@code GET /api/web-push/devices} - every browser of this account, named.
+     *
+     * <p>The endpoint is sent along because it is what the browser compares its own
+     * {@code pushManager.getSubscription()} against to mark one row as "this device". It is not a
+     * secret - see {@code V26} - and every write that names one checks the account as well.</p>
+     */
+    private void webPushDevices(final Context ctx) {
+        final Sessions.Session who = requireSession(ctx);
+        final List<Map<String, Object>> listed = new ArrayList<>();
+        for (final PushSubscriptions.Subscription subscription : pushSubscriptions.of(who.discordId())) {
+            final Map<String, Object> one = new LinkedHashMap<>();
+            one.put("endpoint", subscription.endpoint());
+            // Absent rather than a placeholder when the row predates V30 or the request sent no
+            // User-Agent: the interface writes its own words for that, and a column holding the
+            // English word for "unknown" would read like a name everywhere that only reads it.
+            if (subscription.device() != null) {
+                one.put("device", subscription.device());
+            }
+            one.put("subscribedAt", subscription.createdAt().toString());
+            if (subscription.lastSentAt() != null) {
+                one.put("lastSentAt", subscription.lastSentAt().toString());
+            }
+            listed.add(one);
+        }
+        ctx.json(listed);
+    }
+
+    /**
+     * {@code GET /api/web-push/preferences} - which kinds of alert this account wants.
+     *
+     * <p>Every type is answered, with the effective value: an account that has never opened the
+     * dialog gets {@link AlertType}'s own defaults rather than an empty object the browser would
+     * have to know the defaults to fill in. See {@code V30} on why no row is written for it.</p>
+     */
+    private void webPushPreferences(final Context ctx) {
+        final Sessions.Session who = requireSession(ctx);
+        final Map<String, Boolean> answer = new LinkedHashMap<>();
+        pushPreferences.of(who.discordId())
+                .forEach((type, enabled) -> answer.put(type.key(), enabled));
+        ctx.json(answer);
+    }
+
+    /** {@code PUT /api/web-push/preferences} - one switch, for the account that is signed in. */
+    private void setWebPushPreference(final Context ctx) {
+        final Sessions.Session who = requireSession(ctx);
+        final PushPreferenceBody body = ctx.bodyAsClass(PushPreferenceBody.class);
+        final AlertType type = body == null ? null : AlertType.of(body.type);
+        if (type == null || body.enabled == null) {
+            throw new BadRequestResponse("a notification preference is a known type and an enabled"
+                    + " flag");
+        }
+        pushPreferences.set(who.discordId(), type, body.enabled);
+        ctx.json(Map.of("type", type.key(), "enabled", body.enabled));
+    }
+
+    /**
+     * {@code POST /api/web-push/test} - one notification of one type, to one of this account's own
+     * browsers.
+     *
+     * <p>Scoped by {@code discordId} AND endpoint, like the unsubscribe beside it: an endpoint is
+     * not a secret, and without the account in the lookup this would be a way to make somebody
+     * else's phone buzz. The preference switch is deliberately not consulted - see
+     * {@link AlertWatch#sendSample}.</p>
+     */
+    private void testWebPush(final Context ctx) {
+        final Sessions.Session who = requireSession(ctx);
+        if (alertWatch == null) {
+            throw new NotFoundResponse("web-push is not configured on this deployment yet - see"
+                    + " web-push in steward-ui.yml");
+        }
+        final PushTestBody body = ctx.bodyAsClass(PushTestBody.class);
+        final AlertType type = body == null ? null : AlertType.of(body.type);
+        if (body == null || body.endpoint == null || body.endpoint.isBlank() || type == null) {
+            throw new BadRequestResponse("a test send is an endpoint of this account and a known"
+                    + " notification type");
+        }
+        final PushSubscriptions.Subscription subscription =
+                pushSubscriptions.find(who.discordId(), body.endpoint);
+        if (subscription == null) {
+            throw new NotFoundResponse("this account has no web push subscription of that endpoint");
+        }
+        final AlertWatch.Delivery delivery = alertWatch.sendSample(subscription, type);
+        if (delivery == AlertWatch.Delivery.GONE) {
+            // The row is already gone - sendSample removed it, the same way a failed alert push
+            // does. Saying so is the point: the browser's next question is whether to subscribe
+            // again, and a silent 204 here would have it wait for a notification that can never come.
+            throw new NotFoundResponse("that browser's subscription no longer exists and has been"
+                    + " removed - subscribe again on it");
+        }
+        if (delivery == AlertWatch.Delivery.FAILED) {
+            throw new BadRequestResponse("the push service did not accept it - see the log of"
+                    + " steward-ui for what it said");
+        }
+        data.audit().record("WEB_PUSH_TEST", who.discordId(), who.discordId(), null,
+                "sent a test " + type.key() + " notification to one of its own browsers");
+        ctx.status(204);
+    }
+
+    /** The body of {@code PUT /api/web-push/preferences}. */
+    private static final class PushPreferenceBody {
+        private String type;
+        /** Boxed: a missing field is a bad request here, not a false. */
+        private Boolean enabled;
+    }
+
+    /** The body of {@code POST /api/web-push/test}. */
+    private static final class PushTestBody {
+        private String endpoint;
+        private String type;
     }
 
     /**

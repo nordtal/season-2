@@ -45,7 +45,21 @@ public final class PushSubscriptions {
      */
     public void subscribe(final @NotNull String discordId, final @NotNull String endpoint,
                           final @NotNull String p256dh, final @NotNull String auth) {
-        dao.add(endpoint, discordId, p256dh, auth);
+        subscribe(discordId, endpoint, p256dh, auth, null);
+    }
+
+    /**
+     * The same, told what the subscribing request said about itself.
+     *
+     * <p>The User-Agent is turned into a name here and the string itself is never stored - see
+     * {@link Devices} for what that name is and why it is not typed by a person. A request without
+     * one leaves the column null, and the interface then says it does not know rather than
+     * inventing something.</p>
+     */
+    public void subscribe(final @NotNull String discordId, final @NotNull String endpoint,
+                          final @NotNull String p256dh, final @NotNull String auth,
+                          final @Nullable String userAgent) {
+        dao.add(endpoint, discordId, p256dh, auth, Devices.nameOf(userAgent));
         log.info("{} subscribed a browser to web push - {} subscription(s) on that account now",
                 discordId, dao.forAccount(discordId).size());
     }
@@ -55,9 +69,20 @@ public final class PushSubscriptions {
         return dao.all();
     }
 
-    /** One account's own subscriptions, oldest first - the settings page's own list. */
+    /** One account's own subscriptions, oldest first - the notifications dialog's own list. */
     public @NotNull List<Subscription> of(final @NotNull String discordId) {
         return dao.forAccount(discordId);
+    }
+
+    /**
+     * One subscription of this account, or null - what a test send is aimed at.
+     *
+     * <p>Looked up by endpoint <b>and</b> account, never by endpoint alone: see
+     * {@link PushSubscriptionDao#find}.</p>
+     */
+    public @Nullable Subscription find(final @NotNull String discordId,
+                                       final @NotNull String endpoint) {
+        return dao.find(endpoint, discordId);
     }
 
     /**
@@ -90,6 +115,7 @@ public final class PushSubscriptions {
                                @NotNull String p256dh,
                                @NotNull String auth,
                                @ColumnName("created_at") @NotNull Instant createdAt,
-                               @ColumnName("last_sent_at") @Nullable Instant lastSentAt) {
+                               @ColumnName("last_sent_at") @Nullable Instant lastSentAt,
+                               @Nullable String device) {
     }
 }

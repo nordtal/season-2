@@ -37,9 +37,13 @@ class AlertWatchTest {
     private static PGSimpleDataSource dataSource;
 
     private PushSubscriptions subscriptions;
+    private PushPreferences preferences;
     private FakeSource source;
     private FakeSender sender;
     private AlertWatch watch;
+
+    /** The same three numbers steward-ui.yml ships with - see UiSpec.AlertSpec. */
+    private static final Alerts.Thresholds THRESHOLDS = new Alerts.Thresholds(85, 90, 36);
 
     @BeforeAll
     static void startDatabase() {
@@ -71,30 +75,32 @@ class AlertWatchTest {
         try (var connection = dataSource.getConnection();
              var statement = connection.createStatement()) {
             statement.execute("TRUNCATE steward_push_subscription");
+            statement.execute("TRUNCATE steward_push_preference");
         } catch (final java.sql.SQLException failure) {
             throw new RuntimeException(failure);
         }
         subscriptions = new PushSubscriptions(dataSource);
         subscriptions.subscribe("42", "https://push.example/a", "p-a", "a-a");
         subscriptions.subscribe("43", "https://push.example/b", "p-b", "a-b");
+        preferences = new PushPreferences(dataSource);
         source = new FakeSource();
         sender = new FakeSender();
-        watch = new AlertWatch(source, subscriptions, sender);
+        watch = new AlertWatch(source, subscriptions, preferences, sender, THRESHOLDS);
     }
 
     @Test
     @DisplayName("a traffic-light change sends to every subscription; an unchanged reading sends to none")
     void trafficLightChangeTriggersASend() {
-        source.next("ok", "", "/");
+        source.allClear();
         watch.poll();
         assertEquals(0, sender.sent.size(), "the very first poll has nothing to compare against and"
                 + " sent anyway");
 
-        source.next("ok", "", "/");
+        source.allClear();
         watch.poll();
         assertEquals(0, sender.sent.size(), "an unchanged reading was sent as if it had changed");
 
-        source.next("down", "smp", "/services/smp");
+        source.next(trigger("service", "down", "smp", "/services/smp"));
         watch.poll();
         assertEquals(2, sender.sent.size(), "a traffic-light change did not reach both subscriptions");
         assertTrue(sender.sent.stream().anyMatch(call -> call.endpoint.equals("https://push.example/a")));
@@ -110,9 +116,9 @@ class AlertWatchTest {
     void expiredSubscriptionIsRemoved() {
         sender.expire("https://push.example/a");
 
-        source.next("ok", "", "/");
+        source.allClear();
         watch.poll();
-        source.next("down", "backups", "database dump");
+        source.next(trigger("backup", "down", "database dump", "/operations"));
         watch.poll();
 
         final List<String> left = subscriptions.all().stream()
@@ -121,12 +127,165 @@ class AlertWatchTest {
                 "the subscription that answered EXPIRED was not removed, or the other one was too");
     }
 
+    @Test
+    @DisplayName("a type switched off on one account reaches that account's browsers and no other")
+    void aSwitchedOffTypeIsNotSentToThatAccount() {
+        preferences.set("42", AlertType.SERVICE, false);
+
+        source.allClear();
+        watch.poll();
+        source.next(trigger("service", "down", "smp", "/services/smp"));
+        watch.poll();
+
+        assertEquals(List.of("https://push.example/b"),
+                sender.sent.stream().map(call -> call.endpoint).toList(),
+                "a service alert reached an account that had switched service notifications off,"
+                        + " or missed the account that had not");
+    }
+
+    @Test
+    @DisplayName("drift is off by default, so nobody is woken by it until somebody asks to be")
+    void driftIsOffByDefault() {
+        source.allClear();
+        watch.poll();
+        source.next(trigger("drift", "warn", "caddy", "/operations"));
+        watch.poll();
+
+        assertEquals(0, sender.sent.size(),
+                "an image drift was pushed to accounts that never switched drift on - see"
+                        + " AlertType's own defaults");
+    }
+
+    @Test
+    @DisplayName("an account that switched drift on does get it")
+    void driftReachesTheAccountThatAskedForIt() {
+        preferences.set("43", AlertType.DRIFT, true);
+
+        source.allClear();
+        watch.poll();
+        source.next(trigger("drift", "warn", "caddy", "/operations"));
+        watch.poll();
+
+        assertEquals(List.of("https://push.example/b"),
+                sender.sent.stream().map(call -> call.endpoint).toList(),
+                "the account that switched drift ON did not get it, or the one that did not switch"
+                        + " it on did");
+    }
+
+    @Test
+    @DisplayName("two types moving in one poll are two notifications, not one")
+    void everyTypeThatMovedIsItsOwnNotification() {
+        source.allClear();
+        watch.poll();
+        source.next(List.of(
+                trigger("service", "down", "smp", "/services/smp"),
+                trigger("backup", "down", "backups", "/operations")));
+        watch.poll();
+
+        // Two subscriptions, both accounts at their defaults, two types: four sends, and the
+        // payloads say which is which. Before steward/98's review the worker answered only the
+        // worst trigger, so the backup would have been invisible for as long as smp was down.
+        assertEquals(4, sender.sent.size(), "a poll in which two types moved did not send both");
+        assertTrue(sender.sent.stream().anyMatch(call -> call.payload.contains("\"service\"")),
+                "no notification named the service type: " + sender.sent);
+        assertTrue(sender.sent.stream().anyMatch(call -> call.payload.contains("\"backup\"")),
+                "no notification named the backup type: " + sender.sent);
+    }
+
+    @Test
+    @DisplayName("an all-clear still names what it is clearing")
+    void anAllClearNamesWhatCleared() {
+        source.allClear();
+        watch.poll();
+        source.next(trigger("service", "down", "smp", "/services/smp"));
+        watch.poll();
+        sender.sent.clear();
+
+        source.allClear();
+        watch.poll();
+
+        // Till, 2026-09-19: the first line of a notification is the thing and what is up with it.
+        // The all-clear used to carry an empty subject, which the service worker can only draw as
+        // "Steward is clear" - and the one notification somebody waits for after a service went
+        // down is the one saying THAT service is back.
+        assertEquals(2, sender.sent.size(), "the all-clear did not reach both subscriptions");
+        assertTrue(sender.sent.getFirst().payload.contains("\"subject\":\"smp\""),
+                "the all-clear forgot what it was clearing: " + sender.sent.getFirst().payload);
+        assertTrue(sender.sent.getFirst().payload.contains("\"level\":\"ok\""),
+                "the all-clear is not an ok: " + sender.sent.getFirst().payload);
+    }
+
+    @Test
+    @DisplayName("the disk threshold is this service's own, applied to the worker's raw percentage")
+    void theDiskThresholdIsAppliedHere() {
+        source.next(new AlertReading(List.of(), 10.0, 10.0, 1.0));
+        watch.poll();
+        source.next(new AlertReading(List.of(), 84.9, 10.0, 1.0));
+        watch.poll();
+        assertEquals(0, sender.sent.size(),
+                "a disk below the configured 85 % was pushed as if it were over");
+
+        source.next(new AlertReading(List.of(), 85.0, 10.0, 1.0));
+        watch.poll();
+        assertEquals(2, sender.sent.size(),
+                "a disk AT the configured 85 % was not pushed - health.ts compares with >= and so"
+                        + " must this");
+        assertTrue(sender.sent.getFirst().payload.contains("disk"),
+                "the payload is not about the disk: " + sender.sent.getFirst().payload);
+    }
+
+    @Test
+    @DisplayName("a backup older than the permitted age is the backup type, not a sixth one")
+    void anOldBackupIsTheBackupType() {
+        source.next(new AlertReading(List.of(), 10.0, 10.0, 1.0));
+        watch.poll();
+        source.next(new AlertReading(List.of(), 10.0, 10.0, 37.0));
+        watch.poll();
+
+        assertEquals(2, sender.sent.size(), "a backup past the permitted age did not push");
+        assertTrue(sender.sent.getFirst().payload.contains("\"backup\""),
+                "an old backup was not sent as the backup type: " + sender.sent.getFirst().payload);
+    }
+
+    @Test
+    @DisplayName("a measurement the worker could not take raises no alarm")
+    void anUnmeasuredNumberRaisesNothing() {
+        source.allClear();
+        watch.poll();
+        // The worker leaves the three numbers out exactly when it could not read them. "Nobody
+        // looked" is not "the disk is full", and an unknown backup age is not an infinitely old
+        // backup - the missing backup itself is a trigger of its own and says so in words.
+        source.next(new AlertReading(List.of(), null, null, null));
+        watch.poll();
+
+        assertEquals(0, sender.sent.size(),
+                "a reading with no measurements in it woke somebody up: " + sender.sent);
+    }
+
+    private static AlertReading.Trigger trigger(final String kind, final String level,
+                                                final String subject, final String path) {
+        return new AlertReading.Trigger(kind, level, subject, path);
+    }
+
     /** A worker that answers whatever {@link #next} queued, in order. */
     private static final class FakeSource implements AlertLevelSource {
         private final Deque<AlertReading> queue = new ArrayDeque<>();
 
-        void next(final String level, final String subject, final String path) {
-            queue.addLast(new AlertReading(level, subject, path));
+        /** Nothing wrong, and three measurements comfortably under every threshold. */
+        void allClear() {
+            queue.addLast(new AlertReading(List.of(), 10.0, 10.0, 1.0));
+        }
+
+        void next(final AlertReading.Trigger trigger) {
+            next(List.of(trigger));
+        }
+
+        void next(final List<AlertReading.Trigger> triggers) {
+            queue.addLast(new AlertReading(triggers, 10.0, 10.0, 1.0));
+        }
+
+        void next(final AlertReading reading) {
+            queue.addLast(reading);
         }
 
         @Override

@@ -72,7 +72,7 @@ class DeployerRecreateTest {
     void settlesDone() throws IOException {
         final Queue<String> jobStates = new ConcurrentLinkedQueue<>(List.of("RUNNING", "DONE"));
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/api/recreate/smp", exchange -> {
+        server.createContext("/api/deploy", exchange -> {
             assertEquals("POST", exchange.getRequestMethod());
             assertEquals("a-secret", exchange.getRequestHeaders().getFirst("X-Steward-Token"));
             respond(exchange, 202, "{\"id\":\"job-1\",\"kind\":\"recreate\",\"state\":\"RUNNING\"}");
@@ -94,14 +94,61 @@ class DeployerRecreateTest {
     }
 
     // -------------------------------------------------------------------------------------------
+    // The route, which is the whole of season-2-ops/140
+    // -------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("an update run asks the route that pulls, naming the one service")
+    void asksTheFetchingRoute() throws IOException {
+        // Both routes exist on the real deployer and only one of them fetches. season-2-ops/134
+        // made /api/recreate use the image already on this host, which is right for the button an
+        // admin presses and wrong for a run whose only reason to touch the container is that the
+        // registry has moved past it. Asking the wrong one is silent: the job answers 202, the
+        // container comes back healthy, and the image is the stale one. So the stand-in below
+        // answers on both and the test says which was used.
+        final Queue<String> bodies = new ConcurrentLinkedQueue<>();
+        final AtomicInteger recreateCalls = new AtomicInteger();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/deploy", exchange -> {
+            bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            respond(exchange, 202, "{\"id\":\"job-4\"}");
+        });
+        server.createContext("/api/recreate/smp", exchange -> {
+            recreateCalls.incrementAndGet();
+            respond(exchange, 202, "{\"id\":\"job-4\"}");
+        });
+        server.createContext("/api/jobs/job-4", exchange -> respond(exchange, 200,
+                "{\"id\":\"job-4\",\"state\":\"DONE\",\"lines\":[]}"));
+        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
+        server.start();
+
+        final RedeployResult result = client(new NoopDelegate(), Duration.ofSeconds(5))
+                .recreate("smp");
+
+        assertTrue(result.triggered(), result.message());
+        assertEquals(0, recreateCalls.get(),
+                "an update run must not ask the route that uses the image already on this host");
+        assertEquals(1, bodies.size(), "the deploy route was asked exactly once");
+        assertEquals("{\"services\":[\"smp\"]}", bodies.peek());
+    }
+
+    @Test
+    @DisplayName("the deploy body names one service, never the empty list compose reads as all")
+    void bodyNamesOneService() {
+        assertEquals("{\"services\":[\"smp\"]}", DeployerRecreate.deployBody("smp"));
+        assertTrue(DeployerRecreate.deployBody("a\"b").contains("a\\\"b"),
+                "a service name is escaped, not concatenated into the JSON");
+    }
+
+    // -------------------------------------------------------------------------------------------
     // The deployer refuses outright
     // -------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("a non-202 from POST /api/recreate is refused, named")
+    @DisplayName("a non-202 from POST /api/deploy is refused, named")
     void postRefused() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/api/recreate/smp",
+        server.createContext("/api/deploy",
                 exchange -> respond(exchange, 400, "\"smp\" is not a compose service"));
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.start();
@@ -122,7 +169,7 @@ class DeployerRecreateTest {
     @DisplayName("a job that settles FAILED is a refused recreate, carrying its last line")
     void jobFails() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/api/recreate/smp",
+        server.createContext("/api/deploy",
                 exchange -> respond(exchange, 202, "{\"id\":\"job-2\"}"));
         server.createContext("/api/jobs/job-2", exchange -> respond(exchange, 200,
                 "{\"id\":\"job-2\",\"state\":\"FAILED\",\"lines\":[\"pulling smp\",\"no such image\"]}"));
@@ -164,7 +211,7 @@ class DeployerRecreateTest {
     void neverSettles() throws IOException {
         final AtomicInteger polls = new AtomicInteger();
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/api/recreate/smp",
+        server.createContext("/api/deploy",
                 exchange -> respond(exchange, 202, "{\"id\":\"job-3\"}"));
         server.createContext("/api/jobs/job-3", exchange -> {
             polls.incrementAndGet();

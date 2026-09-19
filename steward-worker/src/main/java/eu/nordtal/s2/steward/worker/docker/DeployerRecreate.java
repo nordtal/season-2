@@ -26,11 +26,32 @@ import java.time.Instant;
  * {@link DockerOps#recreate} still refuses every time: it has no compose file, and a container
  * rebuilt from an {@code inspect} would drift from it silently (season-2-ops/22). That refusal is
  * correct and stays exactly where it is. What was missing was a way to ask <em>across</em> the
- * boundary rather than a hole in it - {@code steward-deployer} carries the compose file and already
- * exposes {@code POST /api/recreate/{service}} for steward-ui's own "recreate" button. This class
- * is the same request, made by an update run instead of by somebody clicking a button, so that a
- * service whose image the registry has moved past is actually recreated rather than reported
- * {@code FAILED} on every single run until a person runs {@code docker compose up} by hand.
+ * boundary rather than a hole in it - {@code steward-deployer} carries the compose file and exposes
+ * it over HTTP, so that a service whose image the registry has moved past is actually renewed
+ * rather than reported {@code FAILED} on every single run until a person runs
+ * {@code docker compose up} by hand.
+ *
+ * <h2>It asks for a deploy, not a recreate, and that is season-2-ops/140</h2>
+ * The deployer has two routes and season-2-ops/134 put a real difference between them:
+ * {@code POST /api/recreate/{service}} rebuilds the container <b>from the image already on this
+ * host</b>, and {@code POST /api/deploy} pulls first. That split is right - the button an admin
+ * presses to un-wedge a container must not silently replace a locally built image with the
+ * published one - but this class went on asking for the recreate, and an update run's whole reason
+ * to touch a container is that the registry has something the host does not.
+ *
+ * <p>The result was a run that reported "pulling its image and recreating the container", pulled
+ * nothing, came back healthy on the same stale image, and therefore found the same service
+ * {@code OUTDATED} on the next run: measured on this host on 2026-09-20, two consecutive update
+ * runs stopped and recreated all four Minecraft services and the image on disk was the one from
+ * 2026-09-18 both times, while a plain {@code docker pull} by hand fetched a newer one immediately.
+ * A run that takes the network down to change nothing is the defect this project has regressed
+ * into before, so the direction of the fix is fixed: <b>the update run takes the fetching
+ * route.</b></p>
+ *
+ * <p>A pull that fails is not a server left off. The deployer tolerates a failed pull when the
+ * image is already here, and when it does not, {@code UpdateRun#start} starts the old container
+ * again and settles the line {@code FAILED} - the same fallback that was already there for a
+ * refused recreate.</p>
  *
  * <h2>Everything else passes through unchanged</h2>
  * {@link #runtime}, {@link #stop}, {@link #start} and {@link #images} are the delegate's, untouched
@@ -98,8 +119,12 @@ public final class DeployerRecreate implements ContainerOps {
     }
 
     /**
-     * {@code POST /api/recreate/{service}} on steward-deployer, then polls the job it hands back
-     * until it settles or this call's patience runs out.
+     * {@code POST /api/deploy} on steward-deployer naming this one service, then polls the job it
+     * hands back until it settles or this call's patience runs out.
+     *
+     * <p>The service is named, never left out. An empty list means <em>every</em> service to
+     * compose, and the deployer's own {@code servicesToDeploy} exists because that mistake has
+     * been made here before.</p>
      */
     @Override
     public @NotNull RedeployResult recreate(final @NotNull String service) {
@@ -107,8 +132,10 @@ public final class DeployerRecreate implements ContainerOps {
 
         final HttpResponse<String> accepted;
         try {
-            accepted = http.send(request("/api/recreate/" + service)
-                            .POST(HttpRequest.BodyPublishers.noBody()).build(),
+            accepted = http.send(request("/api/deploy")
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(deployBody(service)))
+                            .build(),
                     HttpResponse.BodyHandlers.ofString());
         } catch (final HttpTimeoutException slow) {
             return RedeployResult.refused("steward-deployer did not accept the recreate of "
@@ -188,6 +215,21 @@ public final class DeployerRecreate implements ContainerOps {
         }
         final JsonArray lines = job.getAsJsonArray("lines");
         return lines.isEmpty() ? "no output" : lines.get(lines.size() - 1).getAsString();
+    }
+
+    /**
+     * The body of {@code POST /api/deploy} for exactly one service.
+     *
+     * <p>Built with Gson rather than by concatenation so a service name can never end the JSON
+     * string early, and package-visible so a test can read the bytes that go out - "it names one
+     * service" is the assertion that separates this from the empty list compose reads as "all".</p>
+     */
+    static String deployBody(final @NotNull String service) {
+        final JsonArray services = new JsonArray();
+        services.add(service);
+        final JsonObject body = new JsonObject();
+        body.add("services", services);
+        return GSON.toJson(body);
     }
 
     private HttpRequest.Builder request(final String path) {

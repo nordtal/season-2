@@ -86,6 +86,17 @@ seed() {
     set -e
 }
 
+# Runs seed_velocity_config against a volume, and leaves its exit status in $status and everything
+# it printed in $output. Same `bash -c ... seeding-test` trick as seed() above, same reason.
+seed_velocity() {
+    local data="$1" servers="$2" try="${3:-}"
+    set +e
+    output=$(DATA="$data" VELOCITY_SERVERS="$servers" VELOCITY_TRY="$try" \
+        bash -c 'source "$1"; seed_velocity_config' seeding-test "$ENTRYPOINT" 2>&1)
+    status=$?
+    set -e
+}
+
 # --- assertions ---------------------------------------------------------------------------------
 
 expect_status() {
@@ -117,6 +128,19 @@ expect_present() { [[   -e "$1" ]] || bad "expected ${1} to still be there, it i
 expect_output() {
     [[ "$output" == *"$1"* ]] || bad "expected the output to mention '${1}'. Output was:
 ${output}"
+}
+
+# The line that carries a TOML key, or nothing. Written as "the key under that table" rather than
+# "the key anywhere in the file", because a root-level accepts-transfers is exactly the mistake
+# this exists to catch: Velocity reads it under [advanced] and nowhere else.
+expect_toml_under_table() {
+    local file="$1" table="$2" key="$3" want="$4" have
+    have=$(awk -v table="$table" -v key="$key" '
+        /^\[/ { current = $0; next }
+        current == table && $1 == key { print; exit }
+    ' "$file" 2>/dev/null)
+    [[ "$have" == "$key = $want" ]] \
+        || bad "expected '${key} = ${want}' under ${table} in ${file##*/}, found '${have:-nothing}'"
 }
 
 # --- fixtures -----------------------------------------------------------------------------------
@@ -412,6 +436,29 @@ sweep "$dir" paper "$dir/paper-26.2-124.jar"
 expect_status 0
 expect_cache "$dir" paper-26.2-124.jar
 ok "nothing to sweep"
+
+# ------------------------------------------------------------------------------------------------
+# season-2-ops/119. Two things a live proxy swap cannot work without, and both of them are invisible
+# when they are wrong: a proxy that does not accept transfers refuses every player the other one
+# sends, and a server name that is not in velocity.toml cannot be connected to at all.
+case_begin "a seeded velocity.toml accepts transfers, under [advanced]"
+dir=$(volume velocity-transfers)
+seed_velocity "$dir" "limbo=limbo:25565 limbo-standby=limbo-standby:25565"
+expect_status 0
+expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
+ok "accepts-transfers = true under [advanced]"
+
+# THIS CASE DOES NOT PROVE limbo-standby IS IN THE DEPLOYMENT - the name is handed in here, and
+# what actually puts it there is compose.yml's VELOCITY_SERVERS default, which :steward-worker's
+# TopologyTest holds. What it proves is that a HYPHENATED name survives the seeding as a bare TOML
+# key under [servers], which is the one thing about `limbo-standby` that is new to this function.
+case_begin "every server it is given is in the file, standby included"
+dir=$(volume velocity-servers)
+seed_velocity "$dir" "limbo=limbo:25565 limbo-standby=limbo-standby:25565 smp=smp:25565" limbo
+expect_status 0
+expect_toml_under_table "$dir/velocity.toml" "[servers]" limbo-standby '"limbo-standby:25565"'
+expect_toml_under_table "$dir/velocity.toml" "[servers]" limbo '"limbo:25565"'
+ok "limbo-standby registered"
 
 # ------------------------------------------------------------------------------------------------
 

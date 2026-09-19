@@ -265,6 +265,79 @@ newest_server_jar() {
     return 0
 }
 
+# ABOVE THE SOURCE GUARD ON PURPOSE (season-2-ops/119): this function writes the one file a
+# live proxy swap depends on, it writes it exactly once per volume, and entrypoint-test.sh can
+# only exercise what is defined above that line.
+# The proxy's own config. Only the settings this deployment cannot work without; Velocity applies
+# its defaults to everything a config file leaves out, so this stays short instead of freezing a
+# copy of Velocity's 200-line default that would go stale on the next upgrade.
+#
+# [forced-hosts] IS WRITTEN EMPTY ON PURPOSE: leave the table out and Velocity falls back to its
+# default one, which routes example hostnames at servers this file does not define and then refuses
+# to start at all. "Velocity defaults the rest" is true per key, not per table.
+seed_velocity_config() {
+    local file="$DATA/velocity.toml" name address tmp
+
+    if [[ -f "$file" ]]; then
+        log "velocity.toml exists - not touched"
+        return 0
+    fi
+    if [[ -z "${VELOCITY_SERVERS:-}" ]]; then
+        warn "no velocity.toml and VELOCITY_SERVERS is unset, so Velocity will write its own default: forwarding off and three example servers on 127.0.0.1. Nobody can join through that."
+        return 0
+    fi
+
+    # Checked before a byte is written. A malformed entry used to abort halfway through the
+    # redirection below, and a half-written velocity.toml is indistinguishable from an operator's
+    # own on the next start - seeded once means there is no second chance to get it right.
+    for entry in $VELOCITY_SERVERS; do
+        [[ "$entry" == *=* ]] || die "VELOCITY_SERVERS entries are name=host:port, not '${entry}'"
+    done
+
+    tmp="${file}.partial"
+    {
+        printf '# Seeded by the nordtal entrypoint on first start, and not touched again.\n'
+        printf '# Everything Velocity is not told here keeps its own default.\n'
+        printf 'config-version = "2.8"\n'
+        printf 'bind = "0.0.0.0:25565"\n'
+        printf 'online-mode = true\n'
+        printf 'player-info-forwarding-mode = "modern"\n'
+        printf 'forwarding-secret-file = "forwarding.secret"\n\n'
+        # NO motd AND NO show-max-players HERE, and that is the point rather than an omission.
+        # Both moved into proxy's network.yml on 2026-09-03, where the plugin answers
+        # every ProxyPingEvent with them. Seeding them here would put a second, permanently stale
+        # copy of the MOTD in a file this script only ever writes once - which is exactly the trap
+        # that made VELOCITY_MOTD do nothing on any volume that had already started.
+        #
+        # Velocity's own defaults for the two are harmless: nothing reads its motd once the plugin
+        # answers the ping, and show-max-players is a display value the plugin overrides. A proxy
+        # without proxy does not start at all - see EXPECTED_PLUGINS.
+        printf '[servers]\n'
+        for entry in $VELOCITY_SERVERS; do
+            name="${entry%%=*}"
+            address="${entry#*=}"
+            printf '%s = "%s"\n' "$name" "$address"
+        done
+        printf 'try = ["%s"]\n\n' "${VELOCITY_TRY:-${VELOCITY_SERVERS%%=*}}"
+        printf '[forced-hosts]\n\n'
+        # ACCEPTS-TRANSFERS IS THE WHOLE OF WHAT A LIVE PROXY SWAP NEEDS FROM VELOCITY
+        # (season-2-ops/119). Without it the receiving proxy refuses every player the other one
+        # sends, and the refusal looks to the player like a server that is simply down.
+        #
+        # IT IS UNDER [advanced] AND NOT AT THE ROOT, checked on 2026-09-19 against
+        # default-velocity.toml inside velocity-4.2.0-30.jar - the one in this deployment's own
+        # .server cache. A root-level key of this name is not read by anything and would look
+        # exactly like a setting that works.
+        #
+        # THIS TABLE COMES LAST because everything after a table header belongs to that table: a
+        # key written below this line is an [advanced] key whether it means to be or not.
+        printf '[advanced]\n'
+        printf 'accepts-transfers = true\n'
+    } > "$tmp" || { rm -f "$tmp"; exit 1; }
+    mv "$tmp" "$file"
+    log "seeded velocity.toml: modern forwarding, servers ${VELOCITY_SERVERS}"
+}
+
 # --- sourced rather than executed ---------------------------------------------------------------
 # Everything ABOVE this line is definitions and can be pulled into another shell; everything BELOW
 # it is this container's own run and reaches for the network, the volume and tmux. entrypoint-test.sh
@@ -588,62 +661,6 @@ YAML
     fi
 }
 
-# The proxy's own config. Only the settings this deployment cannot work without; Velocity applies
-# its defaults to everything a config file leaves out, so this stays short instead of freezing a
-# copy of Velocity's 200-line default that would go stale on the next upgrade.
-#
-# [forced-hosts] IS WRITTEN EMPTY ON PURPOSE: leave the table out and Velocity falls back to its
-# default one, which routes example hostnames at servers this file does not define and then refuses
-# to start at all. "Velocity defaults the rest" is true per key, not per table.
-seed_velocity_config() {
-    local file="$DATA/velocity.toml" name address tmp
-
-    if [[ -f "$file" ]]; then
-        log "velocity.toml exists - not touched"
-        return 0
-    fi
-    if [[ -z "${VELOCITY_SERVERS:-}" ]]; then
-        warn "no velocity.toml and VELOCITY_SERVERS is unset, so Velocity will write its own default: forwarding off and three example servers on 127.0.0.1. Nobody can join through that."
-        return 0
-    fi
-
-    # Checked before a byte is written. A malformed entry used to abort halfway through the
-    # redirection below, and a half-written velocity.toml is indistinguishable from an operator's
-    # own on the next start - seeded once means there is no second chance to get it right.
-    for entry in $VELOCITY_SERVERS; do
-        [[ "$entry" == *=* ]] || die "VELOCITY_SERVERS entries are name=host:port, not '${entry}'"
-    done
-
-    tmp="${file}.partial"
-    {
-        printf '# Seeded by the nordtal entrypoint on first start, and not touched again.\n'
-        printf '# Everything Velocity is not told here keeps its own default.\n'
-        printf 'config-version = "2.8"\n'
-        printf 'bind = "0.0.0.0:25565"\n'
-        printf 'online-mode = true\n'
-        printf 'player-info-forwarding-mode = "modern"\n'
-        printf 'forwarding-secret-file = "forwarding.secret"\n\n'
-        # NO motd AND NO show-max-players HERE, and that is the point rather than an omission.
-        # Both moved into proxy's network.yml on 2026-09-03, where the plugin answers
-        # every ProxyPingEvent with them. Seeding them here would put a second, permanently stale
-        # copy of the MOTD in a file this script only ever writes once - which is exactly the trap
-        # that made VELOCITY_MOTD do nothing on any volume that had already started.
-        #
-        # Velocity's own defaults for the two are harmless: nothing reads its motd once the plugin
-        # answers the ping, and show-max-players is a display value the plugin overrides. A proxy
-        # without proxy does not start at all - see EXPECTED_PLUGINS.
-        printf '[servers]\n'
-        for entry in $VELOCITY_SERVERS; do
-            name="${entry%%=*}"
-            address="${entry#*=}"
-            printf '%s = "%s"\n' "$name" "$address"
-        done
-        printf 'try = ["%s"]\n\n' "${VELOCITY_TRY:-${VELOCITY_SERVERS%%=*}}"
-        printf '[forced-hosts]\n'
-    } > "$tmp" || { rm -f "$tmp"; exit 1; }
-    mv "$tmp" "$file"
-    log "seeded velocity.toml: modern forwarding, servers ${VELOCITY_SERVERS}"
-}
 
 # --- per-kind preparation --------------------------------------------------------------------
 JAVA_ARGS=()

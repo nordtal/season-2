@@ -283,6 +283,18 @@ looks_like_host() {
 # cannot parse, which fails the certificate rather than the address.
 looks_like_email() { [[ "$1" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; }
 
+# A host and a port, the way a player types the network into their client. The port is required and
+# that is not pedantry: a SRV record can hide it from somebody typing a name, but the value here is
+# what a transfer hands to a client, and the transfer packet carries a port with no SRV lookup
+# behind it (season-2-ops/119). `play.example.com` alone would therefore work everywhere except in
+# the one place this is read.
+looks_like_public_address() {
+    local host="${1%:*}" port="${1##*:}"
+    [[ "$1" == *:* ]] || return 1
+    looks_like_host "$host" || return 1
+    [[ "$port" =~ ^[0-9]{1,5}$ ]] && (( port >= 1 && port <= 65535 ))
+}
+
 # A profile selection: names, commas, no spaces needed and none rejected. It refuses the shapes a
 # selection cannot have - a path, a JSON array, an `=` - rather than a name nobody defines, because
 # a profile compose.yml does not know is simply not selected and costs nothing.
@@ -302,7 +314,7 @@ answer_is_yes() {
 }
 
 # --- the questions, as a table rather than as call sites ------------------------------------------
-# WHY THIS IS A TABLE (season-2-ops/124): the same eleven variables are now walked twice - once by
+# WHY THIS IS A TABLE (season-2-ops/124): the same twelve variables are now walked twice - once by
 # the run that asks for what is MISSING, and once by the menu, which lists what is SET and lets one
 # be picked and typed again. Two lists would drift, and the way they would drift is the quiet one: a
 # variable that can be asked for on a first install and not changed afterwards.
@@ -312,6 +324,7 @@ answer_is_yes() {
 QUESTIONS=(
     STEWARD_HOST
     STEWARD_ACME_EMAIL
+    NETWORK_PUBLIC_ADDRESS
     EULA
     NORDTAL_BOT_TOKEN
     STEWARD_UI_DISCORD_CLIENT_ID
@@ -326,6 +339,7 @@ QUESTIONS=(
 declare -A QUESTION_KIND=(
     [STEWARD_HOST]=plain
     [STEWARD_ACME_EMAIL]=plain
+    [NETWORK_PUBLIC_ADDRESS]=plain
     [EULA]=licence
     [NORDTAL_BOT_TOKEN]=secret
     [STEWARD_UI_DISCORD_CLIENT_ID]=plain
@@ -340,6 +354,7 @@ declare -A QUESTION_KIND=(
 declare -A QUESTION_CHECK=(
     [STEWARD_HOST]=looks_like_host
     [STEWARD_ACME_EMAIL]=looks_like_email
+    [NETWORK_PUBLIC_ADDRESS]=looks_like_public_address
     [EULA]=-
     [NORDTAL_BOT_TOKEN]=-
     [STEWARD_UI_DISCORD_CLIENT_ID]=looks_like_snowflake
@@ -354,6 +369,7 @@ declare -A QUESTION_CHECK=(
 declare -A QUESTION_PROMPT=(
     [STEWARD_HOST]="What name will the interface answer on?"
     [STEWARD_ACME_EMAIL]="Where should Let's Encrypt send certificate warnings?"
+    [NETWORK_PUBLIC_ADDRESS]="What do players type into Minecraft to reach this network?"
     [EULA]="Do you accept the Minecraft EULA? (https://aka.ms/MinecraftEULA)"
     [NORDTAL_BOT_TOKEN]="The Discord bot token."
     [STEWARD_UI_DISCORD_CLIENT_ID]="The Discord application's Client ID - this is what the interface signs you in with."
@@ -369,6 +385,9 @@ declare -A QUESTION_HINT=(
     [STEWARD_HOST]="A host name, not a URL - e.g. steward.dev.nordtal.eu. Its A/AAAA records have to point here;
         this script waits for that further down rather than deploying half a stack."
     [STEWARD_ACME_EMAIL]="One address, seen by Let's Encrypt only. It is what gets a mail if a renewal ever stops working."
+    [NETWORK_PUBLIC_ADDRESS]="Host AND port, e.g. play.example.com:25565. The port is not optional even if a SRV record
+        lets players leave it out: this is the address the proxy hands to a client when it moves it
+        during an update, and nothing resolves a SRV record on that client's behalf."
     [EULA]="Four Minecraft servers are about to start, and none of them may without this. [y/N]"
     [NORDTAL_BOT_TOKEN]="Discord Developer Portal -> your application -> Bot -> Reset Token. Nothing is echoed while you
         type, and this script never prints it back."

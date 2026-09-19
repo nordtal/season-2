@@ -299,6 +299,19 @@ for wrong in "" "info" "info@" "@nordtal.eu" "info@nordtal" "in fo@nordtal.eu" "
 done
 ok "an address passes; a missing half, a missing dot and a space do not"
 
+# season-2-ops/119. The port is the half worth testing: it is the one people leave out, because
+# every client they have ever used let them - and the transfer packet is the one place that does
+# not.
+for address in play.nordtal.eu:25565 nordtal.eu:25566 45.155.173.214:25565; do
+    looks_like_public_address "$address" || bad "the address $address was refused"
+done
+for wrong in "" "play.nordtal.eu" "play.nordtal.eu:" ":25565" "play.nordtal.eu:0" \
+             "play.nordtal.eu:70000" "play.nordtal.eu:25565x" "https://play.nordtal.eu:25565" \
+             "play:25565"; do
+    if looks_like_public_address "$wrong"; then bad "«$wrong» was accepted as a public address"; fi
+done
+ok "host:port passes; a bare host, a bare port, a scheme and an impossible port do not"
+
 case_begin "the licence question takes yes for an answer and nothing else for one"
 # The only question in the script whose default matters legally. Silence is no.
 for yes in y Y yes YES Yes true; do
@@ -379,7 +392,7 @@ for name in NORDTAL_BOT_TOKEN STEWARD_UI_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_B
         *) bad "$name is not a secret kind, so the menu would print it" ;;
     esac
 done
-ok "eleven questions, all four columns each, and the three secrets are secret kinds"
+ok "twelve questions, all four columns each, and the three secrets are secret kinds"
 
 # ------------------------------------------------------------------------------------------------
 case_begin "a bare Return in the menu deploys nothing"

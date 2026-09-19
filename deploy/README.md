@@ -17,8 +17,9 @@ variables in its `.env` can delete those lines; nothing reads them.
 system it belongs to.
 
 ```
-compose.yml            seven services, five profiles: db · bot · mc · backup · devpack
-                       (steward-worker has none, and devpack is local only)
+compose.yml            seven services, six profiles: db · bot · mc · backup · devpack · standby
+                       (steward-worker has none, devpack is local only, and standby is in no
+                       ordinary selection - see *The standby services* below)
 .env.example           every setting there is, as a reference - nobody fills it in by hand
 deploy/
   minecraft/
@@ -697,6 +698,36 @@ else and leaves the backup sidecar running — the network then cannot be remove
 in use"*), and a backup job is left pointed at a database that no longer exists. Production is
 `db,bot,mc,backup`, which is what `.env.example` ships. Whatever selection is used, **`up` and
 `down` have to use the same one.**
+
+### The standby services
+
+`proxy-standby` and `limbo-standby` are a second proxy and a second waiting room, each on its own
+volumes, each in the profile `standby` and in no other. They are not part of normal operation and
+must not be added to `COMPOSE_PROFILES`: they exist to hold the network for the seconds their model
+is being replaced, and running them all season would cost this host about 1.6 GB for nothing.
+
+They are started by name for a swap and stopped the same way:
+
+```
+docker compose --profile standby up -d proxy-standby
+docker compose --profile standby down proxy-standby
+```
+
+**`--profile standby` belongs on the stop as well as on the start** — that is the same trap the
+paragraph above describes, and here it bites harder, because a standby left running is a second
+Velocity on this host holding a port and 680 MB.
+
+`steward-worker` fills their `plugins/` at the end of every update run, by copying the live
+service's folder rather than resolving anything a second time: a standby comes up on the jar that
+was just installed, never on whatever is newest at the moment it starts.
+
+**What voice chat does on the standby proxy: nothing.** Simple Voice Chat's proxy plugin ships
+`port: -1`, which means "the port Velocity bound", and Velocity binds 25565 inside every proxy
+container. The plugin therefore hands the client 25565 - which on this host is the *live* proxy's
+port, not the standby's. `PROXY_STANDBY_PORT` (25566 by default) is published for UDP as well as
+TCP so that the day the plugin's `voice_host` is set the port is already open, but until then a
+player moved to the standby has chat and no voice. That is the cost of a swap, and it lasts as long
+as the swap does.
 
 ## Backups
 

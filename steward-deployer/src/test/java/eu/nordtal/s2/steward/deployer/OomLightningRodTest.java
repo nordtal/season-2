@@ -47,10 +47,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class OomLightningRodTest {
 
-    /** Till's answer, 2026-09-19. The order is the content; the exact number is not. */
+    /**
+     * Till's answer, 2026-09-19. The order is the content; the exact number is not.
+     *
+     * <p>The two standbys are the same answer again, and the decision was taken without asking
+     * (season-2-ops/119) because it follows from the one Till already took rather than adding to
+     * it: {@code proxy-standby} and {@code limbo-standby} run the same two images with the same
+     * two jobs, and they hold exactly as little - a waiting room with no world worth the name and a
+     * proxy that persists nothing. What a kill costs either of them is a disconnect, never data.
+     *
+     * <p>And the moment they exist at all is the moment this matters most: a standby is only up
+     * while its model is being replaced, so during a swap this host carries two proxies and two
+     * limbos at once. If the kernel has to take something in that window, these four are still the
+     * four to take - and leaving the two new ones at 0 would have made the standby pair the
+     * <em>safest</em> processes on the box, quietly ranking them above the SMP world.</p>
+     */
     private static final Map<String, Boolean> EXPECTED = new LinkedHashMap<>(Map.of(
             "limbo", true,
             "proxy", true,
+            "limbo-standby", true,
+            "proxy-standby", true,
             "smp", false,
             "hunger-games", false,
             "postgres", false,
@@ -64,10 +80,11 @@ class OomLightningRodTest {
         for (final Map.Entry<String, Boolean> service : EXPECTED.entrySet()) {
             final Integer adjustment = oomScoreAdj(service.getKey());
             if (service.getValue()) {
-                assertNotNull(adjustment, service.getKey() + " has no oom_score_adj. Till chose it"
-                        + " as one of the two the kernel should take first (season-2-ops/115);"
-                        + " without the line the kernel is back to choosing by size, which is how"
-                        + " the SMP server died on 2026-09-18.");
+                assertNotNull(adjustment, service.getKey() + " has no oom_score_adj, and it is"
+                        + " one of the services the kernel is supposed to take first"
+                        + " (season-2-ops/115 for the pair, /119 for their standbys). Without the"
+                        + " line the kernel is back to choosing by size, which is how the SMP"
+                        + " server died on 2026-09-18.");
                 assertTrue(adjustment > 0, service.getKey() + " has oom_score_adj " + adjustment
                         + ", which does not make it a lightning rod. Only a POSITIVE value moves a"
                         + " process up the kernel's list.");
@@ -81,13 +98,19 @@ class OomLightningRodTest {
     }
 
     @Test
-    @DisplayName("the two carry the same number, so neither outranks the other")
-    void theTwoAreEqual() {
+    @DisplayName("every lightning rod carries the same number, so none of them outranks another")
+    void theyAllCarryTheSameNumber() {
         // Not a detail: a difference between them would be a second decision nobody took. Till
-        // named two services, not an order between them.
-        assertEquals(oomScoreAdj("limbo"), oomScoreAdj("proxy"),
-                "limbo and proxy carry different oom_score_adj values. That is a ranking between"
-                        + " the two, and nobody decided one.");
+        // named services, not an order among them - and with the standbys that is four, where a
+        // hand-written copy is one typo away from a ranking.
+        final Integer first = oomScoreAdj("limbo");
+        EXPECTED.forEach((service, isLightningRod) -> {
+            if (isLightningRod) {
+                assertEquals(first, oomScoreAdj(service), service + " carries a different"
+                        + " oom_score_adj from limbo. That is a ranking among the services the"
+                        + " kernel should take first, and nobody decided one.");
+            }
+        });
     }
 
     /**

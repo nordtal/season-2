@@ -49,6 +49,11 @@
 #   COMPOSE_PROFILES=db,bot            bot and database, no Minecraft at all
 #   COMPOSE_PROFILES=db,bot,mc,backup  the production network
 #
+# `standby` IS NOT IN ANY OF THOSE AND MUST NOT BE (season-2-ops/119). proxy-standby and
+# limbo-standby exist for the minute an update run needs them and are stopped again; a selection
+# carrying that profile runs the network twice all season, on a host that has been out of memory
+# once already. The run starts them by name.
+#
 # `backup` belongs in that default. The database is the only irreversible risk in this project, so
 # an opt-in backup sidecar is one forgotten variable away from none - and a selection that omits it
 # breaks `down`, because the sidecar is never stopped and the network cannot then be removed.
@@ -327,7 +332,12 @@ services:
     # holds no world at all: everything it knows is read back out of the database and out of
     # velocity.toml when it starts, so it is the cheapest process on this host to lose.
     oom_score_adj: 500
-    environment:
+    # ANCHORED SO THE STANDBY IS THE SAME BLOCK AND NOT A COPY OF IT (season-2-ops/119).
+    # proxy-standby below writes `environment: *proxy-env` - one YAML node, used twice - so a
+    # variable added here reaches both proxies and cannot reach only one. A copied block would
+    # drift in the one direction nobody looks: the standby is the process that carries every player
+    # for ten seconds, and it would carry them under last month's settings.
+    environment: &proxy-env
       <<: *minecraft-env
       SERVER_KIND: velocity
       # What this volume has to hold before the proxy is allowed to start. Filename prefixes, split
@@ -373,8 +383,36 @@ services:
       VELOCITY_FORWARDING_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
       # The network topology, used only to seed velocity.toml on a fresh volume. The names are
       # what proxy's gate.yml#server-* keys expect; the hosts are these service names.
-      VELOCITY_SERVERS: ${VELOCITY_SERVERS:-limbo=limbo:25565 hunger-games=hunger-games:25565 smp=smp:25565}
+      #
+      # LIMBO-STANDBY IS IN THE LIST ALTHOUGH IT IS ALMOST NEVER RUNNING (season-2-ops/119), and
+      # that is deliberate on both counts. Velocity does not mind a registered server that is down -
+      # it only minds being asked to send somebody there - and a server that is NOT registered
+      # cannot be connected to at all, from either proxy, at the one moment it exists. Both proxies
+      # read this same value, so both know the name.
+      #
+      # SEEDED ONCE AND NEVER AGAIN: the entrypoint writes velocity.toml only onto a fresh volume
+      # ("velocity.toml exists - not touched"), so a deployment that has already started does not
+      # learn this name from here. Adding it to a running volume is a deployment step, by hand.
+      VELOCITY_SERVERS: ${VELOCITY_SERVERS:-limbo=limbo:25565 limbo-standby=limbo-standby:25565 hunger-games=hunger-games:25565 smp=smp:25565}
       VELOCITY_TRY: ${VELOCITY_TRY:-limbo}
+      # WHERE A CLIENT REACHES THIS NETWORK FROM OUTSIDE, host and port, and the one new setting
+      # season-2-ops/119 adds. A transfer names an address to the client and the client connects to
+      # it itself, so nothing inside this stack can work it out: `proxy:25565` is a compose name and
+      # a DNS name that resolves here is not necessarily the one players type. deploy/nordtal.sh
+      # asks for it.
+      #
+      # THE PORT IS PART OF IT AND IS NOT OPTIONAL. A SRV record hides the port from a player typing
+      # a name into their client, but the transfer packet carries host AND port and no SRV lookup
+      # stands between it and the connection.
+      #
+      # Empty is allowed and means one thing: no transfer is offered, and an update takes the
+      # network down the way it always did. That is a season without live proxy swaps, not a broken
+      # one - so it must not be a `:?`, which would stop a deployment that never wanted the feature.
+      NORDTAL_PROXY_NETWORK_PUBLIC_ADDRESS: ${NETWORK_PUBLIC_ADDRESS:-}
+      # The other half of the pair, and the reason the address above needs no second copy for the
+      # standby: the two proxies differ by a port number and nothing else. This is the SAME value
+      # the standby publishes below, so a changed port moves both sides at once.
+      NORDTAL_PROXY_NETWORK_STANDBY_PORT: ${PROXY_STANDBY_PORT:-25566}
       # THE RESOURCE PACK IS NOT A VARIABLE HERE, and must not become one: a jcore environment
       # override wins over the file and is never written back, so the worker writing a new sha1 into
       # pack.yml while PACK_URL and PACK_SHA1 were set would write into a value nothing reads.
@@ -435,6 +473,66 @@ services:
       - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
+  # THE STANDBY PROXY (season-2-ops/119). The same proxy, on a second port, for the ten seconds the
+  # real one is being restarted: players are transferred here, the proxy and the backends come back,
+  # and they are transferred home. It exists for that window and is stopped again afterwards - it is
+  # in no ordinary profile, so `up` in production never starts it.
+  #
+  # IT IS ITS MODEL, NOT A VARIANT OF IT: `*proxy-env` is the proxy's own environment node, used a
+  # second time rather than copied, so the two cannot differ in a setting. What differs is the name,
+  # the published port and the two volumes - and that list is the whole design (Till, 2026-09-19).
+  #
+  # ITS VOLUMES ARE ITS OWN, and that is not tidiness: two Velocity processes on one /data would
+  # fight over the same files, and two Paper processes on one world directory fight over
+  # session.lock outright. What fills the plugins/ one is steward-worker, which installs into it the
+  # same jars it installs into the live proxy's - see Topology.SERVICES_WITH_STANDBY.
+  proxy-standby:
+    <<: *minecraft
+    # THE SAME LIGHTNING ROD VALUE AS THE PROXY IT STANDS IN FOR (season-2-ops/119). A standby holds
+    # exactly what its model holds - nothing that cannot be made again in seconds - and the moment
+    # it exists is the moment this host is tightest on memory, because for that window the network
+    # is running twice. Leaving the two standbys at 0 would put the SMP server, with the world since
+    # its last autosave, back at the top of the kernel's list at precisely the wrong minute.
+    # :steward-deployer's OomLightningRodTest holds all four equal.
+    oom_score_adj: 500
+    # ITS OWN PROFILE, so the production selection (db,bot,mc,backup,steward) does not start it.
+    # `mc` would mean a second proxy and a second limbo running all season for nothing; a run that
+    # needs them starts them by name. It replaces the merged `profiles: ["mc"]` rather than adding
+    # to it - an explicit key wins over an anchor's.
+    profiles: ["standby"]
+    environment: *proxy-env
+    ports:
+      # THE ONLY DIFFERENCE A CLIENT CAN SEE. Velocity still binds 25565 INSIDE this container - the
+      # entrypoint seeds `bind = "0.0.0.0:25565"` and nothing parameterises it - so the mapping is
+      # 25566 on the host onto 25565 in here. NORDTAL_PROXY_NETWORK_STANDBY_PORT above is the same
+      # number, which is what the transfer names to the client.
+      - "${PROXY_BIND:-0.0.0.0}:${PROXY_STANDBY_PORT:-25566}:25565"
+      # VOICE CHAT DOES NOT REACH THIS PROXY, AND THE PORT IS PUBLISHED ANYWAY. Read the long note
+      # at the live proxy's UDP line first: voicechat-proxy.properties ships `port: -1`, so the
+      # plugin binds whatever port Velocity bound - 25565, in here - and hands the CLIENT that same
+      # number. On the live proxy host and container port are equal and that works. Here they cannot
+      # be: 25565 on this host is the live proxy's. So a client transferred here is told to send
+      # audio to <host>:25565, which is the OTHER container - and during the window that container
+      # is stopped, so the packets land nowhere.
+      #
+      # WHAT THAT COSTS, PLAINLY: no voice chat for the twenty seconds a player spends on the
+      # standby. Nobody loses their session over it and the client reconnects voice by itself on the
+      # way back, which is strictly better than today, where the same restart disconnects everyone
+      # from the game as well. Making it work needs `voice_host` in this volume's
+      # plugins/voicechat/voicechat-proxy.properties, a file nothing in this repository writes -
+      # that is a ticket, not a line here.
+      #
+      # It is published regardless, because the alternative is worse in the only case that matters:
+      # the day voice_host is set, a missing publish would look exactly like a misconfigured one.
+      - "${PROXY_BIND:-0.0.0.0}:${PROXY_STANDBY_PORT:-25566}:25565/udp"
+    volumes:
+      - ${PROXY_STANDBY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby}:/data
+      # plugins/ in its own directory, as everywhere else here - and this is the one steward-worker
+      # copies the live proxy's jars and pack.yml into, so the client is never asked to download a
+      # different resource pack on the way through.
+      - ${PROXY_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby-plugins}:/data/plugins
+
+  # -------------------------------------------------------------------------------------------
   # The waiting room. Needs the database for one thing only: the player's language.
   limbo:
     <<: *minecraft
@@ -450,7 +548,8 @@ services:
     # regenerated at all. A positive value here does not make a kill more likely; it makes this the
     # one chosen when a kill happens anyway.
     oom_score_adj: 500
-    environment:
+    # Anchored for limbo-standby, for the reason written at proxy's own block above.
+    environment: &limbo-env
       <<: *minecraft-env
       SERVER_KIND: paper
       SERVER_VERSION: "26.2"
@@ -478,6 +577,28 @@ services:
       - ${LIMBO_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo}:/data
       # plugins/ in its own volume, the rest in mc-limbo - see proxy above.
       - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/data/plugins
+
+  # -------------------------------------------------------------------------------------------
+  # THE STANDBY WAITING ROOM (season-2-ops/119). A second limbo, so that a run which restarts the
+  # limbo still has somewhere to put the people who are in it - and so that a run which restarts the
+  # SMP has a waiting room the whole time.
+  #
+  # IT IS A BACKEND AND NOT A SECOND NETWORK, which is what keeps this small: a Paper backend can be
+  # served by both proxies at once, because they share the forwarding secret and neither owns it.
+  # Both velocity.toml files therefore list `limbo-standby` (see VELOCITY_SERVERS above) whether it
+  # is running or not.
+  #
+  # PUBLISHES NOTHING, exactly like the limbo it stands in for: a backend is reached over this
+  # compose network by whichever proxy is currently carrying the player.
+  limbo-standby:
+    <<: *minecraft
+    # The same value as limbo's, for the reason written at proxy-standby above.
+    oom_score_adj: 500
+    profiles: ["standby"]
+    environment: *limbo-env
+    volumes:
+      - ${LIMBO_STANDBY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby}:/data
+      - ${LIMBO_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The start event. Runs once, then the phase turns to SMP and this can be stopped.
@@ -747,6 +868,16 @@ services:
       - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/volumes/limbo/plugins
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/volumes/hunger-games/plugins
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/volumes/smp/plugins
+      # THE TWO STANDBYS' plugins/ (season-2-ops/119). Nothing is resolved or downloaded for these:
+      # after every apply the worker copies the live service's plugins/ onto its standby's, so the
+      # replacement starts on the jars that were just installed and on the same pack.yml - see
+      # Standbys. Without these two lines that copy has nowhere to write and says so, and a standby
+      # started for a swap would refuse to boot on an empty plugins folder.
+      #
+      # THEY ARE NOT BACKED UP, deliberately: every byte in them is a copy of a directory three
+      # lines above that is.
+      - ${PROXY_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby-plugins}:/volumes/proxy-standby/plugins
+      - ${LIMBO_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby-plugins}:/volumes/limbo-standby/plugins
       # The bot's jar and this container's own: to the code above them both are the same shape as a
       # plugins folder - a directory with one jar in it that gets replaced.
       - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/volumes/discord-bot
@@ -1137,6 +1268,15 @@ volumes:
   mc-limbo-plugins:
   mc-hunger-games-plugins:
   mc-smp-plugins:
+  # THE TWO STANDBYS (season-2-ops/119), declared for the same reason as everything above them:
+  # the default is a directory under NORDTAL_DIR and these names are the way back to a volume.
+  # Nothing in them is worth keeping - the server volume is a Velocity or Paper installation that
+  # rebuilds itself, and the plugins one is a copy steward-worker makes after every apply - so
+  # neither is in the backup list, and losing one costs the next apply and nothing else.
+  mc-proxy-standby:
+  mc-proxy-standby-plugins:
+  mc-limbo-standby:
+  mc-limbo-standby-plugins:
 
 # ---------------------------------------------------------------------------------------------
 # TWO SEGMENTS, AND THE LINE BETWEEN THEM IS THE POINT (§3).

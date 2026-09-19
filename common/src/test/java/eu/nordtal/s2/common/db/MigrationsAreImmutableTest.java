@@ -113,6 +113,8 @@ class MigrationsAreImmutableTest {
                 "3aa88fe7c7e9dc06a080e2365879e85e9aa2ceaa165896bbe0ccbd0a03e6430f");
         FROZEN.put("V29__service_plugin.sql",
                 "2be49ad36cdf8aa6fac391821c1c2a869b20036dff537c6c3bb0a538122b76f0");
+        FROZEN.put("V30__push_preferences_and_devices.sql",
+                "222aae4922acaeb05f5ffebc33293f96b26c88deebd9b5a222a7f8d759813aa9");
     }
 
     @Test

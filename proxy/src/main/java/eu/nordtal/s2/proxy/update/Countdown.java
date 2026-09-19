@@ -56,7 +56,17 @@ import java.util.Optional;
  */
 public final class Countdown {
 
-    /** Chat lines, in seconds remaining. Two, and then zero, which is {@link #beats}' own. */
+    /**
+     * Chat lines, in seconds remaining. Two, and then zero, which is {@link #beats}' own.
+     *
+     * <p>Since season-2-ops/132 each of these is a chat line <em>and</em> a title, so a second
+     * named here is deliberately absent from the tick sequence below - see {@link #beats}.</p>
+     *
+     * <p>Still thirty and ten, and not the sixty the architecture in season-2-ops/116 describes:
+     * steward-worker writes {@code now() + 30s}, so a sixty-second beat would be planned for an
+     * instant that is already behind every countdown this network runs and would never be spoken.
+     * The two move together, in season-2-ops/122, or not at all.</p>
+     */
     static final List<Long> CHAT_THRESHOLDS = List.of(30L, 10L);
 
     /** The last stretch, one subtitle per second. */
@@ -104,7 +114,10 @@ public final class Countdown {
             }
         }
         for (long second = SUBTITLES_FROM; second >= 1L; second--) {
-            if (secondsShown >= second) {
+            // A second that already has a chat line gets no tick: since season-2-ops/132 the chat
+            // line draws the title of its own second, and two titles on one second do not queue -
+            // the later one replaces the earlier mid-fade. Ten is the one that collides today.
+            if (secondsShown >= second && !CHAT_THRESHOLDS.contains(second)) {
                 beats.add(atOrNow(millisLeft, second,
                         new Announcement(Announcement.Kind.TICK, second)));
             }

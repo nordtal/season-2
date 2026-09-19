@@ -15,10 +15,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The marker that keeps a stopped standby out of the fault count (steward/125).
  *
- * <p>Till, 2026-09-19: <i>"limbo-standby und proxy-standby werden wenn sie normal aus sind auf der
- * Startseite als Issues angezeigt"</i>. Both are stopped for all but a minute of the season, so the
- * start page reported two faults on a healthy stack every single day - which is how a fault counter
- * stops being read.</p>
+ * <p>Reported by Till on 2026-09-19: both standbys showed up as issues on the start page whenever
+ * they were simply off. They are stopped for all but a minute of the season, so the start page
+ * reported two faults on a healthy stack every single day - which is how a fault counter stops
+ * being read.</p>
  *
  * <p>This is asserted on <em>this</em> side of the wire on purpose. The frontend cannot decide it:
  * to Docker a stopped standby and a crashed backend are the same container state, and a name match

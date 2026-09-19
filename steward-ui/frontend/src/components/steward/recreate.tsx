@@ -6,14 +6,14 @@ import { ApiError } from "@/lib/api"
 import { useDeployer, useDeployerJob, useRecreate } from "@/lib/queries"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Failure } from "@/components/steward/query-state"
@@ -110,7 +110,7 @@ export function RecreateButton({
   const running = recreate.isPending || (!job.error && job.data?.state === "RUNNING")
 
   return (
-    <Dialog
+    <ResponsiveDialog
       open={open}
       onOpenChange={(next) => {
         // A running compose operation is not cancelled by closing the window - nothing here could
@@ -126,7 +126,7 @@ export function RecreateButton({
       {compact ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <DialogTrigger asChild>
+            <ResponsiveDialogTrigger asChild>
               <Button
                 variant={variant}
                 size="icon-xs"
@@ -135,7 +135,7 @@ export function RecreateButton({
               >
                 <ArrowsClockwiseIcon aria-hidden />
               </Button>
-            </DialogTrigger>
+            </ResponsiveDialogTrigger>
           </TooltipTrigger>
           {/* The `title` attribute is what carries the deployer's own reason on the page version,
               and a disabled button never shows one on hover in any browser. In the picture the
@@ -143,18 +143,18 @@ export function RecreateButton({
           <TooltipContent>{title}</TooltipContent>
         </Tooltip>
       ) : (
-        <DialogTrigger asChild>
+        <ResponsiveDialogTrigger asChild>
           <Button variant={variant} size={size} disabled={unavailable} title={title}>
             <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
             Recreate
           </Button>
-        </DialogTrigger>
+        </ResponsiveDialogTrigger>
       )}
 
-      <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Recreate {service}?</DialogTitle>
-          <DialogDescription asChild>
+      <ResponsiveDialogContent className="max-w-[calc(100%-2rem)] sm:max-w-xl">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Recreate {service}?</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription asChild>
             {/*
               ONE SENTENCE, AND IT IS THE DANGEROUS ONE (2026-09-14). What the dialog used to also
               say, and what is true: the container is stopped and created again from the image
@@ -170,8 +170,8 @@ export function RecreateButton({
                 service right now is thrown out.
               </p>
             </div>
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         {/*
           A job that cannot be read is not a job that is running. Defaulting to "Running" and three
@@ -186,7 +186,7 @@ export function RecreateButton({
           )
         ) : null}
 
-        <DialogFooter>
+        <ResponsiveDialogFooter>
           {jobId ? (
             <Button variant="outline" onClick={() => setOpen(false)} disabled={running}>
               {running ? "Running…" : "Close"}
@@ -217,9 +217,9 @@ export function RecreateButton({
               </Button>
             </>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }
 

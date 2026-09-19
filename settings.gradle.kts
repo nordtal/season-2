@@ -30,7 +30,7 @@ include("hunger-games")
 include("smp")
 
 // Velocity plugin on the proxy.
-include("network-control")
+include("proxy")
 
 // Standalone JVM applications.
 include("discord-bot")

@@ -31,7 +31,7 @@ export const SERVICES = [
   "smp",
   "hunger-games",
   "limbo",
-  "network-control",
+  "proxy",
   "discord-bot",
   "postgres",
   "caddy",

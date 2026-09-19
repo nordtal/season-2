@@ -7,7 +7,7 @@ import { tonight } from "@/pages/operations"
  *
  * What it hands back becomes `not_before` on an `update_request` row, so a moment that is already
  * past is not a harmless rounding error: the worker picks the row up at once, stops smp,
- * network-control and the bot, and the network goes down while somebody is in the world. Every
+ * proxy and the bot, and the network goes down while somebody is in the world. Every
  * test here is ultimately about that one sentence.
  *
  * The forty-five minutes are `MINUTES_BEFORE_BACKUP`, which is not exported - so the gap is

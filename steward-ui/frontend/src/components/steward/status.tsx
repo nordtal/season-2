@@ -223,6 +223,76 @@ export function HealthDot({
  * stop reading - but it carries the one warning that is true of it, which stood nowhere before this
  * state existed.
  */
+/**
+ * One artefact's resolve status (season-2-ops/128).
+ *
+ * **Four answers, not two**, and keeping them apart is the whole reason this exists. "outdated" and
+ * "not installed" are work; "up to date" is none; "no build" is a publisher who has not shipped for
+ * this Minecraft version yet, which is nobody's fault and no reason to hold a run; and "could not
+ * ask" is the one that must never be drawn like any of the others - a source that did not answer
+ * looks exactly like a source that said nothing had changed, and the difference is the entire value
+ * of the reading.
+ */
+export function AvailableBadge({ status }: { status: string }) {
+  switch (status) {
+    case "UP_TO_DATE":
+      return (
+        <StatusBadge tone="ok" title="What is installed is what the source says is newest.">
+          up to date
+        </StatusBadge>
+      )
+    case "OUTDATED":
+      return (
+        <StatusBadge tone="warn" title="A newer file exists. A run would install it.">
+          outdated
+        </StatusBadge>
+      )
+    case "MISSING":
+      return (
+        <StatusBadge
+          tone="warn"
+          title={
+            "Nothing with this file name is installed. On a fresh volume that is normal; on a" +
+            " running server it is either new, or a publisher who renamed the jar."
+          }
+        >
+          not installed
+        </StatusBadge>
+      )
+    case "UNSUPPORTED":
+      return (
+        <StatusBadge
+          tone="idle"
+          title={
+            "The source answered and has no build of this for the Minecraft version the network" +
+            " runs. Nothing is installed and nothing failed. It stays on this list, so the day a" +
+            " build appears the next run picks it up."
+          }
+        >
+          no build
+        </StatusBadge>
+      )
+    case "MOUNT_MISSING":
+      return (
+        <StatusBadge
+          tone="down"
+          title="The volume is not mounted in steward-worker, so nothing can be said about it."
+        >
+          no volume
+        </StatusBadge>
+      )
+    default:
+      return (
+        <StatusBadge
+          tone="down"
+          title="The source could not be asked. This is not the same as nothing having changed."
+        >
+          could not ask
+        </StatusBadge>
+      )
+  }
+}
+
 export function DriftBadge({ drift }: { drift: string }) {
   switch (drift) {
     case "UP_TO_DATE":
@@ -294,6 +364,8 @@ export const RUN_KIND: Record<string, string> = {
   UPDATE: "Update",
   BACKUP: "Backup",
   RESTART: "Restart",
+  DOWN: "Put down",
+  START: "Start",
   // Two kinds nothing in this interface asks for, but old rows carry them and a table that printed
   // the enum name for them would look broken rather than historical.
   REPORT: "Report",

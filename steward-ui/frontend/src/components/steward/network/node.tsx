@@ -63,7 +63,7 @@ import { INGRESS, imageTag, type NodeId } from "./topology"
  *
  * <h2>Why the count is not on the first line</h2>
  * It used to sit there, beside the identifier and the dot, and at 390px that is exactly what broke:
- * the orchestrator's measurement of 2026-09-17 found `network-control` and `hunger-games` losing
+ * the orchestrator's measurement of 2026-09-17 found `proxy` and `hunger-games` losing
  * their own name to an ellipsis, because the identifier is `min-w-0 flex-1 truncate` and the count
  * sat on the same line as `shrink-0` - so the identifier, the first of the four facts the ticket
  * names, was what gave way first. It lives on the tag line instead, unconditionally rather than

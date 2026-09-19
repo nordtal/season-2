@@ -13,7 +13,7 @@ import {
  * be read against (steward/63).
  *
  * **Why this exists.** season-2-ingame/22 turned five `private static final` Java constants into
- * settings with a hex value - `#8ba888` and friends, `smp`/`hunger-games`/`limbo`/`network-control`
+ * settings with a hex value - `#8ba888` and friends, `smp`/`hunger-games`/`limbo`/`proxy`
  * each with their own `colours.yml` - and a bare text field is a worse interface for a colour than
  * for almost anything else this page draws: a wrong role id is still readable as a role id, but a
  * wrong hex string looks like nothing until it is rendered somewhere.

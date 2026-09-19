@@ -18,10 +18,10 @@ import { SERVICES, type ServiceName } from "@/app/navigation"
  * <h2>Where the edges come from</h2>
  * Read off `compose.yml` on 2026-09-17, not invented:
  *
- * - `players` reaches `network-control` on 25565 and `caddy` on 443, the only two published ports.
+ * - `players` reaches `proxy` on 25565 and `caddy` on 443, the only two published ports.
  * - `caddy` proxies `steward-ui`; `steward-ui` calls `steward-worker` and `steward-deployer` over
  *   the internal network, which is what `ApiError.where` names when one of them does not answer.
- * - `network-control` sends a player onwards to `limbo`, `hunger-games` or `smp`.
+ * - `proxy` sends a player onwards to `limbo`, `hunger-games` or `smp`.
  * - `db` edges are exactly the services compose hands `NORDTAL_*_DATABASE_JDBC_URL` to: seven of
  *   the ten. `caddy`, `steward-deployer` and `postgres` itself get no such variable and get no
  *   line.
@@ -48,19 +48,19 @@ export const DATABASE_CLIENTS: ServiceName[] = [
   "smp",
   "hunger-games",
   "limbo",
-  "network-control",
+  "proxy",
   "discord-bot",
   "steward-worker",
   "steward-ui",
 ]
 
 export const EDGES: Edge[] = [
-  { from: INGRESS, to: "network-control", kind: "traffic" },
+  { from: INGRESS, to: "proxy", kind: "traffic" },
   { from: INGRESS, to: "caddy", kind: "traffic" },
   { from: "caddy", to: "steward-ui", kind: "traffic" },
-  { from: "network-control", to: "smp", kind: "traffic" },
-  { from: "network-control", to: "hunger-games", kind: "traffic" },
-  { from: "network-control", to: "limbo", kind: "traffic" },
+  { from: "proxy", to: "smp", kind: "traffic" },
+  { from: "proxy", to: "hunger-games", kind: "traffic" },
+  { from: "proxy", to: "limbo", kind: "traffic" },
   { from: "steward-ui", to: "steward-worker", kind: "traffic" },
   { from: "steward-ui", to: "steward-deployer", kind: "traffic" },
   ...DATABASE_CLIENTS.map((client): Edge => ({ from: client, to: "postgres", kind: "data" })),

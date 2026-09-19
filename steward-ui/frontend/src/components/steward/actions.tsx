@@ -10,10 +10,12 @@ import {
   KeyIcon,
   LinkBreakIcon,
   LinkSimpleIcon,
+  PlayIcon,
   PulseIcon,
   ShieldCheckIcon,
   ShieldSlashIcon,
   ShieldWarningIcon,
+  StopIcon,
 } from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
 import type { Action, Person } from "@/lib/api"
@@ -56,6 +58,8 @@ const KIND_ICON: Record<string, Icon> = {
   UPDATE: ArrowsClockwiseIcon,
   BACKUP: ArchiveIcon,
   RESTART: ArrowCounterClockwiseIcon,
+  DOWN: StopIcon,
+  START: PlayIcon,
   REPORT: ClipboardTextIcon,
   GRANT_ACCESS: ShieldCheckIcon,
   REVOKE_ACCESS: ShieldSlashIcon,

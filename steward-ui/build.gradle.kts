@@ -19,7 +19,7 @@ application.mainClass.set("eu.nordtal.s2.steward.ui.StewardUi")
 repositoryRootTestInputs {
     readsTree("steward-worker/src", "steward-deployer/src")
 
-    reads("deploy/setup.sh")
+    reads("deploy/nordtal.sh")
     reads("deploy/README.md")
     reads("steward-worker/README.md")
     reads("steward-deployer/README.md")

@@ -233,10 +233,13 @@ function FileRow({
     >
       <span className="flex min-w-0 items-center gap-2">
         <Chevron className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm">{humanFileName(file.name)}</span>
-          <span className="truncate font-mono text-xs text-muted-foreground">{file.name}</span>
-        </span>
+        {/*
+          One line, not two. The path used to sit under the name in monospace; on a phone that made
+          every row two lines tall for a string nobody reads while browsing (season-2-ops/130).
+          `humanFileName` carries the path's words into the name anyway - a config under
+          `nordtal-smp/` reads "Nordtal smp config" - so the second line said the same thing twice.
+        */}
+        <span className="min-w-0 truncate text-sm">{humanFileName(file.name)}</span>
         {file.service === "" ? (
           <Badge variant="outline" className="shrink-0">
             no service

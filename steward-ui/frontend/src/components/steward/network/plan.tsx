@@ -17,7 +17,7 @@ import type { Plan } from "./place"
  * <h2>The six changes, and where each one lives below</h2>
  *
  * 1. **`players` moves to top centre**, at the same height it already had (`y` unchanged from the
- *    previous round) - "not between the services", so it stays above the `caddy`/`network-control`
+ *    previous round) - "not between the services", so it stays above the `caddy`/`proxy`
  *    row rather than moving into the grid the row implies.
  * 2. **`discord-bot` moves to bottom centre, between the two groups** - it has no traffic edge at
  *    all (see `topology.ts`), so the middle of the bottom row is the one place that does not imply
@@ -25,26 +25,26 @@ import type { Plan } from "./place"
  *    round moved it.
  * 3. **`postgres` moves to the middle of the picture**, both ways - `keeps postgres in the middle
  *    third of the canvas` in `geometry.test.ts` holds it there. It used to sit at the very bottom;
- *    now the upper singles (`caddy`, `network-control`, `steward-ui`) sit above it and the two
+ *    now the upper singles (`caddy`, `proxy`, `steward-ui`) sit above it and the two
  *    groups plus `discord-bot` sit below it, which is what "the middle of the action" means once
  *    two things happen on both sides of a card rather than one thing flowing into it.
  * 4. **The three Paper services, and separately `steward-worker`/`steward-deployer`, pack into one
  *    bordered group each** (`GroupSpec` in `place.tsx`) - `gap-1` (4px, `GROUP_GAP`) between
  *    members, one grey frame (`GROUP_PADDING` on every side) around the stack.
  * 5. **One arrow into each group, one line to postgres out of each group** - not because the edge
- *    list changed (it did not: `topology.ts` still lists `network-control -> smp`, `-> hunger-games`
+ *    list changed (it did not: `topology.ts` still lists `proxy -> smp`, `-> hunger-games`
  *    and `-> limbo` as three edges), but because `wires.tsx`'s `resolveEndpoint` folds a grouped
  *    member's end of an edge into its group's own frame, and three edges that resolve to the same
  *    pair draw once.
  * 6. **The alignment**: two singles and a group on the left (`caddy`, `steward-ui`,
- *    `steward-ops`), one single and a group on the right (`network-control`, `paper`) - and three
+ *    `steward-ops`), one single and a group on the right (`proxy`, `paper`) - and three
  *    things share the picture's bottom line: both groups and `discord-bot`. `caddy` and
- *    `network-control` share the top line the same way.
+ *    `proxy` share the top line the same way.
  *
  * <h2>Why the junction sits below `postgres`, not above it</h2>
  * The database fan used to gather above the sink, because the sink used to be the lowest thing on
  * the page. Now three of five sources - both groups and `discord-bot` - sit *below* `postgres`,
- * and only two (`network-control`, `steward-ui`) sit above it. Putting the junction above `postgres`
+ * and only two (`proxy`, `steward-ui`) sit above it. Putting the junction above `postgres`
  * would force `discord-bot`'s foot, which shares `postgres`'s own x, to run in a dead straight
  * vertical line through the middle of the card to get there. Putting the junction **below**
  * `postgres` instead - `wide`'s sits at `(300, 450)`, 62px under the sink - means the three
@@ -58,7 +58,7 @@ import type { Plan } from "./place"
  * exactly that reason, in both this round and the one before it.
  *
  * <h2>No detours left to bow</h2>
- * The previous round needed `bows` because three separate edges left `network-control` stacked in
+ * The previous round needed `bows` because three separate edges left `proxy` stacked in
  * one lane, and the two further siblings ran straight through the nearer ones. Collapsing those
  * three edges into one - into the group, not into three lines that happen to overlap - removes the
  * siblings, and with them the reason `bows` existed on this draft. Both arrangements below carry no
@@ -95,7 +95,7 @@ const wide: Plan["wide"] = {
     { id: "players", x: 300, y: 44 },
 
     { id: "caddy", x: 92, y: 182 },
-    { id: "network-control", x: 508, y: 182 },
+    { id: "proxy", x: 508, y: 182 },
 
     { id: "steward-ui", x: 92, y: 320 },
 
@@ -104,7 +104,7 @@ const wide: Plan["wide"] = {
     { id: "discord-bot", x: 300, y: 622 },
   ],
   groups: [
-    // The three Paper servers - `network-control` is the only thing that routes to any of them,
+    // The three Paper servers - `proxy` is the only thing that routes to any of them,
     // and the group is what turns three arrows into one.
     { id: "paper", members: ["smp", "hunger-games", "limbo"], x: 508, y: 532 },
     // `steward-ui` calls both of these; same collapse, same reasoning, one column over.
@@ -120,7 +120,7 @@ const narrow: Plan["narrow"] = {
     { id: "players", x: 176, y: 40 },
 
     { id: "caddy", x: 84, y: 170 },
-    { id: "network-control", x: 268, y: 170 },
+    { id: "proxy", x: 268, y: 170 },
 
     { id: "steward-ui", x: 84, y: 300 },
 

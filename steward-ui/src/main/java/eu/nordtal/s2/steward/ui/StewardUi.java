@@ -540,6 +540,38 @@ public final class StewardUi {
                         "/api/services/" + ctx.pathParam("name") + "/console", ctx.body());
                 ctx.status(202).contentType("application/json").result(answer);
             }, Gate.KEY_FRESH);
+            // season-2-ops/129: the plugins on one Minecraft server. Three reads and two writes,
+            // and the split of gates is the usual one - looking at a list is KEY_HELD, changing
+            // what a server runs is KEY_FRESH.
+            //
+            // These are NOT the door an update goes through and they do not need to be: installing
+            // writes a row that the next ordinary run picks up, so the countdown, the wait in limbo
+            // and the report all still happen, and none of it happens here.
+            cfg.routes.get("/api/services/{name}/plugins", ctx ->
+                    passThrough(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins"),
+                    Gate.KEY_HELD);
+            // `?q=` has to survive, so this goes through forwardedQuery like the log search does -
+            // a passThrough naming the bare path drops the query string silently, and the worker
+            // would answer the most popular plugins while the browser believed it had searched.
+            cfg.routes.get("/api/services/{name}/plugins/search", ctx ->
+                    passThrough(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins/search"
+                            + forwardedQuery(ctx.queryString())), Gate.KEY_HELD);
+            // The name on the row is taken from the session and written into the body HERE, not
+            // accepted from the browser. Everything else in `by`'s shape is the same as
+            // `update_request.requested_by`, and a field a request may fill in is a field that says
+            // whatever the request wanted it to.
+            cfg.routes.post("/api/services/{name}/plugins", ctx -> {
+                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                final Map<String, Object> body = new java.util.LinkedHashMap<>(
+                        GSON.<Map<String, Object>>fromJson(ctx.body(), Map.class));
+                body.put("by", who.name() + " (" + who.id() + ")");
+                forwardWorker(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins",
+                        GSON.toJson(body), 201);
+            }, Gate.KEY_FRESH);
+            cfg.routes.delete("/api/services/{name}/plugins/{artifact}", ctx ->
+                    forwardWorker(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins/"
+                            + ctx.pathParam("artifact"), null, 200), Gate.KEY_FRESH);
+
             // --- and creating one comes from steward-deployer, which is a different service ---
             //
             // Not the same door as an update: an update is a countable, cancellable row that
@@ -628,6 +660,15 @@ public final class StewardUi {
                         .map(StewardUi::describe).toList());
             }, Gate.KEY_HELD);
 
+            // season-2-ops/128: WHAT A RUN WOULD DO, WITHOUT DOING IT. Registered BEFORE
+            // `/api/updates/{id}` on purpose - Javalin matches in registration order, and the
+            // other way round `available` is a path parameter that fails as a number.
+            //
+            // KEY_HELD and not KEY_FRESH: the worker resolves and writes nothing. Nothing on the
+            // other side of this route can start a run; asking for one is still POST /api/updates.
+            cfg.routes.get("/api/updates/available",
+                    ctx -> passThrough(ctx, "/api/updates/available"), Gate.KEY_HELD);
+
             cfg.routes.get("/api/updates/{id}", ctx -> {
                 final long id = Long.parseLong(ctx.pathParam("id"));
                 ctx.json(data.updates().find(id)
@@ -640,13 +681,21 @@ public final class StewardUi {
             cfg.routes.post("/api/updates", ctx -> {
                 final Ask ask = ctx.bodyAsClass(Ask.class);
                 if (ask == null || ask.kind == null) {
-                    throw new BadRequestResponse("kind is UPDATE, BACKUP or RESTART");
+                    throw new BadRequestResponse("kind is UPDATE, BACKUP, RESTART, DOWN or START");
                 }
                 final UpdateKind kind;
                 try {
                     kind = UpdateKind.valueOf(ask.kind.trim().toUpperCase(java.util.Locale.ROOT));
                 } catch (IllegalArgumentException e) {
                     throw new BadRequestResponse(ask.kind + " is not a kind of run");
+                }
+                // season-2-ops/125. The worker refuses this too, and refuses it properly - but a
+                // run that fails is a row somebody has to go and read, and this one can be answered
+                // here with the button still under their finger. An unnamed scope is the whole
+                // network everywhere else in this mechanism, and DOWN is the one kind where that
+                // reading would be a network stopped until somebody presses Start.
+                if (kind == UpdateKind.DOWN && (ask.services == null || ask.services.isEmpty())) {
+                    throw new BadRequestResponse("a DOWN has to name the services it puts down");
                 }
                 final DiscordAuth.Account who = account(ctx).orElseThrow();
                 // `not_before` is what §10a.4 calls scheduling: the worker refuses to claim the row
@@ -655,8 +704,10 @@ public final class StewardUi {
                 final Duration delay = ask.delaySeconds == null || ask.delaySeconds <= 0
                         ? Duration.ZERO : Duration.ofSeconds(ask.delaySeconds);
                 final var written = data.updates().submit(kind, UpdateSource.CONSOLE,
-                        who.name() + " (" + who.id() + ")", delay);
-                log.info("{} asked for {} as request {}", who.name(), kind, written.id());
+                        who.name() + " (" + who.id() + ")", delay, ask.services);
+                log.info("{} asked for {} as request {}{}", who.name(), kind, written.id(),
+                        ask.services == null || ask.services.isEmpty() ? ""
+                                : " for " + String.join(", ", ask.services));
                 ctx.status(202).json(describe(written));
             }, Gate.KEY_FRESH);
 
@@ -1762,6 +1813,14 @@ public final class StewardUi {
     private static final class Ask {
         private String kind;
         private Long delaySeconds;
+        /**
+         * Which compose services this run is for (season-2-ops/127).
+         *
+         * <p>Absent or empty is the whole network - the run every button here has always written.
+         * A scoped run is not an abbreviated one: it counts down, parks the players and waits for
+         * health exactly as an unscoped one does.</p>
+         */
+        private java.util.List<String> services;
     }
 
     /** The body of both access endpoints. {@code days} is unused by the revoke. */
@@ -1883,6 +1942,30 @@ public final class StewardUi {
                     .encode(segment, StandardCharsets.UTF_8).replace("+", "%20"));
         }
         return path.toString();
+    }
+
+    /**
+     * A write forwarded to steward-worker, with its refusal kept intact.
+     *
+     * <p>The same arrangement {@link #forwardConfig} makes and for the same reason: a 409 the
+     * worker composed - "there is no build of this plugin for Minecraft 26.2" - is a sentence
+     * somebody has to read, and turning it into this service's own "the worker answered 409" would
+     * throw the only useful half away.</p>
+     *
+     * @param body {@code null} for a {@code DELETE}, which carries none
+     * @param ok   what to answer on success, because a create is a 201 and a delete is a 200
+     */
+    private void forwardWorker(final Context ctx, final String path, final String body, final int ok) {
+        try {
+            final String answer = body == null ? worker.delete(path) : worker.post(path, body);
+            ctx.status(ok).contentType("application/json").result(answer);
+        } catch (final InternalClient.Failure failure) {
+            if (failure.body() == null || failure.body().isBlank()) {
+                throw failure;
+            }
+            log.info("steward-worker refused {} with {}", path, failure.status());
+            ctx.status(failure.status()).contentType("application/json").result(failure.body());
+        }
     }
 
     private void passThrough(final Context ctx, final String path) {

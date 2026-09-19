@@ -12,14 +12,16 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
-import { LOCALE, bytes, clock, count, percent, since } from "@/lib/format"
+import { LOCALE, bytes, clock, count, dateTime, percent, since } from "@/lib/format"
 import { useConsole, useLogSearch, useService } from "@/lib/queries"
 import { useLogStream, LIMIT } from "@/lib/use-log-stream"
 import { ServiceConfiguration } from "@/components/steward/configuration"
 import { ServiceMessages } from "@/components/steward/messages"
+import { ServicePlugins } from "@/components/steward/plugins"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { RecreateButton } from "@/components/steward/recreate"
+import { AskButton } from "@/pages/operations"
 import { DriftBadge, ServiceState, StatusBadge } from "@/components/steward/status"
 import { Empty, Failure, Loading } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
@@ -48,7 +50,35 @@ export function ServicePage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title={name}
-        actions={<RecreateButton service={name} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {/*
+              season-2-ops/127: a run for this service alone. It is the same run - countdown, the
+              wait in limbo, health, report - with a smaller scope, which is why it is the same
+              button rather than a second mechanism.
+
+              It is offered on every service page, including the ones a run has nothing to install
+              for. That run ends at "Nothing to do", which is a true answer; hiding the button
+              behind a list of updatable services kept in the browser would be a second opinion
+              about what a run touches, and the worker is the only thing allowed to have one.
+            */}
+            <AskButton kind="UPDATE" services={[name]} label="Update" />
+            {/*
+              season-2-ops/125: Down and Start are one button, because they are one switch. Which
+              half is offered follows the `hold` field and nothing else - not whether the container
+              is running, because a service that crashed is stopped and must still offer Down, and
+              a held service whose container somehow came back must still offer Start to clear the
+              hold. While the row is loading neither is drawn: a Down button that turns into a
+              Start button under somebody's finger is worse than a button that arrives late.
+            */}
+            {service.data === undefined ? null : service.data.hold ? (
+              <AskButton kind="START" services={[name]} label="Start" variant="default" />
+            ) : (
+              <AskButton kind="DOWN" services={[name]} label="Put down" />
+            )}
+            <RecreateButton service={name} />
+          </div>
+        }
       />
 
       {service.isPending ? (
@@ -62,6 +92,11 @@ export function ServicePage() {
       )}
 
       <LogPanel name={name} hasConsole={service.data?.hasConsole ?? false} />
+
+      {/* season-2-ops/129. Under the log for the same reason the configuration is: the log is what
+          somebody came here for, the plugin list is what they came here for once. It draws itself
+          away entirely on a service with no plugins folder. */}
+      <ServicePlugins service={name} />
 
       {/* Below the log on purpose. The log is what somebody came here for; the configuration is
           what they came here for once. */}
@@ -89,6 +124,19 @@ export function ServiceHead({ service }: { service: NonNullable<ReturnType<typeo
           </span>
           <div className="flex items-center gap-2">
             <ServiceState state={service.state} health={service.health} />
+            {/* Ahead of the drift badge, because it changes what every other badge here means: a
+                service being held down is not behind on its image, it is out of the network on
+                purpose. */}
+            {service.hold ? (
+              <StatusBadge
+                tone="warn"
+                title={`Held down since ${dateTime(service.hold.since)}${
+                  service.hold.by ? ` by ${service.hold.by}` : ""
+                }. No update and no restart starts it again.`}
+              >
+                Held down
+              </StatusBadge>
+            ) : null}
             <DriftBadge drift={service.drift} />
             {service.hasConsole ? (
               <StatusBadge tone="idle" title="This service has a server console.">

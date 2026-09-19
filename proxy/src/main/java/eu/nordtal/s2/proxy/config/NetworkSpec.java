@@ -177,6 +177,31 @@ public interface NetworkSpec {
     }
 
     @Order(6)
+    @Key("standby")
+    @Comment({
+            "Whether THIS process is the standby proxy. False everywhere except in one place.",
+            "",
+            "The two proxies are the same image, the same jars and the same environment block -",
+            "compose.yml shares one YAML node between them on purpose - so a process cannot work",
+            "out which one it is. Velocity binds 0.0.0.0:25565 inside BOTH containers and Docker",
+            "does the renumbering outside, so there is nothing to look at.",
+            "",
+            "IT IS NOT SYMMETRIC TO GET THIS WRONG. A standby that thought it was live would",
+            "simply never send anybody home. A LIVE proxy that thought it was the standby would",
+            "watch public-address, find itself answering, and transfer every player to the address",
+            "they are already connected to - for ever. That is why this defaults to false and why",
+            "exactly one service in compose.yml overrides it.",
+            "",
+            "A standby proxy: puts arrivals in server-limbo-standby rather than server-limbo,",
+            "never releases anybody out of the waiting room, transfers them back to",
+            "public-address as soon as it answers again, and writes no player counts."
+    })
+    @Explain("Whether this process is the standby proxy - false for the one players connect to, and true in exactly one place in compose.yml.")
+    default boolean standby() {
+        return false;
+    }
+
+    @Order(7)
     @Key("motd")
     @Comment({
             "What the server browser shows, per season phase. MiniMessage, so <gradient>,",

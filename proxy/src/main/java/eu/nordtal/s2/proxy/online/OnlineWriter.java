@@ -6,6 +6,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.s2.common.online.OnlineDirectory;
 import eu.nordtal.s2.common.online.OnlineRoster;
 import eu.nordtal.s2.proxy.routing.PhaseServers;
+import eu.nordtal.s2.proxy.routing.ProxyRole;
 
 import org.slf4j.Logger;
 
@@ -52,20 +53,46 @@ public final class OnlineWriter {
     private final PhaseServers servers;
     private final OnlineDirectory online;
     private final OnlineRoster roster;
+    private final ProxyRole role;
     private final Logger logger;
 
+    /**
+     * @param role which of the two proxies this process is. A standby writes nothing at all - see
+     *             {@link #write()}
+     */
     public OnlineWriter(final ProxyServer proxy, final PhaseServers servers,
                         final OnlineDirectory online, final OnlineRoster roster,
-                        final Logger logger) {
+                        final ProxyRole role, final Logger logger) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.servers = Objects.requireNonNull(servers, "servers");
         this.online = Objects.requireNonNull(online, "online");
         this.roster = Objects.requireNonNull(roster, "roster");
+        this.role = Objects.requireNonNull(role, "role");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
-    /** Called from the proxy's scheduler on {@link OnlineDirectory#WRITE_INTERVAL}. */
+    /**
+     * Called from the proxy's scheduler on {@link OnlineDirectory#WRITE_INTERVAL}.
+     *
+     * <h2>The standby writes nothing, and that is not an optimisation (season-2-ops/121)</h2>
+     * These two tables answer "who is on the network". There is one network and, for a minute
+     * during a proxy swap, two proxies - and the second one would be answering the same question
+     * with a different number, every ten seconds, overwriting the first. For most of the standby's
+     * life its honest answer is zero, so the dashboard would flicker between the truth and nothing,
+     * and {@code steward-worker} asking whether the standby is empty could be handed the live
+     * proxy's row.
+     *
+     * <p>What the standby writes instead is {@code proxy_standby_state}, which is its own count in
+     * its own row and cannot be confused with anybody's - see {@link
+     * eu.nordtal.s2.proxy.update.StandbyReturn}. During the window when the live proxy is actually
+     * <em>down</em>, these tables go stale rather than to zero; that is the right direction, since
+     * the players are still on the network and the {@code updated} column says how old the answer
+     * is.</p>
+     */
     public void write() {
+        if (role.isStandby()) {
+            return;
+        }
         writeCounts();
         writeRoster();
     }

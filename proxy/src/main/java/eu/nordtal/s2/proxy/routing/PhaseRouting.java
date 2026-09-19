@@ -24,9 +24,20 @@ import java.util.Set;
 public final class PhaseRouting {
 
     private final PhaseServers servers;
+    private final ProxyRole role;
 
     public PhaseRouting(final PhaseServers servers) {
+        this(servers, ProxyRole.LIVE);
+    }
+
+    /**
+     * @param role which of the two proxies this process is - it changes exactly one thing here,
+     *             {@link #waitingRoomAmong}, and see that method for why that one thing is not
+     *             optional
+     */
+    public PhaseRouting(final PhaseServers servers, final ProxyRole role) {
         this.servers = Objects.requireNonNull(servers, "servers");
+        this.role = Objects.requireNonNull(role, "role");
     }
 
     /**
@@ -203,11 +214,40 @@ public final class PhaseRouting {
      *         {@link PhaseServers#limboStandby()} if <em>that</em> is, else {@code null}
      */
     private String waitingRoomAmong(final Set<String> available) {
-        if (available.contains(servers.limbo())) {
-            return servers.limbo();
+        return waitingRoomAmong(available, servers, role);
+    }
+
+    /**
+     * The same, as a function of its three inputs - the split the rest of this plugin uses, so the
+     * one rule that reverses can be asserted rather than read.
+     *
+     * <h2>Why the standby's preference is the other way round, and why that is not symmetry</h2>
+     * On the live proxy the rule reads "the room, unless it is being updated". On the standby it
+     * reads "the standby room, always" - and the difference is not tidiness, it is the whole reason
+     * a proxy swap is safe to build without the measurement the ticket could not make.
+     *
+     * <p>A proxy swap does not touch the backends: {@code limbo} is up and registered throughout,
+     * so a standby using the live rule would put every arrival there. But the players arriving are
+     * the players who <em>just left</em> the live proxy, and some of them were standing in
+     * {@code limbo} when they did. That is the same UUID leaving and rejoining one Paper server
+     * within a second - the "You are already logged in" the ticket names as the thing to reproduce
+     * before building anything. Sending them to the other room means nobody rejoins a backend they
+     * were on, so the question cannot reach this code at all.</p>
+     *
+     * @param available the backends registered on this proxy
+     * @param servers   the backend names
+     * @param role      which proxy this is
+     * @return a room to put somebody in, or {@code null} if this proxy has neither
+     */
+    static String waitingRoomAmong(final Set<String> available, final PhaseServers servers,
+                                   final ProxyRole role) {
+        final String first = role.isStandby() ? servers.limboStandby() : servers.limbo();
+        final String second = role.isStandby() ? servers.limbo() : servers.limboStandby();
+        if (available.contains(first)) {
+            return first;
         }
-        if (available.contains(servers.limboStandby())) {
-            return servers.limboStandby();
+        if (available.contains(second)) {
+            return second;
         }
         return null;
     }

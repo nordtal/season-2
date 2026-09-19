@@ -323,6 +323,10 @@ services:
   # The Velocity proxy. The only service that publishes a port to the network.
   proxy:
     <<: *minecraft
+    # The second lightning rod - see limbo below for why these two and not the others. The proxy
+    # holds no world at all: everything it knows is read back out of the database and out of
+    # velocity.toml when it starts, so it is the cheapest process on this host to lose.
+    oom_score_adj: 500
     environment:
       <<: *minecraft-env
       SERVER_KIND: velocity
@@ -434,6 +438,18 @@ services:
   # The waiting room. Needs the database for one thing only: the player's language.
   limbo:
     <<: *minecraft
+    # THE LIGHTNING ROD WHEN MEMORY RUNS OUT (season-2-ops/115, Till, 2026-09-19).
+    # On 2026-09-18 the host's global OOM killer took the SMP server: it was the largest process at
+    # 3 GB, and "largest" is the whole of the kernel's default answer. `mem_limit` would not have
+    # helped - Docker's own documentation says "The OOM priority on containers isn't adjusted", and
+    # measured here all ten containers sat at oom_score_adj 0 while the kill itself was
+    # constraint=CONSTRAINT_NONE, a host-wide choice a cgroup limit cannot influence.
+    # So the decision is not *whether* something dies but *what first*, and it is Till's: this
+    # service and the proxy hold almost nothing that cannot be made again in seconds, while the SMP
+    # server holds the world since the last autosave and postgres holds everything that cannot be
+    # regenerated at all. A positive value here does not make a kill more likely; it makes this the
+    # one chosen when a kill happens anyway.
+    oom_score_adj: 500
     environment:
       <<: *minecraft-env
       SERVER_KIND: paper

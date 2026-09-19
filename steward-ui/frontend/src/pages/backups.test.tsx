@@ -6,22 +6,26 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router"
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { BackupsPage } from "@/pages/backups"
+import type { Person } from "@/lib/api"
+import { BackupRunDetailPage, BackupsPage } from "@/pages/backups"
 
 /**
- * The backup page steward/95 asked for, held to the two things it must never get wrong.
+ * The backup page steward/95 asked for, and Till's second round on it (2026-09-18 review): the
+ * remote target and the schedule are dialogs now, "Volumes" is "Archives", "Requested by" is
+ * "Initiated by" and goes through {@link PersonIdentity}, the whole run row is a link, and a run's
+ * own archives moved to its own detail page.
  *
- * The first is the credential: the remote target is typed here, and the whole reason that is
- * acceptable is that the two keys are `@Secret` in `StewardSpec` and therefore arrive without a
- * value. A fixture below sends one anyway - which the real worker will not do - because the
- * assertion worth having is about THIS page's own handling, not about the backend's good manners.
+ * Held to the same two things the first round was, plus what the review added:
  *
- * The second is the fraction. A run that saved nothing and stopped the network anyway looks exactly
- * like a good one in a status badge alone, which is the argument the wireframes made on 2026-09-12
- * and the reason the column is `0 of 12` rather than a word.
+ * - A secret is never drawn: the two remote keys are `@Secret` in `StewardSpec` and arrive with no
+ *   value. A fixture below sends one anyway - which the real worker will not do - because the
+ *   assertion worth having is about THIS page's own handling, not about the backend's good manners.
+ * - A raw Discord id is never plain text on the page - `IDENTIFIER_PATTERN` catches a snowflake or
+ *   a UUID anywhere in the rendered document, the same check `identity.test.tsx` holds every other
+ *   consumer of {@link PersonIdentity} to.
  */
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -31,6 +35,7 @@ function json(status: number, body: unknown): Response {
 }
 
 const FILE = "steward-worker/steward.yml"
+const IDENTIFIER_PATTERN = /\b\d{17,20}\b/
 
 function entry(over: Record<string, unknown>) {
   return {
@@ -53,7 +58,7 @@ function entry(over: Record<string, unknown>) {
   }
 }
 
-/** `steward.yml` as the worker sends it - the five remote keys, retention and the clock. */
+/** `steward.yml` as the worker sends it - the schedule, the retention block and the remote keys. */
 function workerConfig(over: { secretValue?: string } = {}) {
   return {
     service: "steward-worker",
@@ -64,8 +69,35 @@ function workerConfig(over: { secretValue?: string } = {}) {
     revision: "rev-1",
     header: [],
     entries: [
-      entry({ path: "backup.keep", key: "keep", label: "Keep", value: "14", type: "INTEGER" }),
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
+      entry({
+        path: "backup.retention.daily",
+        key: "daily",
+        label: "Daily",
+        value: "14",
+        type: "INTEGER",
+      }),
+      entry({
+        path: "backup.retention.weekly",
+        key: "weekly",
+        label: "Weekly",
+        value: "8",
+        type: "INTEGER",
+      }),
+      entry({
+        path: "backup.retention.monthly",
+        key: "monthly",
+        label: "Monthly",
+        value: "6",
+        type: "INTEGER",
+      }),
+      entry({
+        path: "backup.retention.collapse-after-days",
+        key: "collapse-after-days",
+        label: "Collapse after",
+        value: "3",
+        type: "INTEGER",
+      }),
       entry({ path: "backup.remote.endpoint", key: "endpoint", label: "Endpoint", value: "" }),
       entry({ path: "backup.remote.bucket", key: "bucket", label: "Bucket", value: "" }),
       entry({ path: "backup.remote.prefix", key: "prefix", label: "Prefix", value: "" }),
@@ -96,8 +128,11 @@ function run(over: Record<string, unknown> = {}) {
     id: 41,
     kind: "BACKUP",
     status: "FAILED",
-    source: "clock",
-    requestedBy: "the nightly clock",
+    source: "SCHEDULE",
+    requestedBy: "steward-worker (nightly)",
+    actorDiscordId: "",
+    actorLabel: "",
+    system: true,
     requested: "2026-09-17T04:45:00Z",
     notBefore: "2026-09-17T04:45:00Z",
     started: "2026-09-17T04:45:02Z",
@@ -116,7 +151,39 @@ function run(over: Record<string, unknown> = {}) {
   }
 }
 
-function backend(over: { config?: unknown; put?: (body: unknown) => Response } = {}) {
+function backup(over: Record<string, unknown> = {}) {
+  return {
+    name: "nordtal-s2_mc-smp-20260917T044500Z.tar.zst",
+    bytes: 1_500_000_000,
+    human: "1.5 GB",
+    modified: "2026-09-17T04:45:00Z",
+    partial: false,
+    ...over,
+  }
+}
+
+function person(over: Partial<Person> = {}): Person {
+  return {
+    discordId: "594510749410525200",
+    memberState: "ACTIVE",
+    donor: false,
+    admin: true,
+    locale: "en",
+    updated: "2026-09-17T00:00:00Z",
+    accessActive: true,
+    ...over,
+  }
+}
+
+function backend(
+  over: {
+    config?: unknown
+    put?: (body: unknown) => Response
+    runs?: unknown[]
+    backups?: unknown[]
+    people?: Person[]
+  } = {},
+) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/config") {
       return json(200, [
@@ -130,20 +197,14 @@ function backend(over: { config?: unknown; put?: (body: unknown) => Response } =
       return json(200, over.config ?? workerConfig())
     }
     if (url === "/api/backups") {
-      return json(200, [
-        {
-          name: "nordtal-s2_mc-smp-20260917T044500Z.tar.zst",
-          bytes: 1_500_000_000,
-          human: "1.5 GB",
-          modified: "2026-09-17T04:45:00Z",
-          partial: false,
-        },
-      ])
+      return json(200, over.backups ?? [backup()])
     }
-    if (url.startsWith("/api/updates")) return json(200, [run()])
+    if (url.startsWith("/api/updates")) return json(200, over.runs ?? [run()])
     if (url === "/api/schedule") {
       return json(200, { backupAt: "04:45", zone: "Europe/Berlin", nextBackupAt: null })
     }
+    if (url === "/api/people") return json(200, over.people ?? [])
+    if (url === "/api/settings") return json(200, {})
     throw new Error(`the page asked for ${url}, which this test did not expect`)
   })
 }
@@ -156,9 +217,25 @@ function draw() {
     createRoute({ getParentRoute: () => root, path: "/operations/runs/$id", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/operations/backups/$id", component: nothing }),
   ])
+  const history = createMemoryHistory({ initialEntries: ["/"] })
+  const router = createRouter({ routeTree, history })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router as never} />
+    </QueryClientProvider>,
+  )
+  return { history }
+}
+
+function drawDetail(id: string) {
+  const root = createRootRoute()
+  const routeTree = root.addChildren([
+    createRoute({ getParentRoute: () => root, path: "/operations/backups/$id", component: BackupRunDetailPage }),
+  ])
   const router = createRouter({
     routeTree,
-    history: createMemoryHistory({ initialEntries: ["/"] }),
+    history: createMemoryHistory({ initialEntries: [`/operations/backups/${id}`] }),
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -173,10 +250,12 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe("BackupsPage - the remote target is typed here and never read back (steward/95)", () => {
+describe("BackupsPage - the destination dialog never draws a secret (steward/95)", () => {
   it("leaves a secret's field empty even when a value arrives with it", async () => {
     vi.stubGlobal("fetch", backend({ config: workerConfig({ secretValue: "AKIAsecret" }) }))
     draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Destination" }))
 
     const key = (await screen.findByLabelText("Access key")) as HTMLInputElement
     expect(key.type).toBe("password")
@@ -188,6 +267,8 @@ describe("BackupsPage - the remote target is typed here and never read back (ste
     vi.stubGlobal("fetch", backend({}))
     draw()
 
+    fireEvent.click(await screen.findByRole("button", { name: "Destination" }))
+
     const set = (await screen.findByLabelText("Access key")) as HTMLInputElement
     const unset = screen.getByLabelText("Secret key") as HTMLInputElement
     expect(set.placeholder).toContain("set")
@@ -195,11 +276,9 @@ describe("BackupsPage - the remote target is typed here and never read back (ste
   })
 
   it("has nothing to save once a typed value is put back the way it was", async () => {
-    // Typed and untyped are not the same thing as changed and unchanged: the draft remembers that
-    // the field was touched, and a save that sends a key back at its own value is a write to the
-    // file for nothing - and, on a list of five, a revision spent for nothing.
     vi.stubGlobal("fetch", backend({}))
     draw()
+    fireEvent.click(await screen.findByRole("button", { name: "Destination" }))
 
     const endpoint = await screen.findByLabelText("Endpoint")
     fireEvent.change(endpoint, { target: { value: "https://fsn1.your-objectstorage.com" } })
@@ -223,6 +302,7 @@ describe("BackupsPage - the remote target is typed here and never read back (ste
     })
     vi.stubGlobal("fetch", fetch)
     draw()
+    fireEvent.click(await screen.findByRole("button", { name: "Destination" }))
 
     const endpoint = await screen.findByLabelText("Endpoint")
     fireEvent.change(endpoint, { target: { value: "https://fsn1.your-objectstorage.com" } })
@@ -236,25 +316,46 @@ describe("BackupsPage - the remote target is typed here and never read back (ste
   })
 })
 
-describe("BackupsPage - a run that saved nothing does not look like one that worked", () => {
-  it("prints the fraction, not just the status", async () => {
+describe("BackupsPage - the schedule dialog carries the retention numbers now (item 9)", () => {
+  it("reads retention out of the same file the destination is saved in", async () => {
     vi.stubGlobal("fetch", backend({}))
     draw()
 
-    expect(await screen.findByText("0 of 12")).toBeTruthy()
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
+
+    const daily = (await screen.findByLabelText("Daily")) as HTMLInputElement
+    expect(daily.value).toBe("14")
+  })
+
+  it("computes what the numbers mean, rather than only listing them", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
+    await screen.findByLabelText("Daily")
+
+    // Matches Retention's own algorithm: at most daily + weekly + monthly, not stacked.
+    expect(await screen.findByText(/at most 28 archives per volume/i)).toBeTruthy()
+  })
+
+  it("draws the weekdays honestly - every day on, and says picking one is not built", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
+
+    expect(await screen.findByText("Mon")).toBeTruthy()
+    expect(screen.getByText(/is not built yet/i)).toBeTruthy()
   })
 })
 
 describe("BackupsPage - the numbers it opens with", () => {
-  it("reads retention out of the same file the remote target is saved in", async () => {
+  it("says storage is not tracked rather than inventing a number for it", async () => {
     vi.stubGlobal("fetch", backend({}))
     draw()
 
-    // Waited for rather than read once: the tile draws a dash until the config document lands,
-    // which is the same dash it would draw if this page never read `backup.keep` at all.
-    await waitFor(() =>
-      expect(screen.getByText("Keep").parentElement?.textContent).toContain("14"),
-    )
+    expect(await screen.findByText("Storage available")).toBeTruthy()
+    expect(screen.getByText("not tracked")).toBeTruthy()
   })
 
   it("says there is no nightly clock rather than drawing a next run there is none of", async () => {
@@ -262,5 +363,142 @@ describe("BackupsPage - the numbers it opens with", () => {
     draw()
 
     expect(await screen.findByText("no nightly clock")).toBeTruthy()
+  })
+})
+
+describe("BackupsPage - the runs table (items 2, 3, 4)", () => {
+  it("counts archives under the header 'Archives', not the old 'Volumes' fraction", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+
+    expect(await screen.findByText("Archives")).toBeTruthy()
+    expect(screen.queryByText("Volumes")).toBeNull()
+    expect(screen.queryByText("0 of 12")).toBeNull()
+  })
+
+  it("shows how many archives a run actually wrote when some were saved", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [
+          run({
+            report: {
+              stage: "DONE",
+              notes: [],
+              services: [
+                { service: "a", state: "SAVED", changes: [] },
+                { service: "b", state: "SAVED", changes: [] },
+                { service: "c", state: "FAILED", changes: [] },
+              ],
+            },
+          }),
+        ],
+      }),
+    )
+    draw()
+
+    const row = (await screen.findByText("#41")).closest("tr")
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText("2")).toBeTruthy()
+  })
+
+  it("makes the whole row a link, not only the run number", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    const { history } = draw()
+
+    const row = (await screen.findByText("#41")).closest("tr") as HTMLElement
+    // The "When" cell, deliberately not the run-number link itself.
+    fireEvent.click(within(row).getByText(/2026/))
+
+    await waitFor(() => expect(history.location.pathname).toBe("/operations/backups/41"))
+  })
+
+  it("labels the column 'Initiated by' and never prints the raw Discord id", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [run({ actorDiscordId: "594510749410525200", actorLabel: "", system: false })],
+        people: [person({ discordUsername: "hm.till" })],
+      }),
+    )
+    draw()
+
+    expect(await screen.findByText("Initiated by")).toBeTruthy()
+    expect(screen.queryByText("Requested by")).toBeNull()
+    await screen.findByText("hm.till")
+    expect(document.body.textContent).not.toMatch(IDENTIFIER_PATTERN)
+  })
+
+  it("draws Steward itself for the nightly clock, not a blank person", async () => {
+    vi.stubGlobal("fetch", backend({ runs: [run({ system: true })] }))
+    draw()
+
+    expect(await screen.findByText("Steward")).toBeTruthy()
+  })
+
+  it("falls back to plain text for a requester with no id to resolve", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [run({ system: false, actorDiscordId: "", actorLabel: "token-rotation-check" })],
+      }),
+    )
+    draw()
+
+    expect(await screen.findByText("token-rotation-check")).toBeTruthy()
+  })
+})
+
+describe("BackupsPage - the volumes panel and the archive listing are gone (items 5 & 6)", () => {
+  it("draws no separate volumes panel - the run's own report line already carries that", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+    await screen.findByText("Runs")
+
+    expect(screen.queryByRole("heading", { name: "Volumes" })).toBeNull()
+  })
+
+  it("lists no archive files on the page itself any more", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+    await screen.findByText("Runs")
+
+    expect(screen.queryByText("nordtal-s2_mc-smp-20260917T044500Z.tar.zst")).toBeNull()
+  })
+})
+
+describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", () => {
+  it("lists the archives written inside this run's own window, each one downloadable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [run()],
+        backups: [
+          backup({ name: "nordtal-s2_mc-smp-20260917T044505Z.tar.zst", modified: "2026-09-17T04:45:05Z" }),
+          backup({ name: "nordtal-20260917T044550Z.dump", modified: "2026-09-17T04:45:50Z" }),
+          // Written the following night - outside this run's window, must not be listed here.
+          backup({ name: "nordtal-s2_mc-smp-20260918T044500Z.tar.zst", modified: "2026-09-18T04:45:00Z" }),
+        ],
+      }),
+    )
+    drawDetail("41")
+
+    await screen.findByText("nordtal-s2_mc-smp-20260917T044505Z.tar.zst")
+    expect(await screen.findByText("nordtal-20260917T044550Z.dump")).toBeTruthy()
+    expect(screen.queryByText("nordtal-s2_mc-smp-20260918T044500Z.tar.zst")).toBeNull()
+
+    const link = screen.getByLabelText(
+      "Download nordtal-s2_mc-smp-20260917T044505Z.tar.zst",
+    ) as HTMLAnchorElement
+    expect(link.getAttribute("href")).toBe(
+      "/api/backups/nordtal-s2_mc-smp-20260917T044505Z.tar.zst/download",
+    )
+  })
+
+  it("says so when no run matches the id, rather than drawing an empty page", async () => {
+    vi.stubGlobal("fetch", backend({ runs: [] }))
+    drawDetail("999")
+
+    expect(await screen.findByText("No such run")).toBeTruthy()
   })
 })

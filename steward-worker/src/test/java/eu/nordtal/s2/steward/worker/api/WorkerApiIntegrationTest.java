@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -298,6 +299,72 @@ class WorkerApiIntegrationTest {
         final String name = services.get(0).getAsJsonObject().get("service").getAsString();
 
         assertEquals(400, raw("/api/services/" + name + "/logs/search?q=", true).statusCode());
+    }
+
+    @Test
+    @DisplayName("steward/95: a finished archive streams back byte for byte, with the download headers")
+    void downloadsAFinishedArchive() throws Exception {
+        final String name = "downloadsAFinishedArchive-20260913T044507Z.tar.zst";
+        final Path file = Path.of("/tmp", name);
+        final byte[] body = "not a real archive, just some bytes to compare".getBytes();
+        java.nio.file.Files.write(file, body);
+        try {
+            final HttpResponse<byte[]> response = http.send(HttpRequest.newBuilder()
+                    .uri(URI.create("http://127.0.0.1:" + PORT + "/api/backups/" + name + "/download"))
+                    .header("X-Steward-Token", TOKEN)
+                    .GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+
+            assertEquals(200, response.statusCode());
+            assertTrue(response.body().length == body.length
+                            && java.util.Arrays.equals(body, response.body()),
+                    "the streamed body must be exactly the file's bytes");
+            assertEquals("application/octet-stream", response.headers().firstValue("content-type").orElse(""));
+            assertTrue(response.headers().firstValue("content-disposition").orElse("").contains(name),
+                    "the download must name the file it is, so a browser's save dialog is not \"download\"");
+        } finally {
+            java.nio.file.Files.deleteIfExists(file);
+        }
+    }
+
+    @Test
+    @DisplayName("steward/95: a name that is not a finished backup is refused before any path is resolved")
+    void downloadRefusesAnyNameThatIsNotAFinishedBackup() throws Exception {
+        assertEquals(400, raw("/api/backups/not-a-backup.txt/download", true).statusCode());
+        assertEquals(400, raw("/api/backups/still-running-20260913T044507Z.tar.zst.partial/download", true)
+                .statusCode());
+    }
+
+    @Test
+    @DisplayName("steward/95: a well-formed name that is not actually on disk is a 404, not a 400")
+    void downloadOfAMissingArchiveIs404() throws Exception {
+        assertEquals(404, raw("/api/backups/never-written-20260913T044507Z.tar.zst/download", true)
+                .statusCode());
+    }
+
+    @Test
+    @DisplayName("steward/95: an encoded traversal never reaches a file outside the output root")
+    void downloadRefusesAnEncodedTraversal() throws Exception {
+        // `{name}` is a single path segment and cannot carry a literal `/`, but a client can still
+        // send `%2F` - and the archive pattern matches this name (TarSnapshotsTest proves it), so
+        // if the encoded form arrived decoded in the path parameter the naming check alone would
+        // wave it through.
+        //
+        // MEASURED, because the answer decides what is actually protecting this route: it comes
+        // back 400, and it still comes back 400 with downloadBackup's resolved-path check disabled
+        // (probed 2026-09-19 by replacing that condition with `false`). The 400 is Jetty's own URI
+        // compliance refusing an encoded path separator before any handler runs. The resolved-path
+        // check is therefore a second line that nothing today can reach - which is the reason to
+        // keep it and the reason this test asserts the OUTCOME rather than which check produced it.
+        final String encoded = "..%2F..%2F..%2Fetc%2Fpasswd-20260913T044507Z.tar.zst";
+        final int status = raw("/api/backups/" + encoded + "/download", true).statusCode();
+        assertNotEquals(200, status, "an encoded traversal was answered with a body");
+    }
+
+    @Test
+    @DisplayName("steward/95: the download needs the worker token, same as every other route here")
+    void downloadNeedsTheToken() throws Exception {
+        assertEquals(401, raw("/api/backups/never-written-20260913T044507Z.tar.zst/download", false)
+                .statusCode());
     }
 
     private static String get(final String path) throws Exception {

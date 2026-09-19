@@ -125,6 +125,22 @@ public final class TarSnapshots implements Snapshots {
     private static final Pattern VOLUME_NAME = Pattern.compile("[a-zA-Z0-9][a-zA-Z0-9_.-]*");
 
     /**
+     * Whether {@code name} is a finished archive or dump - never a {@code .partial} or
+     * {@code .unverified} one - by the same two patterns {@link #prune} groups files with.
+     *
+     * <p>Written for steward/95's download route, which has to refuse everything this class would
+     * not itself call a backup before it ever touches a {@link Path}. This alone is not the whole
+     * defence: the pattern's {@code .} matches a {@code /} exactly as readily as any other
+     * character, so a name that also contains a path separator can still match here. The caller
+     * that resolves a path from this name must additionally check the resolved path stays inside
+     * the directory it was resolved against - see {@code WorkerApi#downloadBackup} for the second
+     * half of the check.</p>
+     */
+    public static boolean isFinishedArchive(final @NotNull String name) {
+        return ARCHIVE.matcher(name).matches() || DUMP.matcher(name).matches();
+    }
+
+    /**
      * <b>Level 1, and that is measured, not assumed.</b> On the real {@code nordtal-s2_mc-smp} of
      * this host - 655 MiB - on 2026-09-13:
      *

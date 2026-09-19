@@ -137,6 +137,46 @@ public interface NetworkSpec {
     }
 
     @Order(4)
+    @Key("public-address")
+    @Comment({
+            "How a client reaches this network from outside - host and port, the way somebody",
+            "types it into Minecraft. EMPTY BY DEFAULT, and empty means one thing: this proxy",
+            "never transfers anybody anywhere.",
+            "",
+            "IT CANNOT BE WORKED OUT FROM INSIDE. A transfer hands the CLIENT an address and the",
+            "client connects to it itself, so `proxy:25565` - the only address this container",
+            "knows - is a name that exists nowhere but in this stack. deploy/nordtal.sh asks for",
+            "this one, and compose.yml maps NETWORK_PUBLIC_ADDRESS in .env onto it.",
+            "",
+            "THE PORT IS PART OF IT. A SRV record can hide the port from somebody typing a name",
+            "into their client; the transfer packet carries host AND port, and nothing looks a SRV",
+            "record up on its behalf. So play.example.com:25565, not play.example.com."
+    })
+    @Explain("Host and port a client reaches this network on from outside - what a transfer names to the player. Empty means no transfer is ever offered.")
+    default String publicAddress() {
+        return "";
+    }
+
+    @Order(5)
+    @Key("standby-port")
+    @Comment({
+            "The port the standby proxy is published on, on the same host as public-address.",
+            "",
+            "THE TWO PROXIES DIFFER BY THIS NUMBER AND BY NOTHING ELSE, which is why there is no",
+            "second address here: proxy-standby is the same image, the same configuration and the",
+            "same jars on a second port (season-2-ops/119). So the live proxy sends a player to",
+            "<host of public-address>:<this>, and the standby sends them back to public-address.",
+            "",
+            "It is the SAME number compose.yml publishes as PROXY_STANDBY_PORT, handed to both",
+            "proxies out of that one variable. Changing it in .env moves both sides; changing it",
+            "here moves only what the players are told, which is the half that cannot work alone."
+    })
+    @Explain("The port the standby proxy is published on - the only thing that distinguishes it from this one.")
+    default int standbyPort() {
+        return 25566;
+    }
+
+    @Order(6)
     @Key("motd")
     @Comment({
             "What the server browser shows, per season phase. MiniMessage, so <gradient>,",

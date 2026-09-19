@@ -217,8 +217,16 @@ public final class RestartWatch {
 
     private void say(final Announcement announcement) {
         switch (announcement.kind()) {
-            case COUNTDOWN -> broadcast(locale -> MessageRenderer.of(messages)
-                    .format(locale, "restart.countdown", "seconds", announcement.seconds()));
+            // Chat and a title, since season-2-ops/132: chat is where a warning is read, and the
+            // title is the half that reaches a player who is mining with the chat box closed. The
+            // title is the tick's own text, so the middle of the screen counts in one voice - and
+            // Countdown drops the tick of this second so the two do not draw over one another.
+            case COUNTDOWN -> {
+                broadcast(locale -> MessageRenderer.of(messages)
+                        .format(locale, "restart.countdown", "seconds", announcement.seconds()));
+                title(locale -> MessageRenderer.of(messages)
+                        .format(locale, "restart.tick", "seconds", announcement.seconds()));
+            }
             case NOW -> {
                 broadcast(locale -> MessageRenderer.of(messages).get(locale, "restart.now"));
                 title(locale -> MessageRenderer.of(messages).get(locale, "restart.now"));

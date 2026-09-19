@@ -9,6 +9,8 @@ import eu.nordtal.s2.proxy.MutableClock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -50,7 +52,7 @@ class CountdownTest {
     }
 
     @Test
-    @DisplayName("a full countdown is three chat lines and ten subtitles, and nothing else")
+    @DisplayName("a full countdown is three chat lines and nine subtitles, and nothing else")
     void aFullCountdownIsPlannedOnce() {
         final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(30)));
 
@@ -58,11 +60,13 @@ class CountdownTest {
                 "chat gets thirty and ten; twelve chat lines in half a minute is how a warning"
                         + " becomes something people learn to ignore");
         assertEquals(List.of(30L, 10L), seconds(kinds(beats, Announcement.Kind.COUNTDOWN)));
-        assertEquals(List.of(10L, 9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L),
-                seconds(kinds(beats, Announcement.Kind.TICK)));
+        assertEquals(List.of(9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L),
+                seconds(kinds(beats, Announcement.Kind.TICK)),
+                "ten is missing on purpose: it has a chat line, and that line draws the title of"
+                        + " that second itself (season-2-ops/132)");
         assertEquals(1, kinds(beats, Announcement.Kind.NOW).size(),
                 "and exactly one 'it is happening'");
-        assertEquals(13, beats.size());
+        assertEquals(12, beats.size());
     }
 
     @Test
@@ -116,7 +120,14 @@ class CountdownTest {
         assertEquals(Duration.ZERO,
                 kinds(beats, Announcement.Kind.COUNTDOWN).getFirst().delay(),
                 "a beat whose instant has just passed is said now, not scheduled into the past");
-        assertEquals(13, beats.size());
+        // Twelve, and the number is a trap worth naming: twelve is also what the *broken* run
+        // logged above, for the opposite reason. There it was two chat lines and ten ticks with
+        // the thirty missing; here it is two chat lines, nine ticks and zero, because the tick at
+        // ten went away with season-2-ops/132. So the count is asserted through the ticks rather
+        // than on its own - a bare 12 would go green again the day the first line is lost twice.
+        assertEquals(List.of(9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L),
+                seconds(kinds(beats, Announcement.Kind.TICK)));
+        assertEquals(12, beats.size());
     }
 
     @Test
@@ -222,6 +233,36 @@ class CountdownTest {
         assertTrue(countdown.gone(UpdateStatus.CANCELLED).isEmpty());
         assertFalse(countdown.beats(1L, Duration.ofSeconds(30)).isEmpty(),
                 "and the bookkeeping is clean enough for the next one");
+    }
+
+    @Test
+    @DisplayName("a chat line draws its own title, and takes the tick of that second with it")
+    void oneTitlePerSecond() throws Exception {
+        // season-2-ops/132. Till wants the warning in both channels: chat is where it is read, a
+        // title is what reaches somebody mining with the chat box closed. The moment a chat line
+        // draws a title too, the tick of that same second is a second title on the same second -
+        // and two titles on one second do not queue, they fade over one another.
+        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(30)));
+
+        final List<Long> chat = seconds(kinds(beats, Announcement.Kind.COUNTDOWN));
+        for (final Long tick : seconds(kinds(beats, Announcement.Kind.TICK))) {
+            assertFalse(chat.contains(tick),
+                    "second " + tick + " has both a chat line and a tick, and both draw a title"
+                            + " now: they would be drawn over one another");
+        }
+
+        // The other half is one line up in RestartWatch#say, where no test without a proxy, a
+        // roster and a locale can reach it - so it is read as text, the way RecreateDoesNotPullTest
+        // reads its route. Without this the loop above passes on a countdown that still says
+        // nothing in the middle of the screen at thirty seconds.
+        final String say = Files.readString(Path.of(
+                "src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
+        final int countdownCase = say.indexOf("case COUNTDOWN ->");
+        assertTrue(countdownCase >= 0, "RestartWatch#say no longer has a COUNTDOWN case");
+        final String body = say.substring(countdownCase, say.indexOf("case NOW ->", countdownCase));
+        assertTrue(body.contains("title("),
+                "the chat line is still chat only, so the tick removed above bought nothing: "
+                        + body);
     }
 
     // ---------------------------------------------------------------- helpers

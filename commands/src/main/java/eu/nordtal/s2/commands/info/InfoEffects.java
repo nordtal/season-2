@@ -15,7 +15,7 @@ import eu.nordtal.s2.commands.NordtalUser;
  *
  * <p>Which also means these two commands are the one place in this module where a message key names
  * something outside it. {@code InfoCommandsTest} pins which key each command asks for, and
- * {@code network-control}'s own bundle test pins that both exist in both languages - the two halves
+ * {@code proxy}'s own bundle test pins that both exist in both languages - the two halves
  * of a seam that nothing else compares.</p>
  */
 public interface InfoEffects extends CommandEffects {

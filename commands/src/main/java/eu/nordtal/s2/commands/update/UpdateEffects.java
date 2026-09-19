@@ -33,7 +33,21 @@ public interface UpdateEffects extends CommandEffects {
      * @param user who is asking
      * @return the row, whose id is what a surface watches
      */
-    UpdateRequest submit(UpdateKind kind, NordtalUser user);
+    default UpdateRequest submit(final UpdateKind kind, final NordtalUser user) {
+        return submit(kind, user, java.util.List.of());
+    }
+
+    /**
+     * The same row, for the services it names (season-2-ops/127, season-2-ops/125).
+     *
+     * <p>Empty is the whole network, which is what every run was before a scope existed and what
+     * {@link #submit(UpdateKind, NordtalUser)} above therefore hands in. It is <b>not</b> "no
+     * services": a run for nothing at all is not something any surface offers, and reading the
+     * empty list that way would turn a forgotten argument into a run that quietly does nothing.</p>
+     *
+     * @param services compose service names, or empty for the whole network
+     */
+    UpdateRequest submit(UpdateKind kind, NordtalUser user, java.util.List<String> services);
 
     /** @return the row, if it is still there */
     Optional<UpdateRequest> find(long id);

@@ -17,7 +17,7 @@ repositoryRootTestInputs {
     reads("limbo/src/main/java/eu/nordtal/s2/limbo/command/LimboCommand.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
     reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
-    reads("network-control/src/main/templates/eu/nordtal/s2/networkcontrol/NetworkControlPlugin.java")
+    reads("proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java")
     reads("discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java")
 }
 

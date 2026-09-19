@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * Because it is the one half of these commands that lives in this module. The <em>text</em> is in
  * the proxy's own bundle - it wants a link and a colour, and the shared bundle carries no markup -
  * so nothing in {@code :commands} can check that it exists. Pinning the key here and pinning its
- * presence in {@code network-control}'s own bundle test is the pair; either one alone leaves a seam
+ * presence in {@code proxy}'s own bundle test is the pair; either one alone leaves a seam
  * that fails as a player being shown the literal string {@code info.rules}.
  */
 class InfoCommandsTest {

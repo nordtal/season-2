@@ -68,13 +68,14 @@ public final class DirectoryUpdateEffects implements UpdateEffects {
     }
 
     @Override
-    public UpdateRequest submit(final UpdateKind kind, final NordtalUser user) {
+    public UpdateRequest submit(final UpdateKind kind, final NordtalUser user,
+                                final java.util.List<String> services) {
         // Every kind is written due immediately, since 2026-09-08. The countdown used to be set
         // here, which meant it ran before anybody knew whether there was anything to install: the
         // ordinary /update now counted thirty seconds down to every player on the network and then
         // answered "everything is already current". steward-worker sets it now, on the row it has
         // claimed, once its plan has work in it - see UpdateDirectory#startCountdown.
-        return updates.submit(kind, sourceOf(user), requesterOf(user), Duration.ZERO);
+        return updates.submit(kind, sourceOf(user), requesterOf(user), Duration.ZERO, services);
     }
 
     /** Which surface a user is on, as the row records it. */

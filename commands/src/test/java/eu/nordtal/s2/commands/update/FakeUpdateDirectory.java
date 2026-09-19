@@ -15,7 +15,8 @@ import java.util.Optional;
 /** An in-memory {@link UpdateDirectory}: remembers what was submitted, answers what it is told. */
 final class FakeUpdateDirectory implements UpdateDirectory {
 
-    record Submitted(UpdateKind kind, UpdateSource source, String requestedBy, Duration delay) {
+    record Submitted(UpdateKind kind, UpdateSource source, String requestedBy, Duration delay,
+                     List<String> services) {
     }
 
     final List<Submitted> submitted = new ArrayList<>();
@@ -24,7 +25,20 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     @Override
     public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
                                 final String requestedBy, final Duration delay) {
-        submitted.add(new Submitted(kind, source, requestedBy, delay));
+        return submit(kind, source, requestedBy, delay, List.of());
+    }
+
+    /**
+     * Overridden rather than left to the default, which drops the scope on the floor
+     * (season-2-ops/125). A test that could not see which services a command asked for could not
+     * tell {@code /update down smp} from {@code /update down} - and the second one is the whole
+     * network held down.
+     */
+    @Override
+    public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
+                                final String requestedBy, final Duration delay,
+                                final List<String> services) {
+        submitted.add(new Submitted(kind, source, requestedBy, delay, List.copyOf(services)));
         final Instant now = Instant.now();
         return new UpdateRequest(nextId++, kind, UpdateStatus.PENDING, source, requestedBy, now,
                 now.plus(delay), null, null, null);

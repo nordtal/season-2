@@ -297,18 +297,28 @@ export type Service = {
    * How many people are connected, on the four services that have an answer to that.
    *
    * **Absent is not zero** (steward/86). `smp`, `hunger-games` and `limbo` each carry their own,
-   * `network-control` the network's total, and every other service has no such field at all -
-   * neither does one of those four while network-control has not written recently enough for the
+   * `proxy` the network's total, and every other service has no such field at all -
+   * neither does one of those four while the proxy has not written recently enough for the
    * worker to trust the row. So the optional marker here is load-bearing: `players ?? 0` is the
    * one thing a reader must not write, because it turns "nobody has said" into "nobody is on".
    */
   players?: number
   /**
-   * Who is connected, on the rows that have a list - `network-control` carries the whole network,
+   * Who is connected, on the rows that have a list - `proxy` carries the whole network,
    * a backend carries its own. **Absent is not empty** (steward/111), the same rule `players`
    * follows one line above: a row with no `roster` is one nobody wrote a list for.
    */
   roster?: Array<{ uuid?: string; name?: string }>
+  /**
+   * Set when somebody stopped this service on purpose and it must stay stopped
+   * (season-2-ops/125).
+   *
+   * **Absent is not false**, the same rule `players` follows: a row with no `hold` is a service
+   * nobody is holding, and a stopped container without one fell over rather than being put down.
+   * That difference cannot be read off the container - it only exists in `service_hold` - so this
+   * field is the only thing that can draw it.
+   */
+  hold?: { since: string; by?: string | null }
   unreadable?: string
   /** Only on the single-service endpoint. */
   digests?: string[]
@@ -435,6 +445,117 @@ export type Run = {
   resultText?: string
 }
 
+/**
+ * One artefact in the resolve, and what a run would do about it (season-2-ops/128).
+ *
+ * `status` is the worker's own `Change.Status`, and the four that matter are told apart on the
+ * page rather than lumped into "something to do": OUTDATED and MISSING are work, UP_TO_DATE is
+ * nothing, UNSUPPORTED is "no build exists for this Minecraft version" (CoreProtect), and
+ * UNRESOLVED / MOUNT_MISSING mean the answer is unknown - which must never be drawn like
+ * "nothing to do".
+ *
+ * `work` and `failure` come from the backend rather than being derived here, because the worker is
+ * the only thing allowed to decide what a status means.
+ */
+export type AvailableChange = {
+  /** Absent for the resource pack, which belongs to no service. */
+  service?: string
+  artifact: string
+  status: string
+  work: boolean
+  failure: boolean
+  installed?: string
+  /** The version as its publisher states it - for reading, never for comparing. */
+  version?: string
+  /** The filename, which is the actual identity of what would be installed. */
+  fileName?: string
+  note?: string
+}
+
+/** `GET /api/updates/available` - what a run would do, without a run. */
+export type Available = {
+  /** When this reading was taken. It can be hours old; the page says so. */
+  checkedAt: string
+  resolvedAt: string
+  seasonTag?: string
+  seasonPrerelease: boolean
+  hasWork: boolean
+  hasFailures: boolean
+  changes: AvailableChange[]
+  unclaimed: { service: string; fileName: string }[]
+  notes: string[]
+}
+
+/**
+ * One plugin on one Minecraft server (season-2-ops/129).
+ *
+ * **`running` and `removable` are two different questions and neither implies the other.**
+ * `running` is a jar on the disk; `removable` is a row in `service_plugin`. A plugin the network
+ * gives is running and not removable - there is no row to delete, which is what makes "fixed"
+ * true rather than merely drawn grey. A plugin somebody just installed is removable and not yet
+ * running: installing writes the row and the jar arrives with the next update run.
+ */
+export type ServicePlugin = {
+  /** The title for an added plugin, the jar's filename prefix for one the network gives. */
+  name: string
+  running: boolean
+  removable: boolean
+  filePrefix?: string
+  fileName?: string
+  version?: string
+  /**
+   * `plugins/<dataFolder>/` - read out of the jar's own descriptor, not guessed from its name.
+   *
+   * **Absent means the worker could not read it**, and the confirmation has to say so rather than
+   * name a folder nobody verified: removing deletes this directory, and it is the only
+   * hand-edited thing in the installation.
+   */
+  dataFolder?: string
+  /** Only on an added plugin - it is the Modrinth slug, and the id the remove button sends. */
+  artifact?: string
+  projectId?: string
+  added?: string
+  addedBy?: string
+  iconUrl?: string
+  pageUrl?: string
+}
+
+/** `GET /api/services/{name}/plugins` */
+export type ServicePlugins = {
+  service: string
+  /** `paper` or `velocity` - what the search on this page is filtered to. */
+  loader: string
+  gameVersion: string
+  /** False when this worker cannot see the volume, which is not the same as an empty server. */
+  mounted: boolean
+  plugins: ServicePlugin[]
+}
+
+/** One Modrinth search hit, already filtered to this service's loader and Minecraft version. */
+export type PluginHit = {
+  projectId: string
+  slug: string
+  title: string
+  description?: string
+  /** On `cdn.modrinth.com`, which the browser loads directly. */
+  iconUrl?: string
+  pageUrl: string
+  downloads: number
+  /** Already added here. */
+  added: boolean
+  /** One of the plugins the network gives, so it can be neither added nor removed. */
+  fixed: boolean
+}
+
+/** `GET /api/services/{name}/plugins/search` */
+export type PluginSearch = {
+  service: string
+  loader: string
+  gameVersion: string
+  query: string
+  hits: PluginHit[]
+}
+
 export type MetricPoint = { at: string; value: number }
 
 export type Metrics = {
@@ -465,7 +586,7 @@ export type LogSearch = { lines: string[]; limit: number; truncated: boolean }
  * `accessActive` is the full login predicate. The pair is deliberate: a revoked person showing no
  * date at all would look exactly like a stranger who never had access.
  *
- * **The eight profile fields (steward/44/45) are what discord-bot and network-control last
+ * **The eight profile fields (steward/44/45) are what discord-bot and the proxy last
  * observed, each with its own timestamp.** All eight are independently absent - an account nobody
  * has mirrored a Discord profile onto, one that left the guild, or one that was never seen joining
  * reads with the corresponding fields simply missing, never with an empty string standing in. They

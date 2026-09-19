@@ -433,7 +433,7 @@ describe("OverviewPage - the order of the number row (steward/64)", () => {
  * What stands where the word "Overview" used to (steward/64).
  *
  * Till: the title goes, and what replaces it is how many people are in the game. The count is
- * `network-control`'s own row - the proxy sees every player exactly once, where a sum over the
+ * `proxy`'s own row - the proxy sees every player exactly once, where a sum over the
  * three backends silently drops a server whose row is stale.
  *
  * The dash matters as much as the number: `players` is optional on purpose (see `Service` in
@@ -461,7 +461,7 @@ describe("OverviewPage - the heading is how many are in the game (steward/64)", 
     vi.stubGlobal(
       "fetch",
       backend({
-        services: [service(), service({ service: "network-control", players: 7 })],
+        services: [service(), service({ service: "proxy", players: 7 })],
       }),
     )
     draw()
@@ -503,7 +503,7 @@ describe("OverviewPage - the bottom section (steward/81)", () => {
         services: [
           service({ service: "smp", players: 3 }),
           service({ service: "postgres" }),
-          service({ service: "network-control", players: 3 }),
+          service({ service: "proxy", players: 3 }),
         ],
       }),
     )

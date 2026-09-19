@@ -27,8 +27,11 @@ import {
   type Metrics,
   type Payment,
   type Person,
+  type PluginSearch,
+  type ServicePlugins,
   type RawConfigSaveResult,
   type ReloadAwareConfigDocument,
+  type Available,
   type Run,
   type Schedule,
   type Season,
@@ -63,11 +66,14 @@ export const keys = {
   me: ["me"] as const,
   services: ["services"] as const,
   service: (name: string) => ["service", name] as const,
+  plugins: (name: string) => ["plugins", name] as const,
+  pluginSearch: (name: string, query: string) => ["plugin-search", name, query] as const,
   host: ["host"] as const,
   backups: ["backups"] as const,
   schedule: ["schedule"] as const,
   runs: (limit: number) => ["runs", limit] as const,
   run: (id: string) => ["run", id] as const,
+  available: ["available"] as const,
   metrics: (subject: string, metric: string, hours: number) =>
     ["metrics", subject, metric, hours] as const,
   season: ["season"] as const,
@@ -244,6 +250,23 @@ export function useBackups(enabled = true) {
     // A backup appears once a night. Thirty seconds is already generous and exists only so that a
     // run started by hand shows its archive without a reload.
     refetchInterval: 30 * SECOND,
+    enabled,
+  })
+}
+
+/**
+ * What a run would do, without a run (season-2-ops/128).
+ *
+ * **No refetch interval**, and that is the point: the worker holds the answer for six hours and
+ * asks Modrinth, GitHub and the Fill API behind whoever opened the page. Polling it would ask this
+ * container more often without the answer changing any faster, and the staleness the page cares
+ * about is on `checkedAt`, which is drawn.
+ */
+export function useAvailable(enabled = true) {
+  return useQuery({
+    queryKey: keys.available,
+    queryFn: () => api<Available>("/api/updates/available"),
+    staleTime: 5 * 60 * SECOND,
     enabled,
   })
 }
@@ -622,8 +645,16 @@ function encodePath(file: string): string {
 export function useAskForRun() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (ask: { kind: "UPDATE" | "BACKUP" | "RESTART"; delaySeconds?: number }) =>
-      api<Run>("/api/updates", { method: "POST", body: ask }),
+    mutationFn: (ask: {
+      kind: "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
+      delaySeconds?: number
+      /**
+       * Which compose services this run is for (season-2-ops/127). Left off for the whole network,
+       * which is what every button on /operations means. A scoped run follows the same procedure -
+       * countdown, limbo, health, report - it simply touches less.
+       */
+      services?: string[]
+    }) => api<Run>("/api/updates", { method: "POST", body: ask }),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["runs"] })
     },
@@ -637,6 +668,79 @@ export function useConsole(service: string) {
         `/api/services/${encodeURIComponent(service)}/console`,
         { method: "POST", body: { command } },
       ),
+  })
+}
+
+/**
+ * The plugins on one Minecraft server (season-2-ops/129).
+ *
+ * Refetched on a slow interval rather than on focus alone: the interesting transition is
+ * pre-booked turning into running, and that happens when an update run finishes, which is minutes
+ * after somebody stopped looking at this page.
+ */
+export function usePlugins(service: string) {
+  return useQuery({
+    queryKey: keys.plugins(service),
+    queryFn: () => api<ServicePlugins>(`/api/services/${encodeURIComponent(service)}/plugins`),
+    refetchInterval: 30 * SECOND,
+    // A 404 is the answer for a service with no plugins folder - the bot, postgres, caddy - and
+    // asking again changes nothing. Every other failure is worth one retry.
+    retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 1,
+  })
+}
+
+/**
+ * The Modrinth search, as a query keyed on what was typed.
+ *
+ * A query and not a mutation, unlike the log search one card below, and the difference is what
+ * each one costs: the log search greps up to 50 MB inside the daemon and is therefore a button,
+ * this is one small call to somebody else's API and should follow the box as it is typed in. The
+ * debounce lives in the component, because it is about the keyboard and not about the request.
+ */
+export function usePluginSearch(service: string, query: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.pluginSearch(service, query),
+    queryFn: () =>
+      api<PluginSearch>(
+        `/api/services/${encodeURIComponent(service)}/plugins/search?q=${encodeURIComponent(query)}`,
+      ),
+    enabled,
+    // Somebody typing back over a word they just deleted should not wait for the same answer
+    // twice.
+    staleTime: 5 * 60 * SECOND,
+  })
+}
+
+/** Installs a plugin, which means writing the row the next update run reads. */
+export function useInstallPlugin(service: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (hit: { projectId: string; slug: string; title: string; iconUrl?: string }) =>
+      api<{ artifact: string; fileName: string; version: string }>(
+        `/api/services/${encodeURIComponent(service)}/plugins`,
+        { method: "POST", body: hit },
+      ),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.plugins(service) })
+      // The search rows carry `added`, so they are wrong the moment this succeeds.
+      void client.invalidateQueries({ queryKey: ["plugin-search", service] })
+    },
+  })
+}
+
+/** Removes a plugin: the row, the jar and the data folder. */
+export function useRemovePlugin(service: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (artifact: string) =>
+      api<{ artifact: string; deleted: string[] }>(
+        `/api/services/${encodeURIComponent(service)}/plugins/${encodeURIComponent(artifact)}`,
+        { method: "DELETE" },
+      ),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.plugins(service) })
+      void client.invalidateQueries({ queryKey: ["plugin-search", service] })
+    },
   })
 }
 

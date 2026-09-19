@@ -179,6 +179,33 @@ public final class InternalClient {
     }
 
     /**
+     * The same, as a {@code DELETE}, and with no body in either direction.
+     *
+     * <p>Its own method for the reason {@link #put} gives: the three verbs differ in nothing but
+     * the verb, and a {@code method} argument is how a request eventually arrives at a route that
+     * does not accept it with the failure showing up as a 405 nobody can place.</p>
+     */
+    public @NotNull String delete(final @NotNull String path) {
+        try {
+            final HttpResponse<String> response = http.send(request(path).DELETE().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (isNotSuccess(response.statusCode())) {
+                throw new Failure(name, response.statusCode(),
+                        name + " answered " + response.statusCode() + " for " + path,
+                        response.body());
+            }
+            return response.body();
+        } catch (HttpTimeoutException slow) {
+            throw new Failure(name, 504, tooSlow(path, timeout), null);
+        } catch (IOException e) {
+            throw new Failure(name, 502, unreachable(path), null);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new Failure(name, 503, "interrupted while asking " + name, null);
+        }
+    }
+
+    /**
      * The same, as a {@code PUT}.
      *
      * <p>One verb and one method, rather than a parameter: the two calls differ in nothing else,

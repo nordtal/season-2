@@ -172,9 +172,9 @@ describe.each(PLANS)("%s - Till's six changes of 2026-09-18", (_name, arrangemen
     expect(centre.y).toBeLessThan((height * 2) / 3)
   })
 
-  it("gives caddy and network-control the same top edge", () => {
+  it("gives caddy and proxy the same top edge", () => {
     const { boxes } = geometryOf(arrangement)
-    expect(boxes.caddy.y).toBe(boxes["network-control"].y)
+    expect(boxes.caddy.y).toBe(boxes["proxy"].y)
   })
 
   it("has exactly two groups: the three Paper services, and the two deploy services", () => {

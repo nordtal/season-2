@@ -86,7 +86,7 @@ class NothingIsGermanTest {
     private static final List<String> TREES = List.of(
             "steward-ui/src", "steward-worker/src", "steward-deployer/src");
     private static final List<String> FILES = List.of(
-            "deploy/setup.sh", "steward-worker/README.md", "steward-deployer/README.md",
+            "deploy/nordtal.sh", "steward-worker/README.md", "steward-deployer/README.md",
             "deploy/README.md", "compose.yml");
 
     private static final String BUNDLE = "commands/src/main/resources/messages/commands/";

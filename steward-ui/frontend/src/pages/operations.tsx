@@ -11,6 +11,7 @@ import {
   PlayIcon,
   ProhibitInsetIcon,
   ShieldWarningIcon,
+  StopIcon,
   WarningIcon,
 } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
@@ -32,6 +33,7 @@ import {
 } from "@/lib/format"
 import {
   useAskForRun,
+  useAvailable,
   useBackups,
   useHost,
   useRun,
@@ -42,6 +44,7 @@ import {
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import {
+  AvailableBadge,
   DriftBadge,
   RUN_KIND,
   RunStatus,
@@ -276,7 +279,7 @@ const SOURCE_LABEL: Record<string, string> = {
 
 // --- asking for a run ----------------------------------------------------------------------------
 
-type Kind = "UPDATE" | "BACKUP" | "RESTART"
+type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
 
 /**
  * How long before the worker's own backup "tonight" lands.
@@ -342,7 +345,7 @@ const ASKS: Record<
   BACKUP: {
     title: "Enter a backup",
     what:
-      "Takes the database dump first (nothing is stopped for that), then stops smp, network-control and the bot, packs every volume and starts everything again.",
+      "Takes the database dump first (nothing is stopped for that), then stops smp, proxy and the bot, packs every volume and starts everything again.",
     warning: "While the packing runs, the network cannot be reached.",
     icon: ArchiveIcon,
   },
@@ -351,6 +354,17 @@ const ASKS: Record<
     what: "Stops the services of the network and starts them again. Nothing is swapped.",
     warning: "A restart throws every player off the SMP.",
     icon: ArrowCounterClockwiseIcon,
+  },
+  DOWN: {
+    title: "Put down",
+    what: "Counts down, stops the service and leaves it stopped. No update and no restart starts it again.",
+    warning: "It stays down until somebody presses Start.",
+    icon: StopIcon,
+  },
+  START: {
+    title: "Start",
+    what: "Takes the hold off and starts the service again. No countdown.",
+    icon: PlayIcon,
   },
 }
 
@@ -362,12 +376,28 @@ const ASKS: Record<
  * and it offers "tonight" beside "now" - which costs one number in the request body and is
  * the difference between an operator waiting up and an operator going to bed.
  */
-function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "default" | "outline" }) {
+export function AskButton({
+  kind,
+  variant = "outline",
+  services,
+  label,
+}: {
+  kind: Kind
+  variant?: "default" | "outline"
+  /**
+   * Which compose services this run is for (season-2-ops/127). Left off for the whole network,
+   * which is what every button on /operations means.
+   */
+  services?: string[]
+  /** Overrides the button's own word, for a page where "Update" alone would be ambiguous. */
+  label?: string
+}) {
   const ask = useAskForRun()
   const schedule = useSchedule()
   const spec = ASKS[kind]
   const Icon = spec.icon
   const night = tonight(schedule.data?.nextBackupAt)
+  const scoped = services !== undefined && services.length > 0
 
   /**
    * The delay, read at the click and not at the render.
@@ -383,7 +413,7 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
 
   const submit = (delaySeconds?: number) => {
     ask.mutate(
-      { kind, delaySeconds },
+      { kind, delaySeconds, services },
       {
         onSuccess: (run) => {
           toast.success(`${RUN_KIND[kind]} entered as run #${run.id}`, {
@@ -404,12 +434,14 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
       <AlertDialogTrigger asChild>
         <Button type="button" variant={variant} disabled={ask.isPending}>
           <Icon aria-hidden />
-          {RUN_KIND[kind]}
+          {label ?? RUN_KIND[kind]}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{spec.title}</AlertDialogTitle>
+          <AlertDialogTitle>
+            {scoped ? `${spec.title} for ${services.join(", ")}` : spec.title}
+          </AlertDialogTitle>
           <AlertDialogDescription>{spec.what}</AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -421,6 +453,18 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
           mechanism explaining itself to somebody who has already decided, so neither is on screen.
         */}
         <div className="flex flex-col gap-3 text-sm">
+          {/*
+            season-2-ops/127: said out loud, because a scoped run is the one thing on this page
+            that does less than its title suggests - and because the other half of the promise is
+            that it does everything else the same way.
+          */}
+          {scoped ? (
+            <p className="text-muted-foreground">
+              Only {services.join(", ")} - nothing else is stopped or touched. Everything else is
+              the usual procedure: the countdown, the wait in limbo, the health check and the same
+              report.
+            </p>
+          ) : null}
           {spec.warning ? (
             <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
               <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -459,7 +503,7 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
             Tonight
           </AlertDialogAction>
           <AlertDialogAction
-            variant={kind === "RESTART" ? "destructive" : "default"}
+            variant={kind === "RESTART" || kind === "DOWN" ? "destructive" : "default"}
             onClick={() => submit()}
           >
             Now
@@ -750,19 +794,154 @@ function RunsCard() {
   )
 }
 
+/**
+ * What a run would do, resolved on demand and never run (season-2-ops/128).
+ *
+ * <h2>The order is the point</h2>
+ * A row that could not be asked sorts first, above the ones that merely have work in them. "the
+ * source did not answer" and "nothing has changed" produce the same silence, and this page exists
+ * to break that tie - `hasFailures` is drawn as a line of its own above the table for the same
+ * reason, because a reader who scans a column of green ticks will not notice one grey badge in it.
+ *
+ * <h2>Why the age is on the page</h2>
+ * The worker holds a reading for six hours and refreshes it behind whoever opened the page, so what
+ * is drawn here is regularly the previous answer. Saying when it was taken is the difference
+ * between a cache and a claim.
+ */
+const AVAILABLE_RANK: Record<string, number> = {
+  UNRESOLVED: 0,
+  MOUNT_MISSING: 0,
+  OUTDATED: 1,
+  MISSING: 2,
+  UNSUPPORTED: 4,
+  UP_TO_DATE: 5,
+}
+
+function AvailableCard() {
+  const available = useAvailable()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">Available</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <QueryState
+          query={available}
+          rows={6}
+          empty={{
+            title: "Nothing was resolved",
+            note: "steward-worker answered, but its plan carries no artefact at all.",
+          }}
+          isEmpty={(plan) => plan.changes.length === 0}
+        >
+          {(plan) => {
+            const rows = [...plan.changes].sort(
+              (left, right) =>
+                (AVAILABLE_RANK[left.status] ?? 3) - (AVAILABLE_RANK[right.status] ?? 3) ||
+                (left.service ?? "").localeCompare(right.service ?? "", LOCALE) ||
+                left.artifact.localeCompare(right.artifact, LOCALE),
+            )
+            return (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  {`Sources last asked ${relative(plan.checkedAt)} (${dateTime(plan.checkedAt)}) - that is the age of this reading. Nothing here starts a run.`}
+                </p>
+                {plan.hasFailures ? (
+                  <p className="flex items-start gap-2 text-xs text-destructive">
+                    <WarningIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                    A source could not be asked, so this list is incomplete. Read it as "unknown",
+                    not as "nothing to do".
+                  </p>
+                ) : null}
+
+                <Table className="steward-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[10rem]">Service</TableHead>
+                      <TableHead>Plugin</TableHead>
+                      <TableHead>Installed</TableHead>
+                      <TableHead className="w-[10rem]">Available</TableHead>
+                      <TableHead className="w-[9rem] text-right">State</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((change) => (
+                      <TableRow key={`${change.service ?? "-"}/${change.artifact}`}>
+                        <TableCell data-label="Service" className="font-medium">
+                          {change.service ? (
+                            <Link
+                              to="/services/$name"
+                              params={{ name: change.service }}
+                              className="underline-offset-4 hover:text-primary hover:underline"
+                            >
+                              {change.service}
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">resource pack</span>
+                          )}
+                        </TableCell>
+                        <TableCell data-label="Plugin">{change.artifact}</TableCell>
+                        <TableCell data-label="Installed" className="text-muted-foreground">
+                          {change.installed ? (
+                            <code className="text-xs">{change.installed}</code>
+                          ) : (
+                            <span className="text-xs">nothing</span>
+                          )}
+                        </TableCell>
+                        <TableCell data-label="Available" className="text-muted-foreground">
+                          {change.version ? (
+                            <code className="text-xs">{change.version}</code>
+                          ) : (
+                            <span className="text-xs">{change.note ?? "unknown"}</span>
+                          )}
+                        </TableCell>
+                        <TableCell data-label="State" className="text-right">
+                          <AvailableBadge status={change.status} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {plan.unclaimed.length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Claimed by nothing:{" "}
+                    {plan.unclaimed.map((one) => `${one.service}/${one.fileName}`).join(", ")} -
+                    installed by hand, or the same plugin under a name its publisher has changed. A
+                    run never touches these.
+                  </p>
+                ) : null}
+                <Notes notes={plan.notes} />
+              </>
+            )
+          }}
+        </QueryState>
+      </CardContent>
+    </Card>
+  )
+}
+
 // --- 2. /operations/plan ----------------------------------------------------------------------------
 
 /**
- * What a run would change - out of the two sources that actually exist for it.
+ * What a run would change - now asked directly, rather than inferred from a run that is happening.
  *
- * **There is no dry run.** The API knows three ways to a run (`POST /api/updates` with UPDATE,
- * BACKUP or RESTART) and none that only calculates. What there is: the report of a run still
- * sitting in `RESOLVING` or `PLANNED` - exactly what a `REPORT` run used to leave behind - and the
- * image comparison. Both are here. An invented preview would be more convenient and would be a lie.
+ * **There is a dry run now, and it is the first card** (season-2-ops/128).
+ * `GET /api/updates/available` asks Modrinth, GitHub and the Fill API what is newest and compares
+ * it with the jars in the volumes - the same `Runs#resolve` a run begins with, which writes
+ * nothing. No row in `update_request`, no container touched. Starting one is still a button, and
+ * still a row.
  *
- * A run stands in those two stages for seconds only, so "no resolved run" on this page does not
- * mean there is nothing to do - it means none is in that state at this moment. That sentence used
- * to be a disclosure on the page itself; it is a fact about the mechanism, so it lives here.
+ * This page used to say in as many words that there was no dry run and that an invented preview
+ * would be a lie. That was true of an invented one. This one is not invented: it is the worker's
+ * own resolve, read without acting on it.
+ *
+ * The two older sources are kept below it, because they answer different questions: "Last resolved"
+ * is a run that is happening right now, and the image comparison is about containers rather than
+ * jars - neither is replaced by knowing what is newest. A run stands in `RESOLVING` or `PLANNED`
+ * for seconds only, so "no resolved run" never meant there was nothing to do; now the card above it
+ * says what there is.
  */
 export function OperationsPlanPage() {
   const runs = useRuns(20)
@@ -776,6 +955,8 @@ export function OperationsPlanPage() {
         title="Plan"
         actions={<AskButton kind="UPDATE" variant="default" />}
       />
+
+      <AvailableCard />
 
       <Card>
         <CardHeader>
@@ -1030,6 +1211,9 @@ const WALKED: Record<string, ReadonlySet<string>> = {
   UPDATE: new Set(TRAIL),
   BACKUP: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "BACKING_UP", "STARTING", "VERIFYING"]),
   RESTART: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
+  // A DOWN ends at STOPPING and never walks the starting half - that is the whole of what it is.
+  DOWN: new Set(["PLANNED", "COUNTDOWN", "STOPPING"]),
+  START: new Set(["STARTING", "VERIFYING"]),
 }
 
 function StageTrail({ stage, kind }: { stage: string; kind: string }) {
@@ -1101,7 +1285,7 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
             </TableCell>
             {/* `whitespace-normal`: the Table component puts `whitespace-nowrap` on every cell,
                 which is right for a service name and wrong for a list of them. MEASURED
-                2026-09-14 at 1440px: a failed run of network-control drew this table 1922px wide
+                2026-09-14 at 1440px: a failed run of proxy drew this table 1922px wide
                 on a 1440px screen, because six artefact changes were one unbreakable line. */}
             <TableCell data-label="Changes" className="whitespace-normal">
               {line.changes.length === 0 && !line.detail ? (

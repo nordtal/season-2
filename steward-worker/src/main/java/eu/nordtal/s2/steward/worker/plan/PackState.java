@@ -19,7 +19,7 @@ import java.util.Map;
 
 /**
  * The resource pack the proxy is currently offering, read out of {@code pack.yml} in the
- * {@code network-control} volume.
+ * {@code proxy} volume.
  *
  * <h2>Why the file and not the environment - decided 2026-09-01</h2>
  * Both values were made {@code compose.yml} variables earlier the same day, because they were
@@ -27,7 +27,7 @@ import java.util.Map;
  * being the whole configuration. That fix is being partly taken back, and the reason is a property
  * of jcore's config system: <b>an environment override wins over the file and is never written
  * back to it.</b> So a worker that writes a new sha1 into {@code pack.yml} while
- * {@code NORDTAL_NETWORK_CONTROL_PACK_SHA1} is set would be writing into a value nothing reads -
+ * {@code NORDTAL_PROXY_PACK_SHA1} is set would be writing into a value nothing reads -
  * a swap that reports success and changes nothing, which is the worst outcome available.
  *
  * <p>So the file becomes the place, {@code PACK_URL} and {@code PACK_SHA1} leave
@@ -52,15 +52,15 @@ import java.util.Map;
 public record PackState(boolean present, @Nullable String url, @Nullable String sha1) {
 
     /** The Velocity plugin id, which is the name of its data directory under {@code plugins/}. */
-    public static final String PLUGIN_ID = "network-control";
+    public static final String PLUGIN_ID = "proxy";
 
-    public static @NotNull Path fileIn(final @NotNull Path networkControlVolume) {
-        return networkControlVolume.resolve(Installation.PLUGINS).resolve(PLUGIN_ID).resolve("pack.yml");
+    public static @NotNull Path fileIn(final @NotNull Path proxyVolume) {
+        return proxyVolume.resolve(Installation.PLUGINS).resolve(PLUGIN_ID).resolve("pack.yml");
     }
 
     /** Never creates the file, never rewrites it, and treats an unreadable one as absent-with-a-reason. */
-    public static @NotNull PackState read(final @NotNull Path networkControlVolume) throws IOException {
-        final Path file = fileIn(networkControlVolume);
+    public static @NotNull PackState read(final @NotNull Path proxyVolume) throws IOException {
+        final Path file = fileIn(proxyVolume);
         if (!Files.isRegularFile(file)) {
             return new PackState(false, null, null);
         }

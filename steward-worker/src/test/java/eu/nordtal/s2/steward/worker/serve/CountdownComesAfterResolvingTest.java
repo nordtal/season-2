@@ -40,7 +40,17 @@ class CountdownComesAfterResolvingTest {
     @DisplayName("nothing is counted down before the plan is resolved")
     void resolvingComesFirst() {
         final String update = updateMethod();
-        final int resolved = at(update, "final UpdatePlan plan = Runs.resolve(config);");
+        // No trailing semicolon since season-2-ops/127: the resolve is narrowed to the run's own
+        // scope on the same line (`.onlyServices(scope)`). What this assertion is about is where
+        // the resolve happens, not what is chained onto it.
+        //
+        // And no closing bracket since season-2-ops/129, for the same reason one step earlier:
+        // `Runs.resolve` took a second argument that day (the plugins added from the interface),
+        // and the token stopped matching - which is this test failing because the call it guards
+        // grew an argument, not because the order changed. Ending the token before the argument
+        // list means the next argument costs nothing here; the assertion is about the position of
+        // the call, and it never was about its signature.
+        final int resolved = at(update, "final UpdatePlan plan = Runs.resolve(config");
         final int countdown = at(update, "countDown(request.id()");
 
         assertTrue(resolved < countdown,

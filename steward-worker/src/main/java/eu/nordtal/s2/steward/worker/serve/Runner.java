@@ -4,6 +4,7 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
+import eu.nordtal.s2.common.update.ServiceHold;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
@@ -85,16 +86,42 @@ public final class Runner implements RequestRunner {
     private final UpdateDirectory directory;
     private final UpdateRun.Waiting waiting;
 
+    /**
+     * The plugins an admin added from the interface (season-2-ops/129), handed to every resolve
+     * this class performs.
+     *
+     * <p>Defaulted to {@code PluginDirectory#NONE} by the constructors that do not name one, which
+     * is what every existing test takes: a run then resolves the fixed topology, exactly as it did
+     * before the table existed.</p>
+     */
+    private final eu.nordtal.s2.common.plugin.PluginDirectory plugins;
+
     public Runner(final @NotNull StewardSpec config, final @NotNull Database database,
                   final @NotNull ContainerOps containers, final @NotNull Backups backups,
                   final @NotNull UpdateDirectory directory) {
         this(config, database, containers, backups, directory, UpdateRun.Waiting.real());
     }
 
+    public Runner(final @NotNull StewardSpec config, final @NotNull Database database,
+                  final @NotNull ContainerOps containers, final @NotNull Backups backups,
+                  final @NotNull UpdateDirectory directory,
+                  final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+        this(config, database, containers, backups, directory, UpdateRun.Waiting.real(), plugins);
+    }
+
     /** Package-visible so a test can drive a thirty-second countdown without waiting for one. */
     Runner(final @NotNull StewardSpec config, final @NotNull Database database,
            final @NotNull ContainerOps containers, final @NotNull Backups backups,
            final @NotNull UpdateDirectory directory, final @NotNull UpdateRun.Waiting waiting) {
+        this(config, database, containers, backups, directory, waiting,
+                eu.nordtal.s2.common.plugin.PluginDirectory.NONE);
+    }
+
+    Runner(final @NotNull StewardSpec config, final @NotNull Database database,
+           final @NotNull ContainerOps containers, final @NotNull Backups backups,
+           final @NotNull UpdateDirectory directory, final @NotNull UpdateRun.Waiting waiting,
+           final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+        this.plugins = plugins;
         this.config = config;
         this.database = database;
         this.containers = containers;
@@ -120,6 +147,8 @@ public final class Runner implements RequestRunner {
                 case UPDATE -> update(request, progress);
                 case RESTART -> restart(request, progress);
                 case BACKUP -> backup(request, progress);
+                case DOWN -> down(request, progress);
+                case START -> startHeld(request, progress);
             };
         } catch (final RuntimeException failure) {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
@@ -131,7 +160,7 @@ public final class Runner implements RequestRunner {
     // ---------------------------------------------------------------- report
 
     private Outcome report() {
-        final UpdatePlan plan = Runs.resolve(config);
+        final UpdatePlan plan = Runs.resolve(config, plugins);
         // The images too, or the two surfaces disagree: a report saying "nothing to do" followed by
         // an update that stops four servers is the report being wrong, not the update.
         final UpdateReport report = withImages(PlanReport.of(plan), containers.images());
@@ -170,6 +199,17 @@ public final class Runner implements RequestRunner {
      * </ul>
      */
     private static UpdateReport withImages(final UpdateReport planned, final ImageResult images) {
+        return withImages(planned, images, List.of());
+    }
+
+    /**
+     * @param scope the services this run is for, empty for the whole network (season-2-ops/127). A
+     *              service outside the scope is never given a line here: a line is what makes a
+     *              server get stopped, and a run that says "smp" must not take the proxy down
+     *              because its image moved.
+     */
+    private static UpdateReport withImages(final UpdateReport planned, final ImageResult images,
+                                           final List<String> scope) {
         UpdateReport report = planned;
 
         // Named first and not returned on: a service whose image could not be compared is UNKNOWN
@@ -207,8 +247,19 @@ public final class Runner implements RequestRunner {
                         + " hand.");
                 continue;
             }
+            if (FOREIGN_IMAGES.contains(service)) {
+                // Renewed at the end of the run by #renewForeign, so it is neither a service line
+                // here nor a note saying somebody should go and do it by hand. It gets no line at
+                // this point on purpose: a line is what `stop` acts on, and stopping postgres in
+                // the middle of the sequence that writes its own report into it is the one order
+                // this must never take.
+                continue;
+            }
             if (!RECREATABLE.contains(service)) {
                 foreign.add(service);
+                continue;
+            }
+            if (!scope.isEmpty() && !scope.contains(service)) {
                 continue;
             }
             report = report.with(report.line(service)
@@ -232,10 +283,102 @@ public final class Runner implements RequestRunner {
      * anything outside {@link Topology} - a sequence that recreates a container it never stopped
      * and never mentioned is one nobody can predict from the report they confirmed.</p>
      */
+    /**
+     * The three images in this project that nobody here builds, in the order they are renewed
+     * (season-2-ops/127).
+     *
+     * <h2>They are in a run now, and they were not before</h2>
+     * Until 2026-09-19 a stale {@code postgres}, {@code caddy} or {@code nginx} was a NOTE telling
+     * somebody to go and redeploy the project by hand - which is a sentence nobody reads twice. The
+     * owner's ask is the plain one: an update run updates everything, postgres and caddy included.
+     * Renewing one is a {@code pull} and an {@code up -d --no-deps}, both of which
+     * {@code steward-deployer} already does for every other service.
+     *
+     * <h2>Only within the major, and the tag is what guarantees it</h2>
+     * {@code postgres:17-alpine} cannot become 18 while nobody edits the tag, and the same holds
+     * for {@code caddy:2-alpine} and {@code nginx:alpine}. So the guarantee needs no code at all -
+     * <b>and that is exactly why the run must not touch those tags.</b> The reason the boundary
+     * matters is worth having next to the list rather than in a ticket: Postgres does not start on
+     * a data directory written by the previous major. A major jump would not update the database,
+     * it would stop it, and getting back out is a dump and a restore - a planned procedure, not
+     * something a run discovers.
+     *
+     * <h2>The order, and why postgres is last</h2>
+     * Ordered, not a set. {@code caddy} and {@code pack-host} cost a web page a second and no
+     * player anything. {@code postgres} is this process's own lifeline: every progress write goes
+     * through it, and the final report of the run is written after this class returns. So it is
+     * renewed last, and {@link UpdateRun#verify} waits for it to be healthy again before anything
+     * else happens - otherwise the report of a run that worked would be the thing that got lost.
+     *
+     * <p>{@code pack-host} is in the {@code devpack} profile and simply is not there on a
+     * production selection; a service the daemon has no container for is never named by
+     * {@link ImageResult} and therefore never renewed. Listing it costs nothing and keeps the list
+     * the same on both kinds of host.</p>
+     */
+    private static final List<String> FOREIGN_IMAGES = List.of("caddy", "pack-host", "postgres");
+
     private static final java.util.Set<String> RECREATABLE = java.util.stream.Stream.concat(
                     Topology.SERVICES.stream().map(Topology.Service::name),
                     java.util.stream.Stream.of(Topology.DISCORD_BOT))
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
+
+    /**
+     * The foreign images that are actually behind, in {@link #FOREIGN_IMAGES}'s order.
+     *
+     * <p>Only {@code OUTDATED}. {@link ImageResult} keeps "nobody could look" apart from "up to
+     * date", and a registry that did not answer is never a reason to recreate a container - the
+     * same rule {@link #withImages} follows one method up.</p>
+     */
+    private static List<String> staleForeign(final ImageResult images) {
+        return FOREIGN_IMAGES.stream().filter(images::isOutdated).toList();
+    }
+
+    /**
+     * Pulls and recreates each of them, then waits for it to be healthy again.
+     *
+     * <h2>Last, after the Minecraft services are already back</h2>
+     * Deliberately not folded into {@link UpdateRun#start}, which renews the image of a service it
+     * has just stopped. None of these three is ever stopped by this sequence: recreating them is a
+     * {@code compose up} that replaces the container by itself, and none of them has a player
+     * standing on it. Putting them at the end is what keeps a player from waiting on Caddy.
+     *
+     * <h2>What a failure here does, and what it does not</h2>
+     * The line is FAILED and the run is FAILED with it - {@link #settle} reads that, and an image
+     * that could not be renewed is a run that did not do what it said. It does not roll anything
+     * back: the old container is still running, which is the same outcome as never having asked.
+     */
+    private UpdateReport renewForeign(final UpdateRun run, final UpdateReport before,
+                                      final List<String> services,
+                                      final Consumer<UpdateReport> progress) {
+        if (services.isEmpty()) {
+            return before;
+        }
+        UpdateReport report = before;
+        final List<String> asked = new java.util.ArrayList<>();
+        for (final String service : services) {
+            // Written before the call, not after, for the reason UpdateRun#start gives: a recreate
+            // that never returns leaves this as the report's last word.
+            report = report.with(new UpdateReport.ServiceLine(service,
+                    UpdateReport.State.STARTING,
+                    List.of(new UpdateReport.Change("image", null, "newer image")),
+                    "pulling its image and recreating the container"));
+            progress.accept(report);
+            final eu.nordtal.s2.steward.worker.ops.RedeployResult result =
+                    containers.recreate(service);
+            if (result.triggered()) {
+                asked.add(service);
+                continue;
+            }
+            report = report.with(report.line(service).failed("its image is out of date and the"
+                    + " container could not be recreated: " + result.message()
+                    + ". It is still running the image it had."));
+            progress.accept(report);
+        }
+        // The wait is not politeness. This process writes the run's final report through postgres
+        // after returning from here, so returning while postgres is still coming up is how the
+        // report of a successful run disappears.
+        return asked.isEmpty() ? report : run.verify(report, asked, UpdateRun.Waiting.real());
+    }
 
     // ---------------------------------------------------------------- the update
 
@@ -283,8 +426,51 @@ public final class Runner implements RequestRunner {
         final ImageResult images = containers.images();
 
         try (RunLock held = lock.get()) {
-            final UpdatePlan plan = Runs.resolve(config);
-            final UpdateReport planned = withImages(PlanReport.of(plan), images);
+            // season-2-ops/127: which services this run is for. Empty is the whole network, which
+            // is what every run was until this existed and what a row written before the column
+            // did says. Read once, here, and then used for everything below - the plan, the
+            // report and the foreign images - so that a scoped run cannot narrow one of them and
+            // not another.
+            final List<String> scope = directory.scopeOf(request.id());
+            // season-2-ops/125: a service somebody is holding down is taken out of the run before
+            // anything is stopped. Installing into it would mean starting it again to verify, and
+            // starting it again is precisely what the hold forbids.
+            final List<String> holds = held();
+            final UpdatePlan plan = Runs.resolve(config, plugins).onlyServices(scope).withoutServices(holds);
+            UpdateReport planned = withImages(PlanReport.of(plan), images, scope).withoutLines(holds);
+            final List<String> skipped = holds.stream()
+                    .filter(service -> scope.isEmpty() || scope.contains(service))
+                    .toList();
+            if (!skipped.isEmpty()) {
+                planned = planned.withNote(String.join(", ", skipped) + " is being held down and was"
+                        + " left out of this run. Start it again and ask for the update once more.");
+            }
+            // Worked out here rather than inside the two branches below, because both of them need
+            // it and the two answers must be the same one.
+            final List<String> foreign = staleForeign(images).stream()
+                    // A scoped run renews a foreign image only when the scope names it. "update
+                    // smp" must not recreate postgres: the whole promise of a scope is that what
+                    // it touches is what it says.
+                    .filter(service -> scope.isEmpty() || scope.contains(service))
+                    // And a held service is not renewed either, for the reason above: recreating
+                    // its container is starting it.
+                    .filter(service -> !holds.contains(service))
+                    .toList();
+
+            if (!planned.isWork() && !foreign.isEmpty()) {
+                // A RUN WITH NO SERVER IN IT. Nothing this network plays on is stopped - caddy and
+                // the pack host are not, and postgres is recreated rather than stopped - so there
+                // is nobody to warn and nothing to count down. Counting down here would take a
+                // minute of every player's evening to tell them that a web server was being
+                // replaced.
+                final UpdateReport renewed = renewForeign(run,
+                        planned.withStage(UpdateReport.Stage.INSTALLING), foreign, progress);
+                final UpdateReport settled = settle(renewed, run.unverifiedStops(),
+                        "its image was renewed", plan.hasFailures(), Doubt.FAILS_THE_RUN);
+                return settled.stage() == UpdateReport.Stage.FAILED
+                        ? Outcome.failed(UpdateReports.toJson(settled))
+                        : Outcome.done(UpdateReports.toJson(settled));
+            }
 
             if (!planned.isWork()) {
                 // A third answer, not a quiet kind of "fine": a run where nothing could be checked
@@ -371,7 +557,11 @@ public final class Runner implements RequestRunner {
             final UpdateReport verified = run.verify(started, stopped.services(),
                     UpdateRun.Waiting.real());
 
-            final UpdateReport finished = settle(verified, run.unverifiedStops(),
+            // season-2-ops/127: last, once the Minecraft services are healthy again. See
+            // FOREIGN_IMAGES for why postgres is the last of the three and why it is waited for.
+            final UpdateReport renewed = renewForeign(run, verified, foreign, progress);
+
+            final UpdateReport finished = settle(renewed, run.unverifiedStops(),
                     "the jars were moved into its plugins directory", result.hasFailures(),
                     Doubt.FAILS_THE_RUN);
             return finished.stage() == UpdateReport.Stage.FAILED
@@ -760,12 +950,25 @@ public final class Runner implements RequestRunner {
 
         // A restart has no plan, so every Minecraft service is named as work with no changes
         // against it - which is what makes stop() take them and the report show a line each.
+        // season-2-ops/125: everything except what somebody is holding down. A restart that
+        // started a service back up would undo a decision without anybody asking for it, and
+        // "restart the network" is the most likely way for that to happen by accident.
+        final List<String> holds = held();
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
-        for (final String service : Topology.SERVICES.stream().map(Topology.Service::name).toList()) {
+        for (final String service : Topology.SERVICES.stream().map(Topology.Service::name)
+                .filter(service -> !holds.contains(service)).toList()) {
             planned = planned.with(new UpdateReport.ServiceLine(service,
                     UpdateReport.State.PLANNED,
                     List.of(new UpdateReport.Change("restart", null, "no change")), null));
         }
+        if (planned.services().isEmpty()) {
+            return Outcome.done(UpdateReports.toJson(UpdateReport
+                    .at(UpdateReport.Stage.NOTHING_TO_DO)
+                    .withNote("Every Minecraft service is being held down, so there was nothing to"
+                            + " restart. Nothing was stopped.")));
+        }
+        final List<String> untouched = Topology.SERVICES.stream().map(Topology.Service::name)
+                .filter(holds::contains).toList();
 
         // A restart has no plan to resolve, so unlike an update it always has work: the whole of
         // it is "take these four round once". The countdown is therefore unconditional here, and
@@ -779,10 +982,199 @@ public final class Runner implements RequestRunner {
         final UpdateReport verified = run.verify(started, stopped.services(),
                 UpdateRun.Waiting.real());
 
-        final UpdateReport finished = settle(verified, run.unverifiedStops(),
+        final UpdateReport told = untouched.isEmpty() ? verified
+                : verified.withNote(String.join(", ", untouched) + " is being held down and was not"
+                        + " restarted. It stays down until somebody starts it.");
+        final UpdateReport finished = settle(told, run.unverifiedStops(),
                 "it was started again on the same world", false, Doubt.IS_ONLY_SAID);
         return finished.stage() == UpdateReport.Stage.FAILED
                 ? Outcome.failed(UpdateReports.toJson(finished))
                 : Outcome.done(UpdateReports.toJson(finished));
     }
+
+    // ---------------------------------------------------------------- down, and up again
+
+    /**
+     * The two services a run may never put down, because the run is standing on them.
+     *
+     * <p>{@code steward-worker} is the process performing the sequence and {@code postgres} holds
+     * the row it writes its report into. A DOWN naming either would be a request that cannot report
+     * what it did - and in the worker's case could not even release its own lock. Refused by name,
+     * before anything is stopped, rather than discovered halfway through.</p>
+     */
+    private static final List<String> NEVER_DOWN = List.of(Topology.STEWARD_WORKER, "postgres");
+
+    /** @return the services somebody is deliberately holding down, in no particular order */
+    private List<String> held() {
+        return directory.holds().stream().map(ServiceHold::service).toList();
+    }
+
+    /**
+     * Stop the named services and leave them stopped (season-2-ops/125).
+     *
+     * <h2>The whole ordinary procedure, and then one step less</h2>
+     * Countdown, park the players, stop, report - the same sequence a restart runs, with the
+     * starting half removed and a row in {@code service_hold} in its place. The row is what makes
+     * this survive a restart of this process, and what every later run reads so that nothing brings
+     * back a service somebody stopped in order to work on it.
+     *
+     * <h2>A DOWN has to name its services</h2>
+     * An empty scope means "the whole network" everywhere else in this mechanism, and here that
+     * would be a button that stops everything with no way back except another button. It is refused
+     * rather than interpreted: the interface never offers it, and a row written by hand that
+     * forgets the scope is far more likely to be a mistake than a request to take the network down
+     * indefinitely.
+     */
+    private Outcome down(final UpdateRequest request, final Consumer<UpdateReport> progress) {
+        final List<String> scope = directory.scopeOf(request.id());
+        if (scope.isEmpty()) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("This request asks to put services down without naming any. Nothing"
+                            + " was stopped: an unnamed scope means the whole network, and taking"
+                            + " the whole network down until somebody presses Start is not"
+                            + " something anybody asks for by leaving a field empty.")));
+        }
+        final List<String> refused = scope.stream().filter(NEVER_DOWN::contains).toList();
+        if (!refused.isEmpty()) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("Nothing was stopped: " + String.join(", ", refused) + " cannot be"
+                            + " put down from here. This sequence runs inside steward-worker and"
+                            + " writes its report through postgres, so a run that stopped either"
+                            + " one could not say what it had done.")));
+        }
+
+        final UpdateRun run = new UpdateRun(containers, backups.volumes(), progress);
+        final RuntimeResult runtime = run.check();
+        if (!runtime.reached()) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote(runtime.message())));
+        }
+
+        final Optional<RunLock> lock;
+        try {
+            lock = RunLock.tryAcquire(database.dataSource());
+        } catch (final SQLException failure) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("Could not reach the database to take the steward-worker lock, so"
+                            + " nothing was stopped: " + failure)));
+        }
+        if (lock.isEmpty()) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("Another steward-worker run is in progress - nothing was stopped."
+                            + " Wait for it and ask again.")));
+        }
+        try (RunLock held = lock.get()) {
+            return downUnderLock(request, scope, run, runtime, progress);
+        }
+    }
+
+    private Outcome downUnderLock(final UpdateRequest request, final List<String> scope,
+                                  final UpdateRun run, final RuntimeResult runtime,
+                                  final Consumer<UpdateReport> progress) {
+        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
+        for (final String service : scope) {
+            planned = planned.with(new UpdateReport.ServiceLine(service,
+                    UpdateReport.State.PLANNED,
+                    List.of(new UpdateReport.Change("down", null, "stays down")), null));
+        }
+
+        // Only when somebody could be standing on one of them. Counting down thirty seconds before
+        // stopping the pack host would be a warning about something no player can tell happened -
+        // and the countdown is the players' warning, not the run's ceremony.
+        if (scope.stream().anyMatch(Runner::isMinecraft)
+                && !countDown(request.id(), planned, progress)) {
+            return cancelled();
+        }
+
+        final UpdateRun.Stopped stopped = run.stop(planned, runtime);
+        for (final String service : stopped.services()) {
+            directory.hold(service, request.requestedBy(), request.id());
+        }
+
+        UpdateReport report = stopped.report();
+        if (!stopped.services().isEmpty()) {
+            // Worded so that one service and four read the same. "limbo will stay down until
+            // somebody starts them again" is what naming the services inside the sentence gives,
+            // and a report is read far more often than it is written.
+            report = report.withNote("Held down: " + String.join(", ", stopped.services())
+                    + ". Nothing starts a held service again on its own: not a later update run,"
+                    + " not a restart, and not this worker coming back.");
+        }
+        final UpdateReport finished = settle(report, run.unverifiedStops(),
+                "it was put down on purpose", false, Doubt.IS_ONLY_SAID);
+        return finished.stage() == UpdateReport.Stage.FAILED
+                ? Outcome.failed(UpdateReports.toJson(finished))
+                : Outcome.done(UpdateReports.toJson(finished));
+    }
+
+    /**
+     * The other half: take the hold off and start the services again.
+     *
+     * <p>No countdown. Nothing goes down, so there is nothing to warn anybody about, and thirty
+     * seconds of "the network is about to be interrupted" before a server comes back would be a
+     * warning about good news.</p>
+     *
+     * <p>An empty scope here is <b>every held service</b>, and that asymmetry with {@link #down} is
+     * deliberate: the dangerous direction is the one that stops things. Starting everything that
+     * somebody stopped is the recovery an operator wants after a restart of this process, and it
+     * can do no harm that was not already asked for.</p>
+     */
+    private Outcome startHeld(final UpdateRequest request, final Consumer<UpdateReport> progress) {
+        final List<String> asked = directory.scopeOf(request.id());
+        final List<String> holds = held();
+        final List<String> services = asked.isEmpty() ? holds : asked;
+        if (services.isEmpty()) {
+            return Outcome.done(UpdateReports.toJson(UpdateReport
+                    .at(UpdateReport.Stage.NOTHING_TO_DO)
+                    .withNote("No service is being held down, so there was nothing to start.")));
+        }
+
+        final UpdateRun run = new UpdateRun(containers, backups.volumes(), progress);
+        final RuntimeResult runtime = run.check();
+        if (!runtime.reached()) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote(runtime.message())));
+        }
+
+        final Optional<RunLock> lock;
+        try {
+            lock = RunLock.tryAcquire(database.dataSource());
+        } catch (final SQLException failure) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("Could not reach the database to take the steward-worker lock, so"
+                            + " nothing was started: " + failure)));
+        }
+        if (lock.isEmpty()) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("Another steward-worker run is in progress - nothing was started."
+                            + " Wait for it and ask again.")));
+        }
+        try (RunLock held = lock.get()) {
+            UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STARTING);
+            for (final String service : services) {
+                planned = planned.with(new UpdateReport.ServiceLine(service,
+                        UpdateReport.State.STOPPED,
+                        List.of(new UpdateReport.Change("down", "stays down", "starting")), null));
+            }
+            // The hold comes off BEFORE the start, not after: a start that never returns must not
+            // leave a service running with a row still claiming somebody is holding it down. The
+            // opposite order is recoverable by pressing the button again; this one is not.
+            for (final String service : services) {
+                directory.release(service);
+            }
+            final UpdateReport started = run.start(new UpdateRun.Stopped(planned, services, runtime));
+            final UpdateReport verified = run.verify(started, services, UpdateRun.Waiting.real());
+            final UpdateReport finished = settle(verified, List.of(),
+                    "it was started again", false, Doubt.IS_ONLY_SAID);
+            return finished.stage() == UpdateReport.Stage.FAILED
+                    ? Outcome.failed(UpdateReports.toJson(finished))
+                    : Outcome.done(UpdateReports.toJson(finished));
+        }
+    }
+
+    /** @return whether that service is one of the four somebody can be standing on */
+    private static boolean isMinecraft(final String service) {
+        return Topology.SERVICES.stream().anyMatch(one -> one.name().equals(service));
+    }
+
 }

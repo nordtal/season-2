@@ -60,7 +60,7 @@ class ConfigsTest {
         // hunger-games hold no world worth saving, so stopping them would be an outage with
         // nothing to show for it, while their plugins/ volumes are still worth a snapshot.
         assertEquals(java.util.List.of(eu.nordtal.s2.steward.worker.plan.Topology.SMP,
-                        eu.nordtal.s2.steward.worker.plan.Topology.NETWORK_CONTROL,
+                        eu.nordtal.s2.steward.worker.plan.Topology.PROXY,
                         eu.nordtal.s2.steward.worker.plan.Topology.DISCORD_BOT),
                 config.backup().stopServices());
 

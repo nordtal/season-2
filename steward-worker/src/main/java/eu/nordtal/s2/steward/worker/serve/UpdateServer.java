@@ -28,6 +28,19 @@ import java.util.Optional;
  * timer, no watch and no "check for updates on boot". A container that comes back up comes back on
  * exactly the jars it was running.
  *
+ * <h2>Looking is not running (season-2-ops/128)</h2>
+ * The rule above forbids <b>executing</b> without being asked. It has never forbidden
+ * <b>asking the sources what is newest</b>, and since season-2-ops/128 this container does exactly
+ * that: {@code GET /api/updates/available} resolves on demand and caches the answer for six hours,
+ * so the interface can say what an update would do. That path calls {@code Runs#resolve}, which
+ * writes nothing anywhere - no row in {@code update_request}, no container touched, no jar moved.
+ *
+ * <p>The sentence is here rather than only in {@code WorkerApi} because this is where the next
+ * session reads the rule, and a resolve on a timer looks like a breach of it until somebody says
+ * out loud which half is forbidden. <b>Checking, yes. Running, never.</b> If a future change makes
+ * something in this module start a run without a row somebody wrote, that is the rule breaking -
+ * not this.</p>
+ *
  * <h2>Sleeping exactly as long as it should</h2>
  * A restart request sits in the table for a minute before it may be claimed, and the proxy counts
  * players down towards that instant. Sleeping for a fixed poll interval would fire it up to a poll

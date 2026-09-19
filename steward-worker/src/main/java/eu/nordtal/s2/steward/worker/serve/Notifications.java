@@ -7,7 +7,7 @@ import java.time.Duration;
  * One live {@code LISTEN nordtal_update} connection, reduced to the single question the server
  * asks: "has anything been announced, and if not, has this connection died?"
  * <p>
- * An interface for the same reason {@code network-control}'s {@code PhaseNotifications} is one: the
+ * An interface for the same reason {@code proxy}'s {@code PhaseNotifications} is one: the
  * reconnect loop above it is worth testing and a real dropped socket is not something a test can
  * produce.
  * </p>

@@ -101,10 +101,10 @@ class ReportTest {
     /** The first deployment: the GitHub API refused, so every season artefact went unresolved. */
     private static UpdatePlan githubIsDown() {
         final List<Change> changes = new ArrayList<>();
-        for (final String service : List.of("network-control", "limbo", "hunger-games", "smp")) {
+        for (final String service : List.of("proxy", "limbo", "hunger-games", "smp")) {
             changes.add(Change.unresolved(service, service, GITHUB_403));
         }
-        changes.add(Change.unresolved("network-control", Topology.RESOURCE_PACK, GITHUB_403));
+        changes.add(Change.unresolved("proxy", Topology.RESOURCE_PACK, GITHUB_403));
         changes.add(Change.unresolved("smp", "display-tags", GITHUB_403));
         changes.add(Change.unresolved("discord-bot", "discord-bot", GITHUB_403));
         changes.add(Change.unresolved("steward-worker", "steward-worker", GITHUB_403));

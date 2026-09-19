@@ -84,7 +84,7 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         // 4.0.0 is Fill's name for the whole 4.x line and carries four SNAPSHOTs; what comes out is
-        // 4.2.0, which is the version network-control is compiled against, reached without anybody
+        // 4.2.0, which is the version the proxy plugin is compiled against, reached without anybody
         // maintaining a pin.
         //
         // The recording was 4.1.1 until 2026-09-15, and re-recording it is the whole point of this
@@ -92,14 +92,14 @@ class ResolverTest {
         // velocity-4.2.0-30.jar, and the catalog still said 4.1.1. When the catalog was corrected,
         // this assertion is what went red - a fixture from 2026-09-09 against a constant from
         // today - and that is the coupling working rather than a nuisance.
-        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "network-control", "velocity"));
+        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "velocity"));
         assertEquals(List.of(), plan.notes(),
                 "the proxy resolved to the API it was built against, so there is nothing to warn"
                         + " about - a note here would be one an operator learns to ignore");
     }
 
     @Test
-    @DisplayName("a Velocity newer than the API network-control was built for is named, not refused")
+    @DisplayName("a Velocity newer than the API proxy was built for is named, not refused")
     void aVelocityAheadOfTheCatalogIsReported() throws IOException {
         installCurrentEverything();
         // The same family with one release added. This is the situation the whole note exists for:
@@ -124,10 +124,10 @@ class ResolverTest {
         // costs is one line of the report - "velocity 4.3.0" instead of "4.2.0 -> 4.3.0" - and one
         // stale jar in .server/ that the entrypoint removes on the very start this run performs,
         // because it keeps exactly one jar per kind. Asserted rather than left to be discovered.
-        assertEquals(Change.Status.MISSING, statusOf(plan, "network-control", "velocity"));
+        assertEquals(Change.Status.MISSING, statusOf(plan, "proxy", "velocity"));
         assertTrue(plan.hasWork());
         assertEquals("velocity-4.3.0-31.jar",
-                changeFor(plan, "network-control", "velocity").wanted().fileName());
+                changeFor(plan, "proxy", "velocity").wanted().fileName());
 
         assertEquals(1, plan.notes().size(), "expected exactly one note: " + plan.notes());
         final String note = plan.notes().getFirst();
@@ -149,8 +149,8 @@ class ResolverTest {
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "smp"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "packetevents"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "paper"));
-        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "network-control", "velocity"));
-        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "network-control", "resource-pack"));
+        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "velocity"));
+        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "resource-pack"));
     }
 
     @Test
@@ -173,7 +173,7 @@ class ResolverTest {
         assertTrue(plan.changes().stream()
                         .filter(change -> "voicechat".equals(change.artifact()))
                         .noneMatch(change -> "limbo".equals(change.service())
-                                || "network-control".equals(change.service())),
+                                || "proxy".equals(change.service())),
                 Report.render(plan));
     }
 
@@ -189,13 +189,13 @@ class ResolverTest {
         // Modrinth.PRE_RELEASE_EXCEPTIONS names it and says why - and this asserts the exception is
         // actually reached rather than merely declared: without it the row would be UNSUPPORTED and
         // the proxy would silently never get the plugin that makes one UDP port enough.
-        final Change change = changeFor(plan, "network-control", "voicechat-velocity");
+        final Change change = changeFor(plan, "proxy", "voicechat-velocity");
         assertEquals(Change.Status.UP_TO_DATE, change.status(), Report.render(plan));
         assertEquals("voicechat-velocity-2.6.18.jar", change.installed());
 
         assertTrue(plan.changes().stream()
                         .filter(row -> "voicechat-velocity".equals(row.artifact()))
-                        .allMatch(row -> "network-control".equals(row.service())),
+                        .allMatch(row -> "proxy".equals(row.service())),
                 "the Velocity build is on a Paper server: " + Report.render(plan));
     }
 
@@ -366,7 +366,7 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "smp"));
-        assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "network-control", "resource-pack"));
+        assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "proxy", "resource-pack"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "chunky"));
         // A 404 here is not an outage: it is a repository with no published release, which is a
         // thing a person has to go and do. The message has to say so.
@@ -411,7 +411,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        final Change change = changeFor(plan, "network-control", "resource-pack");
+        final Change change = changeFor(plan, "proxy", "resource-pack");
         assertEquals(Change.Status.OUTDATED, change.status());
         assertNotNull(change.wanted());
         assertNotNull(change.wanted().checksum());
@@ -426,9 +426,9 @@ class ResolverTest {
     @DisplayName("no pack.yml yet is MISSING with the path in it, not a crash")
     void packNotConfiguredYet() throws IOException {
         installCurrentEverything();
-        Files.delete(PackState.fileIn(volumes.resolve("network-control")));
+        Files.delete(PackState.fileIn(volumes.resolve("proxy")));
 
-        final Change change = changeFor(resolve(), "network-control", "resource-pack");
+        final Change change = changeFor(resolve(), "proxy", "resource-pack");
 
         assertEquals(Change.Status.MISSING, change.status());
         assertNotNull(change.note());
@@ -532,9 +532,9 @@ class ResolverTest {
 
     /** The exact deployment the recorded release and the recorded APIs describe. */
     private void installCurrentEverything() throws IOException {
-        write("network-control", "plugins/network-control-0.1.0.jar");
-        write("network-control", "plugins/voicechat-velocity-2.6.18.jar");
-        write("network-control", ".server/velocity-4.2.0-30.jar");
+        write("proxy", "plugins/proxy-0.1.0.jar");
+        write("proxy", "plugins/voicechat-velocity-2.6.18.jar");
+        write("proxy", ".server/velocity-4.2.0-30.jar");
         write("limbo", "plugins/limbo-0.1.0.jar");
         write("limbo", ".server/paper-26.2-121.jar");
         write("hunger-games", "plugins/hunger-games-0.1.0.jar");
@@ -565,7 +565,7 @@ class ResolverTest {
     }
 
     private void writePackYml(final String sha1) throws IOException {
-        final Path file = PackState.fileIn(volumes.resolve("network-control"));
+        final Path file = PackState.fileIn(volumes.resolve("proxy"));
         Files.createDirectories(file.getParent());
         Files.writeString(file, """
                 enabled: true

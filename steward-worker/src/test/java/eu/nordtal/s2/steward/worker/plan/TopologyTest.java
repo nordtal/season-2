@@ -119,7 +119,7 @@ class TopologyTest {
         // itself and forwards over the internal network, so the outside world needs exactly one UDP
         // port. A backend that grows a UDP port again expects audio somewhere the proxy is not
         // looking.
-        final List<String> proxyUdp = udpPorts(Topology.NETWORK_CONTROL);
+        final List<String> proxyUdp = udpPorts(Topology.PROXY);
         assertEquals(1, proxyUdp.size(), "the proxy publishes " + proxyUdp + " UDP. Voice chat needs"
                 + " exactly one, because voicechat-proxy.properties ships port: -1 and therefore"
                 + " binds the proxy's own port.");
@@ -135,7 +135,7 @@ class TopologyTest {
 
         // The voice endpoint is the Minecraft endpoint with a different protocol; if the two ever
         // separate, the client is told to talk to a port compose does not publish.
-        final List<String> tcp = ports(Topology.NETWORK_CONTROL).stream()
+        final List<String> tcp = ports(Topology.PROXY).stream()
                 .filter(port -> !port.endsWith("/udp"))
                 .toList();
         assertEquals(1, tcp.size(), "the proxy publishes " + tcp + " TCP");
@@ -149,7 +149,7 @@ class TopologyTest {
         // Nobody else has one: a backend publishing UDP is a port left behind or a half-restored
         // per-backend arrangement.
         for (final Topology.Service service : Topology.SERVICES) {
-            if (service.name().equals(Topology.NETWORK_CONTROL)) {
+            if (service.name().equals(Topology.PROXY)) {
                 continue;
             }
             assertEquals(List.of(), udpPorts(service.name()), service.name() + " publishes a UDP"
@@ -166,7 +166,7 @@ class TopologyTest {
         // voicechat-velocity is resolved from a pre-release, and guarding on it would turn its next
         // bad version into a proxy that will not start.
         final Topology.Service proxy = Topology.SERVICES.stream()
-                .filter(service -> service.name().equals(Topology.NETWORK_CONTROL))
+                .filter(service -> service.name().equals(Topology.PROXY))
                 .findFirst()
                 .orElseThrow();
 
@@ -179,7 +179,7 @@ class TopologyTest {
 
         @SuppressWarnings("unchecked")
         final Map<String, Object> environment =
-                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.NETWORK_CONTROL))
+                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY))
                         .get("environment");
         final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
         assertFalse(guard.toLowerCase(java.util.Locale.ROOT).contains("voicechat"),
@@ -260,14 +260,14 @@ class TopologyTest {
                         + " one that would be hit first.");
 
         @SuppressWarnings("unchecked")
-        final Map<String, Object> proxy = (Map<String, Object>) services.get("network-control");
+        final Map<String, Object> proxy = (Map<String, Object>) services.get("proxy");
         @SuppressWarnings("unchecked")
         final Map<String, Object> proxyEnvironment = (Map<String, Object>) proxy.get("environment");
         final Object advertised =
-                proxyEnvironment.get("NORDTAL_NETWORK_CONTROL_NETWORK_MAX_PLAYERS");
+                proxyEnvironment.get("NORDTAL_PROXY_NETWORK_MAX_PLAYERS");
         assertNotNull(advertised, "the proxy is given no max-players, so network.yml's default"
                 + " decides what the browser is told and .env cannot move it");
-        assertNull(proxyEnvironment.get("NORDTAL_NETWORK_CONTROL_NETWORK_BACKEND_LIMIT"),
+        assertNull(proxyEnvironment.get("NORDTAL_PROXY_NETWORK_BACKEND_LIMIT"),
                 "the proxy is still given backend-limit. NetworkSpec no longer declares that key,"
                         + " so the overlay never looks the variable up: it would sit in .env"
                         + " reading like the second player limit and moving nothing at all.");
@@ -368,7 +368,7 @@ class TopologyTest {
         // PACK_URL and PACK_SHA1 for a different reason: a jcore environment override wins over the
         // file and is never written back, so the worker would write a new sha1 nothing reads.
         for (final String forbidden : List.of("SEASON_PLUGINS", "EXTRA_PLUGIN_URLS",
-                "NORDTAL_NETWORK_CONTROL_PACK_URL", "NORDTAL_NETWORK_CONTROL_PACK_SHA1")) {
+                "NORDTAL_PROXY_PACK_URL", "NORDTAL_PROXY_PACK_SHA1")) {
             services.forEach((name, definition) -> {
                 @SuppressWarnings("unchecked")
                 final Map<String, Object> environment =
@@ -450,21 +450,35 @@ class TopologyTest {
                     service.name() + ": the backup reads a different plugin source than the server"
                             + " runs from");
 
-            // The default has to be a VOLUME NAME, never a path: a path under a directory a
+            // The default has to be a PATH UNDER NORDTAL_DIR, and this assertion is the exact
+            // opposite of the one that stood here until 2026-09-19 (season-2-ops/124). It read:
+            // "The default has to be a VOLUME NAME, never a path: a path under a directory a
             // deployment checks out is deleted the next time it is checked out, taking every
-            // hand-edited config.yml, milestones.yml and pack.yml with it (finding 151). Docker
-            // tells a bind mount from a volume by the
-            // shape of the string alone - anything containing a `/` is a path, and a `.` is what a
-            // stray `./` leaves behind.
+            // hand-edited config.yml, milestones.yml and pack.yml with it (finding 151)."
+            //
+            // THE CHECKOUT THAT DELETED THINGS WAS ARCANE'S, AND ARCANE WAS REMOVED ON 2026-09-15.
+            // Nothing on the host checks this repository out any more; compose.yml arrives inside
+            // steward-deployer's image. What replaced Arcane's file browser is SFTP, which reads a
+            // directory and cannot see into a Docker volume at all - so the named volume became
+            // the thing that puts a hand-edited config out of reach, and the rule turned over.
+            //
+            // IT HAS TO GO THROUGH NORDTAL_DIR rather than merely containing a slash, because a
+            // relative path would be worse than either: steward-deployer runs compose from /app
+            // inside its own image, so `./plugins` there is a directory in the image and not on
+            // the host. Docker still tells a bind from a volume by the shape of the string alone.
             final String fallback = defaultOf(sourceOf(onTheServer));
-            assertFalse(fallback.contains("/") || fallback.contains("."),
+            assertTrue(fallback.startsWith("${NORDTAL_DIR"),
+                    service.name() + "'s plugins/ defaults to '" + fallback + "', which does not"
+                            + " hang off NORDTAL_DIR. Production sets none of these variables, so"
+                            + " that default is what the host gets - and the installation is a"
+                            + " directory now, so the default has to be one: an absolute path,"
+                            + " built from the one variable deploy/nordtal.sh writes.");
+            assertTrue(fallback.contains("/"),
                     service.name() + "'s plugins/ defaults to '" + fallback + "', which Docker"
-                            + " reads as a PATH and not as a volume name. Production sets none of"
-                            + " these variables, so that default is what the host gets - and a"
-                            + " path inside this checkout is deleted the next time the deployment"
-                            + " is checked out, with every hand-edited plugin config in it. A local"
-                            + " stack opts into the bind by setting the variable; the default must"
-                            + " not.");
+                            + " reads as a VOLUME NAME and not as a path - anything without a `/`"
+                            + " in it is a volume. Setting one of these variables to a name is"
+                            + " still the way back (deploy/dev.env.example does exactly that); the"
+                            + " default is not.");
         }
     }
 
@@ -972,20 +986,37 @@ class TopologyTest {
                 + " out of another, so the dump is saved where nothing ever looks for it.");
     }
 
-    /** The volume behind a service's mount at {@code path}, insisting it is not read-only. */
+    /**
+     * The volume behind a service's mount at {@code path}, insisting it is not read-only.
+     *
+     * <p>THE DESTINATION IS PARSED FROM THE RIGHT, for the same reason the backup loop above says
+     * so at length: since season-2-ops/124 every mount in compose.yml is a variable with a default,
+     * and those defaults contain colons of their own - {@code ${STEWARD_BACKUPS:-${NORDTAL_DIR:?
+     * …}/steward-backups}:/backups} splits on ":" into six pieces, none of which is
+     * {@code /backups}. This method used to take {@code split(":")[1]} and stopped matching the
+     * moment the volume gained a variable, reporting that nothing was mounted at all.</p>
+     */
     private String writableMountAt(final String service, final String path) {
         @SuppressWarnings("unchecked")
         final Map<String, Object> definition = (Map<String, Object>) services.get(service);
         assertNotNull(definition, "compose.yml has no service '" + service + "'");
         final String mount = mountsOf(definition).stream()
-                .filter(each -> each.split(":")[1].equals(path))
+                .filter(each -> destinationOf(each).equals(path))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError(
                         service + " mounts nothing at " + path + ", and the nightly database dump"
                                 + " is written there by name."));
         assertFalse(mount.endsWith(":ro"),
                 service + " mounts " + path + " read-only, and the dump is written to it.");
-        return mount.split(":")[0];
+        return sourceOf(mount);
+    }
+
+    /** The container path a mount lands on, whatever the source expression contains. */
+    private static String destinationOf(final String mount) {
+        final String withoutMode = mount.endsWith(":ro") || mount.endsWith(":rw")
+                ? mount.substring(0, mount.lastIndexOf(':'))
+                : mount;
+        return withoutMode.substring(withoutMode.lastIndexOf(':') + 1);
     }
 
     @Test

@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.worker.api;
 
 import com.google.gson.Gson;
 import eu.nordtal.s2.common.audit.AuditDirectory;
+import eu.nordtal.s2.common.update.ServiceHold;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.online.OnlinePlayer;
 import eu.nordtal.s2.steward.worker.backup.NightlyClock;
@@ -16,6 +17,8 @@ import eu.nordtal.s2.steward.worker.docker.LogFrames;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
 import eu.nordtal.s2.steward.worker.host.HostSnapshot;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
+import eu.nordtal.s2.steward.worker.plan.Change;
+import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -41,6 +44,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -90,6 +94,14 @@ public final class WorkerApi implements AutoCloseable {
     public record Nightly(@NotNull String at, @NotNull List<String> days, @NotNull ZoneId zone) { }
 
     private final Nightly nightly;
+
+    /**
+     * The plugin list, the Modrinth search, and the two buttons (season-2-ops/129).
+     *
+     * <p>Null in a deployment with no database, because the added plugins are a table. Every route
+     * of it then answers 503 rather than an empty list - see the constructor.</p>
+     */
+    private final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins;
 
     /** Log follows are long and blocking; each one gets a thread of its own, and they are cheap. */
     private final ExecutorService followers = Executors.newVirtualThreadPerTaskExecutor();
@@ -185,6 +197,45 @@ public final class WorkerApi implements AutoCloseable {
 
     private final Refreshed<Drift> drift;
 
+    /**
+     * How long a resolve is good for, and why this is hours rather than the minute drift gets.
+     *
+     * <h2>What it answers, and what it still must not do</h2>
+     * season-2-ops/128. {@code UpdateServer} opens with <i>"the first rule of this module is that
+     * nothing updates on a schedule"</i>, and that rule is untouched here: <b>looking is not
+     * running.</b> This asks Modrinth, GitHub and the Fill API what is newest and compares it with
+     * the jars in the volumes - the same {@code Runs#resolve} a run starts with, which writes
+     * nothing, anywhere. No row is written into {@code update_request} and no container is touched.
+     * A run is still only ever a row somebody asked for.
+     *
+     * <h2>Why a cache and not a clock</h2>
+     * A timer would ask on a schedule whether or not anybody wanted to know, which is the shape
+     * that gets a token rate-limited for nothing. {@link Refreshed} asks when the page is opened
+     * and hands the previous answer over while a new one is fetched behind it, so ten admins
+     * looking at once cost one round of API calls and nobody waits on the network. A week in which
+     * nobody opens the page is a week in which nothing is asked - which is correct, because there
+     * was nobody to show it to.
+     *
+     * <p>Six hours, because a plugin release is a thing that happens a few times a month and the
+     * answer carries {@code checkedAt} beside it. The page says how old the reading is rather than
+     * implying it was taken just now, exactly as the drift column does one field up.</p>
+     */
+    private static final Duration AVAILABLE_TTL = Duration.ofHours(6);
+
+    /** One resolve and the moment it was made, for the same reason {@link Drift} is one value. */
+    private record Available(@NotNull UpdatePlan plan, @NotNull Instant checkedAt) { }
+
+    /**
+     * The resolve, or {@code null} where this API has no sources to ask - every test that builds a
+     * {@link WorkerApi} without one, and any deployment where the wiring chose not to.
+     *
+     * <p>Null rather than a supplier returning an empty plan, because the two are different
+     * answers: an empty plan says "everything is current" and there is nothing behind it to say
+     * that. The endpoint answers 503 instead, which the page can draw as "could not look" - the
+     * distinction {@link Change.Status#UNRESOLVED} exists for, one level up.</p>
+     */
+    private final @org.jetbrains.annotations.Nullable Refreshed<Available> available;
+
     private Javalin app;
 
     private final ConfigApi configs;
@@ -196,10 +247,24 @@ public final class WorkerApi implements AutoCloseable {
      *
      * <p>Nullable and not an empty {@link ServicesApi}, because the two are different states worth
      * keeping apart at the wiring: no directory at all is a test or a stack without Postgres, and
-     * an empty answer is network-control not having written recently. Both leave the field off a
+     * an empty answer is proxy not having written recently. Both leave the field off a
      * row - see {@link #describe} - which is the whole point (steward/86).
      */
     private final @org.jetbrains.annotations.Nullable ServicesApi players;
+
+    /**
+     * {@code update_request} and {@code service_hold}, read for one thing only (season-2-ops/125).
+     *
+     * <h2>This is the exception to "never the database" above, and it is the only one</h2>
+     * A service that is down because somebody pressed Down and a service that is down because it
+     * fell over are the same container to Docker: stopped, with an exit code. The difference is a
+     * decision a person made, it exists in exactly one place, and the table this API draws is the
+     * place it has to show up. There is no reading of the runtime that could replace it.
+     *
+     * <p>It costs one small indexed query per {@code /api/services}, taken once for the whole table
+     * rather than once per row, for the same reason the player counts are.</p>
+     */
+    private final @NotNull UpdateDirectory updates;
 
     public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
                      final @NotNull Console console, final @NotNull HostMetrics host,
@@ -222,9 +287,10 @@ public final class WorkerApi implements AutoCloseable {
      * @param updates     {@code update_request}, already opened over this process's own pool - see
      *                    {@code StewardWorker#serve} for why one directory is shared between this API
      *                    and the run loop rather than two directories over the same table
-     * @param audit       {@code audit_log}, opened the same way. Both feed {@link ActionsApi} and
-     *                    nothing else here reads either directory - {@link #WorkerApi} otherwise
-     *                    talks to Docker and the filesystem, never the database, on purpose (§3)
+     * @param audit       {@code audit_log}, opened the same way. Both feed {@link ActionsApi}; the
+     *                    update directory is read once more, for the holds - see {@link #updates}
+     *                    for why that one reading is worth the exception to "this class talks to
+     *                    Docker and the filesystem, never the database" (§3)
      */
     public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
                      final @NotNull Console console, final @NotNull HostMetrics host,
@@ -253,7 +319,53 @@ public final class WorkerApi implements AutoCloseable {
                      final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
                      final @NotNull Nightly nightly,
                      final @org.jetbrains.annotations.Nullable ServicesApi online) {
+        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates,
+                audit, nightly, online, null);
+    }
+
+    /**
+     * @param resolve what is newest, asked of Modrinth, GitHub and the Fill API and compared with
+     *                the jars in the volumes - {@code Runs#resolve}, which writes nothing anywhere.
+     *                {@code null} leaves {@code GET /api/updates/available} answering 503 rather
+     *                than an empty plan; see {@link #available} for why those are not the same
+     *                answer. It is a supplier and not a resolved plan because this API must never
+     *                hold one from process start - a jar installed an hour ago has to stop being
+     *                reported as available, and the only way it does is by asking again.
+     */
+    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
+                     final @NotNull Console console, final @NotNull HostMetrics host,
+                     final @NotNull String project, final @NotNull Path backups,
+                     final @NotNull String token, final @NotNull Path configs,
+                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
+                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
+                     final @NotNull Nightly nightly,
+                     final @org.jetbrains.annotations.Nullable ServicesApi online,
+                     final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve) {
+        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates,
+                audit, nightly, online, resolve, null);
+    }
+
+    /**
+     * @param managedPlugins the four routes behind "the plugins on this server"
+     *                       (season-2-ops/129), or {@code null} in a deployment with no database -
+     *                       they then answer 503, for the reason {@link #available} gives: an empty
+     *                       plugin list and a worker that cannot read the table are different
+     *                       answers, and guessing the friendlier one would be a lie about what is
+     *                       installed
+     */
+    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
+                     final @NotNull Console console, final @NotNull HostMetrics host,
+                     final @NotNull String project, final @NotNull Path backups,
+                     final @NotNull String token, final @NotNull Path configs,
+                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
+                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
+                     final @NotNull Nightly nightly,
+                     final @org.jetbrains.annotations.Nullable ServicesApi online,
+                     final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
+                     final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins) {
+        this.managedPlugins = managedPlugins;
         this.players = online;
+        this.updates = updates;
         this.docker = docker;
         this.ops = ops;
         this.console = console;
@@ -275,6 +387,13 @@ public final class WorkerApi implements AutoCloseable {
         // Here rather than at the field, because it reads `ops`, which is a constructor argument.
         this.drift = new Refreshed<>(() -> new Drift(ops.images(), Instant.now()), DRIFT_TTL,
                 driftRefresh, Instant::now);
+        // The same background thread as drift, and deliberately so: both are slow calls over the
+        // internet made on nobody's request, Refreshed never has two of its own going at once, and
+        // a resolve waiting behind a registry comparison costs a page that is already showing the
+        // previous answer nothing at all.
+        this.available = resolve == null ? null
+                : new Refreshed<>(() -> new Available(resolve.get(), Instant.now()),
+                        AVAILABLE_TTL, driftRefresh, Instant::now);
     }
 
     public void start(final int port) {
@@ -469,6 +588,37 @@ public final class WorkerApi implements AutoCloseable {
             // update_request and audit_log, merged and sorted here rather than by the interface.
             // See ActionsApi's own javadoc for why it is one query and not two.
             config.routes.get("/api/actions", actions::list);
+
+            // season-2-ops/129: the plugins on one Minecraft server, and the Modrinth search
+            // beside them. The list is read off the disk and the table only says which rows may
+            // be deleted - see PluginsApi for why that is the enforcement of "the Nordtal plugins
+            // are fixed" rather than a greyed-out button.
+            //
+            // Installing is a row and not an install: the jar arrives with the next update run,
+            // through the ordinary resolve, because Topology.servicesWith merges the table into
+            // the fixed list. Removing is the one thing here that touches the disk at once, and it
+            // deletes the data folder as well - which is why the list hands its name over first.
+            config.routes.get("/api/services/{name}/plugins", ctx -> plugins().list(ctx));
+            config.routes.get("/api/services/{name}/plugins/search", ctx -> plugins().search(ctx));
+            config.routes.post("/api/services/{name}/plugins", ctx -> plugins().add(ctx));
+            config.routes.delete("/api/services/{name}/plugins/{artifact}", ctx -> plugins().remove(ctx));
+
+            // season-2-ops/128: WHAT A RUN WOULD DO, WITHOUT DOING IT. Until this existed the only
+            // way to see whether Chunky or Paper had moved was to start a run, so the plan page
+            // said in as many words that there was no dry run and drew an image comparison
+            // instead. Reading this route writes nothing: no row in update_request, no container
+            // touched, no jar moved. See AVAILABLE_TTL for why that is not a breach of "nothing
+            // updates on a schedule" but the other half of it.
+            config.routes.get("/api/updates/available", ctx -> {
+                if (available == null) {
+                    // 503 and not an empty plan. See the field for why the two are different
+                    // answers and why guessing the friendlier one would be a lie.
+                    ctx.status(503).json(Map.of("error",
+                            "this worker has no sources configured, so nothing can be resolved"));
+                    return;
+                }
+                ctx.json(availability(available.get()));
+            });
         }).start(port);
 
         log.info("the internal API is on {} - steward-ui reads the daemon through it", port);
@@ -486,6 +636,21 @@ public final class WorkerApi implements AutoCloseable {
                         failed.toString());
             }
         });
+    }
+
+    /**
+     * The plugin routes, or a refusal that says why there are none.
+     *
+     * <p>503 and not an empty list, for the same reason {@code /api/updates/available} answers 503:
+     * "no plugins" and "this worker cannot read the table" are different sentences, and a page that
+     * draws the friendlier one is a page claiming a server runs nothing.</p>
+     */
+    private PluginsApi plugins() {
+        if (managedPlugins == null) {
+            throw new io.javalin.http.ServiceUnavailableResponse(
+                    "this worker has no database, so it cannot say which plugins were added");
+        }
+        return managedPlugins;
     }
 
     /**
@@ -537,11 +702,17 @@ public final class WorkerApi implements AutoCloseable {
         // Once for the whole table, not once per row: it is a single read of four rows, and four
         // reads of it would also let two rows of one answer disagree about the same instant.
         final ServicesApi.Online counts = online();
+        // Once for the whole table, for the same reason: two rows of one answer must not disagree
+        // about which services are being held.
+        final Map<String, ServiceHold> holds = new LinkedHashMap<>();
+        for (final ServiceHold hold : updates.holds()) {
+            holds.put(hold.service(), hold);
+        }
         final List<Map<String, Object>> all;
         try (var scope = Executors.newVirtualThreadPerTaskExecutor()) {
             all = scope.invokeAll(containers.stream()
                             .map(container -> (java.util.concurrent.Callable<Map<String, Object>>)
-                                    () -> describe(container, drift, counts))
+                                    () -> describe(container, drift, counts, holds))
                             .toList()).stream()
                     .map(WorkerApi::resultOf)
                     .toList();
@@ -584,7 +755,7 @@ public final class WorkerApi implements AutoCloseable {
      *
      * <p>{@code players} is written only for a service {@code counts} actually names. A service it
      * does not name has NO {@code players} key at all - not {@code 0} and not {@code null} - because
-     * "nobody is connected" and "network-control has not said" are different answers and a dashboard
+     * "nobody is connected" and "the proxy has not said" are different answers and a dashboard
      * that draws the second as the first is the failure {@code ImageResult.State.UNKNOWN} already
      * exists to prevent. See {@link ServicesApi} (steward/86).
      *
@@ -595,7 +766,8 @@ public final class WorkerApi implements AutoCloseable {
      * disagree about the same instant.
      */
     private Map<String, Object> describe(final Docker.Container container, final ImageResult drift,
-                                         final ServicesApi.Online counts) {
+                                         final ServicesApi.Online counts,
+                                         final Map<String, ServiceHold> holds) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("service", container.service());
         row.put("containerId", container.id());
@@ -605,6 +777,15 @@ public final class WorkerApi implements AutoCloseable {
         row.put("hasConsole", Console.has(container.service()));
         row.put("drift", drift.state(container.service()).name());
         putOnline(row, container.service(), counts);
+        // Same rule as `players`: the key is absent for a service nobody is holding, rather than
+        // present and false. "Not held" and "held by nobody in particular" are different answers.
+        final ServiceHold hold = holds.get(container.service());
+        if (hold != null) {
+            final Map<String, Object> about = new LinkedHashMap<>();
+            about.put("since", hold.since().toString());
+            about.put("by", hold.heldBy());
+            row.put("hold", about);
+        }
         if (container.isRunning()) {
             try {
                 final Docker.Inspection inspection = docker.inspect(container.id());
@@ -675,11 +856,15 @@ public final class WorkerApi implements AutoCloseable {
 
     private Optional<Map<String, Object>> service(final String name) {
         final ImageResult drift = drift().result();
+        final Map<String, ServiceHold> holds = new LinkedHashMap<>();
+        for (final ServiceHold hold : updates.holds()) {
+            holds.put(hold.service(), hold);
+        }
         return docker.containers(project).stream()
                 .filter(container -> name.equals(container.service()))
                 .findFirst()
                 .map(container -> {
-                    final Map<String, Object> row = describe(container, drift, online());
+                    final Map<String, Object> row = describe(container, drift, online(), holds);
                     row.put("digests", docker.repoDigests(container.imageId()));
                     row.put("logLimit", "docker keeps up to 50 MB per container (5 x 10 MB) and "
                             + "nothing older; recreating the container starts that again");
@@ -731,6 +916,66 @@ public final class WorkerApi implements AutoCloseable {
         // the label the status page used to carry said the same thing a second time.
         answer.put("containerLimits",
                 "No container sets a memory limit, so every percentage here is a share of the whole host.");
+        return answer;
+    }
+
+    /**
+     * `/api/updates/available`'s body: the whole resolve, flattened, plus the age of the reading.
+     *
+     * <h2>Every row is carried, not only the ones with work in them</h2>
+     * A list of "what is outdated" cannot be told apart from a list of "what could not be asked",
+     * and those two must never look alike - that is the entire reason
+     * {@link Change.Status#UNRESOLVED} is a status and not an omission. So the answer is one row
+     * per artefact with its status on it, and what the page shows is the page's decision.
+     *
+     * <p>{@code hasWork} and {@code hasFailures} are sent rather than counted in the browser for
+     * the same reason {@code PlanReport} exists: the worker is the only thing that decides what an
+     * update means, and a second opinion assembled from the rows is how the two drift apart.</p>
+     */
+    private Map<String, Object> availability(final Available reading) {
+        final UpdatePlan plan = reading.plan();
+        final List<Map<String, Object>> changes = new ArrayList<>();
+        for (final Change change : plan.changes()) {
+            final Map<String, Object> row = new LinkedHashMap<>();
+            // The pack has no service - see PlanReport. Left off rather than sent as "" so that a
+            // reader cannot mistake it for a service whose name happens to be empty.
+            if (change.service() != null) {
+                row.put("service", change.service());
+            }
+            row.put("artifact", change.artifact());
+            row.put("status", change.status().name());
+            row.put("work", change.status().isWork());
+            row.put("failure", change.status().isFailure());
+            if (change.installed() != null) {
+                row.put("installed", change.installed());
+            }
+            if (change.wanted() != null) {
+                // The version for a person and the filename for the comparison, because those are
+                // two different strings and the report has been wrong about which is which:
+                // PacketEvents publishes version `2.13.0+spigot` as `packetevents-spigot-2.13.0.jar`.
+                row.put("version", change.wanted().version());
+                row.put("fileName", change.wanted().fileName());
+            }
+            if (change.note() != null) {
+                row.put("note", change.note());
+            }
+            changes.add(row);
+        }
+
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("checkedAt", reading.checkedAt().toString());
+        answer.put("resolvedAt", plan.resolvedAt().toString());
+        if (plan.seasonTag() != null) {
+            answer.put("seasonTag", plan.seasonTag());
+        }
+        answer.put("seasonPrerelease", plan.seasonPrerelease());
+        answer.put("hasWork", plan.hasWork());
+        answer.put("hasFailures", plan.hasFailures());
+        answer.put("changes", changes);
+        answer.put("unclaimed", plan.unclaimed().stream()
+                .map(one -> Map.of("service", one.service(), "fileName", one.fileName()))
+                .toList());
+        answer.put("notes", plan.notes());
         return answer;
     }
 

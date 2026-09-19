@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
  * <p>For Paper this follows <em>builds</em> within a version that never moves from here, because a
  * new Minecraft version is a season decision. For Velocity it also follows the <em>version</em>
  * inside one of Fill's families ({@link #newestStableVersion}), since Velocity's minors do not move
- * the Minecraft protocol - only the API {@code network-control} was compiled against, which the
+ * the Minecraft protocol - only the API {@code proxy} was compiled against, which the
  * resolver reports.</p>
  *
  * <p>Following builds automatically has the widest blast radius of anything here: one build changes

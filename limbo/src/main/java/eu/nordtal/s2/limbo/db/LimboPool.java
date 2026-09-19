@@ -6,7 +6,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.limbo.config.DatabaseSpec;
 
 /**
- * Builds this plugin's own HikariCP pool, the same way {@code network-control}'s {@code AccessPool}
+ * Builds this plugin's own HikariCP pool, the same way {@code proxy}'s {@code AccessPool}
  * builds its own rather than using {@code AccessDirectory.open(String, String, String)}'s small
  * fixed pool - see that class for the full reasoning on why a plugin needing its own tuning still
  * builds this by hand.
@@ -36,7 +36,7 @@ public final class LimboPool {
 
         // Bounds a query that is already running, not just connection acquisition. Without it a
         // database that accepts a connection and then hangs is not caught by connectionTimeout at
-        // all - the same pairing network-control's AccessPool uses on the login path.
+        // all - the same pairing proxy's AccessPool uses on the login path.
         hikari.addDataSourceProperty("socketTimeout", String.valueOf(config.queryTimeoutSeconds()));
 
         return new HikariDataSource(hikari);

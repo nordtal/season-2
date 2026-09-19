@@ -19,7 +19,7 @@ import java.util.Map;
 /**
  * Where {@code limbo}'s two config files live, and every rule about what a valid value is.
  * <p>
- * The same shape as {@code hunger-games}' and {@code network-control}'s own {@code Configs}: one
+ * The same shape as {@code hunger-games}' and {@code proxy}'s own {@code Configs}: one
  * environment namespace per file, every check run once at startup rather than discovered mid-login.
  * A failure here disables the plugin and leaves the server running - which for this module means a
  * waiting room that accepts players and shows them nothing, so the log line is written to be found.

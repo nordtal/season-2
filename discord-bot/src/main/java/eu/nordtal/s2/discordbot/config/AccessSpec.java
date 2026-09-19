@@ -149,7 +149,7 @@ public interface AccessSpec {
     PaymentSpec payment();
 
     // There is deliberately no link-code-ttl-minutes here: the proxy issues the codes and is the
-    // only process that can act on a TTL. network-control's gate.yml owns the only one.
+    // only process that can act on a TTL. proxy's gate.yml owns the only one.
 
     @Order(8)
     @Key("expiry-reminder-lead-days")

@@ -86,7 +86,7 @@ class ConfigsTest {
 
     @Test
     void theDatabaseDefaultsCarryTheShortTimeoutThisModuleNeeds() throws Exception {
-        // Three seconds, the same value network-control uses on the login path. limbo is on that
+        // Three seconds, the same value proxy uses on the login path. limbo is on that
         // path too: it makes one query per join, off the main thread, and a database that has
         // stopped answering must fail fast onto the English fallback rather than pile joins up.
         final DatabaseSpec config = Configs.database(directory, LOGGER).get();

@@ -1,6 +1,7 @@
 package eu.nordtal.displaytags.config;
 
 import eu.nordtal.displaytags.api.Util;
+import eu.nordtal.displaytags.api.nametag.SeeThroughMode;
 import eu.nordtal.displaytags.config.spec.DisplayTagsConfigurationSpec;
 import eu.nordtal.displaytags.wrapper.display.DisplayBillboard;
 import eu.nordtal.displaytags.wrapper.display.TextAlignment;
@@ -19,7 +20,7 @@ public class NameTagConfiguration {
 
     private List<String> lines;
     private boolean textShadow;
-    private boolean seeThrough;
+    private SeeThroughMode seeThrough;
     private int sneakTextOpacity;
     private TextAlignment textAlignment;
     private String background;
@@ -30,6 +31,7 @@ public class NameTagConfiguration {
     public void load(DisplayTagsConfigurationSpec config) {
         TextAlignment alignment = parse(TextAlignment.class, "display.text-alignment", config.nametag().display().textAlignment());
         DisplayBillboard billboard = parse(DisplayBillboard.class, "display.billboard", config.nametag().display().billboard());
+        SeeThroughMode seeThrough = parseSeeThrough(config.nametag().display().seeThrough());
         parseBackground(config.nametag().display().background());
 
         this.enabled = config.nametag().enabled();
@@ -38,7 +40,7 @@ public class NameTagConfiguration {
         this.visibilityDistance = config.nametag().visibilityDistance();
         this.lines = config.nametag().display().lines();
         this.textShadow = config.nametag().display().textShadow();
-        this.seeThrough = config.nametag().display().seeThrough();
+        this.seeThrough = seeThrough;
         this.sneakTextOpacity = clampOpacity(config.nametag().display().sneakTextOpacity());
         this.textAlignment = alignment;
         this.background = config.nametag().display().background();
@@ -71,7 +73,10 @@ public class NameTagConfiguration {
         return this.textShadow;
     }
 
-    public boolean isSeeThrough() {
+    /**
+     * What the name tag does behind a block.
+     */
+    public SeeThroughMode getSeeThrough() {
         return this.seeThrough;
     }
 
@@ -126,6 +131,25 @@ public class NameTagConfiguration {
 
         throw new IllegalArgumentException(
                 "nametag." + key + ": '" + value + "' is not a valid value. Available values: " + allowed + "."
+        );
+    }
+
+    /**
+     * Reads {@code display.see-through}.
+     * <p>
+     * The setting held a YAML boolean until 2.1.1, and jcore hands such a value to a string
+     * property as {@code "true"} or {@code "false"} - so a configuration written for an older
+     * version parses here unchanged and keeps the behaviour it asked for.
+     */
+    private static SeeThroughMode parseSeeThrough(String value) {
+        SeeThroughMode mode = SeeThroughMode.parse(value);
+        if (mode != null) return mode;
+
+        throw new IllegalArgumentException(
+                "nametag.display.see-through: '" + value + "' is not a valid value. " +
+                        "Available values: vanilla (visible through blocks but dimmed, like a " +
+                        "vanilla name tag), true (visible through blocks), false (hidden behind " +
+                        "blocks)."
         );
     }
 

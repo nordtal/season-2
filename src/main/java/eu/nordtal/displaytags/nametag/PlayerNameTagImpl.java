@@ -3,12 +3,15 @@ package eu.nordtal.displaytags.nametag;
 import me.clip.placeholderapi.PlaceholderAPI;
 import eu.nordtal.displaytags.DisplayTags;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
+import eu.nordtal.displaytags.api.nametag.SeeThroughMode;
 import eu.nordtal.displaytags.api.events.NameTagDespawnEvent;
 import eu.nordtal.displaytags.api.events.NameTagSpawnEvent;
 import eu.nordtal.displaytags.config.NameTagConfiguration;
 import eu.nordtal.displaytags.util.ComponentUtil;
+import eu.nordtal.displaytags.util.Constants;
 import eu.nordtal.displaytags.util.DependencyUtil;
 import eu.nordtal.displaytags.util.VanillaNameTagUtil;
+import eu.nordtal.displaytags.wrapper.EntityWrapper;
 import eu.nordtal.displaytags.wrapper.display.DisplayBillboard;
 import eu.nordtal.displaytags.wrapper.display.TextAlignment;
 import eu.nordtal.displaytags.wrapper.display.TextDisplayWrapper;
@@ -25,7 +28,31 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerNameTagImpl extends PlayerNameTag {
+    /**
+     * The name as it is seen with nothing in the way: depth-tested, fully opaque.
+     */
     private final TextDisplayWrapper display;
+
+    /**
+     * The faint copy that is drawn through blocks, and the whole of what
+     * {@link SeeThroughMode#VANILLA} adds.
+     * <p>
+     * Vanilla's name tag is two draws of the same text, not one: a see-through pass in alpha 32
+     * that carries the background, and an opaque pass on top of it that does not. Where nothing
+     * blocks the view the opaque pass covers the faint one - both carry the same text in the same
+     * colours, so the result looks exactly like a single opaque name - and behind a wall only the
+     * faint one survives. A text display cannot do that alone: its {@code see_through} flag is
+     * either off or full brightness. Two displays can, and this is the second one.
+     * <p>
+     * It is spawned only while it is actually needed (see {@link #shouldDrawGhost()}), so the
+     * other two modes cost exactly what they did before.
+     */
+    private final TextDisplayWrapper ghost;
+
+    // The viewers the ghost display is currently spawned for. It comes and goes with the mode and
+    // with sneaking, while the display above exists for every viewer, so the two cannot share a
+    // viewer set.
+    private final Set<UUID> ghostViewers = ConcurrentHashMap.newKeySet();
 
     // The viewers whose vanilla name tag for this player is currently suppressed. This is not the
     // same set as the viewers of the display: the vanilla name has to stay hidden even where the
@@ -43,6 +70,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     public PlayerNameTagImpl(Player player) {
         super(player);
         this.display = new TextDisplayWrapper();
+        this.ghost = new TextDisplayWrapper();
 
         NameTagConfiguration config = DisplayTags.get().config().nametag();
         TextDisplay.TextAlignment alignment = TextDisplay.TextAlignment.valueOf(config.getTextAlignment().name());
@@ -54,13 +82,14 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.data.setTextAlignment(alignment);
         this.data.setBillboard(billboard);
         this.data.setTextShadow(config.hasTextShadow());
-        this.data.setSeeThrough(config.isSeeThrough());
+        this.data.setSeeThrough(config.getSeeThrough());
         this.data.setBackground(config.getBackground());
         this.data.setTranslation(config.getOffset());
         this.data.setScale(config.getScale());
 
         // A tag created while its player is already sneaking (rejoin, reload, world change) has to
         // start out dimmed, because no PlayerToggleSneakEvent is going to arrive for that state.
+        this.data.setSneaking(player.isSneaking());
         if (config.hasSneakTextOpacity() && player.isSneaking()) {
             this.data.setTextOpacity(config.getSneakTextOpacity());
         }
@@ -89,29 +118,77 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
     @Override
     public void updateFor(UUID viewerId) {
-        TextAlignment alignment = TextAlignment.valueOf(this.data.getTextAlignment().name());
-        DisplayBillboard billboard = DisplayBillboard.valueOf(this.data.getBillboard().name());
+        boolean ghost = this.shouldDrawGhost();
 
-        this.display.setTextAlignment(alignment);
-        this.display.setBillboard(billboard);
-        this.display.setTextShadow(this.data.hasTextShadow());
-        this.display.setSeeThrough(this.data.isSeeThrough());
-        this.display.setBackground(this.data.getBackground());
+        this.apply(this.display);
+        this.display.setSeeThrough(this.data.getSeeThrough() == SeeThroughMode.ALWAYS);
         this.display.setTextOpacity(this.data.getTextOpacity());
-        this.display.setTranslation(this.data.getTranslation());
-        this.display.setScale(this.data.getScale());
-        this.display.setText(this.cachedText);
+        // With the ghost present the background belongs to it and to it alone, which is how vanilla
+        // draws it: the box rides the see-through pass, so it is visible through a wall as well,
+        // and a second box on this display would sit on top of the first and darken it twice.
+        this.display.setBackground(ghost
+                ? Constants.TRANSPARENT_TEXT_DISPLAY_BACKGROUND
+                : this.data.getBackground());
+
+        if (ghost) {
+            this.apply(this.ghost);
+            this.ghost.setSeeThrough(true);
+            this.ghost.setTextOpacity(Constants.VANILLA_OCCLUDED_TEXT_OPACITY);
+            this.ghost.setBackground(this.data.getBackground());
+        }
+
+        // Spawning and despawning the ghost happens here rather than in spawnFor/despawnFor,
+        // because it does not follow the viewer: it follows the mode and the player's sneaking.
+        if (ghost && this.ghostViewers.add(viewerId)) {
+            this.ghost.setLocation(this.display.getLocation());
+            this.ghost.spawnFor(viewerId);
+        } else if (!ghost && this.ghostViewers.remove(viewerId)) {
+            this.ghost.despawnFor(viewerId);
+        }
 
         // The mount is re-sent on every update, not only once at spawn time. A SetPassengers packet
         // is absolute - it replaces the vehicle's whole passenger list - so resending it is both
-        // idempotent and self-healing if a client ever drops or overwrites the list.
-        this.display.mountFor(viewerId, this.player.getEntityId());
+        // idempotent and self-healing if a client ever drops or overwrites the list. For the same
+        // reason both displays have to go out in one packet: sent one after the other, the second
+        // would throw the first off the player.
+        if (ghost) {
+            EntityWrapper.mountAllFor(viewerId, this.player.getEntityId(),
+                    this.display.getEntityId(), this.ghost.getEntityId());
+        } else {
+            this.display.mountFor(viewerId, this.player.getEntityId());
+        }
+
         this.display.updateFor(viewerId);
+        if (ghost) this.ghost.updateFor(viewerId);
+    }
+
+    /**
+     * Whether the faint see-through copy is drawn at all.
+     * <p>
+     * Sneaking takes it away on purpose: vanilla drops its see-through pass for a sneaking player,
+     * so the name is dimmed in plain view and gone behind a wall.
+     */
+    private boolean shouldDrawGhost() {
+        return this.data.getSeeThrough() == SeeThroughMode.VANILLA && !this.data.isSneaking();
+    }
+
+    /**
+     * Everything both copies share. What they must <em>not</em> share is see-through, opacity and
+     * background - those three are what makes one of them the faint one.
+     */
+    private void apply(TextDisplayWrapper display) {
+        display.setTextAlignment(TextAlignment.valueOf(this.data.getTextAlignment().name()));
+        display.setBillboard(DisplayBillboard.valueOf(this.data.getBillboard().name()));
+        display.setTextShadow(this.data.hasTextShadow());
+        display.setTranslation(this.data.getTranslation());
+        display.setScale(this.data.getScale());
+        display.setText(this.cachedText);
     }
 
     @Override
     public void teleportFor(UUID viewerId) {
         this.display.teleportFor(viewerId);
+        if (this.ghostViewers.contains(viewerId)) this.ghost.teleportFor(viewerId);
     }
 
     @Override
@@ -119,7 +196,9 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         // setRotation(0, 0) keeps the display upright; clone() so the caller's Location - which is
         // usually the live PlayerTeleportEvent destination - is left alone.
         this.display.setLocation(location.clone().setRotation(0, 0));
+        this.ghost.setLocation(this.display.getLocation());
         this.display.teleportFor(viewerId);
+        if (this.ghostViewers.contains(viewerId)) this.ghost.teleportFor(viewerId);
     }
 
     @Override
@@ -136,14 +215,17 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
         this.viewers.remove(viewerId);
         this.display.despawnFor(viewerId);
+        if (this.ghostViewers.remove(viewerId)) this.ghost.despawnFor(viewerId);
     }
 
     @Override
     public void tick() {
         this.cachedText = getText();
         this.display.setLocation(this.player.getLocation().setRotation(0, 0));
+        this.ghost.setLocation(this.display.getLocation());
 
         this.viewers.removeIf(PlayerNameTagImpl::isOffline);
+        this.ghostViewers.removeIf(PlayerNameTagImpl::isOffline);
 
         // A reconnecting client starts with an empty scoreboard, so the team packet has to be sent
         // again - forget who was hidden from as soon as they go offline.

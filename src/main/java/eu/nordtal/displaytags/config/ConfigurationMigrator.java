@@ -127,6 +127,13 @@ public final class ConfigurationMigrator {
             return number.doubleValue();
         }
 
+        // v1 wrote see-through as a YAML boolean. The setting takes three values now, so the
+        // migrated file gets the string form of the same meaning - 'true' and 'false' still mean
+        // what they meant, 'vanilla' is the new third one.
+        if (key.equals("display.see-through") && value instanceof Boolean flag) {
+            return flag.toString();
+        }
+
         return value;
     }
 

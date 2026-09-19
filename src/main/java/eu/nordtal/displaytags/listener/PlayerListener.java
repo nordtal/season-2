@@ -37,14 +37,22 @@ public class PlayerListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onPlayerSneakToggle(PlayerToggleSneakEvent event) {
         NameTagConfiguration config = this.plugin.config().nametag();
-        if (config.isEnabled() && config.hasSneakTextOpacity()) {
-            PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
-            if (tag == null) return;
+        if (!config.isEnabled()) return;
 
+        PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
+        if (tag == null) return;
+
+        // Sneaking is recorded even where it changes no opacity: with see-through: vanilla it also
+        // decides whether the name is drawn through blocks at all, the way vanilla stops drawing
+        // its see-through pass for a sneaking player.
+        tag.getData().setSneaking(event.isSneaking());
+
+        if (config.hasSneakTextOpacity()) {
             // -1 is the vanilla "fully opaque" value, so it restores the normal look.
             tag.getData().setTextOpacity(event.isSneaking() ? config.getSneakTextOpacity() : -1);
-            tag.updateForViewers();
         }
+
+        tag.updateForViewers();
     }
 
     @EventHandler(ignoreCancelled = true)

@@ -1,5 +1,42 @@
 ## Unreleased
 
+### New
+
+- **A nametag can be seen through walls, dimmed, exactly the way Minecraft's own nametag
+  is.** This is what the new `display.see-through: vanilla` does, and it is the **new default**.
+
+  A text display cannot do this on its own: its `see_through` flag either draws the text through
+  every block at full brightness or hides it behind the first one. Vanilla's nametag is not a flag
+  but two draws of the same text — a see-through pass in alpha 32 carrying the background box, and
+  an opaque pass on top of it that carries none. DisplayTags now sends both, as two displays riding
+  the player, so an unobstructed name looks exactly as it did and an obstructed one stays readable.
+
+  `display.see-through` therefore takes three values instead of two. `true` and `false` still mean
+  what they meant and an existing `config.yml` keeps working unchanged — including one that still
+  writes them as YAML booleans.
+
+  The cost is one extra display per nametag per viewer while the mode is active. `true` and
+  `false` send exactly what they sent before.
+
+- **Sneaking now hides the nametag behind blocks**, as it does in vanilla: the see-through half is
+  dropped for a sneaking player, so the name is dimmed in plain view and gone behind a wall. This
+  only applies to `see-through: vanilla`.
+
+### Changed
+
+- **`display.sneak-text-opacity` now defaults to 32 instead of 50** — the value vanilla itself
+  uses. An existing configuration keeps whatever it holds.
+- **`/displaytags config` prints the see-through mode** (`vanilla`, `true`, `false`) instead of
+  yes/no.
+
+### API
+
+- `NameTagData#getSeeThrough()`/`setSeeThrough(SeeThroughMode)` replace the boolean pair, which
+  stays for now as deprecated: `isSeeThrough()` reports `true` only for `SeeThroughMode.ALWAYS`.
+- `NameTagData#isSneaking()`/`setSneaking(boolean)` carry the state the vanilla mode depends on.
+  `PlayerToggleSneakEvent` fires before the player's own state changes, which is why it is kept
+  here rather than read back from the player.
+
 - **`jcore` bumped to 4.2.1** (from 3.0.0). The API this plugin calls did not change, but the
   YAML `jcore` writes did: `config.yml` loses its comments and header on the next load, reload or
   save. The explanations move into a `config.schema.json` jcore writes beside the file; nothing in

@@ -58,7 +58,18 @@ public class EntityWrapper {
     }
 
     public void mountFor(UUID viewer, int vehicleId) {
-        PacketUtil.sendPacket(viewer, passengersPacket(vehicleId, this.entityId));
+        mountAllFor(viewer, vehicleId, this.entityId);
+    }
+
+    /**
+     * Mounts several entities on one vehicle in a single packet.
+     * <p>
+     * {@code SetPassengers} is absolute - it replaces the vehicle's whole passenger list - so two
+     * entities that each send their own packet do not add up: the second one throws the first off
+     * the vehicle again. Everything that has to ride the same vehicle has to go out together.
+     */
+    public static void mountAllFor(UUID viewer, int vehicleId, int... passengerIds) {
+        PacketUtil.sendPacket(viewer, passengersPacket(vehicleId, passengerIds));
     }
 
     private WrapperPlayServerSpawnEntity spawnPacket() {
@@ -90,7 +101,7 @@ public class EntityWrapper {
         );
     }
 
-    private WrapperPlayServerSetPassengers passengersPacket(int vehicleId, int... passengers) {
+    private static WrapperPlayServerSetPassengers passengersPacket(int vehicleId, int... passengers) {
         return new WrapperPlayServerSetPassengers(
                 vehicleId,
                 passengers

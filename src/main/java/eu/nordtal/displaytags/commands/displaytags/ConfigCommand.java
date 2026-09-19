@@ -33,7 +33,7 @@ public class ConfigCommand extends SubCommand {
         messages.add("<dark_gray>• <white>Display");
         messages.add("  <white>Lines <dark_gray>→ " + hover(String.join("\n", config.getLines())));
         messages.add("  <white>Text Shadow <dark_gray>→ " + booleanToString(config.hasTextShadow()));
-        messages.add("  <white>See Through <dark_gray>→ " + booleanToString(config.isSeeThrough()));
+        messages.add("  <white>See Through <dark_gray>→ <gray>" + config.getSeeThrough().configValue());
         messages.add("  <white>Sneak Text Opacity <dark_gray>→ " + opacity(config.getSneakTextOpacity()));
         messages.add("  <white>Text Alignment <dark_gray>→ <gray>" + config.getTextAlignment().name());
         messages.add("  <white>Background <dark_gray>→ " + color(background) + background(background));

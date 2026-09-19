@@ -16,9 +16,11 @@ public class NameTagData {
     private Display.Billboard billboard = Display.Billboard.FIXED;
 
     private boolean textShadow = false;
-    private boolean seeThrough = false;
+    private SeeThroughMode seeThrough = SeeThroughMode.VANILLA;
     private int background = 1073741824;
     private int textOpacity = -1;
+
+    private boolean sneaking = false;
 
     private Vector translation = new Vector(0, 0, 0);
     private Vector scale = new Vector(1, 1, 1);
@@ -71,12 +73,35 @@ public class NameTagData {
         this.textShadow = textShadow;
     }
 
-    public boolean isSeeThrough() {
+    public SeeThroughMode getSeeThrough() {
         return this.seeThrough;
     }
 
+    public void setSeeThrough(SeeThroughMode seeThrough) {
+        this.seeThrough = seeThrough == null ? SeeThroughMode.NEVER : seeThrough;
+    }
+
+    /**
+     * @return whether the name is drawn through blocks at full opacity
+     * @deprecated see-through is no longer a switch with two positions - use
+     *             {@link #getSeeThrough()}. This reports {@code true} only for
+     *             {@link SeeThroughMode#ALWAYS}, so {@link SeeThroughMode#VANILLA} reads as
+     *             {@code false} here even though such a tag <em>is</em> visible through blocks.
+     */
+    @Deprecated
+    public boolean isSeeThrough() {
+        return this.seeThrough == SeeThroughMode.ALWAYS;
+    }
+
+    /**
+     * @deprecated use {@link #setSeeThrough(SeeThroughMode)}. {@code true} maps to
+     *             {@link SeeThroughMode#ALWAYS} and {@code false} to {@link SeeThroughMode#NEVER},
+     *             which is what these two values meant before {@link SeeThroughMode#VANILLA}
+     *             existed.
+     */
+    @Deprecated
     public void setSeeThrough(boolean seeThrough) {
-        this.seeThrough = seeThrough;
+        this.seeThrough = seeThrough ? SeeThroughMode.ALWAYS : SeeThroughMode.NEVER;
     }
 
     public int getBackground() {
@@ -97,6 +122,23 @@ public class NameTagData {
 
     public void setTextOpacity(int textOpacity) {
         this.textOpacity = textOpacity;
+    }
+
+    /**
+     * Whether the player is sneaking.
+     * <p>
+     * This is not a cosmetic setting but the state the rendering depends on: with
+     * {@link SeeThroughMode#VANILLA} a sneaking player's name is not drawn through blocks at all,
+     * which is what vanilla does. It is kept here rather than read from the player because
+     * {@code PlayerToggleSneakEvent} fires <em>before</em> the state is applied, so at that moment
+     * {@code Player#isSneaking()} still reports the state the player is leaving.
+     */
+    public boolean isSneaking() {
+        return this.sneaking;
+    }
+
+    public void setSneaking(boolean sneaking) {
+        this.sneaking = sneaking;
     }
 
     public Vector getTranslation() {

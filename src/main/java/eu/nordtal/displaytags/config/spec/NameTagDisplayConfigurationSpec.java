@@ -1,5 +1,6 @@
 package eu.nordtal.displaytags.config.spec;
 
+import eu.nordtal.displaytags.api.nametag.SeeThroughMode;
 import eu.nordtal.displaytags.config.typings.ConfigurationVector;
 import eu.nordtal.displaytags.wrapper.display.TextAlignment;
 import org.bukkit.entity.Display;
@@ -40,22 +41,32 @@ public interface NameTagDisplayConfigurationSpec {
 
     @Order(3) @Key("see-through")
     @Comment({
-            "Should the text display of name tags be see through?",
-            "Available values: true, false"
+            "What a name tag does when a block is between it and the viewer.",
+            "",
+            "vanilla - visible through blocks, but dimmed, exactly like Minecraft's own name tag",
+            "true    - visible through blocks at full brightness",
+            "false   - hidden behind the first block",
+            "",
+            "Available values: vanilla, true, false"
     })
-    default boolean seeThrough() {
-        return false;
+    default String seeThrough() {
+        return SeeThroughMode.VANILLA.configValue();
     }
 
     @Order(4) @Key("sneak-text-opacity")
     @Comment({
             "How transparent the name tag's text becomes while the player is sneaking.",
-            "0 = fully transparent, 255 = fully opaque.",
+            "0 = fully transparent, 255 = fully opaque. Vanilla uses 32.",
             "Set this to -1 to disable the effect and always keep the text fully opaque.",
-            "Very low values may be rendered as fully transparent by the client."
+            "The client draws no text at all for 4 to 26, and treats 0 to 3 as fully opaque,",
+            "so those are the values to stay away from.",
+            "",
+            "With see-through: vanilla a sneaking player's name is also hidden behind blocks,",
+            "which is what vanilla does - the dimmed value here is what a viewer with a clear",
+            "line of sight gets."
     })
     default int sneakTextOpacity() {
-        return 50;
+        return 32;
     }
 
     @Order(5) @Key("text-alignment")

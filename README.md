@@ -18,6 +18,7 @@
 - 🔠 Supports [**PlaceholderAPI**](https://github.com/PlaceholderAPI/PlaceholderAPI/releases)
 - 🤝 Plays nicely with [**TAB**](https://modrinth.com/plugin/tab-was-taken) — if TAB is installed, it keeps control of the vanilla nametags
 - 🧩 Ships a **developer API** with nametag events for other plugins
+- 🧱 **Readable through walls, dimmed — like a vanilla nametag** (`see-through: vanilla`, the default)
 
 ## Installation
 ❗ **NOTE** This plugin is powered by [PacketEvents](https://modrinth.com/plugin/packetevents). It is a **required dependency**. Please install it along with **DisplayTags**, otherwise it will not work!

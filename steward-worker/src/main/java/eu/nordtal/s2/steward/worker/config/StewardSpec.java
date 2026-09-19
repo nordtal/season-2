@@ -934,7 +934,7 @@ public interface StewardSpec {
             @Key("collapse-after-days")
             @Comment({
                     "How long several runs of ONE day are all kept before only the LAST of that day",
-                    "survives. Till: \"ein paar Tage spaeter\" - a backup taken by hand before",
+                    "survives - Till asked for \"a few days later\". A backup taken by hand before",
                     "touching something must not vanish the moment the nightly one lands, because",
                     "that is the one moment somebody is still working on what they took it for.",
                     "",

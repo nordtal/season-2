@@ -20,10 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <h2>What Till asked for, in two parts</h2>
  * The first is the grandfather-father-son schedule every backup tool has: keep N daily, M weekly and
- * K monthly copies. The second is his own and is in no standard tool - <i>"pro Tag bleibt am Ende
- * nur ein Backup uebrig ... maximal das letzte davon bleibt"</i>: several runs on one day are
- * normal (a manual one beside the nightly), and a few days later only the <b>last</b> of that day
- * survives. The two rules compose in one direction only, which is what most of this file is about:
+ * K monthly copies. The second is his own and is in no standard tool - <i>"in the end one backup a
+ * day is left, at most the last of them"</i>, translated: several runs on one day are normal (a
+ * manual one beside the nightly), and a few days later only the <b>last</b> of that day survives. The two rules compose in one direction only, which is what most of this file is about:
  * the day is collapsed to its last run <i>first</i>, and the schedule then counts days rather than
  * files. Counting files first would let three runs of one Tuesday eat the whole daily window.
  *

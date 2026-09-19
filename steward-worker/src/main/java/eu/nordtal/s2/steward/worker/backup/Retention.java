@@ -21,8 +21,8 @@ import java.util.Set;
  * <h2>Two rules, and the order they compose in</h2>
  * Till chose the staggered schedule on 2026-09-18 (steward/95): {@code daily} days are kept in full,
  * then one copy a week for {@code weekly} weeks, then one a month for {@code monthly} months. The
- * second rule is his own and is in no standard tool - <i>"pro Tag bleibt am Ende nur ein Backup
- * uebrig ... maximal das letzte davon bleibt"</i>. Several runs in one day are normal here (somebody
+ * second rule is his own and is in no standard tool - <i>"in the end one backup a day is left, at
+ * most the last of them"</i>, translated. Several runs in one day are normal here (somebody
  * takes one by hand before touching something, and the nightly one arrives anyway), and a few days
  * later only the <b>last</b> of that day survives.
  *
@@ -35,8 +35,8 @@ import java.util.Set;
  * <h2>The grace period, which is the part that needs a reason</h2>
  * {@code collapseAfterDays} is how long the extra runs of a day are left alone. Zero would delete
  * the backup somebody took by hand five minutes ago the moment the nightly one lands - which is the
- * one moment they are certainly still working on whatever they took it for. Till's own words are
- * "ein paar Tage spaeter", so the grace is a setting and its default is three.
+ * one moment they are certainly still working on whatever they took it for. Till asked for the
+ * collapse to happen "a few days later", so the grace is a setting and its default is three.
  *
  * <p>Nothing inside the grace window is ever deleted by this class, for any reason: it is the newest
  * couple of days, {@code daily} is at least 1, and a sweep that can reach into "yesterday" is a

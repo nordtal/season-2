@@ -979,13 +979,48 @@ public final class WorkerApi implements AutoCloseable {
         return answer;
     }
 
-    /** `/api/alert-level`'s body: a level, what it is about, and where a tap should land. */
+    /**
+     * `/api/alert-level`'s body: everything that is wrong, and the three raw measurements.
+     *
+     * <h2>Measurements, never verdicts, for the three configured thresholds</h2>
+     * {@code diskPercent}, {@code memoryPercent} and {@code backupAgeHours} are readings and not
+     * alarms: the numbers they would be compared against live in steward-ui's own
+     * {@code UiSpec.AlertSpec} and are sent nowhere. See {@link AlertLevel}'s class note - this is
+     * how a threshold alarm reaches a lock screen without a second copy of the threshold existing
+     * in this process's config file.
+     *
+     * <p>{@code level}, {@code subject} and {@code path} stay at the top level, unchanged, for a
+     * reader that only wants "how bad is it right now". They are the worst of {@code triggers} and
+     * are not a separate opinion.</p>
+     */
     private Map<String, Object> alertLevel() {
-        final AlertLevel.Reading reading = AlertLevel.of(serviceTable(), archives());
+        final AlertLevel.Reading reading =
+                AlertLevel.of(serviceTable(), archives(), hostNumbers(), Instant.now());
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("level", reading.level().name().toLowerCase(java.util.Locale.ROOT));
         answer.put("subject", reading.subject());
         answer.put("path", reading.path());
+        final List<Map<String, Object>> triggers = new ArrayList<>();
+        for (final AlertLevel.Trigger trigger : reading.triggers()) {
+            final Map<String, Object> row = new LinkedHashMap<>();
+            row.put("kind", trigger.kind().name().toLowerCase(java.util.Locale.ROOT));
+            row.put("level", trigger.level().name().toLowerCase(java.util.Locale.ROOT));
+            row.put("subject", trigger.subject());
+            row.put("path", trigger.path());
+            triggers.add(row);
+        }
+        answer.put("triggers", triggers);
+        // Absent rather than a number when nothing could be measured: a missing key is "nobody
+        // looked", and steward-ui then compares nothing rather than comparing a zero.
+        if (reading.diskPercent() != null) {
+            answer.put("diskPercent", reading.diskPercent());
+        }
+        if (reading.memoryPercent() != null) {
+            answer.put("memoryPercent", reading.memoryPercent());
+        }
+        if (reading.backupAgeHours() != null) {
+            answer.put("backupAgeHours", reading.backupAgeHours());
+        }
         return answer;
     }
 

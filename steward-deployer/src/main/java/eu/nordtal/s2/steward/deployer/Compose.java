@@ -185,13 +185,52 @@ public final class Compose {
         return run(command, output);
     }
 
-    /** {@code up -d --no-deps --force-recreate <service>}: a new container from the current image. */
+    /**
+     * {@code up -d --no-deps --force-recreate <service>}: a new container from the image that is
+     * already on this host.
+     *
+     * <p><b>Nothing is pulled here, and that is season-2-ops/134.</b> Until 2026-09-19 the recreate
+     * route pulled first, which meant the one button an admin reaches for to un-wedge a container
+     * silently replaced a locally built image with the published one - measured on {@code
+     * steward-ui}: {@code md5sum /app/app.jar} went from the jar built a minute earlier to the jar
+     * from the registry, while the job reported 202 and the container came up healthy. "Recreate"
+     * means <i>make this container again</i>; "deploy" means <i>fetch what is new</i>. Whoever
+     * wants both presses both.</p>
+     *
+     * <p>The consequence, and it is deliberate: a service whose image is not on this host cannot be
+     * recreated. {@link #hasLocalImage} is what the caller checks first, so the refusal can name
+     * deploy instead of letting compose fail with its own wording.</p>
+     */
     public int recreate(String service, Consumer<String> output) throws IOException {
         assertEnvFileFresh();
+        return run(recreateCommand(service), output);
+    }
+
+    /**
+     * The command line {@link #recreate} runs.
+     *
+     * <p>Package-visible for one reason: a test can read it without a docker daemon, which is the
+     * only way to hold "recreate does not pull" against something other than a reviewer's memory.
+     * {@code docker compose up} can fetch too, through {@code --pull}, so the assertion is about
+     * every token and not only about the subcommand.</p>
+     */
+    List<String> recreateCommand(String service) {
         List<String> command = base();
         command.addAll(List.of("up", "--detach", "--no-deps", "--force-recreate"));
         command.addAll(refuseSelf(List.of(service)));
-        return run(command, output);
+        return command;
+    }
+
+    /**
+     * Whether this service's image is already on this host.
+     *
+     * <p>The same two questions {@link #pull} asks when a pull has failed - what image does the
+     * compose file name for this service, and does docker have it - asked on their own, because
+     * {@link #recreate} needs the answer <b>without</b> a pull having happened.</p>
+     */
+    public boolean hasLocalImage(String service) {
+        Optional<String> image = imageOf(service);
+        return image.isPresent() && imageExistsLocally(image.get());
     }
 
     /**

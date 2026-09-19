@@ -97,6 +97,32 @@ public final class StewardDeployer {
     }
 
     /**
+     * Recreate one container from the image that is already here.
+     *
+     * <p><b>No pull, and that is the whole of season-2-ops/134.</b> This used to pull first, the
+     * same way {@link #deploy} does, and the difference between the two buttons was therefore only
+     * the number of services. Measured on 2026-09-19: a recreate of {@code steward-ui} replaced the
+     * image built on this host a minute earlier with the published one - the job reported 202, the
+     * container came up healthy, the logs were clean, and the only sign was that the browser kept
+     * receiving the old bundle. A button labelled "recreate" must not be able to roll a deployment
+     * back without saying so.</p>
+     *
+     * <p>So the split is: <b>recreate uses what is here, deploy fetches.</b> The cost is that a
+     * service with no local image cannot be recreated - which is why the refusal below names deploy
+     * rather than leaving compose to fail in its own words.</p>
+     */
+    static int recreate(Compose compose, String service,
+                        java.util.function.Consumer<String> output) throws Exception {
+        if (!compose.hasLocalImage(service)) {
+            output.accept("no image for " + service + " on this host, and recreate does not fetch "
+                    + "one. Deploy " + service + " instead - that is the button that pulls. "
+                    + "Nothing has been stopped.");
+            return 1;
+        }
+        return compose.recreate(service, output);
+    }
+
+    /**
      * Which services one deployment touches, named one by one.
      *
      * <p><b>Never an empty list, and that is the point.</b> An empty list of service names means
@@ -178,14 +204,8 @@ public final class StewardDeployer {
 
             config.routes.post("/api/recreate/{service}", ctx -> {
                 String service = ctx.pathParam("service");
-                Jobs.Job job = jobs.start("recreate", List.of(service), output -> {
-                    Compose.PullOutcome outcome = compose.pull(service, output);
-                    if (outcome == Compose.PullOutcome.FAILED) {
-                        output.accept("no image for " + service + ". Nothing has been stopped.");
-                        return 1;
-                    }
-                    return compose.recreate(service, output);
-                });
+                Jobs.Job job = jobs.start("recreate", List.of(service),
+                        output -> recreate(compose, service, output));
                 ctx.status(HttpStatus.ACCEPTED).json(job.summary());
             });
 

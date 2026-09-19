@@ -227,7 +227,7 @@ public final class StandbyReturn {
      * resolve reads as "not answering", which is the same thing as far as a player parked here is
      * concerned.</p>
      */
-    private static boolean connects(final InetSocketAddress address, final Duration timeout) {
+    static boolean connects(final InetSocketAddress address, final Duration timeout) {
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(address.getHostString(), address.getPort()),
                     (int) timeout.toMillis());

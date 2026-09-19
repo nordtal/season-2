@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 
 import java.net.InetSocketAddress;
 import java.time.Clock;
+import java.time.Duration;
+import java.util.function.BooleanSupplier;
 import java.util.Objects;
 import java.util.Set;
 
@@ -73,6 +75,7 @@ public final class ProxySwap {
     private final ProxyRole role;
     private final InetSocketAddress standby;
     private final Clock clock;
+    private final StandbyReturn.Probe probe;
 
     /** Whether this run has already been acted on, so one run parks the network once. */
     private volatile boolean parked;
@@ -85,6 +88,18 @@ public final class ProxySwap {
     public ProxySwap(final ProxyServer proxy, final Logger logger, final UpdateDirectory updates,
                      final SwapStore seats, final ProxyRole role, final InetSocketAddress standby,
                      final Clock clock) {
+        this(proxy, logger, updates, seats, role, standby, clock, StandbyReturn::connects);
+    }
+
+    /**
+     * @param probe how to ask whether the standby is actually up. The same seam
+     *              {@link StandbyReturn} uses, and for the same reason: the decision is what is
+     *              worth asserting, and asserting it against a real socket would mean binding a
+     *              port in a unit test
+     */
+    ProxySwap(final ProxyServer proxy, final Logger logger, final UpdateDirectory updates,
+              final SwapStore seats, final ProxyRole role, final InetSocketAddress standby,
+              final Clock clock, final StandbyReturn.Probe probe) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
@@ -92,7 +107,11 @@ public final class ProxySwap {
         this.role = Objects.requireNonNull(role, "role");
         this.standby = standby;
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.probe = Objects.requireNonNull(probe, "probe");
     }
+
+    /** How long the standby gets to answer before this pass decides it is not there. */
+    static final Duration STANDBY_ANSWERS_WITHIN = Duration.ofSeconds(1);
 
     /**
      * @return whether this proxy will park the network rather than drop it - for the startup log
@@ -121,17 +140,71 @@ public final class ProxySwap {
             return;
         }
 
-        if (!next.contains(OWN_SERVICE)) {
-            // Including every ordinary backend run. Reset here rather than on a timer so that a
-            // second proxy run in the same session parks again.
-            parked = false;
-            return;
+        final Pass pass = decide(next, parked, () -> probe.answers(standby, STANDBY_ANSWERS_WITHIN));
+        switch (pass) {
+            case IDLE -> parked = false;
+            case ALREADY_DONE -> { }
+            case STANDBY_MISSING -> {
+                parked = true;
+                logger.warn("The proxy is about to stop and {}:{} does not answer, so nobody can "
+                                + "be parked - this update takes the network down the way it "
+                                + "always did. The standby has to be running BEFORE the run "
+                                + "reaches this proxy.",
+                        standby.getHostString(), standby.getPort());
+            }
+            case PARK -> {
+                parked = true;
+                park();
+            }
         }
-        if (parked) {
-            return;
+    }
+
+    /** What one pass of {@link #check()} does. */
+    enum Pass {
+
+        /** No run is about to stop this proxy. */
+        IDLE,
+
+        /** One is, and this proxy has already acted on it. */
+        ALREADY_DONE,
+
+        /** One is, and there is no standby answering to park the network on. */
+        STANDBY_MISSING,
+
+        /** One is, the standby is up, and everybody goes there now. */
+        PARK
+    }
+
+    /**
+     * The whole decision, without a proxy, a socket or a clock.
+     *
+     * <h2>Being configured is not being there (season-2-ops/139)</h2>
+     * {@link #isArmed()} only says an address was worked out at startup. Whether anything listens
+     * on it is a fact about <em>right now</em>, and for most of the season it is false:
+     * {@code proxy-standby} lives in a compose profile of its own and is stopped until somebody
+     * starts it. Parking onto a dead address does not fail safe - every player is transferred
+     * somewhere nothing answers and is dropped, which is strictly worse than the plain restart the
+     * swap exists to avoid. So the standby is asked, and a silent one means this update behaves
+     * exactly as it did before any of this was built.
+     *
+     * <p>The choreography that starts the standby before the run reaches the proxy is
+     * season-2-ops/122 and does not exist yet, so {@link Pass#STANDBY_MISSING} is at present the
+     * normal outcome rather than an exceptional one.</p>
+     *
+     * @param standbyAnswers asked <b>last</b> and never otherwise: it opens a socket, and a pass
+     *                       that has nothing to do must cost nothing
+     */
+    static Pass decide(final Set<String> imminent, final boolean alreadyParked,
+                       final BooleanSupplier standbyAnswers) {
+        if (!imminent.contains(OWN_SERVICE)) {
+            // Including every ordinary backend run. Reported as IDLE rather than handled on a timer
+            // so that a second proxy run in the same session parks again.
+            return Pass.IDLE;
         }
-        parked = true;
-        park();
+        if (alreadyParked) {
+            return Pass.ALREADY_DONE;
+        }
+        return standbyAnswers.getAsBoolean() ? Pass.PARK : Pass.STANDBY_MISSING;
     }
 
     /**

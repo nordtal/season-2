@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -112,6 +113,61 @@ class NightlyClockTest {
 
         assertTrue(NightlyClock.next("", BERLIN, beforeIt).isEmpty(), "empty means no backup");
         assertTrue(NightlyClock.next("quarter to five", BERLIN, beforeIt).isEmpty());
+    }
+
+    @Test
+    @DisplayName("a night that is not one of the chosen weekdays is skipped, not shortened")
+    void theClockSkipsADayItWasNotAskedToRunOn() {
+        // Till asked for weekdays beside the time (steward/95, his review of 2026-09-18). 09-13 is
+        // a Sunday, so a schedule of Monday and Thursday has its next firing tomorrow morning.
+        final List<String> monAndThu = List.of("MONDAY", "THURSDAY");
+        final ZonedDateTime sundayNight = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
+
+        assertEquals(ZonedDateTime.of(2026, 9, 14, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", monAndThu, BERLIN, sundayNight).orElseThrow(),
+                "Sunday is not one of the two, so the next firing is Monday's");
+
+        // Monday, and today's has already gone: the next one is Thursday and not tomorrow.
+        assertEquals(ZonedDateTime.of(2026, 9, 17, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", monAndThu, BERLIN,
+                        ZonedDateTime.of(2026, 9, 14, 5, 0, 0, 0, BERLIN)).orElseThrow(),
+                "three days are skipped whole - a day-of-week schedule that only ever adds one day"
+                        + " is a daily backup wearing a different config key");
+
+        // And the day it IS on still behaves like the daily one: before the time, it is today's.
+        assertEquals(ZonedDateTime.of(2026, 9, 14, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", monAndThu, BERLIN,
+                        ZonedDateTime.of(2026, 9, 14, 3, 0, 0, 0, BERLIN)).orElseThrow());
+    }
+
+    @Test
+    @DisplayName("no weekday at all is no nightly backup, exactly as an empty time is")
+    void noWeekdayMeansNoBackup() {
+        final ZonedDateTime sundayNight = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
+        assertTrue(NightlyClock.next("04:45", List.of(), BERLIN, sundayNight).isEmpty(),
+                "a schedule with no day in it cannot fire, and saying so is better than quietly"
+                        + " running every night because the list looked unset");
+        assertTrue(NightlyClock.from(noDirectory(), "04:45", List.of(), BERLIN).isEmpty());
+    }
+
+    @Test
+    @DisplayName("a weekday nobody can read is dropped, and the readable ones still schedule")
+    void anUnreadableWeekdayIsDropped() {
+        final ZonedDateTime sundayNight = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
+        assertEquals(ZonedDateTime.of(2026, 9, 17, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", List.of("thursday", " Thu ", "whenever"), BERLIN,
+                        sundayNight).orElseThrow(),
+                "case and spacing are not the operator's problem; a word that is not a weekday is"
+                        + " logged and ignored rather than taking the whole schedule with it");
+    }
+
+    @Test
+    @DisplayName("no list at all is every night - the shape every deployment before this had")
+    void noListIsEveryNight() {
+        final ZonedDateTime sundayNight = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
+        assertEquals(NightlyClock.next("04:45", BERLIN, sundayNight),
+                NightlyClock.next("04:45", null, BERLIN, sundayNight),
+                "a config file written before backup.days existed has to keep running nightly");
     }
 
     /** Nothing here ever submits, so the directory is a proxy that refuses every call. */

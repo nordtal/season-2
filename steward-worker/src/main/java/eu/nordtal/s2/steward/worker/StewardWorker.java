@@ -467,7 +467,8 @@ public final class StewardWorker {
                         config.docker().project(), Path.of(config.backup().outputRoot()),
                         config.api().token(), Path.of(config.api().configsRoot()),
                         Path.of(config.volumesRoot()), updates, audit,
-                        new WorkerApi.Nightly(config.backup().at(), ZoneId.systemDefault()),
+                        new WorkerApi.Nightly(config.backup().at(), config.backup().days(),
+                                ZoneId.systemDefault()),
                         // The player counts network-control writes (steward/86) and, since
                         // steward/111, the player list next to them. Same pool again - two small
                         // reads per service table, and no second connection for either.
@@ -489,7 +490,7 @@ public final class StewardWorker {
                 // and nothing else - see NightlyClock for why that keeps the protection that
                 // mattered.
                 try (NightlyClock nightly = NightlyClock.from(updates, config.backup().at(),
-                        ZoneId.systemDefault()).orElse(null)) {
+                        config.backup().days(), ZoneId.systemDefault()).orElse(null)) {
                     if (nightly != null) {
                         nightly.start();
                     } else {

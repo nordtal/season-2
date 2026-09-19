@@ -31,7 +31,7 @@ EXAMPLE="deploy/dev.env.example"
 
 # The four services that run one of our plugins, and the module that builds it. The service name is
 # also the <SERVICE>_PLUGINS variable's - the same identity compose.yml and :steward-worker's Topology use.
-MODULES=(network-control limbo hunger-games smp)
+MODULES=(proxy limbo hunger-games smp)
 
 log()  { printf '\033[36m[dev]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[dev]\033[0m %s\n' "$*" >&2; }
@@ -211,7 +211,7 @@ cmd_up() {
     # into that jar. A stale ghcr worker would migrate to the released schema and the plugin would
     # come up against it.
     log "building the minecraft and steward-worker images"
-    compose build steward-worker network-control
+    compose build steward-worker proxy
 
     # Our jars are already in plugins/, so the worker's bootstrap - which installs only what is
     # MISSING - fetches the third-party plugins, the Paper and Velocity jars and pack.yml, and
@@ -257,7 +257,7 @@ cmd_pack() {
     cp "$zip" "$pack_dir/$name"
     sha="$(shasum -a 1 "$zip" | cut -d' ' -f1)"
 
-    pack_yml="$(plugins_dir network-control)/network-control/pack.yml"
+    pack_yml="$(plugins_dir proxy)/proxy/pack.yml"
     [[ -f "$pack_yml" ]] || die "$pack_yml is not there yet - bring the proxy up once so it writes"
 
     local port
@@ -270,7 +270,7 @@ cmd_pack() {
     perl -pi -e "s|^sha1:.*|sha1: \"$sha\"|" "$pack_yml"
     log "pack.yml now points at http://localhost:$port/$name ($sha)"
 
-    compose restart network-control
+    compose restart proxy
 }
 
 # --- the rest ------------------------------------------------------------------------------------

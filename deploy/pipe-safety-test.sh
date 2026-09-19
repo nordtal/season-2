@@ -11,7 +11,7 @@
 # SIGPIPE, and `pipefail` reports that 141 as the whole pipeline's exit status, even though grep
 # found exactly what it was looking for. Measured on this host: 5 misses in 9,000 tries, about 1%
 # per whole run of the script that carried it - rare enough to read as "flaky CI", frequent enough
-# to have actually happened (finding this ticket opens with). `deploy/setup-test.sh`,
+# to have actually happened (finding this ticket opens with). `deploy/nordtal-test.sh`,
 # `deploy/restore.sh` and `deploy/minecraft/entrypoint.sh` each carried a real instance of this and
 # were fixed by hand, one grep -rn at a time - which is exactly the process that does not scale to
 # a fifth instance nobody thought to search for.
@@ -30,7 +30,7 @@
 # or here-doc (`<<<`, `<<EOF`) is not a pipe in the sense this bug needs, because there is no
 # producer PROCESS on the other end for an early-exiting reader to race against - the whole
 # here-string already sits in a temporary file descriptor before the reader even starts. So
-# `grep -qx "$name" <<<"$missing"` (deploy/setup.sh, deploy/setup-test.sh) never matches the pattern
+# `grep -qx "$name" <<<"$missing"` (deploy/nordtal.sh, deploy/nordtal-test.sh) never matches the pattern
 # below at all; it is not the kind of thing this bug can happen to.
 #
 # WHAT THIS CANNOT SAY ANYTHING ABOUT: whether a hit that IS a real bug ever actually fires. That
@@ -92,7 +92,7 @@ for file in "${targets[@]}"; do
         lineno=$(( lineno + 1 ))
 
         # A comment contributes no code - and this file's own header, plus
-        # deploy/setup-test.sh's, quote the old `printf | grep -qx` bug in prose. Without this,
+        # deploy/nordtal-test.sh's, quote the old `printf | grep -qx` bug in prose. Without this,
         # both would report themselves.
         trimmed="${line#"${line%%[![:space:]]*}"}"
         [[ "$trimmed" == \#* ]] && continue

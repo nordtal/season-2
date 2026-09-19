@@ -28,9 +28,11 @@ deploy/
     scripts/console    attach to the real server console (read + write)
     scripts/mc         send one command, no TTY needed
                        (named scripts/ and not bin/ - .gitignore has a repo-wide bin/ rule)
-  setup.sh             the host's own script: it asks, writes the environment file, generates
-                       the secrets, waits for the name and renews the deployer
-  setup-test.sh        its checks, without Docker or a resolver (runs on `check`)
+  nordtal.sh           the host's own script, and the whole install: it asks, writes the
+                       environment file, generates the secrets, makes the installation's
+                       directories, waits for the name and renews the deployer. It installs
+                       itself into the installation directory and renews itself from GitHub
+  nordtal-test.sh      its checks, without Docker or a resolver (runs on `check`)
   restore.sh           put one archive back - a volume, or a dump into a NEW database
   restore-test.sh      its guards, without Docker (runs on `check`)
   dev                  the local stack: init · up · deploy · pack · reset - see Locally below
@@ -76,12 +78,32 @@ Docker fails the deploy with `error from registry: denied`.
 
 ### On the host
 
-3. **Check the repository out.** That is the whole step. There is no `.env` to write: the file is
-   created by the script in the next one, at the absolute path `STEWARD_ENV_FILE` names, mode 600,
-   and it never lives beside `compose.yml`. [`../.env.example`](../.env.example) stays in the
-   repository as the **reference for what a setting is called**, not as a form — copying it and
-   working down it puts values in two places, and from the first edit in the web interface one of
-   the two is wrong.
+3. **Pick the directory and run one line in it.** There is nothing to check out: the script comes
+   from GitHub through `curl`, and everything else it needs is in an image it pulls.
+
+   ```bash
+   mkdir -p /srv/nordtal && cd /srv/nordtal
+   curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
+   ```
+
+   **That directory is the installation** (season-2-ops/124). Every volume in `compose.yml`
+   defaults to a folder in it — `mc-smp`, `mc-smp-plugins`, `postgres-data`, `steward-backups`,
+   one per volume and named exactly like the volume it replaced — so reading a plugin's
+   `config.yml` over SFTP is opening a file, and deleting the installation is deleting one folder.
+   The first thing the script asks is whether this directory is really the right one.
+
+   Until 2026-09-19 all of those were named Docker volumes, and the reason was Arcane: it browsed
+   them through its own API, and it checked this repository out on the host, which is what made a
+   path under the checkout unsafe (finding 151). Arcane was removed on 2026-09-15, SFTP is the way
+   in again, and SFTP cannot see inside a Docker volume — so the rule turned over. A value without
+   a `/` in it is still a volume name to Docker, which is the way back, per volume.
+
+   There is no `.env` to write either: the environment file is created by the script, at the
+   absolute path `STEWARD_ENV_FILE` names, mode 600, and **not** in the installation directory —
+   it holds every secret the deployment has, and the installation directory is the one somebody
+   reaches over SFTP. [`../.env.example`](../.env.example) stays in the repository as the
+   **reference for what a setting is called**, not as a form — copying it and working down it puts
+   values in two places, and from the first edit in the web interface one of the two is wrong.
 
    **Rotating a value in this file means editing it in place** (`sed -i`, or write to a temp file
    and `cat` the result back over the original with `>`), never replacing it (`mv` a new file over
@@ -95,13 +117,28 @@ Docker fails the deploy with `error from registry: denied`.
    directory — is that an older image still binds the *file*, and a replacement there orphans the
    old inode behind that mount for the life of the container, silently. Editing in place is the one
    operation that is safe either way.
-4. **Run `deploy/setup.sh`.** It builds nothing; every image is pulled.
+4. **What that run does.** It builds nothing; every image is pulled. Afterwards the script is
+   `./nordtal.sh` in the installation directory, and that is how everything below is run again.
 
    ```bash
-   deploy/setup.sh --check     # every check, and stop before anything is changed
-   deploy/setup.sh             # the deployment itself
-   deploy/setup.sh --from f    # take the answers from a file instead of asking
+   ./nordtal.sh                # the menu: what is set, change one, then deploy
+   ./nordtal.sh --deploy       # no menu; ask only for what is missing, then deploy
+   ./nordtal.sh --check        # every check, and stop before anything is changed
+   ./nordtal.sh --from f       # take the answers from a file instead of asking
    ```
+
+   **It renews itself on every run**, because a new `compose.yml` reaches this host only inside a
+   new `steward-deployer` image and a directory that has stood for half a year would otherwise
+   deploy with a script that knows nothing about it. Without a network it carries on with the copy
+   that is there, and it always says which one it is running — the file's own fingerprint and where
+   it came from, on the first line.
+
+   **The menu is how a setting is changed.** It lists every value a person answered for, a secret
+   as `•••` and never as itself, lets one be picked and typed again, and deploys at the end. The
+   generated ones — the database password, the forwarding secret, the two Steward tokens, the Web
+   Push keypair — are listed under it and are not editable there: regenerating `POSTGRES_PASSWORD`
+   against a database that already exists is the one edit that breaks a working deployment in a way
+   nothing reports.
 
    **It asks.** Nine things only a person can know: the name the interface answers on
    (`STEWARD_HOST`), the address Let's Encrypt writes to (`STEWARD_ACME_EMAIL`), the EULA, the bot
@@ -184,8 +221,8 @@ never edited again. Everything else stays Paper's and Velocity's own default.
 | `forwarding.secret` | proxy | every start, from `VELOCITY_FORWARDING_SECRET` |
 | `max-players=$MAX_PLAYERS` | each Paper server, `server.properties` | **every start** — the network's own limit, out of the same `NETWORK_MAX_PLAYERS` the proxy gets, see below |
 
-The MOTD and the player limit are deliberately not in that table: both are `network-control` config
-(`plugins/network-control/network.yml`), reachable from `.env` through jcore environment overrides
+The MOTD and the player limit are deliberately not in that table: both are `proxy` config
+(`plugins/proxy/network.yml`), reachable from `.env` through jcore environment overrides
 that win over the file on every start. See [Who limits the players](#who-limits-the-players).
 
 **A disagreeing `level-name` stops the container rather than being corrected.** Pointing an existing
@@ -230,7 +267,7 @@ the database, not `ops.json`, which is why this cannot be a server setting. See
 
 **Changing the number means restarting the backends, not just the proxy** — it is written into each
 `server.properties` by that container's own entrypoint on every start. The whole change is
-`docker compose restart network-control limbo hunger-games smp`, or a redeploy.
+`docker compose restart proxy limbo hunger-games smp`, or a redeploy.
 
 An existing `network.yml` may still carry `backend-limit`; the proxy deletes the line on its next
 start, says which key in a `WARN`, and leaves the old file as `network.yml.bak`. Nothing to do by
@@ -244,11 +281,11 @@ per season phase, MiniMessage, with placeholders in braces. The full placeholder
 in `.env` keeps that default.
 
 Read at **proxy start**. The MOTD follows the phase on its own, live, but an edit to `network.yml`
-or to any `NETWORK_MOTD_*` needs `docker compose restart network-control`; there is no reload
+or to any `NETWORK_MOTD_*` needs `docker compose restart proxy`; there is no reload
 command. That restart is *not* enough for `NETWORK_MAX_PLAYERS` — see
 [Who limits the players](#who-limits-the-players).
 
-When `network-control` cannot start at all, the fail-closed handler answers the ping saying so.
+When `proxy` cannot start at all, the fail-closed handler answers the ping saying so.
 
 ## Picking the Discord ids instead of typing them
 
@@ -286,7 +323,7 @@ none — the list is read *from* the guild, so picking it out of itself is circu
 Modern forwarding needs the **same secret in all four containers**, and a mismatch does not say so:
 it shows up as every login failing with *"Unable to connect you to the backend server"*.
 
-**`setup.sh` generates it** as `VELOCITY_FORWARDING_SECRET` and you never see it — it is exactly
+**`nordtal.sh` generates it** as `VELOCITY_FORWARDING_SECRET` and you never see it — it is exactly
 the kind of secret a machine can invent, so nobody types it. `compose.yml` hands the same value to
 the proxy under that name and to each backend as `PAPER_VELOCITY_SECRET`; the proxy writes it to
 `/data/forwarding.secret`, and Paper reads its own copy from the environment.
@@ -700,7 +737,7 @@ will not reset the farm world unless a `BACKUP` run finished, succeeded **and sa
 inside `config.yml#farm-reset-backup-window-hours` (12). A `DONE` row is not enough — run 23
 once reported success having saved zero volumes, so the check reads the report.
 
-The run is a thirty-second countdown every player sees, then `smp`, `network-control` and the bot
+The run is a thirty-second countdown every player sees, then `smp`, `proxy` and the bot
 are stopped, then every volume is tarred in order, then retention runs, then everything comes back
 and is checked. Update and backup take the same lock and never overlap.
 
@@ -710,7 +747,7 @@ and is checked. Update and backup take the same lock and never overlap.
 ### What is saved, and what is deliberately not
 
 `nordtal-s2_mc-smp` and the four `*-plugins` volumes — the hand-built world and every hand-edited
-`config.yml`, `milestones.yml`, `sounds.yml` and `pack.yml` — plus `mc-network-control` (velocity.toml
+`config.yml`, `milestones.yml`, `sounds.yml` and `pack.yml` — plus `mc-proxy` (velocity.toml
 and the forwarding secret) and `bot-config`. `postgres-data` is **never** in that list: a snapshot of
 a live PGDATA is torn and fails at restore. `mc-limbo` and `mc-hunger-games` are rebuilt rather than
 restored; `bot-jar` and `steward-worker-jar` are refilled by `steward-worker bootstrap`.
@@ -810,7 +847,7 @@ stack **stopped**:
 
 ```bash
 docker compose stop
-for s in network-control limbo hunger-games smp; do
+for s in proxy limbo hunger-games smp; do
   docker run --rm \
     -v nordtal-s2_mc-$s-plugins:/dst \
     -v "$PWD/deploy/servers/$s/plugins:/src:ro" \
@@ -852,10 +889,10 @@ It is optional at every level: a player without the client mod notices nothing, 
 | Every login fails with *"Unable to connect you to the backend server"* | The forwarding secret does not match — one container did not get `VELOCITY_FORWARDING_SECRET`, or the volume predates the automation and still carries an old one. |
 | Velocity exits at once with *"Your configuration is invalid"* | `velocity.toml` names a server in `[forced-hosts]` or `try` that its `[servers]` does not define. |
 | A backend logs *"SERVER IS RUNNING IN OFFLINE/INSECURE MODE"* | Expected, and required. The proxy authenticates; a backend that also does refuses every forwarded login. |
-| Proxy starts but refuses every login with a "network misconfigured" screen | `network-control` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`/`network.yml`. Intended; the server browser says the same thing. Read the log. |
+| Proxy starts but refuses every login with a "network misconfigured" screen | `proxy` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`/`network.yml`. Intended; the server browser says the same thing. Read the log. |
 | Log names `backend-limit` as a setting that no longer exists | `network.yml` in the volume predates the retirement of that key. Nothing to do: the line is deleted for you and the old file is in `network.yml.bak`. A deployment older than 2026-09-05 refuses to start instead — delete the line by hand there, see [Who limits the players](#who-limits-the-players). |
 | A backend answers *"Server full"* | Only an admin should ever see this, and only if the exemption is not firing. Everybody else is refused by the proxy at the login gate. Check the backend's `max-players` really is `NETWORK_MAX_PLAYERS` (the container was restarted after the last change) and see [Who limits the players](#who-limits-the-players). |
-| The browser shows the old MOTD after editing `.env` | `network.yml` is read at proxy start. Restart the `network-control` service; there is no reload command. |
+| The browser shows the old MOTD after editing `.env` | `network.yml` is read at proxy start. Restart the `proxy` service; there is no reload command. |
 | Everybody is refused with a countdown, and nobody asked for that | The phase is `PRE_LAUNCH`, which is the seeded initial state. `/phase set PRE_EVENT` opens the network. |
 | `docker rm -f` fails with *"did not receive an exit event"* | You are running a container that mirrors its console with `tmux pipe-pane > /proc/1/fd/1`. Do not do that — see [below](#never-mirror-the-console-with-tmux-pipe-pane). Only a Docker daemon restart clears it. |
 

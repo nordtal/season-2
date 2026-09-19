@@ -119,7 +119,7 @@ public final class StewardDeployer {
             if (!requested.isEmpty() && services.contains(Compose.SELF)) {
                 throw new IllegalArgumentException(Compose.SELF + " will not recreate itself - the"
                         + " new container would kill the process writing this report. Renewing it"
-                        + " is what deploy/setup.sh does, from a throwaway container.");
+                        + " is what deploy/nordtal.sh does, from a throwaway container.");
             }
             services.remove(Compose.SELF);
         }

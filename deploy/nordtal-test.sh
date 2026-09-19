@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# The decisions in deploy/setup.sh, exercised without a Docker daemon, without a resolver and
+# The decisions in deploy/nordtal.sh, exercised without a Docker daemon, without a resolver and
 # without a real environment file.
 #
 # WHY THIS EXISTS, and it is the same shape of reason as dev-test.sh and entrypoint-test.sh: two of
@@ -13,8 +13,8 @@
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SETUP="$HERE/setup.sh"
-[[ -f "$SETUP" ]] || { echo "setup.sh not found beside this script" >&2; exit 1; }
+SETUP="$HERE/nordtal.sh"
+[[ -f "$SETUP" ]] || { echo "nordtal.sh not found beside this script" >&2; exit 1; }
 
 failed=0
 current_case=""
@@ -37,8 +37,8 @@ contains() {
 ok()  { printf '  ok    %s\n' "$1"; }
 bad() { printf '  FAIL  %s: %s\n' "$current_case" "$1" >&2; failed=$(( failed + 1 )); }
 
-# `$0` is this script, not setup.sh, which is what makes setup.sh's source guard return early.
-# shellcheck source=deploy/setup.sh
+# `$0` is this script, not nordtal.sh, which is what makes nordtal.sh's source guard return early.
+# shellcheck source=deploy/nordtal.sh
 source "$SETUP"
 
 WORK="$(mktemp -d)"
@@ -156,7 +156,7 @@ ok "every resolved address has to be ours, not just one of them"
 
 case_begin "a name that resolves to nothing does not read as a match"
 # The failure that would be silent: an empty answer through a loop that only asks 'is anything
-# wrong' is an empty list of wrongs, and setup.sh would carry straight on and deploy an interface
+# wrong' is an empty list of wrongs, and nordtal.sh would carry straight on and deploy an interface
 # whose certificate can never be issued.
 for nothing in "" " " $'\n'; do
     if [[ -z "$(addresses_not_ours "$nothing" "$ours")" ]]; then
@@ -166,12 +166,12 @@ done
 ok "no answer is reported, not passed over"
 
 # ------------------------------------------------------------------------------------------------
-# steward/107: setup.sh's own `up` (via steward-deployer's Compose#pull) pulls every image compose.yml
+# steward/107: nordtal.sh's own `up` (via steward-deployer's Compose#pull) pulls every image compose.yml
 # names, unconditionally, before it stops anything - there is no `pull_policy` anywhere that would
 # make it "only what's missing". A tag the registry still answers for silently replaces whatever this
 # host built locally under the same name, which is exactly how the release-less workaround
 # deploy/README.md documents (`docker compose build <service>` + `up -d --no-deps <service>`) gets
-# quietly undone by the next `setup.sh` run. at_risk_images is the decision that has to catch this
+# quietly undone by the next `nordtal.sh` run. at_risk_images is the decision that has to catch this
 # before §7's `up` ever runs - given as data, not as a live docker call, the same way
 # addresses_not_ours above takes `resolved`/`ours` as strings rather than calling `getent` itself.
 #
@@ -336,7 +336,8 @@ for name in NORDTAL_ACCESS_ROLES_ACCESS NORDTAL_ACCESS_ROLES_DONOR NORDTAL_ACCES
         bad "$name is required, and a deployment must not stop for it"
     fi
 done
-ok "fourteen required; the roles, the channels, the languages, the tiers and bunq are not"
+contains NORDTAL_DIR "${REQUIRED[@]}" || bad "NORDTAL_DIR is not required and should be"
+ok "fifteen required; the roles, the channels, the languages, the tiers and bunq are not"
 
 # ------------------------------------------------------------------------------------------------
 case_begin "a value full of shell metacharacters survives the round trip"
@@ -349,6 +350,96 @@ set_assignment "$secrets" NAME 'a(b)c$(touch "'"$WORK"'/executed")'
 [[ "$(env_value "$secrets" NAME)" == 'a(b)c$(touch "'"$WORK"'/executed")' ]] \
     || bad "a value with brackets and a substitution did not come back unchanged"
 ok "a value is text on the way in and text on the way out"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "a secret is three dots, whatever is behind them"
+# The rule this guards is the one that cannot be checked by looking at the menu once: a value is
+# masked by its KIND, so a new secret added to the table is masked without anybody remembering to.
+[[ "$(shown_value secret "hunter2")"          == "•••" ]] || bad "a secret was printed"
+[[ "$(shown_value optional-secret "a-key")"   == "•••" ]] || bad "an optional secret was printed"
+[[ "$(shown_value secret "")"                 == "(not set)" ]] || bad "an unset secret"
+[[ "$(shown_value secret "   ")"              == "(not set)" ]] || bad "a blank secret"
+[[ "$(shown_value plain "steward.nordtal.eu")" == "steward.nordtal.eu" ]] || bad "a host name"
+[[ "$(shown_value licence "true")"            == "true" ]] || bad "the licence"
+ok "secret and optional-secret are dots; everything else reads back as itself"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "every secret in the menu is masked by kind, and no kind is missing one"
+# The menu prints QUESTION_KIND[name] and nothing else, so a name in QUESTIONS with no kind would
+# print an empty mask - which `shown_value` would then treat as "not a secret" and echo.
+for name in "${QUESTIONS[@]}"; do
+    [[ -n "${QUESTION_KIND[$name]:-}" ]]   || bad "$name has no kind"
+    [[ -n "${QUESTION_CHECK[$name]:-}" ]]  || bad "$name has no check"
+    [[ -n "${QUESTION_PROMPT[$name]:-}" ]] || bad "$name has no prompt"
+    [[ -n "${QUESTION_HINT[$name]:-}" ]]   || bad "$name has no hint"
+done
+for name in NORDTAL_BOT_TOKEN STEWARD_UI_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_BUNQ_API_KEY; do
+    case "${QUESTION_KIND[$name]}" in
+        secret|optional-secret) ;;
+        *) bad "$name is not a secret kind, so the menu would print it" ;;
+    esac
+done
+ok "eleven questions, all four columns each, and the three secrets are secret kinds"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "a bare Return in the menu deploys nothing"
+# The same decision deploy/restore.sh makes about a confirmation: the one answer somebody gives
+# without reading is the empty one, and here it would stop four Minecraft servers.
+[[ "$(menu_choice "" 11)"    == "" ]]        || bad "an empty answer was taken for something"
+[[ "$(menu_choice " " 11)"   == "" ]]        || bad "a space was taken for something"
+[[ "$(menu_choice "d" 11)"   == "deploy" ]]  || bad "d"
+[[ "$(menu_choice "D" 11)"   == "deploy" ]]  || bad "D"
+[[ "$(menu_choice "q" 11)"   == "quit" ]]    || bad "q"
+[[ "$(menu_choice "1" 11)"   == "edit 1" ]]  || bad "1"
+[[ "$(menu_choice "11" 11)"  == "edit 11" ]] || bad "the last entry"
+[[ "$(menu_choice "0" 11)"   == "" ]]        || bad "0 is not an entry"
+[[ "$(menu_choice "12" 11)"  == "" ]]        || bad "one past the end"
+[[ "$(menu_choice "08" 11)"  == "edit 8" ]]  || bad "a leading zero is not octal"
+[[ "$(menu_choice "1x" 11)"  == "" ]]        || bad "1x"
+[[ "$(menu_choice "yes" 11)" == "" ]]        || bad "yes is not one of the answers"
+ok "deploy, quit and a number in range; everything else redraws"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "a profile selection is a list of names and not a path"
+looks_like_profiles "db,bot,mc,backup,steward" || bad "the production selection"
+looks_like_profiles "bot"                      || bad "one profile"
+looks_like_profiles "db, bot"                  || bad "a space after the comma"
+looks_like_profiles "/etc/nordtal"             && bad "a path was accepted"
+looks_like_profiles "db,,bot"                  && bad "an empty profile was accepted"
+looks_like_profiles ""                         && bad "nothing was accepted"
+ok "names and commas; a path, an empty element and nothing are refused"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "one directory in the installation has an owner, and it is the interface's"
+# A bind mount does not carry the image's ownership the way a named volume does, and steward-ui is
+# the one service that does not run as root. If this list ever loses that entry, the interface comes
+# up unable to write steward-ui.yml - which does not fail, it saves and changes nothing.
+owned=""
+for entry in "${DATA_DIRS[@]}"; do
+    [[ -n "$(dir_owner "$entry")" ]] && owned+="$(dir_name "$entry") "
+done
+[[ "$owned" == "steward-ui-config " ]] || bad "the owned directories are '$owned'"
+[[ "$(dir_name  "steward-ui-config:10001:10001")" == "steward-ui-config" ]] || bad "dir_name"
+[[ "$(dir_owner "steward-ui-config:10001:10001")" == "10001:10001" ]]       || bad "dir_owner"
+[[ "$(dir_name  "mc-smp")"  == "mc-smp" ]] || bad "a directory with no owner"
+[[ -z "$(dir_owner "mc-smp")" ]]           || bad "mc-smp has an owner and should not"
+ok "steward-ui-config is chowned to 10001:10001 and nothing else is"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "a downloaded file has to be this script before it replaces this script"
+# The renewal runs what it fetched. A proxy's login page, a 404 body and half a download are all
+# things `curl` reports as a success, and the third one is valid bash right up to where it stops.
+printf '#!/usr/bin/env bash\nSELF_NAME="nordtal.sh"\necho hello\n' > "$WORK/good.sh"
+looks_like_this_script "$WORK/good.sh" || bad "a real script was refused"
+printf '<html><body>404</body></html>\n' > "$WORK/page.html"
+looks_like_this_script "$WORK/page.html" && bad "an error page was accepted"
+printf '#!/usr/bin/env bash\necho hello\n' > "$WORK/other.sh"
+looks_like_this_script "$WORK/other.sh" && bad "some other bash script was accepted"
+printf '#!/usr/bin/env bash\nSELF_NAME="nordtal.sh"\nif true; then\n' > "$WORK/half.sh"
+looks_like_this_script "$WORK/half.sh" && bad "a truncated script was accepted"
+: > "$WORK/empty.sh"
+looks_like_this_script "$WORK/empty.sh" && bad "an empty file was accepted"
+ok "the shebang, the marker and a syntax check"
 
 # ------------------------------------------------------------------------------------------------
 

@@ -61,12 +61,15 @@ the environment overrode; read the startup log.
 ## Start it
 
 The bot is the `bot` profile in the one stack at the repository root, and that profile can be brought
-up alone. From the repository root:
+up alone. From the installation directory on the host:
 
 ```bash
-deploy/setup.sh                                     # writes the environment file, once
+./nordtal.sh                                        # writes the environment file, once
 COMPOSE_PROFILES=db,bot docker compose --env-file /etc/nordtal/season-2.env up -d
 ```
+
+The first line is `deploy/nordtal.sh`, which installs itself into the directory it is run in; a
+host that has never had it runs the `curl` line in the project [README](../README.md).
 
 **No Gradle step and no `--build`.** The image is pulled from `ghcr.io/nordtal/discord-bot:latest`,
 pushed by `release.yml` when a release is published. There is no tag to choose: `IMAGE_TAG` was

@@ -36,7 +36,7 @@ To test locally, copy the contents of [`src/`](src/) into a folder in your game'
 **The GitHub release asset URL is what players download.** `packZip` builds reproducibly — fixed
 file order, no timestamps — so the same version always hashes the same.
 
-The URL and the hash are **configuration, never code**: they live in `network-control`'s own
+The URL and the hash are **configuration, never code**: they live in `proxy`'s own
 `pack.yml`, in a file separate from `gate.yml` because these two values change on *every* pack
 release and `gate.yml` decides who may join a network that sells access. Both default to empty and
 the proxy fails closed until they are filled in.

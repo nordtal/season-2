@@ -47,7 +47,7 @@ case_begin "a volume whose own name has dashes comes back whole"
 # overwrite the world with a plugins folder.
 [[ "$(volume_of nordtal-s2_mc-smp-plugins-20260913T031500Z.tar.zst)" == "nordtal-s2_mc-smp-plugins" ]] \
     || bad "the -plugins volume lost its suffix"
-[[ "$(volume_of nordtal-s2_mc-network-control-20260913T031500Z.tar.zst)" == "nordtal-s2_mc-network-control" ]] \
+[[ "$(volume_of nordtal-s2_mc-proxy-20260913T031500Z.tar.zst)" == "nordtal-s2_mc-proxy" ]] \
     || bad "the proxy volume lost part of its name"
 ok "the stamp is the split, not the first dash"
 
@@ -122,6 +122,25 @@ case_begin "an empty target confirms nothing"
 restore_confirmed "" ""  && bad "an empty target accepted an empty confirmation"
 restore_confirmed "" "y" && bad "an empty target accepted anything at all"
 ok "nothing can be confirmed against an empty name"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "an archive's volume name is a directory in the installation"
+# The mapping season-2-ops/124 rests on: the directory is the volume name without the project
+# prefix, and nothing else translates the two. Getting it wrong restores a world into a directory
+# nothing mounts, which looks exactly like a restore that worked.
+[[ "$(directory_for nordtal-s2_mc-smp nordtal-s2 /srv/nordtal)" == "/srv/nordtal/mc-smp" ]] \
+    || bad "the world"
+[[ "$(directory_for nordtal-s2_mc-smp-plugins nordtal-s2 /srv/nordtal)" \
+    == "/srv/nordtal/mc-smp-plugins" ]] || bad "a volume whose own name has dashes"
+[[ "$(directory_for nordtal-s2_postgres-data nordtal-s2 /srv/nordtal/)" \
+    == "/srv/nordtal/postgres-data" ]] || bad "a trailing slash on the installation directory"
+directory_for nordtal-s2_mc-smp nordtal-s2 "" \
+    && bad "an environment file with no NORDTAL_DIR answered anyway"
+directory_for mc-smp nordtal-s2 /srv/nordtal \
+    && bad "a name without the project prefix answered anyway"
+directory_for other_mc-smp nordtal-s2 /srv/nordtal \
+    && bad "another deployment's volume answered anyway"
+ok "prefix off, directory under the installation; no prefix and no root answer nothing"
 
 # ------------------------------------------------------------------------------------------------
 

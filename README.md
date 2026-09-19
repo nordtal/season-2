@@ -10,6 +10,24 @@ one `docker compose` stack.
 were a third-party management panel, and the deployment was a checkout on the host that its GitOps
 sync could overwrite. `steward-worker` was called `updater` until 2026-09-12.
 
+## Installing it
+
+On a host with a Docker daemon and nothing else, in the directory the installation should live in:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
+```
+
+It asks whether that directory is really the right one, then for the handful of things only a
+person knows, and deploys. **The installation is that directory**: every world, the database, every
+plugin's configuration and the nightly backups are folders in it, which is what makes SFTP a way in
+to them. The secrets are the one thing that is not there - they go to `/etc/nordtal/season-2.env`,
+mode 600.
+
+The script stays behind as `./nordtal.sh`. Running it again lists what is set, lets one be changed
+and deploys; it fetches the current version of itself on every run and says which one it is running.
+[`deploy/README.md`](deploy/README.md) is the runbook.
+
 ## The network
 
 A Velocity proxy in front of three Paper backends. Every login lands on `limbo`, is offered the
@@ -31,7 +49,7 @@ flowchart TB
         end
         subgraph servers["Minecraft servers · one image"]
             direction TB
-            NC["<b>network-control</b><br/><i>:network-control</i><br/>Velocity proxy"]:::proxy
+            NC["<b>proxy</b><br/><i>:proxy</i><br/>Velocity proxy"]:::proxy
             LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
             HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
             SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
@@ -71,6 +89,13 @@ Italic names are Gradle modules; every other box is a container in `compose.yml`
 modules — `:common`, `:commands`, `:paper-common` and `:resource-pack` — have no container of their
 own: they are compiled into the jars above.
 
+**A service is named after its role, and a replacement instance of one is that name plus `-standby`**
+— `proxy-standby`, `limbo-standby`. That is the whole rule, and it is a rule rather than a colour
+pair because a standby always takes the ordinary role of the service it stands in for: it runs the
+same jar under the same configuration, and nothing outside the run that created it has to learn a
+second identity. (The module is `proxy` and not `velocity` for the same reason — the name has to
+survive the day the proxy is a different piece of software.)
+
 **The Steward box is a second Docker network, and the Minecraft services are not on it.** Otherwise
 "the internal API is only reachable from inside" would also read "any plugin may deploy". `postgres`
 is on both, because it is the one thing both halves genuinely share. `steward-ui` is the part facing
@@ -84,7 +109,7 @@ roles are a projection of it, never the other way round.
 
 | module | platform | what it owns |
 |---|---|---|
-| `network-control` | Velocity | The login gate, the season phase, and which backend a player belongs on. |
+| `proxy` | Velocity | The login gate, the season phase, and which backend a player belongs on. |
 | `limbo` | Paper | The waiting room: applying and enforcing the resource pack before a player goes anywhere. |
 | `hunger-games` | Paper | The start event — registration, teams, border, loot, HUD, winning. |
 | `smp` | Paper | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves. |
@@ -130,7 +155,7 @@ files, and held against each other by a test on every build. Change one, change 
 carries the file it runs, so "which compose file is live" has a version number for an answer rather
 than a directory on the host that somebody edited during an incident. The cost is stated plainly: a
 change to the deployment needs a new image of that service, and the one thing that cannot renew it
-is that service — so [`deploy/setup.sh`](deploy/setup.sh) does, from outside the stack. That script
+is that service — so [`deploy/nordtal.sh`](deploy/nordtal.sh) does, from outside the stack. That script
 is also what resolves the interface's host name and **waits** until it points at this host, rather
 than deploying an interface whose certificate can never be issued.
 

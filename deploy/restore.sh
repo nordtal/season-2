@@ -7,6 +7,10 @@
 # A button there would work in every situation except the one it exists for. So /operations/restore
 # builds the command and a person runs it here - which is where they would have to be anyway.
 #
+# WHERE IT READS AND WRITES: the installation directory, which since season-2-ops/124 holds one
+# directory per volume - `mc-smp` for `nordtal-s2_mc-smp` - and, for a host installed before that,
+# the named Docker volumes it used to hold. It works with either and says which one it is using.
+#
 #   sudo bash deploy/restore.sh --list                                  what is on the disk
 #   sudo bash deploy/restore.sh nordtal-s2_mc-smp-20260913T031500Z.tar.zst
 #   sudo bash deploy/restore.sh nordtal-20260913T031500Z.dump
@@ -34,7 +38,7 @@ warn() { printf '\033[33m[restore]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[restore]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # --- decisions, kept apart so they can be tested ---------------------------------------------------
-# Same arrangement as deploy/setup.sh and deploy/dev: everything above the source guard is a question
+# Same arrangement as deploy/nordtal.sh and deploy/dev: everything above the source guard is a question
 # with an answer and no side effect, and deploy/restore-test.sh drives it without Docker. The two
 # that matter are which kind of file this is and whether a confirmation counts - one decides whether
 # a world is overwritten, the other decides whether it happens on a bare Return.
@@ -68,6 +72,25 @@ volume_of() {
     local name="$1"
     [[ "$(archive_kind "$name")" == volume ]] || return 1
     sed -E "s/-${STAMP_PATTERN}\.tar\.zst$//" <<<"$name"
+}
+
+# WHERE A VOLUME'S CONTENTS ACTUALLY LIVE SINCE season-2-ops/124, which is the one thing about
+# this script that the move to directories changed.
+#
+# An archive is still named after the volume it came from - `nordtal-s2_mc-smp` - because that is
+# what the backup mounts it as and renaming archives would break every archive already written. The
+# installation directory holds a directory per volume, named exactly like the volume without the
+# project prefix, and that is not a coincidence to be worked around: it is the mapping. `mc-smp`
+# the directory IS `nordtal-s2_mc-smp` the volume, and this function is the whole translation.
+#
+# It answers nothing about whether that directory exists - the caller checks, and falls back to a
+# real Docker volume of that name if it does not, because a deployment that was installed before
+# this change still has one.
+directory_for() {
+    local volume="$1" project="$2" root="$3"
+    [[ -n "$root" && -n "$project" ]] || return 1
+    [[ "$volume" == "${project}_"* ]] || return 1
+    printf '%s/%s' "${root%/}" "${volume#"${project}_"}"
 }
 
 # The stamp out of any archive name, for naming the scratch database after the dump it came from.
@@ -124,22 +147,50 @@ if [[ -f "$ENV_FILE" ]]; then
         | sed -E 's/^[^=]*=//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' || true)"
 fi
 PROJECT="${PROJECT:-$DEFAULT_PROJECT}"
+# The installation directory, which is where every volume in this deployment now is. An environment
+# file without it is one written before season-2-ops/124, and everything below then falls back to
+# the named volumes it was written for.
+NORDTAL_DIR=""
+if [[ -f "$ENV_FILE" ]]; then
+    NORDTAL_DIR="$(grep -m1 -E '^[[:space:]]*(export[[:space:]]+)?NORDTAL_DIR=' "$ENV_FILE" \
+        | sed -E 's/^[^=]*=//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' || true)"
+fi
+
+# What `docker run -v <this>:/dst` should be handed for one of this deployment's volumes: the
+# directory if the installation has one, the named volume if it still does, and nothing if neither
+# - which is a typo or a deployment that points that volume somewhere this script cannot guess.
+source_for() {
+    local volume="$1" directory
+    directory="$(directory_for "$volume" "$PROJECT" "$NORDTAL_DIR" || true)"
+    if [[ -n "$directory" && -d "$directory" ]]; then
+        printf '%s' "$directory"
+        return 0
+    fi
+    if docker volume inspect "$volume" >/dev/null 2>&1; then
+        printf '%s' "$volume"
+        return 0
+    fi
+    return 1
+}
+
 BACKUPS_VOLUME="${BACKUPS_VOLUME:-${PROJECT}${BACKUPS_SUFFIX}}"
-docker volume inspect "$BACKUPS_VOLUME" >/dev/null 2>&1 \
-    || die "there is no volume called $BACKUPS_VOLUME on this host, so there are no archives to
-       restore from. --backups-volume names another one; --env-file points at the environment file
-       whose COMPOSE_PROJECT_NAME decides the prefix (this run used '$PROJECT')."
+BACKUPS_SOURCE="$(source_for "$BACKUPS_VOLUME" || true)"
+[[ -n "$BACKUPS_SOURCE" ]] \
+    || die "there is no $BACKUPS_VOLUME on this host - neither a directory under
+       '${NORDTAL_DIR:-(no NORDTAL_DIR in $ENV_FILE)}' nor a Docker volume - so there are no
+       archives to restore from. --backups-volume names another one; --env-file points at the
+       environment file whose COMPOSE_PROJECT_NAME decides the prefix (this run used '$PROJECT')."
 
 # The image the archives were written with, so they are read with the same tar and the same zstd.
 # Its entrypoint is the worker, so every run below overrides it.
 TOOLS="${STEWARD_WORKER_IMAGE:-ghcr.io/nordtal/steward-worker:latest}"
 in_backups() {
     docker run --rm --entrypoint sh \
-        -v "$BACKUPS_VOLUME:/backups:ro" "$TOOLS" -c "$1"
+        -v "$BACKUPS_SOURCE:/backups:ro" "$TOOLS" -c "$1"
 }
 
 if $LIST_ONLY; then
-    log "archives in $BACKUPS_VOLUME:"
+    log "archives in $BACKUPS_SOURCE:"
     in_backups 'ls -lh /backups 2>/dev/null || echo "(empty)"'
     # And what any of them say about themselves. A `.unverified` file is one line in an `ls` and
     # the whole reason somebody would pick a different archive, so it is printed rather than left
@@ -155,7 +206,8 @@ fi
 [[ -n "$ARCHIVE" ]] || die "name an archive. \`--list\` shows what is there, and
        /operations/restore in the interface builds this whole command for you."
 [[ "$ARCHIVE" != */* ]] || die "an archive is a file name, not a path: '$ARCHIVE'. Everything is
-       read out of the $BACKUPS_VOLUME volume, which is not a directory on this host."
+       read out of $BACKUPS_SOURCE, and a path here would be read inside the container that does
+       the reading rather than on this host."
 
 kind="$(archive_kind "$ARCHIVE")"
 case "$kind" in
@@ -213,13 +265,21 @@ fi
 # --- a volume archive: stop, replace, start ---------------------------------------------------------
 VOLUME="$(volume_of "$ARCHIVE")"
 
-if ! docker volume inspect "$VOLUME" >/dev/null 2>&1; then
-    # A volume that does not exist is the disaster-recovery case rather than a typo, but it is also
-    # exactly what a typo looks like, so it is said out loud instead of created quietly.
-    warn "there is no volume '$VOLUME' on this host yet; it will be created."
+TARGET="$(source_for "$VOLUME" || true)"
+if [[ -z "$TARGET" ]]; then
+    # Neither a directory nor a volume exists for it. That is the disaster-recovery case rather
+    # than a typo, but it is also exactly what a typo looks like, so the directory is named out
+    # loud and created rather than conjured quietly.
+    TARGET="$(directory_for "$VOLUME" "$PROJECT" "$NORDTAL_DIR" || true)"
+    [[ -n "$TARGET" ]] || die "'$VOLUME' is neither a directory in this installation nor a volume
+       on this host, and there is no NORDTAL_DIR in $ENV_FILE to build a directory from. If this
+       archive belongs to another deployment, restore it there."
+    warn "there is no '$TARGET' yet; it will be created."
     if [[ "$VOLUME" != "$PROJECT"_* ]]; then
-        warn "and it does not start with '${PROJECT}_', so nothing in this deployment mounts it."
+        warn "and '$VOLUME' does not start with '${PROJECT}_', so nothing in this deployment"
+        warn "mounts it - check the archive name before answering the question below."
     fi
+    mkdir -p "$TARGET"
 fi
 
 # Which containers hold it, running or not. Asked of the daemon rather than worked out from
@@ -241,6 +301,7 @@ printf '\n'
 warn "ABOUT TO REPLACE THE CONTENTS OF A VOLUME."
 warn "  archive:    $ARCHIVE  ($size)"
 warn "  volume:     $VOLUME"
+warn "  restoring:  $TARGET"
 warn "  stopping:   ${running[*]:-nothing is running on it}"
 warn "  everything in that volume is deleted first. What is in the archive takes its place,"
 warn "  and anything created since $(stamp_of "$ARCHIVE") - built houses, edited configs - is gone."
@@ -284,14 +345,14 @@ fi
 # archive was made with. `find -mindepth 1 -delete` rather than `rm -rf /dst/*`, because a glob
 # misses dotfiles - and a world's `.server` cache and a plugin's dotfiles would then survive a
 # restore and mix two states, which is the failure this whole step exists to avoid.
-log "replacing $VOLUME from $ARCHIVE"
+log "replacing $TARGET from $ARCHIVE"
 docker run --rm --entrypoint sh \
-    -v "$BACKUPS_VOLUME:/backups:ro" \
-    -v "$VOLUME:/dst" \
+    -v "$BACKUPS_SOURCE:/backups:ro" \
+    -v "$TARGET:/dst" \
     "$TOOLS" -c "set -e
         find /dst -mindepth 1 -delete
         zstd -dc '/backups/$ARCHIVE' | tar -xf - -C /dst" \
-    || die "the restore failed. '$VOLUME' has been emptied and may be partly filled - do NOT start
+    || die "the restore failed. '$TARGET' has been emptied and may be partly filled - do NOT start
        the stack on it. Run this again with the same archive, or with an older one."
 
 if (( ${#running[@]} > 0 )); then
@@ -299,7 +360,7 @@ if (( ${#running[@]} > 0 )); then
     docker start "${running[@]}" >/dev/null
 fi
 
-log "done. $VOLUME now holds what $ARCHIVE held."
+log "done. $TARGET now holds what $ARCHIVE held."
 if (( ${#holders[@]} > ${#running[@]} )); then
     log "these mount it and were not running, so they were left alone: ${holders[*]}"
 fi

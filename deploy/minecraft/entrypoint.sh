@@ -528,7 +528,7 @@ fetch_datapacks() {
 
 # The player limit, and it is ENFORCED on every start rather than seeded.
 #
-# ONE NUMBER. MAX_PLAYERS is NETWORK_MAX_PLAYERS out of .env, the same value network-control is
+# ONE NUMBER. MAX_PLAYERS is NETWORK_MAX_PLAYERS out of .env, the same value proxy is
 # given for network.yml#max-players - so what the server browser advertises, what the proxy's login
 # gate enforces and what this server's tab list shows are the same number. A second, unreachable
 # backend number would still be the one every screen ON a backend can read.
@@ -624,14 +624,14 @@ seed_velocity_config() {
         printf 'player-info-forwarding-mode = "modern"\n'
         printf 'forwarding-secret-file = "forwarding.secret"\n\n'
         # NO motd AND NO show-max-players HERE, and that is the point rather than an omission.
-        # Both moved into network-control's network.yml on 2026-09-03, where the plugin answers
+        # Both moved into proxy's network.yml on 2026-09-03, where the plugin answers
         # every ProxyPingEvent with them. Seeding them here would put a second, permanently stale
         # copy of the MOTD in a file this script only ever writes once - which is exactly the trap
         # that made VELOCITY_MOTD do nothing on any volume that had already started.
         #
         # Velocity's own defaults for the two are harmless: nothing reads its motd once the plugin
         # answers the ping, and show-max-players is a display value the plugin overrides. A proxy
-        # without network-control does not start at all - see EXPECTED_PLUGINS.
+        # without proxy does not start at all - see EXPECTED_PLUGINS.
         printf '[servers]\n'
         for entry in $VELOCITY_SERVERS; do
             name="${entry%%=*}"

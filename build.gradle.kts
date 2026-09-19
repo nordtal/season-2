@@ -16,7 +16,7 @@ tasks.register("releaseArtifacts") {
         ":limbo:shadowJar",
         ":hunger-games:shadowJar",
         ":smp:shadowJar",
-        ":network-control:shadowJar",
+        ":proxy:shadowJar",
         ":discord-bot:shadowJar",
         // steward-worker is on the release like every other module, and for the same reason it
         // exists: its own version has to be movable by the mechanism it implements.
@@ -90,17 +90,19 @@ val checkDev = tasks.register<Exec>("checkDev") {
     }
 }
 
-// And the third, for deploy/setup.sh. Its subject is not a deletion this time but a wait: §10 says
-// a finished setup means everything works, which rests entirely on the comparison between what the
-// name resolves to and what this host is. That comparison cannot be checked by running the script -
-// the run either waits or it deploys - and getting it wrong in the lenient direction produces a
-// host that deploys an interface whose certificate can never be issued.
-val setupScript = layout.projectDirectory.file("deploy/setup.sh")
-val setupTest = layout.projectDirectory.file("deploy/setup-test.sh")
+// And the third, for deploy/nordtal.sh (deploy/setup.sh until 2026-09-19, season-2-ops/124). Its
+// subject is not a deletion this time but a wait: §10 says a finished setup means everything works,
+// which rests entirely on the comparison between what the name resolves to and what this host is.
+// That comparison cannot be checked by running the script - the run either waits or it deploys -
+// and getting it wrong in the lenient direction produces a host that deploys an interface whose
+// certificate can never be issued. What joined it is the menu: which answer deploys, which quits
+// and which is neither, and that a secret in that menu is three dots.
+val setupScript = layout.projectDirectory.file("deploy/nordtal.sh")
+val setupTest = layout.projectDirectory.file("deploy/nordtal-test.sh")
 
 val checkSetup = tasks.register<Exec>("checkSetup") {
     group = "verification"
-    description = "Runs deploy/setup-test.sh against deploy/setup.sh's checks."
+    description = "Runs deploy/nordtal-test.sh against deploy/nordtal.sh's checks."
     commandLine("bash", setupTest.asFile.absolutePath)
     inputs.file(setupScript).withPropertyName("setup")
     inputs.file(setupTest).withPropertyName("test")

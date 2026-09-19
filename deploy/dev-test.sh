@@ -31,7 +31,7 @@ source "$DEV"
 
 # ------------------------------------------------------------------------------------------------
 case_begin "every service compose.yml runs a plugin on is resettable"
-for service in network-control limbo hunger-games smp; do
+for service in proxy limbo hunger-games smp; do
     known_service "$service" || bad "$service is not a known service"
 done
 ok "the four servers are known"

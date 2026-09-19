@@ -69,7 +69,7 @@ jobs:
           cp limbo/build/libs/limbo-${VERSION}.jar dist/
           cp hunger-games/build/libs/hunger-games-${VERSION}.jar dist/
           cp smp/build/libs/smp-${VERSION}.jar dist/
-          cp network-control/build/libs/network-control-${VERSION}.jar dist/
+          cp proxy/build/libs/proxy-${VERSION}.jar dist/
           cp discord-bot/build/libs/discord-bot-${VERSION}.jar dist/
           cp steward-worker/build/libs/steward-worker-${VERSION}.jar dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip dist/
@@ -176,7 +176,7 @@ jobs:
       # The one image that carries compose.yml (§8b), which is what makes "which compose file is
       # live" a question with a version number for an answer. It is also the one image nothing in
       # the stack can renew: the service that would have to do it is this one, so a new version of
-      # it arrives through deploy/setup.sh on the host.
+      # it arrives through deploy/nordtal.sh on the host.
       - name: Build and push the steward-deployer image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:

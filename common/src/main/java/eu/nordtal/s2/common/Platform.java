@@ -54,7 +54,7 @@ public final class Platform {
     public static final String VELOCITY_FAMILY = "4.0.0";
 
     /**
-     * The Velocity version {@code network-control} is <em>compiled</em> against, mirrored by
+     * The Velocity version {@code proxy} is <em>compiled</em> against, mirrored by
      * {@code velocity} in {@code gradle/libs.versions.toml}.
      *
      * <p>It exists so that steward-worker can say when the two have parted company. Following

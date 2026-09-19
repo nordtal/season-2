@@ -149,7 +149,7 @@ public record AccessState(
      * first.
      *
      * <p>This deliberately does not pick the disconnect screen - unlinked, banned and no-access are
-     * three different messages, and {@code network-control}'s {@code LoginGate} chooses between
+     * three different messages, and {@code proxy}'s {@code LoginGate} chooses between
      * them. This is the single-boolean form for callers that only need the answer.
      *
      * @return whether this account may join right now, in the phase this state was read in

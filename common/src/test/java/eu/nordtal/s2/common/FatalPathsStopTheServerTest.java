@@ -46,7 +46,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 class FatalPathsStopTheServerTest {
 
-    /** The three Paper plugins. {@code network-control} is Velocity and fails closed differently. */
+    /** The three Paper plugins. {@code proxy} is Velocity and fails closed differently. */
     private static final List<String> PLUGINS = List.of(
             "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java",
             "limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java",

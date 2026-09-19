@@ -52,7 +52,7 @@ class OneRefusalLineTest {
     /** The two classes that answer a command somebody may not, or cannot, run. */
     private static final List<String> REFUSERS = List.of(
             "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/CommandFilter.java",
-            "network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/CommandGate.java");
+            "proxy/src/main/java/eu/nordtal/s2/proxy/command/CommandGate.java");
 
     /** Any {@code "some.message.key"} handed to a renderer in those files. */
     private static final Pattern RENDERED_KEY =
@@ -125,7 +125,7 @@ class OneRefusalLineTest {
 
     private static List<Path> bundles() {
         final List<Path> found = new ArrayList<>();
-        for (final String root : List.of("smp", "limbo", "hunger-games", "network-control",
+        for (final String root : List.of("smp", "limbo", "hunger-games", "proxy",
                 "commands", "paper-common", "discord-bot")) {
             final Path directory = RepositoryRoot.resolve(root + "/src/main/resources/messages");
             if (!Files.isDirectory(directory)) {

@@ -64,7 +64,7 @@ class PlatformTest {
     @DisplayName("VELOCITY_API is the velocity-api the proxy is compiled against")
     void theVelocityApiVersionIsTheOneTheProxyCompilesAgainst() {
         // This is the number the update report compares a resolved Velocity version against, and it
-        // is only worth anything if it is the version network-control was actually built with.
+        // is only worth anything if it is the version the proxy plugin was actually built with.
         assertEquals(version("velocity"), Platform.VELOCITY_API,
                 "Platform.VELOCITY_API no longer matches the catalog. The worker's warning about"
                         + " running the proxy on a newer API than it was built for is measured"
@@ -81,7 +81,7 @@ class PlatformTest {
         assertEquals(major(Platform.VELOCITY_API), major(Platform.VELOCITY_FAMILY),
                 "Platform.VELOCITY_FAMILY (" + Platform.VELOCITY_FAMILY + ") and the velocity-api in"
                         + " the catalog (" + Platform.VELOCITY_API + ") are different majors. The"
-                        + " worker would install a proxy network-control cannot run on.");
+                        + " worker would install a proxy build the plugin cannot run on.");
     }
 
     private static String major(final String version) {

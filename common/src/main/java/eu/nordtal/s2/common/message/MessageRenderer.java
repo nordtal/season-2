@@ -24,7 +24,7 @@ import java.util.Objects;
  * {@code Messages.format} substitutes into the raw string, so substitution happens <em>before</em>
  * MiniMessage sees anything. A value is arbitrary text - a player name, a world name, a milestone
  * title out of a YAML file somebody edits - and only {@code <} can begin a tag, so exactly one
- * character has to be made inert. {@code network-control}'s {@code Placeholders} solved this for
+ * character has to be made inert. {@code proxy}'s {@code Placeholders} solved this for
  * the MOTD in 2026-09-01 and {@code PlaceholdersTest} pins it; this is the same rule, applied to
  * every message rather than to one.
  *
@@ -32,7 +32,7 @@ import java.util.Objects;
  * Which is what makes this safe to put in front of the existing bundles: 510 lines of message text
  * were written before anything parsed them, and MiniMessage returns literal text for a string with
  * no tags in it. The two exceptions in this repository are known and both want the treatment -
- * {@code network-control}'s {@code motd.misconfigured} already writes {@code <red>} and was already
+ * {@code proxy}'s {@code motd.misconfigured} already writes {@code <red>} and was already
  * being deserialized by hand, and {@code hunger-games}' bundles carry a legacy section code that
  * MiniMessage does not read. Section codes are the one thing this class cannot rescue; they have to
  * be rewritten as tags.
@@ -174,7 +174,7 @@ public final class MessageRenderer {
      * whatever a player types is what arrives here - and the result is read by every other player in
      * the navigation menu.</p>
      *
-     * <p>Public because {@code network-control}'s MOTD substitutes its own placeholders - dynamic
+     * <p>Public because {@code proxy}'s MOTD substitutes its own placeholders - dynamic
      * names such as {@code {players:smp}} that no name/value pair can express - and then needs
      * exactly this rule. It had its own copy of these two lines until 2026-09-04, which is two
      * implementations of one security property and no test comparing them.</p>

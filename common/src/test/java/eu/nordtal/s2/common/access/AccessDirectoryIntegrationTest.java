@@ -448,7 +448,7 @@ class AccessDirectoryIntegrationTest {
         // .md left "disconnect OR hold in limbo" open while its own phase table already said
         // non-admins land in `limbo`, and the owner settled it on holding them. Admission is
         // therefore identical to the two event phases, and the admin flag has moved out of
-        // mayJoin() entirely - it now only decides where a player goes, which is network-control's
+        // mayJoin() entirely - it now only decides where a player goes, which is proxy's
         // PhaseRouting and not this record's business.
         directory.link(DISCORD_ID, MC_UUID);
         phase(SeasonPhase.MAINTENANCE);

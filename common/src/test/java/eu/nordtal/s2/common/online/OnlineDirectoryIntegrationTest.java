@@ -105,14 +105,14 @@ class OnlineDirectoryIntegrationTest {
     @Test
     @DisplayName("writing four subjects at once produces four rows, not a batch failure")
     void allFourSubjectsInOneWrite() {
-        online.write(Map.of("smp", 5, "hunger-games", 2, "limbo", 0, "network-control", 7));
+        online.write(Map.of("smp", 5, "hunger-games", 2, "limbo", 0, "proxy", 7));
 
         final Map<String, OnlineCount> current = online.current();
         assertEquals(4, current.size());
         assertEquals(5, current.get("smp").players());
         assertEquals(2, current.get("hunger-games").players());
         assertEquals(0, current.get("limbo").players());
-        assertEquals(7, current.get("network-control").players());
+        assertEquals(7, current.get("proxy").players());
     }
 
     @Test

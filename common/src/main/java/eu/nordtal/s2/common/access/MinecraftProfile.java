@@ -3,7 +3,7 @@ package eu.nordtal.s2.common.access;
 import java.time.Instant;
 
 /**
- * The Minecraft name {@code network-control} last saw at login, for a linked account - a cache with
+ * The Minecraft name {@code proxy} last saw at login, for a linked account - a cache with
  * a timestamp, exactly like {@link DiscordProfile}. See
  * {@code V21__discord_and_minecraft_profile_cache.sql}.
  *

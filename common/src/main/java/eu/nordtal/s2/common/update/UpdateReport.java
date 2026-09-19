@@ -64,6 +64,23 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         return new UpdateReport(stage, combined, notes);
     }
 
+    /**
+     * The same report without the lines for those services (season-2-ops/125).
+     *
+     * <p>The one caller is an update run dropping the services somebody is holding down. They are
+     * removed rather than marked, because a line in a report is a promise that the run did
+     * something to that service, and this run is deliberately doing nothing to it. What is said
+     * instead is a note, which is where "and here is what I left alone" belongs.</p>
+     */
+    public UpdateReport withoutLines(final List<String> gone) {
+        if (gone.isEmpty()) {
+            return this;
+        }
+        return new UpdateReport(stage,
+                services.stream().filter(line -> !gone.contains(line.service())).toList(),
+                notes);
+    }
+
     /** @return the line for that service, or a fresh {@link State#UNCHANGED} one */
     public ServiceLine line(final String service) {
         return services.stream()

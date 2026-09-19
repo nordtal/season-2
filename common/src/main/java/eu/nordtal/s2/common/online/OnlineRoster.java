@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Who is connected right now - written by network-control in the same tick as {@link
+ * Who is connected right now - written by the proxy in the same tick as {@link
  * OnlineDirectory}, read by steward-worker for {@code /api/services} (steward/111, feeding
  * steward/64's avatar row).
  *
@@ -28,7 +28,7 @@ import java.util.UUID;
  *
  * <h2>"No list" is not "nobody" - and this interface does not decide that either</h2>
  * {@link #current()} returns the rows as they stand, {@code updated} and all. An empty answer is
- * "nobody was connected when network-control last wrote" exactly as often as it is "network-control
+ * "nobody was connected when the proxy last wrote" exactly as often as it is "proxy
  * has not written in a long time", and telling those apart is
  * {@code eu.nordtal.s2.steward.worker.api.ServicesApi}'s job against its own cutoff - the same split
  * {@link OnlineDirectory} draws for the counts, for the same reason: the table states what was
@@ -37,7 +37,7 @@ import java.util.UUID;
 public interface OnlineRoster {
 
     /**
-     * @param dataSource the pool the caller already owns - network-control's, or steward-worker's
+     * @param dataSource the pool the caller already owns - proxy's, or steward-worker's
      * @return a roster over that pool; it owns nothing and there is nothing to close
      */
     static OnlineRoster using(final DataSource dataSource) {
@@ -61,7 +61,7 @@ public interface OnlineRoster {
     void replace(Collection<Presence> connected);
 
     /**
-     * @return every player network-control last wrote down, in no particular order - empty when
+     * @return every player proxy last wrote down, in no particular order - empty when
      *         nobody was connected, and empty when nobody has written in a week. See the class
      *         documentation for why this interface does not tell those two apart
      */

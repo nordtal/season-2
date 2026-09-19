@@ -47,8 +47,24 @@ public enum WaitReason {
     UPDATE,
 
     /**
+     * Somebody stopped the player's backend on purpose and it stays stopped until they start it
+     * again (season-2-ops/125).
+     *
+     * <p>Distinct from {@link #UPDATE} for the one thing that separates them: an update is nearly
+     * over and brings the server back by itself, and this does not. The update screen promises
+     * "you will be moved back automatically", which is a promise nothing can keep here - the
+     * return is a person pressing a button, and it may be an hour. Telling the two apart is the
+     * difference between a player waiting and a player waiting for something that is not coming.
+     *
+     * <p>It also does not end on its own, which puts it beside {@link #MAINTENANCE} rather than
+     * beside {@link #BACKEND}: the waiting room keeps re-asking and releases them the moment the
+     * backend takes a connection again, which is exactly when the Start button has been pressed.
+     */
+    HELD,
+
+    /**
      * The player is in the waiting room and the proxy has not said why - the message has not arrived
-     * yet, or there is no {@code network-control} on the proxy. It carries a real text because a
+     * yet, or there is no {@code proxy} on the proxy. It carries a real text because a
      * blank screen is indistinguishable from a crash to the person looking at it.
      */
     UNKNOWN;

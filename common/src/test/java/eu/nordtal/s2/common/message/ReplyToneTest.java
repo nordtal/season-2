@@ -50,7 +50,7 @@ class ReplyToneTest {
     private static final List<String> SOURCE_ROOTS = List.of(
             "commands/src/main/java",
             "paper-common/src/main/java",
-            "network-control/src/main/java",
+            "proxy/src/main/java",
             "hunger-games/src/main/java",
             "smp/src/main/java",
             "limbo/src/main/java");

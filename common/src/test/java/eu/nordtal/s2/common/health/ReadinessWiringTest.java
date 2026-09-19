@@ -37,7 +37,7 @@ class ReadinessWiringTest {
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java");
 
     private static final String VELOCITY_PLUGIN =
-            "network-control/src/main/templates/eu/nordtal/s2/networkcontrol/NetworkControlPlugin.java";
+            "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
 
     private static final String BOT =
             "discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java";
@@ -87,7 +87,7 @@ class ReadinessWiringTest {
     @DisplayName("the proxy does not beat on its fail-closed path")
     void theProxyBeatsOnlyWhenTheGateIsUp() throws IOException {
         // "The proxy is up but nobody can join" announces itself; "the proxy is up and the gate is
-        // off" never did. A misconfigured network-control binds its port and answers pings while
+        // off" never did. A misconfigured proxy binds its port and answers pings while
         // refusing every login there is, so the port can say nothing about it and the marker is the
         // only thing that can.
         final String text = read(VELOCITY_PLUGIN);

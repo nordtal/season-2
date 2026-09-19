@@ -26,10 +26,10 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-function backend(): typeof fetch {
+function backend(host: unknown = { load1: 0.2, cpus: 4 }): typeof fetch {
   return vi.fn(async (url: string) => {
     if (url.startsWith("/api/updates")) return json(200, [])
-    if (url === "/api/host") return json(200, { load1: 0.2, cpus: 4 })
+    if (url === "/api/host") return json(200, host)
     if (url === "/api/services") {
       return json(200, {
         services: [],
@@ -105,5 +105,27 @@ describe("OperationsPage - the archive list moved to its own page (steward/112)"
     await screen.findByText("No run yet")
     const link = screen.getByRole("link", { name: /backups/i })
     expect(link.getAttribute("href")).toBe("/operations/backups")
+  })
+})
+
+describe("the Load stat says nothing rather than half a sentence (steward/123)", () => {
+  it("drops the hint when the host did not report how many cpus it has", async () => {
+    // `cpus` is optional on the host reading, and the formatter answers an en dash - so the hint
+    // read "1-minute average across - cores", which is the shape Till asked to be rid of
+    // app-wide on 2026-09-19.
+    vi.stubGlobal("fetch", backend({ load1: 0.2 }))
+    draw()
+
+    await screen.findByText("No run yet")
+    expect(screen.queryByText(/cores/)).toBeNull()
+    expect(screen.queryByText(/across/)).toBeNull()
+  })
+
+  it("keeps it when the host did report them", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw()
+
+    await screen.findByText("No run yet")
+    expect(screen.getByText("1-minute average across 4 cores")).toBeTruthy()
   })
 })

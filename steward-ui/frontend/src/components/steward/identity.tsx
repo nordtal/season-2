@@ -1,7 +1,6 @@
 import { CheckIcon, CopyIcon, ImageBrokenIcon, UserIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
-import { relative } from "@/lib/format"
 import { StewardMark } from "@/app/steward-mark"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -22,23 +21,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
  * component, without this module having to know which pages exist.
  */
 
-/**
- * How long an observed field is trusted before this component says it might be wrong.
+/*
+ * THERE IS NO STALENESS MARK HERE ANY MORE. Till asked on 2026-09-19 (steward/123) for the
+ * asterisk behind the Discord name and the Minecraft name to go.
  *
- * Till's rule (steward/45) is the distinction, not the number: the threshold is a number, but the
- * distinction itself is what matters. Thirty days is chosen because discord-bot's reconcile pass
- * runs far more often than that - a name older than this has very likely not been re-observed
- * because the account has been quiet, not because anything is broken - and because an admin
- * excluding somebody has to know whether the name in front of them is still the right one.
+ * `STALE_AFTER_MS`, `isStale`, the ` *` after a name, the `data-stale` attribute and the two
+ * `title` tooltips all stood here until then and are gone together, because once the asterisk went
+ * nothing announced any of the rest: a `title` is invisible until hovered, and it is not reachable
+ * at all on the phone this interface is designed for first. An attribute no stylesheet reads and a
+ * tooltip nothing points at are not a quieter version of the feature - they are the feature
+ * removed, with the code left behind.
+ *
+ * If the distinction is wanted again, it comes back as a design somebody can see, and this comment
+ * is the note that it was once a thirty-day threshold.
  */
-export const STALE_AFTER_MS = 30 * 24 * 60 * 60 * 1000
-
-/** Whether a field last confirmed at `updated` is old enough to say so, as of `now`. */
-export function isStale(updated: string | null | undefined, now = Date.now()): boolean {
-  if (!updated) return true
-  const at = new Date(updated).getTime()
-  return !Number.isFinite(at) || now - at > STALE_AFTER_MS
-}
 
 /**
  * A Minecraft head, composed rather than stored.
@@ -50,10 +46,25 @@ export function isStale(updated: string | null | undefined, now = Date.now()): b
  */
 export function minecraftHeadUrl(baseUrl: string | undefined, mcUuid: string): string | null {
   if (!baseUrl) return null
-  // steward/111: without the hyphens. Till measured the old service failing and picked mc-heads
-  // instead; the undashed form is the one every head service accepts, so the stripping lives here
-  // rather than in the configured base - a different base later inherits it for free.
-  return `${baseUrl.replace(/\/+$/, "")}/${mcUuid.replace(/-/g, "")}`
+
+  // THE UUID GOES INTO THE PATH, NEVER ONTO THE END OF THE QUERY. The configured base may carry
+  // one - the default does, because api.mineatar.io serves 32x32 unless asked otherwise and the
+  // identity display draws a head at up to 32 CSS pixels, which is 96 real ones on a phone
+  // (steward/122, Till chose `?scale=16`). Appending blindly would produce
+  // `…/face?scale=16/<uuid>`, a path that is not the uuid's and an image nobody ever sees.
+  const [path, query] = splitQuery(baseUrl)
+
+  // steward/111, re-measured 2026-09-19 for steward/122: hyphens stripped. All three services this
+  // has ever pointed at - mineatar, mc-heads, crafatar - answer 200 to BOTH spellings, so this is
+  // no longer the compatibility claim it was written as. It stays because one spelling has to be
+  // chosen and a stable URL is a cached one: two spellings of the same face are two cache entries.
+  return `${path.replace(/\/+$/, "")}/${mcUuid.replace(/-/g, "")}${query}`
+}
+
+/** `["https://host/face", "?scale=16"]`, with an empty second half when there is no query. */
+function splitQuery(baseUrl: string): [string, string] {
+  const at = baseUrl.search(/[?#]/)
+  return at === -1 ? [baseUrl, ""] : [baseUrl.slice(0, at), baseUrl.slice(at)]
 }
 
 /**
@@ -93,17 +104,12 @@ export type PersonIdentityProps = {
    */
   discordId?: string
   discordUsername?: string
-  discordUsernameUpdated?: string
   discordDisplayName?: string
-  discordDisplayNameUpdated?: string
   discordAvatarUrl?: string
-  discordAvatarUrlUpdated?: string
   mcUuid?: string
   mcName?: string
-  mcNameUpdated?: string
   /** Where a Minecraft head is composed from - `useAvatarBaseUrl()`. Absent draws no head at all. */
   avatarBaseUrl?: string
-  now?: number
   className?: string
   /**
    * Steward itself did this, not a person (steward/82) - the nightly backup clock, an orphan
@@ -114,13 +120,13 @@ export type PersonIdentityProps = {
   system?: boolean
 }
 
-/** The name shown closed, and the timestamp its staleness is judged by. */
-function displayName(props: PersonIdentityProps): { text: string | null; updated?: string } {
+/** The name shown closed. */
+function displayName(props: PersonIdentityProps): { text: string | null } {
   if (props.discordDisplayName) {
-    return { text: props.discordDisplayName, updated: props.discordDisplayNameUpdated }
+    return { text: props.discordDisplayName }
   }
   if (props.discordUsername) {
-    return { text: props.discordUsername, updated: props.discordUsernameUpdated }
+    return { text: props.discordUsername }
   }
   return { text: null }
 }
@@ -139,9 +145,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
     )
   }
 
-  const now = props.now ?? Date.now()
   const name = displayName(props)
-  const stale = name.text !== null && isStale(name.updated, now)
 
   return (
     <Popover>
@@ -164,15 +168,8 @@ export function PersonIdentity(props: PersonIdentityProps) {
             className={
               "truncate text-sm " + (name.text ? "text-foreground" : "text-muted-foreground italic")
             }
-            data-stale={stale ? "true" : undefined}
-            title={
-              stale && name.text
-                ? `Not confirmed recently - last seen ${relative(name.updated, now)}.`
-                : undefined
-            }
           >
             {name.text ?? "no Discord name on record"}
-            {stale && name.text ? <span aria-hidden> *</span> : null}
           </span>
         </button>
       </PopoverTrigger>
@@ -183,13 +180,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
             <span className="truncate text-sm font-medium">
               {name.text ?? "no Discord name on record"}
             </span>
-            {name.text ? (
-              <span className="text-xs text-muted-foreground">
-                {stale
-                  ? `last confirmed ${relative(name.updated, now)}`
-                  : `confirmed ${relative(name.updated, now)}`}
-              </span>
-            ) : (
+            {name.text ? null : (
               <span className="text-xs text-muted-foreground">
                 Never observed, or no longer a guild member.
               </span>
@@ -212,13 +203,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
                 <span className="truncate text-sm font-medium">
                   {props.mcName ?? "no Minecraft name on record"}
                 </span>
-                {props.mcName ? (
-                  <span className="text-xs text-muted-foreground">
-                    {isStale(props.mcNameUpdated, now)
-                      ? `last seen ${relative(props.mcNameUpdated, now)}`
-                      : `seen ${relative(props.mcNameUpdated, now)}`}
-                  </span>
-                ) : (
+                {props.mcName ? null : (
                   <span className="text-xs text-muted-foreground">
                     Linked, but never seen joining yet.
                   </span>
@@ -358,17 +343,12 @@ export function MinecraftHead({
 export function MinecraftFace({
   mcUuid,
   mcName,
-  mcNameUpdated,
   avatarBaseUrl,
-  now = Date.now(),
 }: {
   mcUuid: string
   mcName?: string
-  mcNameUpdated?: string
   avatarBaseUrl?: string
-  now?: number
 }) {
-  const stale = isStale(mcNameUpdated, now)
   return (
     // `min-w-0` on both boxes and `truncate` on the text (steward/103): without it the name is
     // drawn at its full width straight past the right edge of a 390px card, where the table
@@ -381,14 +361,8 @@ export function MinecraftFace({
             ? "min-w-0 truncate text-sm"
             : "min-w-0 truncate text-sm text-muted-foreground italic"
         }
-        title={
-          mcName && stale
-            ? `Not confirmed recently - last seen ${relative(mcNameUpdated, now)}.`
-            : undefined
-        }
       >
         {mcName ?? "no name yet"}
-        {mcName && stale ? <span aria-hidden> *</span> : null}
       </span>
     </span>
   )

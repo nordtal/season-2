@@ -133,16 +133,28 @@ function DriftMark({ drift }: { drift: string }) {
   }
 }
 
-/** Resources and runtime, on the dot. Three short lines, each a value with the word it needs. */
-function Vitals({ service }: { service: Service }) {
+/**
+ * Resources and runtime, on the dot. Three short lines, each a value with the word it needs.
+ *
+ * Exported for `network.test.tsx`: it is drawn inside a Radix tooltip, so the panel test cannot
+ * reach it without driving a hover, and what is worth asserting here is what it decides to draw
+ * rather than where the tooltip put it.
+ */
+export function Vitals({ service }: { service: Service }) {
   return (
+    // NOTHING INCOMPLETE WHEN THERE IS NOTHING TO SHOW (steward/123). `cpuPercent` and
+    // `memoryBytes` are absent for a container that is not running, and the formatters answer an
+    // en dash - which reads as "no value" in a table column and as a rendering fault behind the
+    // word "cpu". A stopped node says "not running" and then says nothing more.
     <span className="flex flex-col gap-0.5">
       <span>{service.startedAt ? `up ${since(service.startedAt)}` : "not running"}</span>
-      <span>cpu {percent(service.cpuPercent)}</span>
-      <span>
-        memory {bytes(service.memoryBytes)}
-        {service.memoryLimitBytes ? ` of ${bytes(service.memoryLimitBytes)}` : ""}
-      </span>
+      {service.cpuPercent == null ? null : <span>cpu {percent(service.cpuPercent)}</span>}
+      {service.memoryBytes == null ? null : (
+        <span>
+          memory {bytes(service.memoryBytes)}
+          {service.memoryLimitBytes ? ` of ${bytes(service.memoryLimitBytes)}` : ""}
+        </span>
+      )}
       {service.unreadable ? <span className="text-warning">{service.unreadable}</span> : null}
     </span>
   )

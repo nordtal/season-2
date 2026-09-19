@@ -372,23 +372,28 @@ public interface UiSpec {
         @Order(1)
         @Key("minecraft-head-base-url")
         @Comment({
-                "Till's choice, 2026-09-18: mc-heads.net. Crafatar stood here until then and was",
-                "measured failing to answer at all (steward/111) - the fault was the service, not",
-                "the caller. A free, unaffiliated service either way - see",
-                "season-2/README.md - so the identity display treats a non-answer as a placeholder",
-                "and never blocks the page on it.",
+                "Till's choice, 2026-09-19: api.mineatar.io. mc-heads.net stood here from",
+                "2026-09-18 and crafatar.com before that, which was measured failing to answer at",
+                "all (steward/111) - the fault was the service, not the caller. A free,",
+                "unaffiliated service in all three cases - see season-2/README.md - so the identity",
+                "display treats a non-answer as a placeholder and never blocks the page on it.",
                 "",
                 "NOTED RATHER THAN HIDDEN: every render sends this service the mc_uuid being",
                 "looked at, which is the one piece of information about a player that leaves this",
                 "deployment on the strength of an admin merely opening a page.",
                 "",
-                "The identity display appends '/<uuid>' itself, with the hyphens stripped out of",
-                "the uuid; this is the address up to and including the path segment before it,",
-                "with no trailing slash."
+                "WHY THERE IS A '?scale=16' ON THE END. Measured 2026-09-19: the blank endpoint",
+                "answers 32x32 pixels, where mc-heads answered 180x180. A head is drawn at up to 32",
+                "CSS pixels, which is 96 real ones on a 3x phone display, so the blank endpoint",
+                "would be visibly soft. scale=16 is 128x128 and 472 bytes.",
+                "",
+                "The identity display inserts '/<uuid>' BEFORE the query, with the hyphens stripped",
+                "out of the uuid. So this is the address up to and including the path segment",
+                "before it, optionally followed by a query - and never a trailing slash."
         })
         @Explain("Every render sends this third-party service the mc_uuid being looked at - the one piece of player information that leaves this deployment on the strength of an admin merely opening a page.")
         default String minecraftHeadBaseUrl() {
-            return "https://mc-heads.net/avatar";
+            return "https://api.mineatar.io/face?scale=16";
         }
     }
 

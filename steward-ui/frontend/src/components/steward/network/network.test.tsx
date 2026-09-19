@@ -10,6 +10,7 @@ import { cleanup, render, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { SERVICES } from "@/app/navigation"
+import { Vitals } from "@/components/steward/network/node"
 import { NetworkPanel } from "@/components/steward/network/view"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -261,6 +262,45 @@ describe("the network view", () => {
  * `geometry.test.ts` passing, because none of them render anything). This is the one test that
  * actually renders `h` and counts the `<path>` elements the browser would draw.
  */
+describe("a stopped node says nothing rather than half of something (steward/123)", () => {
+  /**
+   * Till, 2026-09-19: nothing incomplete is to be shown where there is nothing to show. A
+   * container that is not running reports no `cpuPercent` and no `memoryBytes`, and `format.ts`
+   * answers an en dash for both - which is exactly right in a table column, where a dash in a
+   * value cell means "no value", and wrong behind the word "cpu", where it reads as a rendering
+   * fault.
+   */
+  /** The vitals are drawn inside a tooltip, so they are rendered here on their own. */
+  const OFF = {
+    service: "smp",
+    containerId: "abc",
+    image: "ghcr.io/nordtal/smp:1.4.0",
+    state: "exited",
+    status: "Exited (0) 2 hours ago",
+    hasConsole: true,
+    drift: "UP_TO_DATE" as const,
+  }
+
+  it("draws no cpu and no memory line for a container that is not running", () => {
+    render(<Vitals service={OFF} />)
+
+    const text = document.body.textContent ?? ""
+    expect(text).toContain("not running")
+    expect(text).not.toContain("cpu")
+    expect(text).not.toContain("memory")
+    expect(text).not.toContain("\u2013")
+  })
+
+  it("still draws both for a container that is running, which is the point of having them", () => {
+    render(<Vitals service={service() as never} />)
+
+    const text = document.body.textContent ?? ""
+    expect(text).toContain("cpu")
+    expect(text).toContain("memory")
+    expect(text).not.toContain("\u2013")
+  })
+})
+
 describe("the view collapses a group's edges into one drawn line each (Till, 2026-09-18)", () => {
   it("draws one traffic edge into each group and one data foot out of each group", async () => {
     draw()

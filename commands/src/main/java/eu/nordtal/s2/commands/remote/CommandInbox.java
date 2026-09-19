@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 
 /**
@@ -193,18 +194,28 @@ public final class CommandInbox {
      * is written into a row nobody reads any more.
      *
      * <p>Nothing about that failure points at its cause, and it only happens on the surface furthest
-     * from the logs. So it is checked here, once, at startup: a no-op is submitted through
-     * {@code async} and has to have run by the time the call returns.</p>
+     * from the logs. So it is checked here, once, at startup: a probe is submitted through
+     * {@code async}, and it has to have run <b>on this very thread</b> by the time the call
+     * returns.</p>
      *
-     * <p><b>It cannot be fooled by a scheduler that happens to be fast</b>, because the check does
-     * not wait: an executor that runs the task on another thread has, by definition, not finished it
-     * before {@code async} returned. A same-thread executor always has.</p>
+     * <h2>Why the thread and not a flag</h2>
+     * This asked "did it run?" until 2026-09-19 and that was a race, in both directions. A pool
+     * thread can pick the task up and set a flag between {@code async} returning and the flag being
+     * read - so a scheduler was waved through whenever the machine was busy enough to context
+     * switch there, which is the dangerous direction, and the assertion holding this failed on a
+     * loaded CI runner, which is how it was found. The comment that stood here claimed the check
+     * "cannot be fooled by a scheduler that happens to be fast"; it was wrong, and the timing it
+     * assumed is exactly the one a loaded machine does not give you.
+     *
+     * <p>The identity of the thread has no such race. Another thread can never write <em>this</em>
+     * thread into the box, and a same-thread executor always has by the time {@code async} returns.
+     * Nothing waits, and nothing depends on who wins.</p>
      */
     private static void requireInline(final NordtalCommand<?> command,
                                       final CommandEffects effects) {
-        final AtomicBoolean ran = new AtomicBoolean();
-        effects.async(() -> ran.set(true));
-        if (!ran.get()) {
+        final AtomicReference<Thread> ranOn = new AtomicReference<>();
+        effects.async(() -> ranOn.set(Thread.currentThread()));
+        if (ranOn.get() != Thread.currentThread()) {
             throw new IllegalArgumentException(command.declaration().name()
                     + " was registered on the command inbox with effects that hand their work to"
                     + " another thread. The inbox settles the request when run() returns, so the"

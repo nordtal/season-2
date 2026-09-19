@@ -1,15 +1,26 @@
 # nordtal.eu season 2 - the whole deployment.
 #
-#   deploy/setup.sh             # it asks for what only a person knows, and writes the rest itself
+#   curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
+#
+# That is the install, and it needs no checkout: the script asks what only a person knows, writes
+# the environment file itself, and installs the stack INTO THE DIRECTORY IT IS RUN FROM. It then
+# stays there as ./nordtal.sh, which is how a setting is changed afterwards.
+#
+# THE INSTALLATION IS A DIRECTORY (season-2-ops/124). NORDTAL_DIR is its absolute path, and every
+# volume in this file defaults to a directory under it - the worlds, the databases, the plugin
+# configs, the backups. Nothing here needs a Docker volume any more, which is what makes SFTP a way
+# in again; see the long note at proxy's plugins/ line for why that turned over.
 #
 # NOBODY FILLS IN A .env. .env.example beside this file is the reference for what a setting is
-# called; the environment file itself is created by deploy/setup.sh at STEWARD_ENV_FILE, mode 600,
-# and every `docker compose` typed by hand needs `--env-file` to see it.
+# called; the environment file itself is created by deploy/nordtal.sh at STEWARD_ENV_FILE, mode 600,
+# and every `docker compose` typed by hand needs `--env-file` to see it. It is deliberately NOT in
+# the installation directory: it holds every secret the deployment has, and the installation
+# directory is the one somebody reaches over SFTP.
 #
 # THIS FILE LIVES AT THE REPOSITORY ROOT and is copied from here into steward-deployer's image
 # (§8b), which is the one thing in the stack allowed to create a container. "Which compose file is
 # live" therefore has a version number for an answer. Everything else that belongs to the deployment
-# is still in deploy/ - including deploy/setup.sh, the only part of this that runs on the host.
+# is still in deploy/ - including deploy/nordtal.sh, the only part of this that runs on the host.
 #
 # CADDY'S CONFIGURATION IS IN HERE TOO, as an inline `configs:` block at the foot of the file, for
 # the same reason: the deployer runs compose from inside its own image, so a Caddyfile on the host
@@ -168,7 +179,7 @@ services:
       # backups and for a psql from the host. Loopback until POSTGRES_BIND says otherwise.
       - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - ${POSTGRES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/postgres-data}:/var/lib/postgresql/data
       # WHERE THE NIGHTLY DUMP LANDS, and it has to be mounted HERE rather than only in
       # steward-worker. The worker runs `pg_dump` INSIDE this container - which is how the dump can
       # never be taken by a client older than its server - so the path it writes to is this
@@ -177,7 +188,7 @@ services:
       #
       # postgres-data itself is deliberately NOT backed up: a tar of a live PGDATA is torn and it
       # fails at restore, which is the worst place for it to fail.
-      - steward-backups:/backups
+      - ${STEWARD_BACKUPS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-backups}:/backups
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -253,9 +264,9 @@ services:
       # --- access.yml --------------------------------------------------------------------
       # TWO OF THESE ARE REQUIRED AND THE REST ARE FEATURES. The guild says where the bot lives;
       # the admin role says who may administer it, and without it nobody can log in to Steward to
-      # fill the rest in. Both are asked for by deploy/setup.sh.
-      NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/setup.sh asks for it}
-      NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/setup.sh asks for it}
+      # fill the rest in. Both are asked for by deploy/nordtal.sh.
+      NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
+      NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/nordtal.sh asks for it}
       #
       # Everything below is `:-` on purpose. An EMPTY environment variable is UNSET to jcore -
       # EnvOverlay skips a blank rather than writing it over the file - so leaving one of these out
@@ -280,10 +291,10 @@ services:
       NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS: ${NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS:-}
       NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES: ${NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES:-}
     volumes:
-      - bot-config:/app/config
+      - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/app/config
       # The jar itself. steward-worker writes into this same volume as /volumes/discord-bot; here
       # it is /app/lib, where the entrypoint looks.
-      - bot-jar:/app/lib
+      - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/app/lib
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
@@ -305,12 +316,12 @@ services:
     ports:
       - "${PACK_BIND:-127.0.0.1}:${PACK_PORT:-8080}:80"
     volumes:
-      - ${PACK_ROOT:-./deploy/pack}:/usr/share/nginx/html:ro
+      - ${PACK_ROOT:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/pack}:/usr/share/nginx/html:ro
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
   # The Velocity proxy. The only service that publishes a port to the network.
-  network-control:
+  proxy:
     <<: *minecraft
     environment:
       <<: *minecraft-env
@@ -323,8 +334,8 @@ services:
       # and carries the row in its Topology, but voice chat is optional for a player and this
       # container is the whole network: a proxy refusing to start because an alpha of somebody
       # else's plugin did not resolve is an outage bought for something nice to have.
-      EXPECTED_PLUGINS: ${NETWORK_CONTROL_EXPECTED_PLUGINS:-network-control}
-      # THE PLAYER LIMIT AND THE MOTD both belong to the plugin: network-control answers every ping
+      EXPECTED_PLUGINS: ${PROXY_EXPECTED_PLUGINS:-proxy}
+      # THE PLAYER LIMIT AND THE MOTD both belong to the plugin: the proxy answers every ping
       # with the MOTD for the current phase and refuses the login that would exceed the limit. These
       # are jcore environment overrides, so they win over network.yml and are never written back.
       #
@@ -335,12 +346,12 @@ services:
       #
       # The five MOTDs are one per season phase, listed here so .env can override them without
       # anybody learning the NORDTAL_ naming rule. Leaving one unset keeps network.yml's default.
-      NORDTAL_NETWORK_CONTROL_NETWORK_MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
-      NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_PRE_LAUNCH: ${NETWORK_MOTD_PRE_LAUNCH:-}
-      NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_PRE_EVENT: ${NETWORK_MOTD_PRE_EVENT:-}
-      NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_START_EVENT: ${NETWORK_MOTD_START_EVENT:-}
-      NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_SMP: ${NETWORK_MOTD_SMP:-}
-      NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_MAINTENANCE: ${NETWORK_MOTD_MAINTENANCE:-}
+      NORDTAL_PROXY_NETWORK_MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
+      NORDTAL_PROXY_NETWORK_MOTD_PRE_LAUNCH: ${NETWORK_MOTD_PRE_LAUNCH:-}
+      NORDTAL_PROXY_NETWORK_MOTD_PRE_EVENT: ${NETWORK_MOTD_PRE_EVENT:-}
+      NORDTAL_PROXY_NETWORK_MOTD_START_EVENT: ${NETWORK_MOTD_START_EVENT:-}
+      NORDTAL_PROXY_NETWORK_MOTD_SMP: ${NETWORK_MOTD_SMP:-}
+      NORDTAL_PROXY_NETWORK_MOTD_MAINTENANCE: ${NETWORK_MOTD_MAINTENANCE:-}
       # FILL'S NAME FOR VELOCITY'S MAJOR, NOT A VERSION. The proxy follows the newest release inside
       # the 4.x line, which Fill calls `4.0.0`; the entrypoint and the worker both resolve it out of
       # Platform.VELOCITY_FAMILY. A literal and not a variable, because a platform version is a
@@ -357,7 +368,7 @@ services:
       # PAPER_VELOCITY_SECRET, so there is nothing to paste into a config file any more.
       VELOCITY_FORWARDING_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
       # The network topology, used only to seed velocity.toml on a fresh volume. The names are
-      # what network-control's gate.yml#server-* keys expect; the hosts are these service names.
+      # what proxy's gate.yml#server-* keys expect; the hosts are these service names.
       VELOCITY_SERVERS: ${VELOCITY_SERVERS:-limbo=limbo:25565 hunger-games=hunger-games:25565 smp=smp:25565}
       VELOCITY_TRY: ${VELOCITY_TRY:-limbo}
       # THE RESOURCE PACK IS NOT A VARIABLE HERE, and must not become one: a jcore environment
@@ -368,11 +379,11 @@ services:
       # URL from the release asset and the hash from the .sha1 asset beside it.
       #
       # The proxy refuses to start with an empty url or sha1 while pack.enabled is true. On a brand
-      # new volume that means: bring network-control up once so it writes its config, then run the
+      # new volume that means: bring proxy up once so it writes its config, then run the
       # worker, then start it for real. See deploy/README.md.
-      NORDTAL_NETWORK_CONTROL_DATABASE_JDBC_URL: *db-url
-      NORDTAL_NETWORK_CONTROL_DATABASE_USERNAME: *db-username
-      NORDTAL_NETWORK_CONTROL_DATABASE_PASSWORD: *db-password
+      NORDTAL_PROXY_DATABASE_JDBC_URL: *db-url
+      NORDTAL_PROXY_DATABASE_USERNAME: *db-username
+      NORDTAL_PROXY_DATABASE_PASSWORD: *db-password
     ports:
       - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
       # SIMPLE VOICE CHAT, AND THIS IS THE ONLY VOICE PORT ON THE NETWORK. Audio is UDP and does not
@@ -387,22 +398,37 @@ services:
       # in plugins/voicechat/voicechat-proxy.properties, not a second number here.
       - "${PROXY_BIND:-0.0.0.0}:25565:25565/udp"
     volumes:
-      - mc-network-control:/data
-      # PLUGINS/ IS ITS OWN VOLUME, separate from the server's. Everything else under /data - the
+      - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/data
+      # PLUGINS/ IS ITS OWN DIRECTORY, separate from the server's. Everything else under /data - the
       # world, the .server/ jar cache, logs/ - stays in mc-<name>: a plugin's config.yml,
       # milestones.yml, sounds.yml and pack.yml are hand-edited and worth backing up on their own
       # schedule, while a world is 4 GB.
       #
-      # THE DEFAULT MUST BE A VOLUME NAME AND THE BIND IS THE EXCEPTION. A path under a directory a
-      # deployment checks out is deleted the next time it is checked out, taking every hand-edited
-      # config with it (finding 151). Production sets none of these variables and therefore gets a
-      # named volume.
+      # THE DEFAULT IS A PATH AND THE VOLUME NAME IS THE EXCEPTION - which is the other way round
+      # since 2026-09-19 (season-2-ops/124), and the sentence that stood here is worth keeping to
+      # read: "THE DEFAULT MUST BE A VOLUME NAME AND THE BIND IS THE EXCEPTION. A path under a
+      # directory a deployment checks out is deleted the next time it is checked out, taking every
+      # hand-edited config with it (finding 151)."
       #
-      # Setting one to a path is what the local stack does, so that reading plugins/smp/config.yml is
-      # opening a file rather than two `docker compose cp`s. A value with a `/` in it is a bind mount
-      # to Docker and a value without one is a volume name; nothing else distinguishes them, which is
-      # why :steward-worker's TopologyTest asserts the default carries neither a slash nor a dot.
-      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/data/plugins
+      # THAT CHECKOUT ONLY EXISTED FOR ARCANE, AND ARCANE WAS REMOVED ON 2026-09-15. Nothing on the
+      # host checks this repository out any more - the compose file arrives inside steward-deployer's
+      # image - so there is no next checkout to delete anything, and finding 151 cannot happen. What
+      # replaced Arcane's file browser is SFTP, which is the reason the rule turns over rather than
+      # merely lapsing: SFTP reads a directory and cannot see into a Docker volume at all, so a
+      # named volume is now the thing that puts a hand-edited config out of reach.
+      #
+      # THE PATH IS ABSOLUTE, AND IT HAS TO BE: steward-deployer runs `docker compose
+      # --project-directory /app` INSIDE ITS OWN IMAGE, so compose would resolve a relative bind
+      # against a directory that exists only in that image. NORDTAL_DIR is the installation
+      # directory as an absolute host path, written by deploy/nordtal.sh - the same shape, and for
+      # the same reason, as STEWARD_ENV_DIR further down.
+      #
+      # A value with a `/` in it is a bind mount to Docker and a value without one is a volume name;
+      # nothing else distinguishes them. That is unchanged, and it is the way back: setting one of
+      # these variables to `mc-smp-plugins` puts that directory into a named volume again, which is
+      # exactly what deploy/dev.env.example does for the local stack. :steward-worker's TopologyTest
+      # asserts that the DEFAULT is a path.
+      - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The waiting room. Needs the database for one thing only: the player's language.
@@ -433,9 +459,9 @@ services:
       NORDTAL_LIMBO_DATABASE_USERNAME: *db-username
       NORDTAL_LIMBO_DATABASE_PASSWORD: *db-password
     volumes:
-      - mc-limbo:/data
-      # plugins/ in its own volume, the rest in mc-limbo - see network-control above.
-      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/data/plugins
+      - ${LIMBO_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo}:/data
+      # plugins/ in its own volume, the rest in mc-limbo - see proxy above.
+      - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The start event. Runs once, then the phase turns to SMP and this can be stopped.
@@ -467,9 +493,9 @@ services:
       NORDTAL_HUNGER_GAMES_DATABASE_USERNAME: *db-username
       NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD: *db-password
     volumes:
-      - mc-hunger-games:/data
-      # plugins/ in its own volume, the rest in mc-hunger-games - see network-control above.
-      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/data/plugins
+      - ${HUNGER_GAMES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games}:/data
+      # plugins/ in its own volume, the rest in mc-hunger-games - see proxy above.
+      - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The SMP - four worlds, and the only service with required third-party plugins.
@@ -548,9 +574,9 @@ services:
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
       NORDTAL_SMP_DATABASE_PASSWORD: *db-password
     volumes:
-      - mc-smp:/data
-      # plugins/ in its own volume, the rest in mc-smp - see network-control above.
-      - ${SMP_PLUGINS:-mc-smp-plugins}:/data/plugins
+      - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/data
+      # plugins/ in its own volume, the rest in mc-smp - see proxy above.
+      - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # steward-worker. No profile, because everything else in this stack depends on it.
@@ -670,7 +696,7 @@ services:
       # environment file still carrying NORDTAL_BOT_BUNQ_* produces a stack where every container is
       # healthy and no payment is ever noticed. The ONE thing that says which it is, is the line
       # steward-worker logs at startup - "bunq is ON: ..." or "bunq is OFF: ...". Read it after a
-      # deploy that touched these. deploy/setup.sh asks for both and accepts Enter for neither.
+      # deploy that touched these. deploy/nordtal.sh asks for both and accepts Enter for neither.
       NORDTAL_STEWARD_BUNQ_API_KEY: ${NORDTAL_STEWARD_BUNQ_API_KEY:-}
       NORDTAL_STEWARD_BUNQ_ACCOUNT_ID: ${NORDTAL_STEWARD_BUNQ_ACCOUNT_ID:-}
       # How often bunq itself is asked, and how far back the fallback reference scan looks. Both
@@ -684,34 +710,34 @@ services:
       # a season of history.
       NORDTAL_STEWARD_BUNQ_WATERMARK: ${NORDTAL_STEWARD_BUNQ_WATERMARK:-}
     volumes:
-      - steward-worker-config:/app/config
+      - ${STEWARD_WORKER_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-worker-config}:/app/config
       # bunq binds an API context to the device and IP it was registered from: the contents are
       # created by the container that will use it and are never copied from anywhere - not from a
       # laptop and not from the discord-bot container this volume was mounted into until
       # steward/109. See steward/101 for the one ops step that makes that true.
-      - bunq-context:/app/bunq
+      - ${BUNQ_CONTEXT:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bunq-context}:/app/bunq
       # Everything this module owns, under the names Topology expects beneath volumes-root. Writable,
-      # because `apply` puts the jars here and writes network-control's pack.yml.
-      - mc-network-control:/volumes/network-control
-      - mc-limbo:/volumes/limbo
-      - mc-hunger-games:/volumes/hunger-games
-      - mc-smp:/volumes/smp
+      # because `apply` puts the jars here and writes proxy's pack.yml.
+      - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/volumes/proxy
+      - ${LIMBO_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo}:/volumes/limbo
+      - ${HUNGER_GAMES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games}:/volumes/hunger-games
+      - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/volumes/smp
       # THE SAME FOUR plugins/ SOURCES THE SERVERS READ, EXPRESSION FOR EXPRESSION. Copying the
       # default rather than the variable, or spelling one differently, splits the two sides in the
       # one way nothing can see: this container installs into its own volume, `apply` reports
       # success, the jars are on disk, and no server runs one of them. TopologyTest holds the two
       # halves together, character for character.
-      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/volumes/network-control/plugins
-      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/volumes/limbo/plugins
-      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/volumes/hunger-games/plugins
-      - ${SMP_PLUGINS:-mc-smp-plugins}:/volumes/smp/plugins
+      - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/volumes/proxy/plugins
+      - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/volumes/limbo/plugins
+      - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/volumes/hunger-games/plugins
+      - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/volumes/smp/plugins
       # The bot's jar and this container's own: to the code above them both are the same shape as a
       # plugins folder - a directory with one jar in it that gets replaced.
-      - bot-jar:/volumes/discord-bot
+      - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/volumes/discord-bot
       # Mounted at the path the entrypoint reads on the next start. This container installs its own
       # new jar here and carries on running the old one: no process replaces the jar it is executing,
       # so the new one takes effect at the restart and never during a run.
-      - steward-worker-jar:/volumes/steward-worker
+      - ${STEWARD_WORKER_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-worker-jar}:/volumes/steward-worker
       # THE CONFIGURATION OF EVERY SERVICE IN THE STACK, mounted a second time so the interface can
       # draw a form for it (§10a.6). One directory per compose service, named after it, because
       # that is exactly what the page shows as the service a file belongs to.
@@ -732,13 +758,13 @@ services:
       # THE FOUR PLUGIN VOLUMES USE THE SAME EXPRESSIONS THE SERVERS DO, character for character.
       # Spelling one differently here would show an operator a file nothing reads - the same class
       # of failure TopologyTest holds shut for the /volumes/* lines above.
-      - steward-ui-config:/configs/steward-ui
-      - steward-worker-config:/configs/steward-worker
-      - bot-config:/configs/discord-bot
-      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/configs/network-control
-      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/configs/limbo
-      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/configs/hunger-games
-      - ${SMP_PLUGINS:-mc-smp-plugins}:/configs/smp
+      - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/configs/steward-ui
+      - ${STEWARD_WORKER_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-worker-config}:/configs/steward-worker
+      - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/configs/discord-bot
+      - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/configs/proxy
+      - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/configs/limbo
+      - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/configs/hunger-games
+      - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/configs/smp
       # THE VOLUMES THIS SERVICE SAVES, READ-ONLY (§9a).
       #
       # One line per volume in steward.yml#backup.volumes, mounted where TarSnapshots looks for it.
@@ -757,17 +783,17 @@ services:
       # live configuration was saved nowhere - an archive that restores cleanly and restores the
       # wrong thing. TopologyTest holds all three sides against each other now, expression for
       # expression.
-      - mc-smp:/backup-sources/nordtal-s2_mc-smp:ro
-      - ${SMP_PLUGINS:-mc-smp-plugins}:/backup-sources/nordtal-s2_mc-smp-plugins:ro
-      - mc-network-control:/backup-sources/nordtal-s2_mc-network-control:ro
-      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/backup-sources/nordtal-s2_mc-network-control-plugins:ro
-      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/backup-sources/nordtal-s2_mc-limbo-plugins:ro
-      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/backup-sources/nordtal-s2_mc-hunger-games-plugins:ro
-      - bot-config:/backup-sources/nordtal-s2_bot-config:ro
-      - steward-ui-config:/backup-sources/nordtal-s2_steward-ui-config:ro
+      - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/backup-sources/nordtal-s2_mc-smp:ro
+      - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/backup-sources/nordtal-s2_mc-smp-plugins:ro
+      - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/backup-sources/nordtal-s2_mc-proxy:ro
+      - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/backup-sources/nordtal-s2_mc-proxy-plugins:ro
+      - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/backup-sources/nordtal-s2_mc-limbo-plugins:ro
+      - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/backup-sources/nordtal-s2_mc-hunger-games-plugins:ro
+      - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/backup-sources/nordtal-s2_bot-config:ro
+      - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/backup-sources/nordtal-s2_steward-ui-config:ro
       # Where the archives and the database dump land. NOT one of the volumes above: a backup
       # directory inside a backed-up volume grows by its own contents every night.
-      - steward-backups:/backups
+      - ${STEWARD_BACKUPS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-backups}:/backups
       # THE DOCKER SOCKET, AND WHAT THAT ACTUALLY MEANS.
       #
       # With this, steward-worker can read every container's state, health, image digest, log and
@@ -840,8 +866,8 @@ services:
       NORDTAL_STEWARD_UI_DISCORD_CLIENT_SECRET: ${STEWARD_UI_DISCORD_CLIENT_SECRET:-}
       # A SECOND COPY of what the bot's access.yml says, deliberately: two processes, two volumes,
       # no shared file. Written from the same .env variables so they start out agreeing.
-      NORDTAL_STEWARD_UI_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/setup.sh asks for it}
-      NORDTAL_STEWARD_UI_DISCORD_ADMIN_ROLE: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/setup.sh asks for it}
+      NORDTAL_STEWARD_UI_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
+      NORDTAL_STEWARD_UI_DISCORD_ADMIN_ROLE: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/nordtal.sh asks for it}
       # THE BOT'S TOKEN, READ-ONLY AND FOR ONE THING: asking Discord what the guild's roles and
       # channels are CALLED, so the configuration editor offers a list to pick from instead of a
       # field to transcribe an eighteen-digit id into. Steward never sends a message with it, never
@@ -865,7 +891,7 @@ services:
       NORDTAL_STEWARD_UI_WEB_PUSH_PUBLIC_KEY: ${STEWARD_UI_WEB_PUSH_PUBLIC_KEY:-}
       NORDTAL_STEWARD_UI_WEB_PUSH_PRIVATE_KEY: ${STEWARD_UI_WEB_PUSH_PRIVATE_KEY:-}
     volumes:
-      - steward-ui-config:/app/config
+      - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/app/config
       # THE STACK'S CONFIGURATION IS NOT MOUNTED HERE, AND THAT IS THE DECISION (Till, 2026-09-14).
       # It was, from 2026-09-13 until then - seven volumes under /configs, so the interface could
       # draw a form for every service's settings. It could not read one of them.
@@ -892,7 +918,7 @@ services:
   #
   # IT NEVER RECREATES ITSELF. `Compose.SELF` is refused wherever a service name is accepted: it is
   # the container the request travels through, so the answer would never come back. Renewing this
-  # one is deploy/setup.sh's job on the host (§9c).
+  # one is deploy/nordtal.sh's job on the host (§9c).
   steward-deployer:
     profiles: ["steward"]
     build:
@@ -931,7 +957,7 @@ services:
       # steward/102: the file name inside the directory mounted below, so this process knows what
       # to open under /app/env. NOT the path itself - the directory is the mount now, not the file
       # (see the volumes comment) - so only the name survives the trip into the container.
-      NORDTAL_STEWARD_ENV_FILE: /app/env/${STEWARD_ENV_FILE_NAME:?set STEWARD_ENV_FILE_NAME in .env - the file name (not the path) of the environment file, derived from STEWARD_ENV_FILE by deploy/setup.sh}
+      NORDTAL_STEWARD_ENV_FILE: /app/env/${STEWARD_ENV_FILE_NAME:?set STEWARD_ENV_FILE_NAME in .env - the file name (not the path) of the environment file, derived from STEWARD_ENV_FILE by deploy/nordtal.sh}
     volumes:
       # THE SOCKET. It is not read-only and cannot be made read-only: `:ro` restricts the socket
       # FILE and not the API behind it, and a container that can talk to this daemon can start a
@@ -948,9 +974,9 @@ services:
       # service silently gets secrets from before the last rotation. A DIRECTORY bind re-resolves
       # the path on every access, so a file replaced after this container started is visible without
       # recreating it. READ-ONLY, and an ABSOLUTE host path: this is the one file in the deployment
-      # that is in no image and in no repository, and deploy/setup.sh is what puts it where
+      # that is in no image and in no repository, and deploy/nordtal.sh is what puts it where
       # STEWARD_ENV_FILE points - this mounts the directory around it.
-      - ${STEWARD_ENV_DIR:?set STEWARD_ENV_DIR in .env - the directory holding STEWARD_ENV_FILE, derived from it by deploy/setup.sh}:/app/env:ro
+      - ${STEWARD_ENV_DIR:?set STEWARD_ENV_DIR in .env - the directory holding STEWARD_ENV_FILE, derived from it by deploy/nordtal.sh}:/app/env:ro
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
@@ -994,8 +1020,8 @@ services:
       # THE CERTIFICATES AND THE ACME ACCOUNT KEY. This volume is why a recreate of this container
       # does not ask Let's Encrypt for a new certificate - and why losing it is a rate limit away
       # from an outage rather than a free retry.
-      - caddy-data:/data
-      - caddy-config:/config
+      - ${CADDY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/caddy-data}:/data
+      - ${CADDY_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/caddy-config}:/config
     healthcheck:
       # The admin API on 127.0.0.1:2019, which is Caddy's own answer to "is my configuration
       # loaded". Measured 2026-09-13: caddy:2-alpine is v2.11.4 and carries busybox wget, no curl.
@@ -1018,6 +1044,13 @@ configs:
       ${STEWARD_HOST} {
       	encode zstd gzip
 
+      	# NO Content-Security-Policy is set here, and adding one is a decision with a trap in it.
+      	# season-2-ops/129 puts Modrinth's plugin thumbnails on the service pages and the browser
+      	# loads them from cdn.modrinth.com directly (Till, 2026-09-19). A CSP added later without
+      	# an `img-src` naming that host does not fail: the pictures simply stay blank, and the only
+      	# place it is reported is a console nobody has open. `CaddyPolicyTest` in steward-ui holds
+      	# exactly that conditional - no policy is fine, a policy that forgets the host is not.
+      	#
       	# Everything behind this is steward-ui, which holds no docker socket. There is no second
       	# route here and there must not be: steward-worker's internal API and steward-deployer's
       	# are reachable from the `steward` network and from nowhere else, which is what keeps the
@@ -1030,6 +1063,20 @@ configs:
       	}
       }
 
+# ---------------------------------------------------------------------------------------------
+# THE VOLUMES, WHICH THIS DEPLOYMENT NO LONGER USES - and they stay declared for that reason.
+#
+# Since season-2-ops/124 every mount above defaults to a directory under NORDTAL_DIR, so on a
+# normal installation not one of these is created: the installation is a directory, `ls` is how you
+# look at it and SFTP is how you reach it. What each block still describes is the DATA - what is in
+# it, whether it is backed up and why - and that did not change with where it lives.
+#
+# They are declared because a name without a slash is still a volume name to Docker, and that is
+# the way back: deploy/dev.env.example points the local stack's world and jar variables at these,
+# and a host that cannot have a bind for whatever reason sets the one variable it has to.
+#
+# A declared volume that nothing mounts is not created by `up`; it is a definition, not a thing.
+# ---------------------------------------------------------------------------------------------
 volumes:
   # Every archive steward-worker writes: one tar.zst per volume per run, plus the database dump.
   # It is deliberately NOT in backup.volumes - saving the backups into the backups is how a disk
@@ -1058,7 +1105,7 @@ volumes:
   # key to a device and an IP, so a copied context is refused by the API and the refusal only shows
   # up inside a poll. Deliberately not backed up for the same reason.
   bunq-context:
-  mc-network-control:
+  mc-proxy:
   mc-limbo:
   mc-hunger-games:
   mc-smp:
@@ -1068,9 +1115,9 @@ volumes:
   # and they are separate from the worlds so that saving them is not saving four gigabytes of
   # terrain. The jars in them are steward-worker's and are not worth saving.
   #
-  # A local stack points the four variables above at directories instead and none of these is
-  # created. See deploy/dev.env.example.
-  mc-network-control-plugins:
+  # The four variables above point at directories under NORDTAL_DIR by default, so none of these
+  # four is created either; deploy/dev.env.example is where they are still asked for by name.
+  mc-proxy-plugins:
   mc-limbo-plugins:
   mc-hunger-games-plugins:
   mc-smp-plugins:

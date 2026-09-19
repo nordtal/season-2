@@ -39,13 +39,13 @@ class PhaseRoutingTest {
     /** What a healthy proxy has registered. */
     private static final Set<String> ALL = Set.of("limbo", "hunger-games", "smp");
 
-    private final PhaseRouting routing = new PhaseRouting(new PhaseServers("limbo", "hunger-games", "smp"));
+    private final PhaseRouting routing = new PhaseRouting(new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp"));
 
     // ---------------------------------------------------------------- the phase table
 
     @Test
     void eachPhaseHasItsOwnBackend() {
-        final PhaseServers servers = new PhaseServers("limbo", "hunger-games", "smp");
+        final PhaseServers servers = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
 
         assertEquals("hunger-games", servers.forPhase(SeasonPhase.PRE_EVENT));
         assertEquals("hunger-games", servers.forPhase(SeasonPhase.START_EVENT));
@@ -69,15 +69,15 @@ class PhaseRoutingTest {
 
     @Test
     void aBlankServerNameIsRejectedWhereItIsCheapToNotice() {
-        assertThrows(IllegalArgumentException.class, () -> new PhaseServers("", "hunger-games", "smp"));
-        assertThrows(IllegalArgumentException.class, () -> new PhaseServers("limbo", null, "smp"));
+        assertThrows(IllegalArgumentException.class, () -> new PhaseServers("", "limbo-standby", "hunger-games", "smp"));
+        assertThrows(IllegalArgumentException.class, () -> new PhaseServers("limbo", "limbo-standby", null, "smp"));
     }
 
     @Test
     void theNamesAreConfigurableEvenThoughTheMappingIsNot() {
         // The names have to be settable, because velocity.toml chooses them; which phase uses
         // which is not settable.
-        final PhaseServers renamed = new PhaseServers("wait", "hg", "survival");
+        final PhaseServers renamed = new PhaseServers("wait", "wait-standby", "hg", "survival");
 
         assertEquals("wait", renamed.forPhase(SeasonPhase.MAINTENANCE));
         assertEquals("hg", renamed.forPhase(SeasonPhase.START_EVENT));

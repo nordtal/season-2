@@ -216,7 +216,11 @@ public final class ProxyPlugin {
         // PlayerRouter is the phase-change listener, but it needs the watch it listens to (for the
         // login-time phase), so the reference is filled in immediately after the watch exists. The
         // watch never calls its listener from the constructor, only from refresh().
-        final PhaseRouting routing = new PhaseRouting(PhaseServers.from(gateConfig));
+        // ONE PhaseServers for the whole plugin, not one per caller. Since season-2-ops/120 it
+        // carries two waiting-room names rather than one, and two constructions of it would be two
+        // chances for half the plugin to know about the standby and half not to.
+        final PhaseServers phaseServers = PhaseServers.from(gateConfig);
+        final PhaseRouting routing = new PhaseRouting(phaseServers);
         final AtomicReference<PlayerRouter> routerRef = new AtomicReference<>();
         final PhaseWatch phaseWatch = new PhaseWatch(phases, logger, (previous, current) -> {
             final PlayerRouter router = routerRef.get();
@@ -380,7 +384,7 @@ public final class ProxyPlugin {
         // around it. A kick with none - the connection died rather than being decided - goes to
         // the waiting room instead of a disconnect screen, and suspends that one backend in
         // backendHealth until a real connection to it succeeds again. See BackendKick.
-        proxy.getEventManager().register(this, new BackendKick(proxy, gateConfig.serverLimbo(),
+        proxy.getEventManager().register(this, new BackendKick(proxy, phaseServers,
                 backendHealth, gateMessages, roster, logger));
 
         proxy.getScheduler().buildTask(this, expiryWatch::check)
@@ -417,7 +421,7 @@ public final class ProxyPlugin {
         // online_count is numbers and nothing else by its own migration's decision. One pass over
         // the proxy, two tables - a second timer would let the count and the list describe two
         // different moments.
-        final OnlineWriter onlineWriter = new OnlineWriter(proxy, PhaseServers.from(gateConfig),
+        final OnlineWriter onlineWriter = new OnlineWriter(proxy, phaseServers,
                 OnlineDirectory.using(pool), OnlineRoster.using(pool), logger);
         final Duration onlineInterval = OnlineDirectory.WRITE_INTERVAL;
         onlineWriter.write();
@@ -460,7 +464,7 @@ public final class ProxyPlugin {
         // that throws must not take the other one down with it, and these two are the only things
         // standing between a player and a disconnect nobody explained.
         this.evacuation = new Evacuation(proxy, logger,
-                UpdateDirectory.using(pool), gateConfig.serverLimbo(), Clock.systemUTC());
+                UpdateDirectory.using(pool), phaseServers, Clock.systemUTC());
         packs.whenUpdating(this.evacuation::isMoving);
         packs.whenHeld(this.evacuation::isHeld);
         proxy.getScheduler().buildTask(this, this.evacuation::check)

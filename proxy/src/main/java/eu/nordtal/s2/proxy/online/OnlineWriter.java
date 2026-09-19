@@ -115,7 +115,13 @@ public final class OnlineWriter {
 
     private Map<String, Integer> playersByServer() {
         final Map<String, Integer> byServer = new LinkedHashMap<>();
-        for (final String name : List.of(servers.smp(), servers.hungerGames(), servers.limbo())) {
+        // The standby is in the list and is usually absent, which is the point: getServer returns
+        // empty while it is not running, so it contributes no row - and during a swap, when it is
+        // where the players actually are, it is the only row that would not have been zero
+        // (season-2-ops/120). A count that says nobody is online while everybody is parked is
+        // worse than no count.
+        for (final String name : List.of(servers.smp(), servers.hungerGames(),
+                servers.limbo(), servers.limboStandby())) {
             proxy.getServer(name).ifPresent(
                     server -> byServer.put(name, server.getPlayersConnected().size()));
         }

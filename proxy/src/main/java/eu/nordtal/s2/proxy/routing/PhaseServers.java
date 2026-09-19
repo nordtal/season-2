@@ -26,11 +26,14 @@ import java.util.Objects;
 public final class PhaseServers {
 
     private final String limbo;
+    private final String limboStandby;
     private final String hungerGames;
     private final String smp;
 
-    public PhaseServers(final String limbo, final String hungerGames, final String smp) {
+    public PhaseServers(final String limbo, final String limboStandby,
+                        final String hungerGames, final String smp) {
         this.limbo = requireName("limbo", limbo);
+        this.limboStandby = requireName("limboStandby", limboStandby);
         this.hungerGames = requireName("hungerGames", hungerGames);
         this.smp = requireName("smp", smp);
     }
@@ -41,7 +44,8 @@ public final class PhaseServers {
      */
     public static PhaseServers from(final GateSpec config) {
         Objects.requireNonNull(config, "config");
-        return new PhaseServers(config.serverLimbo(), config.serverHungerGames(), config.serverSmp());
+        return new PhaseServers(config.serverLimbo(), config.serverLimboStandby(),
+                config.serverHungerGames(), config.serverSmp());
     }
 
     /**
@@ -85,6 +89,35 @@ public final class PhaseServers {
     /** @return the name of the waiting room, which is also every "not yet" destination */
     public String limbo() {
         return limbo;
+    }
+
+    /**
+     * @return the name of the second waiting room - the one that stands in while {@link #limbo()}
+     *         is itself being updated (season-2-ops/120)
+     */
+    public String limboStandby() {
+        return limboStandby;
+    }
+
+    /**
+     * Whether a backend name is a waiting room - <b>either</b> of them.
+     *
+     * <p>This method is the whole of season-2-ops/120's second half, and it exists because the
+     * question used to be answered by comparing against {@link #limbo()} alone. A player moved to
+     * the standby would have been, to every one of those comparisons, somebody on an unrelated
+     * backend rather than somebody waiting: the pack station would not have counted them, the kick
+     * handler would have tried to redirect them <em>into</em> the room they are already standing
+     * in, and nothing would ever have released them. They would have sat there until they gave up.
+     * That is why the ticket says half-built is worse here than not built.</p>
+     *
+     * <p>Ask this instead of {@code name.equals(servers.limbo())}, everywhere, including the
+     * places where a swap "cannot" be running - those are the places that will be wrong first.</p>
+     *
+     * @param server a backend name, or {@code null}
+     * @return whether a player standing on it is a player who is waiting
+     */
+    public boolean isWaitingRoom(final String server) {
+        return limbo.equals(server) || limboStandby.equals(server);
     }
 
     /** @return the name of the PRE_EVENT / START_EVENT backend - see {@link #forPhase} */

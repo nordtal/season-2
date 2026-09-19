@@ -199,6 +199,28 @@ public interface GateSpec {
     }
 
     @Order(12)
+    @Key("server-limbo-standby")
+    @Comment({
+            "THE SECOND WAITING ROOM, and the only reason it exists is that the first one can",
+            "itself be the thing being updated (season-2-ops/120). A run that stops `limbo` used",
+            "to leave the proxy with nowhere to put anybody: everybody connected was disconnected",
+            "and the countdown was all the warning they got.",
+            "",
+            "It is NOT a special kind of waiting room. It is a second limbo with the normal role -",
+            "a player sits there for the same reasons, sees the same titles, and is released onto",
+            "the same backend. Everything that asks \"is this player waiting\" accepts both names;",
+            "see PhaseServers#isWaitingRoom.",
+            "",
+            "It runs only while a swap needs it - compose.yml keeps it in the profile `standby` -",
+            "so a proxy that has no such server registered is the ordinary case and not a fault.",
+            "Without one, a run that includes the limbo behaves exactly as it did before."
+    })
+    @Explain("The backend that stands in for the waiting room while the waiting room itself is being updated.")
+    default String serverLimboStandby() {
+        return "limbo-standby";
+    }
+
+    @Order(13)
     @Key("limbo-sweep-interval-seconds")
     @Comment({
             "How often the players currently held in the waiting room are re-examined.",
@@ -216,7 +238,7 @@ public interface GateSpec {
         return 5;
     }
 
-    @Order(13)
+    @Order(14)
     @Key("limbo-ready-grace-seconds")
     @Comment({
             "How long the waiting room may be down to its last condition - limbo's own",

@@ -432,10 +432,18 @@ public final class PackStation {
         reportedForgery.remove(uuid);
     }
 
+    /**
+     * Whether this player is standing in a waiting room - <b>either</b> of them.
+     *
+     * <p>Both, since season-2-ops/120. Against {@code limbo} alone, a player parked on
+     * {@code limbo-standby} during a swap was not "on limbo" to this class: the pack handshake
+     * would not have been driven for them and {@link WaitingBook} would never have released them,
+     * because releasing happens from the waiting room and they would not have been in one.</p>
+     */
     private boolean onLimbo(final Player player) {
         return player.getCurrentServer()
                 .map(connection -> connection.getServerInfo().getName())
-                .filter(name -> name.equals(routing.servers().limbo()))
+                .filter(name -> routing.servers().isWaitingRoom(name))
                 .isPresent();
     }
 

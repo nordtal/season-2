@@ -5,6 +5,8 @@ import com.velocitypowered.api.event.player.KickedFromServerEvent;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 
+import eu.nordtal.s2.proxy.routing.PhaseServers;
+
 import net.kyori.adventure.text.Component;
 
 import org.slf4j.Logger;
@@ -70,7 +72,7 @@ public final class BackendKick {
     }
 
     private final ProxyServer proxy;
-    private final String limbo;
+    private final PhaseServers servers;
     private final BackendHealth health;
     private final GateMessages messages;
     private final LoginRoster roster;
@@ -78,7 +80,7 @@ public final class BackendKick {
 
     /**
      * @param proxy  used only to look up the waiting room by name when a redirect is needed
-     * @param limbo  {@code gate.yml#server-limbo}, the same name {@code PhaseServers} and
+     * @param servers the two waiting-room names, the same ones routing uses - and
      *               {@code PackStation} use
      * @param health   suspended for exactly the backend named in the event, never any other one -
      *                 see {@link BackendHealth}
@@ -87,10 +89,10 @@ public final class BackendKick {
      * @param roster   asked for that player's locale, the same way {@code PlayerRouter} does
      * @param logger   the plugin logger
      */
-    public BackendKick(final ProxyServer proxy, final String limbo, final BackendHealth health,
+    public BackendKick(final ProxyServer proxy, final PhaseServers servers, final BackendHealth health,
                        final GateMessages messages, final LoginRoster roster, final Logger logger) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
-        this.limbo = Objects.requireNonNull(limbo, "limbo");
+        this.servers = Objects.requireNonNull(servers, "servers");
         this.health = Objects.requireNonNull(health, "health");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.roster = Objects.requireNonNull(roster, "roster");
@@ -139,23 +141,32 @@ public final class BackendKick {
      */
     private void toLimbo(final KickedFromServerEvent event) {
         final String from = event.getServer().getServerInfo().getName();
-        if (from.equals(limbo)) {
+        // EITHER waiting room, since season-2-ops/120. Against `limbo` alone, a reasonless kick
+        // out of `limbo-standby` during a swap would have fallen through to the redirect below and
+        // sent the player into the room they had just been thrown out of - the exact bounce this
+        // class exists to stop, and worse than the one it was written for, because the standby is
+        // the room that is stopping last.
+        if (servers.isWaitingRoom(from)) {
             // The waiting room itself just lost a player with no reason given. Redirecting them
             // back into the server that produced this event would be the exact bounce this class
             // exists to stop, so Velocity's own result stands - the same "nothing better to say"
             // rule this class always applied to a reasonless kick, still true for the one backend
             // that cannot be the destination of its own redirect.
-            logger.warn("'{}' lost {} with no reason given, and '{}' is itself the waiting room; "
+            logger.warn("'{}' lost {} with no reason given, and it is itself a waiting room; "
                             + "leaving Velocity's own result in place",
-                    limbo, event.getPlayer().getUsername(), limbo);
+                    from, event.getPlayer().getUsername());
             return;
         }
 
-        final RegisteredServer target = proxy.getServer(limbo).orElse(null);
+        // The live room first, the standby only because the live one is not registered right now -
+        // the same order PhaseRouting uses, and for the same reason.
+        final RegisteredServer target = proxy.getServer(servers.limbo())
+                .or(() -> proxy.getServer(servers.limboStandby()))
+                .orElse(null);
         if (target == null) {
-            logger.error("{} lost its connection to '{}' with no reason given, and no '{}' is "
-                            + "registered on this proxy to hold them in instead",
-                    event.getPlayer().getUsername(), from, limbo);
+            logger.error("{} lost its connection to '{}' with no reason given, and neither '{}' nor "
+                            + "'{}' is registered on this proxy to hold them in instead",
+                    event.getPlayer().getUsername(), from, servers.limbo(), servers.limboStandby());
             return;
         }
 
@@ -166,7 +177,8 @@ public final class BackendKick {
         health.suspend(from);
         logger.warn("{} lost its connection to '{}' with no reason given; moving them to '{}' "
                         + "instead of a disconnect screen, and holding '{}' suspended for {}s",
-                event.getPlayer().getUsername(), from, limbo, from, BackendHealth.RETRY.toSeconds());
+                event.getPlayer().getUsername(), from, target.getServerInfo().getName(), from,
+                BackendHealth.RETRY.toSeconds());
         final Locale locale = roster.localeOf(event.getPlayer().getUniqueId());
         event.setResult(KickedFromServerEvent.RedirectPlayer.create(target,
                 messages.connectionLost(locale)));

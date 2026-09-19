@@ -67,7 +67,7 @@ class ServicesApiTest {
     @Test
     @DisplayName("a row older than the cutoff is treated exactly like no row at all")
     void aStaleRowIsDropped() {
-        // network-control stopped writing a while ago - this is the case the class exists for,
+        // proxy stopped writing a while ago - this is the case the class exists for,
         // never mind what number happened to be sitting in the row when it stopped.
         final Instant tooOld = NOW.minus(ServicesApi.STALE_AFTER).minusSeconds(1);
 
@@ -77,15 +77,15 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("network-control being stale takes every subject down with it, since it is the only writer")
-    void allFourGoStaleTogetherWhenNetworkControlStopsWriting() {
+    @DisplayName("proxy being stale takes every subject down with it, since it is the only writer")
+    void allFourGoStaleTogetherWhenProxyStopsWriting() {
         final Instant tooOld = NOW.minus(ServicesApi.STALE_AFTER).minusSeconds(1);
 
         assertTrue(api(Map.of(
                 "smp", new OnlineCount("smp", 4, tooOld),
                 "hunger-games", new OnlineCount("hunger-games", 2, tooOld),
                 "limbo", new OnlineCount("limbo", 0, tooOld),
-                "network-control", new OnlineCount("network-control", 6, tooOld)), List.of())
+                "proxy", new OnlineCount("proxy", 6, tooOld)), List.of())
                         .read().counts().isEmpty(),
                 "every row shares one writer, so a stale write makes all four unknown at once");
     }
@@ -93,7 +93,7 @@ class ServicesApiTest {
     // ---------------------------------------------------------------- the roster (steward/111)
 
     @Test
-    @DisplayName("nobody written means no key at all - not an empty list under network-control")
+    @DisplayName("nobody written means no key at all - not an empty list under proxy")
     void anEmptyRosterProducesNoKeys() {
         assertTrue(api(Map.of(), List.of()).read().roster().isEmpty(),
                 "an empty list is a claim; absence is the honest answer");
@@ -106,7 +106,7 @@ class ServicesApiTest {
                 List.of(new OnlinePlayer(ADA, "Ada", "smp", NOW.minusSeconds(1)))).read().roster();
 
         assertEquals(List.of("Ada"), names(roster.get("smp")));
-        assertEquals(List.of("Ada"), names(roster.get(ServicesApi.NETWORK_CONTROL)),
+        assertEquals(List.of("Ada"), names(roster.get(ServicesApi.PROXY)),
                 "the proxy's row is the network, so everybody fresh is on its list");
         assertEquals(2, roster.size(), "and nothing else was invented");
     }
@@ -117,7 +117,7 @@ class ServicesApiTest {
         final Map<String, List<OnlinePlayer>> roster = api(Map.of(),
                 List.of(new OnlinePlayer(ADA, "Ada", null, NOW))).read().roster();
 
-        assertEquals(List.of("Ada"), names(roster.get(ServicesApi.NETWORK_CONTROL)),
+        assertEquals(List.of("Ada"), names(roster.get(ServicesApi.PROXY)),
                 "the proxy counts them, so the proxy's list has them");
         assertEquals(1, roster.size(), "no backend may claim a player no backend has");
     }

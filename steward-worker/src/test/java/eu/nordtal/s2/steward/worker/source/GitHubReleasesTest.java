@@ -81,7 +81,7 @@ class GitHubReleasesTest {
         assertNotNull(sha1);
 
         // Stripped, because the file ends in a newline and a 41-character "40 hex characters"
-        // fails network-control's own validation with a message about the alphabet.
+        // fails proxy's own validation with a message about the alphabet.
         assertEquals("6f1ed002ab5595859014ebf0951522d9d0f2ee34", github.readText(sha1));
     }
 }

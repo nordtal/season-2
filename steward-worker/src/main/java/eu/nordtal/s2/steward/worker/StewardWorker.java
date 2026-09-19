@@ -219,9 +219,29 @@ public final class StewardWorker {
         if (config == null) {
             return 1;
         }
-        // stdout, not the logger: this is the program's output, not a record of it running. A
-        // report wrapped in timestamps and thread names is a report nobody pastes anywhere.
-        System.out.println(Report.render(Runs.resolve(config)));
+        // season-2-ops/129: the added plugins live in the database, and this command is the one
+        // caller that may legitimately run without one - it is what somebody types on a host
+        // whose schema does not exist yet. So the pool is opened if it can be, and its absence
+        // costs the added rows and is said out loud rather than producing a quietly shorter
+        // report than the same resolve performed by the daemon.
+        final DatabaseSpec databaseConfig = databaseConfig(configDirectory);
+        final Database opened = databaseConfig == null ? null : openDatabase(databaseConfig);
+        try {
+            final eu.nordtal.s2.common.plugin.PluginDirectory plugins = opened == null
+                    ? eu.nordtal.s2.common.plugin.PluginDirectory.NONE
+                    : eu.nordtal.s2.common.plugin.PluginDirectory.using(opened.dataSource());
+            if (opened == null) {
+                log.warn("No database, so any plugin added from the interface is missing from this"
+                        + " report. Everything the topology names is in it.");
+            }
+            // stdout, not the logger: this is the program's output, not a record of it running. A
+            // report wrapped in timestamps and thread names is a report nobody pastes anywhere.
+            System.out.println(Report.render(Runs.resolve(config, plugins)));
+        } finally {
+            if (opened != null) {
+                opened.close();
+            }
+        }
         return 0;
     }
 
@@ -268,7 +288,8 @@ public final class StewardWorker {
             }
 
             try (RunLock held = lock.get()) {
-                final UpdatePlan resolved = Runs.resolve(config);
+                final UpdatePlan resolved = Runs.resolve(config,
+                        eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource()));
                 final UpdatePlan plan = resolved.onlyMissing();
                 System.out.println(Report.render(resolved));
                 // Whenever the executed plan is smaller than the resolved one, not only when it
@@ -455,6 +476,12 @@ public final class StewardWorker {
                 // runner starts and commits the countdown on the row it is running. Two would be
                 // two pools for one table.
                 final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
+                // season-2-ops/129: the plugins an admin added from the interface. One directory
+                // for the three readers that need it - the runner's resolve, the API's "what would
+                // a run do", and the API's own add and remove - because three would be three pools
+                // for one table.
+                final eu.nordtal.s2.common.plugin.PluginDirectory addedPlugins =
+                        eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource());
                 // Read-only, for ActionsApi's feed (steward/82) - the run loop above never touches
                 // audit_log, so this is the one directory this method opens purely for the API.
                 final AuditDirectory audit = AuditDirectory.using(database.dataSource());
@@ -469,12 +496,29 @@ public final class StewardWorker {
                         Path.of(config.volumesRoot()), updates, audit,
                         new WorkerApi.Nightly(config.backup().at(), config.backup().days(),
                                 ZoneId.systemDefault()),
-                        // The player counts network-control writes (steward/86) and, since
+                        // The player counts proxy writes (steward/86) and, since
                         // steward/111, the player list next to them. Same pool again - two small
                         // reads per service table, and no second connection for either.
                         new eu.nordtal.s2.steward.worker.api.ServicesApi(
                                 OnlineDirectory.using(database.dataSource()),
-                                OnlineRoster.using(database.dataSource())))) {
+                                OnlineRoster.using(database.dataSource())),
+                        // season-2-ops/128: the same resolve a run starts with, handed to the API
+                        // as a supplier so the page can ask "what is newest" without a run. It
+                        // writes nothing - see Runs#resolve - and it is the same call, not a
+                        // second one: two programs answering "what would an update do" differently
+                        // is exactly what Runs exists to prevent.
+                        () -> Runs.resolve(config, addedPlugins),
+                        // season-2-ops/129: the plugin list, the search and the two buttons. It
+                        // gets its own Modrinth rather than sharing the resolver's, because the
+                        // resolver builds one per run and this one lives as long as the API does.
+                        new eu.nordtal.s2.steward.worker.api.PluginsApi(
+                                addedPlugins,
+                                new eu.nordtal.s2.steward.worker.source.Modrinth(
+                                        new eu.nordtal.s2.steward.worker.http.JdkHttp(
+                                                Duration.ofSeconds(config.httpTimeoutSeconds()),
+                                                config.githubToken())),
+                                Path.of(config.volumesRoot()),
+                                eu.nordtal.s2.common.Platform.MINECRAFT))) {
                     if (config.api().token().isBlank()) {
                         log.warn("api.token is empty, so the internal API is not listening and"
                                 + " steward-ui cannot read this container. Updates and backups are"
@@ -512,7 +556,7 @@ public final class StewardWorker {
 
                 try (UpdateServer server = new UpdateServer(
                         updates,
-                        new Runner(config, database, containers, backups, updates),
+                        new Runner(config, database, containers, backups, updates, addedPlugins),
                         PostgresNotifications.connector(databaseConfig),
                         Duration.ofSeconds(config.pollIntervalSeconds()),
                         Clock.systemUTC())) {
@@ -641,7 +685,9 @@ public final class StewardWorker {
         try (RunLock held = lock.get()) {
             final UpdatePlan missing;
             try {
-                missing = Runs.resolve(config).onlyMissing();
+                missing = Runs.resolve(config,
+                        eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource()))
+                        .onlyMissing();
             } catch (final RuntimeException failure) {
                 log.error("Bootstrap: nothing could be resolved, so no missing file was installed."
                         + " Any server whose plugins folder is empty will refuse to start and say"

@@ -14,7 +14,7 @@ import java.util.List;
  * Changes exactly two lines of the proxy's {@code pack.yml}: {@code url} and {@code sha1}.
  *
  * <p>Editing two lines rather than loading the file through jcore avoids depending on
- * {@code PackSpec}, which belongs to {@code :network-control}, and keeps steward-worker unable to
+ * {@code PackSpec}, which belongs to {@code :proxy}, and keeps steward-worker unable to
  * touch {@code enabled}, {@code force} or {@code apply-timeout-seconds} by accident.</p>
  *
  * <p>A key missing from a file that exists is an error rather than something to append: appending
@@ -91,7 +91,7 @@ public final class PackWriter {
                                   final @NotNull String sha1) throws IOException {
         Files.createDirectories(packYml.getParent());
         Files.write(packYml, List.of(
-                "# Written by steward-worker against a volume network-control had never started",
+                "# Written by steward-worker against a volume proxy had never started",
                 "# against. The proxy fills in enabled, force and apply-timeout-seconds with their",
                 "# defaults on its first load, and rewrites this header.",
                 "url: " + url,

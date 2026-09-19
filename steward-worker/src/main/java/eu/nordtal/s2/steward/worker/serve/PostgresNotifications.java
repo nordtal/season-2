@@ -18,7 +18,7 @@ import java.util.Properties;
  * {@code LISTEN nordtal_update} on it, polled with {@code PGConnection#getNotifications(int)}.
  *
  * <h2>Why it is not a pooled connection</h2>
- * The same two reasons {@code network-control} gives for the phase listener. {@code LISTEN} is
+ * The same two reasons {@code proxy} gives for the phase listener. {@code LISTEN} is
  * session state, and a pool hands sessions back out; and this connection is parked inside a
  * blocking call for as long as the process runs, which is not a connection a pool can ever
  * reclaim. pgjdbc has no callback API, so a thread has to sit on it.

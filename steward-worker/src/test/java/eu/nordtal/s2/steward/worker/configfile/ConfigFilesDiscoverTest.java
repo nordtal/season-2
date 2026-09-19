@@ -85,8 +85,8 @@ class ConfigFilesDiscoverTest {
         // and leaves the previous content in `gate.yml.bak`; the backup is YAML, it parses, and it
         // would draw an ordinary form whose every control writes to a file nothing reads. Measured
         // on the running mount on 2026-09-16 there were six of them. Till: leave them out.
-        write("network-control/gate.yml");
-        Files.writeString(root.resolve("network-control/gate.yml.bak"), "server-limbo: old\n");
+        write("proxy/gate.yml");
+        Files.writeString(root.resolve("proxy/gate.yml.bak"), "server-limbo: old\n");
 
         assertEquals(List.of("gate.yml"),
                 ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());

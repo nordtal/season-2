@@ -21,6 +21,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -1212,6 +1213,11 @@ class TopologyTest {
         // quietly never touch.
         final Set<String> known = new LinkedHashSet<>();
         Topology.SERVICES.forEach(service -> known.add(service.name()));
+        // The standbys are Minecraft services too, and deliberately not Topology.Service rows:
+        // nothing is resolved for them, their jars are copied from the service they stand in for
+        // (Standbys). They still have to be named somewhere, or this check would refuse them for
+        // ever - season-2-ops/119.
+        known.addAll(Topology.standbyNames());
 
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
@@ -1279,6 +1285,163 @@ class TopologyTest {
         assertEquals(List.of(), deaf,
                 "a Minecraft service that does not receive a variable its own entrypoint reads is a"
                         + " setting somebody can write and nothing can apply.");
+    }
+
+    // ---------------------------------------------------------------- the standbys
+
+    @Test
+    @DisplayName("every standby is its model again, on its own volumes")
+    void aStandbyIsItsModelOnItsOwnVolumes() {
+        // What a standby is for is carrying the network while its model restarts, so the two have
+        // to be the same server in every respect a player can feel - and different in exactly the
+        // ones that would make them fight: the volumes, and the published port.
+        for (final String model : Topology.SERVICES_WITH_STANDBY) {
+            final String standby = Topology.standbyOf(model);
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> defined = (Map<String, Object>) services.get(standby);
+            assertNotNull(defined, "compose.yml has no service '" + standby + "'. Without it there"
+                    + " is nobody to transfer players to and an update takes the network down the"
+                    + " way it always did.");
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> itsModel = (Map<String, Object>) services.get(model);
+
+            assertEquals(itsModel.get("environment"), defined.get("environment"),
+                    standby + " is configured differently from " + model + ". It runs the same jars"
+                            + " under the same name and it is the process carrying every player for"
+                            + " the length of a swap; a setting that reaches only one of the two is"
+                            + " a setting players meet in half the season. compose.yml uses one"
+                            + " YAML node for both, so this fails when somebody has copied the"
+                            + " block instead of aliasing it.");
+
+            assertEquals(List.of("standby"), defined.get("profiles"),
+                    standby + " is not in a profile of its own. In `mc` it would run all season"
+                            + " beside the service it exists to replace, on a host that has been"
+                            + " out of memory once already.");
+            assertFalse(String.valueOf(itsModel.get("profiles")).contains("standby"),
+                    model + " is in the standby profile, so the pair would start together");
+
+            // The volumes are the half that must NOT be shared, and a copied block is exactly how
+            // they would come to be shared: two Paper processes on one /data fight over
+            // session.lock, and two Velocity processes on one plugins/ overwrite each other.
+            for (final String mountPoint : List.of(":/data", ":/data/plugins")) {
+                assertNotEquals(sourceOf(mountEndingIn(itsModel, mountPoint)),
+                        sourceOf(mountEndingIn(defined, mountPoint)),
+                        standby + " mounts the same source as " + model + " at " + mountPoint
+                                + ". Two servers on one directory is not a standby, it is one"
+                                + " server started twice.");
+            }
+
+            // And the plugins/ rule the four live services already keep: what steward-worker fills
+            // has to be what the container reads, expression for expression.
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
+            final String onTheWorker = mountsOf(worker).stream()
+                    .filter(mount -> mount.endsWith(":/volumes/" + standby + "/plugins"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("steward-worker does not mount " + standby
+                            + "'s plugins/, so Standbys#fill has nowhere to copy the jars. The"
+                            + " standby would be started for a swap with an empty folder and"
+                            + " refuse to boot."));
+            assertEquals(sourceOf(mountEndingIn(defined, ":/data/plugins")), sourceOf(onTheWorker),
+                    standby + ": steward-worker fills one directory and the container reads"
+                            + " another");
+        }
+    }
+
+    @Test
+    @DisplayName("the standby proxy is the same proxy on a second port, and that is the port a client is told")
+    void theStandbyProxyPublishesTheSecondPort() {
+        final String standby = Topology.standbyOf(Topology.PROXY);
+        final List<String> published = ports(standby);
+        final List<String> tcp = published.stream().filter(port -> !port.endsWith("/udp")).toList();
+        final List<String> udp = udpPorts(standby);
+        assertEquals(1, tcp.size(), standby + " publishes " + published + " - it needs exactly one"
+                + " TCP port, which is where a transferred client arrives");
+        assertEquals(1, udp.size(), standby + " publishes " + published + " - the UDP half belongs"
+                + " beside it, even limited as it is");
+
+        final List<String> tcpParts = fields(tcp.getFirst());
+        final String withProtocol = udp.getFirst();
+        final List<String> udpParts =
+                fields(withProtocol.substring(0, withProtocol.length() - "/udp".length()));
+        assertEquals(tcpParts.get(1), udpParts.get(1),
+                standby + " publishes Minecraft and voice on two different host ports");
+
+        // Velocity binds 25565 INSIDE every proxy container - the entrypoint seeds
+        // `bind = "0.0.0.0:25565"` and nothing parameterises it - so the container side is 25565
+        // here as well. This is also why voice chat cannot work on the standby: the plugin hands a
+        // client the port it is bound to, and on this host that number belongs to the other
+        // container. The note at the service says what that costs; this assertion is here so that
+        // nobody "fixes" the voice half by renumbering the container side and silently breaks the
+        // transfer instead.
+        assertEquals("25565", tcpParts.get(2),
+                standby + " maps its host port onto " + tcpParts.get(2) + " in the container, but"
+                        + " Velocity binds 25565 in there");
+        assertEquals("25565", udpParts.get(2), standby + " maps UDP onto " + udpParts.get(2));
+
+        final List<String> live = fields(ports(Topology.PROXY).stream()
+                .filter(port -> !port.endsWith("/udp")).findFirst().orElseThrow());
+        assertNotEquals(live.get(1), tcpParts.get(1), "the standby publishes the same host port as"
+                + " the proxy, so only one of the two could ever be up - which is the whole thing"
+                + " this was built to avoid");
+
+        // The port a transferred client is told to reconnect on has to be the port compose
+        // publishes. Two literals are two chances to write 25566 and 25567.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment =
+                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY))
+                        .get("environment");
+        assertEquals(tcpParts.get(1),
+                String.valueOf(environment.get("NORDTAL_PROXY_NETWORK_STANDBY_PORT")),
+                "the proxy sends a client to a port compose does not publish for the standby");
+    }
+
+    @Test
+    @DisplayName("the proxies are told the address players reach this network on")
+    void thePublicAddressReachesTheProxy() {
+        // A transfer names an address to the CLIENT, so nothing inside the stack can work it out:
+        // `proxy:25565` is a compose name and 0.0.0.0 is a bind. deploy/nordtal.sh asks for it and
+        // this line is what carries the answer in.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment =
+                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY))
+                        .get("environment");
+        final Object address = environment.get("NORDTAL_PROXY_NETWORK_PUBLIC_ADDRESS");
+        assertNotNull(address, "the proxy is given no public address, so network.yml's empty"
+                + " default stands, no transfer is ever offered, and nothing in .env can change"
+                + " that - a jcore override is only read for a key the spec declares.");
+        assertTrue(String.valueOf(address).contains("NETWORK_PUBLIC_ADDRESS"),
+                "the public address does not come from NETWORK_PUBLIC_ADDRESS: " + address
+                        + " - that is the name deploy/nordtal.sh writes into the env file");
+    }
+
+    @Test
+    @DisplayName("the proxies know the standby waiting room by name")
+    void theStandbyLimboIsRegistered() {
+        // A Velocity server that is not registered cannot be connected to at all, while a
+        // registered one that is down costs nothing until it is needed. The seed only runs on a
+        // fresh volume, so this value reaches an existing deployment by hand - which is written in
+        // the ticket as a deployment step.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment =
+                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY))
+                        .get("environment");
+        final String servers = defaultOf(String.valueOf(environment.get("VELOCITY_SERVERS")));
+        final String standby = Topology.standbyOf(Topology.LIMBO);
+        assertTrue(servers.contains(standby + "=" + standby + ":25565"),
+                "VELOCITY_SERVERS does not register " + standby + ": " + servers + ". Neither"
+                        + " proxy could then send anybody to the standby waiting room, which is"
+                        + " where every player spends a swap.");
+    }
+
+    /** The one mount of a service whose destination is {@code ending}. */
+    private static String mountEndingIn(final Map<String, Object> service, final String ending) {
+        return mountsOf(service).stream()
+                .filter(mount -> mount.endsWith(ending))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no mount ending in " + ending + " on "
+                        + service.get("container_name")));
     }
 
     private static java.util.List<String> smpPlugins() {

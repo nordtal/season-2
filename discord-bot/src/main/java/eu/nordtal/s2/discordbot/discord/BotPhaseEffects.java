@@ -15,7 +15,7 @@ import java.util.concurrent.ExecutorService;
 /**
  * {@code /phase}, as the bot carries it out.
  *
- * <p>The mirror image of {@code network-control}'s {@code ProxyPhaseEffects}, and every difference
+ * <p>The mirror image of {@code proxy}'s {@code ProxyPhaseEffects}, and every difference
  * between the two is a real one:</p>
  * <ul>
  *   <li>It <b>caches nothing</b>, so {@link #observation()} is empty and the command reads the row.

@@ -11,6 +11,12 @@ repositoryRootTestInputs {
     // the directory declared, adding the very line it forbids leaves :proxy:test UP-TO-DATE and the
     // rule stops running exactly when it would have fired.
     reads("proxy/src/main")
+
+    // ComposeTellsTheStandbyApartTest reads the deployment file itself (season-2-ops/121): the one
+    // value that tells the live proxy from the standby is a string in a YAML nothing compiles, and
+    // both ways of getting it wrong are silent. Without this line, deleting that string leaves
+    // :proxy:test UP-TO-DATE.
+    reads("compose.yml")
 }
 
 repositories {

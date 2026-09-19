@@ -2,6 +2,7 @@ package eu.nordtal.s2.proxy.pack;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.limbo.WaitReason;
+import eu.nordtal.s2.proxy.routing.ProxyRole;
 import eu.nordtal.s2.proxy.MutableClock;
 import eu.nordtal.s2.proxy.pack.WaitingDecision.Action;
 
@@ -45,7 +46,7 @@ class WaitingBookTest {
     private final UUID player = UUID.randomUUID();
 
     private WaitingBook book() {
-        return new WaitingBook(true, APPLY_TIMEOUT, READY_GRACE, clock);
+        return new WaitingBook(true, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, clock);
     }
 
     private Action decide(final WaitingBook book) {
@@ -262,7 +263,7 @@ class WaitingBookTest {
     @Test
     @DisplayName("with no pack to wait for there is nothing to time out")
     void aDisabledPackShortensTheWait() {
-        final WaitingBook book = new WaitingBook(false, APPLY_TIMEOUT, READY_GRACE, clock);
+        final WaitingBook book = new WaitingBook(false, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, clock);
         book.entered(player);
         book.ready(player);
         clock.advance(APPLY_TIMEOUT.multipliedBy(10));
@@ -282,7 +283,7 @@ class WaitingBookTest {
         assertEquals(Action.TIMED_OUT, decide(timing));
 
         final MutableClock second = new MutableClock(Instant.parse("2026-09-03T00:09:58Z"));
-        final WaitingBook applied = new WaitingBook(true, APPLY_TIMEOUT, READY_GRACE, second);
+        final WaitingBook applied = new WaitingBook(true, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, second);
         applied.entered(player);
         applied.claimOffer(player);
         applied.packApplied(player);

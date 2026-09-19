@@ -14,10 +14,23 @@ import java.util.Optional;
  *
  * <p>The order of the questions is the design: the pack first, because it is the only one the
  * player can influence and the only one happening on their own machine right now; then maintenance,
- * a decision somebody took that only ends when an admin switches the phase; then the hold, which is
- * also a decision and also does not end on its own (season-2-ops/125); then the update, which
- * somebody started deliberately and which is nearly over; then the backend, which resolves itself
- * the moment the server comes up.</p>
+ * a decision somebody took that only ends when an admin switches the phase; then the swap, which is
+ * a fact about this whole process rather than about one destination (season-2-ops/121); then the
+ * hold, which is also a decision and also does not end on its own (season-2-ops/125); then the
+ * update, which somebody started deliberately and which is nearly over; then the backend, which
+ * resolves itself the moment the server comes up.</p>
+ *
+ * <h2>The standby answers this question once, for everybody, and the answer is always yes</h2>
+ * A standby proxy exists for the twenty seconds the live one takes to restart, and every player on
+ * it is there because they were parked. There is nothing to release them <em>to</em>: the backend
+ * the phase names is up and healthy and completely beside the point, because they are going home to
+ * the other proxy, not onward from this one. Releasing them would connect them to a Paper server
+ * they are about to be pulled off again - and for the ones parked out of {@code limbo}, it would
+ * rejoin them to the very backend they left a second ago.
+ *
+ * <p>It is asked above the hold and the update rather than below them because it is the broader
+ * truth: those two are about the destination, and this is about the process asking. On the live
+ * proxy it is false and this whole paragraph costs a branch.</p>
  *
  * <p><b>The update sits directly above the backend, and that placement is the whole of it.</b> From
  * out here the two are indistinguishable - in both cases the destination is not taking connections -
@@ -43,6 +56,11 @@ public final class LimboHold {
      * @param phase                 the phase the network is in, from {@code PhaseWatch}
      * @param admin                 whether the player carries {@code discord_user.admin}; maintenance
      *                              does not hold the person carrying it out
+     * @param standby               whether this process is the standby proxy, in which case nobody
+     *                              is released at all - see the class comment. Admins included:
+     *                              an admin parked here is going home like everybody else, and
+     *                              releasing them onto a backend would strand them on the proxy
+     *                              that is about to be stopped
      * @param destinationAvailable  whether the backend that phase points at is registered on this
      *                              proxy. A server that is registered but <em>down</em> is
      *                              indistinguishable from a healthy one here and shows up as a
@@ -58,7 +76,8 @@ public final class LimboHold {
      *         player may be connected onward
      */
     public static Optional<WaitReason> reason(final boolean packSettled, final SeasonPhase phase,
-                                              final boolean admin, final boolean destinationAvailable,
+                                              final boolean admin, final boolean standby,
+                                              final boolean destinationAvailable,
                                               final boolean destinationUpdating,
                                               final boolean destinationHeld) {
         Objects.requireNonNull(phase, "phase");
@@ -68,6 +87,14 @@ public final class LimboHold {
         }
         if (phase == SeasonPhase.MAINTENANCE && !admin) {
             return Optional.of(WaitReason.MAINTENANCE);
+        }
+        if (standby) {
+            // UPDATE and not a reason of its own, and that is a decision rather than a shortcut.
+            // "Update in progress - you will be moved back automatically" is true here in every
+            // word, including the promise: StandbyReturn keeps it without anybody's help. A
+            // seventh reason would be a seventh screen saying the same sentence, and it would have
+            // to be translated into every language before it could say it.
+            return Optional.of(WaitReason.UPDATE);
         }
         if (destinationHeld) {
             // ABOVE the update, and that order is the point. A DOWN run is an update run for these

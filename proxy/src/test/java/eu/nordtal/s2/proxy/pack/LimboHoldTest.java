@@ -30,15 +30,15 @@ class LimboHoldTest {
         // machine right now; telling them the network is under maintenance describes the wrong half
         // of their situation and invites them to quit while a download is in flight.
         for (final SeasonPhase phase : SeasonPhase.values()) {
-            assertEquals(Optional.of(WaitReason.PACK), LimboHold.reason(false, phase, false, true, false, false), phase.toString());
-            assertEquals(Optional.of(WaitReason.PACK), LimboHold.reason(false, phase, false, false, false, false), phase.toString());
+            assertEquals(Optional.of(WaitReason.PACK), LimboHold.reason(false, phase, false, false, true, false, false), phase.toString());
+            assertEquals(Optional.of(WaitReason.PACK), LimboHold.reason(false, phase, false, false, false, false, false), phase.toString());
         }
     }
 
     @Test
     void maintenanceHoldsAPlayerWhosePackIsDone() {
         assertEquals(Optional.of(WaitReason.MAINTENANCE),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, true, false, false));
+                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, true, false, false));
     }
 
     @Test
@@ -47,14 +47,14 @@ class LimboHoldTest {
         // is standing in a waiting room the proxy does not think exists - which cannot happen, but
         // if it ever did, the honest answer is still the reason they are not going anywhere.
         assertEquals(Optional.of(WaitReason.MAINTENANCE),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, false, false));
+                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, false, false, false));
     }
 
     @Test
     void aMissingBackendIsItsOwnReasonInEveryPlayablePhase() {
         for (final SeasonPhase phase : new SeasonPhase[]{SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT,
                 SeasonPhase.SMP}) {
-            assertEquals(Optional.of(WaitReason.BACKEND), LimboHold.reason(true, phase, false, false, false, false),
+            assertEquals(Optional.of(WaitReason.BACKEND), LimboHold.reason(true, phase, false, false, false, false, false),
                     phase.toString());
         }
     }
@@ -63,7 +63,7 @@ class LimboHoldTest {
     void nothingLeftToWaitForReleasesThePlayer() {
         for (final SeasonPhase phase : new SeasonPhase[]{SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT,
                 SeasonPhase.SMP}) {
-            assertEquals(Optional.empty(), LimboHold.reason(true, phase, false, true, false, false), phase.toString());
+            assertEquals(Optional.empty(), LimboHold.reason(true, phase, false, false, true, false, false), phase.toString());
         }
     }
 
@@ -73,9 +73,9 @@ class LimboHoldTest {
         // which point PlayerRouter re-routes everybody - so this method returning empty for
         // MAINTENANCE would be a player quietly let onto the servers being worked on.
         assertEquals(Optional.of(WaitReason.MAINTENANCE),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, true, false, false));
+                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, true, false, false));
         assertEquals(Optional.of(WaitReason.PACK),
-                LimboHold.reason(false, SeasonPhase.MAINTENANCE, false, true, false, false));
+                LimboHold.reason(false, SeasonPhase.MAINTENANCE, false, false, true, false, false));
     }
 
     @Test
@@ -86,11 +86,11 @@ class LimboHoldTest {
         // through like everybody else and this is the rule that lets them out: the pack still comes
         // first, the server they are released onto (the SMP, PhaseServers#forAdmitted) still has to
         // be there, and maintenance itself is no reason to wait.
-        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonPhase.MAINTENANCE, true, true, false, false));
+        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonPhase.MAINTENANCE, true, false, true, false, false));
         assertEquals(Optional.of(WaitReason.BACKEND),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, true, false, false, false));
+                LimboHold.reason(true, SeasonPhase.MAINTENANCE, true, false, false, false, false));
         assertEquals(Optional.of(WaitReason.PACK),
-                LimboHold.reason(false, SeasonPhase.MAINTENANCE, true, true, false, false));
+                LimboHold.reason(false, SeasonPhase.MAINTENANCE, true, false, true, false, false));
     }
 
     @Test
@@ -103,8 +103,8 @@ class LimboHoldTest {
             }
             for (final boolean settled : new boolean[]{false, true}) {
                 for (final boolean available : new boolean[]{false, true}) {
-                    assertEquals(LimboHold.reason(settled, phase, false, available, false, false),
-                            LimboHold.reason(settled, phase, true, available, false, false),
+                    assertEquals(LimboHold.reason(settled, phase, false, false, available, false, false),
+                            LimboHold.reason(settled, phase, true, false, available, false, false),
                             phase + "/settled=" + settled + "/available=" + available);
                 }
             }
@@ -115,8 +115,8 @@ class LimboHoldTest {
     void aDisabledPackIsNotASpecialCaseButAWaitWithOneFewerThingInIt() {
         // PackStation passes `offer == null || applied` as packSettled, so a proxy with
         // pack.yml#enabled false behaves exactly like one whose players have all already applied it.
-        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonPhase.SMP, false, true, false, false));
-        assertEquals(Optional.of(WaitReason.BACKEND), LimboHold.reason(true, SeasonPhase.SMP, false, false, false, false));
+        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonPhase.SMP, false, false, true, false, false));
+        assertEquals(Optional.of(WaitReason.BACKEND), LimboHold.reason(true, SeasonPhase.SMP, false, false, false, false, false));
     }
 
     @Test
@@ -129,7 +129,7 @@ class LimboHoldTest {
                 for (final boolean admin : new boolean[]{false, true}) {
                     for (final boolean available : new boolean[]{false, true}) {
                         assertNotEquals(Optional.of(WaitReason.UNKNOWN),
-                                LimboHold.reason(settled, phase, admin, available, false, false),
+                                LimboHold.reason(settled, phase, admin, false, available, false, false),
                                 phase + "/settled=" + settled + "/admin=" + admin + "/available="
                                         + available);
                     }
@@ -148,7 +148,7 @@ class LimboHoldTest {
         for (final SeasonPhase phase : new SeasonPhase[]{SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT,
                 SeasonPhase.SMP}) {
             assertEquals(Optional.of(WaitReason.UPDATE),
-                    LimboHold.reason(true, phase, false, false, true, false), phase.toString());
+                    LimboHold.reason(true, phase, false, false, false, true, false), phase.toString());
         }
     }
 
@@ -159,7 +159,7 @@ class LimboHoldTest {
         // the socket refusing. Releasing a player into that window is the failed connection the
         // evacuation exists to avoid, and it would have shown as BACKEND a second later.
         assertEquals(Optional.of(WaitReason.UPDATE),
-                LimboHold.reason(true, SeasonPhase.SMP, false, true, true, false));
+                LimboHold.reason(true, SeasonPhase.SMP, false, false, true, true, false));
     }
 
     @Test
@@ -169,7 +169,7 @@ class LimboHoldTest {
         // said they would be, so saying "update" first would be a sentence that expires into a
         // worse one.
         assertEquals(Optional.of(WaitReason.MAINTENANCE),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, true, false));
+                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, false, true, false));
     }
 
     @Test
@@ -177,7 +177,7 @@ class LimboHoldTest {
         // Same argument as everywhere else in this class: the download is happening on the player's
         // own machine right now and is the only thing they can influence.
         assertEquals(Optional.of(WaitReason.PACK),
-                LimboHold.reason(false, SeasonPhase.SMP, false, false, true, false));
+                LimboHold.reason(false, SeasonPhase.SMP, false, false, false, true, false));
     }
 
     @Test
@@ -186,7 +186,7 @@ class LimboHoldTest {
         // hold a player whose phase points at the SMP - they would be sitting in a waiting room for
         // an outage that was never going to touch them.
         assertEquals(Optional.empty(),
-                LimboHold.reason(true, SeasonPhase.SMP, false, true, false, false));
+                LimboHold.reason(true, SeasonPhase.SMP, false, false, true, false, false));
     }
 
     // --- a backend somebody is holding down (season-2-ops/125) -----------------------------------
@@ -198,7 +198,7 @@ class LimboHoldTest {
         // the screen that means "something has gone wrong and nobody knows for how long", for a
         // server that is exactly where somebody put it.
         assertEquals(Optional.of(WaitReason.HELD),
-                LimboHold.reason(true, SeasonPhase.SMP, false, false, false, true));
+                LimboHold.reason(true, SeasonPhase.SMP, false, false, false, false, true));
     }
 
     @Test
@@ -208,14 +208,14 @@ class LimboHoldTest {
         // back automatically", which that run is not going to do - so the longer-lived truth wins,
         // the same way maintenance wins over both.
         assertEquals(Optional.of(WaitReason.HELD),
-                LimboHold.reason(true, SeasonPhase.SMP, false, false, true, true));
+                LimboHold.reason(true, SeasonPhase.SMP, false, false, false, true, true));
     }
 
     @Test
     @DisplayName("maintenance still outranks a hold")
     void maintenanceStillWins() {
         assertEquals(Optional.of(WaitReason.MAINTENANCE),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, false, true));
+                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, false, false, true));
     }
 
     @Test
@@ -225,6 +225,6 @@ class LimboHoldTest {
         // on the proxy while its container goes down, so there is a window in which "available" is
         // still true and releasing somebody into it is the failed connection this avoids.
         assertEquals(Optional.of(WaitReason.HELD),
-                LimboHold.reason(true, SeasonPhase.SMP, false, true, false, true));
+                LimboHold.reason(true, SeasonPhase.SMP, false, false, true, false, true));
     }
 }

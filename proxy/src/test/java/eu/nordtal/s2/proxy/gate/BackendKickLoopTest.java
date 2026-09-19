@@ -44,7 +44,7 @@ class BackendKickLoopTest {
 
         final boolean registeredButNotHealthAware = true;
         assertEquals(Optional.empty(),
-                LimboHold.reason(true, SeasonPhase.SMP, false, registeredButNotHealthAware, false, false),
+                LimboHold.reason(true, SeasonPhase.SMP, false, false, registeredButNotHealthAware, false, false),
                 "with no health signal, the waiting room sees nothing standing between the player "
                         + "and the backend that just kicked them - which is the bounce");
 
@@ -68,19 +68,19 @@ class BackendKickLoopTest {
         // so the player is held with the same BACKEND title the room already uses for a destination
         // that is merely down - not released, and therefore not kicked a second time.
         assertEquals(Optional.of(WaitReason.BACKEND),
-                LimboHold.reason(true, SeasonPhase.SMP, false, !health.isSuspended(SMP), false, false),
+                LimboHold.reason(true, SeasonPhase.SMP, false, false, !health.isSuspended(SMP), false, false),
                 "the player stays in the waiting room instead of bouncing straight back into 'smp'");
 
         // Time passes, but not yet the whole retry window: still held.
         clock.advance(BackendHealth.RETRY.minusSeconds(1));
         assertEquals(Optional.of(WaitReason.BACKEND),
-                LimboHold.reason(true, SeasonPhase.SMP, false, !health.isSuspended(SMP), false, false));
+                LimboHold.reason(true, SeasonPhase.SMP, false, false, !health.isSuspended(SMP), false, false));
 
         // The retry window passes. The next sweep is allowed to try again - this is
         // "regelmäßig prüfen", not a second kick.
         clock.advance(java.time.Duration.ofSeconds(1));
         assertEquals(Optional.empty(),
-                LimboHold.reason(true, SeasonPhase.SMP, false, !health.isSuspended(SMP), false, false),
+                LimboHold.reason(true, SeasonPhase.SMP, false, false, !health.isSuspended(SMP), false, false),
                 "once the retry window has passed the player may be released - this is the actual "
                         + "health check: a real connection attempt");
 
@@ -89,6 +89,6 @@ class BackendKickLoopTest {
         // dass er etwas tun muss".
         health.clear(SMP);
         assertEquals(Optional.empty(),
-                LimboHold.reason(true, SeasonPhase.SMP, false, !health.isSuspended(SMP), false, false));
+                LimboHold.reason(true, SeasonPhase.SMP, false, false, !health.isSuspended(SMP), false, false));
     }
 }

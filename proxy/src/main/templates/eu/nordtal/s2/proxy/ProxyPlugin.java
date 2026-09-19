@@ -70,9 +70,15 @@ import eu.nordtal.s2.proxy.playtime.PlaytimeStore;
 import eu.nordtal.s2.proxy.playtime.PlaytimeWriter;
 import eu.nordtal.s2.proxy.routing.PhaseRouting;
 import eu.nordtal.s2.proxy.routing.PhaseServers;
+import eu.nordtal.s2.proxy.routing.ProxyRole;
 import eu.nordtal.s2.proxy.routing.PlayerRouter;
 import eu.nordtal.s2.proxy.routing.RouteIntents;
 import eu.nordtal.s2.proxy.update.Evacuation;
+import eu.nordtal.s2.proxy.update.ParkedSeats;
+import eu.nordtal.s2.proxy.update.ProxySwap;
+import eu.nordtal.s2.proxy.update.StandbyReturn;
+import eu.nordtal.s2.proxy.update.SwapAddresses;
+import eu.nordtal.s2.proxy.update.SwapStore;
 import eu.nordtal.s2.proxy.update.RestartWatch;
 
 import org.slf4j.Logger;
@@ -220,7 +226,40 @@ public final class ProxyPlugin {
         // carries two waiting-room names rather than one, and two constructions of it would be two
         // chances for half the plugin to know about the standby and half not to.
         final PhaseServers phaseServers = PhaseServers.from(gateConfig);
-        final PhaseRouting routing = new PhaseRouting(phaseServers);
+
+        // WHICH OF THE TWO PROXIES THIS IS (season-2-ops/121), and the only thing that says so.
+        // Both containers are the same image with the same environment - compose.yml shares one
+        // YAML node between them - and Velocity binds 0.0.0.0:25565 inside both, so nothing here
+        // can be worked out by looking. See ProxyRole for why guessing is worse than asking.
+        final ProxyRole role = ProxyRole.of(networkConfig.standby());
+        final PhaseRouting routing = new PhaseRouting(phaseServers, role);
+        final java.net.InetSocketAddress publicAddress =
+                SwapAddresses.publicAddress(networkConfig.publicAddress()).orElse(null);
+        final java.net.InetSocketAddress standbyAddress = publicAddress == null ? null
+                : SwapAddresses.standbyAddress(publicAddress, networkConfig.standbyPort())
+                        .orElse(null);
+        final SwapStore swaps = SwapStore.using(pool);
+
+        // READ ONCE, HERE, AND BEFORE VELOCITY BINDS ITS LISTENER. Measured on this host's own
+        // velocity-4.2.0-30.jar (2026-09-19): ProxyInitializeEvent is fired before
+        // ConnectionManager#bind, so no login can race this read. The statement empties the table,
+        // which is what makes a seat valid for one run and not for ever.
+        ParkedSeats parked;
+        try {
+            parked = new ParkedSeats(swaps.takeAllSeats(), Clock.systemUTC().instant());
+        } catch (final RuntimeException failure) {
+            // Not fatal. Everything a seat changes is where an ADMIN lands after a swap; every
+            // other player is routed by the phase, which is where the seat would have sent them
+            // anyway. Refusing to start over that would trade the network for a convenience.
+            logger.warn("Could not read where players were standing before the last proxy swap; "
+                    + "everybody will be routed by the season phase", failure);
+            parked = new ParkedSeats(java.util.List.of(), Clock.systemUTC().instant());
+        }
+        final ParkedSeats parkedSeats = parked;
+        if (parkedSeats.size() > 0) {
+            logger.info("Came back from a proxy swap: {} player(s) have a seat waiting",
+                    parkedSeats.size());
+        }
         final AtomicReference<PlayerRouter> routerRef = new AtomicReference<>();
         final PhaseWatch phaseWatch = new PhaseWatch(phases, logger, (previous, current) -> {
             final PlayerRouter router = routerRef.get();
@@ -246,7 +285,7 @@ public final class ProxyPlugin {
 
         final WaitingBook book = new WaitingBook(offer != null,
                 Duration.ofSeconds(packConfig.applyTimeoutSeconds()),
-                Duration.ofSeconds(gateConfig.limboReadyGraceSeconds()), Clock.systemUTC());
+                Duration.ofSeconds(gateConfig.limboReadyGraceSeconds()), role, Clock.systemUTC());
         // season-2-ops/20: one breaker per backend, shared by BackendKick (which trips it), the
         // pack station's own release-connection failures (which trip it too) and PlayerRouter
         // (which clears it the moment a real connection to that backend succeeds again).
@@ -264,7 +303,8 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, intents);
 
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
-                roster, fallback, gateMessages, packs, intents, backendHealth);
+                roster, fallback, gateMessages, packs, intents, backendHealth,
+                parkedSeats);
         routerRef.set(router);
         packs.onRelease(router::releaseFromLimbo);
         proxy.getEventManager().register(this, router);
@@ -422,7 +462,7 @@ public final class ProxyPlugin {
         // the proxy, two tables - a second timer would let the count and the list describe two
         // different moments.
         final OnlineWriter onlineWriter = new OnlineWriter(proxy, phaseServers,
-                OnlineDirectory.using(pool), OnlineRoster.using(pool), logger);
+                OnlineDirectory.using(pool), OnlineRoster.using(pool), role, logger);
         final Duration onlineInterval = OnlineDirectory.WRITE_INTERVAL;
         onlineWriter.write();
         proxy.getScheduler().buildTask(this, onlineWriter::write)
@@ -471,6 +511,48 @@ public final class ProxyPlugin {
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();
+
+        // ------------------------------------------------------------ the proxy swap
+
+        // What Evacuation cannot do, because the process it would do it with is the one being
+        // stopped (season-2-ops/121). One of these two does something and the other does nothing,
+        // and which is which is `role`: the live proxy parks the network on the standby before it
+        // goes, and the standby holds it and hands it back. Both are wired on every proxy so that
+        // the standby is the live proxy with one value changed, and never a second build.
+        final ProxySwap swap = new ProxySwap(proxy, logger, UpdateDirectory.using(pool), swaps,
+                role, standbyAddress, Clock.systemUTC());
+        proxy.getScheduler().buildTask(this, swap::check)
+                .delay(RestartWatch.INTERVAL)
+                .repeat(RestartWatch.INTERVAL)
+                .schedule();
+
+        final StandbyReturn standbyReturn = new StandbyReturn(proxy, logger, swaps, role,
+                publicAddress, Clock.systemUTC());
+        proxy.getScheduler().buildTask(this, standbyReturn::check)
+                .delay(StandbyReturn.INTERVAL)
+                .repeat(StandbyReturn.INTERVAL)
+                .schedule();
+
+        // SAID AT START AND NOT ON THE DAY IT MATTERS. Everything about a proxy swap is invisible
+        // until one runs, and the two ways it silently does not happen - no public address, and a
+        // standby that was never told it is one - both look exactly like a network that simply
+        // went down for the update.
+        if (role.isStandby()) {
+            logger.info("THIS IS THE STANDBY PROXY. Arrivals are held in '{}' and transferred back "
+                            + "to {} as soon as it answers again; no player counts are written "
+                            + "from here.", phaseServers.limboStandby(),
+                    publicAddress == null ? "nowhere - network.yml#public-address is empty"
+                            : publicAddress.getHostString() + ":" + publicAddress.getPort());
+        } else if (swap.isArmed()) {
+            logger.info("An update that moves this proxy will park everybody on {}:{} instead of "
+                            + "disconnecting them", standbyAddress.getHostString(),
+                    standbyAddress.getPort());
+        } else {
+            logger.warn("network.yml#public-address is empty or carries no port, so an update that "
+                    + "moves this proxy will DISCONNECT every connected player. That is the old "
+                    + "behaviour and a valid choice; set it to the host:port players type to swap "
+                    + "proxies instead.");
+        }
 
         // ------------------------------------------------------------ the command allowlist
 

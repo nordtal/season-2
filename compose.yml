@@ -413,6 +413,12 @@ services:
       # standby: the two proxies differ by a port number and nothing else. This is the SAME value
       # the standby publishes below, so a changed port moves both sides at once.
       NORDTAL_PROXY_NETWORK_STANDBY_PORT: ${PROXY_STANDBY_PORT:-25566}
+      # WHICH OF THE TWO PROXIES THIS PROCESS IS (season-2-ops/121), and the ONE value the standby
+      # below overrides. It is in the shared block rather than only in the standby's so that the
+      # live proxy says `false` out loud: a proxy that believed it was the standby would watch
+      # public-address, find ITSELF answering, and transfer every player to the address they are
+      # already on, for ever. Written here, that mistake needs somebody to edit this line.
+      NORDTAL_PROXY_NETWORK_STANDBY: "false"
       # THE RESOURCE PACK IS NOT A VARIABLE HERE, and must not become one: a jcore environment
       # override wins over the file and is never written back, so the worker writing a new sha1 into
       # pack.yml while PACK_URL and PACK_SHA1 were set would write into a value nothing reads.
@@ -500,7 +506,16 @@ services:
     # needs them starts them by name. It replaces the merged `profiles: ["mc"]` rather than adding
     # to it - an explicit key wins over an anchor's.
     profiles: ["standby"]
-    environment: *proxy-env
+    # A MERGE AND NO LONGER A PLAIN ALIAS, for exactly one key (season-2-ops/121). Everything the
+    # live proxy's block says still reaches this one and cannot reach only one of them - that is
+    # what the anchor is for and it is unchanged. What is added is the one fact no process can work
+    # out about itself: Velocity binds 0.0.0.0:25565 inside BOTH containers and Docker renumbers
+    # outside, so the port below is invisible from in here. Without this line the standby would
+    # behave exactly like the live proxy - it would release parked players onto the backends and
+    # never send anybody home - and nothing would say so.
+    environment:
+      <<: *proxy-env
+      NORDTAL_PROXY_NETWORK_STANDBY: "true"
     ports:
       # THE ONLY DIFFERENCE A CLIENT CAN SEE. Velocity still binds 25565 INSIDE this container - the
       # entrypoint seeds `bind = "0.0.0.0:25565"` and nothing parameterises it - so the mapping is

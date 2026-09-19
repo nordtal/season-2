@@ -2,6 +2,7 @@ package eu.nordtal.s2.proxy.pack;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.limbo.WaitReason;
+import eu.nordtal.s2.proxy.routing.ProxyRole;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -71,6 +72,7 @@ public final class WaitingBook {
     private final boolean packOffered;
     private final Duration applyTimeout;
     private final Duration readyGrace;
+    private final ProxyRole role;
     private final Clock clock;
 
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
@@ -81,13 +83,19 @@ public final class WaitingBook {
      * @param applyTimeout how long a player may sit with an unanswered pack offer
      * @param readyGrace   how long everything else may be settled before the player is released
      *                     without {@code limbo}'s confirmation
+     * @param role         which of the two proxies this process is. Held here rather than passed
+     *                     to {@link #decide} because it is a fact about the process and not about
+     *                     the player: a parameter would be the same value at every call site, and
+     *                     the one call site that got it wrong would be the one nobody re-read
+     *                     (season-2-ops/121)
      * @param clock        the clock both periods are measured on
      */
     public WaitingBook(final boolean packOffered, final Duration applyTimeout,
-                       final Duration readyGrace, final Clock clock) {
+                       final Duration readyGrace, final ProxyRole role, final Clock clock) {
         this.packOffered = packOffered;
         this.applyTimeout = Objects.requireNonNull(applyTimeout, "applyTimeout");
         this.readyGrace = Objects.requireNonNull(readyGrace, "readyGrace");
+        this.role = Objects.requireNonNull(role, "role");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -279,8 +287,8 @@ public final class WaitingBook {
                     && clock.instant().isBefore(session.backendDownUntil);
             final boolean available = destinationAvailable && !stillDown;
             final Optional<WaitReason> reason =
-                    LimboHold.reason(packSettled, phase, admin, available, destinationUpdating,
-                            destinationHeld);
+                    LimboHold.reason(packSettled, phase, admin, role.isStandby(), available,
+                            destinationUpdating, destinationHeld);
             if (reason.isPresent()) {
                 // Something other than READY is still in the way, so the grace period restarts.
                 session.settledAt = null;

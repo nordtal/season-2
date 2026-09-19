@@ -16,6 +16,7 @@ import eu.nordtal.s2.proxy.gate.GateMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import eu.nordtal.s2.proxy.pack.PackStation;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
+import eu.nordtal.s2.proxy.update.ParkedSeats;
 
 import net.kyori.adventure.text.Component;
 
@@ -76,10 +77,18 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
      */
     private final RouteIntents intents;
 
+    /**
+     * Where each player stood before the last proxy swap, if there was one (season-2-ops/121). In
+     * memory, read once at startup, and empty on every start that did not follow a swap - which is
+     * all but a handful of them.
+     */
+    private final ParkedSeats seats;
+
     public PlayerRouter(final Object plugin, final ProxyServer proxy, final Logger logger,
                         final AccessDirectory access, final PhaseRouting routing, final PhaseWatch phases,
                         final LoginRoster roster, final FallbackCache fallback, final GateMessages messages,
-                        final PackStation packs, final RouteIntents intents, final BackendHealth health) {
+                        final PackStation packs, final RouteIntents intents, final BackendHealth health,
+                        final ParkedSeats seats) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -92,6 +101,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         this.packs = Objects.requireNonNull(packs, "packs");
         this.intents = Objects.requireNonNull(intents, "intents");
         this.health = Objects.requireNonNull(health, "health");
+        this.seats = Objects.requireNonNull(seats, "seats");
     }
 
     // ------------------------------------------------------------------ login
@@ -167,8 +177,18 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         switch (decision.action()) {
             // A backend that is registered and down holds the player with the BACKEND title rather
             // than disconnecting them with the "no server" screen.
-            case CONNECT -> connect(player, decision.server(), roster.localeOf(player.getUniqueId()),
-                    cause -> packs.releaseFailed(player, cause));
+            case CONNECT -> {
+                // THE SEAT, AND ONLY HERE. A player coming back from a proxy swap is released out
+                // of the waiting room like any other arrival; what the seat changes is where to.
+                // For everybody but an admin it names the server the phase names anyway - routing
+                // is a total function of the phase - so this is a no-op on almost every login.
+                // ParkedSeats says why it is deliberately not more than that.
+                final String destination = seats.releaseTo(player.getUniqueId(),
+                        roster.isAdmin(player.getUniqueId()), decision.server(),
+                        registeredServerNames(), routing.servers());
+                connect(player, destination, roster.localeOf(player.getUniqueId()),
+                        cause -> packs.releaseFailed(player, cause));
+            }
             // Unreachable in practice: decideRelease never answers STAY, because a player being
             // released is standing in limbo and staying there is a black screen. A log line rather
             // than an exception - a player sitting in limbo is the better failure.

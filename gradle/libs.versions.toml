@@ -6,7 +6,7 @@ paper = "26.2.build.121-stable"
 # that generates velocity-plugin.json.
 #
 # 4.1.1 -> 4.2.0 on 2026-09-14, and it was a correction and not an upgrade: Fill published 4.2.0
-# into the 4.0.0 family, the proxy follows that family by design, and nordtal-s2-network-control-1
+# into the 4.0.0 family, the proxy follows that family by design, and nordtal-s2-proxy-1
 # was already running velocity-4.2.0-30.jar while this said 4.1.1. Three update reports (ids 1, 3
 # and 5 in `update_request`) carried the note that says so and blocked nothing, which is the
 # mechanism working - and the note names this line as the fix.

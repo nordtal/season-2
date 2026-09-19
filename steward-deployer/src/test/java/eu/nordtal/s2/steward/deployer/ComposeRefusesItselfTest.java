@@ -82,7 +82,10 @@ class ComposeRefusesItselfTest {
         final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
                 () -> StewardDeployer.servicesToDeploy(all, List.of(Compose.SELF), false));
 
-        assertTrue(refused.getMessage().contains("setup"), refused.getMessage());
+        // `nordtal.sh` and not `setup` since season-2-ops/124 renamed the script. What this
+        // assertion is for is that the refusal NAMES the thing that does the job instead - a
+        // refusal that only says no leaves somebody with a container to renew and no way to do it.
+        assertTrue(refused.getMessage().contains("nordtal.sh"), refused.getMessage());
     }
 
     @Test

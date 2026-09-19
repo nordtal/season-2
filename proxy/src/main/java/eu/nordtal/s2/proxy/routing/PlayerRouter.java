@@ -124,7 +124,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                 // initial connection too - and RouteIntents refuses a destination nothing chose.
                 intents.intend(uuid, decision.server());
                 proxy.getServer(decision.server()).ifPresent(event::setInitialServer);
-                if (!decision.server().equals(routing.servers().limbo())) {
+                if (!routing.servers().isWaitingRoom(decision.server())) {
                     // Only an admin on a proxy with no waiting room gets here. Said out loud
                     // because it is the one login that skips the pack.
                     logger.warn("No '{}' server is registered, so admin {} is connected straight to "

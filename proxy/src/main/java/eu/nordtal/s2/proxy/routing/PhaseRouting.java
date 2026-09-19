@@ -94,12 +94,18 @@ public final class PhaseRouting {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(available, "available");
 
-        if (available.contains(servers.limbo())) {
+        // THE LIVE ROOM FIRST, THEN THE STANDBY (season-2-ops/120). The order is the whole of the
+        // rule: `limbo` is the waiting room, and `limbo-standby` is only ever the answer because
+        // `limbo` is not registered on this proxy right now - which, during a run that includes the
+        // waiting room, is exactly what it means for the room to be stopped. Preferring the standby
+        // while both are up would split arrivals across two rooms for no reason.
+        final String room = waitingRoomAmong(available);
+        if (room != null) {
             // Everybody, admins included. STAY would leave the server choice to Velocity, whose
             // `try` list is `limbo` anyway - so the admin would be released from the waiting room
             // into the waiting room, which is a black screen with a stale title and no timeout.
             // Where they go instead is PhaseServers#forAdmitted's job.
-            return RouteDecision.connectTo(servers.limbo());
+            return RouteDecision.connectTo(room);
         }
 
         if (admin) {
@@ -183,5 +189,26 @@ public final class PhaseRouting {
 
     public PhaseServers servers() {
         return servers;
+    }
+
+    /**
+     * Which waiting room this proxy can actually put somebody in, out of the two it knows.
+     *
+     * <p>Null rather than an empty {@code Optional} because the one caller asks once and branches;
+     * and it returns a NAME rather than a boolean so the caller cannot accidentally connect to the
+     * one it did not check for.</p>
+     *
+     * @param available the backends registered on this proxy
+     * @return {@link PhaseServers#limbo()} if it is there, else
+     *         {@link PhaseServers#limboStandby()} if <em>that</em> is, else {@code null}
+     */
+    private String waitingRoomAmong(final Set<String> available) {
+        if (available.contains(servers.limbo())) {
+            return servers.limbo();
+        }
+        if (available.contains(servers.limboStandby())) {
+            return servers.limboStandby();
+        }
+        return null;
     }
 }

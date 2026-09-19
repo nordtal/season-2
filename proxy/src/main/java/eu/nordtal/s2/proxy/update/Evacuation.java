@@ -1,6 +1,7 @@
 package eu.nordtal.s2.proxy.update;
 
 import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.proxy.routing.PhaseServers;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Moves the players off a backend an update is about to stop, and keeps the waiting room able to
@@ -69,7 +71,7 @@ public final class Evacuation {
     private final ProxyServer proxy;
     private final Logger logger;
     private final UpdateDirectory updates;
-    private final String waitingRoom;
+    private final PhaseServers servers;
     private final Clock clock;
 
     /**
@@ -96,11 +98,11 @@ public final class Evacuation {
     private volatile boolean warnedAboutWaitingRoom;
 
     public Evacuation(final ProxyServer proxy, final Logger logger,
-                      final UpdateDirectory updates, final String waitingRoom, final Clock clock) {
+                      final UpdateDirectory updates, final PhaseServers servers, final Clock clock) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
-        this.waitingRoom = Objects.requireNonNull(waitingRoom, "waitingRoom");
+        this.servers = Objects.requireNonNull(servers, "servers");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -152,23 +154,66 @@ public final class Evacuation {
             return;
         }
 
-        if (next.contains(waitingRoom)) {
-            // The one case with no answer. Said out loud every pass of the run rather than once
-            // ever: a run that includes the waiting room is rare enough that a single line in a
-            // week-old log is a line nobody finds.
+        // WHICH ROOM THIS RUN CAN USE (season-2-ops/120). The ordinary answer is the waiting room
+        // itself; the run that stops the waiting room is the case this method used to have no
+        // answer for, and `limbo-standby` is that answer.
+        final String room = roomFor(next, servers.limbo(), servers.limboStandby(),
+                name -> proxy.getServer(name).isPresent());
+        if (room == null) {
+            // Still the one case with no answer - but now it is narrower: the run has to include
+            // the waiting room AND there has to be no standby registered on this proxy. Said out
+            // loud every pass of the run rather than once ever: it is rare enough that a single
+            // line in a week-old log is a line nobody finds.
             if (!warnedAboutWaitingRoom) {
                 warnedAboutWaitingRoom = true;
-                logger.warn("The update moves '{}' itself, so there is nowhere to put anybody:"
-                                + " nobody is being evacuated and every connected player will be"
-                                + " disconnected when the servers stop. The countdown is all the"
-                                + " warning they get.", waitingRoom);
+                logger.warn("The update moves '{}' itself and no '{}' is registered on this proxy,"
+                                + " so there is nowhere to put anybody: nobody is being evacuated"
+                                + " and every connected player will be disconnected when the"
+                                + " servers stop. The countdown is all the warning they get.",
+                        servers.limbo(), servers.limboStandby());
             }
             moving = Set.of();
             return;
         }
 
         moving = next;
-        evacuate(next);
+        evacuate(next, room);
+    }
+
+    /**
+     * The waiting room this run can move people into, or {@code null} if it has none.
+     *
+     * <p>Three cases, and the middle one is the whole of season-2-ops/120:</p>
+     * <ul>
+     *   <li>the run leaves the waiting room alone - it is the destination, as it always was;</li>
+     *   <li>the run stops the waiting room - {@code limbo-standby} is the destination, provided
+     *       this proxy has one registered. It is a second limbo in the ordinary role, not a special
+     *       case: a player sent there is a player waiting, and {@code PhaseServers#isWaitingRoom}
+     *       is what makes every other part of this plugin agree;</li>
+     *   <li>the run stops <em>both</em>, or there is no standby - nobody can be moved. A run that
+     *       includes the standby is a run that has taken the ground out from under itself, and
+     *       saying so is better than moving players onto a server that is about to stop.</li>
+     * </ul>
+     *
+     * <p>Static and taking {@code registered} as a predicate for the same reason
+     * {@link #imminent} is static: it is the decision, and a decision that needs a running
+     * Velocity to be exercised is a decision nobody exercises.</p>
+     *
+     * @param next       the backends this run is about to stop
+     * @param limbo      the waiting room's name
+     * @param standby    the second waiting room's name
+     * @param registered whether this proxy has a server under a given name
+     * @return a backend name to move players into, or {@code null}
+     */
+    static String roomFor(final Set<String> next, final String limbo, final String standby,
+                          final Predicate<String> registered) {
+        if (!next.contains(limbo) && registered.test(limbo)) {
+            return limbo;
+        }
+        if (!next.contains(standby) && registered.test(standby)) {
+            return standby;
+        }
+        return null;
     }
 
     /**
@@ -254,9 +299,12 @@ public final class Evacuation {
     }
 
     /** Moves everybody standing on one of those backends into the waiting room. */
-    private void evacuate(final Set<String> backends) {
+    private void evacuate(final Set<String> backends, final String waitingRoom) {
         final RegisteredServer limbo = proxy.getServer(waitingRoom).orElse(null);
         if (limbo == null) {
+            // roomFor already asked this proxy for the server, so reaching here means it was
+            // unregistered between the two calls. Kept rather than dropped: it is the same
+            // sentence, and a null here would be a NullPointerException in a scheduler task.
             logger.error("The update moves {} and there is no '{}' registered on this proxy, so"
                             + " nobody can be moved out of the way", backends, waitingRoom);
             return;

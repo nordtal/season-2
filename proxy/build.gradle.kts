@@ -6,6 +6,11 @@ plugins {
 // otherwise editing the spec leaves :proxy:test UP-TO-DATE.
 repositoryRootTestInputs {
     reads("proxy/src/main/java/eu/nordtal/s2/proxy/config/NetworkSpec.java")
+
+    // NobodyComparesAgainstOneLimboTest walks this module's own sources (season-2-ops/120). Without
+    // the directory declared, adding the very line it forbids leaves :proxy:test UP-TO-DATE and the
+    // rule stops running exactly when it would have fired.
+    reads("proxy/src/main")
 }
 
 repositories {

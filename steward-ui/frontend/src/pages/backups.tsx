@@ -28,13 +28,13 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog"
 import {
   Table,
   TableBody,
@@ -396,18 +396,18 @@ function DestinationDialog() {
   const { entries, draft, setDraft, changes, changed } = useConfigDraft(document, REMOTE_KEYS)
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
+    <ResponsiveDialog>
+      <ResponsiveDialogTrigger asChild>
         <Button variant="outline" size="sm">
           <CloudIcon />
           Destination
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Destination</DialogTitle>
-          <DialogDescription>Where a copy goes that is not on this disk.</DialogDescription>
-        </DialogHeader>
+      </ResponsiveDialogTrigger>
+      <ResponsiveDialogContent>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Destination</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>Where a copy goes that is not on this disk.</ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         {pending ? (
           <Loading rows={3} />
@@ -460,8 +460,8 @@ function DestinationDialog() {
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }
 
@@ -580,18 +580,18 @@ function ScheduleDialog() {
   const collapseAfterDays = intOr(draftValue(entries, draft, "backup.retention.collapse-after-days"), 3)
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
+    <ResponsiveDialog>
+      <ResponsiveDialogTrigger asChild>
         <Button variant="outline" size="sm">
           <ClockIcon />
           Schedule
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Schedule</DialogTitle>
-          <DialogDescription>When a backup runs, and how long it is kept.</DialogDescription>
-        </DialogHeader>
+      </ResponsiveDialogTrigger>
+      <ResponsiveDialogContent>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Schedule</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>When a backup runs, and how long it is kept.</ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         {pending ? (
           <Loading rows={5} />
@@ -691,8 +691,8 @@ function ScheduleDialog() {
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }
 

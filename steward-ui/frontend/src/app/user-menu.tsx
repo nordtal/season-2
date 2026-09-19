@@ -1,8 +1,9 @@
-import { SignOutIcon } from "@phosphor-icons/react"
+import { GearIcon, SignOutIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import { api } from "@/lib/api"
 import type { Me } from "@/lib/api"
+import { NotificationsDialog, useNotificationActions } from "@/app/notifications"
 import { SecurityKeyDialogs, SecurityKeyList, useSecurityKeyActions } from "@/app/security-keys"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -86,11 +87,13 @@ export function UserMenu({
 }) {
   const [open, setOpen] = useState(false)
   const keys = useSecurityKeyActions(me)
+  const notifications = useNotificationActions()
 
   // The popover gets out of the way as soon as one of the three questions is asked. The dialogs
   // themselves are mounted below, outside it: a dialog rendered inside a popover is unmounted by
-  // the first outside click, and a dialog's own overlay is an outside click.
-  const asking = keys.asking
+  // the first outside click, and a dialog's own overlay is an outside click. steward/98's
+  // notifications dialog is the fourth of them and follows the same two rules.
+  const asking = keys.asking || notifications.open
   if (asking && open) setOpen(false)
 
   return (
@@ -132,6 +135,17 @@ export function UserMenu({
             variant="ghost"
             size="sm"
             className="justify-start"
+            onClick={() => notifications.setOpen(true)}
+          >
+            <GearIcon aria-hidden />
+            Notifications
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="justify-start"
             onClick={async () => {
               await api<void>("/auth/logout", { method: "POST" })
               window.location.assign("/")
@@ -144,6 +158,7 @@ export function UserMenu({
       </Popover>
 
       <SecurityKeyDialogs state={keys} />
+      <NotificationsDialog state={notifications} />
     </>
   )
 }

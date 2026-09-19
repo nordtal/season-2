@@ -37,6 +37,9 @@ import {
   type Season,
   type Service,
   type ServiceTable,
+  type AlertTypeKey,
+  type PushDevice,
+  type WebPushPreferences,
   type WebPushPublicKey,
 } from "@/lib/api"
 import { browserHasSecurityKeys, createSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
@@ -96,6 +99,8 @@ export const keys = {
   messageBundle: (path: string) => ["message-bundle", path] as const,
   webPushPublicKey: ["web-push-public-key"] as const,
   webPushSubscription: ["web-push-subscription"] as const,
+  webPushDevices: ["web-push-devices"] as const,
+  webPushPreferences: ["web-push-preferences"] as const,
 }
 
 /**
@@ -586,7 +591,10 @@ export function useSubscribeWebPush() {
       await api<void>("/api/web-push/subscribe", { method: "POST", body: subscription })
       return subscription
     },
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.webPushSubscription }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: keys.webPushSubscription })
+      client.invalidateQueries({ queryKey: keys.webPushDevices })
+    },
   })
 }
 
@@ -601,7 +609,96 @@ export function useUnsubscribeWebPush() {
       }
       return endpoint
     },
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.webPushSubscription }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: keys.webPushSubscription })
+      client.invalidateQueries({ queryKey: keys.webPushDevices })
+    },
+  })
+}
+
+/**
+ * One browser of this account, gone - the device list's own remove.
+ *
+ * When the endpoint happens to be this browser's own, the push subscription is torn down here as
+ * well: deleting only the row would leave the browser holding a subscription nothing will ever send
+ * to, and its own button would still read "On".
+ */
+export function useForgetWebPushDevice() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (endpoint: string) => {
+      if ((await currentPushEndpoint()) === endpoint) {
+        await unsubscribeFromPush()
+      }
+      await api<void>("/api/web-push/subscribe", { method: "DELETE", body: { endpoint } })
+      return endpoint
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: keys.webPushSubscription })
+      client.invalidateQueries({ queryKey: keys.webPushDevices })
+    },
+  })
+}
+
+/** Every browser this ACCOUNT has subscribed - not just this one. */
+export function useWebPushDevices(enabled = true) {
+  return useQuery({
+    queryKey: keys.webPushDevices,
+    queryFn: () => api<PushDevice[]>("/api/web-push/devices"),
+    enabled,
+  })
+}
+
+/**
+ * Which kinds of alert this account wants.
+ *
+ * The server answers every type with its effective value, defaults included, so this side never
+ * has to know what a default is - see `AlertType` for where they live and why.
+ */
+export function useWebPushPreferences(enabled = true) {
+  return useQuery({
+    queryKey: keys.webPushPreferences,
+    queryFn: () => api<WebPushPreferences>("/api/web-push/preferences"),
+    enabled,
+  })
+}
+
+/**
+ * One switch.
+ *
+ * The answer is written into the cache rather than triggering a refetch: a switch that springs back
+ * for half a second while a GET is in flight reads as "that did not work".
+ */
+export function useSetWebPushPreference() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (choice: { type: AlertTypeKey; enabled: boolean }) =>
+      api<{ type: AlertTypeKey; enabled: boolean }>("/api/web-push/preferences", {
+        method: "PUT",
+        body: choice,
+      }),
+    onSuccess: (saved) =>
+      client.setQueryData(keys.webPushPreferences, (current?: WebPushPreferences) =>
+        current ? { ...current, [saved.type]: saved.enabled } : current,
+      ),
+  })
+}
+
+/**
+ * One notification of one type, to one of this account's own browsers, now.
+ *
+ * A dead subscription answers 404 and the server has already removed the row by then, so the device
+ * list is refreshed either way.
+ */
+export function useTestWebPush() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (what: { endpoint: string; type: AlertTypeKey }) =>
+      api<void>("/api/web-push/test", { method: "POST", body: what }),
+    onSettled: () => {
+      client.invalidateQueries({ queryKey: keys.webPushDevices })
+      client.invalidateQueries({ queryKey: keys.webPushSubscription })
+    },
   })
 }
 

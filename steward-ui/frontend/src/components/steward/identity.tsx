@@ -68,6 +68,27 @@ function splitQuery(baseUrl: string): [string, string] {
 }
 
 /**
+ * The one name for a person, for the places a component cannot go.
+ *
+ * steward/124 is "profiles, never user ids", and {@link PersonIdentity} is the answer everywhere
+ * something is rendered. A toast title and a `<SelectItem>` label are strings, not trees - so they
+ * get the same order of preference in one line instead of each page inventing its own.
+ *
+ * The id is the LAST resort and never disappears: somebody the roster does not know still has to
+ * be identifiable, and an admin typing an id into the grant dialog has to see it echoed back.
+ */
+export function personLabel(person: {
+  discordDisplayName?: string
+  discordUsername?: string
+  mcName?: string
+  discordId?: string
+}): string {
+  return (
+    person.discordDisplayName ?? person.discordUsername ?? person.mcName ?? person.discordId ?? ""
+  )
+}
+
+/**
  * The pattern `identity.test.tsx` and `access.test.tsx` hold a page's rendered text against.
  *
  * A Discord snowflake is a 17-20 digit decimal number (Discord's own range as ids have grown since

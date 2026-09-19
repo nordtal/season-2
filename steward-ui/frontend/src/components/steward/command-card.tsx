@@ -1,7 +1,7 @@
 import { PlayIcon, TerminalIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
-import type { AdminCommand, CommandArgument, CommandRun } from "@/lib/api"
+import type { AdminCommand, CommandArgument, CommandRun, Person } from "@/lib/api"
 import { euros } from "@/lib/format"
 import {
   useAdminCommand,
@@ -10,6 +10,7 @@ import {
   useOpenPayments,
   usePeople,
 } from "@/lib/queries"
+import { personLabel } from "@/components/steward/identity"
 import { Failure, QueryState } from "@/components/steward/query-state"
 import {
   AlertDialog,
@@ -221,6 +222,31 @@ function CommandRow({ command }: { command: AdminCommand }) {
  * The hooks are called unconditionally and switched off with `enabled`, because they are hooks -
  * and because a command with no ACCOUNT argument must not make the interface fetch the roster.
  */
+/**
+ * The roster as a picker, by NAME (steward/124).
+ *
+ * The comment that stood inline here said the roster cannot answer a display name - which was
+ * wrong: it carries `discordDisplayName` and `discordUsername`, and {@link personLabel} falls back
+ * to the id for anybody it has neither for, so nobody becomes an unpickable blank row.
+ *
+ * The **value** is still the Discord id, because that is what the command takes. This is only what
+ * a human reads while choosing - which is also why this is a picker and not a field: an id is not
+ * something anybody types correctly from memory.
+ *
+ * Exported for the test: the options live inside a Radix `Select`, which does not open in jsdom,
+ * and what is worth holding here is the labelling rule rather than the popup's behaviour.
+ */
+export function accountOptions(
+  people: Person[] | undefined,
+): { value: string; label: string }[] {
+  return (people ?? []).map((person) => ({
+    value: person.discordId,
+    label: person.minecraftUuid
+      ? `${personLabel(person)} (linked)`
+      : `${personLabel(person)} (not linked)`,
+  }))
+}
+
 function ArgumentField({
   id,
   argument,
@@ -249,21 +275,12 @@ function ArgumentField({
     const options: { value: string; label: string }[] = argument.choices
       ? argument.choices.map((choice) => ({ value: choice, label: choice }))
       : argument.kind === "ACCOUNT"
-        ? // The id, and whether there is a Minecraft account behind it. No name: the roster is one
-          // query against one database and a Discord display name is Discord's to answer - which
-          // is also why this is a picker rather than a field, since an id is not something anybody
-          // types correctly from memory.
-          (people.data ?? []).map((person) => ({
-            value: person.discordId,
-            label: person.minecraftUuid
-              ? `${person.discordId} (linked)`
-              : `${person.discordId} (not linked)`,
-          }))
+        ? accountOptions(people.data)
         : (open.data ?? []).map((payment) => ({
             value: payment.reference,
             label: `${payment.reference} (${payment.days} days, ${euros(
               payment.amountCents + payment.donationCents,
-            )}, ${payment.discordId})`,
+            )}, ${personLabel(payment)})`,
           }))
 
     const loading =

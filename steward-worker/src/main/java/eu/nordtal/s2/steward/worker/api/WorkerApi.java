@@ -87,7 +87,7 @@ public final class WorkerApi implements AutoCloseable {
      * @param at   {@code HH:mm} in this container's own time zone, or blank for no nightly backup
      * @param zone this container's zone - compose sets {@code TZ}, and it is not the browser's
      */
-    public record Nightly(@NotNull String at, @NotNull ZoneId zone) { }
+    public record Nightly(@NotNull String at, @NotNull List<String> days, @NotNull ZoneId zone) { }
 
     private final Nightly nightly;
 
@@ -687,12 +687,16 @@ public final class WorkerApi implements AutoCloseable {
                 });
     }
 
-    /** {@code backup.at}, the zone it is read in, and the next moment it comes round. */
+    /** {@code backup.at}, {@code backup.days}, the zone they are read in, and the next moment. */
     private Map<String, Object> schedule() {
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("backupAt", nightly.at().isBlank() ? null : nightly.at());
+        // The weekdays as the file says them, not as the clock understood them: this is the
+        // schedule being reported, and a word nobody can read is a thing the page should be able
+        // to show as it stands rather than one that silently disappears on the way here.
+        answer.put("backupDays", nightly.days());
         answer.put("zone", nightly.zone().getId());
-        answer.put("nextBackupAt", NightlyClock.next(nightly.at(), nightly.zone(),
+        answer.put("nextBackupAt", NightlyClock.next(nightly.at(), nightly.days(), nightly.zone(),
                         ZonedDateTime.now(nightly.zone()))
                 .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                 .orElse(null));

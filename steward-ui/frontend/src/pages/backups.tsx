@@ -476,7 +476,38 @@ const SCHEDULE_KEYS = [
   "backup.retention.collapse-after-days",
 ] as const
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
+/**
+ * The seven, in the order a week is read, with what the config file calls each one.
+ *
+ * The file holds `java.time.DayOfWeek` names because that is what the worker parses them into;
+ * `NightlyClock` also accepts the three-letter form and any casing, so a file edited by hand is
+ * still read here - `chosenDays` compares on the first three letters for exactly that reason.
+ */
+const WEEKDAYS = [
+  { label: "Mon", value: "MONDAY" },
+  { label: "Tue", value: "TUESDAY" },
+  { label: "Wed", value: "WEDNESDAY" },
+  { label: "Thu", value: "THURSDAY" },
+  { label: "Fri", value: "FRIDAY" },
+  { label: "Sat", value: "SATURDAY" },
+  { label: "Sun", value: "SUNDAY" },
+] as const
+
+/** The `backup.days` key, which is a LIST and therefore not part of the scalar draft. */
+const DAYS_KEY = "backup.days"
+
+/**
+ * Which of the seven a list of config entries means - by the first three letters, upper-cased.
+ *
+ * A file written by hand may say `mon`, `Mon` or `MONDAY`, and the worker reads all three
+ * (`NightlyClock.weekdays`). Anything that matches no day is dropped here exactly as it is
+ * dropped there, so what the badges show is what the schedule does.
+ */
+function chosenDays(items: string[] | undefined): string[] {
+  if (items === undefined) return []
+  const stems = new Set(items.map((item) => item.trim().slice(0, 3).toUpperCase()))
+  return WEEKDAYS.filter((day) => stems.has(day.value.slice(0, 3))).map((day) => day.value)
+}
 
 /** A whole number out of a draft, falling back to `otherwise` when it does not parse as one. */
 function intOr(value: string, otherwise: number): number {
@@ -513,20 +544,35 @@ function retentionSentence(daily: number, weekly: number, monthly: number, colla
  * The nightly clock and how long it keeps what it writes - a dialog rather than a permanent panel,
  * for the same reason the destination is one.
  *
- * <h2>Weekdays are drawn, not wired (an independent decision, written down rather than left silent)</h2>
- * Till asked for "weekdays clickable" alongside the time. There is no such concept anywhere in
- * this stack: {@code NightlyClock} takes an `HH:mm` and a zone and nothing else, on both the
- * instance and the static side, and wiring a day-of-week skip through it would mean a new
- * `backup.days` key, new clock logic, and new tests on steward-worker - substantially more than
- * this ticket's one sanctioned backend piece (the download route). Rather than draw seven buttons
- * that look wired and are not, every day is shown as an always-on {@link Badge} - true today, and
- * a caption says outright that per-weekday scheduling is not built. Flagged in the ticket for Till
- * to size as its own piece of work if he still wants it.
+ * <h2>The weekdays are wired, and they were not when this dialog was first drawn</h2>
+ * Till asked for "weekdays clickable" beside the time. Nothing in the stack had the concept, so
+ * the first round drew seven always-on badges with a caption admitting they did nothing. They
+ * write `backup.days` now: a LIST key on the worker, read by `NightlyClock`, which skips a night
+ * that is not one of them instead of firing anyway. A day nobody picked is a night with no
+ * backup - the caption under the badges says which, rather than leaving it to be discovered by a
+ * missing archive.
+ *
+ * <p>`backup.days` is a LIST and every other key here is a scalar, which is why it is kept beside
+ * {@link useConfigDraft}'s draft rather than inside it: that draft is `Record<string, string>` on
+ * purpose, and a list flattened into a string is how `stop-services: smp` gets written over a
+ * sequence (see `ConfigChange`'s own comment on the worker).</p>
  */
 function ScheduleDialog() {
   const { file, document, pending } = useWorkerConfig()
   const save = useSaveConfig(file ?? "")
   const { entries, draft, setDraft, changes, changed } = useConfigDraft(document, SCHEDULE_KEYS)
+
+  // The list key, kept out of the scalar draft - see the class comment. `undefined` is "nothing
+  // touched yet", so the file's own list is what is drawn until somebody clicks a badge.
+  const [pickedDays, setPickedDays] = useState<string[] | undefined>(undefined)
+  useEffect(() => setPickedDays(undefined), [document])
+
+  const daysEntry = entryAt(document, DAYS_KEY)
+  const fileDays = chosenDays(daysEntry?.items)
+  const days = pickedDays ?? fileDays
+  const daysChanged = pickedDays !== undefined && pickedDays.join() !== fileDays.join()
+  const allChanges: ConfigChanges = daysChanged ? { ...changes, [DAYS_KEY]: days } : changes
+  const allChanged = changed + (daysChanged ? 1 : 0)
 
   const daily = intOr(draftValue(entries, draft, "backup.retention.daily"), 14)
   const weekly = intOr(draftValue(entries, draft, "backup.retention.weekly"), 0)
@@ -559,15 +605,44 @@ function ScheduleDialog() {
             <div className="flex flex-col gap-1.5">
               <Label>Days</Label>
               <div className="flex flex-wrap gap-1.5">
-                {WEEKDAYS.map((day) => (
-                  <Badge key={day} variant="secondary">
-                    {day}
-                  </Badge>
-                ))}
+                {WEEKDAYS.map((day) => {
+                  const on = days.includes(day.value)
+                  return (
+                    <Badge
+                      key={day.value}
+                      asChild
+                      variant={on ? "default" : "outline"}
+                      className={daysEntry && document.writable ? "cursor-pointer" : undefined}
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={on}
+                        disabled={!daysEntry || !document.writable || save.isPending}
+                        onClick={() =>
+                          setPickedDays(
+                            on
+                              ? days.filter((chosen) => chosen !== day.value)
+                              : WEEKDAYS.filter(
+                                  (candidate) =>
+                                    candidate.value === day.value || days.includes(candidate.value),
+                                ).map((candidate) => candidate.value),
+                          )
+                        }
+                      >
+                        {day.label}
+                      </button>
+                    </Badge>
+                  )
+                })}
               </div>
-              <p className="text-xs text-muted-foreground">
-                A backup runs every night. Picking specific weekdays is not built yet.
-              </p>
+              {!daysEntry ? (
+                <p className="text-xs text-muted-foreground">
+                  This worker's config has no backup.days yet. A worker that has started since the
+                  key was added writes it in.
+                </p>
+              ) : days.length === 0 ? (
+                <p className="text-xs text-destructive">No night is picked, so no backup runs.</p>
+              ) : null}
             </div>
 
             {entries.map((entry) => (
@@ -592,10 +667,10 @@ function ScheduleDialog() {
 
             <div className="flex items-center gap-3">
               <Button
-                disabled={changed === 0 || !document.writable || save.isPending}
+                disabled={allChanged === 0 || !document.writable || save.isPending}
                 onClick={() =>
                   save.mutate(
-                    { revision: document.revision, changes },
+                    { revision: document.revision, changes: allChanges },
                     {
                       onSuccess: () => toast.success("Schedule saved."),
                       onError: (failure) =>
@@ -610,8 +685,8 @@ function ScheduleDialog() {
               >
                 Save
               </Button>
-              {changed > 0 ? (
-                <span className="text-sm text-muted-foreground tnum">{changed} changed</span>
+              {allChanged > 0 ? (
+                <span className="text-sm text-muted-foreground tnum">{allChanged} changed</span>
               ) : null}
             </div>
           </div>

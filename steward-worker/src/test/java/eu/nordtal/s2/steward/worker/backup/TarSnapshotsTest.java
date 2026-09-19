@@ -98,6 +98,25 @@ class TarSnapshotsTest {
     }
 
     @Test
+    @DisplayName("isFinishedArchive accepts only a finished archive or dump, steward/95's download route")
+    void isFinishedArchiveAcceptsOnlyFinishedNames() {
+        assertTrue(TarSnapshots.isFinishedArchive("nordtal-s2_mc-smp-20260913T044507Z.tar.zst"));
+        assertTrue(TarSnapshots.isFinishedArchive("nordtal-20260913T044507Z.dump"));
+        assertFalse(TarSnapshots.isFinishedArchive("nordtal-s2_mc-smp-20260913T044507Z.tar.zst.partial"),
+                "a partial archive is not a backup yet");
+        assertFalse(TarSnapshots.isFinishedArchive("nordtal-20260913T044507Z.dump.partial"),
+                "a partial dump is not a backup yet");
+        assertFalse(TarSnapshots.isFinishedArchive("not-a-backup.txt"));
+        // The pattern's `.` matches a `/` exactly as readily as any other character, so a name
+        // built to look like an archive while also carrying a traversal segment still matches here
+        // - this method alone is not the whole defence, and the caller must additionally confirm
+        // the resolved path stays inside the output root. Proven rather than assumed: this name
+        // DOES match, which is exactly why WorkerApi needs the second, path-based check too.
+        assertTrue(TarSnapshots.isFinishedArchive("../../etc/passwd-20260913T044507Z.tar.zst"),
+                "the naming pattern alone cannot see a traversal segment - a resolved-path check is required as well");
+    }
+
+    @Test
     @DisplayName("an empty source directory fails and names the path - the A23 lesson")
     void emptyIsAFailure() throws IOException {
         final Path source = sourceDir(VOLUME);

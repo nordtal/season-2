@@ -995,6 +995,13 @@ class StewardUiIntegrationTest {
         // Who asked is written down, because with three admins the difference between "strange"
         // and "ah, that was you" is a name (§10c).
         assertTrue(row.get("requestedBy").getAsString().contains("Till"), row.toString());
+        // steward/95: the same actor fields the unified actions feed carries, read out of the same
+        // string - this fixture's own id ("1") is one digit, so it is not a snowflake and the whole
+        // "Till (1)" is the label rather than something resolved through the roster. See
+        // ActorFieldsTest for the id-shaped case this fixture cannot exercise on its own.
+        assertEquals("Till (1)", row.get("actorLabel").getAsString(), row.toString());
+        assertEquals("", row.get("actorDiscordId").getAsString(), row.toString());
+        assertFalse(row.get("system").getAsBoolean(), row.toString());
 
         // And it is in the list the interface draws its runs from.
         final JsonArray recent = GSON.fromJson(get("/api/updates").body(), JsonArray.class);

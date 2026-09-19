@@ -309,4 +309,81 @@ class CommandInboxTest {
             pool.shutdownNow();
         }
     }
+
+    @Test
+    @DisplayName("a scheduler that finishes before it returns is still a scheduler")
+    void theInboxRefusesAnEagerScheduler() {
+        // THE RACE THIS PINS, and it is not hypothetical: the check asked "did it run?" until
+        // 2026-09-19, and a pool thread that picks the task up between `async` returning and the
+        // flag being read sets the very flag the check reads. That waves a scheduler through -
+        // the dangerous direction - and it is likeliest on exactly the machine least able to
+        // afford it, a loaded one. It was found as a failure of the test above on a CI runner.
+        //
+        // The effects below are that race made deterministic: the work genuinely happens on
+        // another thread, and `async` does not return until it is over. No flag can tell this
+        // apart from Runnable::run. The identity of the thread can, always.
+        record Eager() implements CommandEffects {
+            @Override
+            public void async(final Runnable work) {
+                final Thread worker = new Thread(work, "eager-effects");
+                worker.start();
+                try {
+                    worker.join();
+                } catch (final InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(interrupted);
+                }
+            }
+
+            @Override
+            public void warn(final String what, final Throwable failure) {
+            }
+        }
+
+        final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> new CommandInbox(Target.SMP, requests, MESSAGES, request -> true, warn)
+                        .register(new NordtalCommand<Eager>() {
+                            @Override
+                            public Declaration declaration() {
+                                return RELOAD;
+                            }
+
+                            @Override
+                            public void run(final NordtalUser user, final Values values,
+                                            final Eager given) {
+                            }
+                        }, new Eager()));
+        assertTrue(refused.getMessage().contains("Runnable::run"), refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("effects that run the work inline are accepted, which is the whole point")
+    void theInboxAcceptsInlineEffects() {
+        record Inline() implements CommandEffects {
+            @Override
+            public void async(final Runnable work) {
+                work.run();
+            }
+
+            @Override
+            public void warn(final String what, final Throwable failure) {
+            }
+        }
+
+        final CommandInbox inbox =
+                new CommandInbox(Target.SMP, requests, MESSAGES, request -> true, warn)
+                        .register(new NordtalCommand<Inline>() {
+                            @Override
+                            public Declaration declaration() {
+                                return RELOAD;
+                            }
+
+                            @Override
+                            public void run(final NordtalUser user, final Values values,
+                                            final Inline given) {
+                            }
+                        }, new Inline());
+
+        assertEquals(1, inbox.size());
+    }
 }

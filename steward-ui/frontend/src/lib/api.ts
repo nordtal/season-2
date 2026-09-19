@@ -345,6 +345,17 @@ export type Service = {
    * field is the only thing that can draw it.
    */
   hold?: { since: string; by?: string | null }
+  /**
+   * Set on the services that live in the `standby` compose profile and are meant to be stopped
+   * (steward/125): `proxy-standby` and `limbo-standby`.
+   *
+   * **Absent is not false**, the same rule `players` and `hold` follow. A stopped standby and a
+   * crashed backend are the same container state to Docker, so nothing about the row itself can
+   * tell them apart - only the worker knows, out of `Topology.standbyNames()`, and this is it
+   * saying so. Without it the front page reports two faults on a completely healthy stack, which
+   * is how a fault counter stops being read at all.
+   */
+  standby?: true
   unreadable?: string
   /** Only on the single-service endpoint. */
   digests?: string[]

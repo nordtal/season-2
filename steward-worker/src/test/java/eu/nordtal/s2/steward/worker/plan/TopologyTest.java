@@ -1289,6 +1289,16 @@ class TopologyTest {
 
     // ---------------------------------------------------------------- the standbys
 
+    /**
+     * Environment keys a standby is <em>allowed</em> - and required - to set differently from its
+     * model, each with the sentence saying why. Typed and never empty by accident: an exemption
+     * without a reason is how the rule above erodes one key at a time.
+     */
+    private static final Map<String, String> TELLS_THE_PAIR_APART = Map.of(
+            "NORDTAL_PROXY_NETWORK_STANDBY",
+            "It is the only thing that tells the two proxies apart, and a proxy cannot work it out"
+                    + " for itself (season-2-ops/121).");
+
     @Test
     @DisplayName("every standby is its model again, on its own volumes")
     void aStandbyIsItsModelOnItsOwnVolumes() {
@@ -1306,13 +1316,42 @@ class TopologyTest {
             @SuppressWarnings("unchecked")
             final Map<String, Object> itsModel = (Map<String, Object>) services.get(model);
 
-            assertEquals(itsModel.get("environment"), defined.get("environment"),
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> theirs = new java.util.LinkedHashMap<>(
+                    (Map<String, Object>) itsModel.get("environment"));
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> ours = new java.util.LinkedHashMap<>(
+                    (Map<String, Object>) defined.get("environment"));
+
+            // The one variable that MUST differ, and it is asserted in both directions rather than
+            // merely skipped (season-2-ops/121). A proxy cannot find out which of the two it is:
+            // both containers bind 0.0.0.0:25565 inside their own network namespace, so the only
+            // thing that tells them apart is this string - and BOTH ways of getting it wrong are
+            // completely silent. A standby missing the line behaves like the live proxy and says
+            // nothing; a live proxy carrying it transfers everybody to the address they are
+            // already on. So: present on both, and different.
+            for (final Map.Entry<String, String> apart : TELLS_THE_PAIR_APART.entrySet()) {
+                final String key = apart.getKey();
+                if (!theirs.containsKey(key) && !ours.containsKey(key)) {
+                    continue;
+                }
+                assertNotNull(theirs.get(key), model + " does not set " + key + " at all. "
+                        + apart.getValue());
+                assertNotNull(ours.get(key), standby + " does not set " + key + " at all. "
+                        + apart.getValue());
+                assertNotEquals(String.valueOf(theirs.remove(key)), String.valueOf(ours.remove(key)),
+                        model + " and " + standby + " agree on " + key + ", so one of them is"
+                                + " playing the other's part. " + apart.getValue());
+            }
+
+            assertEquals(theirs, ours,
                     standby + " is configured differently from " + model + ". It runs the same jars"
                             + " under the same name and it is the process carrying every player for"
                             + " the length of a swap; a setting that reaches only one of the two is"
-                            + " a setting players meet in half the season. compose.yml uses one"
-                            + " YAML node for both, so this fails when somebody has copied the"
-                            + " block instead of aliasing it.");
+                            + " a setting players meet in half the season. compose.yml merges one"
+                            + " YAML anchor into both, so this fails when somebody has copied the"
+                            + " block instead of merging it - the only key allowed to differ is"
+                            + " " + TELLS_THE_PAIR_APART.keySet() + ".");
 
             assertEquals(List.of("standby"), defined.get("profiles"),
                     standby + " is not in a profile of its own. In `mc` it would run all season"

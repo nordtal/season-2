@@ -109,7 +109,21 @@ export function summarise(input: {
   }
 
   // 1 - a service stopped or unhealthy. Red: without this it would not be a traffic light.
+  //
+  // WITH ONE EXCEPTION, AND IT IS NOT A SOFTENING (steward/125): a standby that is not running is
+  // not a fault, it is the standby doing what it is for. `proxy-standby` and `limbo-standby` live
+  // in the `standby` compose profile and are stopped for all but a minute of the season - so
+  // without this the front page said "2 issues" on a perfectly healthy stack, every day, which is
+  // precisely how a fault counter stops being read and how the third fault goes unnoticed.
+  //
+  // A standby that IS running and reports itself unhealthy stays red, because that is the one
+  // minute it matters. The marker comes from the worker (Topology.standbyNames()) and not from a
+  // name match here: a stopped standby and a crashed backend are the same container state, so
+  // nothing on this side could tell them apart.
   for (const service of input.table?.services ?? []) {
+    if (service.standby === true && !isUp(service.state)) {
+      continue
+    }
     if (!isUp(service.state)) {
       triggers.push({
         level: "down",

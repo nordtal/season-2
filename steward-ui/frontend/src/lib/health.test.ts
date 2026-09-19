@@ -146,6 +146,52 @@ describe("summarise - a stack with nothing wrong", () => {
   })
 })
 
+describe("summarise - a standby that is off", () => {
+  it("a stopped standby is not a fault, because being off is what it is for", () => {
+    // steward/125, reported by Till on 2026-09-19: both standbys were showing up as issues on the
+    // start page whenever they were simply off. They live in the `standby` compose profile and are
+    // stopped for all but a minute of the season, so without this the front page reported two faults on a
+    // completely healthy stack - every day, which is how a fault counter stops being read and how
+    // the third fault goes unnoticed.
+    const { level, triggers } = summarise({
+      ...healthy(),
+      table: table([
+        service({ service: "proxy-standby", state: "exited", status: "Exited (0) 3 days ago", standby: true }),
+        service({ service: "limbo-standby", state: "created", status: "Created", standby: true }),
+      ]),
+    })
+
+    expect(level).toBe("ok")
+    expect(triggers).toHaveLength(0)
+  })
+
+  it("a standby that is RUNNING and unhealthy is still red, because that is the minute it matters", () => {
+    const { level, triggers } = summarise({
+      ...healthy(),
+      table: table([
+        service({ service: "proxy-standby", state: "running", health: "unhealthy", standby: true }),
+      ]),
+    })
+
+    expect(level).toBe("down")
+    expect(triggers[0].text).toBe("proxy-standby is running, but reports itself unhealthy.")
+  })
+
+  it("the marker has to come from the worker - a stopped service without it is still a fault", () => {
+    // The exemption is keyed on `standby === true` and nothing else. A stopped container is the
+    // same container state whether it is a standby or a crashed backend, so if this ever starts
+    // being decided by the name ending in "-standby", a real outage on a service somebody named
+    // badly goes silent.
+    const { level, triggers } = summarise({
+      ...healthy(),
+      table: table([service({ service: "proxy-standby", state: "exited", status: "Exited (1)" })]),
+    })
+
+    expect(level).toBe("down")
+    expect(triggers).toHaveLength(1)
+  })
+})
+
 describe("summarise - a service that is not running", () => {
   it("turns the light red and names the service and Docker's own words", () => {
     const { level, triggers } = summarise({

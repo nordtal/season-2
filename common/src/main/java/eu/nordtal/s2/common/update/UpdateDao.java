@@ -5,6 +5,7 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -60,6 +61,37 @@ interface UpdateDao {
                          @Bind("source") String source,
                          @Bind("requestedBy") String requestedBy,
                          @Bind("delaySeconds") long delaySeconds);
+
+    /**
+     * The same insert, with the services this run is for (season-2-ops/127).
+     *
+     * <p>A second statement rather than one with a nullable bind, because the two say different
+     * things and the one above is what every existing caller means. {@code scope} is NULL for the
+     * whole network; see {@code V27__update_request_scope.sql} for why that is the default rather
+     * than an empty string.</p>
+     *
+     * @param scope comma-separated compose service names, or {@code null} for the whole network
+     */
+    @SqlQuery("""
+            WITH inserted AS (
+                INSERT INTO update_request (kind, source, requested_by, not_before, scope)
+                VALUES (:kind, :source, :requestedBy,
+                        now() + make_interval(secs => cast(:delaySeconds AS double precision)),
+                        :scope)
+                RETURNING *
+            )
+            SELECT inserted.*, pg_notify('nordtal_update', '') AS notified
+            FROM inserted
+            """)
+    UpdateRequest submitScoped(@Bind("kind") String kind,
+                               @Bind("source") String source,
+                               @Bind("requestedBy") String requestedBy,
+                               @Bind("delaySeconds") long delaySeconds,
+                               @Bind("scope") String scope);
+
+    /** @return the {@code scope} column, or {@code null} for a whole-network run and for no row. */
+    @SqlQuery("SELECT scope FROM update_request WHERE id = :id")
+    String scope(@Bind("id") long id);
 
     /**
      * Takes the oldest request that is due, and marks it {@code RUNNING} in the same statement.
@@ -237,7 +269,7 @@ interface UpdateDao {
      * {@code countingDown()}'s thirty-second chat line requires the full thirty seconds to still be
      * on the clock, any of those five seconds already spent by the time the poll caught up was that
      * line gone for good - reproduced 2026-09-17 (Till: "30 Sekunden kam nicht im Chat, nur 10
-     * Sekunden") and confirmed in {@code nordtal-s2-network-control-1}'s own log: every countdown it
+     * Sekunden") and confirmed in {@code nordtal-s2-proxy-1}'s own log: every countdown it
      * had ever announced, {@code UPDATE} and {@code BACKUP} alike, carried 12 beats where a full one
      * is 13. Nothing here is BACKUP-specific; BACKUP is only the kind Till was testing.
      *
@@ -280,7 +312,7 @@ interface UpdateDao {
     Optional<Long> commitCountdown(@Bind("id") long id);
 
     /**
-     * The outage that is counting down right now - what network-control counts down towards, and
+     * The outage that is counting down right now - what proxy counts down towards, and
      * what a cancel withdraws.
      *
      * <h2>{@code RUNNING} as well as {@code PENDING}, since 2026-09-08</h2>
@@ -306,6 +338,11 @@ interface UpdateDao {
      * {@link #cancelCountdown(String)}, carried the same list and therefore the same hole: a backup
      * countdown could not have been stopped either.</p>
      *
+     * <p><b>{@code DOWN} joined them on 2026-09-19</b> (season-2-ops/125), and it is the one case
+     * where the stop is the finished state rather than a step: a service put down on purpose stays
+     * down. It warns and it can be called off exactly like the other three, because the thirty
+     * seconds are for the players standing on it, not for the run.</p>
+     *
      * <p><b>This list is a literal and it will go stale again.</b> What stops that is not care, it
      * is {@code UpdateDirectoryIntegrationTest#everythingThatStopsServersCountsDown}, which asks
      * {@link UpdateKind#stopsServers()} rather than repeating the names here - so a kind added
@@ -323,7 +360,7 @@ interface UpdateDao {
     @SqlQuery("""
             SELECT * FROM update_request
             WHERE status IN ('PENDING', 'RUNNING')
-              AND kind IN ('RESTART', 'UPDATE', 'BACKUP')
+              AND kind IN ('RESTART', 'UPDATE', 'BACKUP', 'DOWN')
               AND not_before > now()
             ORDER BY not_before, id
             LIMIT 1
@@ -371,12 +408,12 @@ interface UpdateDao {
             WITH cancellable AS (
                 SELECT id
                 FROM update_request
-                -- The same three kinds and both statuses, for the reasons countingDown()
+                -- The same four kinds and both statuses, for the reasons countingDown()
                 -- above gives at length: the button says "Stop the countdown", and a countdown it
                 -- could not stop would be worse than no button. BACKUP was missing here until
                 -- 2026-09-15 for the same reason it was missing there.
                 WHERE status IN ('PENDING', 'RUNNING')
-                  AND kind IN ('RESTART', 'UPDATE', 'BACKUP')
+                  AND kind IN ('RESTART', 'UPDATE', 'BACKUP', 'DOWN')
                   AND not_before > now()
                 ORDER BY not_before, id
                 LIMIT 1
@@ -428,4 +465,32 @@ interface UpdateDao {
             WHERE status = 'RUNNING'
             """)
     int failOrphans(@Bind("result") String result);
+
+    // ------------------------------------------------------------------ service_hold (V28)
+
+    /** Every service being held down, newest first. Usually none. */
+    @SqlQuery("SELECT * FROM service_hold ORDER BY since DESC, service")
+    @RegisterRowMapper(ServiceHoldMapper.class)
+    List<ServiceHold> holds();
+
+    /**
+     * Writes the hold, or refreshes the one already there.
+     *
+     * <p>{@code ON CONFLICT DO UPDATE} rather than an insert that can fail: pressing Down on a
+     * service that is already down is not an error, it is somebody making sure. The newer press
+     * wins, so {@code since} and {@code held_by} say who is actually holding it.</p>
+     */
+    @SqlUpdate("""
+            INSERT INTO service_hold (service, held_by, request_id)
+            VALUES (:service, :heldBy, :requestId)
+            ON CONFLICT (service) DO UPDATE
+                SET since = now(), held_by = EXCLUDED.held_by, request_id = EXCLUDED.request_id
+            """)
+    void hold(@Bind("service") String service,
+              @Bind("heldBy") String heldBy,
+              @Bind("requestId") Long requestId);
+
+    /** @return how many rows went away; zero when it was not being held, which is not an error */
+    @SqlUpdate("DELETE FROM service_hold WHERE service = :service")
+    int release(@Bind("service") String service);
 }

@@ -7,7 +7,7 @@ package eu.nordtal.s2.common.notify;
  * A channel name is only ever right in pairs: a {@code pg_notify(...)} somewhere in a statement and
  * a {@code LISTEN} somewhere in a process that has never met it. Until 2026-09-04 the notifying
  * halves were literals inside {@code :common}'s SQL and the listening halves were constants in
- * {@code network-control}, three packages away - and a listener quietly pointed at a channel nobody
+ * {@code proxy}, three packages away - and a listener quietly pointed at a channel nobody
  * publishes on looks exactly like a listener that works, right up until the moment it is needed.
  * The SQL is in this module, so the names belong in this module, where the statement that emits
  * them and the loop that waits for them can be read against each other.

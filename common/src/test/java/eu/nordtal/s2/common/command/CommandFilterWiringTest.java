@@ -35,7 +35,7 @@ class CommandFilterWiringTest {
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java");
 
     private static final String PROXY =
-            "network-control/src/main/templates/eu/nordtal/s2/networkcontrol/NetworkControlPlugin.java";
+            "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
 
     @Test
     @DisplayName("every backend builds the filter, registers it as a listener and starts its poll")

@@ -33,8 +33,8 @@ repositoryRootTestInputs {
     reads("hunger-games/src/main/resources/messages/hunger-games/de.properties")
     reads("limbo/src/main/resources/messages/limbo/en.properties")
     reads("limbo/src/main/resources/messages/limbo/de.properties")
-    reads("network-control/src/main/resources/messages/network-control/en.properties")
-    reads("network-control/src/main/resources/messages/network-control/de.properties")
+    reads("proxy/src/main/resources/messages/proxy/en.properties")
+    reads("proxy/src/main/resources/messages/proxy/de.properties")
     reads("paper-common/src/main/resources/messages/paper-common/en.properties")
     reads("paper-common/src/main/resources/messages/paper-common/de.properties")
     reads("smp/src/main/resources/messages/smp/en.properties")
@@ -60,7 +60,7 @@ repositoryRootTestInputs {
     readsTree("smp/src/main")
     readsTree("limbo/src/main")
     readsTree("hunger-games/src/main")
-    readsTree("network-control/src/main")
+    readsTree("proxy/src/main")
 
     readsTree("commands/src/main")
     readsTree("paper-common/src/main")
@@ -69,7 +69,7 @@ repositoryRootTestInputs {
 
     // ConfigSpecExplanationTest walks every *Spec.java under a config/ directory in every module,
     // looking for @Order without @Explain/@NoExplanationNeeded. smp, limbo, hunger-games and
-    // network-control are already covered above by their whole src/main tree; these three are not
+    // proxy are already covered above by their whole src/main tree; these three are not
     // read anywhere else, and without declaring them here an edit inside one would leave
     // :common:test UP-TO-DATE.
     readsTree("discord-bot/src/main/java/eu/nordtal/s2/discordbot/config")

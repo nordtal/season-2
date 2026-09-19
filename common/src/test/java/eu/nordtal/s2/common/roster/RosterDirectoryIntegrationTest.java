@@ -239,7 +239,7 @@ class RosterDirectoryIntegrationTest {
     @Test
     void theDiscordAndMinecraftProfileCacheRideAlongToo() {
         // steward/44 added six columns - three on discord_user, two on account_link, all nullable -
-        // caching what discord-bot and network-control last observed. steward/45's identity display
+        // caching what discord-bot and the proxy last observed. steward/45's identity display
         // needs them in the same statement people() already is, for the reason the class comment
         // gives: a few hundred round trips for a page nobody scrolls to the end of.
         person(ALICE);

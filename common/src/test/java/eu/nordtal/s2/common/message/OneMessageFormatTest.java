@@ -32,7 +32,7 @@ class OneMessageFormatTest {
 
     /** Every module that renders messages to a Minecraft client. */
     private static final List<String> MODULES =
-            List.of("smp", "limbo", "hunger-games", "network-control");
+            List.of("smp", "limbo", "hunger-games", "proxy");
 
     /**
      * Every file in the four modules that still calls {@code Component.text(...)}, and why. Three
@@ -57,17 +57,17 @@ class OneMessageFormatTest {
             Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/player/ArenaComposition.java",
                     "a flag glyph and a player name - this server's half of the shared system"
                             + " lines, the same exemption smp's PlayerComposition has"),
-            Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/ping/NetworkPing.java",
+            Map.entry("proxy/src/main/java/eu/nordtal/s2/proxy/ping/NetworkPing.java",
                     "the MOTD, which NetworkPing parses itself with its own placeholder resolver"),
-            Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityUser.java",
+            Map.entry("proxy/src/main/java/eu/nordtal/s2/proxy/command/VelocityUser.java",
                     "NordtalUser#replyLiteral - text that IS already the answer and must not be"
                             + " rendered twice"),
-            Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/ProxyChatEffects.java",
+            Map.entry("proxy/src/main/java/eu/nordtal/s2/proxy/command/ProxyChatEffects.java",
                     "a private message's own text, wrapped so that it can be handed to"
                             + " MessageRenderer's COMPONENT slot - which is what keeps a player"
                             + " called <red> from colouring somebody else's chat. The line around"
                             + " it is a bundle key like any other"),
-            Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/ConsoleUser.java",
+            Map.entry("proxy/src/main/java/eu/nordtal/s2/proxy/command/ConsoleUser.java",
                     "the same NordtalUser#replyLiteral, for the proxy console - plus a plain-text"
                             + " serialiser, because a raw <green> in a container log is a thing"
                             + " somebody greps past"));

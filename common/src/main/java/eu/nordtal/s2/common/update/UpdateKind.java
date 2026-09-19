@@ -2,11 +2,16 @@ package eu.nordtal.s2.common.update;
 
 /**
  * What an {@link UpdateRequest} asks steward-worker to do. Stored verbatim in
- * {@code update_request.kind}, which a database {@code CHECK} restricts to these four.
+ * {@code update_request.kind}, which a database {@code CHECK} restricts to the values below.
  *
  * <p>Separate kinds rather than one command with flags, on purpose: a button that says "check what
  * is new" must not be able to become a network-wide restart because a column defaulted. Each is a
  * different amount of damage and each is asked for by name.</p>
+ *
+ * <p>The {@code CHECK} has held five since V14 and seven since V28, so the sentence above no longer
+ * counts them - the list below is the truth. {@code UpdateDirectoryIntegrationTest} submits one row
+ * of every value against a real database running the real migrations, which is what keeps this enum
+ * and that constraint from drifting apart.</p>
  */
 public enum UpdateKind {
 
@@ -73,10 +78,48 @@ public enum UpdateKind {
      * asks instead - see {@link UpdateDirectory#lastSuccessfulBackup(java.time.Duration)}, and no
      * provable backup means no reset.</p>
      */
-    BACKUP;
+    BACKUP,
+
+    /**
+     * Count down, stop the named services, and <b>leave them stopped</b> (season-2-ops/125).
+     *
+     * <h2>Why this is a kind and not a flag on RESTART</h2>
+     * The two differ in exactly the dangerous half: a restart that fails to come back is an
+     * incident, and a DOWN that does not come back is the entire point. Nothing that watches a run
+     * could tell those apart from a flag, and the one that is supposed to end with a stopped server
+     * is the one an operator asked for by name.
+     *
+     * <p>Which services it is for comes from {@code update_request.scope}, the same column a scoped
+     * update run uses. An empty scope is therefore the whole network, which is true here too and is
+     * the reason the interface never offers this without naming a service.</p>
+     *
+     * <h2>What keeps it down</h2>
+     * A row in {@code service_hold}, written when the stop succeeds. It is what makes the state
+     * survive a restart of the worker and of the interface, and it is what a later run reads so it
+     * never starts a service somebody is holding. Nothing expires it and nothing times it out: the
+     * owner's rule is that without a press of the button, nothing happens.
+     */
+    DOWN,
+
+    /**
+     * The other half of {@link #DOWN}: take the hold off and start the services again.
+     *
+     * <p>No countdown, because nothing goes down - counting down to a server coming back would be
+     * thirty seconds of warning about good news. Otherwise it is an ordinary run: it writes a
+     * report, it waits for health, and it says so if a service did not come back.</p>
+     */
+    START;
 
     /** @return whether this kind stops servers, which is what a confirmation is asked for */
     public boolean stopsServers() {
-        return this == UPDATE || this == RESTART || this == BACKUP;
+        return this == UPDATE || this == RESTART || this == BACKUP || this == DOWN;
+    }
+
+    /**
+     * @return whether this kind is one half of the deliberate down/up pair, which is the one place
+     *         where a stopped service is the finished state rather than a failure
+     */
+    public boolean isHold() {
+        return this == DOWN || this == START;
     }
 }

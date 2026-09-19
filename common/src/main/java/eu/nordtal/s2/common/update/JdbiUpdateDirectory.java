@@ -43,6 +43,74 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
+                                final String requestedBy, final Duration delay,
+                                final java.util.List<String> services) {
+        Objects.requireNonNull(kind, "kind");
+        Objects.requireNonNull(source, "source");
+        final long seconds = delay == null ? 0L : Math.max(0L, delay.toSeconds());
+        final String scope = scopeText(services);
+        // The unscoped statement, not the scoped one with a NULL bind. They are the same row today;
+        // keeping "everything" on the path every existing caller already takes means a change to
+        // one can never quietly become a change to the other.
+        return scope == null
+                ? dao.submit(kind.name(), source.name(), requestedBy, seconds)
+                : dao.submitScoped(kind.name(), source.name(), requestedBy, seconds, scope);
+    }
+
+    @Override
+    public java.util.List<String> scopeOf(final long id) {
+        return parseScope(dao.scope(id));
+    }
+
+    @Override
+    public java.util.List<ServiceHold> holds() {
+        return dao.holds();
+    }
+
+    @Override
+    public void hold(final String service, final String heldBy, final Long requestId) {
+        dao.hold(service, heldBy, requestId);
+    }
+
+    @Override
+    public void release(final String service) {
+        dao.release(service);
+    }
+
+    /**
+     * The services as the column holds them, or {@code null} for the whole network.
+     *
+     * <p>Blanks are dropped and the order is kept. A list that is empty once the blanks are gone is
+     * {@code null} rather than {@code ""}: the CHECK in V27 would refuse the empty string anyway,
+     * and turning "the caller passed a list of nothing" into a row that names nothing would be a
+     * run that stops nothing while claiming to be scoped.</p>
+     */
+    static String scopeText(final java.util.List<String> services) {
+        if (services == null || services.isEmpty()) {
+            return null;
+        }
+        final String joined = services.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::strip)
+                .filter(service -> !service.isEmpty())
+                .distinct()
+                .collect(java.util.stream.Collectors.joining(","));
+        return joined.isEmpty() ? null : joined;
+    }
+
+    /** The inverse. {@code null} and blank both mean the whole network - see {@code scopeOf}. */
+    static java.util.List<String> parseScope(final String scope) {
+        if (scope == null || scope.isBlank()) {
+            return java.util.List.of();
+        }
+        return java.util.Arrays.stream(scope.split(","))
+                .map(String::strip)
+                .filter(service -> !service.isEmpty())
+                .toList();
+    }
+
+    @Override
     public Optional<UpdateRequest> find(final long id) {
         return dao.find(id);
     }

@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ChestOnlyMenuTest {
 
     private static final List<String> MODULES =
-            List.of("smp", "limbo", "hunger-games", "network-control");
+            List.of("smp", "limbo", "hunger-games", "proxy");
 
     /**
      * Menus that compose their own title, and why they may. Empty, and kept empty: an entry here is

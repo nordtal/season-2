@@ -106,7 +106,7 @@ class EntrypointRulesTest {
     @DisplayName("the seeded velocity.toml does not carry a MOTD or a player count")
     void theProxyConfigDoesNotCarryASecondCopyOfTheMotd() {
         // The reverse of what this test asserted until 2026-09-03, and the reversal is the point.
-        // Both values moved into network-control's network.yml, where the plugin answers every ping
+        // Both values moved into proxy's network.yml, where the plugin answers every ping
         // with them. Seeding them here as well would leave a second copy in a file this script
         // writes exactly once - which is what made VELOCITY_MOTD do nothing on any volume that had
         // already started, silently.

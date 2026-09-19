@@ -50,7 +50,7 @@ class BundleContinuationTest {
             "smp/src/main/resources/messages",
             "limbo/src/main/resources/messages",
             "hunger-games/src/main/resources/messages",
-            "network-control/src/main/resources/messages",
+            "proxy/src/main/resources/messages",
             "discord-bot/src/main/resources/messages",
             "commands/src/main/resources/messages",
             // :paper-common's, new 2026-09-09 with the five system lines. Added here in the same

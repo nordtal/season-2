@@ -34,7 +34,7 @@ class WorldEffectVocabularyTest {
 
     /** Every module that can draw something in a world. */
     private static final List<String> MODULES =
-            List.of("smp", "limbo", "hunger-games", "network-control");
+            List.of("smp", "limbo", "hunger-games", "proxy");
 
     /** Every way of naming an effect directly, and what to do instead. */
     private static final Map<String, String> FORBIDDEN = new LinkedHashMap<>(Map.of(

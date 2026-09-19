@@ -73,6 +73,16 @@ public final class Applier {
             outcomes.addAll(applyService(root, entry.getKey(), entry.getValue()));
         }
 
+        // THE STANDBYS COME LAST, AND THEY COME EVERY TIME (season-2-ops/119). Last, because a copy
+        // of a folder that is still being written is a copy of something that never existed; every
+        // time, because a service can be UNCHANGED here and its standby still be empty - a standby
+        // volume is created long after the live one and starts out with nothing in it.
+        //
+        // A run that reaches this method is a run that had work: Runner answers NOTHING_TO_DO
+        // before it ever calls apply. So this cannot turn an idle run into one that reports doing
+        // something.
+        outcomes.addAll(Standbys.fill(root, byService.keySet()));
+
         return new ApplyResult(List.copyOf(outcomes));
     }
 

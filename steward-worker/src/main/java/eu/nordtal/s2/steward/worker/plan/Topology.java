@@ -252,6 +252,47 @@ public final class Topology {
                     List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY, VOICE_CHAT, CORE_PROTECT),
                     List.of(VOICE_CHAT, CORE_PROTECT)));
 
+    // ---------------------------------------------------------------- the standbys
+
+    /** What a replacement instance of a service is called: its own name and this (season-2-ops/117). */
+    public static final String STANDBY_SUFFIX = "-standby";
+
+    /**
+     * The services that have a {@code -standby} counterpart in {@code compose.yml}
+     * (season-2-ops/119), in the order a swap uses them.
+     *
+     * <h2>Why this is a list of names and not two more {@link Service}s</h2>
+     * Because a standby runs the same jars as the service it stands in for, and "the same" has to
+     * mean the same file rather than the same version number. A {@code Service} row here would be
+     * resolved, planned, reported and downloaded a second time - two rows per artefact in every
+     * report, two GitHub calls, and the standing possibility of a standby that came up on a
+     * different build than the proxy it replaces because the newest release moved between the two
+     * resolves. So nothing resolves for a standby: {@code Standbys} copies the live service's
+     * {@code plugins/} across after every apply, and the standby is by construction what the live
+     * one was about to become.
+     *
+     * <p><b>Only these two, and that is Till's cut</b> (season-2-ops/116): a run that restarts the
+     * proxy needs a proxy to hold the players, and a run that restarts the limbo - or the SMP -
+     * needs a waiting room that stays up. {@code hunger-games} is explicitly out of it, and the SMP
+     * has no standby at all: nobody can play on a second copy of a world.</p>
+     */
+    public static final List<String> SERVICES_WITH_STANDBY = List.of(PROXY, LIMBO);
+
+    /**
+     * The compose service name of {@code service}'s standby.
+     *
+     * @param service the name of a service, whether or not it actually has one
+     * @return that name plus {@link #STANDBY_SUFFIX}
+     */
+    public static @NotNull String standbyOf(final @NotNull String service) {
+        return service + STANDBY_SUFFIX;
+    }
+
+    /** Every standby compose.yml defines, in the order of {@link #SERVICES_WITH_STANDBY}. */
+    public static @NotNull List<String> standbyNames() {
+        return SERVICES_WITH_STANDBY.stream().map(Topology::standbyOf).toList();
+    }
+
     // ---------------------------------------------------------------- the added half
 
     /**

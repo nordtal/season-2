@@ -90,7 +90,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>What this file still cannot see is the tree itself - it holds the catalogue and no adapter. The
  * other half is held where a tree can be built: {@code AdminCommandsAreGoneFromTheGameTest}
- * (paper-common) and {@code VelocityCommandsGameSurfaceTest} (network-control), both of which ask a
+ * (paper-common) and {@code VelocityCommandsGameSurfaceTest} (proxy), both of which ask a
  * built node's {@code requires} for an admin player and for the console.</p>
  */
 class AdminCommandsAreConsoleAndWebOnlyTest {

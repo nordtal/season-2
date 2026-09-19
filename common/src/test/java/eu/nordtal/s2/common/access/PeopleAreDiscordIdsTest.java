@@ -50,7 +50,7 @@ class PeopleAreDiscordIdsTest {
             "smp/src/main/java",
             "limbo/src/main/java",
             "hunger-games/src/main/java",
-            "network-control/src/main/java");
+            "proxy/src/main/java");
 
     private static final String FORBIDDEN = "getUniqueId().toString()";
 

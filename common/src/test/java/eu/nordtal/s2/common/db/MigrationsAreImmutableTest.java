@@ -107,6 +107,12 @@ class MigrationsAreImmutableTest {
                 "c231c64b72cbc887083429d95288bbc364e7886975f9836cfbb809d07b91e72a");
         FROZEN.put("V26__web_push_subscription.sql",
                 "d55ca77170392e6f72ea2cf124cd15b3258b26c738746aefe84677e39d344dd4");
+        FROZEN.put("V27__update_request_scope.sql",
+                "96306695d689a425553183d83399699337ad7cde36aea0352400e59dda5edfab");
+        FROZEN.put("V28__service_hold.sql",
+                "3aa88fe7c7e9dc06a080e2365879e85e9aa2ceaa165896bbe0ccbd0a03e6430f");
+        FROZEN.put("V29__service_plugin.sql",
+                "2be49ad36cdf8aa6fac391821c1c2a869b20036dff537c6c3bb0a538122b76f0");
     }
 
     @Test

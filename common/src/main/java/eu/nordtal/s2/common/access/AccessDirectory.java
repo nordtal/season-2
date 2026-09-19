@@ -106,7 +106,7 @@ public interface AccessDirectory extends AutoCloseable {
     DiscordProfile discordProfile(String discordId);
 
     /**
-     * The Minecraft name {@code network-control} last saw at login, for the account linked to this
+     * The Minecraft name {@code proxy} last saw at login, for the account linked to this
      * Discord id. Never {@code null}: an unlinked account and one nobody has seen join yet both
      * answer {@link MinecraftProfile#EMPTY}.
      *

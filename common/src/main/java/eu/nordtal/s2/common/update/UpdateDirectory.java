@@ -64,6 +64,87 @@ public interface UpdateDirectory {
     UpdateRequest submit(UpdateKind kind, UpdateSource source, String requestedBy, Duration delay);
 
     /**
+     * The same, for a run that is only for some of the services (season-2-ops/127).
+     *
+     * <h2>A scoped run is not an abbreviated one</h2>
+     * It resolves, counts down, parks the players in limbo, waits for health and writes the same
+     * report. The only thing that is smaller is what it touches. That is Till's own wording of the
+     * requirement and it is the whole reason this is a value on the row rather than a second code
+     * path: one sequence, one report, one set of things that can go wrong.
+     *
+     * @param services compose service names. <b>Empty or {@code null} is the whole network</b>, the
+     *                 same thing {@link #submit} asks for - not "no services", which would be a run
+     *                 that stops nothing while claiming to be scoped
+     */
+    default UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
+                                 final String requestedBy, final Duration delay,
+                                 final java.util.List<String> services) {
+        // A default, so that a directory which knows nothing about scope - every test fake in this
+        // repository - keeps working and answers with the run it has always written. The real
+        // implementation overrides it; see JdbiUpdateDirectory.
+        return submit(kind, source, requestedBy, delay);
+    }
+
+    /**
+     * Which services a run is for.
+     *
+     * <h2>Why it is read separately rather than sitting on {@link UpdateRequest}</h2>
+     * Exactly one process asks this question - steward-worker, once, when it has claimed the row -
+     * and {@code UpdateRequest} is constructed in twenty-two places across six modules, every one
+     * of which would have gained a parameter it never reads. The column is on the row; the record
+     * is the shape everybody passes around. Those are allowed to be different.
+     *
+     * @param id a request id
+     * @return the services, or <b>empty for the whole network</b> - which is also what a row
+     *         written before this column existed says, and what an id that no longer exists says.
+     *         All three mean "do not narrow anything", which is the safe direction: the worst case
+     *         is a run that does what runs have always done
+     */
+    default java.util.List<String> scopeOf(final long id) {
+        return java.util.List.of();
+    }
+
+    /**
+     * Every service that is being held down on purpose (season-2-ops/125).
+     *
+     * <p>Read by anything that is about to start a container: a run that brings a network back up
+     * must not bring back the one service somebody stopped in order to work on it. Also read by the
+     * interface, which is the only way it can draw "down because somebody said so" differently from
+     * "down because it fell over" - the container runtime cannot tell those apart.</p>
+     *
+     * @return the holds, newest first; <b>empty is the ordinary case</b> and is what a directory
+     *         that knows nothing about holds answers, which is the safe direction: the worst case
+     *         is a run that does what runs have always done
+     */
+    default java.util.List<ServiceHold> holds() {
+        return java.util.List.of();
+    }
+
+    /** @return whether that one service is being held down */
+    default boolean isHeld(final String service) {
+        return holds().stream().anyMatch(hold -> hold.service().equals(service));
+    }
+
+    /**
+     * Writes a hold, or refreshes the one already there.
+     *
+     * <p>Unlike {@link #holds()} this has no harmless default: a directory that cannot write a hold
+     * and pretends it did leaves a service stopped with nothing saying why, and the next run starts
+     * it again. Loud beats silent, so the default throws and the two directories that can do this
+     * override it.</p>
+     */
+    default void hold(final String service, final String heldBy, final Long requestId) {
+        throw new UnsupportedOperationException(
+                "this directory cannot hold a service down: " + service);
+    }
+
+    /** Takes the hold off, if there is one. Doing it twice is not an error. */
+    default void release(final String service) {
+        throw new UnsupportedOperationException(
+                "this directory cannot release a service: " + service);
+    }
+
+    /**
      * Reads a request back.
      *
      * @param id what {@link #submit} returned
@@ -205,7 +286,7 @@ public interface UpdateDirectory {
     /**
      * The outage that is counting down right now.
      *
-     * @return the request being counted down, or empty. This is what network-control counts down
+     * @return the request being counted down, or empty. This is what proxy counts down
      *         towards
      */
     Optional<UpdateRequest> countingDown();

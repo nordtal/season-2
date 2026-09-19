@@ -6,7 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * One row of {@code online_player}, as read back - a player network-control saw connected at
+ * One row of {@code online_player}, as read back - a player proxy saw connected at
  * {@code updated} (steward/111).
  *
  * <p>The sibling of {@link OnlineCount} and deliberately not a field on it: that record is one
@@ -19,7 +19,7 @@ import java.util.UUID;
  * @param subject the compose service this player was on, or {@code null} for a player the proxy had
  *                and no backend did yet - mid-transfer, or between login and the first server. Not
  *                a guess and not "offline": {@link #on()} is how a reader says so out loud
- * @param updated when network-control last saw them connected
+ * @param updated when the proxy last saw them connected
  */
 public record OnlinePlayer(UUID uuid, String name, String subject, Instant updated) {
 

@@ -79,9 +79,20 @@ class UpdateDirectoryIntegrationTest {
         dataSource = null;
     }
 
+    /**
+     * Both tables, because one references the other.
+     *
+     * <p>{@code service_hold.request_id} points at {@code update_request}, and PostgreSQL refuses
+     * to truncate a table something references unless the referencing table goes with it. Naming
+     * both is the honest version of that - {@code CASCADE} would silently take whatever else grows
+     * a foreign key here later.</p>
+     */
+    private static final String FRESH_INBOX =
+            "TRUNCATE TABLE service_hold, update_request RESTART IDENTITY";
+
     @BeforeEach
     void freshInbox() {
-        execute("TRUNCATE TABLE update_request RESTART IDENTITY");
+        execute(FRESH_INBOX);
         updates = UpdateDirectory.using(dataSource);
     }
 
@@ -201,7 +212,7 @@ class UpdateDirectoryIntegrationTest {
      * chat line at all - so any of those up to five seconds already spent by the time the poll
      * catches up is that line gone for good, never the ten-second one behind it. This has nothing to
      * do with {@code BACKUP} specifically: every kind that counts down is exposed to it equally,
-     * which {@code docker logs nordtal-s2-network-control-1} confirms - every single logged
+     * which {@code docker logs nordtal-s2-proxy-1} confirms - every single logged
      * countdown, {@code UPDATE} and {@code BACKUP} alike, shows 12 beats where a full countdown is
      * 13. BACKUP is only the kind Till happened to be testing when he noticed.</p>
      */
@@ -398,7 +409,7 @@ class UpdateDirectoryIntegrationTest {
             if (!kind.stopsServers()) {
                 continue;
             }
-            execute("TRUNCATE TABLE update_request RESTART IDENTITY");
+            execute(FRESH_INBOX);
             final UpdateRequest submitted =
                     updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
             updates.claimNext().orElseThrow();
@@ -428,7 +439,7 @@ class UpdateDirectoryIntegrationTest {
             if (!kind.stopsServers()) {
                 continue;
             }
-            execute("TRUNCATE TABLE update_request RESTART IDENTITY");
+            execute(FRESH_INBOX);
             final UpdateRequest submitted =
                     updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
             updates.claimNext().orElseThrow();
@@ -807,6 +818,53 @@ class UpdateDirectoryIntegrationTest {
                 + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
                 + " $json$" + result + "$json$)");
         return lastId();
+    }
+
+    @Test
+    @DisplayName("a hold survives, refreshes rather than duplicates, and goes away again")
+    void aServiceCanBeHeldDown() {
+        // season-2-ops/125. The whole reason this state is in the database and not in a field is
+        // that it has to outlive a restart of the worker and of the interface, so the only test
+        // worth having is one against a real table.
+        final UpdateRequest down = updates.submit(
+                UpdateKind.DOWN, UpdateSource.CONSOLE, "Till", Duration.ZERO, List.of("smp"));
+
+        updates.hold("smp", "Till", down.id());
+        assertTrue(updates.isHeld("smp"));
+        assertFalse(updates.isHeld("limbo"), "holding one service held another");
+
+        final ServiceHold held = updates.holds().getFirst();
+        assertEquals("smp", held.service());
+        assertEquals("Till", held.heldBy());
+        assertEquals(down.id(), held.requestId());
+        assertNotNull(held.since());
+
+        // Pressing Down on something that is already down is somebody making sure, not an error.
+        updates.hold("smp", "Somebody else", down.id());
+        assertEquals(1, updates.holds().size(), "the second press wrote a second row");
+        assertEquals("Somebody else", updates.holds().getFirst().heldBy());
+
+        updates.release("smp");
+        assertEquals(List.of(), updates.holds());
+        // Releasing twice is not an error either: the button is idempotent on purpose.
+        updates.release("smp");
+    }
+
+    @Test
+    @DisplayName("a hold whose DOWN row is deleted keeps the hold and forgets the row")
+    void theHoldOutlivesItsExplanation() {
+        // ON DELETE SET NULL, and it is the deliberate direction: a hold that vanished with its
+        // row would leave a service that the next run starts with nobody having asked for it.
+        final UpdateRequest down = updates.submit(
+                UpdateKind.DOWN, UpdateSource.CONSOLE, "Till", Duration.ZERO, List.of("limbo"));
+        updates.hold("limbo", "Till", down.id());
+
+        execute("DELETE FROM update_request WHERE id = " + down.id());
+
+        final ServiceHold held = updates.holds().getFirst();
+        assertEquals("limbo", held.service());
+        assertNull(held.requestId(), "the hold went away with the row that explained it");
+        updates.release("limbo");
     }
 
     private static long lastId() {

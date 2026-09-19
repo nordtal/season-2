@@ -30,7 +30,7 @@ class SoundVocabularyTest {
 
     /** Every module that plays a sound to a Minecraft client, or could. */
     private static final List<String> MODULES =
-            List.of("smp", "limbo", "hunger-games", "network-control");
+            List.of("smp", "limbo", "hunger-games", "proxy");
 
     /**
      * Every way of naming a sound directly, and what to do instead. Substrings and one small regex
@@ -63,9 +63,9 @@ class SoundVocabularyTest {
             "hunger-games' sound adapter - the same twenty lines, for the same reason: a shared"
                     + " adapter in :common would put org.bukkit.entity.Player in a jar that is"
                     + " shaded into a Velocity plugin",
-            "network-control/src/main/java/eu/nordtal/s2/networkcontrol/feedback/"
-                    + "NetworkControlSounds.java",
-            "network-control's sound adapter (season-2-ingame/28) - the Velocity-side twin of the"
+            "proxy/src/main/java/eu/nordtal/s2/proxy/feedback/"
+                    + "ProxySounds.java",
+            "proxy's sound adapter (season-2-ingame/28) - the Velocity-side twin of the"
                     + " other two: the proxy holds the client connection itself, so it can call"
                     + " Player#playSound the same way RestartWatch already calls sendMessage and"
                     + " showTitle on a player standing on any backend");

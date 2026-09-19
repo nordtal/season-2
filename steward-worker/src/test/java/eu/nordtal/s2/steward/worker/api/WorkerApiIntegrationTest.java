@@ -20,6 +20,7 @@ import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.ZoneId;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -52,7 +53,8 @@ class WorkerApiIntegrationTest {
         api = new WorkerApi(docker, new DockerOps(docker, PROJECT), new Console(docker, PROJECT),
                 new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN, Path.of("/tmp"),
                 FakeDirectories.updates(), FakeDirectories.audit(),
-                new WorkerApi.Nightly("04:45", ZoneId.of("Europe/Berlin")));
+                new WorkerApi.Nightly("04:45", List.of("MONDAY", "TUESDAY", "WEDNESDAY",
+                        "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"), ZoneId.of("Europe/Berlin")));
         api.start(PORT);
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }

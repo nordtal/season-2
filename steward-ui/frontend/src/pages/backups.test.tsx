@@ -70,6 +70,16 @@ function workerConfig(over: { secretValue?: string } = {}) {
     header: [],
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
+      // A LIST key, which is what `backup.days` is - `items`, no `value`. Two days rather than
+      // seven, so a test can tell "what the file says" apart from "everything, by default".
+      entry({
+        path: "backup.days",
+        key: "days",
+        label: "Days",
+        kind: "LIST",
+        value: undefined,
+        items: ["MONDAY", "THURSDAY"],
+      }),
       entry({
         path: "backup.retention.daily",
         key: "daily",
@@ -338,14 +348,56 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
     expect(await screen.findByText(/at most 28 archives per volume/i)).toBeTruthy()
   })
 
-  it("draws the weekdays honestly - every day on, and says picking one is not built", async () => {
+  it("draws the weekdays the file actually chose, not seven decorative ones", async () => {
     vi.stubGlobal("fetch", backend({}))
     draw()
 
     fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
 
-    expect(await screen.findByText("Mon")).toBeTruthy()
-    expect(screen.getByText(/is not built yet/i)).toBeTruthy()
+    // The fixture's `backup.days` is Monday and Thursday. A dialog that drew all seven regardless
+    // is the thing this replaces, and it looked exactly like a working one.
+    expect((await screen.findByRole("button", { name: "Mon" })).getAttribute("aria-pressed")).toBe("true")
+    expect(screen.getByRole("button", { name: "Thu" }).getAttribute("aria-pressed")).toBe("true")
+    expect(screen.getByRole("button", { name: "Tue" }).getAttribute("aria-pressed")).toBe("false")
+  })
+
+  it("saves a picked weekday as a list, in the week's own order", async () => {
+    let sent: unknown
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        put: (body) => {
+          sent = body
+          return json(200, workerConfig())
+        },
+      }),
+    )
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Tue" }))
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(sent).toBeTruthy())
+    // Monday, Tuesday, Thursday - the order of a week and not the order they were clicked in, and
+    // a list rather than a string: a list of one and a scalar are the same thing once flattened,
+    // which is how `stop-services: smp` gets written over a sequence.
+    expect((sent as { changes: Record<string, unknown> }).changes["backup.days"]).toEqual([
+      "MONDAY",
+      "TUESDAY",
+      "THURSDAY",
+    ])
+  })
+
+  it("says so when every day has been turned off, because that is no backup at all", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Mon" }))
+    fireEvent.click(screen.getByRole("button", { name: "Thu" }))
+
+    expect(await screen.findByText(/no night is picked/i)).toBeTruthy()
   })
 })
 

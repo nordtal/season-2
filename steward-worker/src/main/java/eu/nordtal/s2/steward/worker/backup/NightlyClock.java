@@ -7,13 +7,17 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -58,6 +62,7 @@ public final class NightlyClock implements AutoCloseable {
 
     private final UpdateDirectory directory;
     private final LocalTime at;
+    private final Set<DayOfWeek> days;
     private final ZoneId zone;
     private final ScheduledExecutorService clock = Executors.newSingleThreadScheduledExecutor(
             runnable -> {
@@ -66,9 +71,11 @@ public final class NightlyClock implements AutoCloseable {
                 return thread;
             });
 
-    private NightlyClock(final UpdateDirectory directory, final LocalTime at, final ZoneId zone) {
+    private NightlyClock(final UpdateDirectory directory, final LocalTime at,
+                         final Set<DayOfWeek> days, final ZoneId zone) {
         this.directory = directory;
         this.at = at;
+        this.days = days;
         this.zone = zone;
     }
 
@@ -81,12 +88,69 @@ public final class NightlyClock implements AutoCloseable {
      */
     public static Optional<NightlyClock> from(final @NotNull UpdateDirectory directory,
                                               final String at, final @NotNull ZoneId zone) {
+        return from(directory, at, null, zone);
+    }
+
+    /**
+     * Reads {@code backup.at} and {@code backup.days}.
+     *
+     * @param days which weekdays it may run on; {@code null} is every night, which is what a
+     *             config file written before this key existed says
+     * @return empty when it is switched off, unreadable, or asked for no weekday at all
+     */
+    public static Optional<NightlyClock> from(final @NotNull UpdateDirectory directory,
+                                              final String at, final List<String> days,
+                                              final @NotNull ZoneId zone) {
         if (at == null || at.isBlank()) {
             return Optional.empty();
         }
         final LocalTime parsed = hour(at);
-        return parsed == null ? Optional.empty()
-                : Optional.of(new NightlyClock(directory, parsed, zone));
+        if (parsed == null) {
+            return Optional.empty();
+        }
+        final Set<DayOfWeek> weekdays = weekdays(days);
+        if (weekdays.isEmpty()) {
+            log.warn("backup.days lists no weekday this service can read, so there will be no"
+                    + " nightly backup. Nothing else is affected.");
+            return Optional.empty();
+        }
+        return Optional.of(new NightlyClock(directory, parsed, weekdays, zone));
+    }
+
+    /**
+     * {@code backup.days} as a set, empty when the list is present and holds nothing usable.
+     *
+     * <p>Full names and the three-letter forms both, in any case and with any spacing around
+     * them - this value is typed by an operator into a YAML file, and refusing {@code Mon} because
+     * the enum spells it {@code MONDAY} is a config error nobody can see in a diff. A word that is
+     * neither is logged and dropped rather than emptying the whole schedule, which is the same
+     * decision {@code hour()} makes one field up.</p>
+     */
+    private static Set<DayOfWeek> weekdays(final List<String> days) {
+        if (days == null) {
+            return EnumSet.allOf(DayOfWeek.class);
+        }
+        final Set<DayOfWeek> chosen = EnumSet.noneOf(DayOfWeek.class);
+        for (final String day : days) {
+            if (day == null || day.isBlank()) {
+                continue;
+            }
+            final String word = day.strip().toUpperCase(java.util.Locale.ROOT);
+            DayOfWeek found = null;
+            for (final DayOfWeek candidate : DayOfWeek.values()) {
+                if (candidate.name().equals(word) || candidate.name().startsWith(word) && word.length() == 3) {
+                    found = candidate;
+                    break;
+                }
+            }
+            if (found == null) {
+                log.error("backup.days has \"{}\" in it, which is not a weekday. It is ignored;"
+                        + " the rest of the list still schedules.", day);
+                continue;
+            }
+            chosen.add(found);
+        }
+        return chosen;
     }
 
     /**
@@ -101,9 +165,24 @@ public final class NightlyClock implements AutoCloseable {
      */
     public static Optional<ZonedDateTime> next(final String at, final @NotNull ZoneId zone,
                                                final @NotNull ZonedDateTime now) {
+        return next(at, null, zone, now);
+    }
+
+    /**
+     * The same answer, with {@code backup.days} taken into account.
+     *
+     * @param days {@code null} for every night - see {@link #from(UpdateDirectory, String, List, ZoneId)}
+     */
+    public static Optional<ZonedDateTime> next(final String at, final List<String> days,
+                                               final @NotNull ZoneId zone,
+                                               final @NotNull ZonedDateTime now) {
         final LocalTime parsed = hour(at);
-        return parsed == null ? Optional.empty()
-                : Optional.of(nextAt(parsed, now.withZoneSameInstant(zone)));
+        if (parsed == null) {
+            return Optional.empty();
+        }
+        final Set<DayOfWeek> weekdays = weekdays(days);
+        return weekdays.isEmpty() ? Optional.empty()
+                : Optional.of(nextAt(parsed, weekdays, now.withZoneSameInstant(zone)));
     }
 
     /** {@code HH:mm}, or null for blank and for anything that is not a time - both are logged. */
@@ -120,16 +199,31 @@ public final class NightlyClock implements AutoCloseable {
         }
     }
 
-    /** Always strictly in the future, so asking exactly on the second cannot answer with now. */
-    private static ZonedDateTime nextAt(final LocalTime at, final ZonedDateTime now) {
-        final ZonedDateTime next = now.with(at);
-        return next.isAfter(now) ? next : next.plusDays(1).with(at);
+    /**
+     * Always strictly in the future, so asking exactly on the second cannot answer with now, and
+     * always on one of {@code days} - up to seven days ahead, never one.
+     *
+     * <p>The loop is what makes a weekday schedule a weekday schedule: adding a single day when
+     * today is not one of them and answering that is a daily backup with extra configuration.
+     * {@code days} is non-empty by the time this is called, so it terminates within a week.</p>
+     */
+    private static ZonedDateTime nextAt(final LocalTime at, final Set<DayOfWeek> days,
+                                        final ZonedDateTime now) {
+        ZonedDateTime next = now.with(at);
+        if (!next.isAfter(now)) {
+            next = next.plusDays(1).with(at);
+        }
+        for (int ahead = 0; ahead < 7 && !days.contains(next.getDayOfWeek()); ahead++) {
+            next = next.plusDays(1).with(at);
+        }
+        return next;
     }
 
     public void start() {
         final Duration until = untilNext(ZonedDateTime.now(zone));
-        log.info("the nightly backup is asked for at {} {} - next in {}h{}m",
-                at, zone, until.toHours(), until.toMinutesPart());
+        log.info("the nightly backup is asked for at {} {} on {} - next in {}h{}m",
+                at, zone, days.size() == 7 ? "every day" : days, until.toHours(),
+                until.toMinutesPart());
         arm(until);
     }
 
@@ -156,7 +250,7 @@ public final class NightlyClock implements AutoCloseable {
 
     /** Always strictly in the future, so firing exactly on the second cannot re-arm at zero. */
     Duration untilNext(final @NotNull ZonedDateTime now) {
-        return Duration.between(now, nextAt(at, now));
+        return Duration.between(now, nextAt(at, days, now));
     }
 
     @Override

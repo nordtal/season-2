@@ -827,6 +827,31 @@ public interface StewardSpec {
         }
 
         @Order(8)
+        @Key("days")
+        @Comment({
+                "Which weekdays the nightly backup runs on. Full names or the three-letter forms,",
+                "in any case; a word that is not a weekday is logged and ignored.",
+                "",
+                "ALL SEVEN IS THE DEFAULT AND IS WHAT EVERY DEPLOYMENT BEFORE THIS KEY DID. A file",
+                "written before it existed has no list at all, which reads as every night - the",
+                "schedule cannot change underneath a deployment that never chose one.",
+                "",
+                "An empty list is no nightly backup, exactly as an empty backup.at is, and it is",
+                "logged on start rather than left to be discovered by a missing archive. That is",
+                "deliberate: the alternative reading, 'empty means all of them', turns a list",
+                "somebody cleared on purpose into a backup every night.",
+                "",
+                "backup.retention counts DAYS, not runs, so a schedule with gaps in it keeps its",
+                "daily window for longer in wall-clock time - fourteen daily copies of a Monday",
+                "and Thursday schedule are seven weeks, not two."
+        })
+        @Explain("Which weekdays the nightly backup runs on. All seven by default. An empty list means no nightly backup at all.")
+        default List<String> days() {
+            return List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY",
+                    "SUNDAY");
+        }
+
+        @Order(9)
         @Key("patience-minutes")
         @Comment({
                 "How long one volume's snapshot may take before the run gives up on it and starts",
@@ -848,7 +873,7 @@ public interface StewardSpec {
             return 30;
         }
 
-        @Order(9)
+        @Order(10)
         @Key("remote")
         @Comment({
                 "WHERE A COPY GOES THAT IS NOT ON THIS DISK. Empty endpoint means there is none,",

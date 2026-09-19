@@ -6,6 +6,7 @@ import {
   MinecraftFace,
   PersonIdentity,
   minecraftHeadUrl,
+  personLabel,
 } from "@/components/steward/identity"
 
 /**
@@ -307,5 +308,31 @@ describe("MinecraftFace - the name and the head, never the uuid", () => {
     // as `no name observed ye` at 390px. It now truncates properly as well, but a fallback label
     // that has to truncate to fit is a label chosen too long.
     expect(screen.getByText(/no name yet/i)).toBeTruthy()
+  })
+})
+
+describe("personLabel - the one name for the places a component cannot go", () => {
+  /**
+   * steward/124: a toast title and a `<SelectItem>` label are strings, so they cannot hold the
+   * identity component - but they must not print a snowflake either. One order of preference,
+   * here, rather than one per page.
+   */
+  it("prefers the display name", () => {
+    expect(
+      personLabel({ discordDisplayName: "Ally", discordUsername: "alice", discordId: DISCORD_ID }),
+    ).toBe("Ally")
+  })
+
+  it("falls back to the username, then the Minecraft name", () => {
+    expect(personLabel({ discordUsername: "alice", discordId: DISCORD_ID })).toBe("alice")
+    expect(personLabel({ mcName: "AliceMC", discordId: DISCORD_ID })).toBe("AliceMC")
+  })
+
+  it("falls back to the id LAST, because a nameless row must still be identifiable", () => {
+    expect(personLabel({ discordId: DISCORD_ID })).toBe(DISCORD_ID)
+  })
+
+  it("answers an empty string rather than the word undefined when there is nothing at all", () => {
+    expect(personLabel({})).toBe("")
   })
 })

@@ -601,6 +601,73 @@ describe("JournalPage - Detail is running text, not a field", () => {
   })
 })
 
+describe("JournalPage - profiles, never user ids (steward/124)", () => {
+  /**
+   * Till, 2026-09-19: the app is to show profiles and never user ids, and the Journal was the last
+   * page still printing snowflakes into two of its columns. The identity component already handles
+   * the case that makes this awkward - somebody the roster no longer knows - by saying so and
+   * keeping the id copyable in the popover, which is a named row rather than an anonymous one.
+   */
+  const ENTRIES = () => [
+    {
+      id: "j1",
+      occurred: "2026-09-18T09:00:00Z",
+      action: "GRANT_ACCESS",
+      actor: "214906139328839681",
+      subject: "300000000000000002",
+      detail: "30 days granted",
+    },
+  ]
+
+  it("draws the names of both people and neither of their ids", async () => {
+    vi.stubGlobal("fetch", backend({ journal: ENTRIES }))
+    draw(<JournalPage />)
+
+    await screen.findByText("GRANT_ACCESS")
+    expect(await screen.findByText("Ally")).toBeTruthy()
+    expect(screen.getByText("bob")).toBeTruthy()
+    expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
+  })
+
+  it("says so rather than going anonymous for somebody the roster does not know", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        journal: () => [
+          {
+            id: "j2",
+            occurred: "2026-09-18T09:00:00Z",
+            action: "REVOKE_ACCESS",
+            actor: "999999999999999999",
+            detail: "left the guild long ago",
+          },
+        ],
+      }),
+    )
+    draw(<JournalPage />)
+
+    await screen.findByText("REVOKE_ACCESS")
+    expect(screen.getByText("no Discord name on record")).toBeTruthy()
+    // Still not the number: the id lives in the popover, next to a button that copies it.
+    expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
+  })
+
+  it("draws Steward itself when no admin was behind the line", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        journal: () => [
+          { id: "j3", occurred: "2026-09-18T09:00:00Z", action: "SETTLE", detail: "nightly" },
+        ],
+      }),
+    )
+    draw(<JournalPage />)
+
+    await screen.findByText("SETTLE")
+    expect(screen.getByText("Steward")).toBeTruthy()
+  })
+})
+
 /**
  * steward/114: at 1440px the ten declared column widths of the Payments table summed to 95rem
  * (1520px) in a 1152px (72rem) card - a budget problem independent of wrapping, since every one of

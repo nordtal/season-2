@@ -28,7 +28,7 @@ import {
   useRevokeAccess,
   useSetPlaytime,
 } from "@/lib/queries"
-import { MinecraftFace, PersonIdentity } from "@/components/steward/identity"
+import { MinecraftFace, PersonIdentity, personLabel } from "@/components/steward/identity"
 import { InlineCommandAction } from "@/components/steward/inline-command"
 import { PageHeader } from "@/components/steward/page-header"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
@@ -875,11 +875,17 @@ function GrantDialog({
                 { discordId: discordId.trim(), days: parsedDays },
                 {
                   onSuccess: (written: Grant) => {
-                    toast.success(`Access granted for ${written.discordId}`, {
-                      description: `Valid ${dateTime(written.validFrom)} until ${dateTime(
-                        written.validUntil,
-                      )}. A journal line names you.`,
-                    })
+                    // The person if this dialog was opened from their row, the id they typed if
+                    // it was opened from the toolbar - there is nobody else to name then, and an
+                    // echo of what was typed is what confirms the right account was hit.
+                    toast.success(
+                      `Access granted for ${person ? personLabel(person) : written.discordId}`,
+                      {
+                        description: `Valid ${dateTime(written.validFrom)} until ${dateTime(
+                          written.validUntil,
+                        )}. A journal line names you.`,
+                      },
+                    )
                     setDiscordId(person?.discordId ?? "")
                   },
                   onError: (error) => {
@@ -1067,12 +1073,12 @@ function RevokeDialog({
                   // clicking, the run may have ended or somebody else may have revoked it.
                   if (result.revoked === 0) {
                     toast.warning("There was nothing to revoke", {
-                      description: `No period was still running for ${person.discordId}.`,
+                      description: `No period was still running for ${personLabel(person)}.`,
                     })
                     return
                   }
                   toast.success(
-                    `${count(result.revoked)} period(s) of ${person.discordId} revoked`,
+                    `${count(result.revoked)} period(s) of ${personLabel(person)} revoked`,
                     { description: "A journal line names you." },
                   )
                 },
@@ -1837,23 +1843,32 @@ export function JournalPage() {
                          * wording would be a table that silently falls back to the enum name for
                          * anything new - and this column is what somebody greps the bot's log for. */}
                         <TableCell data-label="Action" className="font-medium">{entry.action}</TableCell>
+                        {/* steward/124, Till on 2026-09-19: never user ids, always profiles.
+                         * Both columns printed the raw snowflake until then. The
+                         * identity component is what the rest of the app already uses, and it
+                         * answers the awkward case by itself: somebody the roster no longer knows
+                         * is drawn as "no Discord name on record" with the id still copyable in
+                         * the popover, which is a name for the row rather than an anonymous one.
+                         * No admin at all is Steward's own mark, the case `system` was built for. */}
                         <TableCell data-label="Triggered by" className="text-muted-foreground">
-                          {entry.actor ?? (
-                            <span title="No admin - the bot acted on its own.">
-                              Bot
-                            </span>
+                          {entry.actor ? (
+                            <PersonByIdentifier
+                              discordId={entry.actor}
+                              people={people.data}
+                              avatarBaseUrl={avatarBase.data}
+                            />
+                          ) : (
+                            <PersonIdentity system />
                           )}
                         </TableCell>
-                        <TableCell data-label="Concerns" className="font-mono text-muted-foreground">
-                          {entry.subject ?? "–"}
-                          {entry.mcUuid ? (
-                            <span className="mt-1 block">
-                              <PersonByIdentifier
-                                mcUuid={entry.mcUuid}
-                                people={people.data}
-                                avatarBaseUrl={avatarBase.data}
-                              />
-                            </span>
+                        <TableCell data-label="Concerns" className="text-muted-foreground">
+                          {entry.subject || entry.mcUuid ? (
+                            <PersonByIdentifier
+                              discordId={entry.subject}
+                              mcUuid={entry.mcUuid}
+                              people={people.data}
+                              avatarBaseUrl={avatarBase.data}
+                            />
                           ) : null}
                         </TableCell>
                         {/* steward/114: the one column here that is running text rather than a

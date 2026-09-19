@@ -28,31 +28,48 @@ interface PushSubscriptionDao {
      * first seen, not when it was last confirmed, which is what {@code last_sent_at} is for.
      */
     @SqlUpdate("""
-            INSERT INTO steward_push_subscription (endpoint, discord_id, p256dh, auth, created_at)
-            VALUES (:endpoint, :discordId, :p256dh, :auth, now())
+            INSERT INTO steward_push_subscription (endpoint, discord_id, p256dh, auth, created_at, device)
+            VALUES (:endpoint, :discordId, :p256dh, :auth, now(), :device)
             ON CONFLICT (endpoint) DO UPDATE SET
                 discord_id = excluded.discord_id,
                 p256dh = excluded.p256dh,
-                auth = excluded.auth
+                auth = excluded.auth,
+                device = coalesce(excluded.device, steward_push_subscription.device)
             """)
     void add(@Bind("endpoint") String endpoint, @Bind("discordId") String discordId,
-             @Bind("p256dh") String p256dh, @Bind("auth") String auth);
+             @Bind("p256dh") String p256dh, @Bind("auth") String auth,
+             @Bind("device") String device);
 
     /** Every subscription, for {@code AlertWatch} - whose it is does not matter on that path. */
     @SqlQuery("""
-            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at
+            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
             FROM steward_push_subscription
             """)
     List<PushSubscriptions.Subscription> all();
 
     /** One account's own subscriptions, oldest first - the settings page's own list. */
     @SqlQuery("""
-            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at
+            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
             FROM steward_push_subscription
             WHERE discord_id = :discordId
             ORDER BY created_at
             """)
     List<PushSubscriptions.Subscription> forAccount(@Bind("discordId") String discordId);
+
+    /**
+     * One subscription of one account, by endpoint - what a test send is pointed at.
+     *
+     * <p>The {@code discord_id} is in the WHERE clause for the same reason it is in
+     * {@link #remove}: an endpoint is not a secret, and without it a browser could aim a test push
+     * at a subscription it merely knows the address of.</p>
+     */
+    @SqlQuery("""
+            SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
+            FROM steward_push_subscription
+            WHERE endpoint = :endpoint AND discord_id = :discordId
+            """)
+    PushSubscriptions.Subscription find(@Bind("endpoint") String endpoint,
+                                        @Bind("discordId") String discordId);
 
     /**
      * One subscription of one account, gone - the settings page's own unsubscribe.

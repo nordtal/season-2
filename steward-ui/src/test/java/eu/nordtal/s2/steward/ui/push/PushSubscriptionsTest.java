@@ -13,6 +13,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -89,6 +91,32 @@ class PushSubscriptionsTest {
                 "a different account was able to remove somebody else's subscription");
         assertTrue(subscriptions.unsubscribe("44", "https://push.example/ep-3"));
         assertTrue(subscriptions.of("44").isEmpty());
+    }
+
+    @Test
+    @DisplayName("the device name is derived from the User-Agent and survives a resubscription")
+    void theDeviceNameIsKept() {
+        subscriptions.subscribe("46", "https://push.example/ep-5", "p", "a",
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15"
+                        + " (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1");
+        assertEquals("iPhone, Safari", subscriptions.of("46").get(0).device(),
+                "the endpoint is not a name - see Devices for where one comes from");
+
+        // A page reloaded twice in the same tab resubscribes with the same endpoint. A browser that
+        // sends no User-Agent at all on that second call must not blank the name it already has.
+        subscriptions.subscribe("46", "https://push.example/ep-5", "p", "a", null);
+        assertEquals("iPhone, Safari", subscriptions.of("46").get(0).device(),
+                "a resubscription without a User-Agent erased the name");
+    }
+
+    @Test
+    @DisplayName("find() answers only within the account, so a test send cannot be aimed elsewhere")
+    void findIsScopedToTheAccount() {
+        subscriptions.subscribe("47", "https://push.example/ep-6", "p", "a");
+
+        assertNull(subscriptions.find("someone-else", "https://push.example/ep-6"),
+                "a different account could look up somebody else's subscription by endpoint");
+        assertNotNull(subscriptions.find("47", "https://push.example/ep-6"));
     }
 
     @Test

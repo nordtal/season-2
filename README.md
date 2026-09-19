@@ -151,6 +151,37 @@ out *aura*, the season's currency — earned by contributing, lost on death.
 in [`resource-pack/README.md`](resource-pack/README.md), mirrored by `:common`'s `Glyphs` and the font
 files, and held against each other by a test on every build. Change one, change all of them.
 
+**An update run does not have to empty the network, and the `-standby` services are how.** What
+drops players today is not a backend stopping — `Evacuation` already moves them off one that is
+about to, and `WaitingBook` lets them back in. It is the *proxy* restarting under them, and the
+limbo stopping alongside it. So a run that touches `proxy`, `limbo` or `smp` first brings up the
+`-standby` of each service it touches, already carrying the new jar, and spends it on the gap:
+sixty seconds of warning in chat and title, a seamless hop to `limbo-standby`, one `transferToHost`
+onto `proxy-standby`, the real services restarting together, and a transfer back that puts everyone
+on the server they were standing on. Where each player stood is a database row for the length of
+the run. `steward-worker` conducts it; the two plugins only obey.
+
+**What makes that cheap is that a standby is a backend, not a second network.** One Paper server can
+be served by two proxies — they share nothing but the forwarding secret — so `limbo-standby` is an
+ordinary limbo that two proxies happen to know about, and `proxy-standby` shrinks to its one real
+job: holding the ten seconds in which the proxy itself is gone. Two Paper processes over one world
+would not work at all (`session.lock`), which is why the standby of a backend is a *different*
+world and never a second copy of the same one.
+
+**Those ten seconds are the price, and they were chosen rather than lost.** An L4 frontend on 25565
+would remove them, and would put a permanent process in front of the whole network whose drain
+never finishes when sessions run for hours. A doorman that keeps both proxies up forever and swaps
+roles saves one loading screen and buys a persistent "which one is live" that somebody has to be
+right about. A cookie on the client would carry the return note, and would make the client the
+authority on which server it may enter. All three were weighed and none is built.
+
+**And being configured is not being there.** A standby address that resolves is not a standby that
+is running — those containers sit in a compose profile of their own and are stopped for all but a
+minute of the season. The proxy therefore probes before it parks, and a silent standby means the
+run behaves exactly as it did before any of this existed: a plain restart, and a line in the log
+saying why (season-2-ops/139). Failing back to the old behaviour is a feature declining to run;
+transferring a network onto a dead port is not.
+
 **The deployment deploys itself, and `compose.yml` travels inside an image.** `steward-deployer`
 carries the file it runs, so "which compose file is live" has a version number for an answer rather
 than a directory on the host that somebody edited during an incident. The cost is stated plainly: a

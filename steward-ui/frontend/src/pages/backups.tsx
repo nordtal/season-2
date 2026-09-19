@@ -272,7 +272,6 @@ function Runs() {
   const runs = useRuns(40)
   const people = usePeople()
   const avatarBaseUrl = useAvatarBaseUrl()
-  const now = Date.now()
   const rows = backupRuns(runs.data).slice(0, 8)
 
   return (
@@ -331,21 +330,16 @@ function Runs() {
                   </TableCell>
                   <TableCell data-label="Initiated by" className="text-muted-foreground">
                     {run.system ? (
-                      <PersonIdentity system now={now} />
+                      <PersonIdentity system />
                     ) : run.actorDiscordId ? (
                       <PersonIdentity
                         discordId={run.actorDiscordId}
                         discordUsername={known?.discordUsername}
-                        discordUsernameUpdated={known?.discordUsernameUpdated}
                         discordDisplayName={known?.discordDisplayName}
-                        discordDisplayNameUpdated={known?.discordDisplayNameUpdated}
                         discordAvatarUrl={known?.discordAvatarUrl}
-                        discordAvatarUrlUpdated={known?.discordAvatarUrlUpdated}
                         mcUuid={known?.minecraftUuid}
                         mcName={known?.mcName}
-                        mcNameUpdated={known?.mcNameUpdated}
                         avatarBaseUrl={avatarBaseUrl.data}
-                        now={now}
                       />
                     ) : (
                       <span className="truncate">{run.actorLabel || run.source}</span>

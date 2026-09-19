@@ -111,21 +111,16 @@ export function ActionRow({
         <span className="truncate text-xs text-muted-foreground">{action.extent}</span>
         <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
           {action.system ? (
-            <PersonIdentity system now={now} />
+            <PersonIdentity system />
           ) : action.actorDiscordId ? (
             <PersonIdentity
               discordId={action.actorDiscordId}
               discordUsername={known?.discordUsername}
-              discordUsernameUpdated={known?.discordUsernameUpdated}
               discordDisplayName={known?.discordDisplayName}
-              discordDisplayNameUpdated={known?.discordDisplayNameUpdated}
               discordAvatarUrl={known?.discordAvatarUrl}
-              discordAvatarUrlUpdated={known?.discordAvatarUrlUpdated}
               mcUuid={known?.minecraftUuid}
               mcName={known?.mcName}
-              mcNameUpdated={known?.mcNameUpdated}
               avatarBaseUrl={avatarBaseUrl}
-              now={now}
             />
           ) : (
             // A console request with no id behind it at all - "token-rotation-check", a nightly

@@ -242,13 +242,11 @@ function PersonByIdentifier({
   mcUuid,
   people,
   avatarBaseUrl,
-  now,
 }: {
   discordId?: string
   mcUuid?: string
   people: Person[] | undefined
   avatarBaseUrl: string | undefined
-  now: number
 }) {
   const known = people?.find(
     (candidate) =>
@@ -259,16 +257,11 @@ function PersonByIdentifier({
     <PersonIdentity
       discordId={known?.discordId ?? discordId ?? ""}
       discordUsername={known?.discordUsername}
-      discordUsernameUpdated={known?.discordUsernameUpdated}
       discordDisplayName={known?.discordDisplayName}
-      discordDisplayNameUpdated={known?.discordDisplayNameUpdated}
       discordAvatarUrl={known?.discordAvatarUrl}
-      discordAvatarUrlUpdated={known?.discordAvatarUrlUpdated}
       mcUuid={mcUuid ?? known?.minecraftUuid}
       mcName={known?.mcName}
-      mcNameUpdated={known?.mcNameUpdated}
       avatarBaseUrl={avatarBaseUrl}
-      now={now}
     />
   )
 }
@@ -472,16 +465,11 @@ export function AccessPage() {
                               <PersonIdentity
                                 discordId={person.discordId}
                                 discordUsername={person.discordUsername}
-                                discordUsernameUpdated={person.discordUsernameUpdated}
                                 discordDisplayName={person.discordDisplayName}
-                                discordDisplayNameUpdated={person.discordDisplayNameUpdated}
                                 discordAvatarUrl={person.discordAvatarUrl}
-                                discordAvatarUrlUpdated={person.discordAvatarUrlUpdated}
                                 mcUuid={person.minecraftUuid}
                                 mcName={person.mcName}
-                                mcNameUpdated={person.mcNameUpdated}
                                 avatarBaseUrl={avatarBase.data}
-                                now={now}
                               />
                               {/* "Member" is the ordinary case and is left unsaid (steward/46) -
                                * LEFT and BANNED are exactly the two states worth a glance, and
@@ -500,9 +488,7 @@ export function AccessPage() {
                               <MinecraftFace
                                 mcUuid={person.minecraftUuid}
                                 mcName={person.mcName}
-                                mcNameUpdated={person.mcNameUpdated}
                                 avatarBaseUrl={avatarBase.data}
-                                now={now}
                               />
                             ) : (
                               <LinkBadge person={person} />
@@ -1124,16 +1110,11 @@ function PersonGrants({
           <PersonIdentity
             discordId={person.discordId}
             discordUsername={person.discordUsername}
-            discordUsernameUpdated={person.discordUsernameUpdated}
             discordDisplayName={person.discordDisplayName}
-            discordDisplayNameUpdated={person.discordDisplayNameUpdated}
             discordAvatarUrl={person.discordAvatarUrl}
-            discordAvatarUrlUpdated={person.discordAvatarUrlUpdated}
             mcUuid={person.minecraftUuid}
             mcName={person.mcName}
-            mcNameUpdated={person.mcNameUpdated}
             avatarBaseUrl={avatarBase.data}
-            now={now}
           />
           {person.accessActive ? (
             <Button
@@ -1163,9 +1144,7 @@ function PersonGrants({
               <MinecraftFace
                 mcUuid={person.minecraftUuid}
                 mcName={person.mcName}
-                mcNameUpdated={person.mcNameUpdated}
                 avatarBaseUrl={avatarBase.data}
-                now={now}
               />
             ) : (
               "–"
@@ -1433,7 +1412,6 @@ export function PaymentsPage() {
                                   discordId={payment.discordId}
                                   people={people.data}
                                   avatarBaseUrl={avatarBase.data}
-                                  now={now}
                                 />
                               </TableCell>
                               <TableCell data-label="Days" className="text-right tnum">{payment.days}</TableCell>
@@ -1633,7 +1611,6 @@ export function AccountsPage() {
                               mcUuid={person.minecraftUuid}
                               people={people.data}
                               avatarBaseUrl={avatarBase.data}
-                              now={now}
                             />
                           </TableCell>
                           <TableCell data-label="Linked" className="text-muted-foreground tnum">
@@ -1746,7 +1723,6 @@ export function JournalPage() {
   // who it is; without it the identity says so rather than showing the uuid.
   const people = usePeople()
   const avatarBase = useAvatarBaseUrl()
-  const now = Date.now()
 
   return (
     <div className="flex flex-col gap-6">
@@ -1876,7 +1852,6 @@ export function JournalPage() {
                                 mcUuid={entry.mcUuid}
                                 people={people.data}
                                 avatarBaseUrl={avatarBase.data}
-                                now={now}
                               />
                             </span>
                           ) : null}

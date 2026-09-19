@@ -676,7 +676,12 @@ function HostCard() {
           <Stat
             label="Load"
             value={load(host.data?.load1)}
-            hint={`1-minute average across ${count(host.data?.cpus)} cores`}
+            // No cpu count, no hint - "across - cores" is a half sentence (steward/123).
+            hint={
+              host.data?.cpus == null
+                ? undefined
+                : `1-minute average across ${count(host.data.cpus)} cores`
+            }
           />
         )}
       </CardContent>

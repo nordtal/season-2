@@ -50,7 +50,7 @@ class SharedBundleLoadedTest {
             "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java",
             "limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java",
-            "network-control/src/main/templates/eu/nordtal/s2/networkcontrol/NetworkControlPlugin.java",
+            "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java",
             "discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java");
 
     /** A {@code "messages/..."} literal, in the order the source writes them. */

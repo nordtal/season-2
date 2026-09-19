@@ -40,7 +40,7 @@ class UpdateIsServedEverywhereTest {
             "smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/command/HungerGamesCommand.java",
             "limbo/src/main/java/eu/nordtal/s2/limbo/command/LimboCommand.java",
-            "network-control/src/main/templates/eu/nordtal/s2/networkcontrol/NetworkControlPlugin.java",
+            "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java",
             "discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java");
 
     @Test
@@ -80,9 +80,13 @@ class UpdateIsServedEverywhereTest {
     }
 
     @Test
-    @DisplayName("the three that stop servers are confirmed, the other two are not")
+    @DisplayName("the four that stop servers are confirmed, the other three are not")
     void whatIsIrreversible() {
-        assertEquals(List.of("/backup now", "/update now", "/update restart"),
+        // /update down joined on 2026-09-19 (season-2-ops/125) and is the strongest case in the
+        // list: the other three take a server away and give it back, and that one does not give it
+        // back until a person says so. /update start is NOT here for the same reason /update check
+        // is not - nothing is taken away by it.
+        assertEquals(List.of("/backup now", "/update down", "/update now", "/update restart"),
                 UpdateCommands.declarations().stream()
                         .filter(Declaration::irreversible)
                         .map(Declaration::name)

@@ -105,11 +105,11 @@ class AdminSourceTest {
         // something below it says so" is still exactly what is being read, through one method
         // instead of one ternary. The behaviour behind both halves is held where a tree can
         // actually be built: AdminCommandsAreGoneFromTheGameTest (paper-common) and
-        // VelocityCommandsGameSurfaceTest (network-control) assert /smp status stays open to a
+        // VelocityCommandsGameSurfaceTest (proxy) assert /smp status stays open to a
         // player while /smp farmreset and /access do not.
         for (final String relative : List.of(
                 "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/PaperCommands.java",
-                "network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityCommands.java")) {
+                "proxy/src/main/java/eu/nordtal/s2/proxy/command/VelocityCommands.java")) {
             final String source = read(relative);
             assertTrue(source.contains("builder.then(gate == null ? sub : sub.requires(gate));"),
                     relative + " gates every child of a root, so an open command declared under an"

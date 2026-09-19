@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.update;
 
+import eu.nordtal.s2.commands.Argument;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
@@ -105,10 +106,39 @@ public final class UpdateCommands {
             List.of("backup", "now"), Target.LOCAL,
             CONSOLE_ONLY, true, true, List.of());
 
-    /** Every command served by {@link UpdateEffects} - the four {@code /update} ones and backup. */
+    /**
+     * {@code /update down <service>} - stop it and leave it stopped (season-2-ops/125).
+     *
+     * <h2>The service is required, and that is the whole safety of it</h2>
+     * An unnamed scope is the whole network everywhere else in this mechanism. Here that would be
+     * every server held down until somebody presses a button, which is not something anybody asks
+     * for by forgetting a word - so the argument is required and the declaration says so, rather
+     * than the command guessing.
+     *
+     * <p>Irreversible for the same reason {@link #NOW} is: it takes a server away from everybody on
+     * it. More so, in fact - this one does not bring it back.</p>
+     */
+    public static final Declaration DOWN = new Declaration(
+            List.of("update", "down"), Target.LOCAL,
+            CONSOLE_ONLY, true, true, List.of(Argument.word("service")));
+
+    /**
+     * {@code /update start [service]} - take the hold off and start it again.
+     *
+     * <p>Optional where {@link #DOWN} is required, and not confirmed where {@link #DOWN} is. Both
+     * follow from the same reading: nothing here stops anything. Typing it with no service starts
+     * everything being held, which is the recovery somebody wants after this process has been
+     * restarted and they no longer remember which ones they stopped.</p>
+     */
+    public static final Declaration START = new Declaration(
+            List.of("update", "start"), Target.LOCAL,
+            CONSOLE_ONLY, true, false, List.of(Argument.word("service").optional()));
+
+    /** Every command served by {@link UpdateEffects} - the six {@code /update} ones and backup. */
     public static List<NordtalCommand<UpdateEffects>> all() {
         return List.of(new ReportUpdate(), new RunUpdate(UpdateCommands.NOW),
-                new RunUpdate(UpdateCommands.RESTART), new CancelUpdate(), new RunBackup());
+                new RunUpdate(UpdateCommands.RESTART), new CancelUpdate(), new RunBackup(),
+                new HoldService(UpdateCommands.DOWN), new HoldService(UpdateCommands.START));
     }
 
     /** Every declaration in {@link #all()}. */

@@ -88,12 +88,12 @@ class ConfigApiReloadTest {
     }
 
     @Test
-    @DisplayName("prestige-colours.yml reloads too - /smp reload re-reads it (season-2-ingame/23)")
+    @DisplayName("prestige.yml reloads too - /smp reload re-reads hours and colours (steward/130)")
     void thePrestigePaletteIsReloadable() {
         final RecordingConsole console = new RecordingConsole();
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), console);
 
-        final Map<String, Object> outcome = api.reload(location("smp", "smp/prestige-colours.yml"));
+        final Map<String, Object> outcome = api.reload(location("smp", "smp/prestige.yml"));
 
         // Its own file beside colours.yml, and SmpPlugin re-reads it on `/smp reload` the same way
         // - see PlayerComposition's colours supplier. Without this line the interface would tell an

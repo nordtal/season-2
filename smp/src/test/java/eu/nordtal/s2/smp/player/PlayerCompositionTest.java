@@ -8,6 +8,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Locale;
@@ -37,7 +38,41 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PlayerCompositionTest {
 
     private final PlayerComposition composition =
-            new PlayerComposition(Prestige.defaults(), () -> PrestigeColours.DEFAULTS);
+            new PlayerComposition(Prestige::defaults, () -> PrestigeColours.DEFAULTS);
+
+    /**
+     * The ladder is asked for on every render, not captured once (steward/130).
+     *
+     * <p>Until this ticket the hours lived in {@code config.yml} and were read at enable, so
+     * {@code /smp reload} moved the colours and left the thresholds where they were - which reads,
+     * from the game, as a saved change that did nothing. They live in {@code prestige.yml} beside
+     * the colours now and reload with them, and <b>this supplier is the whole of what makes that
+     * true</b>: a {@code PlayerComposition} holding a {@code Prestige} would take the new file and
+     * keep the old table.</p>
+     */
+    @Test
+    @DisplayName("a reloaded ladder changes the tier without the composition being rebuilt")
+    void theLadderIsReadThroughTheSupplierEveryTime() {
+        final java.util.concurrent.atomic.AtomicReference<Prestige> ladder =
+                new java.util.concurrent.atomic.AtomicReference<>(Prestige.defaults());
+        final PlayerComposition live =
+                new PlayerComposition(ladder::get, () -> PrestigeColours.DEFAULTS);
+        // Two hours of play time: tier 2 on the shipped ladder (0, 2, 5, ...).
+        final Identity player = new Identity(Locale.GERMAN, false, false, 0, 2 * 3600L);
+        final TextColor before = colourOfName(live.chatPrefix("Alice", player), "Alice");
+
+        // The same edit an operator makes in steward and saves: tier 2 now wants one hour and tier
+        // 3 two, so the same player stands a tier higher without having played a second more - and
+        // therefore wears tier 3's colour instead of tier 2's.
+        ladder.set(new Prestige(java.util.List.of(0, 1, 2, 10, 20, 35, 55, 85, 125, 175, 250, 350, 500)));
+        final TextColor after = colourOfName(live.chatPrefix("Alice", player), "Alice");
+
+        assertNotNull(before, "the name segment lost its own colour");
+        assertNotEquals(before, after,
+                "the hours moved into the reloadable file so that a saved change is visible after"
+                        + " /smp reload; a composition that captured the table would still draw"
+                        + " tier 2");
+    }
 
     private static String plain(final net.kyori.adventure.text.Component component) {
         return PlainTextComponentSerializer.plainText().serialize(component);
@@ -155,7 +190,7 @@ class PlayerCompositionTest {
     }
 
     /**
-     * Every tier gets the hex {@code prestige-colours.yml} declares for it, on every surface the
+     * Every tier gets the hex {@code prestige.yml} declares for it, on every surface the
      * name is drawn on - the "everywhere" the ticket asks for follows from all three calling the
      * same {@code name} method, and this pins that down for each surface individually.
      */

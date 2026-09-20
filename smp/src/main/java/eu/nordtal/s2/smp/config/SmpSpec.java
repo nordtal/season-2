@@ -714,28 +714,6 @@ public interface SmpSpec {
         }
     }
 
-    // ---------------------------------------------------------------- prestige
-
-    @Order(34)
-    @Key("prestige-threshold-hours")
-    @Comment({
-            "The thirteen crest tiers, in hours of NETWORK-WIDE online time - AFK included, on",
-            "purpose: this is a measure of presence, not of effort, and it is the reason play time",
-            "is not an aura source.",
-            "",
-            "Exactly thirteen entries, the first of which is 0, rising strictly. Thirteen because",
-            "that is how many crest designs the resource pack draws; a fourteenth tier would have",
-            "nothing to render as. The tier is DERIVED and never stored, so retuning this list is",
-            "a config edit rather than a migration plus a backfill.",
-            "",
-            "Calibrated so tier 13 is reachable in two to three months by somebody who plays",
-            "regularly and leaves the client running some nights."
-    })
-    @Explain("The thirteen crest tier thresholds, in network-wide online hours including AFK. Must be exactly thirteen entries starting at 0 and rising strictly - the resource pack only draws thirteen crest designs.")
-    default List<Integer> prestigeThresholdHours() {
-        return List.of(0, 2, 5, 10, 20, 35, 55, 85, 125, 175, 250, 350, 500);
-    }
-
     // ---------------------------------------------------------------- the hunger games winner
 
     @Order(35)

@@ -75,7 +75,7 @@ public final class ConfigApi {
      * borders once at enable and {@code /smp reload} deliberately never re-reads it (see
      * {@code ReloadSmp}, {@code SmpPlugin} in {@code :smp}); {@code smp/smp/milestones.yml},
      * {@code smp/smp/sounds.yml}, {@code smp/smp/colours.yml} and
-     * {@code smp/smp/prestige-colours.yml} sit right beside it in the same service and are the files
+     * {@code smp/smp/prestige.yml} sit right beside it in the same service and are the files
      * that command actually re-reads. The same reading gives {@code hunger-games/hunger-games/sounds.yml}
      * (see {@code ReloadHungerGames}) - {@code config.yml} there is excluded on purpose too, because
      * a game already running must not have its border schedule move under it.
@@ -97,7 +97,7 @@ public final class ConfigApi {
             "smp/smp/milestones.yml", "smp reload",
             "smp/smp/sounds.yml", "smp reload",
             "smp/smp/colours.yml", "smp reload",
-            "smp/smp/prestige-colours.yml", "smp reload",
+            "smp/smp/prestige.yml", "smp reload",
             "hunger-games/hunger-games/sounds.yml", "hg reload");
 
     private final Path root;

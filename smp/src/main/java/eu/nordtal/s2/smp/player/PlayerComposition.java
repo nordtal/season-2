@@ -43,7 +43,7 @@ public final class PlayerComposition {
     /** ...and the leaving one, for aura somebody has spent or never earned. */
     private static final TextColor AURA_EMPTY = TextColor.fromHexString("#a8888b");
 
-    private final Prestige prestige;
+    private final Supplier<Prestige> prestige;
 
     /**
      * A supplier, not a captured value, for the same reason {@code SmpPlugin.track} is one: a
@@ -52,8 +52,12 @@ public final class PlayerComposition {
      */
     private final Supplier<PrestigeColours> colours;
 
-    public PlayerComposition(final Prestige prestige, final Supplier<PrestigeColours> colours) {
-        this.prestige = prestige;
+    public PlayerComposition(final Supplier<Prestige> prestige,
+                             final Supplier<PrestigeColours> colours) {
+        // A supplier since steward/130: the ladder moved into `prestige.yml` beside the colours,
+        // and that file is re-read by `/smp reload` - so the table this composes from has to be
+        // asked for each time, exactly as the palette beside it already was.
+        this.prestige = Objects.requireNonNull(prestige, "prestige");
         this.colours = Objects.requireNonNull(colours, "colours");
     }
 
@@ -120,7 +124,7 @@ public final class PlayerComposition {
 
     /** @return the tier {@link #crest} also draws - one derivation, read from both places. */
     private int tierOf(final Identity identity) {
-        return prestige.tierOf(identity.playtimeSeconds());
+        return prestige.get().tierOf(identity.playtimeSeconds());
     }
 
     private Component badges(final Identity identity) {

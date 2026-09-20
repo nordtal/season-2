@@ -4,6 +4,7 @@ import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
 import eu.nordtal.s2.common.hud.BoardFrame;
 import eu.nordtal.s2.common.message.Tone;
@@ -123,24 +124,42 @@ public final class Configs {
     }
 
     /**
-     * Loads the prestige name colours (season-2-ingame/23).
+     * Loads the crest ladder - hours and colours in one file (steward/130).
      *
-     * <p><b>No validator.</b> {@code PrestigeColours#parse} is where a bad hex value is caught, and
-     * it corrects rather than refuses - the same rule {@link #colours} follows for the tone palette.
+     * <p><b>The validator is only about the hours.</b> {@code PrestigeColours#parse} is where a bad
+     * hex value is caught, and it corrects rather than refuses - the same rule {@link #colours}
+     * follows for the tone palette. A bad hour is not that: {@link Prestige}'s constructor is the
+     * whole rule, and running it here is what makes a ladder that does not rise stop the load
+     * rather than the first render.</p>
      */
-    public static @NotNull ConfigHandle<PrestigeColoursSpec> prestigeColours(final Path dataFolder,
-                                                                             final Logger logger)
+    public static @NotNull ConfigHandle<PrestigeSpec> prestige(final Path dataFolder,
+                                                               final Logger logger)
             throws ConfigException {
-        return load(dataFolder, logger, "prestige-colours", PrestigeColoursSpec.class,
-                "NORDTAL_SMP_PRESTIGE_COLOURS", config -> { }, false);
+        return load(dataFolder, logger, "prestige", PrestigeSpec.class,
+                "NORDTAL_SMP_PRESTIGE",
+                config -> new Prestige(declaredPrestigeHours(config)), false);
     }
 
     /**
-     * {@code PrestigeColoursSpec.TierSpec}'s thirteen accessors, in tier order, as
+     * {@code PrestigeSpec.TierColoursSpec}'s thirteen accessors, in tier order, as
      * {@link eu.nordtal.s2.smp.prestige.PrestigeColours#parse} takes them.
      */
-    public static List<String> declaredPrestigeTiers(final PrestigeColoursSpec spec) {
-        final PrestigeColoursSpec.TierSpec tiers = spec.prestige();
+    public static List<String> declaredPrestigeTiers(final PrestigeSpec spec) {
+        final PrestigeSpec.TierColoursSpec tiers = spec.colours();
+        return List.of(tiers.tier01(), tiers.tier02(), tiers.tier03(), tiers.tier04(), tiers.tier05(),
+                tiers.tier06(), tiers.tier07(), tiers.tier08(), tiers.tier09(), tiers.tier10(),
+                tiers.tier11(), tiers.tier12(), tiers.tier13());
+    }
+
+    /**
+     * The same thirteen keys of the other block, in the same order, as {@link Prestige} takes them.
+     *
+     * <p>Two methods rather than one pair-returning method because the two halves are consumed by
+     * two different objects at two different moments; what keeps them aligned is that both walk
+     * {@code tier01..tier13}, which is the same contract the file's own header states.</p>
+     */
+    public static List<Integer> declaredPrestigeHours(final PrestigeSpec spec) {
+        final PrestigeSpec.TierHoursSpec tiers = spec.hours();
         return List.of(tiers.tier01(), tiers.tier02(), tiers.tier03(), tiers.tier04(), tiers.tier05(),
                 tiers.tier06(), tiers.tier07(), tiers.tier08(), tiers.tier09(), tiers.tier10(),
                 tiers.tier11(), tiers.tier12(), tiers.tier13());
@@ -199,16 +218,6 @@ public final class Configs {
                             + "negative number is not a shorter way of saying that");
         }
         requirePositive("concurrent-duel-limit", config.concurrentDuelLimit());
-
-        if (config.prestigeThresholdHours() == null || config.prestigeThresholdHours().size() != 13) {
-            throw new IllegalArgumentException(
-                    "prestige-threshold-hours must have exactly 13 entries - the resource pack draws "
-                            + "thirteen crest designs and a fourteenth tier would have nothing to "
-                            + "render as");
-        }
-        // The rest of the threshold rules live in Prestige's own constructor; run here so a bad
-        // list stops the load rather than the first render.
-        new eu.nordtal.s2.smp.prestige.Prestige(config.prestigeThresholdHours());
 
         for (final SmpSpec.AdvancementAwardSpec award : config.advancementAwards()) {
             if (award.advancement() == null || award.advancement().isBlank()) {

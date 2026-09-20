@@ -76,10 +76,10 @@ public final class PrestigeColours {
     }
 
     /**
-     * Parses {@code prestige-colours.yml}.
+     * Parses the {@code colours} block of {@code prestige.yml}.
      *
      * @param declaredTiers exactly {@link Prestige#TIER_COUNT} hex strings, tier 1 first - the shape
-     *                       {@code PrestigeColoursSpec.TierSpec} always hands back, never a partial map
+     *                       {@code PrestigeSpec.TierColoursSpec} always hands back, never a partial map
      * @param declaredAdmin the admin colour's hex string
      * @param problems       where a value that had to be replaced by its default is reported, once
      *                       each. A plugin passes {@code getLogger()::warning}

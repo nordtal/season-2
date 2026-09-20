@@ -26,7 +26,7 @@ import eu.nordtal.s2.smp.config.Configs;
 import eu.nordtal.s2.smp.config.DatabaseSpec;
 import eu.nordtal.s2.smp.config.Milestones;
 import eu.nordtal.s2.smp.config.MilestonesSpec;
-import eu.nordtal.s2.smp.config.PrestigeColoursSpec;
+import eu.nordtal.s2.smp.config.PrestigeSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.config.SoundsSpec;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
@@ -138,7 +138,7 @@ public final class SmpPlugin extends JavaPlugin {
      * Its own file, and its own handle, so that {@code /smp reload} can re-read it
      * (season-2-ingame/23).
      */
-    private ConfigHandle<PrestigeColoursSpec> prestigeColoursHandle;
+    private ConfigHandle<PrestigeSpec> prestigeHandle;
 
     /**
      * The name colours, replaced by {@code /smp reload}.
@@ -148,6 +148,15 @@ public final class SmpPlugin extends JavaPlugin {
      * next render.
      */
     private volatile PrestigeColours prestigeColours;
+
+    /**
+     * The crest ladder, re-derived on every {@code /smp reload} (steward/130).
+     *
+     * <p>Volatile and read through a supplier for the same reason {@link #prestigeColours} is: the
+     * render paths that ask for a tier run on the main thread while a reload runs on whichever
+     * thread ran the command, and a half-swapped table is not a state worth having.</p>
+     */
+    private volatile Prestige prestige;
 
     private HikariDataSource pool;
     private AdminWatch adminWatch;
@@ -243,7 +252,7 @@ public final class SmpPlugin extends JavaPlugin {
             milestonesHandle = Configs.milestones(getDataFolder().toPath(), logger());
             soundsHandle = Configs.sounds(getDataFolder().toPath(), logger());
             coloursHandle = Configs.colours(getDataFolder().toPath(), logger());
-            prestigeColoursHandle = Configs.prestigeColours(getDataFolder().toPath(), logger());
+            prestigeHandle = Configs.prestige(getDataFolder().toPath(), logger());
         } catch (final ConfigException exception) {
             severe("smp is not starting because its configuration could not be read: "
                     + exception.getMessage());
@@ -267,8 +276,9 @@ public final class SmpPlugin extends JavaPlugin {
         // A bad hex value is reported and its tier (or the admin colour) falls back to the default,
         // the same treatment the tone palette above gets.
         this.prestigeColours = PrestigeColours.parse(
-                Configs.declaredPrestigeTiers(prestigeColoursHandle.get()),
-                prestigeColoursHandle.get().admin(), getLogger()::warning);
+                Configs.declaredPrestigeTiers(prestigeHandle.get()),
+                prestigeHandle.get().admin(), getLogger()::warning);
+        this.prestige = new Prestige(Configs.declaredPrestigeHours(prestigeHandle.get()));
 
         // ---- refusal 1: the datapacks -------------------------------------------------------
         // A world generated without them is vanilla terrain permanently, because terrain is never
@@ -373,8 +383,7 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(effects, this);
 
         final PlayerComposition composition =
-                new PlayerComposition(new Prestige(config.prestigeThresholdHours()),
-                        () -> prestigeColours);
+                new PlayerComposition(() -> prestige, () -> prestigeColours);
         final PlayerSurfaces surfaces =
                 new PlayerSurfaces(this, identities, composition, new MessageRenderer(messages));
 
@@ -767,10 +776,14 @@ public final class SmpPlugin extends JavaPlugin {
         }
 
         try {
-            prestigeColoursHandle.reload();
+            prestigeHandle.reload();
             prestigeColours = PrestigeColours.parse(
-                    Configs.declaredPrestigeTiers(prestigeColoursHandle.get()),
-                    prestigeColoursHandle.get().admin(), getLogger()::warning);
+                    Configs.declaredPrestigeTiers(prestigeHandle.get()),
+                    prestigeHandle.get().admin(), getLogger()::warning);
+            // The hours were in config.yml until steward/130 and were therefore read once, at
+            // enable. Now that they live beside the colours they reload with them - which is what
+            // makes "change a tier, save, look in the game" a sentence somebody can follow.
+            prestige = new Prestige(Configs.declaredPrestigeHours(prestigeHandle.get()));
             getLogger().info("the prestige name colours were reloaded");
         } catch (final ConfigException | RuntimeException exception) {
             getLogger().severe("the prestige name colours could not be reloaded, the running ones "

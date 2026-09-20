@@ -105,6 +105,22 @@ public final class Channels {
      */
     public static final String PAYMENT = "nordtal_payment";
 
+    /**
+     * An access change was asked for. Payload: empty.
+     *
+     * <p>Matches {@code pg_notify('nordtal_access', '')} in {@code AccessRequestDao#submit}, which
+     * carries it inside the insert so that a notification only ever exists for a row that
+     * committed. One process listens - discord-bot, the only one holding a JDA session and
+     * therefore the only one that can apply a role, send a direct message and write the admin line
+     * that a grant consists of (season-2-community/08).</p>
+     *
+     * <p>The bot polls as well, and re-reads every pending row on every signal and every reconnect,
+     * which is why the payload is empty. A row written while the bot was restarting is carried out
+     * when it comes back - the thing an HTTP call between the two processes could not have
+     * done.</p>
+     */
+    public static final String ACCESS = "nordtal_access";
+
     private Channels() {
     }
 }

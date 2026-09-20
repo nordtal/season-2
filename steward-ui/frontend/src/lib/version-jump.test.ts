@@ -49,6 +49,22 @@ describe("versionJump", () => {
     expect(versionJump("Chunky-Bukkit-1.5.3.jar", undefined, undefined)).toBeNull()
   })
 
+  it("refuses a hash against a filename, which is what the resource pack is", () => {
+    // THE CASE THAT MADE THE PREFIX RULE (season-2-ops/142). A pack has no version: its installed
+    // identity is a SHA-1 and its wanted one is a zip. Both remainders contain a digit, so without
+    // the rule this pair was drawn as a version jump from a hash to a filename.
+    const jump = versionJump(
+      "c0bac3a03dad681347cbe4a3bc932aff8ffd8203",
+      "nordtal-resource-pack-0.9.4.zip",
+      "0.9.4",
+    )
+    expect(jump).toEqual({
+      from: "c0bac3a03dad681347cbe4a3bc932aff8ffd8203",
+      to: "0.9.4",
+      exact: false,
+    })
+  })
+
   it("does not print a jump from a version to itself", () => {
     const jump = versionJump("Chunky-Bukkit-1.6.0.jar", "Chunky-Bukkit-1.6.0.jar", "1.6.0")
     expect(jump).toEqual({ from: "Chunky-Bukkit-1.6.0.jar", to: "1.6.0", exact: false })

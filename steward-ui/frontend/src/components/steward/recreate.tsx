@@ -35,12 +35,10 @@ import { StatusBadge } from "@/components/steward/status"
  */
 export function RecreateButton({
   service,
-  size = "sm",
   variant = "outline",
   compact = false,
 }: {
   service: string
-  size?: "sm" | "default"
   /**
    * `outline` on a page, `ghost` on a picture.
    *
@@ -144,7 +142,7 @@ export function RecreateButton({
         </Tooltip>
       ) : (
         <ResponsiveDialogTrigger asChild>
-          <Button variant={variant} size={size} disabled={unavailable} title={title}>
+          <Button variant={variant} disabled={unavailable} title={title}>
             <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
             Recreate
           </Button>

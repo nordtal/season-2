@@ -392,7 +392,7 @@ declare -A QUESTION_HINT=(
     [NORDTAL_BOT_TOKEN]="Discord Developer Portal -> your application -> Bot -> Reset Token. Nothing is echoed while you
         type, and this script never prints it back."
     [STEWARD_UI_DISCORD_CLIENT_ID]="Same application, OAuth2 page. Its redirect URI has to be
-        https://<the name above>/api/auth/callback, or the sign-in comes back with an error from
+        https://<the name above>/auth/callback, or the sign-in comes back with an error from
         Discord rather than from here."
     [STEWARD_UI_DISCORD_CLIENT_SECRET]="OAuth2 -> Reset Secret. Discord shows it once; if you have lost it, reset it and paste the new
         one - nothing else in this deployment holds a copy."

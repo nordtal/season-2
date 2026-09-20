@@ -39,7 +39,7 @@ class ProxySwapDecisionTest {
         final AtomicInteger asked = new AtomicInteger();
 
         assertEquals(ProxySwap.Pass.IDLE,
-                ProxySwap.decide(Set.of("smp", "limbo"), false, probe(asked, true)));
+                ProxySwap.decide(Set.of("smp", "limbo"), false, false, probe(asked, true)));
         assertEquals(0, asked.get(), "a pass with nothing to do must not open a socket");
     }
 
@@ -48,7 +48,7 @@ class ProxySwapDecisionTest {
     void oneRunParksOnce() {
         final AtomicInteger asked = new AtomicInteger();
 
-        assertEquals(ProxySwap.Pass.ALREADY_DONE, ProxySwap.decide(PROXY_NEXT, true, probe(asked, true)));
+        assertEquals(ProxySwap.Pass.ALREADY_DONE, ProxySwap.decide(PROXY_NEXT, true, false, probe(asked, true)));
         assertEquals(0, asked.get(), "nor must a pass that has already parked");
     }
 
@@ -60,13 +60,13 @@ class ProxySwapDecisionTest {
         // whole network to an address nothing listens on drops every single player - strictly
         // worse than the plain restart this feature exists to avoid.
         assertEquals(ProxySwap.Pass.STANDBY_MISSING,
-                ProxySwap.decide(PROXY_NEXT, false, () -> false));
+                ProxySwap.decide(PROXY_NEXT, false, false, () -> false));
     }
 
     @Test
     @DisplayName("a standby that answers gets the network")
     void anAnsweringStandbyGetsThem() {
-        assertEquals(ProxySwap.Pass.PARK, ProxySwap.decide(PROXY_NEXT, false, () -> true));
+        assertEquals(ProxySwap.Pass.PARK, ProxySwap.decide(PROXY_NEXT, false, false, () -> true));
     }
 
     @Test
@@ -74,9 +74,43 @@ class ProxySwapDecisionTest {
     void theProbeIsTheLastQuestion() {
         final AtomicInteger asked = new AtomicInteger();
 
-        ProxySwap.decide(PROXY_NEXT, false, probe(asked, true));
+        ProxySwap.decide(PROXY_NEXT, false, false, probe(asked, true));
 
         assertEquals(1, asked.get());
+    }
+
+    // ------------------------------------------------- the run that already went through me
+
+    @Test
+    @DisplayName("a proxy the run has already restarted does not park the network a second time")
+    void aRestartedProxyIsNotTheOneBeingStopped() {
+        final AtomicInteger asked = new AtomicInteger();
+        // Run 76, 2026-09-20. The row goes on naming `proxy` as moving for as long as the run
+        // lasts, and this process is the one the run STARTED - twenty seconds after its own zero.
+        // Reading that row as "I am about to stop" shut the door on the player the standby was at
+        // that moment handing back.
+        assertEquals(ProxySwap.Pass.ALREADY_MOVED,
+                ProxySwap.decide(PROXY_NEXT, false, true, probe(asked, true)));
+        assertEquals(0, asked.get(), "and it costs no socket either");
+        // And the door is OPEN, firmly: a door left shut from an earlier pass would refuse exactly
+        // the players the standby is handing back in those seconds.
+        assertFalse(ProxySwap.doorAfter(ProxySwap.Pass.ALREADY_MOVED, true));
+        assertFalse(ProxySwap.doorAfter(ProxySwap.Pass.ALREADY_MOVED, false));
+    }
+
+    @Test
+    @DisplayName("started before the zero is the process the run is waiting to stop")
+    void whoIsTheProcessTheRunMeans() {
+        final java.time.Instant zero = java.time.Instant.parse("2026-09-20T18:45:00Z");
+
+        assertFalse(ProxySwap.hasBeenThroughMe(zero.minusSeconds(3600), zero),
+                "a proxy that was running before the countdown is the one being stopped");
+        assertFalse(ProxySwap.hasBeenThroughMe(zero, zero),
+                "the same instant is not after it, and the safe reading is 'still to come'");
+        assertTrue(ProxySwap.hasBeenThroughMe(zero.plusSeconds(20), zero),
+                "a process that started after the zero can only have been started BY the run");
+        assertFalse(ProxySwap.hasBeenThroughMe(zero, null),
+                "a row with no instant decides nothing");
     }
 
     // ------------------------------------------------------- the door (season-2-ops/151)

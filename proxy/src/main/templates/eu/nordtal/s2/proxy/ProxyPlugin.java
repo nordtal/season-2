@@ -565,8 +565,13 @@ public final class ProxyPlugin {
         // and the actual stop lie the seconds the worker spends waiting for the backends to empty
         // - sixteen in run 59 - and whoever connects in them was never parked. They get a sentence
         // now instead of Velocity's "Proxy shutting down".
+        // PARKED, NOT REFUSED (season-2-ops/151, Till's decision on 2026-09-20). The door does not
+        // shut any more: an arrival in that window is handed to the standby exactly like everybody
+        // who was already connected, and the sentence is what is left when the transfer itself
+        // cannot be sent. A player with a seat is coming BACK from this swap and is not touched.
         proxy.getEventManager().register(this,
-                new RestartGate(logger, swap::isStopping, gateMessages, fallback));
+                new RestartGate(logger, swap::isStopping, parkedSeats::holds, swap::park,
+                        gateMessages, fallback));
 
         final StandbyReturn standbyReturn = new StandbyReturn(this, proxy, logger, swaps, role,
                 publicAddress, Clock.systemUTC(), homecoming);

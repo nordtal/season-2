@@ -27,12 +27,18 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The screen an arrival gets while this proxy is being moved (season-2-ops/151).
+ * What happens to an arrival while this proxy is being moved (season-2-ops/151).
  *
- * <p>As with {@link MisconfiguredGateTest}, the {@code LoginEvent} half is not exercised:
+ * <p>The rule first, because it was turned over on 2026-09-20: nobody is refused any more. An
+ * arrival is parked on the standby exactly like everybody who was already connected, and the screen
+ * below is what is left when the transfer itself cannot be sent. A player with a seat is coming
+ * back <em>from</em> the swap and is not touched at all - which is run 76, where this proxy read a
+ * seat for hmtill at 18:46:09 and refused him at 18:46:21.</p>
+ *
+ * <p>As with {@link MisconfiguredGateTest}, the {@code PostLoginEvent} half is not exercised:
  * constructing one needs a Velocity {@code Player}, which only exists on a running proxy. What is
- * worth asserting is what the player reads and in which language - and that the language comes out
- * of memory, because this path runs on a process that is seconds from stopping.</p>
+ * worth asserting is the decision, what the player reads on the failure path, and that the language
+ * comes out of memory - because that path runs on a process that is seconds from stopping.</p>
  */
 class RestartGateTest {
 
@@ -51,10 +57,39 @@ class RestartGateTest {
                 "every other gate screen has a German half and this one is no different");
     }
 
+    // ---------------------------------------------------------------- the rule (season-2-ops/151)
+
+    @Test
+    @DisplayName("an arrival while the proxy is being moved goes to the standby, not away")
+    void theWindowParksRatherThanRefuses() {
+        // Till, 2026-09-20: "the proxy should really only be unreachable for its own restart -
+        // before and after it must move players onto the standbys properly and may refuse nobody."
+        assertEquals(RestartGate.Handling.PARK, RestartGate.decide(true, false));
+    }
+
+    @Test
+    @DisplayName("a player with a seat is never sent back, because they are coming home")
+    void aSeatIsNeverTouched() {
+        // RUN 76, EXACTLY. The standby handed hmtill back at 18:46:04; this proxy had his seat in
+        // memory at 18:46:09 and turned him away at 18:46:21 and again at 18:46:37 - 47 seconds
+        // between the transfer home and getting in. Parking him instead would be no better: it is
+        // the same loop with a nicer name.
+        assertEquals(RestartGate.Handling.LET_IN, RestartGate.decide(true, true));
+    }
+
+    @Test
+    @DisplayName("on an ordinary day nothing is in the way")
+    void theDoorIsOpenWhenNothingIsMovingThisProxy() {
+        assertEquals(RestartGate.Handling.LET_IN, RestartGate.decide(false, false));
+        assertEquals(RestartGate.Handling.LET_IN, RestartGate.decide(false, true));
+    }
+
+    // ---------------------------------------------------------------- the failure path
+
     @Test
     @DisplayName("somebody the cache has never seen gets the English screen rather than nothing")
     void anUnknownArrivalStillGetsAScreen() {
-        final RestartGate gate = new RestartGate(LOGGER, () -> true, gateMessages, locales);
+        final RestartGate gate = new RestartGate(LOGGER, () -> true, uuid -> false, player -> false, gateMessages, locales);
 
         assertEquals(drawn(messages.get(Locale.ENGLISH, "gate.restarting")),
                 flatten(gate.refuse(UUID.randomUUID(), "a-stranger")));
@@ -66,7 +101,7 @@ class RestartGateTest {
         // THE WHOLE REASON THE CACHE IS THE SOURCE: this runs on a proxy that stops in a moment.
         // A round trip for a language is a round trip that can outlive the process asking for it.
         locales.remember(PLAYER, german());
-        final RestartGate gate = new RestartGate(LOGGER, () -> true, gateMessages, locales);
+        final RestartGate gate = new RestartGate(LOGGER, () -> true, uuid -> false, player -> false, gateMessages, locales);
 
         final String rendered = flatten(gate.refuse(PLAYER, "hmtill"));
         assertEquals(drawn(messages.get(Locale.GERMAN, "gate.restarting")), rendered);
@@ -74,9 +109,9 @@ class RestartGateTest {
     }
 
     @Test
-    @DisplayName("every arrival that was turned away is counted")
+    @DisplayName("every arrival the transfer could not reach is counted, and should be none")
     void refusalsAreCounted() {
-        final RestartGate gate = new RestartGate(LOGGER, () -> true, gateMessages, locales);
+        final RestartGate gate = new RestartGate(LOGGER, () -> true, uuid -> false, player -> false, gateMessages, locales);
         assertEquals(0, gate.refusedCount(), "a proxy that has not been moved has refused nobody");
 
         for (int attempt = 0; attempt < 7; attempt++) {
@@ -84,7 +119,8 @@ class RestartGateTest {
         }
 
         assertEquals(7, gate.refusedCount(),
-                "the count is how a run's report can say the window was not empty");
+                "the count is how a run's report can say the transfer did not work for somebody");
+        assertEquals(0, gate.parkedCount(), "nobody was parked in this test, only turned away");
     }
 
     @Test

@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import java.net.InetSocketAddress;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.Objects;
 import java.util.Set;
@@ -78,6 +80,18 @@ public final class ProxySwap {
     private final StandbyReturn.Probe probe;
 
     /**
+     * When this process started, which is how it tells a run that is about to stop it from one that
+     * has already <b>been</b> through it (season-2-ops/151).
+     *
+     * <p>A run's row stays RUNNING while the worker works, and it goes on naming {@code proxy} as a
+     * moving service long after the proxy has been stopped, started and become this process. Run 76
+     * on this host: the new proxy read that row, decided it was about to stop, shut its door and
+     * refused the player the standby was at that moment handing back. A process that started after
+     * the run's own zero cannot be the process the run is waiting to stop.</p>
+     */
+    private final Instant startedAt;
+
+    /**
      * Whether this run has already been acted on, so one run parks the network once - and, read
      * from outside, whether this proxy is inside a run that stops it.
      *
@@ -118,6 +132,7 @@ public final class ProxySwap {
         this.standby = standby;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.probe = Objects.requireNonNull(probe, "probe");
+        this.startedAt = this.clock.instant();
     }
 
     /** How long the standby gets to answer before this pass decides it is not there. */
@@ -168,20 +183,25 @@ public final class ProxySwap {
             return;
         }
 
-        final Set<String> next;
+        final Optional<eu.nordtal.s2.common.update.UpdateRequest> running;
         try {
-            next = Evacuation.imminent(updates.running());
+            running = updates.running();
         } catch (final RuntimeException failure) {
             logger.warn("Could not read the update row; nobody was parked this pass", failure);
             return;
         }
+        final Set<String> next = Evacuation.imminent(running);
+        final boolean alreadyMoved = running
+                .map(request -> hasBeenThroughMe(startedAt, request.notBefore()))
+                .orElse(false);
 
-        final Pass pass = decide(next, parked, () -> probe.answers(standby, STANDBY_ANSWERS_WITHIN));
+        final Pass pass = decide(next, parked, alreadyMoved,
+                () -> probe.answers(standby, STANDBY_ANSWERS_WITHIN));
         // THE DOOR FIRST, AND SEPARATELY FROM THE ACTION. `park()` happens once; being shut lasts
         // as long as the run does (season-2-ops/151).
         parked = doorAfter(pass, parked);
         switch (pass) {
-            case IDLE, ALREADY_DONE -> { }
+            case IDLE, ALREADY_DONE, ALREADY_MOVED -> { }
             case STANDBY_MISSING ->
                 logger.warn("The proxy is about to stop and {}:{} does not answer, so nobody can "
                                 + "be parked - this update takes the network down the way it "
@@ -206,10 +226,26 @@ public final class ProxySwap {
      */
     static boolean doorAfter(final Pass pass, final boolean wasShut) {
         return switch (pass) {
-            case IDLE -> false;
+            // ALREADY_MOVED is the run that has finished with this proxy while still running. The
+            // door has to be OPEN there, and firmly: the players the standby is handing back are
+            // arriving in exactly those seconds (season-2-ops/151, run 76).
+            case IDLE, ALREADY_MOVED -> false;
             case ALREADY_DONE -> wasShut;
             case STANDBY_MISSING, PARK -> true;
         };
+    }
+
+    /**
+     * Whether the run has already stopped and started this process.
+     *
+     * @param startedAt  when this process started
+     * @param notBefore  the run's own zero, from its row
+     * @return whether this process began after that instant, which it can only have done by being
+     *         started <em>by</em> the run. A process that was here before zero is the one the run
+     *         is still waiting to stop
+     */
+    static boolean hasBeenThroughMe(final Instant startedAt, final Instant notBefore) {
+        return notBefore != null && startedAt.isAfter(notBefore);
     }
 
     /** What one pass of {@link #check()} does. */
@@ -220,6 +256,15 @@ public final class ProxySwap {
 
         /** One is, and this proxy has already acted on it. */
         ALREADY_DONE,
+
+        /**
+         * One is, and it has already been through this proxy: this process was started by it.
+         *
+         * <p>Told apart from {@link #IDLE} rather than folded into it because they are opposite
+         * situations that happen to want the same inaction - and because the one that would be
+         * wrong in silence is this one.</p>
+         */
+        ALREADY_MOVED,
 
         /** One is, and there is no standby answering to park the network on. */
         STANDBY_MISSING,
@@ -248,11 +293,16 @@ public final class ProxySwap {
      *                       that has nothing to do must cost nothing
      */
     static Pass decide(final Set<String> imminent, final boolean alreadyParked,
-                       final BooleanSupplier standbyAnswers) {
+                       final boolean alreadyMoved, final BooleanSupplier standbyAnswers) {
         if (!imminent.contains(OWN_SERVICE)) {
             // Including every ordinary backend run. Reported as IDLE rather than handled on a timer
             // so that a second proxy run in the same session parks again.
             return Pass.IDLE;
+        }
+        if (alreadyMoved) {
+            // The run stopped this proxy already and this process is what it started. Parking now
+            // would hand the network to the standby a second time, for a stop that is never coming.
+            return Pass.ALREADY_MOVED;
         }
         if (alreadyParked) {
             return Pass.ALREADY_DONE;
@@ -279,26 +329,44 @@ public final class ProxySwap {
         logger.info("The update moves this proxy: parking {} player(s) on {}:{} until it is back",
                 players.size(), standby.getHostString(), standby.getPort());
         for (final Player player : players) {
-            final String on = player.getCurrentServer()
-                    .map(connection -> connection.getServerInfo().getName())
-                    .orElse(null);
-            if (on != null) {
-                try {
-                    seats.seat(player.getUniqueId(), on, clock.instant());
-                } catch (final RuntimeException failure) {
-                    logger.warn("Could not record where {} was standing; they will be routed by the"
-                            + " phase when they come back", player.getUsername(), failure);
-                }
-            }
+            park(player);
+        }
+    }
+
+    /**
+     * Seats one player and hands them the standby's address.
+     *
+     * <p>Public since season-2-ops/151, because the park stopped being only a moment: whoever
+     * arrives between the zero and the actual stop goes the same way as everybody who was already
+     * here, and {@code RestartGate} is what calls this for them. One player at a time is how it was
+     * always written - a failure to seat does not stop the transfer, and a client that cannot be
+     * transferred must not cost everybody else theirs.</p>
+     *
+     * @param player who to hand over
+     * @return whether the transfer was sent. {@code false} is the one case that still ends in a
+     *         screen, and the caller is the one that decides which
+     */
+    public boolean park(final Player player) {
+        final String on = player.getCurrentServer()
+                .map(connection -> connection.getServerInfo().getName())
+                .orElse(null);
+        if (on != null) {
             try {
-                player.transferToHost(standby);
+                seats.seat(player.getUniqueId(), on, clock.instant());
             } catch (final RuntimeException failure) {
-                // Velocity refuses the transfer outright for a client older than 1.20.5 - a
-                // checkArgument, not a returned failure. One such player must not cost everybody
-                // else theirs, which is the whole reason this is caught per player.
-                logger.warn("Could not transfer {} to the standby proxy; they will be disconnected"
-                        + " when this one stops", player.getUsername(), failure);
+                logger.warn("Could not record where {} was standing; they will be routed by the"
+                        + " phase when they come back", player.getUsername(), failure);
             }
+        }
+        try {
+            player.transferToHost(standby);
+            return true;
+        } catch (final RuntimeException failure) {
+            // Velocity refuses the transfer outright for a client older than 1.20.5 - a
+            // checkArgument, not a returned failure. One such player must not cost everybody
+            // else theirs, which is the whole reason this is caught per player.
+            logger.warn("Could not transfer {} to the standby proxy", player.getUsername(), failure);
+            return false;
         }
     }
 }

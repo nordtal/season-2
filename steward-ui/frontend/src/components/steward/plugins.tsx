@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Empty, Failure, Loading } from "@/components/steward/query-state"
+import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { StatusBadge } from "@/components/steward/status"
 
 /**
@@ -55,24 +55,31 @@ export function ServicePlugins({ service }: { service: string }) {
           </TabsList>
 
           <TabsContent value="installed" className="flex flex-col gap-3">
-            {plugins.isPending ? (
-              <Loading rows={3} />
-            ) : plugins.error ? (
-              <Failure error={plugins.error} onRetry={plugins.refetch} />
-            ) : !plugins.data.mounted ? (
-              <Empty
-                title="No volume"
-                note="steward-worker cannot see this service's folder, so it cannot say what is in it."
-              />
-            ) : plugins.data.plugins.length === 0 ? (
-              <Empty title="Nothing installed" />
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {plugins.data.plugins.map((plugin) => (
-                  <InstalledRow key={plugin.fileName ?? plugin.artifact} service={service} plugin={plugin} />
-                ))}
-              </ul>
-            )}
+            <QueryState query={plugins}>
+              {(answer) =>
+                answer && !answer.mounted ? (
+                  <Empty
+                    title="No volume"
+                    note="steward-worker cannot see this service's folder, so it cannot say what is in it."
+                  />
+                ) : answer && answer.plugins.length === 0 ? (
+                  <Empty
+                    title="Nothing installed"
+                    note="Anything added from the Add tab appears here, pre-booked until the next run."
+                  />
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {(answer?.plugins ?? WAITING_PLUGINS).map((plugin, index) => (
+                      <InstalledRow
+                        key={plugin?.fileName ?? plugin?.artifact ?? index}
+                        service={service}
+                        plugin={plugin}
+                      />
+                    ))}
+                  </ul>
+                )
+              }
+            </QueryState>
           </TabsContent>
 
           <TabsContent value="add" className="flex flex-col gap-3">
@@ -86,23 +93,35 @@ export function ServicePlugins({ service }: { service: string }) {
 
 // --- what is on the server ----------------------------------------------------------------------
 
-function InstalledRow({ service, plugin }: { service: string; plugin: ServicePlugin }) {
+/** Three absent rows: the count an ordinary Paper service here settles at. */
+const WAITING_PLUGINS: (ServicePlugin | undefined)[] = [undefined, undefined, undefined]
+
+function InstalledRow({ service, plugin }: { service: string; plugin?: ServicePlugin }) {
   return (
     <li className="flex items-center gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0">
-      <Thumbnail url={plugin.iconUrl} alt={plugin.name} />
+      <Thumbnail url={plugin?.iconUrl} alt={plugin?.name ?? ""} waiting={!plugin} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm">{plugin.name}</span>
-        <span className="truncate text-xs text-muted-foreground">
-          {plugin.fileName ?? plugin.filePrefix}
-        </span>
+        {plugin ? (
+          <>
+            <span className="truncate text-sm">{plugin.name}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {plugin.fileName ?? plugin.filePrefix}
+            </span>
+          </>
+        ) : (
+          <>
+            <SkeletonText className="text-sm" width="short" />
+            <SkeletonText className="text-xs" width="long" />
+          </>
+        )}
       </div>
-      {plugin.running ? null : (
+      {!plugin || plugin.running ? null : (
         <StatusBadge tone="idle" title="Installs with the next update run.">
           pre-booked
         </StatusBadge>
       )}
-      <Link url={plugin.pageUrl} title={plugin.name} />
-      {plugin.removable && plugin.artifact ? (
+      <Link url={plugin?.pageUrl} title={plugin?.name ?? ""} />
+      {plugin?.removable && plugin.artifact ? (
         <RemoveButton service={service} plugin={plugin} artifact={plugin.artifact} />
       ) : null}
     </li>
@@ -209,6 +228,9 @@ export function removalSentence(plugin: ServicePlugin): string {
  * cannot run here. The proxy therefore sees a much shorter list than the backends do, which is the
  * intended answer rather than a shortcoming.
  */
+/** Three absent hits - the first screenful of a Modrinth answer, and nothing said about it. */
+const WAITING_HITS: (PluginHit | undefined)[] = [undefined, undefined, undefined]
+
 function Search({
   service,
   loader,
@@ -248,31 +270,45 @@ function Search({
         ) : null}
       </div>
 
-      {results.isPending ? (
-        <Loading rows={3} />
-      ) : results.error ? (
-        <Failure error={results.error} onRetry={results.refetch} />
-      ) : results.data.hits.length === 0 ? (
-        <Empty title="Nothing found" note={`Nothing on ${loader} for ${version}.`} />
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {results.data.hits.map((hit) => (
-            <li
-              key={hit.projectId}
-              className="flex items-center gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0"
-            >
-              <Thumbnail url={hit.iconUrl} alt={hit.title} />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm">{hit.title}</span>
-                <span className="truncate text-xs text-muted-foreground">{hit.description}</span>
-                <span className="text-xs text-muted-foreground tnum">{count(hit.downloads)}</span>
-              </div>
-              <Link url={hit.pageUrl} title={hit.title} />
-              <InstallButton hit={hit} install={install} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <QueryState
+        query={results}
+        isEmpty={(answer) => answer.hits.length === 0}
+        empty={{ title: "Nothing found", note: `Nothing on ${loader} for ${version}.` }}
+      >
+        {(answer) => (
+          <ul className="flex flex-col gap-2">
+            {(answer?.hits ?? WAITING_HITS).map((hit, index) => (
+              <li
+                key={hit?.projectId ?? index}
+                className="flex items-center gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0"
+              >
+                <Thumbnail url={hit?.iconUrl} alt={hit?.title ?? ""} waiting={!hit} />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  {hit ? (
+                    <>
+                      <span className="truncate text-sm">{hit.title}</span>
+                      <span className="truncate text-xs text-muted-foreground">{hit.description}</span>
+                      <span className="text-xs text-muted-foreground tnum">{count(hit.downloads)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <SkeletonText className="text-sm" width="short" />
+                      <SkeletonText className="text-xs" width="long" />
+                      <SkeletonText className="text-xs" width="short" />
+                    </>
+                  )}
+                </div>
+                {hit ? (
+                  <>
+                    <Link url={hit.pageUrl} title={hit.title} />
+                    <InstallButton hit={hit} install={install} />
+                  </>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </QueryState>
     </>
   )
 }
@@ -333,7 +369,12 @@ function InstallButton({
  * allow that host, or these stay blank and only whoever opens the console finds out why. The worker
  * refuses to store a URL pointing anywhere else, so what arrives here is always that one host.
  */
-function Thumbnail({ url, alt }: { url?: string; alt: string }) {
+function Thumbnail({ url, alt, waiting }: { url?: string; alt: string; waiting?: boolean }) {
+  // Two different blanks, deliberately: a project with no icon is a flat square, and a row that
+  // has not been told yet shimmers. They used to be the same square.
+  if (waiting) {
+    return <Skeleton className="size-8 shrink-0 rounded-sm" />
+  }
   if (!url) {
     return <div className="size-8 shrink-0 rounded-sm bg-muted" aria-hidden />
   }

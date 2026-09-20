@@ -749,6 +749,21 @@ function PairedRows({
   onChange: (path: string, value: string | string[] | SectionValues[]) => void
   onReset: (path: string) => void
 }) {
+  // How wide each half gets. A number needs room for four digits and no more, and the other half -
+  // a hex colour, a name - needs every pixel that leaves behind; splitting the line evenly is what
+  // cut `#5fbfae` down to `#5` on a phone in the first picture taken of this. The rule reads off
+  // the entry's own type rather than off a key name, so it is the same rule for any two blocks that
+  // ever pair up.
+  const span = (entry: ConfigEntry) =>
+    entry.type === "INTEGER" || entry.type === "DECIMAL" ? "5rem" : "minmax(0,1fr)"
+  // Handed to the class as a custom property rather than as `style={{gridTemplateColumns}}`: a grid
+  // whose column count only exists in an inline style is invisible to `fits-on-a-phone.test.ts`,
+  // which reads class strings, and that guard is the reason no grid here falls back to one implicit
+  // `auto` column as wide as its widest unbreakable word.
+  const columns = {
+    "--paired-columns": `auto ${span(pair.rows[0].left)} ${span(pair.rows[0].right)}`,
+  } as CSSProperties
+
   return (
     <div className="pt-6 pb-2">
       <Separator className="mb-4" />
@@ -758,23 +773,38 @@ function PairedRows({
       <p className="font-mono text-xs text-muted-foreground">
         {pair.left.path} + {pair.right.path}
       </p>
-      <ul className="mt-2 flex flex-col">
+      {/* Capped, unlike the stacked fields above it. A row is read across, and a hex field stretched
+          to 1300px on a desktop is 1300px of nothing between the swatch and the seven characters
+          that matter - the phone layout is the design here and the wide screen gets the same one. */}
+      <ul className="mt-2 flex max-w-xl flex-col">
+        {/* The two columns, named once. Thirteen rows do not each need to repeat them, and this is
+            also the only place either block's own name is said now that the rows are wordless. */}
+        <li
+          className="grid grid-cols-[var(--paired-columns)] items-end gap-x-3 pb-1 text-xs text-muted-foreground"
+          style={columns}
+        >
+          <span />
+          <span>{pair.left.label}</span>
+          <span>{pair.right.label}</span>
+        </li>
         {pair.rows.map((row, at) => (
           <li
             key={row.key}
-            className={`flex flex-wrap items-center gap-x-3 gap-y-2 border-border py-2 ${at === 0 ? "" : "border-t"}`}
+            className={`grid grid-cols-[var(--paired-columns)] items-center gap-x-3 border-border py-2 ${at === 0 ? "" : "border-t"}`}
+            style={columns}
           >
-            <span className="min-w-16 font-mono text-xs text-muted-foreground">{row.key}</span>
+            <span className="font-mono text-xs text-muted-foreground">{row.key}</span>
             {[
               { entry: row.left, block: pair.left.label },
               { entry: row.right, block: pair.right.label },
             ].map(({ entry, block }) => (
               <Field
                 key={entry.path}
-                entry={{ ...entry, label: block }}
+                entry={{ ...entry, label: `${block} ${row.key}` }}
                 first
-                layout="row"
+                layout="cell"
                 showPath={false}
+                showLabel={false}
                 writable={writable}
                 draft={draft}
                 roles={roles}
@@ -808,6 +838,7 @@ function Field({
   onChange,
   onReset,
   showPath = true,
+  showLabel = true,
   layout = "stack",
 }: {
   entry: ConfigEntry
@@ -830,13 +861,21 @@ function Field({
    */
   showPath?: boolean
   /**
+   * Whether the label is drawn above the field. False only inside a paired row (steward/130), where
+   * the column is named once at the top of the block instead of once per row - thirteen rows that
+   * each say "Hours" and "Colours" are thirteen repetitions of a heading, and the width they cost
+   * is width the hex field needed. It stays in the DOM as `sr-only` either way: the label is what
+   * gives the input its accessible name, and a column heading three rows up is not a substitute.
+   */
+  showLabel?: boolean
+  /**
    * `"row"` is what `EntryList` below asks for when this field is one member of a `colourRuns` run
    * (steward/63): several tones that belong together side by side, not each in its own full-width
    * block. It only changes the outer box - depth indent and the divider between ordinary fields make
    * no sense once several of them sit in one flex row instead of a stack - everything from the label
    * down is exactly the field it always was.
    */
-  layout?: "stack" | "row"
+  layout?: "stack" | "row" | "cell"
 }) {
   const depth = entry.path.split(".").length - 1
   const dirty = draft[entry.path] !== undefined
@@ -891,7 +930,12 @@ function Field({
       // the two widths are a class.
       style={{ "--depth": depth } as CSSProperties}
       className={
-        layout === "row"
+        layout === "cell"
+          ? // One cell of a paired row's grid (steward/130). No minimum width of its own and no
+            // `flex-1`: the grid the parent declares is what divides the line up, and a minimum
+            // here would fight it at exactly the width that matters.
+            `flex min-w-0 scroll-mt-4 flex-col gap-2 rounded-md transition-colors duration-300 ${highlighted ? "bg-accent p-2 ring-2 ring-primary" : ""}`
+          : layout === "row"
           ? // `min-w-28` (7rem/112px) rather than a wider minimum - two of these plus the gap between
             // them still has to fit inside a phone's own width once the card's own padding is taken
             // out, or "side by side" quietly becomes "stacked" on exactly the screen this ticket is
@@ -902,7 +946,10 @@ function Field({
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="flex flex-wrap items-center gap-2">
-          <Label htmlFor={entry.path} className="text-sm font-medium">
+          <Label
+            htmlFor={entry.path}
+            className={showLabel ? "text-sm font-medium" : "sr-only"}
+          >
             {entry.label}
           </Label>
           {!entry.inSchema ? <NotInSchemaBadge /> : null}

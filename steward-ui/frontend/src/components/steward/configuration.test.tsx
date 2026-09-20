@@ -923,6 +923,13 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
     )
   }
 
+  /** What is on the screen: everything `sr-only` is for a screen reader and not for the eye. */
+  function visibleText(element: HTMLElement): string {
+    const copy = element.cloneNode(true) as HTMLElement
+    copy.querySelectorAll(".sr-only").forEach((hidden) => hidden.remove())
+    return copy.textContent ?? ""
+  }
+
   /**
    * By id, not by value: a colour field is an `<input type="color">` and a text box carrying the
    * same value, so `getByDisplayValue` is ambiguous for every colour on the page. The id is the
@@ -951,18 +958,36 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
     expect(row?.textContent).toContain("tier-02")
   })
 
-  it("names the tier once, not once per field", async () => {
+  it("names the tier once, and each column once for the whole block", async () => {
     withLadder()
     const { container } = draw(<ServiceConfiguration service="smp" />)
     await open("Prestige")
 
     await screen.findByDisplayValue("2")
     const row = fieldFor(container, "hours.tier-02").closest("li") as HTMLElement
-    // `tier-02` is the row's subject; the two fields are relabelled with their own block's name,
-    // so the key is said once and the labels say what each half of the row is.
-    expect(row.textContent?.match(/tier-02/g) ?? []).toHaveLength(1)
-    expect(row.textContent).toContain("hours")
-    expect(row.textContent).toContain("colours")
+    // `tier-02` is the row's subject and is said once, on the left. The two halves carry no visible
+    // label of their own: three rows repeating "hours" and "colours" is three repetitions of a
+    // column heading, and on a phone it is also the width the hex field needs. What a screen reader
+    // hears is the next test; this one is about what is drawn, so the `sr-only` labels come out
+    // first - `textContent` cannot tell them apart from anything else.
+    expect(visibleText(row).match(/tier-02/g) ?? []).toHaveLength(1)
+    const block = row.closest("ul") as HTMLElement
+    expect(visibleText(block).match(/hours/g) ?? []).toHaveLength(1)
+    expect(visibleText(block).match(/colours/g) ?? []).toHaveLength(1)
+  })
+
+  /**
+   * The label is hidden, not deleted. A field whose only name was a column heading three rows above
+   * it has no accessible name at all, which is the kind of thing a picture never shows.
+   */
+  it("keeps each half's label for a screen reader", async () => {
+    withLadder()
+    draw(<ServiceConfiguration service="smp" />)
+    await open("Prestige")
+
+    await screen.findByDisplayValue("2")
+    expect(screen.getByLabelText("hours tier-02")).toBeTruthy()
+    expect(screen.getByLabelText("colours tier-02")).toBeTruthy()
   })
 
   it("keeps the colour picker, because a paired field is still the field it was", async () => {

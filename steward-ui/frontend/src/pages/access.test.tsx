@@ -308,6 +308,73 @@ describe("AccessPage - play time in the list, and overridable", () => {
     expect(screen.queryByText("0 s")).toBeNull()
   })
 
+  it("shows the minutes as well, which `duration` would have dropped (steward/126)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        people: () => [
+          person({ discordUsername: "alice", playtimeSeconds: 86_400 + 6 * 3_600 + 30 * 60 }),
+        ],
+      }),
+    )
+    draw(<AccessPage />)
+
+    expect(await screen.findByText("1 d 6 h 30 min")).not.toBeNull()
+  })
+
+  it("asks in days, hours and minutes rather than in decimal hours (steward/126)", async () => {
+    // THE SLIP THIS EXISTS FOR: 37.5 typed as 375 is a plausible number of hours and an impossible
+    // number of days, so three fields make the mistake visible where one field hid it.
+    const calls: { url: string; body: unknown }[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        people: () => [person({ discordUsername: "alice", playtimeSeconds: 0 })],
+        playtimePost: (url, body) => {
+          calls.push({ url, body })
+          return { status: 200, body: { discordId: "100000000000000001", seconds: 0 } }
+        },
+      }),
+    )
+    draw(<AccessPage />)
+
+    fireEvent.click(await screen.findByRole("button", { name: /play ?time/i }))
+    fireEvent.change(await screen.findByLabelText(/days/i), { target: { value: "1" } })
+    fireEvent.change(screen.getByLabelText(/hours/i), { target: { value: "6" } })
+    fireEvent.change(screen.getByLabelText(/minutes/i), { target: { value: "30" } })
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+    await waitFor(() => expect(calls.length).toBe(1))
+    expect(calls[0].body).toEqual({ seconds: 86_400 + 6 * 3_600 + 30 * 60 })
+  })
+
+  it("carries an out-of-range field instead of refusing it (steward/126)", async () => {
+    // Till: somebody who types "0 days 50 hours" means two days and two hours and has not made a
+    // mistake. An empty field is a zero for the same reason - clearing "0" to type is how three
+    // number inputs are used.
+    const calls: { url: string; body: unknown }[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        people: () => [person({ discordUsername: "alice", playtimeSeconds: 0 })],
+        playtimePost: (url, body) => {
+          calls.push({ url, body })
+          return { status: 200, body: { discordId: "100000000000000001", seconds: 0 } }
+        },
+      }),
+    )
+    draw(<AccessPage />)
+
+    fireEvent.click(await screen.findByRole("button", { name: /play ?time/i }))
+    fireEvent.change(await screen.findByLabelText(/days/i), { target: { value: "" } })
+    fireEvent.change(screen.getByLabelText(/hours/i), { target: { value: "50" } })
+    fireEvent.change(screen.getByLabelText(/minutes/i), { target: { value: "" } })
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+    await waitFor(() => expect(calls.length).toBe(1))
+    expect(calls[0].body).toEqual({ seconds: 50 * 3_600 })
+  })
+
   it("writes the override in seconds, from hours typed into the dialog", async () => {
     const calls: { url: string; body: unknown }[] = []
     const fetcher = backend({

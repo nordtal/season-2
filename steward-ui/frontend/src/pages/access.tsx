@@ -16,7 +16,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Grant, JournalEntry, Payment, Person } from "@/lib/api"
-import { count, date, dateTime, duration, euros, relative } from "@/lib/format"
+import { count, date, dateTime, euros, playtime, relative, splitPlaytime } from "@/lib/format"
 import {
   useAvatarBaseUrl,
   useCommands,
@@ -405,7 +405,8 @@ export function AccessPage() {
   // page is rendered here, beside the table, and the row holds nothing but buttons.
   const [unlinking, setUnlinking] = useState<Person | null>(null)
   const [granting, setGranting] = useState<Person | null>(null)
-  const [playtime, setPlaytime] = useState<Person | null>(null)
+  // Not `playtime`: that name is the formatter this page draws the column with.
+  const [playtimeFor, setPlaytimeFor] = useState<Person | null>(null)
   // One clock for the whole render, so that two badges in one row cannot disagree about "now".
   const now = Date.now()
 
@@ -595,10 +596,12 @@ export function AccessPage() {
                             </div>
                           </TableCell>
                           <TableCell data-label="Playtime">
-                            {/* `duration` draws the dash for null by itself, which is the answer
-                                for somebody who has never been online - not "0 s". */}
+                            {/* `playtime` and not `duration` (steward/126): this column answers the
+                                dialog beside it, and that one asks in days, hours and minutes. It
+                                draws the dash for null by itself, which is the answer for somebody
+                                who has never been online - not "0 min". */}
                             <span className="text-sm tabular-nums">
-                              {duration(person.playtimeSeconds ?? undefined)}
+                              {playtime(person.playtimeSeconds ?? undefined)}
                             </span>
                           </TableCell>
                           <TableCell>
@@ -608,7 +611,7 @@ export function AccessPage() {
                                 unlinkable: unlinkCommand !== undefined,
                                 onPeriods: () => setSelected(person),
                                 onGrant: () => setGranting(person),
-                                onPlaytime: () => setPlaytime(person),
+                                onPlaytime: () => setPlaytimeFor(person),
                                 onRevoke: () => setRevoking(person),
                                 onUnlink: () => setUnlinking(person),
                               })}
@@ -701,11 +704,11 @@ export function AccessPage() {
         />
       ) : null}
 
-      {playtime ? (
+      {playtimeFor ? (
         <PlaytimeDialog
-          person={playtime}
+          person={playtimeFor}
           open
-          onOpenChange={(open) => (open ? null : setPlaytime(null))}
+          onOpenChange={(open) => (open ? null : setPlaytimeFor(null))}
         />
       ) : null}
     </div>
@@ -988,10 +991,17 @@ function GrantDialog({
  * Till asked for this so that two accounts of different tiers can stand beside each other without
  * anybody waiting out the hours first (season-2-ingame/23).
  *
- * <h2>Hours here, seconds on the wire</h2>
- * Nobody types 32400. The field takes hours, decimals included, and the multiplication happens here
- * so that the request body and the `player_playtime.seconds` column agree on a unit. It rounds
- * rather than truncates: a typed 1.7 is 6120 seconds.
+ * <h2>Three fields here, seconds on the wire (steward/126)</h2>
+ * Nobody types 32400, and nobody thinks in 37.5 either - that was this dialog until 2026-09-20, and
+ * the trouble with it was not that it was hard to compute but that a slip was invisible: 37.5 typed
+ * as 375 is a plausible number of hours. Days, hours and minutes cannot be mistyped that way, and
+ * the multiplication happens here so that the request body and the `player_playtime.seconds` column
+ * agree on a unit.
+ *
+ * <h2>An empty field is a zero, and nothing is out of range</h2>
+ * Hours over 23 and minutes over 59 are CARRIED rather than refused: somebody who types
+ * "0 days 50 hours" means two days and two hours and has not made a mistake. The only thing refused
+ * is a negative number, because there is nothing it could mean.
  *
  * <h2>What it does not do</h2>
  * Stop the proxy. Somebody online right now keeps accumulating on top of whatever this writes,
@@ -1008,14 +1018,21 @@ function PlaytimeDialog({
   onOpenChange?: (open: boolean) => void
 }) {
   const write = useSetPlaytime()
-  const [hours, setHours] = useState(
-    person.playtimeSeconds == null
-      ? "0"
-      : String(Math.round((person.playtimeSeconds / 3600) * 100) / 100),
-  )
-  const parsed = Number.parseFloat(hours.replace(",", "."))
-  const usable = Number.isFinite(parsed) && parsed >= 0
-  const seconds = Math.round(parsed * 3600)
+  const start = splitPlaytime(person.playtimeSeconds ?? 0)
+  const [days, setDays] = useState(String(start.days))
+  const [hours, setHours] = useState(String(start.hours))
+  const [minutes, setMinutes] = useState(String(start.minutes))
+
+  // An empty field is a zero and not an error, which is `Number("")` and not a branch: clearing a
+  // field to type into it is the ordinary way to use three number inputs, and a form that went
+  // unusable in between would be unusable most of the time somebody is typing in it. Anything that
+  // is not a number at all is still NaN, and `usable` below is what catches it.
+  const field = (value: string) => Number(value.replace(",", "."))
+  const parts = [field(days), field(hours), field(minutes)]
+  const usable = parts.every((part) => Number.isFinite(part) && part >= 0)
+  const seconds = usable
+    ? Math.round(parts[0] * 86_400 + parts[1] * 3_600 + parts[2] * 60)
+    : 0
 
   return (
     <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
@@ -1029,19 +1046,47 @@ function PlaytimeDialog({
         </ResponsiveAlertDialogHeader>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="playtime-hours">Hours</Label>
-          <Input
-            id="playtime-hours"
-            value={hours}
-            onChange={(event) => setHours(event.target.value)}
-            type="number"
-            min={0}
-            step="0.25"
-            className="w-32"
-          />
+          {/* Three fields in one row: on a phone they are still three columns rather than a stack,
+              because a day, an hour and a minute are one number read left to right. */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="playtime-days">Days</Label>
+              <Input
+                id="playtime-days"
+                value={days}
+                onChange={(event) => setDays(event.target.value)}
+                type="number"
+                min={0}
+                inputMode="numeric"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="playtime-hours">Hours</Label>
+              <Input
+                id="playtime-hours"
+                value={hours}
+                onChange={(event) => setHours(event.target.value)}
+                type="number"
+                min={0}
+                inputMode="numeric"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="playtime-minutes">Minutes</Label>
+              <Input
+                id="playtime-minutes"
+                value={minutes}
+                onChange={(event) => setMinutes(event.target.value)}
+                type="number"
+                min={0}
+                inputMode="numeric"
+              />
+            </div>
+          </div>
           <p className="text-xs text-muted-foreground">
-            Counted so far: {duration(person.playtimeSeconds ?? undefined)}. Anybody online while
-            this is written keeps counting up from the new value.
+            Counted so far: {playtime(person.playtimeSeconds ?? undefined)}
+            {usable ? `, becoming ${playtime(seconds)}` : null}. Anybody online while this is
+            written keeps counting up from the new value.
           </p>
         </div>
 
@@ -1055,7 +1100,7 @@ function PlaytimeDialog({
                 {
                   onSuccess: () => {
                     toast.success(`Play time set for ${personName(person)}`, {
-                      description: `${duration(seconds)} from now on. A journal line names you.`,
+                      description: `${playtime(seconds)} from now on. A journal line names you.`,
                     })
                   },
                   onError: (error) => {

@@ -10,8 +10,10 @@ import {
   load,
   parseInstant,
   percent,
+  playtime,
   relative,
   since,
+  splitPlaytime,
 } from "@/lib/format"
 
 /**
@@ -288,5 +290,54 @@ describe("since", () => {
   it("shows a dash for nothing and for SQL NULL", () => {
     expect(since(null, NOW)).toBe(NOTHING)
     expect(since("null", NOW)).toBe(NOTHING)
+  })
+})
+
+/**
+ * steward/126. Till, 2026-09-20: play time is asked for in days, hours and minutes, so it has to be
+ * answered in them too - a column that says "1 d 6 h" to something entered as 1 d 6 h 30 min looks
+ * like a save that lost the minutes.
+ */
+describe("playtime", () => {
+  it("spells out all three units, leaving out the empty ones", () => {
+    expect(playtime(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h 30 min")
+    expect(playtime(2 * 86_400)).toBe("2 d")
+    expect(playtime(6 * 3_600 + 30 * 60)).toBe("6 h 30 min")
+    expect(playtime(30 * 60)).toBe("30 min")
+  })
+
+  it("keeps the minutes `duration` would have dropped", () => {
+    // THE WHOLE DIFFERENCE between the two, in one line: duration stops at two units because an
+    // uptime does not need a third, and this one cannot.
+    expect(duration(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h")
+    expect(playtime(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h 30 min")
+  })
+
+  it("answers zero with a zero and nothing at all with a dash", () => {
+    // Two different people: one has been online and has almost no time, the other has never been
+    // online. "0 min" and the dash are the two answers and they must not be the same one.
+    expect(playtime(0)).toBe("0 min")
+    expect(playtime(59)).toBe("0 min")
+    expect(playtime(-1)).toBe(NOTHING)
+    for (const value of NOT_A_NUMBER) expect(playtime(value as number)).toBe(NOTHING)
+  })
+
+  it("drops seconds rather than rounding, so a value read back is the value written", () => {
+    expect(playtime(3_659)).toBe("1 h")
+    expect(splitPlaytime(3_659)).toEqual({ days: 0, hours: 1, minutes: 0 })
+  })
+
+  it("splits into the three fields the dialog shows", () => {
+    expect(splitPlaytime(86_400 + 6 * 3_600 + 30 * 60)).toEqual({ days: 1, hours: 6, minutes: 30 })
+    expect(splitPlaytime(0)).toEqual({ days: 0, hours: 0, minutes: 0 })
+    expect(splitPlaytime(null)).toEqual({ days: 0, hours: 0, minutes: 0 })
+    expect(splitPlaytime(-1)).toEqual({ days: 0, hours: 0, minutes: 0 })
+  })
+
+  it("is the inverse of what the dialog multiplies, for a round trip", () => {
+    for (const seconds of [0, 60, 3_600, 86_400, 86_400 + 6 * 3_600 + 30 * 60, 50 * 3_600]) {
+      const { days, hours, minutes } = splitPlaytime(seconds)
+      expect(days * 86_400 + hours * 3_600 + minutes * 60).toBe(seconds)
+    }
   })
 })

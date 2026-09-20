@@ -384,7 +384,28 @@ Both reach steward-worker through a row in `update_request` and a notification, 
 container that has the volumes; the result is an `UpdateReport` written into
 `update_request.result` as JSON, one line per service and one entry per artefact moving.
 
-On the host:
+**On the host, when neither door can be reached**, `./nordtal.sh` in the installation directory
+writes the same row itself (season-2-ops/153):
+
+```bash
+./nordtal.sh update                # the whole network, now, and wait for the report
+./nordtal.sh update --restart      # restart everything, install nothing
+./nordtal.sh update --backup       # one backup run
+./nordtal.sh update --down smp     # stop one service and hold it down
+./nordtal.sh update --start        # release every hold (or name one service)
+./nordtal.sh update --in 10        # let the countdown run for ten minutes first
+./nordtal.sh update --no-wait      # print the request id and return
+```
+
+That is the emergency exit and the reason it exists is the shape of everything above it: Discord
+needs the bot, `/update` in game needs a server, and Steward is a container in the stack being
+updated. `nordtal.sh` is the one piece that lives outside the deployment. It reads two variables
+out of the environment file — the database user and the database name — reaches the database with
+`docker exec` on the postgres container, and prints the run's own report when it is over. It runs
+no self-update and no deploy: `update` is checked before any of that, because a command somebody
+reaches for when something is wrong must not need GitHub first.
+
+The rest, on the host:
 
 ```bash
 docker compose run --rm steward-worker report      # what would change, changes nothing

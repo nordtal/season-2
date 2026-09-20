@@ -455,6 +455,116 @@ looks_like_this_script "$WORK/empty.sh" && bad "an empty file was accepted"
 ok "the shebang, the marker and a syntax check"
 
 # ------------------------------------------------------------------------------------------------
+case_begin "update: the flags, and what they refuse"
+# season-2-ops/153. THIS COMMAND STOPS SERVERS, so a flag that is not understood must stop the
+# command rather than be ignored - and the kind, the scope and the delay all have to be the shape
+# the database's own constraints expect, because the alternative is a constraint violation three
+# layers down with nothing saying which flag caused it.
+
+# `die` exits, so every refusal is checked in a subshell.
+refuses() {
+    local why="$1"; shift
+    if ( parse_update_args "$@" ) >/dev/null 2>&1; then
+        bad "$why: parse_update_args $* was accepted"
+    fi
+}
+
+parse_update_args
+[[ "$UPDATE_KIND" == UPDATE ]] || bad "a bare \`update\` is not an UPDATE run but $UPDATE_KIND"
+[[ -z "$UPDATE_SCOPE" ]]       || bad "a bare \`update\` carried a scope: $UPDATE_SCOPE"
+[[ "$UPDATE_DELAY" == 0 ]]     || bad "a bare \`update\` waits $UPDATE_DELAY minutes"
+[[ "$UPDATE_WAIT" == true ]]   || bad "a bare \`update\` did not wait"
+ok "no flags is the whole network, now, and the command waits for it"
+
+parse_update_args --restart
+[[ "$UPDATE_KIND" == RESTART ]] || bad "--restart gave $UPDATE_KIND"
+parse_update_args --backup
+[[ "$UPDATE_KIND" == BACKUP ]]  || bad "--backup gave $UPDATE_KIND"
+parse_update_args --down smp
+[[ "$UPDATE_KIND" == DOWN && "$UPDATE_SCOPE" == smp ]] || bad "--down smp gave $UPDATE_KIND/$UPDATE_SCOPE"
+parse_update_args --start
+[[ "$UPDATE_KIND" == START && -z "$UPDATE_SCOPE" ]] || bad "a bare --start carried $UPDATE_SCOPE"
+parse_update_args --start limbo
+[[ "$UPDATE_KIND" == START && "$UPDATE_SCOPE" == limbo ]] || bad "--start limbo gave $UPDATE_SCOPE"
+ok "every kind this command offers is one update_request.kind accepts"
+
+# A bare --start means "release every hold", so the flag after it must not be eaten as a service.
+parse_update_args --start --no-wait
+[[ "$UPDATE_KIND" == START && -z "$UPDATE_SCOPE" && "$UPDATE_WAIT" == false ]] \
+    || bad "--start swallowed the flag after it: scope='$UPDATE_SCOPE' wait=$UPDATE_WAIT"
+ok "a flag after --start is a flag and not a service name"
+
+refuses "a second kind" --restart --backup
+refuses "--down with nothing" --down
+refuses "a path as a service" --down /etc/passwd
+refuses "an upper-case service" --down SMP
+refuses "a service with a space" --down "smp limbo"
+refuses "a trailing comma" --down "smp,"
+refuses "minutes that are not a number" --in soon
+refuses "negative minutes" --in -5
+refuses "more than a day" --in 2000
+refuses "a typo" --restartt
+refuses "a bare word" smp
+ok "two kinds, a missing service, a shape the database would reject and a typo are all refused"
+
+parse_update_args --in 10 --no-wait --timeout 60
+[[ "$UPDATE_DELAY" == 10 && "$UPDATE_WAIT" == false && "$UPDATE_TIMEOUT" == 60 ]] \
+    || bad "--in/--no-wait/--timeout did not all land"
+ok "the countdown, the timeout and not waiting at all"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "update: the statement, and why it is safe to assemble by hand"
+sql="$(update_insert_sql UPDATE "" 0 "till@nordtal-test")"
+grep -q "'CONSOLE'" <<<"$sql" || bad "the source is not CONSOLE"
+grep -q "pg_notify('nordtal_update', '')" <<<"$sql" \
+    || bad "the bell is not rung in the same statement, so a row can exist that nobody was told about"
+grep -q "make_interval(mins => 0)" <<<"$sql" || bad "the delay did not reach the statement"
+grep -q "NULL)" <<<"$sql" || bad "an empty scope has to be NULL and not an empty string"
+ok "the row says CONSOLE, rings the bell with itself, and a whole-network run has a NULL scope"
+
+sql="$(update_insert_sql DOWN smp 15 "till@nordtal-test")"
+grep -q "'smp'" <<<"$sql"   || bad "the scope did not reach the statement"
+grep -q "make_interval(mins => 15)" <<<"$sql" || bad "the fifteen minutes did not"
+ok "a scoped, delayed run carries both"
+
+# THE PROPERTY THAT MAKES THE CONCATENATION SAFE: every value went through a shape check, so no
+# quote survives to close the one the statement opened. The requester is the only value a person
+# does not type, and it is the one that could carry anything at all.
+for wrong in "o'brien@host" 'a";DROP TABLE update_request;--' "$(printf 'a\tb')"; do
+    cleaned="$(printf '%s' "$wrong" | tr -c 'A-Za-z0-9._@-' '-' | cut -c1-64)"
+    case "$cleaned" in
+        *[\'\"\;]*) bad "'$wrong' survived as '$cleaned'" ;;
+    esac
+done
+ok "a quote, a semicolon and a tab in a user name all become dashes"
+
+requester="$(update_requester)"
+(( ${#requester} >= 1 && ${#requester} <= 64 )) || bad "requested_by is ${#requester} characters, the column is 64"
+case "$requester" in
+    *[!A-Za-z0-9._@-]*) bad "this host's own requester is not clean: $requester" ;;
+esac
+ok "the requester of this very host fits the column and carries nothing to escape"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "update: which statuses end the wait"
+for over in DONE FAILED CANCELLED; do
+    update_is_over "$over" || bad "$over did not end the wait"
+done
+for running in PENDING RUNNING "" unknown; do
+    update_is_over "$running" && bad "'$running' ended the wait"
+done
+ok "the three finished statuses end it and nothing else does"
+
+# The scope shape, held against the constraint the database carries.
+for good in smp limbo smp,limbo hunger-games steward-worker; do
+    update_scope_ok "$good" || bad "$good was refused"
+done
+for wrong in "" " " SMP "smp," ",smp" "smp,,limbo" "smp limbo" "../smp" "smp;"; do
+    update_scope_ok "$wrong" && bad "'$wrong' was accepted as a scope"
+done
+ok "the scope check is update_request_scope_check, spelled the same way"
+
+# ------------------------------------------------------------------------------------------------
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

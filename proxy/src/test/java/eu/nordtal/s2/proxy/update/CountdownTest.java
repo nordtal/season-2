@@ -1,5 +1,6 @@
 package eu.nordtal.s2.proxy.update;
 
+import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
@@ -54,19 +55,47 @@ class CountdownTest {
     @Test
     @DisplayName("a full countdown is three chat lines and nine subtitles, and nothing else")
     void aFullCountdownIsPlannedOnce() {
-        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(30)));
+        // THE REAL COUNTDOWN AND NOT A NUMBER TYPED HERE. It was 30 seconds and became 60 on
+        // 2026-09-20, and a test that had spelt the old number would have gone on passing while
+        // asserting a countdown nothing runs.
+        final List<Countdown.Beat> beats =
+                beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN));
 
-        assertEquals(2, kinds(beats, Announcement.Kind.COUNTDOWN).size(),
-                "chat gets thirty and ten; twelve chat lines in half a minute is how a warning"
+        assertEquals(3, kinds(beats, Announcement.Kind.COUNTDOWN).size(),
+                "chat gets sixty, thirty and ten; a line every five seconds is how a warning"
                         + " becomes something people learn to ignore");
-        assertEquals(List.of(30L, 10L), seconds(kinds(beats, Announcement.Kind.COUNTDOWN)));
+        assertEquals(List.of(60L, 30L, 10L), seconds(kinds(beats, Announcement.Kind.COUNTDOWN)));
         assertEquals(List.of(9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L),
                 seconds(kinds(beats, Announcement.Kind.TICK)),
                 "ten is missing on purpose: it has a chat line, and that line draws the title of"
                         + " that second itself (season-2-ops/132)");
         assertEquals(1, kinds(beats, Announcement.Kind.NOW).size(),
                 "and exactly one 'it is happening'");
-        assertEquals(12, beats.size());
+        assertEquals(13, beats.size());
+    }
+
+    @Test
+    @DisplayName("no chat line is planned for a second the countdown never reaches")
+    void theThresholdsFitInsideTheCountdown() {
+        // season-2-ops/132, AND IT IS THE OBJECTION THAT HELD THE SIXTY BACK FOR A DAY. A threshold
+        // longer than the countdown is not a loud failure: rule three drops it, in silence, and the
+        // line is simply never spoken again. That is how the thirty-second line was lost for a
+        // season - the same shape, one rounding step smaller.
+        //
+        // So the two numbers are held against each other rather than each against a literal, and
+        // raising either one alone fails here instead of going quiet in production.
+        for (final long threshold : Countdown.CHAT_THRESHOLDS) {
+            assertTrue(threshold <= UpdateDirectory.UPDATE_COUNTDOWN.toSeconds(),
+                    "a chat line at " + threshold + "s cannot be spoken in a "
+                            + UpdateDirectory.UPDATE_COUNTDOWN.toSeconds() + "s countdown:"
+                            + " the beat is planned for an instant that has already passed and"
+                            + " is dropped without a word");
+        }
+        // And the whole set is spoken by a countdown of exactly that length, which is the other
+        // half: a threshold that merely fits is not the same as one that is used.
+        assertEquals(Countdown.CHAT_THRESHOLDS,
+                seconds(kinds(beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN)),
+                        Announcement.Kind.COUNTDOWN)));
     }
 
     @Test
@@ -101,7 +130,7 @@ class CountdownTest {
     }
 
     @Test
-    @DisplayName("the thirty-second line survives the milliseconds it took to read the row")
+    @DisplayName("the first line survives the milliseconds it took to read the row")
     void theFirstLineIsNotLostToLatency() {
         // MEASURED ON THE DEV HOST, 2026-09-19 (season-2-ops/118). steward-worker writes
         // now() + 30s on the database's clock and notifies in the same statement; the proxy read
@@ -113,21 +142,26 @@ class CountdownTest {
         //
         // The countdown is spoken in whole seconds, so the question is not whether 30 000 ms are
         // left but whether a counter showing whole seconds still reads 30.
-        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofMillis(29_980)));
+        //
+        // Written against the real countdown less those 20 ms rather than against 29 980 outright:
+        // the number moved to 60 on 2026-09-20 and the latency did not, and it is the latency this
+        // case is about.
+        final List<Countdown.Beat> beats =
+                beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN.minusMillis(20)));
 
-        assertEquals(List.of(30L, 10L), seconds(kinds(beats, Announcement.Kind.COUNTDOWN)),
-                "the thirty-second line was dropped because the row took 20 ms to read");
+        assertEquals(Countdown.CHAT_THRESHOLDS,
+                seconds(kinds(beats, Announcement.Kind.COUNTDOWN)),
+                "the first line was dropped because the row took 20 ms to read");
         assertEquals(Duration.ZERO,
                 kinds(beats, Announcement.Kind.COUNTDOWN).getFirst().delay(),
                 "a beat whose instant has just passed is said now, not scheduled into the past");
-        // Twelve, and the number is a trap worth naming: twelve is also what the *broken* run
-        // logged above, for the opposite reason. There it was two chat lines and ten ticks with
-        // the thirty missing; here it is two chat lines, nine ticks and zero, because the tick at
-        // ten went away with season-2-ops/132. So the count is asserted through the ticks rather
-        // than on its own - a bare 12 would go green again the day the first line is lost twice.
+        // The count is asserted through the ticks rather than on its own, and the reason is the
+        // trap this whole case is about: the broken run logged twelve beats too, for the opposite
+        // reason - two chat lines and ten ticks with the first line missing. A bare number would
+        // go green again the day a line is lost twice.
         assertEquals(List.of(9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L),
                 seconds(kinds(beats, Announcement.Kind.TICK)));
-        assertEquals(12, beats.size());
+        assertEquals(Countdown.CHAT_THRESHOLDS.size() + 9 + 1, beats.size());
     }
 
     @Test

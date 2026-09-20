@@ -259,7 +259,12 @@ describe("AccessPage - the Minecraft column draws a face", () => {
 })
 
 describe("AccessPage - pagination filters the whole roster before it pages", () => {
-  it("holds 21 matches over two pages of at most 20, without the second page vanishing from the search", async () => {
+  // Fifteen seconds rather than the default five, and not because the test is slow to write: it
+  // draws 21 rows and then waits twice, and it came in at 5030 ms on a CI runner on 2026-09-20 -
+  // thirty milliseconds over the budget, against about a second here. A test that fails on how
+  // busy the machine is says nothing about the code either way, and the assertions below are
+  // unchanged: what is bought is the right to believe a red one.
+  it("holds 21 matches over two pages of at most 20, without the second page vanishing from the search", { timeout: 15_000 }, async () => {
     vi.stubGlobal("fetch", backend({ people: manyMatches }))
     draw(<AccessPage />)
 

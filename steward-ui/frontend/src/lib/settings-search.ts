@@ -300,8 +300,33 @@ export type PendingJump = { file: string; path: string }
  */
 const pendingJumps = new Map<string, PendingJump>()
 
+/**
+ * The same subscriber set {@link onPendingMessageJump} keeps, and it is here for the same reason -
+ * belatedly (steward/127).
+ *
+ * A config jump was read only by a component about to mount, which is right for "palette, then
+ * navigate to another service" and wrong for the case Till found: searching while already standing
+ * on the service page the hit belongs to. `navigate` to the route you are on is a no-op, nothing
+ * remounts, the effect keyed on `service` does not run, and the click does nothing at all - and the
+ * jump then sits in the map and fires the next time somebody arrives on that page, which is a
+ * second wrong thing wearing the first one's clothes.
+ */
+const jumpSubscribers = new Set<() => void>()
+
 export function setPendingJump(service: string, jump: PendingJump): void {
   pendingJumps.set(service, jump)
+  jumpSubscribers.forEach((subscriber) => subscriber())
+}
+
+/**
+ * Notifies {@code listener} every time any service's config jump is set. Filtering by service is
+ * the caller's job, as with {@link onPendingMessageJump}.
+ *
+ * @returns the unsubscribe function, for a `useEffect` cleanup
+ */
+export function onPendingJump(listener: () => void): () => void {
+  jumpSubscribers.add(listener)
+  return () => jumpSubscribers.delete(listener)
 }
 
 /**

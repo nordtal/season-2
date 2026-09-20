@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ServiceConfiguration } from "@/components/steward/configuration"
+import { setPendingJump, takePendingJump } from "@/lib/settings-search"
 import type { ConfigEntry, ConfigLocation } from "@/lib/api"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -880,5 +881,77 @@ describe("a file of colours, side by side (steward/63)", () => {
 
     await screen.findByDisplayValue("smp")
     expect(screen.queryByLabelText("Pick a colour")).toBeNull()
+  })
+})
+
+/**
+ * steward/127. Till asked that a click on a search hit actually take you there - and the case
+ * where it did not was the one nobody thinks to try, because it looks like the easiest of them:
+ * searching while already standing on the service page the hit belongs to.
+ *
+ * `navigate` to the route you are on is a no-op, nothing remounts, `service` does not change, and
+ * the effect that consumes a pending jump was keyed on exactly that. So the click did nothing at
+ * all - and left the jump in the map, where it fired the next time somebody arrived on this page.
+ */
+describe("a hit that arrives while this page is already open (steward/127)", () => {
+  const file = "steward-worker/steward.yml"
+
+  function drawWith(entries: ConfigEntry[]) {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "steward.yml" }),
+          revision: "r1",
+          header: [],
+          entries,
+        },
+      }),
+    )
+    return draw(<ServiceConfiguration service="steward-worker" />)
+  }
+
+  afterEach(() => {
+    // Nothing may survive into the next test: the map is module level and a leftover jump is
+    // exactly the second bug this ticket is about.
+    takePendingJump("steward-worker")
+  })
+
+  it("opens the file and lands on the field, without the page having remounted", async () => {
+    drawWith([
+      entry({ path: "worker.base-url", key: "base-url", label: "Base url" }),
+      entry({ path: "worker.token", key: "token", label: "Token" }),
+    ])
+    await screen.findByText("Steward")
+    // Closed to begin with: the field is in a file nobody has opened.
+    expect(screen.queryByText("Base url")).toBeNull()
+
+    setPendingJump("steward-worker", { file, path: "worker.base-url" })
+
+    await waitFor(() => expect(screen.queryByText("Base url")).not.toBeNull())
+  })
+
+  it("consumes the jump, so arriving here again does not reopen it", async () => {
+    drawWith([entry({ path: "worker.base-url", key: "base-url", label: "Base url" })])
+    await screen.findByText("Steward")
+
+    setPendingJump("steward-worker", { file, path: "worker.base-url" })
+    await waitFor(() => expect(screen.queryByText("Base url")).not.toBeNull())
+
+    expect(takePendingJump("steward-worker")).toBeUndefined()
+  })
+
+  it("ignores a jump meant for another service", async () => {
+    drawWith([entry({ path: "worker.base-url", key: "base-url", label: "Base url" })])
+    await screen.findByText("Steward")
+
+    setPendingJump("smp", { file: "smp/steward.yml", path: "farm.reset.enabled" })
+
+    // Still shut, and the other service's jump is still there for the page it was meant for.
+    await waitFor(() => expect(screen.queryByText("Base url")).toBeNull())
+    expect(takePendingJump("smp")).toEqual({
+      file: "smp/steward.yml",
+      path: "farm.reset.enabled",
+    })
   })
 })

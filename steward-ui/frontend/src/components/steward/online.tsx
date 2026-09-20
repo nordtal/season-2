@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { useAvatarBaseUrl, useServices } from "@/lib/queries"
 import { count } from "@/lib/format"
 import { MinecraftHead } from "@/components/steward/identity"
-import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
+import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**

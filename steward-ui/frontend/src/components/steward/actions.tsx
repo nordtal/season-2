@@ -16,6 +16,7 @@ import {
   ShieldSlashIcon,
   ShieldWarningIcon,
   StopIcon,
+  XCircleIcon,
 } from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
 import type { Action, Person } from "@/lib/api"
@@ -48,6 +49,9 @@ const AUDIT_LABEL: Record<string, string> = {
   REGISTER_KEY: "Security key added",
   REMOVE_KEY: "Security key removed",
   FORGET_FACTORS: "Security reset",
+  // steward/131. Not "Run CANCELLED": what the journal records is a person taking a run back,
+  // and the run's own row says the rest.
+  CANCEL_RUN: "Run cancelled",
 }
 
 /**
@@ -72,6 +76,7 @@ const KIND_ICON: Record<string, Icon> = {
   REGISTER_KEY: KeyIcon,
   REMOVE_KEY: KeyIcon,
   FORGET_FACTORS: ShieldWarningIcon,
+  CANCEL_RUN: XCircleIcon,
 }
 
 function labelOf(kind: string): string {

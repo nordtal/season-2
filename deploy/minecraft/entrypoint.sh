@@ -338,6 +338,116 @@ seed_velocity_config() {
     log "seeded velocity.toml: modern forwarding, servers ${VELOCITY_SERVERS}"
 }
 
+# ACCEPTS-TRANSFERS ON A VOLUME THAT ALREADY STOOD (season-2-ops/160).
+#
+# seed_velocity_config writes this key once, when it creates the file. Both proxy volumes on the
+# dev host were older than that line, so neither had it, and it was added BY HAND to the live
+# proxy's file on 2026-09-19 and to nothing else. The first live test of the proxy swap then sent a
+# real player to the standby, which refused him with `multiplayer.disconnect.transfers_disabled` -
+# and from the player's seat that looks like a network that is simply gone.
+#
+# So this runs on EVERY start and not only on a fresh volume. It is the one setting in this file
+# that another service depends on: a proxy that does not accept transfers is worthless as a standby,
+# and nothing about it is visible until somebody is standing in the game.
+#
+# WHAT IT WILL NOT DO is rewrite a file it cannot parse. Every branch below either changes one line
+# or appends one table, and an unreadable file is left alone with a warning - a half-written
+# velocity.toml is indistinguishable from an operator's own.
+ensure_velocity_transfers() {
+    local file="$DATA/velocity.toml" tmp verdict
+
+    # No file means seed_velocity_config either just wrote one (with the key) or had nothing to
+    # write from. Neither is this function's business.
+    [[ -f "$file" ]] || return 0
+
+    # WHITESPACE IS STRIPPED BEFORE THE COMPARISON because TOML allows `key=true` and Velocity
+    # writes `key = true`; a check that only knew one spelling would silently do nothing on the
+    # other. A commented-out line keeps its `#` and therefore never matches.
+    verdict=$(awk '
+        /^[[:space:]]*\[/ { table = $1; if (table == "[advanced]") advanced = 1; next }
+        {
+            line = $0
+            gsub(/[[:space:]]/, "", line)
+            if (line ~ /^accepts-transfers=/) {
+                if (table == "[advanced]") {
+                    key = (line == "accepts-transfers=true") ? "true" : "other"
+                } else if (table == "") {
+                    root = 1
+                }
+            }
+        }
+        END {
+            if (key == "true")       state = "present"
+            else if (key == "other") state = "wrong"
+            else if (advanced)       state = "table-only"
+            else                     state = "absent"
+            # ONE LINE, TWO WORDS - the verdict and whether a useless root-level key was seen.
+            # Two lines here would need the caller to split on a newline, and this file is read by
+            # people looking for a bug at three in the morning.
+            print state, (root ? "root" : "-")
+        }
+    ' "$file") || { warn "could not read velocity.toml to check accepts-transfers - left untouched"; return 0; }
+
+    # A root-level key of this name is read by nothing and looks exactly like a setting that works,
+    # which is why it is said out loud rather than quietly corrected: deleting a line this
+    # script did not write is a bigger liberty than adding the one it needs.
+    if [[ "$verdict" == *" root" ]]; then
+        warn "velocity.toml has an accepts-transfers at the ROOT of the file. Velocity reads it under [advanced] and nowhere else, so that line does nothing."
+    fi
+
+    tmp="${file}.partial"
+    case "${verdict%% *}" in
+        present)
+            log "velocity.toml accepts transfers"
+            return 0
+            ;;
+        wrong)
+            # THE ONE BRANCH THAT OVERRULES SOMEBODY. A standby that refuses transfers is not a
+            # configuration choice this deployment can honour - the swap has no other way to hand a
+            # player over - so it is corrected and said loudly rather than obeyed quietly.
+            awk '
+                /^[[:space:]]*\[/ { table = $1 }
+                {
+                    line = $0
+                    gsub(/[[:space:]]/, "", line)
+                    if (table == "[advanced]" && line ~ /^accepts-transfers=/) {
+                        print "accepts-transfers = true"
+                        next
+                    }
+                    print
+                }
+            ' "$file" > "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
+            mv "$tmp" "$file"
+            warn "velocity.toml had accepts-transfers turned OFF under [advanced]. Set to true: without it this proxy refuses every player another proxy hands it, and an update that moves a proxy would drop them."
+            ;;
+        table-only)
+            # Straight after the header, because a key belongs to the table above it and appending a
+            # SECOND [advanced] table further down is not a duplicate setting, it is a TOML file
+            # Velocity refuses to parse.
+            awk '
+                { print }
+                /^[[:space:]]*\[advanced\][[:space:]]*$/ && !done { print "accepts-transfers = true"; done = 1 }
+            ' "$file" > "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
+            mv "$tmp" "$file"
+            log "velocity.toml had an [advanced] table without accepts-transfers - added it (season-2-ops/160)"
+            ;;
+        absent)
+            # LAST, for the reason the seeding gives in its own comment: everything after a table
+            # header belongs to that table, so a table appended at the end can take nothing with it.
+            cp "$file" "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
+            {
+                printf '\n'
+                printf '# Added by the nordtal entrypoint: a proxy that does not accept transfers cannot\n'
+                printf '# stand in for another one (season-2-ops/160).\n'
+                printf '[advanced]\n'
+                printf 'accepts-transfers = true\n'
+            } >> "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
+            mv "$tmp" "$file"
+            log "velocity.toml did not accept transfers - appended [advanced] accepts-transfers = true (season-2-ops/160)"
+            ;;
+    esac
+}
+
 # --- sourced rather than executed ---------------------------------------------------------------
 # Everything ABOVE this line is definitions and can be pulled into another shell; everything BELOW
 # it is this container's own run and reaches for the network, the volume and tmux. entrypoint-test.sh
@@ -698,6 +808,9 @@ else
         chmod 600 "$DATA/forwarding.secret"
     fi
     seed_velocity_config
+    # AFTER the seeding and not inside it: this one runs on every start, on a file this script did
+    # not write, which is the whole of season-2-ops/160.
+    ensure_velocity_transfers
 fi
 
 JVM_OPTS="${JVM_OPTS:--Xms${HEAP:-2G} -Xmx${HEAP:-2G} -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+AlwaysPreTouch}"

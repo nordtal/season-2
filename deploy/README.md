@@ -220,6 +220,7 @@ never edited again. Everything else stays Paper's and Velocity's own default.
 | `level-name=$LEVEL_NAME` | each Paper server, `server.properties` | seeded once; a volume still on Paper's default `world` is repaired, any **other** disagreement stops the container, see below |
 | `level-seed=$LEVEL_SEED` | each Paper server, `server.properties` | only while the `level-name` world does not exist yet — which is `level.dat`, not the folder; an existing world is compared and warned about |
 | `forwarding.secret` | proxy | every start, from `VELOCITY_FORWARDING_SECRET` |
+| `accepts-transfers = true` under `[advanced]` | proxy, `velocity.toml` | **every start**, on a file this script did not write, see below |
 | `max-players=$MAX_PLAYERS` | each Paper server, `server.properties` | **every start** — the network's own limit, out of the same `NETWORK_MAX_PLAYERS` the proxy gets, see below |
 
 The MOTD and the player limit are deliberately not in that table: both are `proxy` config
@@ -242,11 +243,22 @@ every forwarded login, so `online-mode=true` there is a server that cannot work.
 Velocity falls back to its *default* one, which routes three hostnames at servers the file does not
 define — and then refuses to start with *"Your configuration is invalid"*.
 
-**None of this fixes a volume that already exists**, beyond the exception above. The manual
-equivalent is `online-mode=false` in `server.properties` and `proxies.velocity.enabled: true` in
-`config/paper-global.yml`.
+**`accepts-transfers` is enforced on every start, on a file the entrypoint did not write** — the
+only key in `velocity.toml` treated that way, and season-2-ops/160 is why. It is what a live proxy
+swap needs from Velocity: without it the receiving proxy refuses every player the other one hands
+it, and from the player's seat that is a network that is simply gone. The seeding writes it once,
+so both proxy volumes on the dev host — older than that line — did not have it, and the first live
+test of the swap died on exactly that. Missing table, table without the key, and an explicit
+`false` are three different edits and it makes all three; a file that already says so is left
+byte-identical, and a copy of a real pre-160 `velocity.toml` was run through it to prove both ends.
+A root-level key of that name is read by nothing, so it is called out in the log rather than
+quietly deleted.
 
-`deploy/minecraft/entrypoint-test.sh` drives ten cases of this logic against fixture directories on
+**Nothing else here fixes a volume that already exists**, beyond that and the exception above. The
+manual equivalent is `online-mode=false` in `server.properties` and `proxies.velocity.enabled: true`
+in `config/paper-global.yml`.
+
+`deploy/minecraft/entrypoint-test.sh` drives thirty-one cases of this logic against fixture directories on
 `./gradlew check`, and `:smp`'s and `:hunger-games`' `ComposeWorldTest` compare the `LEVEL_NAME` in
 `compose.yml` against each plugin's own configured world name.
 

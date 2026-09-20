@@ -97,6 +97,36 @@ seed_velocity() {
     set -e
 }
 
+# season-2-ops/160. The other half of the proxy's config, and the half that runs on a volume this
+# script did NOT write - so it is given a velocity.toml that already exists and asked what it does
+# to it.
+ensure_transfers() {
+    local data="$1"
+    set +e
+    output=$(DATA="$data" \
+        bash -c 'source "$1"; ensure_velocity_transfers' transfers-test "$ENTRYPOINT" 2>&1)
+    status=$?
+    set -e
+}
+
+# A proxy volume as it really was on the dev host on 2026-09-19: a velocity.toml written before the
+# seeding knew about accepts-transfers, normalised once by Velocity itself, and therefore carrying
+# no [advanced] table at all.
+old_proxy_volume() {
+    local dir
+    dir=$(volume "$1")
+    {
+        printf 'config-version = "2.9"\n'
+        printf 'bind = "0.0.0.0:25565"\n'
+        printf 'player-info-forwarding-mode = "modern"\n\n'
+        printf '[servers]\n'
+        printf 'limbo = "limbo:25565"\n'
+        printf 'try = ["limbo"]\n\n'
+        printf '[forced-hosts]\n'
+    } > "$dir/velocity.toml"
+    printf '%s' "$dir"
+}
+
 # --- assertions ---------------------------------------------------------------------------------
 
 expect_status() {
@@ -459,6 +489,78 @@ expect_status 0
 expect_toml_under_table "$dir/velocity.toml" "[servers]" limbo-standby '"limbo-standby:25565"'
 expect_toml_under_table "$dir/velocity.toml" "[servers]" limbo '"limbo:25565"'
 ok "limbo-standby registered"
+
+# ------------------------------------------------------------------------------------------------
+# season-2-ops/160. Everything above is about SEEDING a fresh volume. These are about a volume that
+# already stood, which is the case that cost the first live test of the proxy swap: the key was
+# added by hand to the live proxy's file and to nothing else, and the standby then refused every
+# player it was handed with `multiplayer.disconnect.transfers_disabled`.
+
+case_begin "an old velocity.toml with no [advanced] table gets one, at the end"
+dir=$(old_proxy_volume velocity-old)
+ensure_transfers "$dir"
+expect_status 0
+expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
+expect_output "appended"
+# AND IT IS THE LAST TABLE IN THE FILE. Everything after a table header belongs to that table, so
+# an [advanced] written anywhere but the end would swallow the keys below it.
+[[ "$(awk '/^\[/ { last = $1 } END { print last }' "$dir/velocity.toml")" == "[advanced]" ]] \
+    || bad "[advanced] is not the last table in the file: $(grep '^\[' "$dir/velocity.toml" | tr '\n' ' ')"
+# And [servers] still carries what it carried - an append must not disturb the file above it.
+expect_toml_under_table "$dir/velocity.toml" "[servers]" limbo '"limbo:25565"'
+ok "appended to an old file"
+
+case_begin "an [advanced] table without the key gets the key, not a second table"
+dir=$(volume velocity-advanced-empty)
+printf 'bind = "0.0.0.0:25565"\n\n[advanced]\ncompression-level = 4\n' > "$dir/velocity.toml"
+ensure_transfers "$dir"
+expect_status 0
+expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
+# A SECOND [advanced] IS NOT A DUPLICATE SETTING, it is a file Velocity refuses to parse - which
+# would take the proxy down entirely rather than leave it unable to accept a transfer.
+[[ "$(grep -c '^\[advanced\]' "$dir/velocity.toml")" == "1" ]] \
+    || bad "the file now has $(grep -c '^\[advanced\]' "$dir/velocity.toml") [advanced] tables; TOML allows one"
+expect_toml_under_table "$dir/velocity.toml" "[advanced]" compression-level 4
+ok "key added under the existing table"
+
+case_begin "accepts-transfers = false is overruled and said out loud"
+dir=$(volume velocity-off)
+printf 'bind = "0.0.0.0:25565"\n\n[advanced]\naccepts-transfers = false\n' > "$dir/velocity.toml"
+ensure_transfers "$dir"
+expect_status 0
+expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
+expect_output "turned OFF"
+ok "false corrected"
+
+case_begin "a file that already says true is not touched at all"
+dir=$(volume velocity-already)
+printf 'bind = "0.0.0.0:25565"\n\n[advanced]\naccepts-transfers=true\n' > "$dir/velocity.toml"
+before=$(cat "$dir/velocity.toml")
+ensure_transfers "$dir"
+expect_status 0
+# WRITTEN WITHOUT SPACES ON PURPOSE: TOML allows `key=true` and Velocity writes `key = true`. A
+# check that knew only one spelling would append a second [advanced] to a file that was already
+# right, and that file does not parse.
+[[ "$(cat "$dir/velocity.toml")" == "$before" ]] \
+    || bad "the file was rewritten although it already accepted transfers:
+$(cat "$dir/velocity.toml")"
+ok "left alone"
+
+case_begin "a root-level accepts-transfers is not mistaken for the real one"
+dir=$(volume velocity-root)
+printf 'accepts-transfers = true\nbind = "0.0.0.0:25565"\n\n[servers]\nlimbo = "limbo:25565"\n' > "$dir/velocity.toml"
+ensure_transfers "$dir"
+expect_status 0
+expect_output "ROOT"
+expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
+ok "root-level key called out and the real one written"
+
+case_begin "no velocity.toml is not this function's business"
+dir=$(volume velocity-none)
+ensure_transfers "$dir"
+expect_status 0
+expect_gone "$dir/velocity.toml"
+ok "nothing to enforce"
 
 # ------------------------------------------------------------------------------------------------
 

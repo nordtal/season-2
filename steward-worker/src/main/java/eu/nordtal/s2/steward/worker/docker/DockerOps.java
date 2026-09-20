@@ -31,7 +31,7 @@ import java.util.Set;
  * the panel itself was removed.
  *
  * <h2>What it still cannot do</h2>
- * <b>Creating containers.</b> {@link #recreate} needs the compose file, which lives in
+ * <b>Creating containers.</b> {@link #deploy} and {@link #recreate} need the compose file, which lives in
  * {@code steward-deployer} (§8b), and this class refuses rather than improvising a container
  * definition out of an inspect. <b>Volume snapshots</b> are not on this interface at all any
  * more: saving a volume is steward-worker's own work (§9a), done with tar against read-only
@@ -291,8 +291,25 @@ public final class DockerOps implements ContainerOps {
      * changed and then quietly create the old container for ever.</p>
      */
     @Override
+    public @NotNull RedeployResult deploy(final @NotNull String service) {
+        return refusal("deploying", service);
+    }
+
+    @Override
     public @NotNull RedeployResult recreate(final @NotNull String service) {
-        return RedeployResult.refused("recreating " + service + " is steward-deployer's: it has the "
+        return refusal("recreating", service);
+    }
+
+    /**
+     * The same refusal for both, because the reason is the same one and it is not about pulling.
+     *
+     * <p>Neither can be done from here at all: creating a container needs the compose file, and the
+     * service that has it is steward-deployer. {@code DeployerRecreate} decorates this class and
+     * answers both over HTTP; what is left here is the honest "no" for a deployment wired without
+     * it.</p>
+     */
+    private static RedeployResult refusal(final String verb, final String service) {
+        return RedeployResult.refused(verb + " " + service + " is steward-deployer's: it has the "
                 + "compose file, and a container rebuilt from an inspect would drift from it "
                 + "silently. Not wired from here yet - see §8b.");
     }

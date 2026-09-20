@@ -86,7 +86,7 @@ class DeployerRecreateTest {
         server.start();
 
         final RedeployResult result = client(new NoopDelegate(), Duration.ofSeconds(5))
-                .recreate("smp");
+                .deploy("smp");
 
         assertTrue(result.triggered(), result.message());
         assertTrue(result.verified(), result.message());
@@ -123,13 +123,45 @@ class DeployerRecreateTest {
         server.start();
 
         final RedeployResult result = client(new NoopDelegate(), Duration.ofSeconds(5))
-                .recreate("smp");
+                .deploy("smp");
 
         assertTrue(result.triggered(), result.message());
         assertEquals(0, recreateCalls.get(),
                 "an update run must not ask the route that uses the image already on this host");
         assertEquals(1, bodies.size(), "the deploy route was asked exactly once");
         assertEquals("{\"services\":[\"smp\"]}", bodies.peek());
+    }
+
+    @Test
+    @DisplayName("starting a standby asks the route that does NOT pull")
+    void standbyTakesTheLocalRoute() throws IOException {
+        // The mirror image of the test above, and the reason both exist: the two callers want
+        // opposite things from the same class. A standby has to come up on the image its live
+        // service is running, which on this deployment is very often one built on the host - so a
+        // pull here would put the published image under the standby while the live proxy runs the
+        // local one, and nothing about the job would say so.
+        final Queue<String> bodies = new ConcurrentLinkedQueue<>();
+        final AtomicInteger recreateCalls = new AtomicInteger();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/deploy", exchange -> {
+            bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            respond(exchange, 202, "{\"id\":\"job-5\"}");
+        });
+        server.createContext("/api/recreate/limbo-standby", exchange -> {
+            recreateCalls.incrementAndGet();
+            respond(exchange, 202, "{\"id\":\"job-5\"}");
+        });
+        server.createContext("/api/jobs/job-5", exchange -> respond(exchange, 200,
+                "{\"id\":\"job-5\",\"state\":\"DONE\",\"lines\":[]}"));
+        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
+        server.start();
+
+        final RedeployResult result = client(new NoopDelegate(), Duration.ofSeconds(5))
+                .recreate("limbo-standby");
+
+        assertTrue(result.triggered(), result.message());
+        assertEquals(1, recreateCalls.get(), "the standby is made from the image already here");
+        assertTrue(bodies.isEmpty(), "starting a standby must not fetch an image");
     }
 
     @Test
@@ -154,7 +186,7 @@ class DeployerRecreateTest {
         server.start();
 
         final RedeployResult result = client(new NoopDelegate(), Duration.ofSeconds(5))
-                .recreate("smp");
+                .deploy("smp");
 
         assertFalse(result.triggered(), result.message());
         assertTrue(result.message().contains("smp"), result.message());
@@ -177,7 +209,7 @@ class DeployerRecreateTest {
         server.start();
 
         final RedeployResult result = client(new NoopDelegate(), Duration.ofSeconds(5))
-                .recreate("smp");
+                .deploy("smp");
 
         assertFalse(result.triggered(), result.message());
         assertTrue(result.message().contains("no such image"), result.message());
@@ -196,7 +228,7 @@ class DeployerRecreateTest {
                 "http://127.0.0.1:1", "a-secret", Duration.ofSeconds(1), Duration.ofSeconds(5),
                 DeployerRecreate.Waiting.real());
 
-        final RedeployResult result = client.recreate("smp");
+        final RedeployResult result = client.deploy("smp");
 
         assertFalse(result.triggered(), result.message());
         assertTrue(result.message().contains("smp"), result.message());
@@ -247,7 +279,7 @@ class DeployerRecreateTest {
                     }
                 });
 
-        final RedeployResult result = client.recreate("smp");
+        final RedeployResult result = client.deploy("smp");
 
         assertTrue(result.triggered(), result.message());
         assertFalse(result.verified(), result.message());
@@ -284,6 +316,11 @@ class DeployerRecreateTest {
 
         @Override
         public @NotNull ImageResult images() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public @NotNull RedeployResult deploy(final @NotNull String service) {
             throw new UnsupportedOperationException();
         }
 

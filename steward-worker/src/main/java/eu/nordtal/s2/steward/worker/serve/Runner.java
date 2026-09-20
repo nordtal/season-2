@@ -96,6 +96,22 @@ public final class Runner implements RequestRunner {
      */
     private final eu.nordtal.s2.common.plugin.PluginDirectory plugins;
 
+    /**
+     * How many players are on a service, for the wait before a stop (season-2-ops/122).
+     *
+     * <p>Built on first use rather than in the constructor: a {@code REPORT} run never asks, and a
+     * constructor that opened a pool would make every construction of this class need a database
+     * that answers. One run at a time holds the advisory lock, so there is nothing to race.</p>
+     */
+    private volatile Occupancy occupancy;
+
+    private Occupancy occupancy() {
+        if (occupancy == null) {
+            occupancy = Occupancy.over(database.dataSource());
+        }
+        return occupancy;
+    }
+
     public Runner(final @NotNull StewardSpec config, final @NotNull Database database,
                   final @NotNull ContainerOps containers, final @NotNull Backups backups,
                   final @NotNull UpdateDirectory directory) {
@@ -364,7 +380,7 @@ public final class Runner implements RequestRunner {
                     "pulling its image and recreating the container"));
             progress.accept(report);
             final eu.nordtal.s2.steward.worker.ops.RedeployResult result =
-                    containers.recreate(service);
+                    containers.deploy(service);
             if (result.triggered()) {
                 asked.add(service);
                 continue;
@@ -484,89 +500,136 @@ public final class Runner implements RequestRunner {
                         ? UpdateReport.Stage.FAILED : UpdateReport.Stage.NOTHING_TO_DO)));
             }
 
-            if (!countDown(request.id(), planned, progress)) {
-                return cancelled();
+            // season-2-ops/122: THE STANDBYS COME UP BEFORE ANYBODY IS WARNED. A run that stops
+            // the proxy needs a second proxy to hold the players and a run that stops the waiting
+            // room needs a second waiting room, and neither of them starts on its own - they sit in
+            // a compose profile no ordinary selection carries. Every plugin-side half of this was
+            // already built and none of it was ever driven, which is exactly Till's finding in
+            // season-2-ops/123.
+            //
+            // Before the countdown, on purpose: a standby that will not come up then aborts a run
+            // that has warned nobody and touched nothing, instead of one that has already told
+            // every player on the network that the servers are going down.
+            final Choreography choreography = new Choreography(containers, occupancy(), waiting);
+            final Choreography.Window window = choreography.open(movingServices(planned));
+            if (!window.opened()) {
+                return Outcome.failed(UpdateReports.toJson(planned
+                        .withStage(UpdateReport.Stage.FAILED)
+                        .withNote("NOTHING WAS STOPPED AND NOTHING WAS INSTALLED. " + window.refusal()
+                                + ". This run stops a service whose players have to go somewhere,"
+                                + " and the somewhere is that standby - so a standby that does not"
+                                + " come up is a run that would take the network down with nowhere"
+                                + " to put anybody.")));
             }
-
-            final UpdateRun.Stopped stopped = run.stop(planned, runtime);
-
-            // A service that has work and did not stop is still RUNNING, and Runs.apply would move
-            // its jars anyway - which is finding 147 exactly, reached through the one path that was
-            // supposed to end it. Nothing is migrated and nothing is installed; whatever DID stop is
-            // started again, because leaving half a network down over a refused stop turns a
-            // cancelled update into an outage.
-            final List<String> notStopped = planned.services().stream()
-                    // isMoving, matching UpdateRun#stop exactly: a service listed only because an
-                    // artefact has no build yet was never asked to stop, so it must not be counted
-                    // as one that refused.
-                    .filter(UpdateReport.ServiceLine::isMoving)
-                    .map(UpdateReport.ServiceLine::service)
-                    .filter(service -> !Topology.STEWARD_WORKER.equals(service))
-                    // The same two exemptions, because "matching exactly" above is a claim and not
-                    // a mechanism. An update's report carries no `database` line today - only a
-                    // backup's does - so this filter changes nothing that runs. It is here so the
-                    // sentence stays true if that ever stops being the case.
-                    .filter(service -> !DatabaseDump.NAME.equals(service))
-                    .filter(service -> !stopped.services().contains(service))
-                    .toList();
-            if (!notStopped.isEmpty()) {
-                final UpdateReport back = run.start(new UpdateRun.Stopped(
-                        stopped.report().withNote("NOTHING WAS INSTALLED. " + String.join(", ",
-                                notStopped) + " could not be stopped, and installing into a server"
-                                + " that is still running is the failure this sequence exists to"
-                                + " prevent. Every service that did stop has been started again."),
-                        stopped.services(), runtime));
-                return Outcome.failed(UpdateReports.toJson(run
-                        .verify(back, stopped.services(), UpdateRun.Waiting.real())
-                        .withStage(UpdateReport.Stage.FAILED)));
+            if (!window.isEmpty()) {
+                planned = planned.withNote(String.join(", ", window.standbys())
+                        + " started and healthy, so this run has somewhere to put the players.");
+                progress.accept(planned);
             }
-
             try {
-                eu.nordtal.s2.steward.worker.schema.Schema.migrate(database);
-            } catch (final RuntimeException failure) {
-                log.error("The migration failed; no jar was touched", failure);
-                // The servers are down at this point, so they are started again before this is
-                // reported. Leaving a stopped network behind because a migration failed would turn
-                // a refused update into an outage.
-                final UpdateReport back = run.start(new UpdateRun.Stopped(
-                        stopped.report().withNote("THE MIGRATION FAILED AND NOTHING WAS INSTALLED: "
-                                + failure), stopped.services(), runtime));
-                return Outcome.failed(UpdateReports.toJson(run
-                        .verify(back, stopped.services(), UpdateRun.Waiting.real())
-                        .withStage(UpdateReport.Stage.FAILED)));
+                if (!countDown(request.id(), planned, progress)) {
+                    return cancelled();
+                }
+
+                // season-2-ops/122, Till 2026-09-20: after the countdown the run WAITS for the
+                // players to be somewhere else rather than stopping on the tick. Nobody new can
+                // arrive meanwhile - LimboHold already holds every login whose destination this run
+                // is moving - and after ten seconds it stops regardless, because a run waiting on a
+                // hung transfer would never end. What it never does is stop quietly: the sentence
+                // this hands back is the only thing that says where to look next time.
+                final String stillOn = choreography.waitUntilEmpty(movingServices(planned));
+                if (stillOn != null) {
+                    planned = planned.withNote(stillOn);
+                    progress.accept(planned);
+                }
+
+                final UpdateRun.Stopped stopped = run.stop(planned, runtime);
+
+                // A service that has work and did not stop is still RUNNING, and Runs.apply would move
+                // its jars anyway - which is finding 147 exactly, reached through the one path that was
+                // supposed to end it. Nothing is migrated and nothing is installed; whatever DID stop is
+                // started again, because leaving half a network down over a refused stop turns a
+                // cancelled update into an outage.
+                final List<String> notStopped = planned.services().stream()
+                        // isMoving, matching UpdateRun#stop exactly: a service listed only because an
+                        // artefact has no build yet was never asked to stop, so it must not be counted
+                        // as one that refused.
+                        .filter(UpdateReport.ServiceLine::isMoving)
+                        .map(UpdateReport.ServiceLine::service)
+                        .filter(service -> !Topology.STEWARD_WORKER.equals(service))
+                        // The same two exemptions, because "matching exactly" above is a claim and not
+                        // a mechanism. An update's report carries no `database` line today - only a
+                        // backup's does - so this filter changes nothing that runs. It is here so the
+                        // sentence stays true if that ever stops being the case.
+                        .filter(service -> !DatabaseDump.NAME.equals(service))
+                        .filter(service -> !stopped.services().contains(service))
+                        .toList();
+                if (!notStopped.isEmpty()) {
+                    final UpdateReport back = run.start(new UpdateRun.Stopped(
+                            stopped.report().withNote("NOTHING WAS INSTALLED. " + String.join(", ",
+                                    notStopped) + " could not be stopped, and installing into a server"
+                                    + " that is still running is the failure this sequence exists to"
+                                    + " prevent. Every service that did stop has been started again."),
+                            stopped.services(), runtime));
+                    return Outcome.failed(UpdateReports.toJson(run
+                            .verify(back, stopped.services(), UpdateRun.Waiting.real())
+                            .withStage(UpdateReport.Stage.FAILED)));
+                }
+
+                try {
+                    eu.nordtal.s2.steward.worker.schema.Schema.migrate(database);
+                } catch (final RuntimeException failure) {
+                    log.error("The migration failed; no jar was touched", failure);
+                    // The servers are down at this point, so they are started again before this is
+                    // reported. Leaving a stopped network behind because a migration failed would turn
+                    // a refused update into an outage.
+                    final UpdateReport back = run.start(new UpdateRun.Stopped(
+                            stopped.report().withNote("THE MIGRATION FAILED AND NOTHING WAS INSTALLED: "
+                                    + failure), stopped.services(), runtime));
+                    return Outcome.failed(UpdateReports.toJson(run
+                            .verify(back, stopped.services(), UpdateRun.Waiting.real())
+                            .withStage(UpdateReport.Stage.FAILED)));
+                }
+
+                UpdateReport report = stopped.report().withStage(UpdateReport.Stage.INSTALLING);
+                progress.accept(report);
+                final ApplyResult result = Runs.apply(config, plan);
+                report = report.withNote(Report.render(result));
+                for (final String service : stopped.services()) {
+                    // Only where the apply actually succeeded. Marking every stopped service INSTALLED
+                    // published a report claiming a failed download had installed - and it published it
+                    // BEFORE start() and verify() could correct the line, so that claim is what an
+                    // admin watching the embed read while the run was still going.
+                    final String failure = failureFor(result, service);
+                    report = report.with(failure == null
+                            ? report.line(service).at(UpdateReport.State.INSTALLED)
+                            : report.line(service).failed(failure));
+                }
+                progress.accept(report);
+
+                final UpdateReport started = run.start(
+                        new UpdateRun.Stopped(report, stopped.services(), runtime), images);
+                final UpdateReport verified = run.verify(started, stopped.services(),
+                        UpdateRun.Waiting.real());
+
+                // season-2-ops/127: last, once the Minecraft services are healthy again. See
+                // FOREIGN_IMAGES for why postgres is the last of the three and why it is waited for.
+                final UpdateReport renewed = renewForeign(run, verified, foreign, progress);
+
+                final UpdateReport told = noteStandbys(renewed, choreography.close());
+                final UpdateReport finished = settle(told, run.unverifiedStops(),
+                        "the jars were moved into its plugins directory", result.hasFailures(),
+                        Doubt.FAILS_THE_RUN);
+                return finished.stage() == UpdateReport.Stage.FAILED
+                        ? Outcome.failed(UpdateReports.toJson(finished))
+                        : Outcome.done(UpdateReports.toJson(finished));
+            } finally {
+                // Every exit, including the cancelled one and the two that abandon the run with the
+                // servers already started again: a standby left standing is a second network
+                // running all night. Idempotent, so the ordinary path having already closed it -
+                // and written what it said into the report - costs nothing here.
+                choreography.close();
             }
-
-            UpdateReport report = stopped.report().withStage(UpdateReport.Stage.INSTALLING);
-            progress.accept(report);
-            final ApplyResult result = Runs.apply(config, plan);
-            report = report.withNote(Report.render(result));
-            for (final String service : stopped.services()) {
-                // Only where the apply actually succeeded. Marking every stopped service INSTALLED
-                // published a report claiming a failed download had installed - and it published it
-                // BEFORE start() and verify() could correct the line, so that claim is what an
-                // admin watching the embed read while the run was still going.
-                final String failure = failureFor(result, service);
-                report = report.with(failure == null
-                        ? report.line(service).at(UpdateReport.State.INSTALLED)
-                        : report.line(service).failed(failure));
-            }
-            progress.accept(report);
-
-            final UpdateReport started = run.start(
-                    new UpdateRun.Stopped(report, stopped.services(), runtime), images);
-            final UpdateReport verified = run.verify(started, stopped.services(),
-                    UpdateRun.Waiting.real());
-
-            // season-2-ops/127: last, once the Minecraft services are healthy again. See
-            // FOREIGN_IMAGES for why postgres is the last of the three and why it is waited for.
-            final UpdateReport renewed = renewForeign(run, verified, foreign, progress);
-
-            final UpdateReport finished = settle(renewed, run.unverifiedStops(),
-                    "the jars were moved into its plugins directory", result.hasFailures(),
-                    Doubt.FAILS_THE_RUN);
-            return finished.stage() == UpdateReport.Stage.FAILED
-                    ? Outcome.failed(UpdateReports.toJson(finished))
-                    : Outcome.done(UpdateReports.toJson(finished));
         }
     }
 
@@ -848,55 +911,85 @@ public final class Runner implements RequestRunner {
                     List.of(new UpdateReport.Change("backup", null, "stopped while saving")), null));
         }
 
-        if (!countDown(request.id(), planned, progress)) {
-            return cancelled();
+        // season-2-ops/122, and it is Till's own correction of 2026-09-20: A BACKUP RUNS THE SAME
+        // CHOREOGRAPHY AS AN UPDATE. A service that stops for a snapshot throws people out exactly
+        // as hard as one that stops for a new jar, and that these were two mechanisms was a story
+        // about how they were written rather than a design.
+        final Choreography choreography = new Choreography(containers, occupancy(), waiting);
+        final Choreography.Window window = choreography.open(movingServices(planned));
+        if (!window.opened()) {
+            return Outcome.failed(UpdateReports.toJson(planned
+                    .withStage(UpdateReport.Stage.FAILED)
+                    .withNote("NOTHING WAS STOPPED AND NOTHING WAS SAVED. " + window.refusal()
+                            + ". The database dump above was taken with everything running and is"
+                            + " real; the volumes were not touched.")));
         }
-
-        final UpdateRun.Stopped stopped = run.stop(planned, runtime);
-
-        // A service that refused to stop is still writing to a volume this run is about to
-        // snapshot, and a torn snapshot fails at RESTORE rather than here - the one place a
-        // failure is useless. So nothing is saved, and whatever did stop is started again.
-        final List<String> notStopped = servicesThatRefused(planned, stopped.services());
-        if (!notStopped.isEmpty()) {
-            final UpdateReport back = run.start(new UpdateRun.Stopped(
-                    stopped.report().withNote("NOTHING WAS SAVED. " + String.join(", ", notStopped)
-                            + " could not be stopped, and a snapshot of a running server is one"
-                            + " that fails when somebody tries to restore it. Every service that"
-                            + " did stop has been started again."),
-                    stopped.services(), runtime));
-            return Outcome.failed(UpdateReports.toJson(run
-                    .verify(back, stopped.services(), UpdateRun.Waiting.real())
-                    .withStage(UpdateReport.Stage.FAILED)));
+        if (!window.isEmpty()) {
+            planned = planned.withNote(String.join(", ", window.standbys())
+                    + " started and healthy, so this backup has somewhere to put the players.");
+            progress.accept(planned);
         }
+        try {
+            if (!countDown(request.id(), planned, progress)) {
+                return cancelled();
+            }
 
-        final UpdateReport saved = run.save(stopped.report(), volumes);
+            // Wait for them to be gone, then stop anyway after the cap - see Choreography.
+            final String stillOn = choreography.waitUntilEmpty(movingServices(planned));
+            if (stillOn != null) {
+                planned = planned.withNote(stillOn);
+                progress.accept(planned);
+            }
 
-        // Retention runs while the servers are still down, and that is deliberate: deleting files
-        // is quick, and doing it here means the disk has room before the next run rather than
-        // after it. What was deleted goes into the report - a retention nobody sees is one that
-        // has been deleting the wrong thing for months.
-        final StewardSpec.BackupSpec.RetentionSpec keep = config.backup().retention();
-        final Retention policy = new Retention(keep.daily(), keep.weekly(), keep.monthly(),
-                keep.collapseAfterDays());
-        final List<String> pruned = backups.volumes().prune(policy);
-        final UpdateReport swept = pruned.isEmpty() ? saved
-                : saved.withNote("kept " + policy.daily() + " daily, " + policy.weekly()
-                        + " weekly and " + policy.monthly() + " monthly of each series, and removed "
-                        + pruned.size() + ": " + String.join(", ", pruned));
+            final UpdateRun.Stopped stopped = run.stop(planned, runtime);
 
-        final UpdateReport started = run.start(
-                new UpdateRun.Stopped(swept, stopped.services(), runtime));
-        final UpdateReport verified = run.verify(started, stopped.services(),
-                UpdateRun.Waiting.real());
+            // A service that refused to stop is still writing to a volume this run is about to
+            // snapshot, and a torn snapshot fails at RESTORE rather than here - the one place a
+            // failure is useless. So nothing is saved, and whatever did stop is started again.
+            final List<String> notStopped = servicesThatRefused(planned, stopped.services());
+            if (!notStopped.isEmpty()) {
+                final UpdateReport back = run.start(new UpdateRun.Stopped(
+                        stopped.report().withNote("NOTHING WAS SAVED. " + String.join(", ", notStopped)
+                                + " could not be stopped, and a snapshot of a running server is one"
+                                + " that fails when somebody tries to restore it. Every service that"
+                                + " did stop has been started again."),
+                        stopped.services(), runtime));
+                return Outcome.failed(UpdateReports.toJson(run
+                        .verify(back, stopped.services(), UpdateRun.Waiting.real())
+                        .withStage(UpdateReport.Stage.FAILED)));
+            }
 
-        final UpdateReport finished = settle(verified, run.unverifiedStops(),
-                "the archives were taken - they were kept, and each one has a .unverified file"
-                        + " beside it saying so, which `deploy/restore.sh --list` prints",
-                false, Doubt.FAILS_THE_RUN);
-        return finished.stage() == UpdateReport.Stage.FAILED
-                ? Outcome.failed(UpdateReports.toJson(finished))
-                : Outcome.done(UpdateReports.toJson(finished));
+            final UpdateReport saved = run.save(stopped.report(), volumes);
+
+            // Retention runs while the servers are still down, and that is deliberate: deleting files
+            // is quick, and doing it here means the disk has room before the next run rather than
+            // after it. What was deleted goes into the report - a retention nobody sees is one that
+            // has been deleting the wrong thing for months.
+            final StewardSpec.BackupSpec.RetentionSpec keep = config.backup().retention();
+            final Retention policy = new Retention(keep.daily(), keep.weekly(), keep.monthly(),
+                    keep.collapseAfterDays());
+            final List<String> pruned = backups.volumes().prune(policy);
+            final UpdateReport swept = pruned.isEmpty() ? saved
+                    : saved.withNote("kept " + policy.daily() + " daily, " + policy.weekly()
+                            + " weekly and " + policy.monthly() + " monthly of each series, and removed "
+                            + pruned.size() + ": " + String.join(", ", pruned));
+
+            final UpdateReport started = run.start(
+                    new UpdateRun.Stopped(swept, stopped.services(), runtime));
+            final UpdateReport verified = run.verify(started, stopped.services(),
+                    UpdateRun.Waiting.real());
+
+            final UpdateReport told = noteStandbys(verified, choreography.close());
+            final UpdateReport finished = settle(told, run.unverifiedStops(),
+                    "the archives were taken - they were kept, and each one has a .unverified file"
+                            + " beside it saying so, which `deploy/restore.sh --list` prints",
+                    false, Doubt.FAILS_THE_RUN);
+            return finished.stage() == UpdateReport.Stage.FAILED
+                    ? Outcome.failed(UpdateReports.toJson(finished))
+                    : Outcome.done(UpdateReports.toJson(finished));
+        } finally {
+            choreography.close();
+        }
     }
 
     // ---------------------------------------------------------------- restart
@@ -970,26 +1063,53 @@ public final class Runner implements RequestRunner {
         final List<String> untouched = Topology.SERVICES.stream().map(Topology.Service::name)
                 .filter(holds::contains).toList();
 
-        // A restart has no plan to resolve, so unlike an update it always has work: the whole of
-        // it is "take these four round once". The countdown is therefore unconditional here, and
-        // it is the same countdown, cancelled by the same command.
-        if (!countDown(request.id(), planned, progress)) {
-            return cancelled();
+        // The same choreography as an update and a backup (season-2-ops/122). A restart is the run
+        // that stops the MOST, so it is the one that needs both standbys - and it is also the one
+        // where "the servers just went away" was hardest to distinguish from a crash.
+        final Choreography choreography = new Choreography(containers, occupancy(), waiting);
+        final Choreography.Window window = choreography.open(movingServices(planned));
+        if (!window.opened()) {
+            return Outcome.failed(UpdateReports.toJson(planned
+                    .withStage(UpdateReport.Stage.FAILED)
+                    .withNote("NOTHING WAS RESTARTED. " + window.refusal()
+                            + ". Every service is still running exactly as it was.")));
         }
+        if (!window.isEmpty()) {
+            planned = planned.withNote(String.join(", ", window.standbys())
+                    + " started and healthy, so this restart has somewhere to put the players.");
+            progress.accept(planned);
+        }
+        try {
+            // A restart has no plan to resolve, so unlike an update it always has work: the whole of
+            // it is "take these four round once". The countdown is therefore unconditional here, and
+            // it is the same countdown, cancelled by the same command.
+            if (!countDown(request.id(), planned, progress)) {
+                return cancelled();
+            }
 
-        final UpdateRun.Stopped stopped = run.stop(planned, runtime);
-        final UpdateReport started = run.start(stopped);
-        final UpdateReport verified = run.verify(started, stopped.services(),
-                UpdateRun.Waiting.real());
+            final String stillOn = choreography.waitUntilEmpty(movingServices(planned));
+            if (stillOn != null) {
+                planned = planned.withNote(stillOn);
+                progress.accept(planned);
+            }
 
-        final UpdateReport told = untouched.isEmpty() ? verified
-                : verified.withNote(String.join(", ", untouched) + " is being held down and was not"
-                        + " restarted. It stays down until somebody starts it.");
-        final UpdateReport finished = settle(told, run.unverifiedStops(),
-                "it was started again on the same world", false, Doubt.IS_ONLY_SAID);
-        return finished.stage() == UpdateReport.Stage.FAILED
-                ? Outcome.failed(UpdateReports.toJson(finished))
-                : Outcome.done(UpdateReports.toJson(finished));
+            final UpdateRun.Stopped stopped = run.stop(planned, runtime);
+            final UpdateReport started = run.start(stopped);
+            final UpdateReport verified = run.verify(started, stopped.services(),
+                    UpdateRun.Waiting.real());
+
+            final UpdateReport told = untouched.isEmpty() ? verified
+                    : verified.withNote(String.join(", ", untouched) + " is being held down and was not"
+                            + " restarted. It stays down until somebody starts it.");
+            final UpdateReport finished = settle(noteStandbys(told, choreography.close()),
+                    run.unverifiedStops(),
+                    "it was started again on the same world", false, Doubt.IS_ONLY_SAID);
+            return finished.stage() == UpdateReport.Stage.FAILED
+                    ? Outcome.failed(UpdateReports.toJson(finished))
+                    : Outcome.done(UpdateReports.toJson(finished));
+        } finally {
+            choreography.close();
+        }
     }
 
     // ---------------------------------------------------------------- down, and up again
@@ -1175,6 +1295,40 @@ public final class Runner implements RequestRunner {
     /** @return whether that service is one of the four somebody can be standing on */
     private static boolean isMinecraft(final String service) {
         return Topology.SERVICES.stream().anyMatch(one -> one.name().equals(service));
+    }
+
+    /**
+     * The services a report says this run is going to stop (season-2-ops/122).
+     *
+     * <p>The same two exemptions {@code UpdateRun#stop} makes, and for the same reasons:
+     * steward-worker is never stopped because this sequence is running inside it, and
+     * {@code database} is a backup's dump line rather than a compose service at all. Getting either
+     * of them into this list would ask for a standby of something that has none and then abort the
+     * run over it.</p>
+     */
+    private static List<String> movingServices(final UpdateReport report) {
+        return report.services().stream()
+                .filter(UpdateReport.ServiceLine::isMoving)
+                .map(UpdateReport.ServiceLine::service)
+                .filter(service -> !Topology.STEWARD_WORKER.equals(service))
+                .filter(service -> !DatabaseDump.NAME.equals(service))
+                .toList();
+    }
+
+    /**
+     * Puts what {@link Choreography#close()} said into the report, or hands it back untouched.
+     *
+     * <p>A note per standby rather than a service line, and that is a decision rather than
+     * laziness: a line would be read by {@code Evacuation} as a service this run is moving, and the
+     * proxy would then try to evacuate players <b>off</b> the very standby they were just parked
+     * on. A standby is scenery, not a cast member.</p>
+     */
+    private static UpdateReport noteStandbys(final UpdateReport report, final List<String> said) {
+        UpdateReport told = report;
+        for (final String sentence : said) {
+            told = told.withNote(sentence);
+        }
+        return told;
     }
 
 }

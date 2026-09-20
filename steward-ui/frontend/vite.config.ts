@@ -31,7 +31,18 @@ export default defineConfig({
   server: {
     port: 5173,
     // `npm run dev` talks to a locally running StewardUi rather than to the container behind Caddy.
-    proxy: { "/api": "http://127.0.0.1:8080" },
+    //
+    // BOTH prefixes, and the second one is not decoration (season-2-ops/144). The sign-in, the
+    // sign-out and all four WebAuthn steps live under `/auth`, not under `/api`, and a prefix that
+    // is missing here does not fail - it falls through to Vite's SPA fallback, which answers
+    // `index.html` with a 200. So the dev server looked fine and no page in it worked: `Gate`
+    // wants a held key for every read and a fresh one for every write, and neither ceremony could
+    // complete. `src/dev-server-proxies-every-prefix.test.ts` is what keeps a third prefix from
+    // being added the same way.
+    proxy: {
+      "/api": "http://127.0.0.1:8080",
+      "/auth": "http://127.0.0.1:8080",
+    },
   },
   // The tests run under jsdom because two of the four things worth testing here - the log window's
   // buffer and the traffic light - are a hook and a decision that only exist inside React. A pure Node

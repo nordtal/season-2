@@ -21,6 +21,13 @@ repositoryRootTestInputs {
 
     reads("deploy/nordtal.sh")
     reads("deploy/README.md")
+
+    // DiscordAuthTest#theGuidanceNamesTheRealRedirectUri (season-2-ops/145) reads the texts that
+    // tell an operator what to type into Discord, and holds the path in them against the one
+    // DiscordAuth builds. The two files above are already here for the German rule; these two are
+    // not, and without them an edit that puts the wrong path back leaves this task UP-TO-DATE.
+    reads("deploy/dev.env.example")
+    reads("README.md")
     reads("steward-worker/README.md")
     reads("steward-deployer/README.md")
     reads("compose.yml")

@@ -96,6 +96,20 @@ public final class RestartWatch {
      */
     private boolean saidNow;
 
+    /**
+     * What else happens at zero, besides saying so (season-2-ops/118).
+     *
+     * <p>The evacuation, in practice. It used to run off the five-second sweep with an eight-second
+     * head start, so that a pass was guaranteed to land inside the window - and the cost of that
+     * guarantee was that players left their server while the counter still showed eight. This class
+     * already knows the exact instant the counter reaches zero, because it schedules a task on it;
+     * handing that instant to the one other thing that needs it is cheaper than a second mechanism
+     * for finding it, and it is the only way the two can agree to the millisecond.</p>
+     *
+     * <p>Defaults to doing nothing, so a proxy wired without it still counts down.</p>
+     */
+    private volatile Runnable atZero = () -> { };
+
     public RestartWatch(final Object plugin, final ProxyServer proxy, final Logger logger,
                         final UpdateDirectory updates, final LoginRoster roster,
                         final Messages messages, final Clock clock) {
@@ -106,6 +120,33 @@ public final class RestartWatch {
         this.roster = Objects.requireNonNull(roster, "roster");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    /**
+     * What to run at the instant the counter reaches zero, beside the announcement.
+     *
+     * @param action never throws on its own account - it is called inside a scheduled task, and a
+     *               task that throws is a task Velocity stops running
+     */
+    public void whenZeroReached(final Runnable action) {
+        this.atZero = Objects.requireNonNull(action, "action");
+    }
+
+    /**
+     * Whether a countdown is running right now.
+     *
+     * <p><b>Read by {@code OnlineWriter}, and it is load-bearing (season-2-ops/118).</b> The player
+     * counts are written every ten seconds ordinarily and every second while a run needs them, and
+     * "needs them" starts here rather than at zero: steward-worker's first read happens the instant
+     * the counter runs out, and a count written up to ten seconds earlier cannot answer it. Until
+     * this was the signal, the fast cadence began at the same moment as the question - so the first
+     * answer was either stale or lucky.</p>
+     *
+     * <p>Thirty rows a run is what that costs, and the thing it buys is a run that waits for the
+     * right reason instead of running its ten-second cap out every time.</p>
+     */
+    public synchronized boolean isCountingDown() {
+        return countdown.watching() != null;
     }
 
     /**
@@ -161,6 +202,16 @@ public final class RestartWatch {
                     }
                     saidNow = true;
                     countdown.zeroReached();
+                }
+                // Before the sentence rather than after it: the two are the same event, and the
+                // one a player can be hurt by is the move. A failure here must not swallow the
+                // announcement, which is why it is caught rather than allowed to end the task.
+                try {
+                    atZero.run();
+                } catch (final RuntimeException failure) {
+                    logger.warn("What was scheduled for the end of the countdown failed; the"
+                            + " five-second sweep behind it is what still has to catch this",
+                            failure);
                 }
             }
             say(beat.announcement());

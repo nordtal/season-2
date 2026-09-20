@@ -507,11 +507,21 @@ public final class ProxyPlugin {
         // that throws must not take the other one down with it, and these two are the only things
         // standing between a player and a disconnect nobody explained.
         this.evacuation = new Evacuation(proxy, logger,
-                UpdateDirectory.using(pool), phaseServers, Clock.systemUTC());
+                UpdateDirectory.using(pool), phaseServers);
         packs.whenUpdating(this.evacuation::isMoving);
         packs.whenHeld(this.evacuation::isHeld);
         // And the counts get their fast cadence from the same watch - see OnlineWriter#tick.
-        onlineWriter.whenHurrying(this.evacuation::isAnyMoving);
+        // FROM THE COUNTDOWN AND NOT FROM THE MOVE (season-2-ops/118). steward-worker asks how many
+        // players are on a service the instant the counter reaches zero, which is the same instant
+        // the move happens - so a cadence that starts with the move starts one question too late
+        // and the first answer is a count up to ten seconds old.
+        onlineWriter.whenHurrying(() ->
+                this.restartWatch.isCountingDown() || this.evacuation.isAnyMoving());
+        // THE MOMENT, NOT THE WINDOW (season-2-ops/118). The countdown already schedules a task on
+        // the exact instant the counter reaches zero; this is that instant handed to the one other
+        // thing that has to happen on it. Nobody is moved a second early any more - the worker
+        // waits after zero until the servers are empty, so there is nothing left to get a head
+        // start on.
         proxy.getScheduler().buildTask(this, this.evacuation::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
@@ -526,6 +536,15 @@ public final class ProxyPlugin {
         // the standby is the live proxy with one value changed, and never a second build.
         final ProxySwap swap = new ProxySwap(proxy, logger, UpdateDirectory.using(pool), swaps,
                 role, standbyAddress, Clock.systemUTC());
+        // ON THE SAME MOMENT, AND SECOND (season-2-ops/118). The park reads the same running row
+        // the evacuation does, so on its own five-second sweep it lands anywhere in the five
+        // seconds after zero - measured 2026-09-20: two seconds late. The order is the order a
+        // player travels: off the backends into the waiting room first, then the whole network onto
+        // the standby proxy. Parking first would move people twice.
+        this.restartWatch.whenZeroReached(() -> {
+            this.evacuation.check();
+            swap.check();
+        });
         proxy.getScheduler().buildTask(this, swap::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)

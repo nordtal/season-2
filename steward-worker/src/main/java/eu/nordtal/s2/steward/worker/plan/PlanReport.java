@@ -105,9 +105,7 @@ public final class PlanReport {
     /**
      * One artefact's row, as a version jump wherever the two filenames allow one.
      *
-     * <p>THE FILENAME IS NOT THE LINE (season-2-ops/142). Till, 2026-09-20: "Idealerweise wird auch
-     * nur der Versionssprung angezeigt und nicht der installierte Dateiname und die verfuegbare
-     * Version." The Available card was given that on the same day; the report - which is what
+     * <p>THE FILENAME IS NOT THE LINE (season-2-ops/142). The Available card was given that on the same day; the report - which is what
      * Discord, the chat follower and the run's own page draw - kept printing
      * {@code proxy proxy-0.9.3.jar -> 0.9.4}, a filename against a version.</p>
      *

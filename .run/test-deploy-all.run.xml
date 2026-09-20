@@ -1,0 +1,43 @@
+<!--
+  gradlew checkDev checkSetup checkEntrypoint checkRestore checkPipeSafety
+
+  All five shell suites in one run: the reset guard, the installer's checks, the Minecraft
+  entrypoint, the restore guards and the pipefail scan.
+
+  NONE OF THEM NEEDS DOCKER OR A NETWORK - that is the point of them. They drive the scripts'
+  functions directly, which is why they can hang off `check` at all.
+
+  They shell out to `bash` off PATH, so they need the same bash 4+ as everything else here; see
+  the interpreter note in .run/README.md.
+
+  Why these are Gradle configurations while the `dev:` folders are shell ones - and what the
+  interpreter note means - is in .run/README.md.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="tests: deploy scripts (all five)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value="checkDev" />
+          <option value="checkSetup" />
+          <option value="checkEntrypoint" />
+          <option value="checkRestore" />
+          <option value="checkPipeSafety" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <ForceTestExec>false</ForceTestExec>
+    <method v="2" />
+  </configuration>
+</component>

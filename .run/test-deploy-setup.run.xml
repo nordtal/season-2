@@ -1,0 +1,32 @@
+<!--
+  gradlew checkSetup
+
+  `deploy/nordtal-test.sh` — deploy/nordtal.sh's checks: the host comparison the whole wait rests on, the menu, and that a secret in it is three dots.
+
+  Why these are Gradle configurations while the `dev:` folders are shell ones - and what the
+  interpreter note means - is in .run/README.md.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="tests: checkSetup" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value="checkSetup" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <ForceTestExec>false</ForceTestExec>
+    <method v="2" />
+  </configuration>
+</component>

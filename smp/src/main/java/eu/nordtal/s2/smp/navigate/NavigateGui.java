@@ -138,12 +138,12 @@ public final class NavigateGui implements Surface {
         NavigatePanel.STOP_SLOTS.forEach(slot -> inventory.setItem(slot, stop));
 
         final int pages = NavigatePage.pages(targets.size());
-        if (page > 0) {
-            inventory.setItem(NavigatePanel.PREV_SLOT, pageItem("smp.navigate.previous-page"));
-        }
-        if (page < pages - 1) {
-            inventory.setItem(NavigatePanel.NEXT_SLOT, pageItem("smp.navigate.next-page"));
-        }
+        inventory.setItem(
+                NavigatePanel.PREV_SLOT,
+                page > 0 ? pageItem("smp.navigate.previous-page") : null);
+        inventory.setItem(
+                NavigatePanel.NEXT_SLOT,
+                page < pages - 1 ? pageItem("smp.navigate.next-page") : null);
     }
 
     private ItemStack pageItem(final String key) {

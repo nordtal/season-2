@@ -618,8 +618,23 @@ public final class WorkerApi implements AutoCloseable {
                             "this worker has no sources configured, so nothing can be resolved"));
                     return;
                 }
+                // season-2-ops/142: the same reading, asked for again on purpose. The cache holds
+                // six hours, which is right for a page somebody opens and wrong for the one moment
+                // they have just published something and want to see it - and without this that
+                // wait is one nobody can shorten.
+                //
+                // A parameter on the read rather than a POST of its own, and that is the honest
+                // shape: it costs a lot and still changes nothing. Steward's own rule is that a
+                // writing route needs the security key touched in the last five minutes
+                // (`GateTest`), and asking a refusable question about it every time somebody wants
+                // a current answer would be a key ceremony for a refresh button. What it does to
+                // the cache is throw it away, which is what any cache-busting read does.
+                if (ctx.queryParam("refresh") != null) {
+                    available.invalidate();
+                }
                 ctx.json(availability(available.get()));
             });
+
         }).start(port);
 
         log.info("the internal API is on {} - steward-ui reads the daemon through it", port);

@@ -18,8 +18,9 @@ import { useMemo, useState } from "react"
 import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
-import type { Backup, ReportChange, ReportLine, Run, ServiceTable } from "@/lib/api"
+import type { AvailableChange, Backup, ReportChange, ReportLine, Run, ServiceTable } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
+import { versionJump } from "@/lib/version-jump"
 import {
   LOCALE,
   bytes,
@@ -36,6 +37,7 @@ import {
   useAvailable,
   useBackups,
   useHost,
+  useRefreshAvailable,
   useRun,
   useRuns,
   useSchedule,
@@ -52,7 +54,14 @@ import {
   type Tone,
 } from "@/components/steward/status"
 import { RecreateButton } from "@/components/steward/recreate"
-import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import {
+  Empty,
+  Failure,
+  Loading,
+  QueryState,
+  Skeleton,
+  SkeletonText,
+} from "@/components/steward/query-state"
 import {
   ResponsiveAlertDialog,
   ResponsiveAlertDialogAction,
@@ -848,10 +857,11 @@ function RunsCard() {
  * to break that tie - `hasFailures` is drawn as a line of its own above the table for the same
  * reason, because a reader who scans a column of green ticks will not notice one grey badge in it.
  *
- * <h2>Why the age is on the page</h2>
+ * <h2>Why the age is in the header</h2>
  * The worker holds a reading for six hours and refreshes it behind whoever opened the page, so what
  * is drawn here is regularly the previous answer. Saying when it was taken is the difference
- * between a cache and a claim.
+ * between a cache and a claim, and the refresh button next to it is the only way to shorten the
+ * six hours from here (season-2-ops/142).
  */
 const AVAILABLE_RANK: Record<string, number> = {
   UNRESOLVED: 0,
@@ -865,41 +875,115 @@ const AVAILABLE_RANK: Record<string, number> = {
 /** Six absent rows - about what a resolve of this stack answers with. */
 const WAITING_CHANGES = Array.from({ length: 6 }, () => undefined)
 
+/**
+ * The rows this card draws: work, failures, and the artefacts with no build for this platform.
+ *
+ * Sorted by the same rank as before, so a failure is read before an ordinary update.
+ */
+function worthShowing(changes: AvailableChange[]): AvailableChange[] {
+  return changes
+    .filter((change) => change.work || change.failure || change.status === "UNSUPPORTED")
+    .sort(
+      (left, right) =>
+        (AVAILABLE_RANK[left.status] ?? 3) - (AVAILABLE_RANK[right.status] ?? 3) ||
+        (left.service ?? "").localeCompare(right.service ?? "", LOCALE) ||
+        left.artifact.localeCompare(right.artifact, LOCALE),
+    )
+}
+
+/**
+ * One row's change, in as few characters as it can honestly be said.
+ *
+ * `1.5.3 → 1.6.0` when the two filenames come apart into a pair; the filename and the new version
+ * when they do not, drawn as a filename so it reads as the stopgap it is. Nothing installed is
+ * "nothing → 1.6.0", and an artefact with no build at all has no change to name.
+ */
+function Jump({ change }: { change: AvailableChange }) {
+  const jump = versionJump(change.installed, change.fileName, change.version)
+  if (!jump) {
+    return <span className="text-xs">{change.note ?? (change.installed ? "unknown" : "nothing")}</span>
+  }
+  return (
+    <span className="flex flex-wrap items-baseline gap-1 text-xs">
+      <span className={jump.exact ? "tnum" : "font-mono"}>{jump.from}</span>
+      <ArrowRightIcon aria-hidden className="size-3 shrink-0 self-center text-muted-foreground" />
+      <span className={jump.exact ? "tnum text-foreground" : "font-mono text-foreground"}>
+        {jump.to}
+      </span>
+    </span>
+  )
+}
+
+/**
+ * What a run would install, and nothing else (season-2-ops/142).
+ *
+ * <h2>Only the rows with something in them</h2>
+ * This card used to list every artefact the resolve touched, thirty-odd lines of "up to date" with
+ * the one interesting row somewhere inside. The owner asked on 2026-09-20 for only the services
+ * that have an update to show at all. So the filter is {@code change.work}, which is the worker's
+ * own opinion of what a run would act on, plus the two kinds of row that are not work and still
+ * have to be read:
+ *
+ * <ul>
+ *   <li><b>A failure</b> - a source that could not be asked. Hiding it would turn "this list is
+ *       incomplete" into "there is nothing to do", which is the one confusion the whole resolve
+ *       exists to prevent.</li>
+ *   <li><b>{@code UNSUPPORTED}</b> - CoreProtect has no build for 26.2. That is the ticket's own
+ *       named exception, and it earns its place for the same reason: it is the answer to "why is
+ *       this plugin not on the list", asked once a month, and a row that disappears when it is
+ *       nothing to worry about cannot answer it.</li>
+ * </ul>
+ *
+ * <h2>The jump, not the bookkeeping</h2>
+ * One column instead of two, `1.5.3 → 1.6.0`, derived by {@link versionJump} from the two
+ * filenames rather than parsed out of either - see that file for why a guess is refused.
+ */
 function AvailableCard() {
   const available = useAvailable()
+  const refresh = useRefreshAvailable()
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
         <CardTitle className="text-sm font-medium">Available</CardTitle>
+        <div className="flex items-center gap-2">
+          {available.data ? (
+            <span className="text-xs text-muted-foreground" title={dateTime(available.data.checkedAt)}>
+              Last checked {relative(available.data.checkedAt)}
+            </span>
+          ) : (
+            <SkeletonText className="w-32 text-xs" />
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            // The cache holds six hours and this is the only way to shorten it. Disabled while it
+            // runs rather than hidden: the wait is the point, and a button that vanishes mid-press
+            // looks like it failed.
+            aria-label="Ask the sources again"
+            title="Ask the sources again. This takes a moment - it really asks them."
+            disabled={refresh.isPending}
+            onClick={() => refresh.mutate()}
+          >
+            <ArrowsClockwiseIcon aria-hidden className={refresh.isPending ? "animate-spin" : undefined} />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {refresh.error ? <Failure error={refresh.error} /> : null}
         <QueryState
           query={available}
           empty={{
-            title: "Nothing was resolved",
-            note: "steward-worker answered, but its plan carries no artefact at all.",
+            title: "Nothing to install",
+            note: "Every source answered and everything the network runs is what the source says is newest.",
           }}
-          isEmpty={(plan) => plan.changes.length === 0}
+          isEmpty={(plan) => worthShowing(plan.changes).length === 0}
         >
           {(plan) => {
-            const rows = plan
-              ? [...plan.changes].sort(
-                  (left, right) =>
-                    (AVAILABLE_RANK[left.status] ?? 3) - (AVAILABLE_RANK[right.status] ?? 3) ||
-                    (left.service ?? "").localeCompare(right.service ?? "", LOCALE) ||
-                    left.artifact.localeCompare(right.artifact, LOCALE),
-                )
-              : WAITING_CHANGES
+            const rows = plan ? worthShowing(plan.changes) : WAITING_CHANGES
             return (
               <>
-                {plan ? (
-                  <p className="text-xs text-muted-foreground">
-                    {`Sources last asked ${relative(plan.checkedAt)} (${dateTime(plan.checkedAt)}) - that is the age of this reading. Nothing here starts a run.`}
-                  </p>
-                ) : (
-                  <SkeletonText className="text-xs" width="long" />
-                )}
                 {plan?.hasFailures ? (
                   <p className="flex items-start gap-2 text-xs text-destructive">
                     <WarningIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
@@ -913,8 +997,7 @@ function AvailableCard() {
                     <TableRow>
                       <TableHead className="w-[10rem]">Service</TableHead>
                       <TableHead>Plugin</TableHead>
-                      <TableHead>Installed</TableHead>
-                      <TableHead className="w-[10rem]">Available</TableHead>
+                      <TableHead className="w-[16rem]">Change</TableHead>
                       <TableHead className="w-[9rem] text-right">State</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -939,23 +1022,8 @@ function AvailableCard() {
                         <TableCell data-label="Plugin">
                           {change ? change.artifact : <SkeletonText width="long" />}
                         </TableCell>
-                        <TableCell data-label="Installed" className="text-muted-foreground">
-                          {!change ? (
-                            <SkeletonText className="text-xs" width="medium" />
-                          ) : change.installed ? (
-                            <code className="text-xs">{change.installed}</code>
-                          ) : (
-                            <span className="text-xs">nothing</span>
-                          )}
-                        </TableCell>
-                        <TableCell data-label="Available" className="text-muted-foreground">
-                          {!change ? (
-                            <SkeletonText className="text-xs" width="medium" />
-                          ) : change.version ? (
-                            <code className="text-xs">{change.version}</code>
-                          ) : (
-                            <span className="text-xs">{change.note ?? "unknown"}</span>
-                          )}
+                        <TableCell data-label="Change" className="text-muted-foreground">
+                          {change ? <Jump change={change} /> : <SkeletonText width="long" />}
                         </TableCell>
                         <TableCell data-label="State" className="text-right">
                           {change ? (

@@ -134,8 +134,23 @@ public final class InternalClient {
     }
 
     public @NotNull String get(final @NotNull String path) {
+        return get(path, timeout);
+    }
+
+    /**
+     * The same, for the one kind of read whose work is the waiting (season-2-ops/142).
+     *
+     * <p>The configured timeout is sized for a worker answering out of its own memory, which is
+     * what every other route here does. {@code /api/updates/available?refresh} is not that kind of
+     * call: it throws the six-hour cache away and asks GitHub, Modrinth and the Fill API again on
+     * the thread the caller is waiting on. It is slow because it is doing the thing, and cutting it
+     * off at ten seconds would turn a button that works into a 504 that looks like a broken worker.
+     * The deadline belongs to the route rather than to the client, so it is an argument and not a
+     * second field.</p>
+     */
+    public @NotNull String get(final @NotNull String path, final @NotNull Duration deadline) {
         try {
-            final HttpResponse<String> response = http.send(request(path).GET().build(),
+            final HttpResponse<String> response = http.send(request(path, deadline).GET().build(),
                     HttpResponse.BodyHandlers.ofString());
             if (isNotSuccess(response.statusCode())) {
                 throw new Failure(name, response.statusCode(),
@@ -144,7 +159,7 @@ public final class InternalClient {
             }
             return response.body();
         } catch (HttpTimeoutException slow) {
-            throw new Failure(name, 504, tooSlow(path, timeout), null);
+            throw new Failure(name, 504, tooSlow(path, deadline), null);
         } catch (IOException e) {
             throw new Failure(name, 502, unreachable(path), null);
         } catch (InterruptedException e) {

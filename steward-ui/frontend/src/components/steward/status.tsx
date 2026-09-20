@@ -231,8 +231,10 @@ export function HealthDot({
  * One artefact's resolve status (season-2-ops/128).
  *
  * **Four answers, not two**, and keeping them apart is the whole reason this exists. "outdated" and
- * "not installed" are work; "up to date" is none; "no build" is a publisher who has not shipped for
- * this Minecraft version yet, which is nobody's fault and no reason to hold a run; and "could not
+ * "not installed" are work; "up to date" is none; "unsupported" is a publisher who has not shipped
+ * for this Minecraft version yet, which is nobody's fault and no reason to hold a run - it was
+ * labelled "no build" until season-2-ops/142, where the owner asked for the word the rest of the
+ * project uses for it; and "could not
  * ask" is the one that must never be drawn like any of the others - a source that did not answer
  * looks exactly like a source that said nothing had changed, and the difference is the entire value
  * of the reading.
@@ -273,7 +275,7 @@ export function AvailableBadge({ status }: { status: string }) {
             " build appears the next run picks it up."
           }
         >
-          no build
+          unsupported
         </StatusBadge>
       )
     case "MOUNT_MISSING":

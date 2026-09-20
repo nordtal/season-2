@@ -1035,6 +1035,30 @@ export type MessageBundle = MessageBundleLocation & {
  */
 export type MessageSaveResult = MessageBundle & {
   warnings: string[]
+  /**
+   * What became of asking the bot to re-read what was just saved (season-2-community/09).
+   *
+   * Absent when the save was not followed by a reload at all - a bundle that is mounted read-only
+   * never gets that far. `unknown` is the keys the override file declares that the bundle has never
+   * heard of; a typo there does nothing at all and says nothing at all, which is the only way a
+   * message can be edited and still not change.
+   */
+  reload?: BundleReloadOutcome
+}
+
+/**
+ * `ConfigReloadOutcome` for a message bundle, with the one field a bundle has and a config has not.
+ *
+ * The three statuses are deliberately the same three and not a second vocabulary: the person
+ * looking at the page sees the same three situations whichever editor they are in, and
+ * `announceSave` already knows how to draw them. `NO_ANSWER` covers both a bot that never answered
+ * and a bot that answered it could not re-read the file - both mean the row was written and the
+ * text is not in force, and the `message` says which. `RESTART_REQUIRED` means nothing was asked of
+ * anybody, which is what a bundle belonging to a Minecraft service gets: those are re-read through
+ * `ConfigApi`'s own console table, and this route deliberately holds no second copy of it.
+ */
+export type BundleReloadOutcome = ConfigReloadOutcome & {
+  unknown: string[]
 }
 
 /** What a PUT to `/api/messages/<path>` sends. `null` resets that key rather than filling it. */

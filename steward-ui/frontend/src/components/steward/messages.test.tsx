@@ -39,10 +39,18 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
   }
 }
 
-/** One `/api/messages/<path>` answer per fixture bundle, and one canned PUT answer per path. */
+/**
+ * One `/api/messages/<path>` answer per fixture bundle, one canned PUT answer per path, and one
+ * canned reload answer per path.
+ *
+ * A path with no entry in `reloads` answers nothing at all - the POST throws, which is what a
+ * steward-ui that cannot reach the worker does, and the card is expected to read that as "saved,
+ * not in force" rather than as a failed save (season-2-community/09).
+ */
 function backend(
   bundles: Record<string, unknown>,
   puts: Record<string, (body: unknown) => unknown> = {},
+  reloads: Record<string, unknown> = {},
 ) {
   const listing = Object.values(bundles).map((bundle) => {
     const { service, module, path, writable } = bundle as MessageBundleLocation
@@ -50,6 +58,13 @@ function backend(
   })
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/messages") return json(listing)
+    if (init?.method === "POST") {
+      const found = Object.entries(reloads).find(
+        ([path]) => url === `/api/messages-reload/${path}`,
+      )
+      if (found) return json(found[1])
+      throw new Error(`no reload answer for ${url}`)
+    }
     if (init?.method === "PUT") {
       const found = Object.entries(puts).find(([path]) => url === `/api/messages/${path}`)
       if (found) return json(found[1](JSON.parse(String(init.body))))
@@ -171,6 +186,95 @@ describe("saving a line", () => {
 
     await screen.findByText(/no longer contains <_sender>/)
     await screen.findByDisplayValue("Hello there")
+  })
+
+  /**
+   * The three answers season-2-community/09 asks the card to be able to give. The third is the one
+   * that was missing: a saved bot message took effect at the next restart of the container, and
+   * nothing on the page said so - so the reader was left to assume it was already in force.
+   */
+  it.each([
+    [
+      "in force",
+      { status: "APPLIED", message: "The bot re-read its messages.", unknown: [] },
+      "Saved.",
+    ],
+    [
+      "in force after a restart",
+      {
+        status: "NO_ANSWER",
+        message: "The bot did not answer, so the text that was saved takes effect the next time"
+          + " it starts.",
+        unknown: [],
+      },
+      "Saved. In force after a restart.",
+    ],
+  ])("says a saved line is %s", async (_what, reload, title) => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        {
+          "discord-bot": {
+            ...location({ path: "discord-bot", service: "discord-bot", module: "" }),
+            entries: [entry({ key: "dm.granted", english: "You are in" })],
+          },
+        },
+        {
+          "discord-bot": () => ({
+            ...location({ path: "discord-bot", service: "discord-bot", module: "" }),
+            entries: [
+              entry({ key: "dm.granted", english: "You are in", overrideEnglish: "Welcome in" }),
+            ],
+            warnings: [],
+          }),
+        },
+        { "discord-bot": reload },
+      ),
+    )
+    draw(<ServiceMessages service="discord-bot" />)
+    await open("discord-bot")
+    const field = await screen.findByDisplayValue("You are in")
+    fireEvent.change(field, { target: { value: "Welcome in" } })
+    fireEvent.click(screen.getByRole("button", { name: /Save/ }))
+
+    await screen.findByText(title)
+  })
+
+  it("names a key the override file has and the bundle does not", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        {
+          "discord-bot": {
+            ...location({ path: "discord-bot", service: "discord-bot", module: "" }),
+            entries: [entry({ key: "dm.granted", english: "You are in" })],
+          },
+        },
+        {
+          "discord-bot": () => ({
+            ...location({ path: "discord-bot", service: "discord-bot", module: "" }),
+            entries: [
+              entry({ key: "dm.granted", english: "You are in", overrideEnglish: "Welcome in" }),
+            ],
+            warnings: [],
+          }),
+        },
+        {
+          "discord-bot": {
+            status: "APPLIED",
+            message: "The bot re-read its messages. It has no key called dm.grantd.",
+            unknown: ["dm.grantd"],
+          },
+        },
+      ),
+    )
+    draw(<ServiceMessages service="discord-bot" />)
+    await open("discord-bot")
+    const field = await screen.findByDisplayValue("You are in")
+    fireEvent.change(field, { target: { value: "Welcome in" } })
+    fireEvent.click(screen.getByRole("button", { name: /Save/ }))
+
+    await screen.findByText(/dm.grantd is in the override file and in no bundle/)
   })
 
   it("resets a key by removing the override, not by copying English into it", async () => {

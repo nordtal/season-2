@@ -7,7 +7,12 @@ import {
 } from "@phosphor-icons/react"
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 
-import type { MessageBundle, MessageBundleLocation, MessageEntry } from "@/lib/api"
+import type {
+  BundleReloadOutcome,
+  MessageBundle,
+  MessageBundleLocation,
+  MessageEntry,
+} from "@/lib/api"
 import { useMessageBundle, useMessageBundles, useSaveMessageBundle } from "@/lib/queries"
 import {
   onPendingMessageJump,
@@ -204,6 +209,10 @@ function BundleForm({
   const [language, setLanguage] = useState<Language>(() => jump?.language ?? "en")
   const [draft, setDraft] = useState<Draft>({})
   const [warnings, setWarnings] = useState<string[]>([])
+  // What the last save became: whether the service is now saying the new text, and which keys in
+  // the override file no bundle declares (season-2-community/09). `null` until something has been
+  // saved in this card - the state before this ticket, when a save said nothing about either.
+  const [reload, setReload] = useState<BundleReloadOutcome | null>(null)
   // Which key to scroll to and ring, `null` the rest of the time - the message-tool equivalent of
   // `configuration.tsx`'s `highlight` state, cleared by `MessageRow` itself once it has made its
   // point (steward/58's fourth requirement, extended to bundles by steward/87).
@@ -246,6 +255,7 @@ function BundleForm({
         onSuccess: (saved) => {
           setDraft({})
           setWarnings(saved.warnings)
+          setReload(saved.reload ?? null)
         },
       },
     )
@@ -288,15 +298,23 @@ function BundleForm({
 
       {save.error ? <Failure error={save.error} /> : null}
 
-      {warnings.length > 0 ? (
+      {reload || warnings.length > 0 ? (
         <Alert>
-          <AlertTitle>Saved, with something worth checking.</AlertTitle>
+          <AlertTitle>
+            {reload && reload.status !== "APPLIED" ? "Saved. In force after a restart." : "Saved."}
+          </AlertTitle>
           <AlertDescription>
-            <ul className="list-disc pl-4">
-              {warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
+            {reload ? <p>{reload.message}</p> : null}
+            {warnings.length > 0 || (reload?.unknown.length ?? 0) > 0 ? (
+              <ul className="list-disc pl-4">
+                {reload?.unknown.map((key) => (
+                  <li key={key}>{key} is in the override file and in no bundle</li>
+                ))}
+                {warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            ) : null}
           </AlertDescription>
         </Alert>
       ) : null}

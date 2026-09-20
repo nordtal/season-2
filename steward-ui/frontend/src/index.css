@@ -125,6 +125,16 @@
    */
   --island-top: calc(env(safe-area-inset-top) + var(--blur-clearance) + 0.75rem);
   --island-clearance: calc(var(--island-top) + var(--control-min-height) + 1rem);
+
+  /*
+   * THE BAR THAT TRAVELS ACROSS A SKELETON (steward/120).
+   *
+   * Always lighter than the surface it crosses, and in the dark that means a far smaller amplitude
+   * than the white-on-grey every light-mode library uses. `--foreground` rather than white for the
+   * reason the top of this file gives for `--foreground` being warm at all: a pure white bar puts a
+   * cold edge into an interface that has none anywhere else.
+   */
+  --shimmer: color-mix(in oklab, var(--foreground) 7%, transparent);
 }
 
 /*
@@ -194,6 +204,67 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * THE SHIMMER, AND WHY IT IS THIS SHIMMER (steward/120).
+ *
+ * Read out of eight libraries rather than out of blog posts about them. The field splits in two:
+ * a pseudo-element moved with `transform` (MUI, react-loading-skeleton, HeroUI) against a
+ * `background-position` animated on the element itself (Ant Design, Chakra). Only `transform` and
+ * `opacity` run without paint, which is worth nothing for one skeleton and quite a lot for the
+ * twenty a table page mounts at once.
+ *
+ * 1.8s sits between Ant's 1.4s and MUI's 2s; the 40% of the cycle spent off-screen is the rest
+ * three of five implementations build in, and the two without it (react-loading-skeleton, Ant) read
+ * as a washing machine rather than as waiting. The stops are 0/50/100 with the band as wide as the
+ * element, which is the softest of the documented variants - a hard stop reads as gloss on a button.
+ *
+ * Nothing is staggered and nothing is delayed. None of the eight libraries does, and the result is
+ * that everything mounted in the same frame travels in phase: one bar crossing the page instead of
+ * twenty flickers. `will-change` is deliberately absent for the same reason it would be tempting -
+ * many layers at once is exactly the case web.dev warns costs memory.
+ */
+@theme {
+  --animate-shimmer: shimmer 1.8s ease-in-out infinite;
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    60%,
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}
+
+@utility skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(90deg, transparent 0%, var(--shimmer) 50%, transparent 100%);
+    animation: var(--animate-shimmer);
+  }
+}
+
+/*
+ * `display: none`, not `animation: none` - the way react-loading-skeleton and MUI do it, and for
+ * their reason: a stopped animation leaves the bar standing in its base position, and a visible
+ * light edge that never moves looks like a rendering fault rather than like a setting being
+ * honoured. The base layer above already blunts every animation globally; this says the intent
+ * where it applies.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after {
+    display: none;
+  }
 }
 
 @layer base {

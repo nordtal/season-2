@@ -1037,19 +1037,49 @@ public final class Runner implements RequestRunner {
         }
     }
 
+    /**
+     * Which Minecraft services a restart takes round (season-2-ops/161).
+     *
+     * <p>Static and taking both lists rather than reading them, so the one thing that went wrong
+     * can be asserted without a database, a docker socket or a network: a scope that was written,
+     * stored and then not read.</p>
+     *
+     * @param scope what the request names, empty for the whole network - which is what an empty
+     *              scope means in every other kind and is the button that exists today
+     * @param holds what somebody is deliberately keeping down; never restarted, scope or no scope
+     * @return the services to stop and start again, in {@link Topology}'s own order
+     */
+    static List<String> restarted(final List<String> scope, final List<String> holds) {
+        return Topology.SERVICES.stream()
+                .map(Topology.Service::name)
+                .filter(service -> !holds.contains(service))
+                .filter(service -> scope.isEmpty() || scope.contains(service))
+                .toList();
+    }
+
     private Outcome restartUnderLock(final UpdateRequest request, final UpdateRun run,
                                      final RuntimeResult runtime,
                                      final Consumer<UpdateReport> progress) {
 
-        // A restart has no plan, so every Minecraft service is named as work with no changes
-        // against it - which is what makes stop() take them and the report show a line each.
+        // A restart has no plan, so every Minecraft service the request is for is named as work
+        // with no changes against it - which is what makes stop() take them and the report show a
+        // line each. Two lists narrow that:
+        //
         // season-2-ops/125: everything except what somebody is holding down. A restart that
         // started a service back up would undo a decision without anybody asking for it, and
         // "restart the network" is the most likely way for that to happen by accident.
+        //
+        // season-2-ops/161: and everything the SCOPE names, which this method ignored until
+        // 2026-09-20. `POST /api/updates` has taken a list of services since season-2-ops/127 and
+        // writes it faithfully into the row; a RESTART read the row and then restarted the whole
+        // network anyway, proxy swap and all. Measured in run 77 on the dev host: scope `smp`,
+        // report `[proxy, limbo, hunger-games, smp]`. An empty scope is still the whole network -
+        // that is what it means everywhere else in this mechanism, and it is the button that
+        // exists today.
         final List<String> holds = held();
+        final List<String> scope = directory.scopeOf(request.id());
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
-        for (final String service : Topology.SERVICES.stream().map(Topology.Service::name)
-                .filter(service -> !holds.contains(service)).toList()) {
+        for (final String service : restarted(scope, holds)) {
             planned = planned.with(new UpdateReport.ServiceLine(service,
                     UpdateReport.State.PLANNED,
                     List.of(new UpdateReport.Change("restart", null, "no change")), null));
@@ -1057,11 +1087,17 @@ public final class Runner implements RequestRunner {
         if (planned.services().isEmpty()) {
             return Outcome.done(UpdateReports.toJson(UpdateReport
                     .at(UpdateReport.Stage.NOTHING_TO_DO)
-                    .withNote("Every Minecraft service is being held down, so there was nothing to"
-                            + " restart. Nothing was stopped.")));
+                    .withNote(scope.isEmpty()
+                            ? "Every Minecraft service is being held down, so there was nothing to"
+                                    + " restart. Nothing was stopped."
+                            : "Nothing in " + String.join(", ", scope) + " is a Minecraft service"
+                                    + " this run may restart - either it is not one, or it is being"
+                                    + " held down. Nothing was stopped.")));
         }
         final List<String> untouched = Topology.SERVICES.stream().map(Topology.Service::name)
-                .filter(holds::contains).toList();
+                .filter(holds::contains)
+                .filter(service -> scope.isEmpty() || scope.contains(service))
+                .toList();
 
         // The same choreography as an update and a backup (season-2-ops/122). A restart is the run
         // that stops the MOST, so it is the one that needs both standbys - and it is also the one

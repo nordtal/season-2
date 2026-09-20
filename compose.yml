@@ -931,6 +931,14 @@ services:
       # small archive that looks like a success. That distinction matters because a run once
       # reported success having saved nothing.
       #
+      # PROXY AND LIMBO ARE DELIBERATELY ABSENT, both their data and their plugin volumes
+      # (season-2-ops/137, Till's decision on 2026-09-20). Neither holds anything a restart does
+      # not write again: velocity.toml is seeded by deploy/minecraft/entrypoint.sh, forwarding.secret
+      # is rewritten from VELOCITY_FORWARDING_SECRET on EVERY start, pack.yml is written by the
+      # worker's own PackWriter, and the limbo's world is generated. What that buys is the reason
+      # it was asked for - a backup no longer has to take the proxy down, so it no longer moves
+      # anybody off the network to save a file nothing would miss.
+      #
       # THE PLUGIN LINES CARRY THE SAME ${*_PLUGINS} EXPRESSION as the server's and the worker's
       # above, and that is not decoration. These used to name the default volume outright, so a
       # deployment that set one of those variables backed up a volume nothing ran from while the
@@ -939,9 +947,6 @@ services:
       # expression.
       - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/backup-sources/nordtal-s2_mc-smp:ro
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/backup-sources/nordtal-s2_mc-smp-plugins:ro
-      - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/backup-sources/nordtal-s2_mc-proxy:ro
-      - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/backup-sources/nordtal-s2_mc-proxy-plugins:ro
-      - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/backup-sources/nordtal-s2_mc-limbo-plugins:ro
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/backup-sources/nordtal-s2_mc-hunger-games-plugins:ro
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/backup-sources/nordtal-s2_bot-config:ro
       - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/backup-sources/nordtal-s2_steward-ui-config:ro

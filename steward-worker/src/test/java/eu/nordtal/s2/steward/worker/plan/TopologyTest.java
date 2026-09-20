@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -399,6 +400,13 @@ class TopologyTest {
         }
     }
 
+    /**
+     * The volumes {@code backup.volumes} actually names, asked of the spec rather than typed here.
+     * season-2-ops/137 took the proxy's and the limbo's out of it, and a second list of names in a
+     * test is a second decision nobody would remember to change.
+     */
+    private static final Set<String> BACKED_UP = Set.copyOf(defaults().backup().volumes());
+
     @Test
     @DisplayName("every server's plugins/ is the same directory for the server and for the worker")
     void thePluginDirectoryIsOneDirectory() {
@@ -434,22 +442,34 @@ class TopologyTest {
                     service.name() + ": the server and steward-worker are pointed at two different"
                             + " plugin sources");
 
-            // AND THE BACKUP READS THE SAME SOURCE. It used to name the default volume outright
-            // while the other two carried the variable, so a deployment that set one of them
-            // archived a volume nothing ran from - an archive that restores cleanly and restores
-            // the wrong thing, discovered on the day it is needed.
-            final String forTheBackup = workerMounts.stream()
-                    .filter(mount -> mount.endsWith(
-                            ":/backup-sources/nordtal-s2_mc-" + service.name() + "-plugins:ro"))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError("steward-worker does not mount "
-                            + service.name() + "'s plugins/ for the backup, so it is not saved"));
-
-            // `:ro` is a third field; sourceOf reads up to the destination, so drop it first.
-            assertEquals(sourceOf(onTheServer),
-                    sourceOf(forTheBackup.substring(0, forTheBackup.length() - ":ro".length())),
-                    service.name() + ": the backup reads a different plugin source than the server"
-                            + " runs from");
+            // AND THE BACKUP READS THE SAME SOURCE - WHERE THERE IS A BACKUP AT ALL. It used to
+            // name the default volume outright while the other two carried the variable, so a
+            // deployment that set one of them archived a volume nothing ran from - an archive that
+            // restores cleanly and restores the wrong thing, discovered on the day it is needed.
+            //
+            // WHETHER a plugins/ volume is saved is backup.volumes' decision and not this test's,
+            // which is why the question is asked of the spec rather than of a list of names here
+            // (season-2-ops/137 took proxy and limbo out of it). What this holds either way is the
+            // sentence above: saved or not, the backup must never read a different directory than
+            // the server runs from.
+            final String backupVolume = "nordtal-s2_mc-" + service.name() + "-plugins";
+            final Optional<String> forTheBackup = workerMounts.stream()
+                    .filter(mount -> mount.endsWith(":/backup-sources/" + backupVolume + ":ro"))
+                    .findFirst();
+            if (BACKED_UP.contains(backupVolume)) {
+                assertTrue(forTheBackup.isPresent(), "backup.volumes lists " + backupVolume
+                        + " and steward-worker does not mount it, so it is not saved");
+                // `:ro` is a third field; sourceOf reads up to the destination, so drop it first.
+                final String mount = forTheBackup.orElseThrow();
+                assertEquals(sourceOf(onTheServer),
+                        sourceOf(mount.substring(0, mount.length() - ":ro".length())),
+                        service.name() + ": the backup reads a different plugin source than the"
+                                + " server runs from");
+            } else {
+                assertTrue(forTheBackup.isEmpty(), backupVolume + " is mounted for the backup and"
+                        + " backup.volumes does not list it - it would be mounted and never saved,"
+                        + " which is the quiet half of season-2-ops/137");
+            }
 
             // The default has to be a PATH UNDER NORDTAL_DIR, and this assertion is the exact
             // opposite of the one that stood here until 2026-09-19 (season-2-ops/124). It read:

@@ -805,11 +805,14 @@ was just installed, never on whatever is newest at the moment it starts.
 
 **What voice chat does on the standby proxy: nothing.** Simple Voice Chat's proxy plugin ships
 `port: -1`, which means "the port Velocity bound", and Velocity binds 25565 inside every proxy
-container. The plugin therefore hands the client 25565 - which on this host is the *live* proxy's
-port, not the standby's. `PROXY_STANDBY_PORT` (25566 by default) is published for UDP as well as
-TCP so that the day the plugin's `voice_host` is set the port is already open, but until then a
-player moved to the standby has chat and no voice. That is the cost of a swap, and it lasts as long
-as the swap does.
+container. The plugin therefore hands the client 25565 - which is the guard's port
+(season-2-ops/162), and the guard sends UDP to whichever proxy is answering. So audio follows the
+same failover the game connection does: while the live proxy is down it lands on the standby, and
+the moment it is back it lands there. `PROXY_STANDBY_PORT` (25566 by default) is published by the
+guard for UDP as well as TCP so that the day the plugin's `voice_host` is set the port is already
+open. Neither proxy publishes a port of its own any more; both are reached through `caddy`, and
+both therefore run with `haproxy-protocol = true` in velocity.toml, which `VELOCITY_HAPROXY` and the
+entrypoint keep true on every start.
 
 ## Backups
 

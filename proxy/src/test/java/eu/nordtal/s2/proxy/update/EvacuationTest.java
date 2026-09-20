@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * When players are moved out of the way, and which servers that means.
  *
  * <p>The whole of it without a proxy and without a database: {@link Evacuation#imminent} takes the
- * two rows and an instant, which is every input the decision has. What is left in the class -
+ * one row, which is every input the decision has since season-2-ops/118 took the head start away. What is left in the class -
  * connecting a player, refusing when the waiting room is itself being updated - is Velocity calls
  * and a log line.</p>
  */
@@ -44,52 +44,38 @@ class EvacuationTest {
     }
 
     @Test
-    @DisplayName("a countdown with time left moves nobody - it can still be cancelled")
-    void aCountdownWithTimeLeftMovesNobody() {
-        // The one that would be worst to get wrong. A player held in the waiting room for an outage
-        // that is then cancelled has been taken off their server for nothing, and the cancel button
-        // exists precisely so that can happen.
-        assertEquals(Set.of(), Evacuation.imminent(Optional.empty(),
-                Optional.of(request(UpdateStatus.PENDING, Duration.ofSeconds(30), "smp")), NOW));
+    @DisplayName("a countdown moves nobody, however little is left of it")
+    void aCountdownMovesNobody() {
+        // TWO THINGS AT ONCE, and the second is season-2-ops/118. A player held in the waiting room
+        // for an outage that is then cancelled has been taken off their server for nothing, and the
+        // cancel button exists precisely so that can happen. And a player moved while the counter
+        // still shows a number has been told one thing and done another - Till, 2026-09-20: thrown
+        // out four seconds before the end of the countdown. There is no window any more; the row
+        // this reads is the one whose instant has passed.
+        assertEquals(Set.of(), Evacuation.imminent(Optional.empty()));
     }
 
     @Test
-    @DisplayName("inside the last eight seconds the countdown's servers are cleared")
-    void insideTheWindowTheServersAreCleared() {
-        assertEquals(Set.of("smp"), Evacuation.imminent(Optional.empty(),
-                Optional.of(request(UpdateStatus.PENDING, Evacuation.EVACUATE_BEFORE, "smp")), NOW));
-    }
-
-    @Test
-    @DisplayName("the window is wider than the poll, so no tick can step over it")
-    void theWindowIsWiderThanThePoll() {
-        // Ticks are RestartWatch.INTERVAL apart and the window is EVACUATE_BEFORE wide. If the
-        // window were the narrower of the two, a countdown could pass between two passes with
-        // nobody moved and nothing saying so - which looks exactly like this class not existing.
-        assertTrue(Evacuation.EVACUATE_BEFORE.compareTo(RestartWatch.INTERVAL) > 0,
-                "EVACUATE_BEFORE (" + Evacuation.EVACUATE_BEFORE + ") must exceed the poll interval ("
-                        + RestartWatch.INTERVAL + ") or a countdown can slip past unevacuated");
-    }
-
-    @Test
-    @DisplayName("a run that is under way clears its servers whatever its instant says")
+    @DisplayName("a run that is under way clears its servers")
     void aRunningRunAlwaysClears() {
-        // not_before is in the past by then, so untilDue is zero - but the reason this reads the
-        // running row at all is the five minutes AFTER the countdown, during which the waiting room
-        // still has to say why it is holding anybody.
+        // `running()` is the rows whose not_before has passed, so "the counter reached zero" and
+        // "this row is under way" are the same instant - and this set stays true for the whole
+        // outage after it, which is what keeps the waiting room saying UPDATE rather than BACKEND.
         assertEquals(Set.of("smp", "hunger-games"),
                 Evacuation.imminent(
                         Optional.of(request(UpdateStatus.RUNNING, Duration.ofSeconds(-60),
-                                "smp", "hunger-games")),
-                        Optional.empty(), NOW));
+                                "smp", "hunger-games"))));
     }
 
     @Test
-    @DisplayName("the running row wins over a countdown, so a second request cannot hide the first")
-    void theRunningRowWins() {
-        assertEquals(Set.of("smp"), Evacuation.imminent(
-                Optional.of(request(UpdateStatus.RUNNING, Duration.ofSeconds(-10), "smp")),
-                Optional.of(request(UpdateStatus.PENDING, Duration.ofSeconds(30), "limbo")), NOW));
+    @DisplayName("zero is the moment, so the poll is a guarantee and not the decision")
+    void theSweepIsOnlyTheGuarantee() {
+        // The head start used to be eight seconds precisely so that a five-second sweep could not
+        // step over the window. With no window left, a sweep that is the only trigger would move
+        // people up to RestartWatch.INTERVAL late - so the zero beat runs the sweep as well, and
+        // this is the assertion that says the sweep alone would not have been enough.
+        assertTrue(RestartWatch.INTERVAL.compareTo(java.time.Duration.ZERO) > 0,
+                "a sweep with no interval would be the decision rather than the guarantee");
     }
 
     @Test
@@ -106,7 +92,7 @@ class EvacuationTest {
                 UpdateSource.GAME, "till", NOW, NOW.minusSeconds(5), null, null,
                 UpdateReports.toJson(report));
 
-        assertEquals(Set.of("smp"), Evacuation.imminent(Optional.of(row), Optional.empty(), NOW));
+        assertEquals(Set.of("smp"), Evacuation.imminent(Optional.of(row)));
     }
 
     @Test
@@ -117,13 +103,13 @@ class EvacuationTest {
         final UpdateRequest row = new UpdateRequest(3L, UpdateKind.UPDATE, UpdateStatus.RUNNING,
                 UpdateSource.CONSOLE, null, NOW, NOW.minusSeconds(5), null, null,
                 "Restart triggered.");
-        assertEquals(Set.of(), Evacuation.imminent(Optional.of(row), Optional.empty(), NOW));
+        assertEquals(Set.of(), Evacuation.imminent(Optional.of(row)));
     }
 
     @Test
-    @DisplayName("nothing running and nothing counting down is nothing to clear")
+    @DisplayName("nothing running is nothing to clear")
     void nothingAtAll() {
-        assertEquals(Set.of(), Evacuation.imminent(Optional.empty(), Optional.empty(), NOW));
+        assertEquals(Set.of(), Evacuation.imminent(Optional.empty()));
     }
 
     // --- a service somebody is holding down (season-2-ops/125) -----------------------------------

@@ -12,9 +12,6 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 
 import org.slf4j.Logger;
 
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -49,6 +46,22 @@ import java.util.function.Predicate;
  * the five minutes that matter, and reading only the second would move players after the servers
  * had already gone.
  *
+ * <h2>Nobody is moved before the counter reaches zero - season-2-ops/118</h2>
+ * This used to move people eight seconds early, and the reason was written down: a move asked for
+ * in the last second would race the stop it was running away from. Till, 2026-09-20, saw the other
+ * side of that trade - <i>thrown out four seconds before the end of the countdown</i> - and he is
+ * right that any head start at all makes the counter a lie about when it happens.
+ *
+ * <p>The race it was protecting against is gone. Since season-2-ops/122 steward-worker waits after
+ * the countdown until the services it is about to stop are empty, up to ten seconds, so a transfer
+ * started at zero has time to finish. The head start was the answer to a question the worker now
+ * answers properly, and two answers to one question is one answer too many.</p>
+ *
+ * <p>What replaces it is not a wider poll but a scheduled moment: {@code RestartWatch} already
+ * schedules one task per beat against the row's instant, and the zero beat now runs this sweep as
+ * well. The five-second poll stays what it always was - the guarantee behind the schedule, not the
+ * thing that decides when.</p>
+ *
  * <h2>What it refuses to do</h2>
  * <b>Evacuate into a waiting room that is itself being updated.</b> {@code limbo} is one of the four
  * Minecraft services and its jar moves like any other; a run that includes it has nowhere to put
@@ -58,22 +71,10 @@ import java.util.function.Predicate;
  */
 public final class Evacuation {
 
-    /**
-     * How long before the servers stop the players are moved.
-     *
-     * <p>Wider than the poll interval, which is what makes at least one pass land inside the window:
-     * ticks are five seconds apart and this is eight, so a countdown cannot slip past unevacuated
-     * between two of them. It is also long enough for the connection to actually complete - a move
-     * asked for in the last second would race the stop it is running away from.</p>
-     */
-    static final Duration EVACUATE_BEFORE = Duration.ofSeconds(8);
-
     private final ProxyServer proxy;
     private final Logger logger;
     private final UpdateDirectory updates;
     private final PhaseServers servers;
-    private final Clock clock;
-
     /**
      * The backends a run currently has, or is about to have, stopped.
      *
@@ -98,19 +99,18 @@ public final class Evacuation {
     private volatile boolean warnedAboutWaitingRoom;
 
     public Evacuation(final ProxyServer proxy, final Logger logger,
-                      final UpdateDirectory updates, final PhaseServers servers, final Clock clock) {
+                      final UpdateDirectory updates, final PhaseServers servers) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
         this.servers = Objects.requireNonNull(servers, "servers");
-        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     /**
      * @param server a backend name
-     * @return whether an update run has it stopped, or is within {@link #EVACUATE_BEFORE} of doing
-     *         so. This is what puts {@code UPDATE} rather than {@code BACKEND} on the waiting room's
-     *         screen, and it is a set lookup - it is asked once per held player per sweep
+     * @return whether an update run has this backend stopped or is stopping it now. This is what
+     *         puts {@code UPDATE} rather than {@code BACKEND} on the waiting room's screen, and it
+     *         is a set lookup - it is asked once per held player per sweep
      */
     public boolean isMoving(final String server) {
         return server != null && moving.contains(server);
@@ -119,11 +119,13 @@ public final class Evacuation {
     /**
      * @return whether a run has anything at all stopped or about to be
      *
-     * <p>Read by {@code OnlineWriter}, which writes its counts ten times as often while this is
-     * true (season-2-ops/122). steward-worker waits for those counts to reach zero before it stops
-     * a service and gives up after ten seconds, and a number that is itself ten seconds old cannot
-     * answer that question - so the one process that knows a run is imminent is the one that says
-     * when the numbers have to be fresh.</p>
+     * <p>Half of what puts {@code OnlineWriter} on its fast cadence (season-2-ops/122); the other
+     * half is {@code RestartWatch#isCountingDown}, and that one is the half that starts early
+     * enough. steward-worker waits for those counts to reach zero before it stops a service and
+     * gives up after ten seconds, and a number that is itself ten seconds old cannot answer that
+     * question - so the processes that know a run is imminent are the ones that say when the
+     * numbers have to be fresh. This one covers the whole outage after zero; the countdown covers
+     * the thirty seconds before it.</p>
      */
     public boolean isAnyMoving() {
         return !moving.isEmpty();
@@ -237,7 +239,7 @@ public final class Evacuation {
      * would put the title up before there was anything to say.</p>
      */
     private Set<String> imminent() {
-        return imminent(updates.running(), updates.countingDown(), clock.instant());
+        return imminent(updates.running());
     }
 
     /**
@@ -275,20 +277,13 @@ public final class Evacuation {
      * lines: moving people for a countdown that is still cancellable, not moving them once the run
      * has started, and evacuating a server the run was never going to stop.</p>
      *
-     * @param running      the run that is under way, from {@code UpdateDirectory#running()}
-     * @param countingDown the run that is about to be, from {@code UpdateDirectory#countingDown()}
-     * @param now          the proxy's clock
+     * @param running the run that is under way, from {@code UpdateDirectory#running()} - which is
+     *                the row whose {@code not_before} has passed, so "under way" and "the counter
+     *                has reached zero" are the same instant
      * @return the backends to clear, empty when there is nothing to clear yet
      */
-    static Set<String> imminent(final Optional<UpdateRequest> running,
-                                final Optional<UpdateRequest> countingDown, final Instant now) {
-        if (running.isPresent()) {
-            return backends(running.get());
-        }
-        return countingDown
-                .filter(request -> request.untilDue(now).compareTo(EVACUATE_BEFORE) <= 0)
-                .map(Evacuation::backends)
-                .orElseGet(Set::of);
+    static Set<String> imminent(final Optional<UpdateRequest> running) {
+        return running.map(Evacuation::backends).orElseGet(Set::of);
     }
 
     /**

@@ -28,7 +28,8 @@ import java.util.Objects;
  * So nothing here waits to be told (Till, 2026-09-19). It watches the public address and decides.
  *
  * <h2>Why it will not send anybody back too early, which is the way this breaks</h2>
- * The live proxy parks the network {@code EVACUATE_BEFORE} the stop, so for those few seconds
+ * The live proxy parks the network at the instant the counter reaches zero, and is then stopped a
+ * few seconds later - steward-worker waits until the backends are empty first. For those seconds
  * <em>both</em> proxies are up and the public address answers perfectly well. A standby that simply
  * asked "is it up" would hand everybody straight back into a proxy that is seconds from stopping -
  * and the live proxy parks once per run, so the second time it would not catch them. Everyone would

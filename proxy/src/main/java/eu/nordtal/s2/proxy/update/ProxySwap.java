@@ -134,7 +134,7 @@ public final class ProxySwap {
 
         final Set<String> next;
         try {
-            next = Evacuation.imminent(updates.running(), updates.countingDown(), clock.instant());
+            next = Evacuation.imminent(updates.running());
         } catch (final RuntimeException failure) {
             logger.warn("Could not read the update row; nobody was parked this pass", failure);
             return;

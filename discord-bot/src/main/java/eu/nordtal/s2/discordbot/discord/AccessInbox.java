@@ -52,6 +52,16 @@ public final class AccessInbox {
      * @return how many requests were carried out or failed in this pass
      */
     public int drain() {
+        // The sweep first, and it is not tidiness. A row past its patience is already dead - the
+        // claim below refuses it - and a dead row still labelled PENDING is a row that looks like
+        // work nobody has got to yet. The other half of the same sweep lives in
+        // `AccessRequests#outcome`, for the case this one cannot cover: a bot that is not running
+        // at all, which is precisely the case the patience exists for.
+        final int given = inbox.expireDue();
+        if (given > 0) {
+            log.warn("{} access request(s) were never picked up in time and have been given up on",
+                    given);
+        }
         int done = 0;
         for (Optional<AccessRequest> claimed = inbox.claim();
              claimed.isPresent();

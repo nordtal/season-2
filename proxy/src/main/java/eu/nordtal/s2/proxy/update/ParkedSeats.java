@@ -58,6 +58,16 @@ public final class ParkedSeats {
         seats.putAll(fresh);
     }
 
+    /**
+     * @param player who has just arrived
+     * @return whether a seat is being held for them - they are coming back from the swap rather
+     *         than walking into it. Asked by {@code RestartGate} and not consuming: the seat is
+     *         spent when the waiting room lets them out, which is a second or two later
+     */
+    public boolean holds(final UUID player) {
+        return seats.containsKey(player);
+    }
+
     /** @return how many seats were carried over - for the startup log line, never a decision */
     public int size() {
         return seats.size();

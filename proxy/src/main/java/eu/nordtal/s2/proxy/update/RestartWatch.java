@@ -3,9 +3,11 @@ package eu.nordtal.s2.proxy.update;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
+import eu.nordtal.s2.proxy.routing.PhaseServers;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -20,8 +22,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 /**
  * Tells every player on the network that it is about to go down, and how long they have.
@@ -79,7 +84,26 @@ public final class RestartWatch {
     private final UpdateDirectory updates;
     private final LoginRoster roster;
     private final Messages messages;
+    private final PhaseServers servers;
     private final Clock clock;
+
+    /**
+     * Whether a standby proxy is answering, asked once per countdown (season-2-ops/118).
+     *
+     * <p>Defaults to no, which is the honest default: a proxy wired without this has no standby,
+     * and a player told they will see a loading screen and then thrown out is worse off than one
+     * who was told the truth.</p>
+     */
+    private volatile BooleanSupplier standbyProxy = () -> false;
+
+    /**
+     * What the run being counted down actually is, worked out once when its beats are planned.
+     *
+     * <p>Held rather than recomputed per beat because it costs a report parse and a socket probe,
+     * and because every beat of one countdown has to say the same thing. Kept after the countdown
+     * ends so that {@link #vanished()} can name the right thing when it says it was called off.</p>
+     */
+    private volatile RunShape shape = RunShape.of(UpdateKind.RESTART, Set.of(), true, false);
 
     /** When to speak and what to say. All the rules are in there; none of them are here. */
     private final Countdown countdown = new Countdown();
@@ -112,14 +136,26 @@ public final class RestartWatch {
 
     public RestartWatch(final Object plugin, final ProxyServer proxy, final Logger logger,
                         final UpdateDirectory updates, final LoginRoster roster,
-                        final Messages messages, final Clock clock) {
+                        final Messages messages, final PhaseServers servers, final Clock clock) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.messages = Objects.requireNonNull(messages, "messages");
+        this.servers = Objects.requireNonNull(servers, "servers");
         this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    /**
+     * How to find out whether a standby proxy is there to catch the network.
+     *
+     * @param answers {@code ProxySwap#canPark} in the deployment. A setter rather than a
+     *                constructor argument because the swap is built after this watch and needs it -
+     *                the same shape {@link #whenZeroReached} has, and for the same reason
+     */
+    public void standbyProxyAnswers(final BooleanSupplier answers) {
+        this.standbyProxy = Objects.requireNonNull(answers, "answers");
     }
 
     /**
@@ -177,13 +213,52 @@ public final class RestartWatch {
 
         final UpdateRequest request = pending.get();
         countdown.beats(request.id(), request.untilDue(clock.instant())).ifPresent(beats -> {
-            logger.info("Telling {} player(s) about the {} asked for by {} ({}): {} beat(s) over {}",
+            // ONCE PER COUNTDOWN AND NOT PER BEAT (season-2-ops/118): it parses the report and
+            // opens a socket, and every beat of one countdown has to say the same thing anyway.
+            shape = shapeOf(request);
+            logger.info("Telling {} player(s) about the {} asked for by {} ({}): {} beat(s) over"
+                            + " {} - {} on {}, waiting room {}, standby proxy {}",
                     proxy.getPlayerCount(), request.kind(), request.requestedBy(), request.source(),
-                    beats.size(), request.untilDue(clock.instant()));
+                    beats.size(), request.untilDue(clock.instant()), shape.occasion(),
+                    shape.moving(), shape.waitingRoom() ? "yes" : "NO", shape.standbyProxy()
+                            ? "yes" : "no");
             cancelScheduled();
             saidNow = false;
             beats.forEach(this::schedule);
         });
+    }
+
+    /**
+     * What this run is, from the four things that already decided it (season-2-ops/118).
+     *
+     * <p>Nothing here is worked out twice: the services come out of the report steward-worker wrote
+     * into the row before the countdown started, through the same parser {@link Evacuation} uses;
+     * the waiting room is {@link Evacuation#roomFor}, asked of this run rather than of the running
+     * one; and the standby proxy is {@code ProxySwap}'s own probe.</p>
+     *
+     * <p>Never throws. A report that cannot be read gives no services, which reads as a run that
+     * touches nobody - the same safe direction {@link Evacuation#backends} takes, and the countdown
+     * is still spoken.</p>
+     */
+    private RunShape shapeOf(final UpdateRequest request) {
+        final Set<String> moving;
+        try {
+            moving = Evacuation.backends(request);
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not read the plan of request {}; the countdown will be spoken"
+                    + " without naming what it is for", request.id(), failure);
+            return RunShape.of(request.kind(), Set.of(), true, false);
+        }
+        final boolean room = Evacuation.roomFor(moving, servers.limbo(), servers.limboStandby(),
+                name -> proxy.getServer(name).isPresent()) != null;
+        boolean standby = false;
+        try {
+            standby = standbyProxy.getAsBoolean();
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not ask whether the standby proxy answers; telling players the"
+                    + " worse of the two outcomes", failure);
+        }
+        return RunShape.of(request.kind(), moving, room, standby);
     }
 
     /**
@@ -267,29 +342,98 @@ public final class RestartWatch {
     }
 
     private void say(final Announcement announcement) {
+        final RunShape current = shape;
         switch (announcement.kind()) {
             // Chat and a title, since season-2-ops/132: chat is where a warning is read, and the
             // title is the half that reaches a player who is mining with the chat box closed. The
             // title is the tick's own text, so the middle of the screen counts in one voice - and
             // Countdown drops the tick of this second so the two do not draw over one another.
             case COUNTDOWN -> {
-                broadcast(locale -> MessageRenderer.of(messages)
-                        .format(locale, "restart.countdown", "seconds", announcement.seconds()));
+                each((player, locale) -> player.sendMessage(line(locale, current,
+                        "restart.countdown." + key(current.occasion()),
+                        fateOf(current, player), "seconds", announcement.seconds())));
                 title(locale -> MessageRenderer.of(messages)
                         .format(locale, "restart.tick", "seconds", announcement.seconds()));
             }
             case NOW -> {
-                broadcast(locale -> MessageRenderer.of(messages).get(locale, "restart.now"));
-                title(locale -> MessageRenderer.of(messages).get(locale, "restart.now"));
+                each((player, locale) -> player.sendMessage(line(locale, current,
+                        "restart.now." + key(current.occasion()), fateOf(current, player))));
+                title(locale -> MessageRenderer.of(messages).format(locale,
+                        "restart.now." + key(current.occasion()),
+                        Map.of("what", what(locale, current))));
             }
             // No chat line: the number alone, in the middle of the screen, once a second.
             case TICK -> title(locale -> MessageRenderer.of(messages)
                     .format(locale, "restart.tick", "seconds", announcement.seconds()));
-            case CANCELLED -> broadcast(locale -> MessageRenderer.of(messages)
-                    .get(locale, "restart.cancelled"));
-            case FAILED -> broadcast(locale -> MessageRenderer.of(messages)
-                    .get(locale, "restart.failed"));
+            case CANCELLED -> broadcast(locale -> MessageRenderer.of(messages).format(locale,
+                    "restart.cancelled", Map.of("occasion", occasion(locale, current))));
+            case FAILED -> broadcast(locale -> MessageRenderer.of(messages).format(locale,
+                    "restart.failed", Map.of("occasion", occasion(locale, current))));
         }
+    }
+
+    /**
+     * One announcement, addressed: what is happening, and then what happens to <em>you</em>.
+     *
+     * <p>Two keys rather than one, and that is the whole of Till's second ask in season-2-ops/118.
+     * The first names the occasion and the service; the second names the outcome for the player
+     * reading it. Joined with a space into one chat line, because the old single key was already
+     * written that way - a coloured sentence and a grey one - and two separate messages in the box
+     * would read as the network repeating itself.</p>
+     *
+     * <p>{@link RunShape.Fate#NOTHING} adds no second half at all. There is nothing to tell
+     * somebody whose server is not in the run and who is not going anywhere.</p>
+     */
+    private Component line(final Locale locale, final RunShape current, final String key,
+                           final RunShape.Fate fate, final Object... parameters) {
+        final Component head = MessageRenderer.of(messages)
+                .format(locale, key, Map.of("what", what(locale, current)), parameters);
+        if (fate == RunShape.Fate.NOTHING) {
+            return head;
+        }
+        return head.append(Component.space())
+                .append(MessageRenderer.of(messages).get(locale, "restart.fate." + key(fate)));
+    }
+
+    /** What is about to happen to this player, from where they are standing right now. */
+    private static RunShape.Fate fateOf(final RunShape current, final Player player) {
+        return current.fateFor(player.getCurrentServer()
+                .map(connection -> connection.getServerInfo().getName())
+                .orElse(null));
+    }
+
+    /**
+     * What the run is about, as a name a player would use.
+     *
+     * <p>One service gets its own name; anything else is "the network". The fallback when a service
+     * has no name of its own is the compose name itself, which is ugly and correct - a missing
+     * translation must not turn the sentence into one about the whole network, because that is a
+     * different and much larger promise.</p>
+     */
+    private Component what(final Locale locale, final RunShape current) {
+        final String only = current.onlyService();
+        if (only == null) {
+            return MessageRenderer.of(messages).get(locale, "restart.what.network");
+        }
+        // ASKED OF ENGLISH AND NOT OF THIS LOCALE. en.properties is the complete set and every
+        // other language falls back to it, so "does de have its own line for this" is not the
+        // question - it would drop a perfectly good English name in favour of a compose service
+        // name for every key not yet translated.
+        final String key = "restart.what." + only;
+        return messages.hasTranslation(Locale.ENGLISH, key)
+                ? MessageRenderer.of(messages).get(locale, key)
+                : Component.text(only);
+    }
+
+    /** The occasion as a noun, for the two lines that say it is off rather than that it is coming. */
+    private Component occasion(final Locale locale, final RunShape current) {
+        return MessageRenderer.of(messages)
+                .get(locale, "restart.occasion." + key(current.occasion()));
+    }
+
+    /** {@code WAITING_ROOM} to {@code waiting-room}: the enum is the key, so the two cannot drift. */
+    private static String key(final Enum<?> value) {
+        return value.name().toLowerCase(Locale.ROOT).replace('_', '-');
     }
 
     /**

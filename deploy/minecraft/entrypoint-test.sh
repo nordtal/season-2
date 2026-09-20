@@ -529,7 +529,7 @@ printf 'bind = "0.0.0.0:25565"\n\n[advanced]\naccepts-transfers = false\n' > "$d
 ensure_transfers "$dir"
 expect_status 0
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
-expect_output "turned OFF"
+expect_output "carried a different accepts-transfers"
 ok "false corrected"
 
 case_begin "a file that already says true is not touched at all"
@@ -554,6 +554,69 @@ expect_status 0
 expect_output "ROOT"
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
 ok "root-level key called out and the real one written"
+
+# ------------------------------------------------------------------------------------------------
+# season-2-ops/162. The second key under [advanced], and the one that follows a variable: the guard
+# in front of 25565 makes every connection arrive from the guard's address, and `haproxy-protocol`
+# is what makes Velocity read the client's real one out of the PROXY header. Wrong in either
+# direction it costs every connection, which is why an unset variable changes nothing at all.
+ensure_haproxy() {
+    local data="$1" wanted="${2-unset}"
+    set +e
+    if [[ "$wanted" == "unset" ]]; then
+        output=$(DATA="$data" \
+            bash -c 'source "$1"; ensure_velocity_haproxy' haproxy-test "$ENTRYPOINT" 2>&1)
+    else
+        output=$(DATA="$data" VELOCITY_HAPROXY="$wanted" \
+            bash -c 'source "$1"; ensure_velocity_haproxy' haproxy-test "$ENTRYPOINT" 2>&1)
+    fi
+    status=$?
+    set -e
+}
+
+case_begin "no VELOCITY_HAPROXY leaves the file exactly as it is"
+dir=$(volume haproxy-unset)
+printf 'bind = "0.0.0.0:25565"\n\n[advanced]\naccepts-transfers = true\n' > "$dir/velocity.toml"
+before=$(cat "$dir/velocity.toml")
+ensure_haproxy "$dir"
+expect_status 0
+[[ "$(cat "$dir/velocity.toml")" == "$before" ]] \
+    || bad "a deployment without a guard had its velocity.toml rewritten:
+$(cat "$dir/velocity.toml")"
+ok "untouched"
+
+case_begin "VELOCITY_HAPROXY=true adds the key under the table that is already there"
+dir=$(volume haproxy-true)
+printf 'bind = "0.0.0.0:25565"\n\n[advanced]\naccepts-transfers = true\n' > "$dir/velocity.toml"
+ensure_haproxy "$dir" true
+expect_status 0
+expect_toml_under_table "$dir/velocity.toml" "[advanced]" haproxy-protocol true
+expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
+[[ "$(grep -c '^\[advanced\]' "$dir/velocity.toml")" == "1" ]] \
+    || bad "the file now has more than one [advanced] table; TOML allows one"
+ok "added beside the other key"
+
+case_begin "VELOCITY_HAPROXY=false is enforced too, because the guard can be taken away"
+# The mirror image of the failure this key exists for: a proxy that still believes in a guard that
+# is gone reads the first packet of every direct connection as a PROXY header and answers nobody.
+dir=$(volume haproxy-false)
+printf 'bind = "0.0.0.0:25565"\n\n[advanced]\nhaproxy-protocol = true\n' > "$dir/velocity.toml"
+ensure_haproxy "$dir" false
+expect_status 0
+expect_toml_under_table "$dir/velocity.toml" "[advanced]" haproxy-protocol false
+expect_output "carried a different haproxy-protocol"
+ok "turned back off"
+
+case_begin "a value that is neither true nor false changes nothing and says so"
+dir=$(volume haproxy-nonsense)
+printf 'bind = "0.0.0.0:25565"\n\n[advanced]\naccepts-transfers = true\n' > "$dir/velocity.toml"
+before=$(cat "$dir/velocity.toml")
+ensure_haproxy "$dir" yes
+expect_status 0
+expect_output "neither true nor false"
+[[ "$(cat "$dir/velocity.toml")" == "$before" ]] \
+    || bad "velocity.toml was rewritten from a value nobody can read"
+ok "left alone and warned about"
 
 case_begin "no velocity.toml is not this function's business"
 dir=$(volume velocity-none)

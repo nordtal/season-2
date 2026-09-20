@@ -354,6 +354,55 @@ seed_velocity_config() {
 # or appends one table, and an unreadable file is left alone with a warning - a half-written
 # velocity.toml is indistinguishable from an operator's own.
 ensure_velocity_transfers() {
+    ensure_velocity_advanced accepts-transfers true \
+        "without it this proxy refuses every player another proxy hands it, and an update that moves a proxy would drop them" \
+        "season-2-ops/160"
+}
+
+# THE OTHER KEY A DEPLOYMENT DECIDES FOR VELOCITY (season-2-ops/162), and the one that is dangerous
+# in both directions. The guard in front of 25565 is a layer 4 proxy, so every connection Velocity
+# sees comes from the guard's address; `haproxy-protocol` is what makes Velocity read the client's
+# real address out of the PROXY header the guard writes. Without the key the header is read as the
+# client's first packet and every connection is dropped; with the key and no guard, a direct
+# connection is dropped for the mirror-image reason.
+#
+# SO IT FOLLOWS A VARIABLE AND HAS NO DEFAULT OF ITS OWN. compose.yml sets it beside the guard, and
+# an unset variable means this function does nothing at all - a deployment that never had a guard
+# keeps the file it has. Setting it to `false` is a decision as much as `true` is, and is enforced
+# as one: a value in a volume outlives a changed default, and the day the guard is taken away the
+# proxy that still believes in it answers nobody.
+ensure_velocity_haproxy() {
+    local wanted="${VELOCITY_HAPROXY:-}"
+
+    [[ -n "$wanted" ]] || return 0
+    if [[ "$wanted" != "true" && "$wanted" != "false" ]]; then
+        warn "VELOCITY_HAPROXY is \"${wanted}\", which is neither true nor false - velocity.toml left untouched"
+        return 0
+    fi
+
+    ensure_velocity_advanced haproxy-protocol "$wanted" \
+        "a guard in front of this proxy writes a PROXY header that Velocity would otherwise read as the client's first packet" \
+        "season-2-ops/162"
+}
+
+# ONE KEY UNDER [advanced], HELD TO ONE VALUE, ON A VOLUME THIS SCRIPT DID NOT WRITE.
+#
+# Generalised out of the accepts-transfers enforcement on 2026-09-20 (season-2-ops/162) when a
+# second key needed exactly the same four answers. The four are the point: the key can be right
+# (leave it), wrong (overrule it and say so), missing from an [advanced] that exists (add the line
+# under the header), or missing along with the table (append the table LAST, because everything
+# after a table header belongs to that table).
+#
+# WHAT IT WILL NOT DO is rewrite a file it cannot parse. Every branch either changes one line or
+# appends one table, and an unreadable velocity.toml is left alone with a warning - a half-written
+# one is indistinguishable from an operator's own.
+#
+# @param key    the bare key name under [advanced]
+# @param wanted the value it must carry, as it is written into the file
+# @param why    one sentence, in the warning that overrules somebody, about what breaks without it
+# @param ticket the ticket this key came from, for the line in the log
+ensure_velocity_advanced() {
+    local key="$1" wanted="$2" why="$3" ticket="$4"
     local file="$DATA/velocity.toml" tmp verdict
 
     # No file means seed_velocity_config either just wrote one (with the key) or had nothing to
@@ -363,73 +412,73 @@ ensure_velocity_transfers() {
     # WHITESPACE IS STRIPPED BEFORE THE COMPARISON because TOML allows `key=true` and Velocity
     # writes `key = true`; a check that only knew one spelling would silently do nothing on the
     # other. A commented-out line keeps its `#` and therefore never matches.
-    verdict=$(awk '
+    verdict=$(awk -v key="$key" -v wanted="$wanted" '
         /^[[:space:]]*\[/ { table = $1; if (table == "[advanced]") advanced = 1; next }
         {
             line = $0
             gsub(/[[:space:]]/, "", line)
-            if (line ~ /^accepts-transfers=/) {
+            if (line ~ "^" key "=") {
                 if (table == "[advanced]") {
-                    key = (line == "accepts-transfers=true") ? "true" : "other"
+                    found = (line == key "=" wanted) ? "wanted" : "other"
                 } else if (table == "") {
                     root = 1
                 }
             }
         }
         END {
-            if (key == "true")       state = "present"
-            else if (key == "other") state = "wrong"
-            else if (advanced)       state = "table-only"
-            else                     state = "absent"
+            if (found == "wanted")     state = "present"
+            else if (found == "other") state = "wrong"
+            else if (advanced)         state = "table-only"
+            else                       state = "absent"
             # ONE LINE, TWO WORDS - the verdict and whether a useless root-level key was seen.
             # Two lines here would need the caller to split on a newline, and this file is read by
             # people looking for a bug at three in the morning.
             print state, (root ? "root" : "-")
         }
-    ' "$file") || { warn "could not read velocity.toml to check accepts-transfers - left untouched"; return 0; }
+    ' "$file") || { warn "could not read velocity.toml to check ${key} - left untouched"; return 0; }
 
     # A root-level key of this name is read by nothing and looks exactly like a setting that works,
     # which is why it is said out loud rather than quietly corrected: deleting a line this
     # script did not write is a bigger liberty than adding the one it needs.
     if [[ "$verdict" == *" root" ]]; then
-        warn "velocity.toml has an accepts-transfers at the ROOT of the file. Velocity reads it under [advanced] and nowhere else, so that line does nothing."
+        warn "velocity.toml has a ${key} at the ROOT of the file. Velocity reads it under [advanced] and nowhere else, so that line does nothing."
     fi
 
     tmp="${file}.partial"
     case "${verdict%% *}" in
         present)
-            log "velocity.toml accepts transfers"
+            log "velocity.toml has ${key} = ${wanted}"
             return 0
             ;;
         wrong)
-            # THE ONE BRANCH THAT OVERRULES SOMEBODY. A standby that refuses transfers is not a
-            # configuration choice this deployment can honour - the swap has no other way to hand a
-            # player over - so it is corrected and said loudly rather than obeyed quietly.
-            awk '
+            # THE ONE BRANCH THAT OVERRULES SOMEBODY. What this deployment needs from the key is not
+            # a preference it can honour otherwise, so it is corrected and said loudly rather than
+            # obeyed quietly.
+            awk -v key="$key" -v wanted="$wanted" '
                 /^[[:space:]]*\[/ { table = $1 }
                 {
                     line = $0
                     gsub(/[[:space:]]/, "", line)
-                    if (table == "[advanced]" && line ~ /^accepts-transfers=/) {
-                        print "accepts-transfers = true"
+                    if (table == "[advanced]" && line ~ "^" key "=") {
+                        print key " = " wanted
                         next
                     }
                     print
                 }
             ' "$file" > "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
             mv "$tmp" "$file"
-            warn "velocity.toml had accepts-transfers turned OFF under [advanced]. Set to true: without it this proxy refuses every player another proxy hands it, and an update that moves a proxy would drop them."
+            warn "velocity.toml carried a different ${key} under [advanced]. Set to ${wanted}: ${why}."
             ;;
         table-only)
             # Straight after the header, because a key belongs to the table above it and appending a
             # SECOND [advanced] table further down is not a duplicate setting, it is a TOML file
             # Velocity refuses to parse.
-            awk '
+            awk -v line="${key} = ${wanted}" '
                 { print }
-                /^[[:space:]]*\[advanced\][[:space:]]*$/ && !done { print "accepts-transfers = true"; done = 1 }
+                /^[[:space:]]*\[advanced\][[:space:]]*$/ && !done { print line; done = 1 }
             ' "$file" > "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
             mv "$tmp" "$file"
-            log "velocity.toml had an [advanced] table without accepts-transfers - added it (season-2-ops/160)"
+            log "velocity.toml had an [advanced] table without ${key} - added it (${ticket})"
             ;;
         absent)
             # LAST, for the reason the seeding gives in its own comment: everything after a table
@@ -437,13 +486,12 @@ ensure_velocity_transfers() {
             cp "$file" "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
             {
                 printf '\n'
-                printf '# Added by the nordtal entrypoint: a proxy that does not accept transfers cannot\n'
-                printf '# stand in for another one (season-2-ops/160).\n'
+                printf '# Added by the nordtal entrypoint (%s).\n' "$ticket"
                 printf '[advanced]\n'
-                printf 'accepts-transfers = true\n'
+                printf '%s = %s\n' "$key" "$wanted"
             } >> "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
             mv "$tmp" "$file"
-            log "velocity.toml did not accept transfers - appended [advanced] accepts-transfers = true (season-2-ops/160)"
+            log "velocity.toml had no ${key} - appended [advanced] ${key} = ${wanted} (${ticket})"
             ;;
     esac
 }
@@ -811,6 +859,9 @@ else
     # AFTER the seeding and not inside it: this one runs on every start, on a file this script did
     # not write, which is the whole of season-2-ops/160.
     ensure_velocity_transfers
+    # And the key the guard in front of 25565 needs, which follows VELOCITY_HAPROXY and does
+    # nothing when that variable is unset (season-2-ops/162).
+    ensure_velocity_haproxy
 fi
 
 JVM_OPTS="${JVM_OPTS:--Xms${HEAP:-2G} -Xmx${HEAP:-2G} -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+AlwaysPreTouch}"

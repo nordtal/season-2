@@ -647,6 +647,11 @@ Chunky and the SMP's two world-generation datapacks. It does **not** fetch our f
 `deploy/dev up` has already put them in `plugins/` and the bootstrap installs only what is missing.
 Then join `localhost` with a real client.
 
+**On a Mac, install a current bash first: `brew install bash`.** macOS ships 3.2.57 as `/bin/bash`
+and never will ship anything newer, and both scripts need the associative arrays bash 4 added. They
+say so themselves since 2026-09-20; before that the failure was `STEWARD_HOST: unbound variable`
+from `deploy/dev init`, which reads like a complaint about the env file and is not one.
+
 `deploy/dev` also carries `ui`, `logs`, `console`, `mc`, `psql`, `ps`, `stop`, `down`, `pack` and
 `reset`;
 `deploy/dev help` prints the list. Everything it does is `docker compose` with

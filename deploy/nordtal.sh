@@ -103,6 +103,25 @@ log()  { printf '\033[36m[nordtal]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[nordtal]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[nordtal]\033[0m %s\n' "$*" >&2; exit 1; }
 
+# --- the one thing this file cannot ask for politely ---------------------------------------------
+# The question table below is four `declare -A`, and associative arrays arrived in bash 4.0 (2009).
+# macOS still ships 3.2.57 as /bin/bash and always will - it is the last GPLv2 release - so
+# `#!/usr/bin/env bash` on a laptop finds a shell that does not have them.
+#
+# WITHOUT THIS LINE THE FAILURE IS UNREADABLE, and that is the whole reason it is here: 3.2 does not
+# know `-A`, so it reads `[STEWARD_HOST]=plain` as a NUMERIC subscript, evaluates STEWARD_HOST as
+# arithmetic, and `set -u` turns that into `STEWARD_HOST: unbound variable` - a sentence about the
+# environment file, pointing at a variable the example file sets, on a run that has not read either
+# one yet. It cost an afternoon once; it is a `brew install bash` away.
+#
+# Checked here rather than in deploy/dev because dev sources this file before its own first line,
+# so this is the earliest point either script can speak at all.
+if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 ]]; then
+    die "this needs bash 4 or newer and found ${BASH_VERSION:-an unknown version} at ${BASH:-bash}.
+       macOS ships bash 3.2 and cannot be talked out of it. Install a current one and make sure it
+       comes first in PATH:  brew install bash"
+fi
+
 # What has to be in the environment file before the stack can start.
 #
 # Every one of them is either asked for below or generated here, so this list is a last check rather

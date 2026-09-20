@@ -186,17 +186,17 @@ ask_local_questions() {
     set_assignment "$ENV_FILE" STEWARD_WEBAUTHN_RP_ID "$host"
     log "STEWARD_WEBAUTHN_RP_ID = $host (derived from the address above)"
 
-    # AND THE ONE ANSWER THAT DOES NOT WORK YET, said here rather than found later:
+    # AND THE ONE ANSWER THAT DOES NOT WORK, said here rather than found later:
     # `Configs.requireRelyingParty` wants at least a name and a suffix, because a browser refuses a
-    # relying party id that is a public suffix. A bare `localhost` is exactly that, so steward-ui
-    # would refuse to start - correctly, and with a sentence naming both values. season-2-ops/148
-    # is the ticket that makes the loopback its own case; until it lands, a name with a dot in it
-    # is the way through, and `steward.localhost` resolves to 127.0.0.1 in every browser.
-    if [[ "$host" != *.* ]]; then
+    # relying party id that is a public suffix. `localhost` is the one named exception to that
+    # (season-2-ops/148) and needs nothing here; any OTHER single label - `intranet`, a machine
+    # name off a company resolver - is refused, and refused at startup with a sentence naming both
+    # values. Saying so now costs a line and saves reading a stack trace.
+    if [[ "$host" != *.* && "$host" != localhost ]]; then
         warn "$host has no dot in it, so steward-ui will refuse to start: a relying party id has to
-       be a registrable domain. Until season-2-ops/148, use a name with a dot - for the container
-       itself http://steward.localhost:8080, and for a dev server in front of it the same name on
-       :5173. Everything else in $ENV_FILE is written and only this one line needs changing."
+       be a registrable domain, and localhost is the only single label that is allowed. Use
+       http://localhost:5173 for the dev server, http://steward.localhost:8080 for the container.
+       Everything else in $ENV_FILE is written and only this one line needs changing."
     fi
 }
 

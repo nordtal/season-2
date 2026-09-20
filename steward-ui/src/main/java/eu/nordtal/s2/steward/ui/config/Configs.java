@@ -175,6 +175,8 @@ public final class Configs {
      * {@code eu}, say - every site under it could ask for these keys. That combination is refused
      * by browsers too, and it is refused here first.</p>
      */
+    private static final String LOCALHOST = "localhost";
+
     static void requireRelyingParty(final String relyingPartyId, final String publicUrl) {
         if (relyingPartyId == null || relyingPartyId.isBlank()) {
             throw new IllegalArgumentException("webauthn.relying-party-id is empty - it is the"
@@ -193,19 +195,25 @@ public final class Configs {
         // a bare TLD - and leaves the rest to the browser, which refuses it anyway. What it must
         // not do is accept `eu` silently, which is what a plain "is it a suffix of the host" test
         // does: every domain ending in .eu passes that.
-        if (!id.contains(".") || id.startsWith(".") || id.endsWith(".")) {
+        //
+        // LOCALHOST IS THE ONE NAMED EXCEPTION, and it is named rather than let through by a
+        // softer rule (season-2-ops/148). The reason the check above exists does not apply to it:
+        // `localhost` is not a public suffix, every browser accepts it as a relying party, and
+        // `http://localhost` is a secure context - without which there would be no key ceremony
+        // there at all. It is also the only address a Vite dev server can have, and WebAuthn
+        // allows exactly one origin, so a development sign-in is this value or none.
+        //
+        // It is allowed only when the address is localhost too. Nothing widens: `eu` stays refused
+        // by the line below, and a production deployment cannot reach this branch.
+        final boolean loopback = LOCALHOST.equals(id) && LOCALHOST.equals(hostOf(publicUrl));
+        if (!loopback && (!id.contains(".") || id.startsWith(".") || id.endsWith("."))) {
             throw new IllegalArgumentException("webauthn.relying-party-id is " + relyingPartyId
                     + ", which is not a registrable domain. It needs at least a name and a suffix,"
-                    + " e.g. nordtal.eu - a browser refuses a bare TLD, in silence");
+                    + " e.g. nordtal.eu - a browser refuses a bare TLD, in silence."
+                    + " The one exception is localhost, and only when public-url is on it too");
         }
-        final String host;
-        try {
-            host = new URI(publicUrl).getHost();
-        } catch (URISyntaxException notAUrl) {
-            // requirePublicUrl runs first and says this better; reaching here means it did not.
-            throw new IllegalArgumentException("public-url is not a URL: " + notAUrl.getMessage());
-        }
-        final String lowered = host == null ? "" : host.toLowerCase(java.util.Locale.ROOT);
+        final String host = hostOf(publicUrl);
+        final String lowered = host == null ? "" : host;
         if (!lowered.equals(id) && !lowered.endsWith("." + id)) {
             throw new IllegalArgumentException("webauthn.relying-party-id is " + relyingPartyId
                     + ", which " + host + " is not under. A key can only be registered against the"
@@ -213,6 +221,18 @@ public final class Configs {
                     + " the browser with nothing arriving here. Either make it " + host
                     + " or a parent of it, or correct public-url");
         }
+    }
+
+    /** The host of {@code public-url}, lowercased, or {@code null} when it names none. */
+    private static String hostOf(final String publicUrl) {
+        final String host;
+        try {
+            host = new URI(publicUrl).getHost();
+        } catch (URISyntaxException notAUrl) {
+            // requirePublicUrl runs first and says this better; reaching here means it did not.
+            throw new IllegalArgumentException("public-url is not a URL: " + notAUrl.getMessage());
+        }
+        return host == null ? null : host.toLowerCase(java.util.Locale.ROOT);
     }
 
     private static void requirePositive(final String key, final int value) {

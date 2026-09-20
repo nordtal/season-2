@@ -609,6 +609,138 @@ looks_like_this_script() {
     bash -n "$file" 2>/dev/null
 }
 
+# --- asking, and writing down an answer --------------------------------------------------------
+# THESE FOUR ARE ABOVE THE SEAM SO THAT `deploy/dev` CAN USE THEM (season-2-ops/147). Till's cut is
+# that the two scripts share the QUESTIONS and nothing else: a local setup asks a person the same
+# things in the same words, with the same shape checks and the same "a secret is never echoed"
+# rule, and then does none of what the rest of this file does - no images pulled, no /etc/nordtal,
+# no waiting on DNS, no root.
+#
+# They read $ENV_FILE and $CHECK_ONLY, which a caller sets: this file sets them in section 2 below,
+# `deploy/dev` sets them itself. That is the whole of the contract, and it is why they are
+# definitions and not calls - the call sites stay down there, where the installation is.
+
+# Asks once for one variable and writes it. `kind` is one of:
+#   plain            required, echoed while typing
+#   secret           required, echo off
+#   optional-plain   may be left empty by pressing Enter
+#   optional-secret  the same, with the echo off
+#   licence          y/N, and only a yes writes anything - see below
+# `check` is the name of a shape function or "-" for anything non-empty.
+#
+# `force` re-asks a variable that is already set, which is what the menu does with the one a person
+# picked. Without it a set value is left alone and reported, which is what a plain run does.
+#
+# THE LICENCE IS A KIND AND NOT A BLOCK OF ITS OWN any more (season-2-ops/124). It was written out
+# twice as long further down, and the menu would have needed a third copy: a person who mistyped
+# the EULA answer could otherwise never correct it, because every other value is editable and that
+# one was not. What makes it its own kind rather than a plain question is that NOTHING IS WRITTEN
+# FOR A NO - `answer_is_yes` decides, and a no leaves the variable unset so that the run stops at
+# the check below rather than recording a licence nobody accepted.
+ask_for() {
+    local name="$1" kind="$2" check="$3" prompt="$4" hint="${5:-}" force="${6:-}" value existing
+
+    existing="$(env_value "$ENV_FILE" "$name")"
+    if [[ -z "$force" && -n "${existing//[[:space:]]/}" && "$existing" != *REPLACE_ME* ]]; then
+        log "$name is already set (left alone)"
+        return 0
+    fi
+
+    if $CHECK_ONLY; then
+        warn "$name is not set; a real run would ask for it"
+        return 0
+    fi
+
+    [[ -t 0 ]] || die "$name is not in $ENV_FILE and there is no terminal to ask on. Run this from a
+       shell, or pass --from with a file that already carries it. Nothing has been deployed."
+
+    while true; do
+        printf '\n\033[36m[nordtal]\033[0m %s\n' "$prompt" >&2
+        [[ -n "$hint" ]] && printf '        %s\n' "$hint" >&2
+        case "$kind" in
+            secret|optional-secret)
+                printf '        > ' >&2
+                read -rs value
+                printf '\n' >&2
+                ;;
+            *)
+                printf '        > ' >&2
+                read -r value
+                ;;
+        esac
+
+        if [[ "$kind" == licence ]]; then
+            answer_is_yes "$value" || return 1
+            set_assignment "$ENV_FILE" "$name" true
+            log "$name accepted and recorded"
+            return 0
+        fi
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
+
+        if [[ -z "$value" ]]; then
+            case "$kind" in
+                optional-plain|optional-secret)
+                    log "$name left empty - the feature that needs it is simply not served"
+                    return 1
+                    ;;
+                *)
+                    warn "that one cannot be left empty."
+                    continue
+                    ;;
+            esac
+        fi
+        if [[ "$check" != "-" ]] && ! "$check" "$value"; then
+            # The value is not repeated back: half of these are secrets, and the half that is not
+            # is on the screen anyway, two lines up.
+            warn "that does not look like it can be right. Try again."
+            continue
+        fi
+        set_assignment "$ENV_FILE" "$name" "$value"
+        log "$name written to $ENV_FILE"
+        return 0
+    done
+}
+
+# Writes a value only if there is none, without asking. The defaults nobody has an opinion about.
+default_for() {
+    local name="$1" value="$2" existing
+    existing="$(env_value "$ENV_FILE" "$name")"
+    [[ -n "${existing//[[:space:]]/}" ]] && return 0
+    $CHECK_ONLY && { warn "$name is not set; a real run would write the default"; return 0; }
+    set_assignment "$ENV_FILE" "$name" "$value"
+    log "$name = $value (default)"
+}
+
+# Ask one of the table's questions. `again` re-asks one that is already set, which is what the menu
+# does; without it a value that is there is left alone.
+ask_question() {
+    local name="$1" again="${2:-}"
+    ask_for "$name" "${QUESTION_KIND[$name]}" "${QUESTION_CHECK[$name]}" \
+        "${QUESTION_PROMPT[$name]}" "${QUESTION_HINT[$name]}" "$again"
+}
+
+# Generates one shared secret if there is none. REPLACE_ME counts as none, the same way `ask_for`
+# and `env_missing` read it: it is this project's marker for a line that exists so that a file is
+# complete, not because somebody answered it. Without that rule a `deploy/dev.env` copied from the
+# example would keep the word REPLACE_ME as its database password and every container would fail
+# to authenticate against a database that is working perfectly (season-2-ops/147).
+set_secret() {
+    local name="$1" bytes="${2:-32}" value
+    value="$(env_value "$ENV_FILE" "$name")"
+    if [[ -n "${value//[[:space:]]/}" && "$value" != *REPLACE_ME* ]]; then
+        log "$name is already set (left alone)"
+        return
+    fi
+    if $CHECK_ONLY; then
+        warn "$name is empty; a real run would generate one"
+        return
+    fi
+    value="$(openssl rand -hex "$bytes")"
+    set_assignment "$ENV_FILE" "$name" "$value"
+    log "$name generated ($bytes random bytes, hex)"
+}
+
 # --- sourced rather than executed ----------------------------------------------------------------
 # Everything above this line is definitions; everything below reaches for Docker, the resolver and
 # the filesystem. deploy/nordtal-test.sh sources this file to exercise the decisions above, the same
@@ -858,98 +990,10 @@ fi
 #   an answer whose SHAPE cannot be right is refused at the prompt, where it can still be corrected;
 #   without a terminal nothing is asked at all - the run stops and names what is missing, because a
 #   setup script reading a secret from a pipe is a setup script writing one into a CI log.
-
-# Asks once for one variable and writes it. `kind` is one of:
-#   plain            required, echoed while typing
-#   secret           required, echo off
-#   optional-plain   may be left empty by pressing Enter
-#   optional-secret  the same, with the echo off
-#   licence          y/N, and only a yes writes anything - see below
-# `check` is the name of a shape function or "-" for anything non-empty.
 #
-# `force` re-asks a variable that is already set, which is what the menu does with the one a person
-# picked. Without it a set value is left alone and reported, which is what a plain run does.
-#
-# THE LICENCE IS A KIND AND NOT A BLOCK OF ITS OWN any more (season-2-ops/124). It was written out
-# twice as long further down, and the menu would have needed a third copy: a person who mistyped
-# the EULA answer could otherwise never correct it, because every other value is editable and that
-# one was not. What makes it its own kind rather than a plain question is that NOTHING IS WRITTEN
-# FOR A NO - `answer_is_yes` decides, and a no leaves the variable unset so that the run stops at
-# the check below rather than recording a licence nobody accepted.
-ask_for() {
-    local name="$1" kind="$2" check="$3" prompt="$4" hint="${5:-}" force="${6:-}" value existing
-
-    existing="$(env_value "$ENV_FILE" "$name")"
-    if [[ -z "$force" && -n "${existing//[[:space:]]/}" && "$existing" != *REPLACE_ME* ]]; then
-        log "$name is already set (left alone)"
-        return 0
-    fi
-
-    if $CHECK_ONLY; then
-        warn "$name is not set; a real run would ask for it"
-        return 0
-    fi
-
-    [[ -t 0 ]] || die "$name is not in $ENV_FILE and there is no terminal to ask on. Run this from a
-       shell, or pass --from with a file that already carries it. Nothing has been deployed."
-
-    while true; do
-        printf '\n\033[36m[nordtal]\033[0m %s\n' "$prompt" >&2
-        [[ -n "$hint" ]] && printf '        %s\n' "$hint" >&2
-        case "$kind" in
-            secret|optional-secret)
-                printf '        > ' >&2
-                read -rs value
-                printf '\n' >&2
-                ;;
-            *)
-                printf '        > ' >&2
-                read -r value
-                ;;
-        esac
-
-        if [[ "$kind" == licence ]]; then
-            answer_is_yes "$value" || return 1
-            set_assignment "$ENV_FILE" "$name" true
-            log "$name accepted and recorded"
-            return 0
-        fi
-        value="${value#"${value%%[![:space:]]*}"}"
-        value="${value%"${value##*[![:space:]]}"}"
-
-        if [[ -z "$value" ]]; then
-            case "$kind" in
-                optional-plain|optional-secret)
-                    log "$name left empty - the feature that needs it is simply not served"
-                    return 1
-                    ;;
-                *)
-                    warn "that one cannot be left empty."
-                    continue
-                    ;;
-            esac
-        fi
-        if [[ "$check" != "-" ]] && ! "$check" "$value"; then
-            # The value is not repeated back: half of these are secrets, and the half that is not
-            # is on the screen anyway, two lines up.
-            warn "that does not look like it can be right. Try again."
-            continue
-        fi
-        set_assignment "$ENV_FILE" "$name" "$value"
-        log "$name written to $ENV_FILE"
-        return 0
-    done
-}
-
-# Writes a value only if there is none, without asking. The defaults nobody has an opinion about.
-default_for() {
-    local name="$1" value="$2" existing
-    existing="$(env_value "$ENV_FILE" "$name")"
-    [[ -n "${existing//[[:space:]]/}" ]] && return 0
-    $CHECK_ONLY && { warn "$name is not set; a real run would write the default"; return 0; }
-    set_assignment "$ENV_FILE" "$name" "$value"
-    log "$name = $value (default)"
-}
+# `ask_for`, `ask_question`, `default_for` and `set_secret` are defined above the seam, because
+# `deploy/dev` uses them too (season-2-ops/147). What is below here is only the calls - which
+# question this installation asks, in which order, and what it does with a no.
 
 default_for COMPOSE_PROFILES     "db,bot,mc,backup,steward"
 default_for COMPOSE_PROJECT_NAME "$DEFAULT_PROJECT"
@@ -972,14 +1016,6 @@ default_for STEWARD_ENV_FILE     "$ENV_FILE"
 default_for NORDTAL_DIR           "$INSTALL_DIR"
 default_for STEWARD_ENV_DIR       "$(dirname "$ENV_FILE")"
 default_for STEWARD_ENV_FILE_NAME "$(basename "$ENV_FILE")"
-
-# Ask one of the table's questions. `again` re-asks one that is already set, which is what the menu
-# does; without it a value that is there is left alone.
-ask_question() {
-    local name="$1" again="${2:-}"
-    ask_for "$name" "${QUESTION_KIND[$name]}" "${QUESTION_CHECK[$name]}" \
-        "${QUESTION_PROMPT[$name]}" "${QUESTION_HINT[$name]}" "$again"
-}
 
 # Everything in QUESTIONS except the two bunq ones, which are a pair and are asked for below.
 #
@@ -1173,21 +1209,8 @@ fi
 # is simply wrong, and every service then fails to authenticate against a database that is
 # perfectly healthy. So on a host that is being adopted, a missing password is a question for a
 # person - the one they wrote down when the volume was created - and not a `rand`.
-set_secret() {
-    local name="$1" bytes="${2:-32}" value
-    value="$(env_value "$ENV_FILE" "$name")"
-    if [[ -n "${value//[[:space:]]/}" ]]; then
-        log "$name is already set (left alone)"
-        return
-    fi
-    if $CHECK_ONLY; then
-        warn "$name is empty; a real run would generate one"
-        return
-    fi
-    value="$(openssl rand -hex "$bytes")"
-    set_assignment "$ENV_FILE" "$name" "$value"
-    log "$name generated ($bytes random bytes, hex)"
-}
+#
+# `set_secret` itself is above the seam with the other three; this is where it is used.
 command -v openssl >/dev/null 2>&1 || die "no openssl on this host, and four secrets have to come
        from somewhere. Install it, or put POSTGRES_PASSWORD, VELOCITY_FORWARDING_SECRET,
        STEWARD_API_TOKEN and STEWARD_DEPLOYER_TOKEN into $ENV_FILE yourself - and not the same

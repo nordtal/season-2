@@ -68,6 +68,62 @@ reset_confirmed "" "" && bad "an empty target accepted an empty confirmation"
 ok "an empty target confirms nothing"
 
 # ------------------------------------------------------------------------------------------------
+case_begin "the local question set is the shared table minus what a checkout has no use for"
+# season-2-ops/147. THE FAILURE THIS CATCHES IS A RENAME: the table lives in deploy/nordtal.sh and
+# this file names six of its entries by hand. A variable renamed there and not here would ask for
+# a question that does not exist, and `ask_question` would die on an unset array element with
+# nothing saying which list was stale.
+for question in "${LOCAL_QUESTIONS[@]}"; do
+    [[ "$question" == STEWARD_UI_PUBLIC_URL ]] && continue
+    found=false
+    for shared in "${QUESTIONS[@]}"; do
+        [[ "$shared" == "$question" ]] && found=true
+    done
+    $found || bad "$question is asked locally and is in no shared table"
+done
+ok "every borrowed question is one nordtal.sh defines"
+
+apply_local_questions
+for question in "${LOCAL_QUESTIONS[@]}"; do
+    [[ -n "${QUESTION_KIND[$question]:-}" ]]   || bad "$question has no kind"
+    [[ -n "${QUESTION_CHECK[$question]:-}" ]]  || bad "$question has no check"
+    [[ -n "${QUESTION_PROMPT[$question]:-}" ]] || bad "$question has no prompt"
+    [[ -n "${QUESTION_HINT[$question]:-}" ]]   || bad "$question has no hint"
+done
+ok "all four columns are filled for every one of them"
+
+# The five Discord answers are the ones a local setup may decline. EULA and the address are not.
+for optional in NORDTAL_BOT_TOKEN STEWARD_UI_DISCORD_CLIENT_ID STEWARD_UI_DISCORD_CLIENT_SECRET \
+                NORDTAL_ACCESS_GUILD_ID NORDTAL_ACCESS_ROLES_ADMIN; do
+    [[ "${QUESTION_KIND[$optional]}" == optional-* ]] \
+        || bad "$optional is ${QUESTION_KIND[$optional]} locally, so a checkout cannot skip it"
+done
+[[ "${QUESTION_KIND[EULA]}" == licence ]] || bad "the EULA stopped being a licence question"
+ok "Discord is skippable here and the licence is not"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "the address the browser uses, and the domain derived from it"
+for good in http://localhost:5173 http://steward.localhost:8080 https://steward.dev.nordtal.eu; do
+    looks_like_browser_url "$good" || bad "$good was refused"
+done
+ok "a scheme and a host, with or without a port"
+
+# A path or a query is the mistake Configs.requirePublicUrl refuses at startup: Discord compares
+# the redirect URI as a string, so anything after the host makes it one nobody registered.
+for wrong in "" " " localhost:5173 http:// https://host/ "https://host/auth" "http://host?x=1" \
+             "ftp://host" "http://host:80 " "http://under_score"; do
+    if looks_like_browser_url "$wrong"; then
+        bad "'$wrong' was accepted as an address"
+    fi
+done
+ok "no scheme, a trailing slash, a path, a query and a wrong scheme are all refused"
+
+[[ "$(host_of_url http://localhost:5173)" == localhost ]] || bad "the port came with the host"
+[[ "$(host_of_url https://steward.dev.nordtal.eu)" == steward.dev.nordtal.eu ]] \
+    || bad "a host with no port did not survive"
+ok "the relying party id is the host and nothing else"
+
+# ------------------------------------------------------------------------------------------------
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

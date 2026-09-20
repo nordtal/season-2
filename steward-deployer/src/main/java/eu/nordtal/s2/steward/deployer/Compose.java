@@ -271,12 +271,38 @@ public final class Compose {
         FAILED
     }
 
-    /** Every service the compose file defines, in file order, with the image each one runs. */
+    /**
+     * Every service the <b>active profile selection</b> carries, in file order, with its image.
+     *
+     * <p>This is deliberately not every service in the file: it is what a deployment that names
+     * nothing touches, and what the interface lists. The two standbys sit in a profile no ordinary
+     * selection carries, so they are absent here and that is correct - a whole-stack deploy must
+     * not start a second proxy. {@link #everyService} is the other question.</p>
+     */
     public Map<String, String> services() throws IOException {
-        List<String> command = base();
-        command.addAll(List.of("config", "--format", "json"));
+        return config(false);
+    }
+
+    /**
+     * Every service the compose file defines, whatever profile it sits in.
+     *
+     * <p><b>Why this exists (season-2-ops/122):</b> {@code docker compose config} answers for the
+     * profiles that are enabled, so under {@code COMPOSE_PROFILES=db,bot,mc,backup,steward} the
+     * standbys are not in the answer at all - and a question asked through {@link #services} about
+     * {@code proxy-standby} comes back "no such service" rather than "no image". That made
+     * {@link #hasLocalImage} false for a service whose image is certainly here, which refused every
+     * recreate of a standby with exit 1 and aborted the run that wanted it.</p>
+     *
+     * <p>{@code --profile "*"} enables all of them for this one read. Nothing is started by it;
+     * {@code config} only prints.</p>
+     */
+    public Map<String, String> everyService() throws IOException {
+        return config(true);
+    }
+
+    private Map<String, String> config(boolean allProfiles) throws IOException {
         StringBuilder json = new StringBuilder();
-        int code = run(command, line -> json.append(line).append('\n'));
+        int code = run(configCommand(allProfiles), line -> json.append(line).append('\n'));
         if (code != 0) {
             throw new IOException("docker compose config exited " + code);
         }
@@ -288,6 +314,22 @@ public final class Compose {
             byName.put(name, service.has("image") ? service.get("image").getAsString() : "");
         }
         return byName;
+    }
+
+    /**
+     * The command line {@link #config} runs.
+     *
+     * <p>Visible so a test can hold the {@code --profile "*"} against something other than a
+     * reviewer's memory: it is one argument, it goes BEFORE the subcommand because it is a
+     * top-level flag, and without it the standbys are missing from the answer entirely.</p>
+     */
+    List<String> configCommand(boolean allProfiles) {
+        List<String> command = base();
+        if (allProfiles) {
+            command.addAll(List.of("--profile", "*"));
+        }
+        command.addAll(List.of("config", "--format", "json"));
+        return command;
     }
 
     /** {@code compose ps} as JSON lines, which is what the interface draws the service list from. */
@@ -304,7 +346,9 @@ public final class Compose {
 
     private Optional<String> imageOf(String service) {
         try {
-            String image = services().get(service);
+            // everyService, not services: a standby is invisible to the active profile selection,
+            // and "not in this selection" is not "has no image".
+            String image = everyService().get(service);
             return image == null || image.isBlank() ? Optional.empty() : Optional.of(image);
         } catch (IOException e) {
             return Optional.empty();

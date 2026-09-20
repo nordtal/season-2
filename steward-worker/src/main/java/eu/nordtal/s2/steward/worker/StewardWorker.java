@@ -518,7 +518,12 @@ public final class StewardWorker {
                                                 Duration.ofSeconds(config.httpTimeoutSeconds()),
                                                 config.githubToken())),
                                 Path.of(config.volumesRoot()),
-                                eu.nordtal.s2.common.Platform.MINECRAFT))) {
+                                eu.nordtal.s2.common.Platform.MINECRAFT),
+                        // season-2-community/09: the bot's inbox, so that saving one of its
+                        // messages can ask it to re-read the file instead of quietly waiting for
+                        // the next restart of the container. Same pool once more - a reload writes
+                        // one row and reads it back a few times.
+                        eu.nordtal.s2.common.access.AccessRequests.on(database.dataSource()))) {
                     if (config.api().token().isBlank()) {
                         log.warn("api.token is empty, so the internal API is not listening and"
                                 + " steward-ui cannot read this container. Updates and backups are"

@@ -7,6 +7,11 @@ import com.google.gson.JsonSyntaxException;
 import eu.nordtal.s2.steward.worker.configfile.MessageBundle;
 import eu.nordtal.s2.steward.worker.configfile.MessageBundleLocation;
 import eu.nordtal.s2.steward.worker.configfile.MessageBundles;
+import eu.nordtal.s2.common.access.AccessRequest;
+import eu.nordtal.s2.common.access.AccessRequestKind;
+import eu.nordtal.s2.common.access.AccessRequestSource;
+import eu.nordtal.s2.common.access.AccessRequestStatus;
+import eu.nordtal.s2.common.access.AccessRequests;
 import eu.nordtal.s2.steward.worker.configfile.MessageEntry;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -20,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,12 +44,59 @@ public final class MessagesApi {
 
     private static final Logger log = LoggerFactory.getLogger(MessagesApi.class);
 
+    /**
+     * The one bundle that can be re-read without restarting anything (season-2-community/09).
+     *
+     * <p>Not a table, and deliberately not the start of one. {@code ConfigApi} maps a file to a
+     * console command and sends it through tmux; that is the right mechanism for a Minecraft server
+     * and it stays where it is. The bot has no console - it is not a Minecraft server - so its
+     * reload rides the inbox it already listens on.</p>
+     */
+    private static final String RELOADABLE_SERVICE = "discord-bot";
+
+    /**
+     * How long the browser waits for the bot, and how long the row waits for the bot.
+     *
+     * <p>The two are the same number on purpose. A row that outlived the answer would be carried
+     * out by a bot that came back a minute later, after this interface had already said "takes
+     * effect after a restart" - and then both sentences would be true at different moments, which
+     * is the one outcome worse than either. Five seconds is far longer than a listening bot needs:
+     * the insert carries its own {@code pg_notify}, so the wake-up is not waiting on a poll.</p>
+     */
+    private static final Duration ANSWER_WITHIN = Duration.ofSeconds(5);
+
+    /** How often the answer is looked for while waiting - see {@link #ANSWER_WITHIN}. */
+    private static final Duration LOOK_EVERY = Duration.ofMillis(100);
+
+    /**
+     * Who the row is filed under.
+     *
+     * <p>A fixed name, unlike the other five kinds, and that is not laziness: a reload sends no
+     * direct message and writes no admin line, so the only thing the requester would be used for is
+     * the row itself. This process does not know which browser asked - steward-ui holds the session
+     * and the worker sees a service token - and inventing a person here would be the kind of
+     * plausible-looking lie an audit trail is exactly the wrong place for.</p>
+     */
+    private static final String ASKED_BY = "steward-ui";
+
     private final Path configsRoot;
     private final Path volumesRoot;
+    private final AccessRequests inbox;
 
     public MessagesApi(final @NotNull Path configsRoot, final @Nullable Path volumesRoot) {
+        this(configsRoot, volumesRoot, null);
+    }
+
+    /**
+     * @param inbox the access inbox the bot listens on, or {@code null} in a deployment with no
+     *              database - {@link #reload} then answers that a restart is needed, which is what
+     *              is actually true there
+     */
+    public MessagesApi(final @NotNull Path configsRoot, final @Nullable Path volumesRoot,
+                       final @Nullable AccessRequests inbox) {
         this.configsRoot = configsRoot;
         this.volumesRoot = volumesRoot;
+        this.inbox = inbox;
     }
 
     /** {@code GET /api/messages} - every bundle found, without opening a single jar. */
@@ -112,6 +165,125 @@ public final class MessagesApi {
             log.error("{} could not be read back after saving", location.jar(), e);
             throw new InternalServerErrorResponse(identityOf(location) + " was saved but could not"
                     + " be read back: " + e.getMessage());
+        }
+    }
+
+    /**
+     * {@code POST /api/messages-reload/<bundle>} - ask the bot to re-read what was just saved.
+     *
+     * <p>Its own route rather than a step inside {@link #save} for the same reason
+     * {@code /api/config-raw/<file>} is its own: saving and applying fail separately and have to be
+     * reportable separately. A save that landed and a reload that did not is the third answer this
+     * whole ticket exists for - <b>saved, in force after a restart</b> - and folding the two
+     * together would turn it into a failed save, which it is not.</p>
+     *
+     * <p><b>It answers in the vocabulary steward/59 already gave a config reload</b>
+     * ({@code ConfigApi#reload}, {@code ConfigReloadOutcome} on the other side of the wire): a
+     * {@code status} of {@code APPLIED}, {@code NO_ANSWER} or {@code RESTART_REQUIRED} and a
+     * {@code message} to read. Two mechanisms that mean the same thing to the person looking at the
+     * page have no business being two vocabularies as well - the interface already knows how to
+     * draw these three, and a fourth word would only have been a fourth toast to write.</p>
+     *
+     * <p>One field is added and it is the reason this exists: {@code unknown}, the keys the override
+     * file declares that the bundle has never heard of. That is what {@code /access reload} prints
+     * today, and a typo there does nothing at all and says nothing at all - the only way a message
+     * can be edited and still not change.</p>
+     */
+    public void reload(final @NotNull Context ctx) {
+        final MessageBundleLocation location = locate(ctx);
+        if (!RELOADABLE_SERVICE.equals(location.service())) {
+            // Not a failure and not a warning: nothing was asked of anybody. `ConfigApi`'s table
+            // is what reaches a Minecraft service, and this route deliberately does not grow a
+            // second copy of it (season-2-community/09).
+            ctx.json(outcome("RESTART_REQUIRED", "Nothing was sent: only " + RELOADABLE_SERVICE
+                    + " can be asked to re-read its messages from here.", List.of()));
+            return;
+        }
+        if (inbox == null) {
+            ctx.json(outcome("RESTART_REQUIRED", "Nothing was sent: this deployment has no database"
+                    + " to ask the bot through.", List.of()));
+            return;
+        }
+        final AccessRequest asked = inbox.submit(new AccessRequests.NewAccessRequest(
+                AccessRequestKind.RELOAD_MESSAGES, identityOf(location), null,
+                AccessRequestSource.STEWARD, ASKED_BY), ANSWER_WITHIN);
+        final AccessRequest settled = waitFor(asked.id());
+        if (settled == null || settled.status() == AccessRequestStatus.EXPIRED) {
+            ctx.json(outcome("NO_ANSWER", "The bot did not answer, so the text that was saved takes"
+                    + " effect the next time it starts.", List.of()));
+            return;
+        }
+        if (settled.status() != AccessRequestStatus.DONE) {
+            log.warn("{} was saved but the bot could not re-read it: {}", identityOf(location),
+                    settled.result());
+            ctx.json(outcome("NO_ANSWER", "The bot could not re-read its messages, so the running"
+                    + " ones are unchanged and the saved text takes effect the next time it"
+                    + " starts.", List.of()));
+            return;
+        }
+        final List<String> unknown = unknownIn(settled.result());
+        ctx.json(outcome("APPLIED", unknown.isEmpty()
+                ? "The bot re-read its messages."
+                : "The bot re-read its messages. It has no key called "
+                        + String.join(", ", unknown) + ".", unknown));
+    }
+
+    private static Map<String, Object> outcome(final String status, final String message,
+                                               final List<String> unknown) {
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("status", status);
+        answer.put("message", message);
+        answer.put("unknown", unknown);
+        return answer;
+    }
+
+    /**
+     * @return the row once it has stopped being pending, or {@code null} if it has not within
+     *         {@link #ANSWER_WITHIN} - which is a bot that is not running, and is not an error
+     */
+    private AccessRequest waitFor(final long id) {
+        final long giveUpAt = System.nanoTime() + ANSWER_WITHIN.plusSeconds(1).toNanos();
+        while (System.nanoTime() < giveUpAt) {
+            final AccessRequest row = inbox.outcome(id).orElse(null);
+            if (row != null && row.status().settled()) {
+                return row;
+            }
+            try {
+                Thread.sleep(LOOK_EVERY.toMillis());
+            } catch (final InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The {@code unknown} field of the bot's own answer, split back into a list.
+     *
+     * <p>The row carries the bot's JSON verbatim - see {@code AccessRequests#finish} on why no
+     * surface composes a second rendering of it - and the bot writes one comma-joined string
+     * because {@code AccessInbox#json} takes pairs of strings. Splitting it here is the whole
+     * translation, and an empty string is no keys rather than one empty key.</p>
+     */
+    private static List<String> unknownIn(final String result) {
+        if (result == null || result.isBlank()) {
+            return List.of();
+        }
+        try {
+            final JsonElement parsed = JsonParser.parseString(result);
+            if (!parsed.isJsonObject()) {
+                return List.of();
+            }
+            final JsonElement unknown = parsed.getAsJsonObject().get("unknown");
+            if (unknown == null || !unknown.isJsonPrimitive() || unknown.getAsString().isBlank()) {
+                return List.of();
+            }
+            return List.of(unknown.getAsString().split(","));
+        } catch (final JsonSyntaxException | IllegalStateException malformed) {
+            log.warn("the bot answered a reload with something that is not the expected JSON: {}",
+                    result);
+            return List.of();
         }
     }
 

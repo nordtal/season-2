@@ -204,6 +204,52 @@ export function duration(seconds: number | null | undefined): string {
   return rest === 0 ? `${days} d` : `${days} d ${rest} h`
 }
 
+/**
+ * Play time, in the three units a person thinks in: "1 d 6 h 30 min".
+ *
+ * Not `duration`, and the difference is the point (steward/126). `duration` measures how long a
+ * backup took and how long a container has been up, where two units are already more precision than
+ * anybody reads. Play time is a number somebody TYPES - the dialog asks for days, hours and minutes
+ * - and a column that answered "1 d 6 h" to a value that was entered as 1 d 6 h 30 min would make
+ * the save look like it lost something.
+ *
+ * Seconds are dropped rather than rounded up, so a value written here and read back is the same
+ * value. Zero parts are left out, except when everything is zero: "0 min" is a real answer and
+ * means somebody has been on and has almost no time, which is not the same as never.
+ */
+export function playtime(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "–"
+  const { days, hours, minutes } = splitPlaytime(seconds)
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days} d`)
+  if (hours > 0) parts.push(`${hours} h`)
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes} min`)
+  return parts.join(" ")
+}
+
+/**
+ * The same three numbers, unjoined - what the dialog puts in its three fields.
+ *
+ * The inverse is a multiplication and is deliberately not here: anything over 23 hours or 59
+ * minutes is carried on save rather than refused, so the form owns that direction. Somebody typing
+ * "0 days 50 hours" means two days and two hours and has not made a mistake.
+ */
+export function splitPlaytime(seconds: number | null | undefined): {
+  days: number
+  hours: number
+  minutes: number
+} {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) {
+    return { days: 0, hours: 0, minutes: 0 }
+  }
+  const whole = Math.floor(seconds / 60)
+  return {
+    days: Math.floor(whole / (24 * 60)),
+    hours: Math.floor(whole / 60) % 24,
+    minutes: whole % 60,
+  }
+}
+
 /** How long ago an instant was, as a span rather than as "… ago". */
 export function since(value: string | Date | null | undefined, now = Date.now()): string {
   const date = value instanceof Date ? value : parseInstant(value)

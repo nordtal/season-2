@@ -129,6 +129,36 @@ public final class StewardUi {
      */
     private static final long MOST_PLAYTIME_SECONDS = 10L * 365 * 24 * 3600;
 
+    /**
+     * A play time, in the three units a person thinks in: {@code 1 d 6 h 30 min} (steward/126).
+     *
+     * <p>The twin of {@code playtime()} in the interface's {@code format.ts}, deliberately kept
+     * short enough that the two cannot drift in any way that matters: same units, same order, same
+     * rule that zero parts are left out and that a total of nothing is still {@code 0 min}. It
+     * exists for one caller - the journal line for {@code SET_PLAYTIME} - because that is the last
+     * place a number of seconds reached a human.</p>
+     */
+    static String playtime(final long seconds) {
+        if (seconds < 0) {
+            return "0 min";
+        }
+        final long minutes = seconds / 60;
+        final long days = minutes / (24 * 60);
+        final long hours = minutes / 60 % 24;
+        final long rest = minutes % 60;
+        final StringBuilder text = new StringBuilder();
+        if (days > 0) {
+            text.append(days).append(" d");
+        }
+        if (hours > 0) {
+            text.append(text.isEmpty() ? "" : " ").append(hours).append(" h");
+        }
+        if (rest > 0 || text.isEmpty()) {
+            text.append(text.isEmpty() ? "" : " ").append(rest).append(" min");
+        }
+        return text.toString();
+    }
+
     /** The default: serve. Named so that spelling it out is not an error. */
     private static final String SERVE = "serve";
 
@@ -889,7 +919,13 @@ public final class StewardUi {
                 data.access().ensureUser(discordId);
                 data.access().setPlaytimeSeconds(discordId, ask.seconds);
                 data.audit().record("SET_PLAYTIME", who.id(), discordId, null,
-                        ask.seconds + " seconds set by " + who.name() + " from the web interface");
+                        // Days, hours and minutes and not a number of seconds (steward/126): the
+                        // dialog asks in those units and the list answers in them, and a journal
+                        // line saying "111600 seconds" is the one place left where somebody has to
+                        // divide by 3600 to know what they did. The exact number is in the log line
+                        // below, which is where an exact number belongs.
+                        playtime(ask.seconds) + " set by " + who.name()
+                                + " from the web interface");
                 log.info("{} set the play time of {} to {} seconds",
                         who.name(), discordId, ask.seconds);
                 ctx.json(Map.of("discordId", discordId, "seconds", ask.seconds));

@@ -276,6 +276,31 @@ export function useAvailable(enabled = true) {
   })
 }
 
+/**
+ * Asks every source again, now (season-2-ops/142).
+ *
+ * The six-hour cache is right for a page somebody opens and wrong for the one minute after they
+ * have published something and want to see it; without this button that wait cannot be shortened
+ * by anybody. The answer is written straight into the cache rather than invalidated, because the
+ * request already carries the fresh reading - invalidating would ask the worker a second time for
+ * something it has just handed over.
+ *
+ * **A `useMutation` around a GET, and that is deliberate.** What this needs from TanStack is the
+ * one thing a query does not give: a call that happens when a person presses a button, once,
+ * whose `isPending` belongs to that press. `refetch` on the query would work too, and would tie
+ * the busy state of the button to every background refetch of the same key.
+ *
+ * **It is slow on purpose.** The request sits there while GitHub, Modrinth and the Fill API are
+ * asked one artefact at a time; steward-ui gives it two minutes. The button says so by being busy.
+ */
+export function useRefreshAvailable() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api<Available>("/api/updates/available?refresh"),
+    onSuccess: (fresh) => client.setQueryData(keys.available, fresh),
+  })
+}
+
 export function useRuns(limit = 20, enabled = true) {
   return useQuery({
     queryKey: keys.runs(limit),

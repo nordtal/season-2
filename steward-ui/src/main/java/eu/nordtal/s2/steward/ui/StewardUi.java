@@ -94,6 +94,16 @@ public final class StewardUi {
     private static final Duration SWEEP = Duration.ofHours(1);
 
     /**
+     * How long a forced re-read of the update sources may take (season-2-ops/142).
+     *
+     * <p>Not the client's configured timeout, which is sized for a worker answering out of its own
+     * memory. This one call asks GitHub, Modrinth and the Fill API again, one artefact at a time,
+     * and its slowness is the work rather than a fault - cut off at ten seconds it would report a
+     * broken worker for a button that was doing exactly what it was pressed for.</p>
+     */
+    private static final Duration RESOLVE_DEADLINE = Duration.ofMinutes(2);
+
+    /**
      * How long one touch of the security key covers.
      *
      * <p>Till's decision, 2026-09-14: five minutes, one tap covering everything inside it. Here and
@@ -685,8 +695,16 @@ public final class StewardUi {
             //
             // KEY_HELD and not KEY_FRESH: the worker resolves and writes nothing. Nothing on the
             // other side of this route can start a run; asking for one is still POST /api/updates.
-            cfg.routes.get("/api/updates/available",
-                    ctx -> passThrough(ctx, "/api/updates/available"), Gate.KEY_HELD);
+            // `refresh` is passed on rather than swallowed, and it is the one query parameter
+            // this route has: with it the worker drops its six-hour cache and asks every source
+            // again on the thread this call is waiting on, which is why it gets a deadline of its
+            // own instead of the ten seconds every other pass-through uses.
+            cfg.routes.get("/api/updates/available", ctx -> {
+                final boolean again = ctx.queryParam("refresh") != null;
+                ctx.contentType("application/json").result(again
+                        ? worker.get("/api/updates/available?refresh", RESOLVE_DEADLINE)
+                        : worker.get("/api/updates/available"));
+            }, Gate.KEY_HELD);
 
             cfg.routes.get("/api/updates/{id}", ctx -> {
                 final long id = Long.parseLong(ctx.pathParam("id"));

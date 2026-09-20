@@ -83,6 +83,25 @@ final class Refreshed<T> {
         return refreshedAt;
     }
 
+    /**
+     * Throws the cached value away, so the next {@link #get()} reads for real and blocks doing it
+     * (season-2-ops/142).
+     *
+     * <h2>Why this drops the value instead of only aging it</h2>
+     * Setting {@code refreshedAt} into the past would hand the caller the old answer and refresh
+     * behind their back - which is right for a TTL expiring on its own and wrong for somebody who
+     * just pressed a button labelled "read it again". They pressed it because the answer on the
+     * page is the one they do not believe; giving it back to them, instantly, is the one response
+     * that cannot be told apart from the button doing nothing.
+     *
+     * <p>The cost is honest and belongs to the caller: the next read takes as long as asking
+     * GitHub, Modrinth and the Fill API takes. Nothing else is blocked meanwhile - this lock is
+     * this cache's own.</p>
+     */
+    synchronized void invalidate() {
+        value = null;
+    }
+
     private void refresh() {
         T fresh = null;
         try {

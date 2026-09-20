@@ -6,7 +6,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { OperationsPlanPage } from "@/pages/operations"
@@ -23,8 +23,13 @@ import type { Available, AvailableChange } from "@/lib/api"
  * - a row whose source could not be asked is drawn as such, AND the card says the list is
  *   incomplete, because a reader scanning a column will not notice one grey badge in it;
  * - "no build for this Minecraft version" (CoreProtect) is neither work nor a failure;
- * - nothing on this page writes anything - it is a GET, and the test watches that no request is
- *   made to `POST /api/updates`.
+ * - nothing on this page starts a run, and the forced re-read is a read as well: a parameter on
+ *   the same GET, because it costs a great deal and changes nothing.
+ *
+ * season-2-ops/142 narrowed what the card draws without changing what it is for. The rows that
+ * have nothing in them are gone, the two version columns became one jump, and the header lost its
+ * sentence and gained a button. The states above are all still asserted here, because the whole
+ * risk of "show less" is that the row that mattered was one of the ones removed.
  */
 
 function json(status: number, body: unknown): Response {
@@ -57,8 +62,9 @@ function available(over: Partial<Available> = {}): Available {
   }
 }
 
-function backend(plan: Available): { fetch: typeof fetch; asked: () => unknown[] } {
+function backend(plan: Available, fresh?: Available): { fetch: typeof fetch; asked: () => unknown[] } {
   const mock = vi.fn(async (url: string) => {
+    if (url === "/api/updates/available?refresh") return json(200, fresh ?? plan)
     if (url === "/api/updates/available") return json(200, plan)
     if (url.startsWith("/api/updates")) return json(200, [])
     if (url === "/api/services") {
@@ -107,7 +113,7 @@ afterEach(() => {
 })
 
 describe("the available card", () => {
-  it("names the newer version beside what is installed", async () => {
+  it("names the jump rather than the filename and the version", async () => {
     vi.stubGlobal(
       "fetch",
       backend(
@@ -127,9 +133,50 @@ describe("the available card", () => {
     draw()
 
     await screen.findByText("chunky")
-    expect(screen.getByText("Chunky-Bukkit-1.5.3.jar")).toBeTruthy()
+    expect(screen.getByText("1.5.3")).toBeTruthy()
     expect(screen.getByText("1.5.4")).toBeTruthy()
     expect(screen.getByText("outdated")).toBeTruthy()
+    // The two columns this replaced. The filename is bookkeeping, and it is what the operator was
+    // reading a version out of by eye before this.
+    expect(screen.queryByText("Chunky-Bukkit-1.5.3.jar")).toBeNull()
+  })
+
+  it("leaves out everything a run would not touch", async () => {
+    // The card listed thirty rows to say one thing. Everything that is up to date is now absent,
+    // and absent means "there is nothing to do about it" - which is why the states that are NOT
+    // work have their own tests below.
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        available({
+          changes: [
+            change({ artifact: "chunky", status: "OUTDATED", installed: "Chunky-Bukkit-1.5.3.jar", version: "1.5.4", fileName: "Chunky-Bukkit-1.5.4.jar" }),
+            change({ artifact: "vulcan", status: "UP_TO_DATE", installed: "Vulcan-2.9.0.jar" }),
+            change({ artifact: "viaversion", status: "UP_TO_DATE", installed: "ViaVersion-5.5.0.jar" }),
+          ],
+        }),
+      ).fetch,
+    )
+    draw()
+
+    await screen.findByText("chunky")
+    expect(screen.queryByText("vulcan")).toBeNull()
+    expect(screen.queryByText("viaversion")).toBeNull()
+  })
+
+  it("says so plainly when there is nothing rather than drawing an empty table", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        available({
+          hasWork: false,
+          changes: [change({ artifact: "vulcan", status: "UP_TO_DATE", installed: "Vulcan-2.9.0.jar" })],
+        }),
+      ).fetch,
+    )
+    draw()
+
+    expect(await screen.findByText("Nothing to install")).toBeTruthy()
   })
 
   it("does not let an unreachable source read as nothing to do", async () => {
@@ -154,7 +201,9 @@ describe("the available card", () => {
     expect(screen.getByText(/incomplete/)).toBeTruthy()
   })
 
-  it("draws no build for this version as neither work nor a failure", async () => {
+  it("keeps the artefact with no build for this version, and calls it unsupported", async () => {
+    // Neither work nor a failure, and still on the list: it is the answer to "why is CoreProtect
+    // not here", and a row that disappears when it is nothing to worry about cannot give it.
     vi.stubGlobal(
       "fetch",
       backend(
@@ -170,20 +219,58 @@ describe("the available card", () => {
     draw()
 
     await screen.findByText("coreprotect")
-    expect(screen.getByText("no build")).toBeTruthy()
+    expect(screen.getByText("unsupported")).toBeTruthy()
     expect(screen.queryByText(/incomplete/)).toBeNull()
   })
 
-  it("only reads - it never asks for a run", async () => {
+  it("says how old the reading is, in the header and in one line", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        available({
+          checkedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+          changes: [change({ artifact: "chunky", status: "OUTDATED", installed: "Chunky-Bukkit-1.5.3.jar", version: "1.5.4", fileName: "Chunky-Bukkit-1.5.4.jar" })],
+        }),
+      ).fetch,
+    )
+    draw()
+
+    expect(await screen.findByText(/Last checked 4 hours ago/)).toBeTruthy()
+  })
+
+  it("asks the sources again when the button is pressed, and redraws from that answer", async () => {
+    // The reading is cached for six hours in the worker, and this button is the only way to
+    // shorten that from the interface. It has to replace what is on screen, or an operator who
+    // pressed it has no way of telling whether anything happened.
     const wired = backend(
-      available({ changes: [change({ artifact: "smp", status: "UP_TO_DATE", installed: "smp-0.9.1.jar" })] }),
+      available({
+        changes: [change({ artifact: "chunky", status: "OUTDATED", installed: "Chunky-Bukkit-1.5.3.jar", version: "1.5.4", fileName: "Chunky-Bukkit-1.5.4.jar" })],
+      }),
+      available({
+        changes: [change({ artifact: "chunky", status: "OUTDATED", installed: "Chunky-Bukkit-1.5.3.jar", version: "1.6.0", fileName: "Chunky-Bukkit-1.6.0.jar" })],
+      }),
     )
     vi.stubGlobal("fetch", wired.fetch)
     draw()
 
-    // The jar name, not "smp": the artefact and the service it sits on are both called that, and
-    // findByText rejects on two matches.
-    await screen.findByText("smp-0.9.1.jar")
+    await screen.findByText("1.5.4")
+    fireEvent.click(screen.getByRole("button", { name: "Ask the sources again" }))
+
+    expect(await screen.findByText("1.6.0")).toBeTruthy()
+    expect(wired.asked()).toContain("/api/updates/available?refresh")
+  })
+
+  it("only reads - it never asks for a run", async () => {
+    const wired = backend(
+      available({
+        changes: [change({ artifact: "chunky", status: "OUTDATED", installed: "Chunky-Bukkit-1.5.3.jar", version: "1.5.4", fileName: "Chunky-Bukkit-1.5.4.jar" })],
+      }),
+    )
+    vi.stubGlobal("fetch", wired.fetch)
+    draw()
+
+    await screen.findByText("chunky")
     expect(wired.asked()).toContain("/api/updates/available")
+    expect(wired.asked()).not.toContain("/api/updates")
   })
 })

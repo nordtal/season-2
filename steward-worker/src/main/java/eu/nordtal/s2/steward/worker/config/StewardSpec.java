@@ -655,13 +655,21 @@ public interface StewardSpec {
                 "",
                 "WHY THESE AND NOT THE OTHERS. mc-smp is Nordtal - a hand-built world in no",
                 "repository and in no release, and the only thing here that cannot be rebuilt.",
-                "mc-proxy carries velocity.toml and the forwarding secret. bot-config",
-                "is the bot's. The four *-plugins volumes",
+                "bot-config is the bot's. The *-plugins volumes",
                 "are new on 2026-09-08 and hold the only hand-edited files in the deployment:",
-                "every plugin's config.yml, smp's milestones.yml and sounds.yml, and the proxy's",
-                "pack.yml with the resource pack's SHA-1 in it. steward-ui-config joined them on",
+                "every plugin's config.yml and smp's milestones.yml and sounds.yml.",
+                "steward-ui-config joined them on",
                 "2026-09-13 - it is where the interface's own settings live, and the one config",
                 "volume the interface cannot rebuild for you.",
+                "",
+                "PROXY AND LIMBO LEFT THIS LIST ON 2026-09-20, data and plugins alike, and it was",
+                "a decision rather than an omission (season-2-ops/137). Neither holds anything a",
+                "start does not write again: entrypoint.sh seeds velocity.toml, rewrites",
+                "forwarding.secret from VELOCITY_FORWARDING_SECRET on EVERY start rather than once,",
+                "PackWriter writes the proxy's pack.yml, and the limbo generates its world. The",
+                "gain is not disk - it is that a backup no longer needs to stop the proxy, so it",
+                "no longer moves anybody off the network to save a file nobody would miss. If a",
+                "lobby is ever BUILT in the limbo by hand, mc-limbo belongs back here the same day.",
                 "",
                 "WHAT IS DELIBERATELY ABSENT. postgres-data is never here: a snapshot of a live",
                 "PGDATA is torn, and it fails at RESTORE rather than at backup, which is the worst",
@@ -672,9 +680,8 @@ public interface StewardSpec {
                 "The output directory itself is never in this list either: a backup of the backups",
                 "doubles every night until the disk is gone.",
                 "",
-                "mc-limbo and mc-hunger-games are absent too - limbo builds its",
-                "world at every enable and the hunger games arena is a folder that is copied in,",
-                "so both are rebuilt rather than restored. bot-jar and steward-worker-jar are refilled by",
+                "mc-hunger-games is absent too - the arena is a folder that is copied in, so it",
+                "is rebuilt rather than restored. bot-jar and steward-worker-jar are refilled by",
                 "`steward-worker bootstrap`.",
                 "",
                 "WHERE a snapshot goes is backup.output-root, on this host. There is no offsite",
@@ -686,9 +693,6 @@ public interface StewardSpec {
         default List<String> volumes() {
             return List.of("nordtal-s2_mc-smp",
                     "nordtal-s2_mc-smp-plugins",
-                    "nordtal-s2_mc-proxy",
-                    "nordtal-s2_mc-proxy-plugins",
-                    "nordtal-s2_mc-limbo-plugins",
                     "nordtal-s2_mc-hunger-games-plugins",
                     "nordtal-s2_bot-config",
                     "nordtal-s2_steward-ui-config");
@@ -711,10 +715,14 @@ public interface StewardSpec {
                 "runs first, and so that something is left running afterwards to say whether",
                 "everything came back.",
                 "",
-                "limbo and hunger-games are absent: neither holds a world worth saving, and an",
-                "outage with nothing to show for it is worse than no backup. Their plugins/",
-                "volumes are still snapshotted - a config.yml is written at enable and at reload",
-                "and at no other time, so there is nothing in flight to tear.",
+                "limbo, hunger-games AND THE PROXY are absent: none of them holds a world worth",
+                "saving, and an outage with nothing to show for it is worse than no backup. The",
+                "proxy left this list with its volumes on 2026-09-20 (season-2-ops/137), and that",
+                "is the whole point of that ticket: nothing the proxy holds is saved any more, so",
+                "stopping it would buy a proxy swap, two loading screens and a dead port for",
+                "nothing. A backup now moves players to the waiting room and back, and no further.",
+                "hunger-games' plugins/ volume is still snapshotted - a config.yml is written at",
+                "enable and at reload and at no other time, so there is nothing in flight to tear.",
                 "",
                 "THESE ARE COMPOSE SERVICE NAMES AND ARE THEREFORE TAKEN FROM Topology RATHER THAN",
                 "TYPED. A literal here was `bot` while compose.yml's service became `discord-bot`,",
@@ -723,7 +731,7 @@ public interface StewardSpec {
         })
         @Explain("Compose service names taken from Topology rather than typed by hand - a stale literal here once left a service running through its own snapshot, when its compose name changed and this string did not.")
         default List<String> stopServices() {
-            return List.of(Topology.SMP, Topology.PROXY, Topology.DISCORD_BOT);
+            return List.of(Topology.SMP, Topology.DISCORD_BOT);
         }
 
         @Order(3)

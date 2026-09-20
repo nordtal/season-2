@@ -56,13 +56,21 @@ class ConfigsTest {
                         || volume.contains("backups")),
                 "the backups are not a thing to back up: " + volumes);
 
-        // The stop list and the volume list are not the same list, deliberately: limbo and
-        // hunger-games hold no world worth saving, so stopping them would be an outage with
-        // nothing to show for it, while their plugins/ volumes are still worth a snapshot.
+        // The stop list and the volume list are not the same list, deliberately: hunger-games
+        // holds no world worth saving, so stopping it would be an outage with nothing to show for
+        // it, while its plugins/ volume is still worth a snapshot.
+        //
+        // AND THE PROXY IS IN NEITHER LIST SINCE 2026-09-20 (season-2-ops/137). Nothing it holds
+        // is saved any more, so stopping it would buy a proxy swap and a dead port for nothing -
+        // which is the point of that ticket, not a side effect of it. A backup moves players to
+        // the waiting room and back, and no further.
         assertEquals(java.util.List.of(eu.nordtal.s2.steward.worker.plan.Topology.SMP,
-                        eu.nordtal.s2.steward.worker.plan.Topology.PROXY,
                         eu.nordtal.s2.steward.worker.plan.Topology.DISCORD_BOT),
                 config.backup().stopServices());
+        assertFalse(config.backup().volumes().stream().anyMatch(volume -> volume.contains("proxy")
+                        || volume.contains("limbo")),
+                "proxy and limbo left the backup on 2026-09-20 and a restart writes everything"
+                        + " they hold: " + config.backup().volumes());
 
         // Thirty rather than sixty (owner, 2026-09-09), and the two halves of that decision are
         // one decision: the wait was shortened because giving up stopped being silent. A run that

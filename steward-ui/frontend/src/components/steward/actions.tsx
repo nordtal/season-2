@@ -22,6 +22,7 @@ import type { Action, Person } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
 import { RUN_KIND } from "@/components/steward/status"
 import { PersonIdentity } from "@/components/steward/identity"
+import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
 /**
  * The five-item feed steward/82 asked for (`ActionsApi` on steward-worker's side, `useActions()`
@@ -88,29 +89,45 @@ export function ActionRow({
   avatarBaseUrl,
   now,
 }: {
-  action: Action
+  /** Absent while the feed is still loading: the row is then drawn empty (steward/120). */
+  action?: Action
   people: Person[] | undefined
   avatarBaseUrl: string | undefined
   now: number
 }) {
-  const Icon = iconOf(action.kind)
-  const known = action.actorDiscordId
+  const Icon = action ? iconOf(action.kind) : undefined
+  const known = action?.actorDiscordId
     ? people?.find((person) => person.discordId === action.actorDiscordId)
     : undefined
 
   return (
     <li className="flex items-start gap-3 border-b border-border/60 py-3 last:border-0">
-      <span
-        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-muted-foreground"
-        aria-hidden
-      >
-        <Icon className="size-4" />
-      </span>
+      {Icon ? (
+        <span
+          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-muted-foreground"
+          aria-hidden
+        >
+          <Icon className="size-4" />
+        </span>
+      ) : (
+        <Skeleton className="mt-0.5 size-8 shrink-0 rounded-full" />
+      )}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-medium">{labelOf(action.kind)}</span>
-        <span className="truncate text-xs text-muted-foreground">{action.extent}</span>
+        {action ? (
+          <>
+            <span className="truncate text-sm font-medium">{labelOf(action.kind)}</span>
+            <span className="truncate text-xs text-muted-foreground">{action.extent}</span>
+          </>
+        ) : (
+          <>
+            <SkeletonText className="w-40 text-sm" />
+            <SkeletonText className="w-56 text-xs" />
+          </>
+        )}
         <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-          {action.system ? (
+          {!action ? (
+            <SkeletonText className="w-32 text-xs" />
+          ) : action.system ? (
             <PersonIdentity system />
           ) : action.actorDiscordId ? (
             <PersonIdentity
@@ -128,8 +145,12 @@ export function ActionRow({
             // safely resolves this to a person, and PersonIdentity is for people.
             <span className="truncate">{action.actorLabel || "console"}</span>
           )}
-          <span>authored</span>
-          <span title={dateTime(action.occurred)}>{relative(action.occurred, now)}</span>
+          {action ? (
+            <>
+              <span>authored</span>
+              <span title={dateTime(action.occurred)}>{relative(action.occurred, now)}</span>
+            </>
+          ) : null}
         </div>
       </div>
     </li>

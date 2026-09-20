@@ -14,6 +14,7 @@ import { HealthDot } from "@/components/steward/status"
 import { RecreateButton } from "@/components/steward/recreate"
 import { buttonVariants } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { SkeletonText } from "@/components/ui/skeleton"
 
 import { INGRESS, imageTag, type NodeId } from "./topology"
 
@@ -289,7 +290,13 @@ export function ServiceNode({
               className="flex min-w-0 items-center gap-1 rounded-sm text-[0.6875rem] text-muted-foreground"
             >
               <DriftMark drift={service?.drift ?? "UNKNOWN"} />
-              <span className="min-w-0 flex-1 truncate tnum">{imageTag(service?.image)}</span>
+              {/* The name above comes from the plan and is drawn at once; the tag is the only
+                  thing on this line that has to be fetched, so it is the only thing that waits. */}
+              {service ? (
+                <span className="min-w-0 flex-1 truncate tnum">{imageTag(service.image)}</span>
+              ) : (
+                <SkeletonText className="min-w-0 flex-1" width="long" />
+              )}
 
               {players === undefined ? null : (
                 <span

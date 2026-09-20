@@ -208,16 +208,20 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
     expect(said()).not.toMatch(COULD_NOT_READ)
   })
 
-  it("keeps the plain reading placeholder while there is nothing to report at all", async () => {
+  it("keeps the tile empty while there is nothing to report at all", async () => {
     // The branch that already worked, kept here so that the fix cannot be a sentence that is now
     // printed twice, or one that replaced the quiet first render. A settled "0" must never appear
     // before every query has actually answered - that is the steward/40 trap this tile still guards
     // against, one level down from the banner it replaced.
+    //
+    // steward/120 changed what "not settled" is drawn AS: the dash and the word "reading" were the
+    // only vocabulary the row had before there was a skeleton. The assertion that matters is
+    // unchanged and is the second one.
     vi.stubGlobal("fetch", backend({ settings: () => new Promise(() => {}) }))
     draw()
 
     await waitFor(() => expect(issuesTile()).not.toBeNull())
-    expect(said()).toMatch(/reading/)
+    expect(issuesTile()!.querySelector("[data-slot='skeleton-text']")).not.toBeNull()
     expect(said()).not.toContain("0")
   })
 

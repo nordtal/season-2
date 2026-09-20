@@ -77,7 +77,17 @@ public final class ProxySwap {
     private final Clock clock;
     private final StandbyReturn.Probe probe;
 
-    /** Whether this run has already been acted on, so one run parks the network once. */
+    /**
+     * Whether this run has already been acted on, so one run parks the network once - and, read
+     * from outside, whether this proxy is inside a run that stops it.
+     *
+     * <h2>Both readings at once, and that is the point (season-2-ops/151)</h2>
+     * Parking is a <b>moment</b>: it happens when the countdown reaches zero, to whoever is
+     * connected then. Being about to stop is a <b>state</b>, and it lasts the seconds the worker
+     * spends waiting for the backends to empty - sixteen of them in run 59 on 2026-09-20. A player
+     * who connected inside that window was never parked and met "Proxy shutting down" instead.
+     * {@link #isStopping()} is that state, and {@code RestartGate} is what it is for.
+     */
     private volatile boolean parked;
 
     /**
@@ -122,6 +132,17 @@ public final class ProxySwap {
     }
 
     /**
+     * @return whether a run that stops this proxy has already reached zero, so that nobody new
+     *         should be let past the door (season-2-ops/151). False on the standby and false on a
+     *         proxy with no {@code public-address}: both leave {@link #check()} before it decides
+     *         anything, and a deployment that does not swap proxies takes the network down the way
+     *         it always did - the door would only change the screen a few of them see
+     */
+    public boolean isStopping() {
+        return parked;
+    }
+
+    /**
      * One pass. Scheduled beside {@code Evacuation}, on the same interval and for the same reason it
      * has a task of its own: a watch that throws is a watch Velocity stops running, and the failure
      * mode of that is a season of updates during which the proxy takes the network down with it and
@@ -141,22 +162,39 @@ public final class ProxySwap {
         }
 
         final Pass pass = decide(next, parked, () -> probe.answers(standby, STANDBY_ANSWERS_WITHIN));
+        // THE DOOR FIRST, AND SEPARATELY FROM THE ACTION. `park()` happens once; being shut lasts
+        // as long as the run does (season-2-ops/151).
+        parked = doorAfter(pass, parked);
         switch (pass) {
-            case IDLE -> parked = false;
-            case ALREADY_DONE -> { }
-            case STANDBY_MISSING -> {
-                parked = true;
+            case IDLE, ALREADY_DONE -> { }
+            case STANDBY_MISSING ->
                 logger.warn("The proxy is about to stop and {}:{} does not answer, so nobody can "
                                 + "be parked - this update takes the network down the way it "
                                 + "always did. The standby has to be running BEFORE the run "
                                 + "reaches this proxy.",
                         standby.getHostString(), standby.getPort());
-            }
-            case PARK -> {
-                parked = true;
-                park();
-            }
+            case PARK -> park();
         }
+    }
+
+    /**
+     * Whether the door is shut once a pass has returned {@code pass}.
+     *
+     * <h2>Why this is not just "PARK happened"</h2>
+     * A pass that parks is followed by pass after pass of {@link Pass#ALREADY_DONE} until the
+     * process actually goes - sixteen seconds of them in run 59. The door has to stay shut across
+     * all of them, and it has to open again on {@link Pass#IDLE}, because a run can be the last
+     * one and the proxy can still be here afterwards (a run that stops nothing, or a second proxy
+     * run in the same session). {@link Pass#STANDBY_MISSING} shuts it as firmly as
+     * {@link Pass#PARK} does: there the arrival would be dropped rather than moved, which is the
+     * worse of the two, not the better.
+     */
+    static boolean doorAfter(final Pass pass, final boolean wasShut) {
+        return switch (pass) {
+            case IDLE -> false;
+            case ALREADY_DONE -> wasShut;
+            case STANDBY_MISSING, PARK -> true;
+        };
     }
 
     /** What one pass of {@link #check()} does. */

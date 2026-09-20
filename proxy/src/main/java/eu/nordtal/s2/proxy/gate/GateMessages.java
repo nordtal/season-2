@@ -56,6 +56,15 @@ public final class GateMessages {
         return MessageRenderer.of(messages).get(locale, "gate.unlinked");
     }
 
+    /**
+     * The screen for somebody who arrives in the seconds between a proxy swap parking the network
+     * and the process actually stopping (season-2-ops/151). It promises nothing about how long,
+     * because the proxy saying it is about to stop cannot know when it comes back.
+     */
+    public Component restarting(final Locale locale) {
+        return MessageRenderer.of(messages).get(locale, "gate.restarting");
+    }
+
     /** Not a Discord member, or banned. */
     public Component notMember(final Locale locale) {
         Component result = MessageRenderer.of(messages).get(locale, "gate.not-member");

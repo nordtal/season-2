@@ -9,6 +9,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * What one pass of the live proxy's swap does, and - the part that cost a release to notice - what
@@ -75,6 +77,47 @@ class ProxySwapDecisionTest {
         ProxySwap.decide(PROXY_NEXT, false, probe(asked, true));
 
         assertEquals(1, asked.get());
+    }
+
+    // ------------------------------------------------------- the door (season-2-ops/151)
+
+    @Test
+    @DisplayName("the door stays shut for every pass after the one that parked, not just that one")
+    void theDoorIsAStateAndNotAMoment() {
+        // THE DEFECT, EXACTLY. Parking happened at 03:20:26 in run 59; the process went at
+        // 03:20:42. A player who connected at 03:20:31 was never parked - parking was over - and
+        // met "Proxy shutting down". Between those two instants every pass returns ALREADY_DONE,
+        // and that is precisely the stretch the door has to be shut for.
+        boolean shut = ProxySwap.doorAfter(ProxySwap.Pass.PARK, false);
+        assertTrue(shut, "the pass that parks shuts the door");
+
+        for (int pass = 0; pass < 4; pass++) {
+            shut = ProxySwap.doorAfter(ProxySwap.Pass.ALREADY_DONE, shut);
+            assertTrue(shut, "pass " + pass + " after the park reopened the door");
+        }
+    }
+
+    @Test
+    @DisplayName("a standby that is not there shuts the door too - that arrival would be dropped")
+    void aMissingStandbyShutsItAsWell() {
+        assertTrue(ProxySwap.doorAfter(ProxySwap.Pass.STANDBY_MISSING, false));
+    }
+
+    @Test
+    @DisplayName("the door opens again when no run is moving this proxy")
+    void theDoorOpensAgain() {
+        // A proxy that is still here after a run that stopped nothing, and the second proxy run of
+        // one session: both arrive as IDLE, and a door that never reopened would lock the network
+        // out until somebody noticed.
+        assertFalse(ProxySwap.doorAfter(ProxySwap.Pass.IDLE, true));
+        assertFalse(ProxySwap.doorAfter(ProxySwap.Pass.IDLE, false));
+    }
+
+    @Test
+    @DisplayName("nothing has been decided yet, so the door is open")
+    void aFreshProxyLetsPeopleIn() {
+        assertFalse(ProxySwap.doorAfter(ProxySwap.Pass.ALREADY_DONE, false),
+                "ALREADY_DONE carries the previous answer and invents nothing");
     }
 
     private static java.util.function.BooleanSupplier probe(final AtomicInteger asked,

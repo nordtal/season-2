@@ -344,26 +344,33 @@ const WAITING_PEOPLE = [0, 1, 2, 3, 4, 5, 6, 7]
 function WaitingPersonRow() {
   return (
     <TableRow>
+      {/*
+        The widths aim at the column, not at a plausible name. `steward-table` is `table-layout:
+        auto`, so a cell narrower than its `w-[Nrem]` lets the column collapse below it and every
+        heading to its right slides - which is the jump this whole ticket is against. Drawn at the
+        declared width the waiting table IS the declared layout; a name longer than 16rem still
+        nudges it when it lands, and that is a property of the real table, not of this row.
+      */}
       <TableCell data-label="Person" className="font-medium">
         <div className="flex items-center gap-2">
           <Skeleton className="size-6 shrink-0 rounded-full" />
-          <SkeletonText width="long" className="max-w-[9rem]" />
+          <SkeletonText width="full" className="max-w-[13rem]" />
         </div>
       </TableCell>
       <TableCell data-label="Access">
-        <Skeleton className="h-5 w-28 rounded-full" />
+        <Skeleton className="h-5 w-[15rem] max-w-full rounded-full" />
       </TableCell>
       <TableCell data-label="Minecraft">
         <div className="flex items-center gap-2">
           <Skeleton className="size-5 shrink-0 rounded-sm" />
-          <SkeletonText width="medium" className="max-w-[6rem]" />
+          <SkeletonText width="full" className="max-w-[6.5rem]" />
         </div>
       </TableCell>
       <TableCell data-label="Roles">
-        <Skeleton className="h-5 w-16 rounded-full" />
+        <Skeleton className="h-5 w-[7rem] max-w-full rounded-full" />
       </TableCell>
       <TableCell data-label="Playtime">
-        <SkeletonText width="short" />
+        <SkeletonText width="medium" className="min-w-[3rem]" />
       </TableCell>
       <TableCell />
     </TableRow>

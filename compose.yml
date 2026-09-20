@@ -419,6 +419,13 @@ services:
       # public-address, find ITSELF answering, and transfer every player to the address they are
       # already on, for ever. Written here, that mistake needs somebody to edit this line.
       NORDTAL_PROXY_NETWORK_STANDBY: "false"
+      # THE PROXY IS BEHIND A GUARD (season-2-ops/162), and this is the only place that says so.
+      # caddy owns 25565 and hands the stream on with a PROXY header; without this key Velocity
+      # reads that header as the client's first packet and drops the connection. The entrypoint
+      # writes it into velocity.toml on EVERY start - a value in a volume outlives a changed
+      # default - and an unset variable leaves the file alone, which is what a deployment without a
+      # guard needs. Both proxies read it: the standby is reached through the guard too.
+      VELOCITY_HAPROXY: ${VELOCITY_HAPROXY:-true}
       # THE RESOURCE PACK IS NOT A VARIABLE HERE, and must not become one: a jcore environment
       # override wins over the file and is never written back, so the worker writing a new sha1 into
       # pack.yml while PACK_URL and PACK_SHA1 were set would write into a value nothing reads.
@@ -432,19 +439,18 @@ services:
       NORDTAL_PROXY_DATABASE_JDBC_URL: *db-url
       NORDTAL_PROXY_DATABASE_USERNAME: *db-username
       NORDTAL_PROXY_DATABASE_PASSWORD: *db-password
-    ports:
-      - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
-      # SIMPLE VOICE CHAT, AND THIS IS THE ONLY VOICE PORT ON THE NETWORK. Audio is UDP and does not
-      # travel inside the Minecraft connection. The proxy plugin detects each backend's voice address
-      # and port itself and forwards over this compose network, so smp and hunger-games publish
-      # nothing at all.
-      #
-      # 25565 ON BOTH SIDES, AND NOT ${PROXY_PORT}. voicechat-proxy.properties ships `port: -1`,
-      # meaning "whatever port the proxy uses", so the plugin binds 25565 inside this container and
-      # hands the CLIENT that same number; a host mapping that renumbered it would answer the
-      # handshake and time out every packet after it. Making voice follow PROXY_PORT is `voice_host`
-      # in plugins/voicechat/voicechat-proxy.properties, not a second number here.
-      - "${PROXY_BIND:-0.0.0.0}:25565:25565/udp"
+    # NO PUBLISHED PORTS SINCE season-2-ops/162, and that is the whole of the guard's cost here.
+    # 25565 and the voice port beside it belong to `caddy` now, which hands the stream to this
+    # container while it answers and to `proxy-standby` while it does not. Publishing them here as
+    # well would take the numbers away from the guard and leave the 26-second hole exactly where it
+    # was. Velocity still binds 0.0.0.0:25565 INSIDE this container, and the voice plugin still
+    # binds whatever port Velocity did - nothing about either changed, only who is reachable from
+    # outside.
+    #
+    # WHAT CAME WITH IT, and what must move with it if this is ever undone: VELOCITY_HAPROXY above,
+    # which makes Velocity read the client's real address out of the guard's PROXY header. A proxy
+    # behind the guard without that key answers nobody; a proxy in front of nothing with it answers
+    # nobody either.
     volumes:
       - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/data
       # PLUGINS/ IS ITS OWN DIRECTORY, separate from the server's. Everything else under /data - the
@@ -516,30 +522,20 @@ services:
     environment:
       <<: *proxy-env
       NORDTAL_PROXY_NETWORK_STANDBY: "true"
-    ports:
-      # THE ONLY DIFFERENCE A CLIENT CAN SEE. Velocity still binds 25565 INSIDE this container - the
-      # entrypoint seeds `bind = "0.0.0.0:25565"` and nothing parameterises it - so the mapping is
-      # 25566 on the host onto 25565 in here. NORDTAL_PROXY_NETWORK_STANDBY_PORT above is the same
-      # number, which is what the transfer names to the client.
-      - "${PROXY_BIND:-0.0.0.0}:${PROXY_STANDBY_PORT:-25566}:25565"
-      # VOICE CHAT DOES NOT REACH THIS PROXY, AND THE PORT IS PUBLISHED ANYWAY. Read the long note
-      # at the live proxy's UDP line first: voicechat-proxy.properties ships `port: -1`, so the
-      # plugin binds whatever port Velocity bound - 25565, in here - and hands the CLIENT that same
-      # number. On the live proxy host and container port are equal and that works. Here they cannot
-      # be: 25565 on this host is the live proxy's. So a client transferred here is told to send
-      # audio to <host>:25565, which is the OTHER container - and during the window that container
-      # is stopped, so the packets land nowhere.
-      #
-      # WHAT THAT COSTS, PLAINLY: no voice chat for the twenty seconds a player spends on the
-      # standby. Nobody loses their session over it and the client reconnects voice by itself on the
-      # way back, which is strictly better than today, where the same restart disconnects everyone
-      # from the game as well. Making it work needs `voice_host` in this volume's
-      # plugins/voicechat/voicechat-proxy.properties, a file nothing in this repository writes -
-      # that is a ticket, not a line here.
-      #
-      # It is published regardless, because the alternative is worse in the only case that matters:
-      # the day voice_host is set, a missing publish would look exactly like a misconfigured one.
-      - "${PROXY_BIND:-0.0.0.0}:${PROXY_STANDBY_PORT:-25566}:25565/udp"
+    # NO PUBLISHED PORTS EITHER, for the same reason and with one addition (season-2-ops/162): the
+    # standby is reached from outside on ${PROXY_STANDBY_PORT} because that is the number the live
+    # proxy names to a client it transfers - and that number is now the guard's, forwarded here with
+    # a PROXY header. Everything below this line is the reading of what it used to publish, kept
+    # because it is still the truth about voice:
+    #
+    # VOICE CHAT DOES NOT REACH THIS PROXY. voicechat-proxy.properties ships `port: -1`, so the
+    # plugin binds whatever port Velocity bound - 25565, in here - and hands the CLIENT that same
+    # number. On the live proxy host and container port are equal and that works; here they cannot
+    # be, so a client transferred here is told to send audio to <host>:25565. During the window that
+    # is the guard, which hands UDP to whichever proxy is answering - so it lands on the standby
+    # exactly while the live proxy is down, and on the live proxy the moment it is back. Nobody
+    # loses their session over the seconds in between, and making it exact needs `voice_host` in
+    # this volume's plugins/voicechat/voicechat-proxy.properties, a file nothing here writes.
     volumes:
       - ${PROXY_STANDBY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby}:/data
       # plugins/ in its own directory, as everywhere else here - and this is the one steward-worker
@@ -1183,10 +1179,24 @@ services:
   # (checked 2026-09-12); 80 is not decoration, it is how the HTTP-01 challenge is answered and how
   # a browser typing the bare name is redirected.
   caddy:
-    profiles: ["steward"]
-    image: ${CADDY_IMAGE:-caddy:2-alpine}
+    # TWO PROFILES SINCE season-2-ops/162, AND THE SECOND ONE IS THE GAME PORT. This container is no
+    # longer only the way to the interface: it is the guard in front of 25565, so a selection that
+    # runs the network without it runs a network nobody can reach. `mc` is therefore not a
+    # convenience here - it is what keeps `db,bot,mc,backup` a complete deployment.
+    #
+    # AND IT IS IN NO PROFILE AN UPDATE RUN TOUCHES, which is the other half of the same ticket. A
+    # run stops services by name out of Topology.SERVICES, and this one is not in it - a guard that
+    # restarted with the proxy would have moved the dead port rather than closed it.
+    profiles: ["steward", "mc"]
+    build:
+      # Caddy with the layer 4 app built in - see deploy/caddy/Dockerfile for why that cannot be a
+      # plugin dropped into the stock image. No build args, like every other build block here.
+      context: ./deploy/caddy
+    image: ${CADDY_IMAGE:-ghcr.io/nordtal/caddy:latest}
     restart: unless-stopped
-    networks: ["steward"]
+    # BOTH NETWORKS, because this container now has a foot in each: `steward` for the interface it
+    # has always fronted, `default` for the two proxies it hands Minecraft connections to.
+    networks: ["steward", "default"]
     # NO depends_on, deliberately. A reverse proxy that will not start because its upstream is
     # unhealthy is a host that answers nothing at all - not even the 502 that would say which half
     # is broken. Caddy retries the upstream by itself on every request.
@@ -1196,6 +1206,20 @@ services:
       # HTTP/3. Caddy advertises it in Alt-Svc whether or not this is published, so leaving it out
       # is a browser trying a port nothing listens on and falling back a moment later.
       - "${CADDY_BIND:-0.0.0.0}:443:443/udp"
+      # THE GAME PORT, AND IT IS PUBLISHED HERE AND NOWHERE ELSE (season-2-ops/162). Neither proxy
+      # publishes anything any more: they are reached through the layer4 routes in the `caddyfile`
+      # config below, which is what lets a connection arriving during a proxy restart be handed to
+      # the standby instead of refused. 26 seconds of that, measured in run 73.
+      - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
+      # Voice is UDP on the same number and goes the same way. Read the long note at the standby's
+      # old port block for what it costs today; the guard does not make it worse and makes the
+      # window itself shorter.
+      - "${PROXY_BIND:-0.0.0.0}:25565:25565/udp"
+      # THE STANDBY'S PORT, for the same reason and not for symmetry: a player the live proxy
+      # transfers is told to connect to this number himself, and with the PROXY protocol turned on
+      # in velocity.toml a connection that did not come through here is one the standby drops.
+      - "${PROXY_BIND:-0.0.0.0}:${PROXY_STANDBY_PORT:-25566}:25566"
+      - "${PROXY_BIND:-0.0.0.0}:${PROXY_STANDBY_PORT:-25566}:25566/udp"
     configs:
       - source: caddyfile
         target: /etc/caddy/Caddyfile
@@ -1222,6 +1246,76 @@ configs:
     content: |
       {
       	email ${STEWARD_ACME_EMAIL:?set STEWARD_ACME_EMAIL in .env - where Let's Encrypt sends expiry warnings}
+
+      	# THE GUARD IN FRONT OF 25565 (season-2-ops/162). Everything else in this file is HTTP;
+      	# this app is not, which is why the image is built rather than pulled - see
+      	# deploy/caddy/Dockerfile.
+      	#
+      	# WHAT IT IS FOR: from SIGTERM to the moment the new Velocity listens, there is no proxy.
+      	# Run 73 measured 26 seconds of it, and in those seconds the standby is up, healthy, and
+      	# unreachable. `lb_policy first` means the live proxy is always preferred and the standby
+      	# is only ever the answer when the live one does not take the connection.
+      	#
+      	# THE UPSTREAMS ARE NAMES AND ARE RESOLVED PER CONNECTION, which is what makes this work at
+      	# all: a stopped container is gone from Docker's DNS, so the dial fails outright rather
+      	# than hanging, and the next upstream is tried inside lb_try_duration.
+      	#
+      	# proxy_protocol v2 IS NOT OPTIONAL HERE. Behind a layer 4 proxy Velocity sees this
+      	# container's address for every player; the header carries the real one, and
+      	# `haproxy-protocol = true` in velocity.toml is the other half - compose.yml sets
+      	# VELOCITY_HAPROXY beside the proxies and the entrypoint writes it. Changing one without
+      	# the other is a network that answers nobody.
+      	layer4 {
+      		0.0.0.0:25565 {
+      			route {
+      				proxy {
+      					lb_policy first
+      					lb_try_duration 5s
+      					lb_try_interval 250ms
+      					fail_duration 10s
+      					proxy_protocol v2
+      					upstream proxy:25565
+      					upstream proxy-standby:25565
+      				}
+      			}
+      		}
+
+      		# Voice, which is UDP and speaks no PROXY protocol - Simple Voice Chat would read the
+      		# header as audio. The failover is the same and the reason is better: the standby's
+      		# voice plugin tells a transferred client to send audio to <host>:25565, which is this
+      		# listener, and while the live proxy is down that is exactly where it should go.
+      		udp/0.0.0.0:25565 {
+      			route {
+      				proxy {
+      					lb_policy first
+      					lb_try_duration 5s
+      					fail_duration 10s
+      					upstream proxy:25565
+      					upstream proxy-standby:25565
+      				}
+      			}
+      		}
+
+      		# The standby's own number, the one a transfer names to the client. One upstream and no
+      		# failover: a player sent to the standby is being sent AWAY from the live proxy, so
+      		# handing him back to it would undo the move he is in the middle of.
+      		0.0.0.0:25566 {
+      			route {
+      				proxy {
+      					proxy_protocol v2
+      					upstream proxy-standby:25565
+      				}
+      			}
+      		}
+
+      		udp/0.0.0.0:25566 {
+      			route {
+      				proxy {
+      					upstream proxy-standby:25565
+      				}
+      			}
+      		}
+      	}
       }
 
       ${STEWARD_HOST} {

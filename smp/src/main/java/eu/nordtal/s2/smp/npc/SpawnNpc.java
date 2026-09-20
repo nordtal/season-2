@@ -69,7 +69,7 @@ public final class SpawnNpc {
             }
             // Mannequin.defaultDescription() is the literal English word "NPC", drawn as a second
             // smaller line, so leaving it alone labels the figure twice in one language.
-            mannequin.setDescription(Component.empty());
+            mannequin.setDescription(null);
             applySkin(mannequin, spec.skinName());
         });
         spawned = figure.getUniqueId();

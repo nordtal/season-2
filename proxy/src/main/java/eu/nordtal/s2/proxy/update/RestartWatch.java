@@ -105,6 +105,14 @@ public final class RestartWatch {
      */
     private volatile RunShape shape = RunShape.of(UpdateKind.RESTART, Set.of(), true, false);
 
+    /**
+     * Whether the one sentence about voice chat has been said for this countdown.
+     *
+     * <p>Once and on the first chat line, not on every one: it is a note about a side effect, and a
+     * note repeated four times reads as the main event (season-2-ops/132).</p>
+     */
+    private volatile boolean saidVoice;
+
     /** When to speak and what to say. All the rules are in there; none of them are here. */
     private final Countdown countdown = new Countdown();
 
@@ -216,6 +224,7 @@ public final class RestartWatch {
             // ONCE PER COUNTDOWN AND NOT PER BEAT (season-2-ops/118): it parses the report and
             // opens a socket, and every beat of one countdown has to say the same thing anyway.
             shape = shapeOf(request);
+            saidVoice = false;
             logger.info("Telling {} player(s) about the {} asked for by {} ({}): {} beat(s) over"
                             + " {} - {} on {}, waiting room {}, standby proxy {}",
                     proxy.getPlayerCount(), request.kind(), request.requestedBy(), request.source(),
@@ -354,6 +363,15 @@ public final class RestartWatch {
                         fateOf(current, player), "seconds", announcement.seconds())));
                 title(locale -> MessageRenderer.of(messages)
                         .format(locale, "restart.tick", "seconds", announcement.seconds()));
+                if (!saidVoice) {
+                    saidVoice = true;
+                    each((player, locale) -> {
+                        if (losesVoice(current, player)) {
+                            player.sendMessage(MessageRenderer.of(messages)
+                                    .get(locale, "restart.voice"));
+                        }
+                    });
+                }
             }
             case NOW -> {
                 each((player, locale) -> player.sendMessage(line(locale, current,
@@ -393,6 +411,17 @@ public final class RestartWatch {
         }
         return head.append(Component.space())
                 .append(MessageRenderer.of(messages).get(locale, "restart.fate." + key(fate)));
+    }
+
+    /**
+     * Whether this player is about to lose voice chat - the rule is {@link RunShape#losesVoice},
+     * and this is the half of it that needs a Velocity connection to answer.
+     */
+    private boolean losesVoice(final RunShape current, final Player player) {
+        final String on = player.getCurrentServer()
+                .map(connection -> connection.getServerInfo().getName())
+                .orElse(null);
+        return RunShape.losesVoice(current.fateFor(on), servers.isWaitingRoom(on));
     }
 
     /** What is about to happen to this player, from where they are standing right now. */

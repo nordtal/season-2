@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -123,6 +125,40 @@ class RunShapeTest {
         assertEquals(RunShape.Fate.NOTHING, shape.fateFor("smp"));
     }
 
+    // ------------------------------------------------------------------ the voice hint
+
+    @Test
+    @DisplayName("only somebody playing through the swap is told that voice drops out")
+    void theVoiceHintHasTwoConditions() {
+        // Till, 2026-09-20 (season-2-ops/136, decided into 132): "a hint before the process starts
+        // should really only come in the case where players are on the SMP via proxy-standby. If
+        // the players are waiting in the limbo anyway, no message is needed."
+        assertTrue(RunShape.losesVoice(RunShape.Fate.RECONNECT, false));
+        assertFalse(RunShape.losesVoice(RunShape.Fate.RECONNECT, true),
+                "the waiting room has neither voice nor chat, so this would be noise there");
+
+        // The other three fates are not a swap seen from a player's seat. Being disconnected is
+        // losing voice the way losing everything is: the countdown has already said so.
+        assertFalse(RunShape.losesVoice(RunShape.Fate.NOTHING, false));
+        assertFalse(RunShape.losesVoice(RunShape.Fate.WAITING_ROOM, false));
+        assertFalse(RunShape.losesVoice(RunShape.Fate.DISCONNECT, false));
+    }
+
+    @Test
+    @DisplayName("the hint is said once per countdown, not once per chat line")
+    void theHintIsSaidOnce() throws IOException {
+        // A source rule, for the same reason CountdownTest has one: how often something is said
+        // sits a line above anything a test without a proxy, a roster and a locale can reach. With
+        // sixty seconds of warning there are three chat lines, and a note about a side effect
+        // repeated three times reads as the main event.
+        final String source = Files.readString(
+                Path.of("src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
+        assertTrue(source.contains("if (!saidVoice) {"),
+                "the hint no longer has a guard, so it is said on every chat line: " + source);
+        assertTrue(source.contains("saidVoice = false;"),
+                "nothing resets the guard, so the second run of a session says nothing at all");
+    }
+
     // ------------------------------------------------------------------ the lines
 
     @Test
@@ -176,6 +212,18 @@ class RunShapeTest {
             assertTrue(english.containsKey(key), "no English line for " + key);
             assertTrue(german.containsKey(key), "no German line for " + key);
         }
+    }
+
+    @Test
+    @DisplayName("the voice hint exists in both languages and promises no duration")
+    void theVoiceLineIsThere() throws IOException {
+        final Properties english = load("en");
+        final Properties german = load("de");
+
+        assertTrue(english.containsKey("restart.voice"), "no English line for restart.voice");
+        assertTrue(german.containsKey("restart.voice"), "no German line for restart.voice");
+        assertFalse(english.getProperty("restart.voice").contains("{"),
+                "the hint takes no placeholder: this proxy knows no number to put in one");
     }
 
     @Test

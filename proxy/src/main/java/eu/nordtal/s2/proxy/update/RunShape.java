@@ -155,6 +155,25 @@ public record RunShape(Occasion occasion,
     }
 
     /**
+     * Whether this player loses voice chat to the run, which is worth one sentence and only then
+     * (season-2-ops/132, from Till's answer in season-2-ops/136).
+     *
+     * <p>Till, 2026-09-20: <i>a hint before the process starts should really only come in the case
+     * where players are on the SMP via proxy-standby. If the players are waiting in the limbo
+     * anyway, no message is needed.</i> Both halves are in the two arguments. {@link Fate#RECONNECT}
+     * is the proxy swap seen from a player's seat - they are handed to another proxy and back, and
+     * Simple Voice Chat does not survive that - and a waiting room has neither voice nor text chat
+     * (season-2-ops/141), so telling somebody sitting in one that voice is about to stop is a
+     * sentence about something they do not have.</p>
+     *
+     * @param fate          what is about to happen to them
+     * @param inWaitingRoom whether they are standing in a waiting room right now
+     */
+    public static boolean losesVoice(final Fate fate, final boolean inWaitingRoom) {
+        return fate == Fate.RECONNECT && !inWaitingRoom;
+    }
+
+    /**
      * @return whether this run touches anybody at all. A run that moves neither a backend anybody
      *         is on nor this proxy is one the network never needs to hear about
      */

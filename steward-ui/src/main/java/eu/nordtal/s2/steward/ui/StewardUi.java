@@ -31,6 +31,7 @@ import io.javalin.http.Context;
 import io.javalin.http.Cookie;
 import io.javalin.http.SameSite;
 import io.javalin.http.BadRequestResponse;
+import io.javalin.http.ConflictResponse;
 import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.InternalServerErrorResponse;
 import io.javalin.http.NotFoundResponse;
@@ -776,6 +777,36 @@ public final class StewardUi {
                         ask.services == null || ask.services.isEmpty() ? ""
                                 : " for " + String.join(", ", ask.services));
                 ctx.status(202).json(describe(written));
+            }, Gate.KEY_FRESH);
+
+            // Taking it back (steward/131). The only thing `/update` in Discord could do that this
+            // interface could not - and the one moment somebody needs it is the one right after
+            // they notice they pressed the wrong button.
+            //
+            // The whole mechanism is one statement in :common: `cancelCountdown` takes the earliest
+            // row that is PENDING or RUNNING with `not_before` still in the future, which covers
+            // both the countdown that is running now and the run somebody scheduled for tonight.
+            // An empty answer is not an error in this process - it means the countdown reached zero
+            // while the request was in flight, and "too late" is exactly the sentence the admin
+            // needs instead of a claim that something was stopped.
+            cfg.routes.post("/api/updates/cancel", ctx -> {
+                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                final var cancelled = data.updates()
+                        .cancelCountdown("Cancelled in Steward by " + who.name()
+                                + " (" + who.id() + ")");
+                if (cancelled.isEmpty()) {
+                    throw new ConflictResponse("too late - the countdown has already run out");
+                }
+                // The actor is the Discord id and never the composed "name (id)":
+                // `audit_log.actor` is varchar(32) and a display name of eleven characters was
+                // enough to overflow it once already, taking the write it was recording with it.
+                data.audit().record("CANCEL_RUN", who.id(),
+                        String.valueOf(cancelled.get().id()), null,
+                        cancelled.get().kind() + " request " + cancelled.get().id()
+                                + " cancelled by " + who.name() + " from the web interface");
+                log.info("{} cancelled {} request {}", who.name(), cancelled.get().kind(),
+                        cancelled.get().id());
+                ctx.json(describe(cancelled.get()));
             }, Gate.KEY_FRESH);
 
             // --- the thresholds the start page judges by ---------------------------------------

@@ -13,6 +13,7 @@ import {
   ShieldWarningIcon,
   StopIcon,
   WarningIcon,
+  XCircleIcon,
 } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
 import { cn } from "cn"
@@ -36,6 +37,7 @@ import {
 import {
   useAskForRun,
   useAvailable,
+  useCancelRun,
   useBackups,
   useHost,
   useRefreshAvailable,
@@ -241,6 +243,37 @@ function runSeconds(run: Run): number | null {
   const finished = parseInstant(run.finished)
   return ((finished ?? new Date()).getTime() - started.getTime()) / 1000
 }
+
+/**
+ * Whether this row is one the backend would still take back (steward/131).
+ *
+ * THE SAME CONDITION AS THE SQL, and it has to stay that way: `UpdateDirectory#cancelCountdown`
+ * takes `status IN ('PENDING','RUNNING') AND kind IN ('RESTART','UPDATE','BACKUP','DOWN') AND
+ * not_before > now()`. A button drawn under any wider rule is a button that answers "too late" -
+ * which is honest, but it is a tap somebody made for nothing.
+ *
+ * The moment is the row's own `not_before`, not its age: a run entered for tonight sits PENDING
+ * for hours and is cancellable the whole time, while one whose countdown has run out is RUNNING
+ * with its moment in the past and is not. Those two look the same in every other column.
+ *
+ * `now` is a parameter because this is the piece with arithmetic in it and the page has to draw
+ * the same answer as the backend a second later.
+ */
+export function cancellable(run: Run, now = new Date()): boolean {
+  if (run.status !== "PENDING" && run.status !== "RUNNING") return false
+  if (!CANCELLABLE_KINDS.has(run.kind)) return false
+  const moment = parseInstant(run.notBefore)
+  return moment !== null && moment.getTime() > now.getTime()
+}
+
+/**
+ * The kinds a countdown is run for, and therefore the only ones there is a window to cancel in.
+ *
+ * REPORT and START stop nothing and are over before anybody could press anything; APPLY was
+ * retired. The worker's SQL lists these four by name, so this list is a mirror rather than a
+ * judgement - if one is ever added there, it is added here.
+ */
+const CANCELLABLE_KINDS = new Set(["RESTART", "UPDATE", "BACKUP", "DOWN"])
 
 /**
  * What a run did, one fact per line in the table's Result cell.
@@ -458,9 +491,13 @@ export function AskButton({
         {/*
           WHAT THIS DIALOG USED TO ALSO SAY, and what is still true (2026-09-14): the button only
           writes a row into `update_request`; steward-worker picks it up once its moment has come
-          and runs a countdown every player sees before each stop. And there is no cancel button
-          here, because the API so far knows only entering a run and reading one. Both are the
-          mechanism explaining itself to somebody who has already decided, so neither is on screen.
+          and runs a countdown every player sees before each stop. That is the mechanism explaining
+          itself to somebody who has already decided, so it is not on screen.
+
+          It also used to say there was no way back, which stopped being true on 2026-09-20
+          (steward/131): the row this writes carries a Cancel beside its status in the Runs card for
+          as long as `not_before` is still ahead - the countdown and the run entered for tonight
+          alike. Not named here either, for the same reason: it is next to the row, where it counts.
         */}
         <div className="flex flex-col gap-3 text-sm">
           {/*
@@ -722,6 +759,49 @@ function HostCard() {
 /** Eight absent runs: shorter than the twenty asked for, and taller than the card ever needs. */
 const WAITING_RUNS = Array.from({ length: 8 }, () => undefined)
 
+/**
+ * Taking a run back, on the row it belongs to (steward/131).
+ *
+ * **No confirmation in front of it.** Every other button on this page opens a dialog because every
+ * other button starts something; this one undoes what a dialog already asked about. A second "are
+ * you sure" in front of an undo is a countdown running out while somebody reads it.
+ *
+ * It sits beside the status badge rather than in a column of its own: the button is only there for
+ * one row at a time, and an eighth column would be an empty cell on every other row - which on a
+ * phone, where each row is a card and a cell is a line, is seven blank lines.
+ *
+ * The 409 is a normal answer, not a failure of this interface: between the tap and the request the
+ * countdown can run out, and then nothing was cancelled and nothing was broken either. The backend
+ * sends the sentence; it is shown as it came.
+ */
+function CancelButton({ run }: { run: Run }) {
+  const cancel = useCancelRun()
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={cancel.isPending}
+      onClick={() =>
+        cancel.mutate(undefined, {
+          onSuccess: (cancelled) => {
+            toast.success(`Run #${cancelled.id} cancelled`, {
+              description: "Nothing was stopped. The row is CANCELLED and names who took it back.",
+            })
+          },
+          onError: (error) => {
+            toast.error(`Run #${run.id} was not cancelled`, { description: String(error.message) })
+          },
+        })
+      }
+    >
+      <XCircleIcon aria-hidden />
+      Cancel
+    </Button>
+  )
+}
+
 function RunsCard() {
   const runs = useRuns(20)
 
@@ -794,6 +874,7 @@ function RunsCard() {
                           {run.report && ENDINGS.has(run.report.stage) === false ? (
                             <StageBadge stage={run.report.stage} />
                           ) : null}
+                          {cancellable(run) ? <CancelButton run={run} /> : null}
                         </div>
                       ) : (
                         <Skeleton className="h-5 w-20 rounded-full" />

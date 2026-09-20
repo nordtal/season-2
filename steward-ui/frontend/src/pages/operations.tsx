@@ -212,13 +212,40 @@ function Change({ change }: { change: ReportChange }) {
       <code className="text-xs">{change.artefact}</code>
       {change.from ? (
         <>
-          <span className="text-muted-foreground tnum">{change.from}</span>
+          <Was value={change.from} />
           <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
         </>
       ) : (
         <span className="text-muted-foreground">new:</span>
       )}
       <span className="tnum">{change.to}</span>
+    </span>
+  )
+}
+
+/**
+ * A fingerprint rather than a version: forty hex characters and nothing else.
+ *
+ * The resource pack is the artefact this exists for (season-2-ops/142). It has no version - its
+ * hash IS its version, as the ticket puts it - so the worker reports the SHA-1 that was installed
+ * before the run, and forty characters of it used to sit in the middle of a table cell on a phone.
+ */
+const FINGERPRINT = /^[0-9a-f]{32,64}$/i
+
+/**
+ * What was there before this change: a version, or the first eight characters of a fingerprint.
+ *
+ * Shortened rather than dropped. Which pack was on the proxy is the one fact a report can offer
+ * about a pack, and it is what tells two runs of the same release apart; the whole hash is on the
+ * title, where somebody comparing it against `pack.yml` can still reach it.
+ */
+function Was({ value }: { value: string }) {
+  if (!FINGERPRINT.test(value)) {
+    return <span className="text-muted-foreground tnum">{value}</span>
+  }
+  return (
+    <span className="font-mono text-xs text-muted-foreground" title={value}>
+      {value.slice(0, 8)}
     </span>
   )
 }

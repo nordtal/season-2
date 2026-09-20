@@ -27,6 +27,16 @@
  * A pair that does not come apart cleanly - no digit in a remainder, an empty one, or two names
  * that are the same - is answered with `exact: false` and the filename, which is the ticket's own
  * fallback: visible as a stopgap rather than dressed up as a version.
+ *
+ * And the two names have to **start** alike. Without that rule the resource pack - whose installed
+ * side is a SHA-1 and whose wanted side is a zip's name - comes apart into "the whole hash" and
+ * "the whole filename", both of which contain a digit, and is drawn as a version jump. Two names
+ * that share no first character are not two builds of one artefact.
+ *
+ * <h2>Its twin in the worker</h2>
+ * `steward-worker`'s `VersionPair` is the same rule in Java, for the report - which is what
+ * Discord, the chat follower and a run's own page draw. The two are deliberate copies of one rule
+ * and both carry the `packetevents-spigot-2.13.0.jar` case; a change to either is a change to both.
  */
 export type Jump = {
   /** What is installed: a version when the pair came apart, the filename when it did not. */
@@ -64,6 +74,8 @@ function split(left: string, right: string): [string, string] | null {
   while (head < left.length && head < right.length && left[head] === right[head]) head += 1
   // Back out of any number the prefix ended inside, so `…-1.` gives the `1.` back to the version.
   while (head > 0 && INSIDE_A_NUMBER.test(left[head - 1])) head -= 1
+  // Nothing in common at the front: a hash against a filename, or a publisher who renamed the jar.
+  if (head === 0) return null
 
   let tail = 0
   while (

@@ -5,15 +5,15 @@ import type { AdminCommand } from "@/lib/api"
 import { useAdminCommand, useCommandRun } from "@/lib/queries"
 import { Outcome } from "@/components/steward/command-card"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+  ResponsiveAlertDialog,
+  ResponsiveAlertDialogAction,
+  ResponsiveAlertDialogCancel,
+  ResponsiveAlertDialogContent,
+  ResponsiveAlertDialogDescription,
+  ResponsiveAlertDialogFooter,
+  ResponsiveAlertDialogHeader,
+  ResponsiveAlertDialogTitle,
+} from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
 import { Failure } from "@/components/steward/query-state"
 
@@ -113,16 +113,16 @@ export function InlineCommandAction({
         <Outcome run={run.data} />
       ) : null}
 
-      <AlertDialog open={showing} onOpenChange={setShowing}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{label}?</AlertDialogTitle>
-            <AlertDialogDescription>{confirmDescription}</AlertDialogDescription>
-          </AlertDialogHeader>
+      <ResponsiveAlertDialog open={showing} onOpenChange={setShowing}>
+        <ResponsiveAlertDialogContent>
+          <ResponsiveAlertDialogHeader>
+            <ResponsiveAlertDialogTitle>{label}?</ResponsiveAlertDialogTitle>
+            <ResponsiveAlertDialogDescription>{confirmDescription}</ResponsiveAlertDialogDescription>
+          </ResponsiveAlertDialogHeader>
           {ask.error ? <Failure error={ask.error} /> : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={ask.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+          <ResponsiveAlertDialogFooter>
+            <ResponsiveAlertDialogCancel disabled={ask.isPending}>Cancel</ResponsiveAlertDialogCancel>
+            <ResponsiveAlertDialogAction
               variant="destructive"
               disabled={ask.isPending}
               onClick={(event) => {
@@ -131,10 +131,10 @@ export function InlineCommandAction({
               }}
             >
               {label}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </ResponsiveAlertDialogAction>
+          </ResponsiveAlertDialogFooter>
+        </ResponsiveAlertDialogContent>
+      </ResponsiveAlertDialog>
     </>
   )
 }

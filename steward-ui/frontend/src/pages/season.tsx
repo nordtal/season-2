@@ -11,15 +11,15 @@ import { PageHeader } from "@/components/steward/page-header"
 import { Failure, QueryState } from "@/components/steward/query-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+  ResponsiveAlertDialog,
+  ResponsiveAlertDialogAction,
+  ResponsiveAlertDialogCancel,
+  ResponsiveAlertDialogContent,
+  ResponsiveAlertDialogDescription,
+  ResponsiveAlertDialogFooter,
+  ResponsiveAlertDialogHeader,
+  ResponsiveAlertDialogTitle,
+} from "@/components/ui/responsive-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -156,7 +156,7 @@ function PhaseCard({ season }: { season: Season }) {
         sentence left in the field is not a harmless leftover: the next confirmation sends it, and
         the journal then records the reason for a phase change that nobody gave it.
       */}
-      <AlertDialog
+      <ResponsiveAlertDialog
         open={asked !== null}
         onOpenChange={(open) => {
           if (open) return
@@ -164,16 +164,16 @@ function PhaseCard({ season }: { season: Season }) {
           setReason("")
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
+        <ResponsiveAlertDialogContent>
+          <ResponsiveAlertDialogHeader>
+            <ResponsiveAlertDialogTitle>
               Switch the phase to "{PHASES.find((phase) => phase.name === asked)?.label}"?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
+            </ResponsiveAlertDialogTitle>
+            <ResponsiveAlertDialogDescription>
               {PHASES.find((phase) => phase.name === asked)?.who} The change applies from the next
               join - players already on the network are not moved.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+            </ResponsiveAlertDialogDescription>
+          </ResponsiveAlertDialogHeader>
           <div className="flex flex-col gap-2">
             <Label htmlFor="phase-reason">Reason</Label>
             <Input
@@ -188,9 +188,9 @@ function PhaseCard({ season }: { season: Season }) {
             </p>
           </div>
           {change.error ? <Failure error={change.error} /> : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={change.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+          <ResponsiveAlertDialogFooter>
+            <ResponsiveAlertDialogCancel disabled={change.isPending}>Cancel</ResponsiveAlertDialogCancel>
+            <ResponsiveAlertDialogAction
               onClick={(event) => {
                 event.preventDefault()
                 confirm()
@@ -198,10 +198,10 @@ function PhaseCard({ season }: { season: Season }) {
               disabled={change.isPending}
             >
               {change.isPending ? "Switching…" : "Switch"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </ResponsiveAlertDialogAction>
+          </ResponsiveAlertDialogFooter>
+        </ResponsiveAlertDialogContent>
+      </ResponsiveAlertDialog>
     </Card>
   )
 }

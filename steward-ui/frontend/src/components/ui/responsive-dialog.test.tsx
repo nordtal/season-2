@@ -1,7 +1,14 @@
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
+  ResponsiveAlertDialog,
+  ResponsiveAlertDialogAction,
+  ResponsiveAlertDialogCancel,
+  ResponsiveAlertDialogContent,
+  ResponsiveAlertDialogFooter,
+  ResponsiveAlertDialogHeader,
+  ResponsiveAlertDialogTitle,
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogHeader,
@@ -64,5 +71,71 @@ describe("one dialog, two shapes", () => {
 
     window.innerWidth = 1024
     expect(draw().getAttribute("data-slot")).toBe("dialog-title")
+  })
+})
+
+function drawConfirmation(onConfirm: () => void) {
+  render(
+    <ResponsiveAlertDialog open>
+      <ResponsiveAlertDialogContent>
+        <ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogTitle>Delete it</ResponsiveAlertDialogTitle>
+        </ResponsiveAlertDialogHeader>
+        <ResponsiveAlertDialogFooter>
+          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
+          <ResponsiveAlertDialogAction onClick={onConfirm}>
+            Delete
+          </ResponsiveAlertDialogAction>
+        </ResponsiveAlertDialogFooter>
+      </ResponsiveAlertDialogContent>
+    </ResponsiveAlertDialog>,
+  )
+  return screen.getByText("Delete it")
+}
+
+/**
+ * steward/128: the confirmation switches over too, and that was the exception steward/98 named.
+ *
+ * The reason it was an exception was that a sheet can be flicked away and a confirmation has to be
+ * answered. Till, 2026-09-20: flicking it away IS an answer, and the same one a click on the
+ * overlay already gave. So there is nothing here asserting that it cannot be dismissed - that would
+ * be the old decision written as a test.
+ */
+describe("the confirmation takes both shapes as well", () => {
+  it("is an alert dialog on a desktop", () => {
+    window.innerWidth = 1024
+    const title = drawConfirmation(() => {})
+
+    expect(title.closest("[data-slot='alert-dialog-content']")).not.toBeNull()
+    expect(title.closest("[data-slot='drawer-content']")).toBeNull()
+  })
+
+  it("is a bottom sheet on a phone", () => {
+    window.innerWidth = 390
+    const title = drawConfirmation(() => {})
+
+    expect(title.closest("[data-slot='drawer-content']")).not.toBeNull()
+    expect(title.closest("[data-slot='alert-dialog-content']")).toBeNull()
+  })
+
+  it("still runs the action on a phone, which is the whole point of converting it", () => {
+    window.innerWidth = 390
+    let confirmed = 0
+    drawConfirmation(() => { confirmed += 1 })
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+
+    expect(confirmed).toBe(1)
+  })
+
+  it("keeps both buttons buttons in both shapes", () => {
+    window.innerWidth = 390
+    drawConfirmation(() => {})
+    expect(screen.getByRole("button", { name: "Cancel" })).not.toBeNull()
+    cleanup()
+
+    window.innerWidth = 1024
+    drawConfirmation(() => {})
+    expect(screen.getByRole("button", { name: "Cancel" })).not.toBeNull()
   })
 })

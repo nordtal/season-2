@@ -12,16 +12,14 @@ import { relative } from "@/lib/format"
 import { useRegisterKey, useRemoveKey, useRenameKey } from "@/lib/queries"
 import { Button } from "@/components/ui/button"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import {
+  ResponsiveAlertDialog,
+  ResponsiveAlertDialogAction,
+  ResponsiveAlertDialogCancel,
+  ResponsiveAlertDialogContent,
+  ResponsiveAlertDialogDescription,
+  ResponsiveAlertDialogFooter,
+  ResponsiveAlertDialogHeader,
+  ResponsiveAlertDialogTitle,
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
@@ -295,24 +293,24 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
         puts this account back at the setup page, which is recoverable - but removing the wrong one
         of two is not, and the two look identical until the name is read.
       */}
-      <AlertDialog
+      <ResponsiveAlertDialog
         open={state.removing !== null}
         onOpenChange={(open) => open || state.closeRemoving()}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove “{state.removing?.label}”?</AlertDialogTitle>
-            <AlertDialogDescription>
+        <ResponsiveAlertDialogContent>
+          <ResponsiveAlertDialogHeader>
+            <ResponsiveAlertDialogTitle>Remove “{state.removing?.label}”?</ResponsiveAlertDialogTitle>
+            <ResponsiveAlertDialogDescription>
               {state.keys.length === 1
                 ? "It is the only key on this account. Removing it sends you back to the setup"
                   + " page, where you register a new one - you are not locked out, but you will"
                   + " need an authenticator to hand before you can use Steward again."
                 : "The other keys on this account keep working. This one stops."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
-            <AlertDialogAction
+            </ResponsiveAlertDialogDescription>
+          </ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogFooter>
+            <ResponsiveAlertDialogCancel>Keep it</ResponsiveAlertDialogCancel>
+            <ResponsiveAlertDialogAction
               onClick={() => {
                 const key = state.removing
                 if (key) remove.mutate(key.id)
@@ -320,10 +318,10 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
               }}
             >
               Remove it
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </ResponsiveAlertDialogAction>
+          </ResponsiveAlertDialogFooter>
+        </ResponsiveAlertDialogContent>
+      </ResponsiveAlertDialog>
     </>
   )
 }

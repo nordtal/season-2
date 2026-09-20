@@ -36,16 +36,21 @@ import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
 import { Empty, Failure, Loading, QueryState } from "@/components/steward/query-state"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+  ResponsiveAlertDialog,
+  ResponsiveAlertDialogAction,
+  ResponsiveAlertDialogCancel,
+  ResponsiveAlertDialogContent,
+  ResponsiveAlertDialogDescription,
+  ResponsiveAlertDialogFooter,
+  ResponsiveAlertDialogHeader,
+  ResponsiveAlertDialogTitle,
+  ResponsiveAlertDialogTrigger,
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -53,13 +58,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogDescription,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-} from "@/components/ui/responsive-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -805,24 +803,24 @@ function GrantDialog({
   const usable = discordId.trim().length > 0 && Number.isFinite(parsedDays) && parsedDays > 0
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
       {open === undefined ? (
-        <AlertDialogTrigger asChild>
+        <ResponsiveAlertDialogTrigger asChild>
           <Button type="button">
             <UserPlusIcon aria-hidden />
             Grant access
           </Button>
-        </AlertDialogTrigger>
+        </ResponsiveAlertDialogTrigger>
       ) : null}
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Grant access by hand</AlertDialogTitle>
-          <AlertDialogDescription>
+      <ResponsiveAlertDialogContent>
+        <ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogTitle>Grant access by hand</ResponsiveAlertDialogTitle>
+          <ResponsiveAlertDialogDescription>
             Writes a period with the source <code className="text-xs">ADMIN</code> - no payment, no
             bunq tab. The person may then join the server as soon as their Minecraft account is
             linked.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          </ResponsiveAlertDialogDescription>
+        </ResponsiveAlertDialogHeader>
 
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
@@ -866,9 +864,9 @@ function GrantDialog({
           </ul>
         </div>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+        <ResponsiveAlertDialogFooter>
+          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
+          <ResponsiveAlertDialogAction
             disabled={!usable || grant.isPending}
             onClick={() => {
               grant.mutate(
@@ -896,10 +894,10 @@ function GrantDialog({
             }}
           >
             Grant
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </ResponsiveAlertDialogAction>
+        </ResponsiveAlertDialogFooter>
+      </ResponsiveAlertDialogContent>
+    </ResponsiveAlertDialog>
   )
 }
 
@@ -942,15 +940,15 @@ function PlaytimeDialog({
   const seconds = Math.round(parsed * 3600)
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Set play time</AlertDialogTitle>
-          <AlertDialogDescription>
+    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveAlertDialogContent>
+        <ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogTitle>Set play time</ResponsiveAlertDialogTitle>
+          <ResponsiveAlertDialogDescription>
             Replaces the counted total for {personName(person)}. The prestige tier follows from it,
             and there is nothing else to set.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          </ResponsiveAlertDialogDescription>
+        </ResponsiveAlertDialogHeader>
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="playtime-hours">Hours</Label>
@@ -969,9 +967,9 @@ function PlaytimeDialog({
           </p>
         </div>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+        <ResponsiveAlertDialogFooter>
+          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
+          <ResponsiveAlertDialogAction
             disabled={!usable || write.isPending}
             onClick={() => {
               write.mutate(
@@ -990,10 +988,10 @@ function PlaytimeDialog({
             }}
           >
             Save
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </ResponsiveAlertDialogAction>
+        </ResponsiveAlertDialogFooter>
+      </ResponsiveAlertDialogContent>
+    </ResponsiveAlertDialog>
   )
 }
 
@@ -1008,7 +1006,7 @@ function PlaytimeDialog({
  * Revoking, from the table row or from the opened person.
  *
  * Till asked for both doors (2026-09-13). They are not nested: the button inside the person dialog
- * CLOSES that dialog and opens this one at page level, because an AlertDialog inside an open
+ * CLOSES that dialog and opens this one at page level, because an ResponsiveAlertDialog inside an open
  * ResponsiveDialog is two focus traps on one screen, and which of them gets the keyboard back afterwards is
  * not something anybody here can verify without a browser.
  *
@@ -1026,23 +1024,23 @@ function RevokeDialog({
   const revoke = useRevokeAccess()
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
       {open === undefined ? (
-        <AlertDialogTrigger asChild>
+        <ResponsiveAlertDialogTrigger asChild>
           <Button type="button" variant="ghost" size="sm" className="text-destructive">
             <ShieldSlashIcon aria-hidden />
             Revoke
           </Button>
-        </AlertDialogTrigger>
+        </ResponsiveAlertDialogTrigger>
       ) : null}
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Revoke access?</AlertDialogTitle>
-          <AlertDialogDescription>
+      <ResponsiveAlertDialogContent>
+        <ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogTitle>Revoke access?</ResponsiveAlertDialogTitle>
+          <ResponsiveAlertDialogDescription>
             What is revoked is the <span className="text-foreground">whole remaining run</span> of
             the person this row names - every period not yet expired at once, not a single one.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          </ResponsiveAlertDialogDescription>
+        </ResponsiveAlertDialogHeader>
 
         <div className="flex flex-col gap-3 text-sm">
           <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
@@ -1061,9 +1059,9 @@ function RevokeDialog({
           </p>
         </div>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+        <ResponsiveAlertDialogFooter>
+          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
+          <ResponsiveAlertDialogAction
             variant="destructive"
             disabled={revoke.isPending}
             onClick={() => {
@@ -1089,10 +1087,10 @@ function RevokeDialog({
             }}
           >
             Revoke
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </ResponsiveAlertDialogAction>
+        </ResponsiveAlertDialogFooter>
+      </ResponsiveAlertDialogContent>
+    </ResponsiveAlertDialog>
   )
 }
 

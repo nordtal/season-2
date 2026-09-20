@@ -54,16 +54,16 @@ import {
 import { RecreateButton } from "@/components/steward/recreate"
 import { Empty, Failure, Loading, QueryState } from "@/components/steward/query-state"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+  ResponsiveAlertDialog,
+  ResponsiveAlertDialogAction,
+  ResponsiveAlertDialogCancel,
+  ResponsiveAlertDialogContent,
+  ResponsiveAlertDialogDescription,
+  ResponsiveAlertDialogFooter,
+  ResponsiveAlertDialogHeader,
+  ResponsiveAlertDialogTitle,
+  ResponsiveAlertDialogTrigger,
+} from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -430,20 +430,20 @@ export function AskButton({
   }
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
+    <ResponsiveAlertDialog>
+      <ResponsiveAlertDialogTrigger asChild>
         <Button type="button" variant={variant} disabled={ask.isPending}>
           <Icon aria-hidden />
           {label ?? RUN_KIND[kind]}
         </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
+      </ResponsiveAlertDialogTrigger>
+      <ResponsiveAlertDialogContent>
+        <ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogTitle>
             {scoped ? `${spec.title} for ${services.join(", ")}` : spec.title}
-          </AlertDialogTitle>
-          <AlertDialogDescription>{spec.what}</AlertDialogDescription>
-        </AlertDialogHeader>
+          </ResponsiveAlertDialogTitle>
+          <ResponsiveAlertDialogDescription>{spec.what}</ResponsiveAlertDialogDescription>
+        </ResponsiveAlertDialogHeader>
 
         {/*
           WHAT THIS DIALOG USED TO ALSO SAY, and what is still true (2026-09-14): the button only
@@ -493,24 +493,24 @@ export function AskButton({
           </p>
         </div>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+        <ResponsiveAlertDialogFooter>
+          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
+          <ResponsiveAlertDialogAction
             variant="outline"
             disabled={schedule.isPending}
             onClick={() => submit(delayNow())}
           >
             Tonight
-          </AlertDialogAction>
-          <AlertDialogAction
+          </ResponsiveAlertDialogAction>
+          <ResponsiveAlertDialogAction
             variant={kind === "RESTART" || kind === "DOWN" ? "destructive" : "default"}
             onClick={() => submit()}
           >
             Now
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </ResponsiveAlertDialogAction>
+        </ResponsiveAlertDialogFooter>
+      </ResponsiveAlertDialogContent>
+    </ResponsiveAlertDialog>
   )
 }
 

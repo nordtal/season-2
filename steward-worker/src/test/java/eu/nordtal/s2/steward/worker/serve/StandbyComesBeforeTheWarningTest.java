@@ -47,8 +47,8 @@ class StandbyComesBeforeTheWarningTest {
     @Test
     @DisplayName("a backup runs the same choreography as an update")
     void theBackupOpensFirst() {
-        // Till, 2026-09-20: "Backup und Update den gleichen Ansatz". A service that stops for a
-        // snapshot throws people out exactly as hard as one that stops for a new jar.
+        // Till, 2026-09-20: a backup takes the same approach as an update. A service that stops for
+        // a snapshot throws people out exactly as hard as one that stops for a new jar.
         assertOrder(bracket("private Outcome backupUnderLock(", "\n    private Outcome restart("));
     }
 

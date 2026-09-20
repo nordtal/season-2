@@ -66,6 +66,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  window.innerWidth = 1024
   navigateSpy.mockClear()
   vi.mocked(useRuns).mockReset()
   vi.mocked(useConfigs).mockReset()
@@ -657,5 +658,44 @@ describe("CommandPalette - one row lights up, not every row that reads alike (st
 
     const selected = document.querySelectorAll('[cmdk-item][aria-selected="true"]')
     expect(selected.length).toBe(1)
+  })
+})
+
+/**
+ * steward/128: the palette is a bottom sheet on a phone like everything else that opens.
+ *
+ * It was the last exception, and the reason given for it - a sheet puts the text field where the
+ * on-screen keyboard comes up - was a requirement of the shell written as a reason not to have one.
+ * `vaul` lifts a sheet whose input has focus above the keyboard, so there is nothing left to
+ * exempt. What jsdom can say is which shell was mounted; whether the lift looks right on a real
+ * phone is Till's eye and is written into the ticket as such.
+ */
+describe("CommandPalette - the shell is a sheet on a phone (steward/128)", () => {
+  it("is a centred dialog on a desktop", async () => {
+    window.innerWidth = 1024
+    render(<CommandPalette />)
+    ctrlK(document.body)
+
+    const input = await waitFor(() => {
+      const found = searchInput()
+      expect(found).not.toBeNull()
+      return found as HTMLElement
+    })
+    expect(input.closest("[data-slot='dialog-content']")).not.toBeNull()
+    expect(input.closest("[data-slot='drawer-content']")).toBeNull()
+  })
+
+  it("is a bottom sheet on a phone", async () => {
+    window.innerWidth = 390
+    render(<CommandPalette />)
+    ctrlK(document.body)
+
+    const input = await waitFor(() => {
+      const found = searchInput()
+      expect(found).not.toBeNull()
+      return found as HTMLElement
+    })
+    expect(input.closest("[data-slot='drawer-content']")).not.toBeNull()
+    expect(input.closest("[data-slot='dialog-content']")).toBeNull()
   })
 })

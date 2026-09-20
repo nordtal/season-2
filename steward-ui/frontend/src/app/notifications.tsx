@@ -15,6 +15,7 @@ import {
   useWebPushPublicKey,
   useWebPushSubscription,
 } from "@/lib/queries"
+import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import {
   ResponsiveDialog,
@@ -236,7 +237,26 @@ function Devices({ state }: { state: NotificationActions }) {
         </Select>
       </div>
 
-      {state.devices.isPending ? null : devices.length === 0 ? (
+      {/*
+        steward/120. This list drew nothing at all while it was read, so the dialog opened one
+        height and grew a moment later - under a dropdown somebody had just aimed at. Two rows of
+        the right height is what it reserves now: two is the ordinary number of browsers, and the
+        list is the last thing in the dialog, so being wrong by one costs nothing.
+      */}
+      {state.devices.isPending ? (
+        <ul className="flex flex-col">
+          {WAITING_DEVICES.map((index) => (
+            <li key={index} className="flex items-center gap-2 py-1">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <SkeletonText width="long" className="max-w-[12rem] text-sm" />
+                <SkeletonText width="medium" className="max-w-[9rem] text-xs" />
+              </div>
+              <Skeleton className="size-8 shrink-0 rounded-md" />
+              <Skeleton className="size-8 shrink-0 rounded-md" />
+            </li>
+          ))}
+        </ul>
+      ) : devices.length === 0 ? (
         <p className="text-sm text-muted-foreground">No device is subscribed.</p>
       ) : (
         <ul className="flex flex-col">
@@ -259,6 +279,9 @@ function Devices({ state }: { state: NotificationActions }) {
     </div>
   )
 }
+
+/** Two rows while the subscriptions are read. Most accounts have one browser, some have two. */
+const WAITING_DEVICES = [0, 1]
 
 function DeviceRow({
   device,

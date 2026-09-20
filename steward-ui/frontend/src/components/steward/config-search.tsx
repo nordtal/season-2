@@ -2,6 +2,7 @@ import { CaretRightIcon, LockIcon, MagnifyingGlassIcon, TranslateIcon } from "@p
 import { useMemo, useState } from "react"
 
 import type { ConfigLocation } from "@/lib/api"
+import { SkeletonText } from "@/components/steward/query-state"
 import { useConfigDocuments, useMessageBundles, useMessageDocuments } from "@/lib/queries"
 import { humanFileName } from "@/components/steward/config-controls"
 import {
@@ -35,6 +36,9 @@ import { Input } from "@/components/ui/input"
  * to that map for exactly this reason - a hit found here has nowhere to navigate *to*, both cards
  * are already on screen, so "jump" means "tell the other card", not "load a new page".
  */
+/** Three rows while the documents are read - the list itself is short and usually shorter. */
+const WAITING_HITS = [0, 1, 2]
+
 export function ServiceSettingsSearch({
   files,
   onJump,
@@ -97,9 +101,20 @@ export function ServiceSettingsSearch({
       {trimmed ? (
         <div className="flex flex-col gap-0.5 rounded-md border border-border p-1">
           {hits.length === 0 ? (
-            <p className="px-2 py-1.5 text-sm text-muted-foreground">
-              {loading ? "Searching…" : "Nothing found."}
-            </p>
+            // steward/120: "Searching…" was a sentence where rows were about to be, so the box
+            // grew from one line to four under the pointer. Three rows in the shape of a hit is
+            // the same promise without the jump - and "Nothing found." stays a sentence, because
+            // an empty result is not a shape that is about to fill.
+            loading ? (
+              WAITING_HITS.map((index) => (
+                <div key={index} className="flex min-h-control flex-col justify-center gap-1 px-2">
+                  <SkeletonText width="long" className="text-sm" />
+                  <SkeletonText width="medium" className="text-xs" />
+                </div>
+              ))
+            ) : (
+              <p className="px-2 py-1.5 text-sm text-muted-foreground">Nothing found.</p>
+            )
           ) : (
             hits.map((hit) =>
               hit.kind === "config" ? (

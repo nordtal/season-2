@@ -23,6 +23,7 @@ import {
   useMessageDocuments,
   useRuns,
 } from "@/lib/queries"
+import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import {
   entryHaystack,
   messageEntryHaystack,
@@ -43,6 +44,9 @@ import { RUN_KIND, RUN_STATUS } from "@/components/steward/status"
  * is already more than anyone reads before narrowing the query further, and cmdk draws every item
  * it is handed whether or not it fits the visible list.
  */
+/** Four rows while the documents are read. The group itself is cut to `MAX_SETTINGS_HITS`. */
+const WAITING_HITS = [0, 1, 2, 3]
+
 const MAX_SETTINGS_HITS = 30
 
 /**
@@ -107,6 +111,17 @@ export function CommandPalette() {
     [bundleLocations],
   )
   const bundleDocuments = useMessageDocuments(bundlePaths, open && search.trim().length > 0)
+
+  // steward/120: the settings group appears only once there are hits, so the first keystroke used
+  // to be answered by "Nothing found." while twenty-five documents were still on the wire. This is
+  // the one search in the interface that fetches rather than filters, and it is the only place a
+  // waiting shape is needed - `useConfigDocuments` is keyed by path and not by the query, so the
+  // hits themselves never go away between keystrokes and need no `keepPreviousData`.
+  const reading =
+    open &&
+    search.trim().length > 0 &&
+    (documents.some((query) => query.isPending) ||
+      bundleDocuments.some((query) => query.isPending))
 
   const settingsHits = React.useMemo(() => {
     if (!search.trim()) return []
@@ -180,7 +195,7 @@ export function CommandPalette() {
         placeholder="Search pages, runs, settings…"
       />
       <CommandList className="max-h-[22rem]">
-        <CommandEmpty>Nothing found.</CommandEmpty>
+        <CommandEmpty>{reading ? "Still reading the settings…" : "Nothing found."}</CommandEmpty>
         {NAVIGATION.map((group, index) => (
           <React.Fragment key={group.id}>
             {index > 0 ? <CommandSeparator /> : null}
@@ -255,6 +270,26 @@ export function CommandPalette() {
           small fixed set, so an empty query would mean handing cmdk hundreds of rows to filter for
           nothing anyone asked to see yet.
         */}
+        {/*
+          Plain divs rather than `CommandItem`s, and outside any `CommandGroup`: cmdk filters items
+          and hides a group whose items all fell away, so a waiting row built out of either would
+          vanish under the very filter it exists to survive. Nothing here is selectable - there is
+          nothing yet to select.
+        */}
+        {reading && settingsHits.length === 0 ? (
+          <>
+            <CommandSeparator />
+            <div className="p-1">
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Settings</div>
+              {WAITING_HITS.map((index) => (
+                <div key={index} className="flex min-h-control items-center gap-2.5 px-2">
+                  <Skeleton className="size-4 shrink-0 rounded-sm" />
+                  <SkeletonText width="long" className="min-w-0 flex-1" />
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
         {settingsHits.length > 0 ? (
           <>
             <CommandSeparator />

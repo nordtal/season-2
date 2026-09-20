@@ -2,6 +2,7 @@ import { cn } from "cn"
 
 import type { Service } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
@@ -188,12 +189,15 @@ export function HealthDot({
   quiet?: boolean
 }) {
   if (!service) {
+    // steward/120: the dot is the only fetched thing in the navigation, so it is also the only
+    // thing there that can be waiting. A still grey dot reads as a fourth health - shimmering it
+    // says "not yet" in the same language every other surface in the app uses.
     return (
-      <span
+      <Skeleton
         role="img"
         aria-label="Not read yet."
         title="Not read yet."
-        className={cn("size-2 shrink-0 rounded-full bg-muted-foreground/40", className)}
+        className={cn("size-2 shrink-0 rounded-full", className)}
       />
     )
   }

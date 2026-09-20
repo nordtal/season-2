@@ -37,8 +37,20 @@ public interface UpdateDirectory {
      *
      * <p>It is also the cancel window - a cancel works right up until {@link #commitCountdown} takes
      * the row - and it has to be long enough for the backends' own tidying up at zero.
+     *
+     * <h2>Sixty since 2026-09-20, and thirty before that (season-2-ops/132)</h2>
+     * Till's decision, and the objection that had held it at thirty for a day turned out to be an
+     * objection to something else. It read: a sixty-second chat line would be planned for an
+     * instant already behind every countdown this network runs, so it would never be spoken. True -
+     * while the countdown was a duration the proxy started when the message arrived. It has not
+     * been that since season-2-ops/118: the row carries the absolute instant the run happens, the
+     * proxy plans its beats against that instant, and sixty seconds is as speakable as any other
+     * number the moment the worker sets that instant far enough out.
+     *
+     * <p><b>This number and {@code Countdown.CHAT_THRESHOLDS} move together or not at all.</b> A
+     * threshold above this value is a line nobody ever hears.</p>
      */
-    Duration UPDATE_COUNTDOWN = Duration.ofSeconds(30);
+    Duration UPDATE_COUNTDOWN = Duration.ofSeconds(60);
 
     /**
      * @param dataSource the pool - the same one this process already reads access or the phase

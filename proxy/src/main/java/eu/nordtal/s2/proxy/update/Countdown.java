@@ -57,17 +57,19 @@ import java.util.Optional;
 public final class Countdown {
 
     /**
-     * Chat lines, in seconds remaining. Two, and then zero, which is {@link #beats}' own.
+     * Chat lines, in seconds remaining. Three, and then zero, which is {@link #beats}' own.
      *
      * <p>Since season-2-ops/132 each of these is a chat line <em>and</em> a title, so a second
      * named here is deliberately absent from the tick sequence below - see {@link #beats}.</p>
      *
-     * <p>Still thirty and ten, and not the sixty the architecture in season-2-ops/116 describes:
-     * steward-worker writes {@code now() + 30s}, so a sixty-second beat would be planned for an
-     * instant that is already behind every countdown this network runs and would never be spoken.
-     * The two move together, in season-2-ops/122, or not at all.</p>
+     * <p><b>Sixty joined them on 2026-09-20</b> (season-2-ops/132), together with
+     * {@link eu.nordtal.s2.common.update.UpdateDirectory#UPDATE_COUNTDOWN} going from thirty
+     * seconds to sixty. The two are one decision: a threshold longer than the countdown is a line
+     * planned for an instant that has already passed, and rule three drops it in silence.
+     * {@code CountdownTest} holds them against each other so that raising one alone fails rather
+     * than goes quiet.</p>
      */
-    static final List<Long> CHAT_THRESHOLDS = List.of(30L, 10L);
+    static final List<Long> CHAT_THRESHOLDS = List.of(60L, 30L, 10L);
 
     /** The last stretch, one subtitle per second. */
     static final long SUBTITLES_FROM = 10L;

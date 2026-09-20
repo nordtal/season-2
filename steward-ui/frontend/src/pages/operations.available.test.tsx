@@ -201,6 +201,24 @@ describe("the available card", () => {
     expect(screen.getByText(/incomplete/)).toBeTruthy()
   })
 
+  it("says what a run would install when nothing is installed yet", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        available({
+          changes: [
+            change({ artifact: "chunky", status: "MISSING", version: "1.6.0", fileName: "Chunky-Bukkit-1.6.0.jar" }),
+          ],
+        }),
+      ).fetch,
+    )
+    draw()
+
+    await screen.findByText("chunky")
+    expect(screen.getByText("nothing")).toBeTruthy()
+    expect(screen.getByText("1.6.0")).toBeTruthy()
+  })
+
   it("keeps the artefact with no build for this version, and calls it unsupported", async () => {
     // Neither work nor a failure, and still on the list: it is the answer to "why is CoreProtect
     // not here", and a row that disappears when it is nothing to worry about cannot give it.
@@ -211,7 +229,11 @@ describe("the available card", () => {
           hasWork: false,
           hasFailures: false,
           changes: [
-            change({ artifact: "coreprotect", status: "UNSUPPORTED", note: "no build for 26.2" }),
+            change({
+              artifact: "coreprotect",
+              status: "UNSUPPORTED",
+              note: "Modrinth coreprotect for 26.2/paper: no stable release is tagged for this platform.",
+            }),
           ],
         }),
       ).fetch,
@@ -221,6 +243,9 @@ describe("the available card", () => {
     await screen.findByText("coreprotect")
     expect(screen.getByText("unsupported")).toBeTruthy()
     expect(screen.queryByText(/incomplete/)).toBeNull()
+    // The note is a paragraph about stable releases and platforms. It belongs on the dash as a
+    // title and in the badge, not in a table cell.
+    expect(screen.queryByText(/no stable release/)).toBeNull()
   })
 
   it("says how old the reading is, in the header and in one line", async () => {

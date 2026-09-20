@@ -15,6 +15,7 @@ import {
   WarningIcon,
 } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
+import { cn } from "cn"
 import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
@@ -894,22 +895,39 @@ function worthShowing(changes: AvailableChange[]): AvailableChange[] {
 /**
  * One row's change, in as few characters as it can honestly be said.
  *
- * `1.5.3 → 1.6.0` when the two filenames come apart into a pair; the filename and the new version
- * when they do not, drawn as a filename so it reads as the stopgap it is. Nothing installed is
- * "nothing → 1.6.0", and an artefact with no build at all has no change to name.
+ * `1.5.3 → 1.6.0` when the two filenames come apart into a pair, and the filename in a monospace
+ * face when they do not - drawn as a filename so it reads as the stopgap it is. Nothing installed
+ * is `nothing → 1.6.0`, which is what a fresh volume looks like and is worth saying rather than
+ * leaving blank.
+ *
+ * **An artefact with no pair at all gets a dash, not its note.** The one that has none on this
+ * network is CoreProtect, and its note is a hundred-word paragraph about stable releases and
+ * platforms - true, useful, and not something a table cell can hold. It is on the dash as a title,
+ * and the badge beside it already carries the short version.
  */
 function Jump({ change }: { change: AvailableChange }) {
   const jump = versionJump(change.installed, change.fileName, change.version)
-  if (!jump) {
-    return <span className="text-xs">{change.note ?? (change.installed ? "unknown" : "nothing")}</span>
+  if (jump) return <Pair from={jump.from} to={jump.to} exact={jump.exact} />
+
+  const wanted = change.version ?? change.fileName
+  if (wanted && !change.installed) {
+    return <Pair from="nothing" to={wanted} exact={change.version !== undefined} />
   }
   return (
+    <span className="text-xs" title={change.note}>
+      {change.installed ?? "–"}
+    </span>
+  )
+}
+
+/** The jump itself: two versions and an arrow, or two filenames when that is all there is. */
+function Pair({ from, to, exact }: { from: string; to: string; exact: boolean }) {
+  const face = exact ? "tnum" : "font-mono break-all"
+  return (
     <span className="flex flex-wrap items-baseline gap-1 text-xs">
-      <span className={jump.exact ? "tnum" : "font-mono"}>{jump.from}</span>
+      <span className={face}>{from}</span>
       <ArrowRightIcon aria-hidden className="size-3 shrink-0 self-center text-muted-foreground" />
-      <span className={jump.exact ? "tnum text-foreground" : "font-mono text-foreground"}>
-        {jump.to}
-      </span>
+      <span className={cn(face, "text-foreground")}>{to}</span>
     </span>
   )
 }

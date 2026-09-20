@@ -40,6 +40,7 @@ import {
   ScalarControl,
 } from "@/components/steward/config-controls"
 import { colourRuns } from "@/components/steward/colour-control"
+import { pairedBlocks, pairedPaths, type PairedBlocks } from "@/components/steward/paired-blocks"
 import { ServiceSettingsSearch } from "@/components/steward/config-search"
 import { RawConfigEditor } from "@/components/steward/raw-config-editor"
 import { Empty, Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
@@ -587,11 +588,18 @@ function changed(document: ParsedConfigDocument, draft: Draft): ConfigChanges {
 }
 
 /**
- * A file's keys, one `Field` each - except a run of colours (`colourRuns`, steward/63's fourth
- * requirement): several tones that belong together are the one thing this ticket exists for, and
- * they have to be judged side by side, not as identical-looking cards stacked one per screenful.
- * Grouping happens here, once, rather than inside `Field` itself - a field never has to know it is
- * part of a row, only that it is drawn as one (`layout="row"`) when it is.
+ * A file's keys, one `Field` each - with two exceptions, both of which are "these belong side by
+ * side, not stacked one per screenful":
+ *
+ * - a run of colours (`colourRuns`, steward/63's fourth requirement): several tones that belong
+ *   together have to be judged against each other;
+ * - two sibling blocks with the same keys (`pairedBlocks`, steward/130): one row per key, because
+ *   two lists that line up by position are one list with an unwritten contract.
+ *
+ * Pairs are taken first and colour runs are computed over what is left, so a colour that is one
+ * half of a pair is drawn in its row rather than twice. Grouping happens here, once, rather than
+ * inside `Field` itself - a field never has to know it is part of a row, only that it is drawn as
+ * one (`layout="row"`) when it is.
  */
 function EntryList({
   entries,
@@ -614,9 +622,12 @@ function EntryList({
   onChange: (path: string, value: string | string[] | SectionValues[]) => void
   onReset: (path: string) => void
 }) {
+  const pairs = useMemo(() => pairedBlocks(entries), [entries])
+  const paired = useMemo(() => pairedPaths(pairs), [pairs])
   const runs = useMemo(
-    () => colourRuns(entries, (entry) => colourValue(entry) !== null),
-    [entries],
+    () => colourRuns(entries.filter((entry) => !paired.has(entry.path)),
+                     (entry) => colourValue(entry) !== null),
+    [entries, paired],
   )
   // Every member of a run maps back to the same array, so a later entry in `entries` can be
   // recognised as "already drawn, as part of an earlier row" without a second pass over `runs`.
@@ -629,6 +640,27 @@ function EntryList({
   const rows: ReactNode[] = []
   let position = 0
   for (const entry of entries) {
+    const pair = pairs.find((candidate) => candidate.left.path === entry.path)
+    if (pair) {
+      rows.push(
+        <PairedRows
+          key={`pair-${pair.left.path}+${pair.right.path}`}
+          pair={pair}
+          writable={writable}
+          draft={draft}
+          roles={roles}
+          channels={channels}
+          highlight={highlight}
+          onHighlighted={onHighlighted}
+          onChange={onChange}
+          onReset={onReset}
+        />,
+      )
+      position++
+      continue
+    }
+    if (paired.has(entry.path)) continue // drawn already, as one half of a paired row
+
     const run = runOf.get(entry.path)
     if (run && run[0].path !== entry.path) continue // drawn already, as part of its row's first entry
 
@@ -678,6 +710,88 @@ function EntryList({
   return <>{rows}</>
 }
 
+/**
+ * Two blocks that share their keys, as one heading and one row per key (steward/130).
+ *
+ * <h2>What each row says, and what it does not repeat</h2>
+ * The shared key stands once, on the left, because it is the row's subject - `tier-01` is the
+ * thing, and the hour and the colour are its two properties. Each field is then relabelled with
+ * its own block's name, so the row reads "tier-01: hours ... colours ...". Drawing both fields
+ * with their own key as the label would put `tier-01` in the row three times and say nothing with
+ * any of them.
+ *
+ * <p>The label is overridden for display only - `entry.path` is untouched, so a search hit
+ * (steward/58, steward/127) still lands on the exact key and highlights the exact field.</p>
+ *
+ * <h2>Narrow</h2>
+ * The two fields sit in a `flex-wrap` row of their own beside the key, so on a phone they wrap
+ * under it instead of squeezing: the key line, then hours, then colour. `Field`'s `min-w-28` is
+ * what decides where that happens, and it is the same floor the colour runs use.
+ */
+function PairedRows({
+  pair,
+  writable,
+  draft,
+  roles,
+  channels,
+  highlight,
+  onHighlighted,
+  onChange,
+  onReset,
+}: {
+  pair: PairedBlocks
+  writable: boolean
+  draft: Draft
+  roles: GuildList | undefined
+  channels: GuildList | undefined
+  highlight: string | null
+  onHighlighted?: () => void
+  onChange: (path: string, value: string | string[] | SectionValues[]) => void
+  onReset: (path: string) => void
+}) {
+  return (
+    <div className="pt-6 pb-2">
+      <Separator className="mb-4" />
+      <h2 className="text-sm font-semibold">
+        {pair.left.label} &amp; {pair.right.label}
+      </h2>
+      <p className="font-mono text-xs text-muted-foreground">
+        {pair.left.path} + {pair.right.path}
+      </p>
+      <ul className="mt-2 flex flex-col">
+        {pair.rows.map((row, at) => (
+          <li
+            key={row.key}
+            className={`flex flex-wrap items-center gap-x-3 gap-y-2 border-border py-2 ${at === 0 ? "" : "border-t"}`}
+          >
+            <span className="min-w-16 font-mono text-xs text-muted-foreground">{row.key}</span>
+            {[
+              { entry: row.left, block: pair.left.label },
+              { entry: row.right, block: pair.right.label },
+            ].map(({ entry, block }) => (
+              <Field
+                key={entry.path}
+                entry={{ ...entry, label: block }}
+                first
+                layout="row"
+                showPath={false}
+                writable={writable}
+                draft={draft}
+                roles={roles}
+                channels={channels}
+                highlighted={entry.path === highlight}
+                onHighlighted={onHighlighted}
+                onChange={(value) => onChange(entry.path, value)}
+                onReset={() => onReset(entry.path)}
+              />
+            ))}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 // -----------------------------------------------------------------------------------------------
 // One key
 // -----------------------------------------------------------------------------------------------
@@ -693,6 +807,7 @@ function Field({
   onHighlighted,
   onChange,
   onReset,
+  showPath = true,
   layout = "stack",
 }: {
   entry: ConfigEntry
@@ -706,6 +821,14 @@ function Field({
   onHighlighted?: () => void
   onChange: (value: string | string[] | SectionValues[]) => void
   onReset: () => void
+  /**
+   * Whether to print the entry's own dotted path beside it. True everywhere except inside a paired
+   * row (steward/130), where the two halves are `hours.tier-02` and `colours.tier-02`: the row
+   * already says `tier-02` once on the left and the block heading already says which two blocks
+   * these are, so printing both paths says the key three times and costs the width that made the
+   * two fields fit side by side on a phone in the first place.
+   */
+  showPath?: boolean
   /**
    * `"row"` is what `EntryList` below asks for when this field is one member of a `colourRuns` run
    * (steward/63): several tones that belong together side by side, not each in its own full-width
@@ -792,7 +915,9 @@ function Field({
               Reset
             </Button>
           ) : null}
-          <span className="font-mono text-xs text-muted-foreground">{entry.path}</span>
+          {showPath ? (
+            <span className="font-mono text-xs text-muted-foreground">{entry.path}</span>
+          ) : null}
         </div>
       </div>
 

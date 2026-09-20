@@ -77,7 +77,7 @@ class ConfigSpecExplanationTest {
             "smp/src/main/java/eu/nordtal/s2/smp/config/ColoursSpec.java",
             "smp/src/main/java/eu/nordtal/s2/smp/config/DatabaseSpec.java",
             "smp/src/main/java/eu/nordtal/s2/smp/config/MilestonesSpec.java",
-            "smp/src/main/java/eu/nordtal/s2/smp/config/PrestigeColoursSpec.java",
+            "smp/src/main/java/eu/nordtal/s2/smp/config/PrestigeSpec.java",
             "smp/src/main/java/eu/nordtal/s2/smp/config/SmpSpec.java",
             "smp/src/main/java/eu/nordtal/s2/smp/config/SoundsSpec.java",
             "steward-ui/src/main/java/eu/nordtal/s2/steward/ui/config/DatabaseSpec.java",

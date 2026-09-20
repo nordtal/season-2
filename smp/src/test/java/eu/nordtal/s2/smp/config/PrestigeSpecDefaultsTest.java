@@ -5,17 +5,23 @@ import eu.nordtal.jcore.config.spec.Specs;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import eu.nordtal.s2.smp.prestige.Prestige;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The fourteen colours this plugin ships are held here, and nowhere else (season-2-ingame/29).
+ * The crest ladder this plugin ships - fourteen colours and thirteen hours - is held here, and
+ * nowhere else (season-2-ingame/29, widened to the hours by steward/130).
  *
  * <p><b>Why this test exists.</b> season-2-ingame/23's own tests all build a palette by hand and
- * never touch {@link PrestigeColoursSpec}'s defaults, so the shipped values were covered by
+ * never touch {@link PrestigeSpec}'s defaults, so the shipped values were covered by
  * nothing: {@code tier13()} was set to {@code tier01()}'s colour on 2026-09-16 and the build stayed
  * green. That is the exact bug season-2-ingame/22 existed to fix, where {@code NEUTRAL} and
  * {@code MUTED} were both {@code GRAY} and nobody noticed for a season - only here it is thirteen
@@ -28,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * tier-12 at 38.9, so a floor of 20 leaves nearly double the margin and still catches a colour that
  * was pasted twice.
  */
-class PrestigeColoursSpecDefaultsTest {
+class PrestigeSpecDefaultsTest {
 
     private static final Pattern HEX = Pattern.compile("^#[0-9a-fA-F]{6}$");
 
@@ -38,7 +44,7 @@ class PrestigeColoursSpecDefaultsTest {
      */
     private static final double MINIMUM_DISTANCE = 20;
 
-    private final PrestigeColoursSpec spec = Specs.createDefault(PrestigeColoursSpec.class);
+    private final PrestigeSpec spec = Specs.createDefault(PrestigeSpec.class);
 
     @Test
     @DisplayName("every shipped default is a hex colour this plugin can actually parse")
@@ -76,6 +82,40 @@ class PrestigeColoursSpecDefaultsTest {
                 "two prestige colours that read as the same colour make two tiers indistinguishable"
                         + " in chat, in the tab list and above a player's head - which is what"
                         + " season-2-ingame/22 fixed for NEUTRAL and MUTED: " + tooClose);
+    }
+
+    /**
+     * The contract the file's own header states, checked rather than trusted (steward/130).
+     *
+     * <p>The two blocks are one ladder written twice, and every reader of either walks
+     * {@code tier01..tier13}. A key added to one and not the other is the failure that put these
+     * two lists in one file in the first place - tier 7's colour against tier 8's hour - and it is
+     * invisible in both files and in the interface that draws them.</p>
+     */
+    @Test
+    @DisplayName("the hours and the colours have exactly the same thirteen keys, in the same order")
+    void bothBlocksDeclareTheSameLadder() {
+        assertEquals(keysOf(PrestigeSpec.TierHoursSpec.class), keysOf(PrestigeSpec.TierColoursSpec.class),
+                "steward draws one row per tier by pairing these two blocks on their keys; a key in"
+                        + " one and not the other silently drops a row or pairs the wrong two"
+                        + " values");
+    }
+
+    @Test
+    @DisplayName("the shipped hours are a ladder Prestige will actually accept")
+    void theShippedHoursAreAValidLadder() {
+        // The same constructor `Configs.prestige`'s validator runs, so a default that could not
+        // load fails here rather than on a server somebody has just restarted.
+        assertDoesNotThrow(() -> new Prestige(Configs.declaredPrestigeHours(spec)));
+    }
+
+    /** The `@Key` values of a tier block, in `@Order`. */
+    private static List<String> keysOf(final Class<?> block) {
+        return Arrays.stream(block.getDeclaredMethods())
+                .sorted(java.util.Comparator.comparingInt(
+                        method -> method.getAnnotation(eu.nordtal.jcore.config.spec.annotation.Order.class).value()))
+                .map(method -> method.getAnnotation(eu.nordtal.jcore.config.spec.annotation.Key.class).value())
+                .toList();
     }
 
     /** The thirteen tiers plus the admin override, which has to stand apart from all of them. */

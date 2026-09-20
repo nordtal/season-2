@@ -885,6 +885,149 @@ describe("a file of colours, side by side (steward/63)", () => {
 })
 
 /**
+ * steward/130: `prestige.yml`'s two blocks, end to end through the real form.
+ *
+ * `paired-blocks.test.ts` holds the rule itself; this is the half that rule exists for - one row
+ * per tier, with the hour and the colour of that tier in it, drawn by `ServiceConfiguration` from
+ * a file that looks exactly like the one the plugin ships.
+ */
+describe("two blocks that share their keys, as one row per key (steward/130)", () => {
+  const file = "smp/prestige.yml"
+
+  function ladder(hours: string[], colours: string[]): ConfigEntry[] {
+    const keys = ["tier-01", "tier-02", "tier-03"]
+    return [
+      entry({ path: "admin", key: "admin", label: "admin", value: "#ff5555" }),
+      entry({ path: "hours", key: "hours", label: "hours", kind: "MAP", editable: false }),
+      ...keys.map((key, at) =>
+        entry({ path: `hours.${key}`, key, label: key, type: "INTEGER", value: hours[at] }),
+      ),
+      entry({ path: "colours", key: "colours", label: "colours", kind: "MAP", editable: false }),
+      ...keys.map((key, at) =>
+        entry({ path: `colours.${key}`, key, label: key, value: colours[at] }),
+      ),
+    ]
+  }
+
+  function withLadder() {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "prestige.yml", service: "smp" }),
+          revision: "r1",
+          header: [],
+          entries: ladder(["0", "2", "5"], ["#5fbfae", "#5ea9d6", "#6f93e0"]),
+        },
+      }),
+    )
+  }
+
+  /**
+   * By id, not by value: a colour field is an `<input type="color">` and a text box carrying the
+   * same value, so `getByDisplayValue` is ambiguous for every colour on the page. The id is the
+   * entry's own path, which is also the thing this ticket must not disturb.
+   */
+  function fieldFor(container: HTMLElement, path: string): HTMLInputElement {
+    const found = container.querySelector(`[id="${path}"]`)
+    if (!found) throw new Error(`no field is drawn for ${path}`)
+    return found as HTMLInputElement
+  }
+
+  it("puts a tier's hour and its colour in the same row", async () => {
+    withLadder()
+    const { container } = draw(<ServiceConfiguration service="smp" />)
+    await open("Prestige")
+
+    await screen.findByDisplayValue("2")
+    const hour = fieldFor(container, "hours.tier-02")
+    const colour = fieldFor(container, "colours.tier-02")
+    const row = hour.closest("li")
+
+    expect(row).not.toBeNull()
+    // The same `<li>`, which is what "one row per tier" means in the DOM. Two fields that merely
+    // look similar, stacked, is precisely the arrangement this ticket exists to end.
+    expect(colour.closest("li")).toBe(row)
+    expect(row?.textContent).toContain("tier-02")
+  })
+
+  it("names the tier once, not once per field", async () => {
+    withLadder()
+    const { container } = draw(<ServiceConfiguration service="smp" />)
+    await open("Prestige")
+
+    await screen.findByDisplayValue("2")
+    const row = fieldFor(container, "hours.tier-02").closest("li") as HTMLElement
+    // `tier-02` is the row's subject; the two fields are relabelled with their own block's name,
+    // so the key is said once and the labels say what each half of the row is.
+    expect(row.textContent?.match(/tier-02/g) ?? []).toHaveLength(1)
+    expect(row.textContent).toContain("hours")
+    expect(row.textContent).toContain("colours")
+  })
+
+  it("keeps the colour picker, because a paired field is still the field it was", async () => {
+    withLadder()
+    draw(<ServiceConfiguration service="smp" />)
+    await open("Prestige")
+
+    // Three tiers, plus `admin` standing outside the pair as an ordinary colour field.
+    expect(await screen.findAllByLabelText("Pick a colour")).toHaveLength(4)
+  })
+
+  it("writes both halves of a row under their own real keys", async () => {
+    withLadder()
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
+    const { container } = draw(<ServiceConfiguration service="smp" />)
+    await open("Prestige")
+
+    await screen.findByDisplayValue("2")
+    fireEvent.change(fieldFor(container, "hours.tier-02"), { target: { value: "3" } })
+    fireEvent.change(fieldFor(container, "colours.tier-02"), { target: { value: "#112233" } })
+    fireEvent.click(screen.getByRole("button", { name: /save/i }))
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true),
+    )
+    const put = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")
+    expect(JSON.parse(String(put?.[1]?.body)).changes).toEqual({
+      // The display label was overridden, the path was not - which is what keeps a search hit and
+      // a save pointing at the same key.
+      "hours.tier-02": "3",
+      "colours.tier-02": "#112233",
+    })
+  })
+
+  it("leaves two blocks that do not line up as two ordinary stacks", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "prestige.yml", service: "smp" }),
+          revision: "r1",
+          header: [],
+          entries: [
+            entry({ path: "hours", key: "hours", label: "hours", kind: "MAP", editable: false }),
+            entry({ path: "hours.tier-01", key: "tier-01", label: "tier-01", value: "0" }),
+            entry({ path: "hours.tier-02", key: "tier-02", label: "tier-02", value: "2" }),
+            entry({ path: "colours", key: "colours", label: "colours", kind: "MAP", editable: false }),
+            entry({ path: "colours.tier-01", key: "tier-01", label: "tier-01", value: "#5fbfae" }),
+          ],
+        },
+      }),
+    )
+    const { container } = draw(<ServiceConfiguration service="smp" />)
+    await open("Prestige")
+
+    // Nothing is paired, so nothing is a row - and, crucially, nothing has been dropped either:
+    // all three values are still on the page, each as its own field.
+    await screen.findByDisplayValue("2")
+    expect(fieldFor(container, "hours.tier-02").closest("li")).toBeNull()
+    expect(fieldFor(container, "hours.tier-01").value).toBe("0")
+    expect(fieldFor(container, "colours.tier-01").value).toBe("#5fbfae")
+  })
+})
+
+/**
  * steward/127. Till asked that a click on a search hit actually take you there - and the case
  * where it did not was the one nobody thinks to try, because it looks like the easiest of them:
  * searching while already standing on the service page the hit belongs to.

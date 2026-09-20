@@ -101,6 +101,34 @@ class AdminCommandsAreConsoleAndWebOnlyTest {
      * named exception sets, so that a fifth entry means editing a list a person has to read.
      */
     /**
+     * Nothing in the catalogue is a Discord command any more (season-2-community/10).
+     *
+     * <p>Not the same assertion as the one below it: that one is about admin commands, and this is
+     * about the surface itself. {@code /smp status} was the last declaration carrying it and it is
+     * not an admin command, so it fell outside every rule this class held - and on its own it kept
+     * 611 lines of JDA adapter alive in {@code discord-bot} for one read-only command that Steward
+     * answers twice over.</p>
+     *
+     * <p><b>This is what makes the deletion stay deleted.</b> Adding {@link Surface#DISCORD} back
+     * to a declaration would not fail to compile and would not fail at runtime; it would simply
+     * register nothing, because the adapter that used to read it is gone. That is the failure mode
+     * worth a test: a surface that is declared and silently unreachable. The enum value itself
+     * stays until season-2-ops/157 takes it and {@link Surface#GAME} together.</p>
+     */
+    @Test
+    @DisplayName("no declaration is a Discord command, because nothing turns one into one any more")
+    void nothingIsDeclaredOnDiscord() {
+        final List<String> onDiscord = Catalogue.all().stream()
+                .filter(declaration -> declaration.surfaces().contains(Surface.DISCORD))
+                .map(Declaration::name)
+                .toList();
+        assertTrue(onDiscord.isEmpty(),
+                "the Discord adapter was deleted in season-2-community/10, so a declaration on"
+                        + " Surface.DISCORD registers nothing at all and is a surface that only"
+                        + " looks reachable: " + onDiscord);
+    }
+
+    /**
      * Empty, and the comment is here so that the next person to add an entry has to argue for it.
      *
      * <p>It held {@code /phase show}, {@code /phase set}, {@code /phase launch} and

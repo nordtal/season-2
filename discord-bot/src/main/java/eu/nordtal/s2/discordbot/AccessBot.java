@@ -17,12 +17,8 @@ import eu.nordtal.s2.discordbot.discord.GuildState;
 import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
 import eu.nordtal.s2.discordbot.access.discord.RedemptionLimit;
 import eu.nordtal.s2.discordbot.access.discord.ManagedMessages;
-import eu.nordtal.s2.commands.Catalogue;
 import eu.nordtal.s2.commands.access.AccessCommands;
-import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.discordbot.discord.BotAccessEffects;
-import eu.nordtal.s2.discordbot.discord.BotPhaseEffects;
-import eu.nordtal.s2.discordbot.discord.DiscordCommands;
 import eu.nordtal.s2.discordbot.discord.UpdateCommand;
 import eu.nordtal.s2.discordbot.discord.UpdateFeed;
 import eu.nordtal.s2.discordbot.access.discord.PurchaseFlow;
@@ -231,42 +227,18 @@ public class AccessBot implements AutoCloseable {
                     updateCommand,
                     new RegisterFlow(jda, teams, messages, worker));
 
-            // Every declared command, as slash commands. /phase runs here - the bot writes the row
-            // itself, because no process owns it - and everything else becomes a command_request
-            // addressed to the process that does.
+            // The bot registers no declared command as a slash command any more
+            // (season-2-community/10). `/smp status` was the last declaration carrying
+            // Surface.DISCORD and it lost it with this ticket, which made the whole adapter - JDA
+            // registration, the admin check, arguments translated into slash options, the
+            // confirmation button - 611 lines that produced nothing. Steward answers that command
+            // twice over, as a service page and through POST /api/services/{name}/console.
+            //
+            // What the bot still does with declared commands is the OTHER direction, right below:
+            // a /access grant typed on a console arrives here as a command_request row. The
+            // catalogue is not gone from this process, only its Discord face is.
             final eu.nordtal.s2.common.command.CommandRequests commandRequests =
                     eu.nordtal.s2.common.command.CommandRequests.borrowing(database.dataSource());
-            final DiscordCommands declared = new DiscordCommands(messages, database.jdbi(), access,
-                    new eu.nordtal.s2.commands.remote.Outbox(commandRequests, timers,
-                            (message, failure) -> log.warn(message, failure)),
-                    worker);
-            final BotPhaseEffects phaseEffects = new BotPhaseEffects(phases, admin, worker);
-            PhaseCommands.all().forEach(command -> declared.local(command, phaseEffects));
-
-            // Access, payments and the bot's own wording. These are gated on discord_user.admin,
-            // not only on Discord's DefaultMemberPermissions, so the network has one admin list.
-            final BotAccessEffects accessEffects = new BotAccessEffects(worker, jda, access, roles,
-                    requests, admin, seasonStart, messages, sharedMessages, log);
-            AccessCommands.all().forEach(command -> declared.local(command, accessEffects));
-            // The one argument nobody can be expected to type from memory, on the one command that
-            // books money.
-            declared.suggest(AccessCommands.SETTLE, "reference", accessEffects::openReferences);
-
-            // /update is Target.LOCAL, so the bot writes the update_request row itself rather than
-            // sending a command_request to somebody who would write it for us. The watch is this
-            // process's own: one embed, a field per service, edited while the run works.
-            final eu.nordtal.s2.commands.update.UpdateEffects updateEffects =
-                    new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                            updates,
-                            worker::execute,
-                            (what, failure) -> log.warn("An update command failed while {}", what,
-                                    failure),
-                            (id, user) -> updateCommand.follow(user, id));
-            eu.nordtal.s2.commands.update.UpdateCommands.all()
-                    .forEach(command -> declared.local(command, updateEffects));
-
-            declared.remoteAll(Catalogue.all());
-            jda.addEventListener(declared);
 
             // ...and the other direction: a /access grant typed in game arrives here as a row.
             // Inline effects, because the inbox settles the row when the command returns.
@@ -293,8 +265,9 @@ public class AccessBot implements AutoCloseable {
                     java.util.concurrent.TimeUnit.SECONDS);
 
             final List<CommandData> commands = new ArrayList<>();
+            // Only what the bot registers natively - /unlink and the rest of LinkFlow. Those were
+            // never in the catalogue: they are a player's own self-service, not an admin command.
             commands.addAll(LinkFlow.commands());
-            commands.addAll(declared.commands());
             jda.updateCommands().addCommands(commands).queue();
 
             new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();

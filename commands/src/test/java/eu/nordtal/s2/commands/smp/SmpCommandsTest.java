@@ -79,10 +79,12 @@ class SmpCommandsTest {
                 continue;
             }
             if (declaration == SmpCommands.STATUS) {
-                assertTrue(declaration.surfaces().containsAll(
-                                List.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE)),
-                        declaration.name() + " is the one /smp command a player may run and keeps"
-                                + " every surface");
+                // Discord left on 2026-09-20 (season-2-community/10). It was the last declaration
+                // in the catalogue carrying that surface, and it alone kept 611 lines of JDA
+                // adapter alive for one read-only command that Steward answers twice over.
+                assertEquals(Set.of(Surface.GAME, Surface.CONSOLE), declaration.surfaces(),
+                        declaration.name() + " is the one /smp command a player may run, so it"
+                                + " keeps the two surfaces a person can type on");
                 continue;
             }
 

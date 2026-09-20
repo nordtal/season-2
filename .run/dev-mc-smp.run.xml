@@ -1,0 +1,29 @@
+<!--
+  deploy/dev mc smp list
+
+  ONE console command, sent and answered - no attaching, no detaching.
+
+  THIS ONE IS A TEMPLATE AND `list` IS ONLY AN EXAMPLE. The shape is `mc <service> <command>`;
+  edit SCRIPT_OPTIONS below, or copy this configuration, to send something else. It is here
+  because the command exists and is easy to miss, not because anybody needs the player count.
+
+  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
+  .run/README.md, once, rather than in each of these thirty files.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="dev mc smp list" type="ShConfigurationType" folderName="dev: console and database">
+    <option name="SCRIPT_TEXT" value="" />
+    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+    <option name="SCRIPT_PATH" value="$PROJECT_DIR$/deploy/dev" />
+    <option name="SCRIPT_OPTIONS" value="mc smp list" />
+    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+    <option name="INTERPRETER_PATH" value="/usr/bin/env" />
+    <option name="INTERPRETER_OPTIONS" value="bash" />
+    <option name="EXECUTE_IN_TERMINAL" value="true" />
+    <option name="EXECUTE_SCRIPT_FILE" value="true" />
+    <envs />
+    <method v="2" />
+  </configuration>
+</component>

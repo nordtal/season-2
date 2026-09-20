@@ -25,7 +25,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * entity and then by removing each in turn. The description is the lower, smaller line and its
  * default is the literal English word "NPC", so leaving it alone labels the figure twice and the
  * second label is not translated. Hence both assertions: the ordinary label is set, and the
- * description is explicitly emptied (finding 127).
+ * description is explicitly cleared (finding 127).
+ *
+ * <h2>Cleared means {@code null}, not an empty component</h2>
+ * This asked for {@code setDescription(Component.empty())} until 2026-09-20, and Till changed the
+ * code to {@code null} after looking at the figure: an empty component is still a component, and
+ * the client reserves the narrow second line for it - a blank strip above the name where there
+ * should be nothing. That is a client observation and no test on this side could have had it,
+ * which is exactly why the assertion follows the code here rather than the other way round. What
+ * has not changed is the thing being guarded: the default must be replaced, whatever with.
  *
  * <h2>Why a text search</h2>
  * Spawning a {@code Mannequin} needs a world, and the decision here has no arithmetic in it: it is
@@ -46,10 +54,13 @@ class SpawnNpcLabelTest {
         assertTrue(source.contains("mannequin.setCustomNameVisible(true)"),
                 "the NPC has a custom name that is never made visible, which is the default and"
                         + " looks exactly like having no name at all");
-        assertTrue(source.contains("mannequin.setDescription(Component.empty())"),
-                "the NPC's mannequin description is left at its default, which vanilla draws as a"
-                        + " second smaller line reading the English word \"NPC\" under the name -"
-                        + " two labels, and the lower one in one language for every reader");
+        assertTrue(source.contains("mannequin.setDescription(null)"),
+                "the NPC's mannequin description is not cleared with null. Left at its default,"
+                        + " vanilla draws it as a second smaller line reading the English word"
+                        + " \"NPC\" under the name - two labels, and the lower one in one language"
+                        + " for every reader. Cleared with Component.empty() instead, the line is"
+                        + " drawn blank rather than not drawn, which is the narrow empty strip"
+                        + " Till saw above the figure on 2026-09-20");
     }
 
     /** Anchored on the directory holding {@code settings.gradle.kts}, the way every reader here is. */

@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+} from "@tanstack/react-router"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { readFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -38,8 +44,9 @@ let thisBrowser: string | null = null
 const PHONE = "https://push.example/phone"
 const LAPTOP = "https://push.example/laptop"
 
-// jsdom has neither method, and radix's Select trigger calls both on pointer down - the same gap
-// `snowflake-picker.test.tsx` patches, for the same component.
+// jsdom has neither method, and radix calls all three on pointer down - the same gap
+// `snowflake-picker.test.tsx` patches. It was the Select beside "Devices" that needed it until
+// steward/129; the Popover that replaced it sits on the same primitives.
 beforeAll(() => {
   if (!Element.prototype.hasPointerCapture) Element.prototype.hasPointerCapture = () => false
   if (!Element.prototype.setPointerCapture) Element.prototype.setPointerCapture = () => {}
@@ -62,7 +69,55 @@ function json(status: number, body: unknown): Response {
 
 type Call = { url: string; method: string; body: unknown }
 
-function backend(over: { devices?: unknown[]; preferences?: Record<string, boolean> } = {}) {
+const ALERTS = "steward-ui/steward-ui.yml"
+
+/** The file the three thresholds live in, as `/api/config/<file>` answers it. */
+function alertsFile(values: Record<string, string> = {}) {
+  const value = (path: string, fallback: string) => values[path] ?? fallback
+  return {
+    service: "steward-ui",
+    name: "steward-ui.yml",
+    path: ALERTS,
+    readable: true,
+    writable: true,
+    revision: "rev-1",
+    header: [],
+    entries: [
+      entry("alerts.disk-percent", "disk-percent", value("alerts.disk-percent", "85")),
+      entry("alerts.memory-percent", "memory-percent", value("alerts.memory-percent", "90")),
+      entry("alerts.backup-age-hours", "backup-age-hours", value("alerts.backup-age-hours", "30")),
+    ],
+  }
+}
+
+function entry(path: string, key: string, value: string) {
+  return {
+    path,
+    key,
+    label: key,
+    comments: [],
+    explanation: "",
+    noExplanationNeeded: true,
+    filled: true,
+    value,
+    kind: "SCALAR",
+    type: "INTEGER",
+    line: 1,
+    editable: true,
+    secret: false,
+    inSchema: true,
+  }
+}
+
+function backend(
+  over: {
+    devices?: unknown[]
+    preferences?: Record<string, boolean>
+    /** No `steward-ui.yml` in the listing at all - the read-only shape. */
+    noAlertsFile?: boolean
+    writable?: boolean
+  } = {},
+) {
   const calls: Call[] = []
   const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET"
@@ -98,6 +153,18 @@ function backend(over: { devices?: unknown[]; preferences?: Record<string, boole
       )
     }
     if (url === "/api/web-push/test") return new Response(null, { status: 204 })
+    if (url === "/api/config") {
+      return json(200, over.noAlertsFile ? [] : [
+        { ...alertsFile(), writable: over.writable ?? true },
+      ])
+    }
+    if (url === `/api/config/${ALERTS}`) {
+      if (method === "PUT") {
+        const changes = (body as { changes: Record<string, string> }).changes
+        return json(200, { ...alertsFile(changes), revision: "rev-2" })
+      }
+      return json(200, { ...alertsFile(), writable: over.writable ?? true })
+    }
     if (url === "/api/web-push/subscribe") return new Response(null, { status: 204 })
     throw new Error(`the dialog asked for ${url}, which this test did not expect`)
   })
@@ -122,21 +189,25 @@ function Harness() {
   )
 }
 
+/**
+ * A memory router around it, since steward/129: the read-only shape of the thresholds section
+ * carries a `<Link>` to the service page, and a `Link` outside a `RouterProvider` throws rather
+ * than degrading - `Cannot read properties of null (reading 'isServer')`, from every test at once.
+ */
 async function open() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const root = createRootRoute({ component: Harness })
+  const router = createRouter({
+    routeTree: root,
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  })
   render(
     <QueryClientProvider client={client}>
-      <Harness />
+      <RouterProvider router={router as never} />
     </QueryClientProvider>,
   )
-  fireEvent.click(screen.getByRole("button", { name: "open" }))
+  fireEvent.click(await screen.findByRole("button", { name: "open" }))
   await screen.findByText("Notifications")
-}
-
-/** Opens radix's Select the way a pointer does - see the `beforeAll` polyfill. */
-function openSelect(trigger: HTMLElement) {
-  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
-  fireEvent.click(trigger)
 }
 
 describe("the types, one switch each", () => {
@@ -215,10 +286,10 @@ describe("the devices of this account", () => {
     vi.stubGlobal("fetch", fetcher)
     await open()
 
-    openSelect(await screen.findByRole("combobox", { name: "Which notification to test" }))
-    fireEvent.click(await screen.findByRole("option", { name: "Backups" }))
-
-    fireEvent.click(screen.getByRole("button", { name: "Send a test notification to iPhone, Safari" }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }),
+    )
+    fireEvent.click(await screen.findByRole("button", { name: "Backup missing" }))
 
     await waitFor(() => expect(calls.some((call) => call.url === "/api/web-push/test")).toBe(true))
     expect(calls.filter((call) => call.url === "/api/web-push/test")).toEqual([
@@ -252,6 +323,128 @@ describe("the devices of this account", () => {
     await open()
 
     expect(await screen.findByText("No device is subscribed.")).toBeTruthy()
+  })
+})
+
+/**
+ * steward/129. The select that used to stand beside the word "Devices" is a popover on the button
+ * that does the sending, and its rows say what will arrive rather than what the switch above is
+ * called.
+ */
+describe("nothing in it scrolls sideways (steward/129)", () => {
+  /**
+   * Measured rather than asserted, everywhere except here: `/home/dev/ui-shots/tool/notify.mjs`
+   * opens this dialog at 390px and reports every box past the edge. jsdom has no layout and can
+   * therefore only hold the one rule that made it fit - the scroller cannot scroll in x, so a
+   * control that refuses to shrink is a clipped control rather than a sheet that slides.
+   */
+  it("keeps the scroller from being scrollable sideways at all", async () => {
+    vi.stubGlobal("fetch", backend().fetcher)
+    await open()
+
+    const scroller = (await screen.findByText("This device")).closest(".overflow-y-auto")
+    expect(scroller).not.toBeNull()
+    expect((scroller as HTMLElement).className).toContain("overflow-x-hidden")
+  })
+})
+
+describe("the test send hangs off the paper plane", () => {
+  it("says what each row will actually put on a lock screen, not the name of the switch", async () => {
+    vi.stubGlobal("fetch", backend().fetcher)
+    await open()
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }),
+    )
+
+    expect(await screen.findByText("Test notifications")).toBeTruthy()
+    // Every one of the five, in the words `AlertWatch#sample` really sends. "Services" is the
+    // switch; "Service down" is the notification.
+    for (const label of [
+      "Service down",
+      "Backup missing",
+      "Disk filling up",
+      "Memory filling up",
+      "Image out of date",
+    ]) {
+      expect(screen.getByRole("button", { name: label })).toBeTruthy()
+    }
+  })
+
+  it("has no select left beside the device list", async () => {
+    vi.stubGlobal("fetch", backend().fetcher)
+    await open()
+    await screen.findByText("iPhone, Safari")
+
+    expect(screen.queryByRole("combobox", { name: "Which notification to test" })).toBeNull()
+  })
+
+  it("offers a test for every type that can be switched on, and no more", async () => {
+    vi.stubGlobal("fetch", backend().fetcher)
+    await open()
+
+    const switches = await screen.findAllByRole("switch")
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send a test notification to iPhone, Safari" }),
+    )
+    const popover = (await screen.findByText("Test notifications")).parentElement as HTMLElement
+
+    // One row per switch: a type that cannot be tested honestly would be a button that sends
+    // nothing, and a type with no switch would be a test for something nobody can receive.
+    expect(within(popover).getAllByRole("button")).toHaveLength(switches.length)
+  })
+})
+
+/**
+ * steward/129. The three numbers are keys of `steward-ui/steward-ui.yml`, and the same PUT the
+ * configuration form uses writes them - revision and all, so two open forms still collide loudly.
+ */
+describe("the thresholds the notifications fire on", () => {
+  it("draws the numbers the file says, not the ones the light happens to hold", async () => {
+    vi.stubGlobal("fetch", backend().fetcher)
+    await open()
+
+    expect(
+      ((await screen.findByLabelText("Disk in use")) as HTMLInputElement).value,
+    ).toBe("85")
+    expect((screen.getByLabelText("Memory in use") as HTMLInputElement).value).toBe("90")
+    expect((screen.getByLabelText("Newest backup") as HTMLInputElement).value).toBe("30")
+  })
+
+  it("writes only the number that was typed in, with the revision it was drawn from", async () => {
+    const { calls, fetcher } = backend()
+    vi.stubGlobal("fetch", fetcher)
+    await open()
+
+    fireEvent.change(await screen.findByLabelText("Disk in use"), { target: { value: "70" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(calls.some((call) => call.method === "PUT" && call.url.startsWith("/api/config/"))).toBe(true))
+    expect(calls.filter((call) => call.method === "PUT" && call.url.startsWith("/api/config/"))).toEqual([
+      {
+        url: `/api/config/${ALERTS}`,
+        method: "PUT",
+        body: { revision: "rev-1", changes: { "alerts.disk-percent": "70" } },
+      },
+    ])
+  })
+
+  it("has nothing to save until something was changed", async () => {
+    vi.stubGlobal("fetch", backend().fetcher)
+    await open()
+    await screen.findByLabelText("Disk in use")
+
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("shows the numbers and points at the page when the file cannot be written here", async () => {
+    vi.stubGlobal("fetch", backend({ noAlertsFile: true }).fetcher)
+    await open()
+    await screen.findByText("iPhone, Safari")
+
+    // No field that cannot write: a box somebody types into and loses is worse than a sentence.
+    expect(screen.queryByLabelText("Disk in use")).toBeNull()
+    expect(screen.getByRole("link", { name: "steward-ui page" })).toBeTruthy()
   })
 })
 

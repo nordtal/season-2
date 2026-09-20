@@ -11,6 +11,7 @@ import {
   WarningCircleIcon,
   WarningIcon,
 } from "@phosphor-icons/react"
+import type { ReactNode } from "react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -34,7 +35,7 @@ import { PageHeader } from "@/components/steward/page-header"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
 import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
-import { Empty, Failure, Loading, QueryState } from "@/components/steward/query-state"
+import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import {
   ResponsiveAlertDialog,
   ResponsiveAlertDialogAction,
@@ -216,6 +217,9 @@ function LinkBadge({ person }: { person: Person }) {
   )
 }
 
+/** Three rows of nothing while a person's periods are read. Most accounts have one or two. */
+const WAITING_GRANTS = [0, 1, 2]
+
 const GRANT_SOURCES: Record<string, string> = {
   PURCHASE: "Purchase",
   ADMIN: "by hand",
@@ -297,6 +301,74 @@ function shortId(value: string): string {
 const PEOPLE_PAGE_SIZE = 20
 
 // --- 1. /access ---------------------------------------------------------------------------------
+
+/**
+ * The roster's frame - the header row and, with it, the six column widths.
+ *
+ * It is a component rather than markup inside the table because it is drawn twice: once around the
+ * real rows and once around the waiting ones (steward/120). Two copies of six `w-[Nrem]` classes
+ * is one copy that drifts, and the drift is visible - every heading would shift sideways the
+ * moment the roster lands.
+ */
+function PeopleTable({ children }: { children: ReactNode }) {
+  return (
+    <Table className="steward-table">
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[16rem]">Person</TableHead>
+          <TableHead className="w-[20rem]">
+            <AccessColumnHead />
+          </TableHead>
+          <TableHead className="w-[9rem]">Minecraft</TableHead>
+          <TableHead className="w-[9rem]">Roles</TableHead>
+          {/* steward/119: the prestige tier is derived from this number and stored nowhere, so it
+              is the only thing an admin can look at - and, through the row action beside it, the
+              only thing they can move. */}
+          <TableHead className="w-[7rem]">Playtime</TableHead>
+          <TableHead className="w-[15rem]" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>{children}</TableBody>
+    </Table>
+  )
+}
+
+/** How many rows are drawn before the roster is there. A page of the real thing is twenty. */
+const WAITING_PEOPLE = [0, 1, 2, 3, 4, 5, 6, 7]
+
+/**
+ * One person before there is one: the avatar, the name, the access badge and the rest, in the
+ * shapes the real row puts in those cells. The row action stays empty - a menu with nothing behind
+ * it is worse than a gap.
+ */
+function WaitingPersonRow() {
+  return (
+    <TableRow>
+      <TableCell data-label="Person" className="font-medium">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-6 shrink-0 rounded-full" />
+          <SkeletonText width="long" className="max-w-[9rem]" />
+        </div>
+      </TableCell>
+      <TableCell data-label="Access">
+        <Skeleton className="h-5 w-28 rounded-full" />
+      </TableCell>
+      <TableCell data-label="Minecraft">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-5 shrink-0 rounded-sm" />
+          <SkeletonText width="medium" className="max-w-[6rem]" />
+        </div>
+      </TableCell>
+      <TableCell data-label="Roles">
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </TableCell>
+      <TableCell data-label="Playtime">
+        <SkeletonText width="short" />
+      </TableCell>
+      <TableCell />
+    </TableRow>
+  )
+}
 
 /**
  * The roster: everyone the bot knows, and what they may.
@@ -392,7 +464,6 @@ export function AccessPage() {
 
           <QueryState
             query={people}
-            rows={8}
             empty={{
               title: "Nobody yet",
               note: "The bot has not seen a single Discord account yet - or it is not running.",
@@ -400,6 +471,23 @@ export function AccessPage() {
             isEmpty={(list: Person[]) => list.length === 0}
           >
             {(list) => {
+              if (list === undefined) {
+                // The search field, the filter and the six column headings above are all on screen
+                // already - they are written into the page, not fetched. What is missing is eight
+                // rows, so eight rows is what is drawn (steward/120).
+                return (
+                  <>
+                    <PeopleTable>
+                      {WAITING_PEOPLE.map((index) => (
+                        <WaitingPersonRow key={index} />
+                      ))}
+                    </PeopleTable>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <SkeletonText className="w-44 text-xs" />
+                    </div>
+                  </>
+                )
+              }
               const trimmed = needle.trim().toLowerCase()
               // Four things, per steward/46, even though it reads as five fields: a Discord name
               // (guild nickname or username - whichever this account has), a Minecraft name, and
@@ -439,23 +527,7 @@ export function AccessPage() {
               )
               return (
                 <>
-                  <Table className="steward-table">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[16rem]">Person</TableHead>
-                        <TableHead className="w-[20rem]">
-                          <AccessColumnHead />
-                        </TableHead>
-                        <TableHead className="w-[9rem]">Minecraft</TableHead>
-                        <TableHead className="w-[9rem]">Roles</TableHead>
-                        {/* steward/119: the prestige tier is derived from this number and stored
-                            nowhere, so it is the only thing an admin can look at - and, through the
-                            row action beside it, the only thing they can move. */}
-                        <TableHead className="w-[7rem]">Playtime</TableHead>
-                        <TableHead className="w-[15rem]" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  <PeopleTable>
                       {paged.map((person) => (
                         <TableRow key={person.discordId}>
                           <TableCell data-label="Person" className="font-medium">
@@ -537,8 +609,7 @@ export function AccessPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                    </TableBody>
-                  </Table>
+                  </PeopleTable>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">
                       {count(rows.length)} of {count(list.length)} loaded accounts.
@@ -1165,27 +1236,43 @@ function PersonGrants({
 
       <Separator />
 
-      {grants.isPending ? (
-        <Loading rows={3} />
-      ) : grants.error ? (
-        <Failure error={grants.error} onRetry={grants.refetch} />
-      ) : (grants.data ?? []).length === 0 ? (
-        <Empty
-          title="No period"
-          note="None has ever been written for this account - neither bought nor by hand."
-        />
-      ) : (
-        <Table className="steward-table">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[7rem]">Source</TableHead>
-              <TableHead>Window</TableHead>
-              <TableHead className="w-[13rem]">State</TableHead>
-              <TableHead className="w-[8rem]">Request</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(grants.data ?? []).map((row) => {
+      <QueryState
+        query={grants}
+        empty={{
+          title: "No period",
+          note: "None has ever been written for this account - neither bought nor by hand.",
+        }}
+        isEmpty={(list: Grant[]) => list.length === 0}
+      >
+        {(list) => (
+          <Table className="steward-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[7rem]">Source</TableHead>
+                <TableHead>Window</TableHead>
+                <TableHead className="w-[13rem]">State</TableHead>
+                <TableHead className="w-[8rem]">Request</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list === undefined
+                ? WAITING_GRANTS.map((index) => (
+                    <TableRow key={index}>
+                      <TableCell data-label="Source">
+                        <SkeletonText width="medium" />
+                      </TableCell>
+                      <TableCell data-label="Window">
+                        <SkeletonText width="long" />
+                      </TableCell>
+                      <TableCell data-label="State">
+                        <Skeleton className="h-5 w-24 rounded-full" />
+                      </TableCell>
+                      <TableCell data-label="Request">
+                        <SkeletonText width="short" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : list.map((row) => {
               const state = grantTone(row, now)
               return (
                 <TableRow key={row.id}>
@@ -1216,18 +1303,21 @@ function PersonGrants({
                       </span>
                     )}
                   </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      )}
-
+                      </TableRow>
+                    )
+                  })}
+            </TableBody>
+          </Table>
+        )}
+      </QueryState>
     </>
   )
 }
 
 // --- 2. /payments --------------------------------------------------------------------------------
+
+/** Eight rows of nothing while the requests are read - a page of the real table is longer. */
+const WAITING_PAYMENTS = [0, 1, 2, 3, 4, 5, 6, 7]
 
 const PAYMENT_STATES: Record<string, { label: string; tone: Tone; title: string }> = {
   OPEN: {
@@ -1282,7 +1372,6 @@ export function PaymentsPage() {
 
       <QueryState
         query={payments}
-        rows={8}
         empty={{
           title: "No payment request",
           note: "Nobody has requested access yet - or the bot is not running.",
@@ -1290,17 +1379,22 @@ export function PaymentsPage() {
         isEmpty={(list: Payment[]) => list.length === 0}
       >
         {(list) => {
-          const open = list.filter((payment) => payment.status === "OPEN")
+          // Everything below reads `list ?? []` and then asks `waiting` before it prints a
+          // figure (steward/120). A sum over nothing is 0, and "0 paid" is not a waiting state -
+          // it is a wrong answer that will be silently corrected a moment later.
+          const waiting = list === undefined
+          const rows = list ?? []
+          const open = rows.filter((payment) => payment.status === "OPEN")
           const overdue = open.filter((payment) => isOverdue(payment, now))
-          const paid = list.filter((payment) => payment.status === "PAID")
+          const paid = rows.filter((payment) => payment.status === "PAID")
           const requested = paid.reduce(
             (sum, payment) => sum + payment.amountCents + payment.donationCents,
             0,
           )
           // Built from what is here, plus the value being filtered on, so that a status added to
           // the CHECK constraint later still appears the moment one row carries it.
-          const present = [...new Set(list.map((payment) => payment.status))].sort()
-          const shown = list.filter((payment) => status === "" || payment.status === status)
+          const present = [...new Set(rows.map((payment) => payment.status))].sort()
+          const shown = rows.filter((payment) => status === "" || payment.status === status)
 
           return (
             <>
@@ -1308,15 +1402,17 @@ export function PaymentsPage() {
                 <CardContent className="flex flex-wrap items-start gap-8 pt-6">
                   <Stat
                     label="Open"
-                    value={count(open.length)}
-                    hint={`${count(overdue.length)} of them past the deadline`}
+                    value={waiting ? undefined : count(open.length)}
+                    hint={
+                      waiting ? undefined : `${count(overdue.length)} of them past the deadline`
+                    }
                     tone={overdue.length > 0 ? "warn" : undefined}
                   />
-                  <Stat label="Paid" value={count(paid.length)} />
+                  <Stat label="Paid" value={waiting ? undefined : count(paid.length)} />
                   <Separator orientation="vertical" className="h-14" />
                   <Stat
                     label="Requested (paid requests)"
-                    value={euros(requested)}
+                    value={waiting ? undefined : euros(requested)}
                     hint="Amount plus donation, as the tab requested it"
                   />
                   <p className="max-w-prose text-xs text-muted-foreground">
@@ -1361,7 +1457,7 @@ export function PaymentsPage() {
                     ) : null}
                   </div>
 
-                  {shown.length === 0 ? (
+                  {!waiting && shown.length === 0 ? (
                     <Empty
                       title="No request with this status"
                       note="None of the loaded requests carries this status."
@@ -1399,7 +1495,37 @@ export function PaymentsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {shown.map((payment) => {
+                        {waiting
+                          ? WAITING_PAYMENTS.map((index) => (
+                              <TableRow key={index}>
+                                <TableCell data-label="Reference">
+                                  <SkeletonText width="medium" />
+                                </TableCell>
+                                <TableCell data-label="Person">
+                                  <div className="flex items-center gap-2">
+                                    <Skeleton className="size-6 shrink-0 rounded-full" />
+                                    <SkeletonText width="long" className="max-w-[6rem]" />
+                                  </div>
+                                </TableCell>
+                                <TableCell data-label="Days" className="text-right">
+                                  <SkeletonText width="short" className="ml-auto" />
+                                </TableCell>
+                                <TableCell data-label="Amount" className="text-right">
+                                  <SkeletonText width="medium" className="ml-auto" />
+                                </TableCell>
+                                <TableCell data-label="Status">
+                                  <Skeleton className="h-5 w-20 rounded-full" />
+                                </TableCell>
+                                <TableCell data-label="Deadline">
+                                  <SkeletonText width="long" />
+                                </TableCell>
+                                <TableCell data-label="Paid">
+                                  <SkeletonText width="long" />
+                                </TableCell>
+                                <TableCell />
+                              </TableRow>
+                            ))
+                          : shown.map((payment) => {
                           const state = PAYMENT_STATES[payment.status]
                           const late = isOverdue(payment, now)
                           return (
@@ -1567,7 +1693,6 @@ export function AccountsPage() {
 
           <QueryState
             query={people}
-            rows={8}
             empty={{
               title: "Nobody yet",
               note: "The bot has not seen a single Discord account yet - or it is not running.",
@@ -1575,6 +1700,18 @@ export function AccountsPage() {
             isEmpty={(list: Person[]) => list.length === 0}
           >
             {(list) => {
+              if (list === undefined) {
+                return (
+                  <>
+                    <IdentityTable>
+                      {WAITING_PEOPLE.map((index) => (
+                        <WaitingIdentityRow key={index} />
+                      ))}
+                    </IdentityTable>
+                    <SkeletonText className="w-56 text-xs" />
+                  </>
+                )
+              }
               const trimmed = needle.trim().toLowerCase()
               // Truthiness rather than `!== null`, on purpose: Javalin's Gson mapper drops nulls,
               // so `minecraftUuid` arrives ABSENT for an unlinked person even though `api.ts`
@@ -1597,16 +1734,7 @@ export function AccountsPage() {
               }
               return (
                 <>
-                  <Table className="steward-table">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[20rem]">Person</TableHead>
-                        <TableHead className="w-[13rem]">Linked</TableHead>
-                        <TableHead className="w-[8rem]">Guild</TableHead>
-                        <TableHead>Access</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  <IdentityTable>
                       {rows.map((person) => (
                         <TableRow key={person.discordId}>
                           <TableCell data-label="Person" className="font-medium">
@@ -1628,8 +1756,7 @@ export function AccountsPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                    </TableBody>
-                  </Table>
+                  </IdentityTable>
                   <p className="text-xs text-muted-foreground">
                     {count(rows.length)} of {count(list.length)} loaded accounts. An account with
                     no link cannot reach the server, not even with paid access: the proxy knows only
@@ -1642,6 +1769,49 @@ export function AccountsPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/**
+ * The identities table's frame, for the same reason {@link PeopleTable} is one: four column widths
+ * that have to be identical whether the roster is there or not (steward/120).
+ */
+function IdentityTable({ children }: { children: ReactNode }) {
+  return (
+    <Table className="steward-table">
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[20rem]">Person</TableHead>
+          <TableHead className="w-[13rem]">Linked</TableHead>
+          <TableHead className="w-[8rem]">Guild</TableHead>
+          <TableHead>Access</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>{children}</TableBody>
+    </Table>
+  )
+}
+
+/** One identity before there is one. */
+function WaitingIdentityRow() {
+  return (
+    <TableRow>
+      <TableCell data-label="Person" className="font-medium">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-6 shrink-0 rounded-full" />
+          <SkeletonText width="long" className="max-w-[10rem]" />
+        </div>
+      </TableCell>
+      <TableCell data-label="Linked">
+        <SkeletonText width="long" />
+      </TableCell>
+      <TableCell data-label="Guild">
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </TableCell>
+      <TableCell data-label="Access">
+        <Skeleton className="h-5 w-28 rounded-full" />
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -1682,21 +1852,30 @@ function AuthenticationCard() {
             </span>
           ) : null}
         </div>
-        {me.error ? (
-          <Failure error={me.error} onRetry={me.refetch} />
-        ) : me.data ? (
-          // The backend's own sentence, verbatim and in English: this is the API's answer and not
-          // a claim this page makes on its behalf.
-          <pre className="overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
-            {`/api/me\nwebauthn: ${me.data.webauthn}`}
-          </pre>
-        ) : (
-          <Loading rows={1} label="Reading the session…" />
-        )}
+        <QueryState query={me}>
+          {(data) => (
+            // The backend's own sentence, verbatim and in English: this is the API's answer and
+            // not a claim this page makes on its behalf. The box is the same box either way - it
+            // is two lines of monospace, and two lines is what it reserves while it waits.
+            <pre className="overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
+              {data ? (
+                `/api/me\nwebauthn: ${data.webauthn}`
+              ) : (
+                <span className="flex flex-col gap-1">
+                  <SkeletonText width="short" />
+                  <SkeletonText width="medium" />
+                </span>
+              )}
+            </pre>
+          )}
+        </QueryState>
       </CardContent>
     </Card>
   )
 }
+
+/** Ten rows of nothing while the record is read; the query hands out at most two hundred. */
+const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 // --- 4. /journal ----------------------------------------------------------------------------------
 
@@ -1812,7 +1991,6 @@ export function JournalPage() {
 
           <QueryState
             query={entries}
-            rows={10}
             empty={{
               title: "No entry",
               note: "Nothing in the record matches these filters. Both compare exactly, not partially - a typo in the id looks exactly like \"nothing happened\".",
@@ -1832,7 +2010,33 @@ export function JournalPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {list.map((entry) => (
+                    {list === undefined
+                      ? WAITING_ENTRIES.map((index) => (
+                          <TableRow key={index}>
+                            <TableCell data-label="When">
+                              <SkeletonText width="long" />
+                            </TableCell>
+                            <TableCell data-label="Action">
+                              <SkeletonText width="medium" />
+                            </TableCell>
+                            <TableCell data-label="Triggered by">
+                              <div className="flex items-center gap-2">
+                                <Skeleton className="size-6 shrink-0 rounded-full" />
+                                <SkeletonText width="long" className="max-w-[8rem]" />
+                              </div>
+                            </TableCell>
+                            <TableCell data-label="Concerns">
+                              <div className="flex items-center gap-2">
+                                <Skeleton className="size-6 shrink-0 rounded-full" />
+                                <SkeletonText width="long" className="max-w-[7rem]" />
+                              </div>
+                            </TableCell>
+                            <TableCell data-label="Detail">
+                              <SkeletonText width="full" />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      : list.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell data-label="When" className="text-muted-foreground tnum" title={entry.occurred}>
                           {dateTime(entry.occurred)}
@@ -1876,13 +2080,19 @@ export function JournalPage() {
                         <TableCell data-label="Detail" className="text-muted-foreground whitespace-normal">
                           {entry.detail ?? "–"}
                         </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableRow>
+                        ))}
                   </TableBody>
                 </Table>
                 <p className="text-xs text-muted-foreground">
-                  {count(list.length)} entries. This query hands out no more than 200 - paging
-                  through the whole record is not something the API knows yet.
+                  {list === undefined ? (
+                    <SkeletonText className="w-64" />
+                  ) : (
+                    <>
+                      {count(list.length)} entries. This query hands out no more than 200 - paging
+                      through the whole record is not something the API knows yet.
+                    </>
+                  )}
                 </p>
               </>
             )}

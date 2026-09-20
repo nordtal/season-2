@@ -656,14 +656,22 @@ wrong order.
 deploy/dev ui
 ```
 
-brings up `postgres`, `steward-worker`, `steward-ui` and `steward-deployer` in the background, asks
-Gradle for the private Node and the npm packages, and then runs Vite in the foreground. The
-interface is on **http://localhost:5173**; the Java process behind it answers on `127.0.0.1:8080`,
-and Vite proxies `/api` and `/auth` to it. **Ctrl-C stops Vite and leaves the containers running** —
-the counter-command is `deploy/dev stop`.
+brings up everything `COMPOSE_PROFILES` selects, adds the three steward services, asks Gradle for
+the private Node and the npm packages, and then runs Vite in the foreground. The interface is on
+**http://localhost:5173**; the Java process behind it answers on `127.0.0.1:8080`, and Vite proxies
+`/api` and `/auth` to it. **Ctrl-C stops Vite and leaves the containers running** — the
+counter-command is `deploy/dev stop`.
 
-- **Naming the four services is what selects them.** Compose activates a service's profile when the
-  service is named on the command line, so nothing here needs `--profile` and Caddy stays out.
+- **The whole stack, not only what the interface talks to directly.** What it draws is the servers,
+  their plugins and their players; a page whose every card says *not running* is not a page worth
+  working on. The first `deploy/dev up` still has to have happened — `ui` starts containers, it
+  does not build jars.
+- **The three steward services are named, never added to `COMPOSE_PROFILES`.** Naming a service
+  activates its profile, so nothing here needs `--profile`; putting `steward` in the profile list
+  would bring Caddy with it, and a laptop has no certificate for it to fetch.
+- **`PACK_PORT` is 8081 because `STEWARD_UI_PORT` is 8080.** Both defaulted to 8080, and with
+  `devpack` on and the interface up they are on at the same time now. `deploy/dev ui` refuses to
+  start when the two are equal rather than letting Docker explain it three services later.
 - **There is no Node on this host and there is not going to be one.** `:steward-ui:npmInstall`
   downloads its own under `steward-ui/build/nodejs/`, and `deploy/dev ui` *searches* for it rather
   than spelling the path out — the directory name carries the platform, so a written path works on
@@ -693,7 +701,8 @@ deploy/dev pack
 
 builds the zip, puts it under `PACK_ROOT`, and writes `url` and `sha1` into the proxy's `pack.yml` —
 the same two lines the worker's `PackWriter` owns and no others. The `devpack` profile serves that
-directory on `http://localhost:8080`, which is the client's `localhost` too. A `FAILED_DOWNLOAD` on
+directory on `http://localhost:8081` (`PACK_PORT` — it was 8080 until the interface wanted that
+port too), which is the client's `localhost` too. A `FAILED_DOWNLOAD` on
 the client is almost always the hash and not the network — rerun after any change under
 `resource-pack/src/`.
 

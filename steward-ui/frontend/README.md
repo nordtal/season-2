@@ -12,7 +12,7 @@ process in `steward-ui/src/main/java`, which talks to steward-worker.
 deploy/dev ui
 ```
 
-It brings up the four containers the interface reads, gets Node and the packages through Gradle,
+It brings up the stack and the three steward services, gets Node and the packages through Gradle,
 and runs Vite on http://localhost:5173. What that starts, why the port matters, and how to work on
 the Java half instead are in [`deploy/README.md` § *Locally* → *The interface*](../../deploy/README.md#the-interface).
 **That section is the description of the local start; this file does not keep a second copy of it.**

@@ -1,0 +1,32 @@
+<!--
+  deploy/dev up
+
+  Builds the five jars and both images, installs the jars into plugins/, then `compose up -d`.
+
+  THE ANSWER AFTER EDITING deploy/dev.env, and `dev deploy` is not: deploy restarts the existing
+  container, which reuses the environment it was created with, so a changed setting that did not
+  take effect looks exactly like a setting that does not work.
+
+  The first run takes minutes - steward-worker fetches Paper, Velocity, the third-party plugins
+  and the SMP's two world-generation datapacks. Watch it with `dev logs`.
+
+  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
+  .run/README.md, once, rather than in each of these thirty files.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="dev up" type="ShConfigurationType" folderName="dev: stack">
+    <option name="SCRIPT_TEXT" value="" />
+    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+    <option name="SCRIPT_PATH" value="$PROJECT_DIR$/deploy/dev" />
+    <option name="SCRIPT_OPTIONS" value="up" />
+    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+    <option name="INTERPRETER_PATH" value="/usr/bin/env" />
+    <option name="INTERPRETER_OPTIONS" value="bash" />
+    <option name="EXECUTE_IN_TERMINAL" value="true" />
+    <option name="EXECUTE_SCRIPT_FILE" value="true" />
+    <envs />
+    <method v="2" />
+  </configuration>
+</component>

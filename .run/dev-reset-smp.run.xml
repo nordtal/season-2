@@ -1,0 +1,30 @@
+<!--
+  deploy/dev reset smp
+
+  DELETES THE SMP'S WHOLE VOLUME: world, .server cache, logs. On smp that world is Nordtal, which
+  is in no repository and in no release.
+
+  deploy/dev makes you TYPE THE SERVICE NAME BACK before it does anything - not "yes", the name -
+  and that prompt is why this runs in the terminal. plugins/ is a directory on the host and
+  survives. Nothing here weakens that guard; it only saves typing the command.
+
+  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
+  .run/README.md, once, rather than in each of these thirty files.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="dev reset smp" type="ShConfigurationType" folderName="dev: reset (destructive)">
+    <option name="SCRIPT_TEXT" value="" />
+    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+    <option name="SCRIPT_PATH" value="$PROJECT_DIR$/deploy/dev" />
+    <option name="SCRIPT_OPTIONS" value="reset smp" />
+    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+    <option name="INTERPRETER_PATH" value="/usr/bin/env" />
+    <option name="INTERPRETER_OPTIONS" value="bash" />
+    <option name="EXECUTE_IN_TERMINAL" value="true" />
+    <option name="EXECUTE_SCRIPT_FILE" value="true" />
+    <envs />
+    <method v="2" />
+  </configuration>
+</component>

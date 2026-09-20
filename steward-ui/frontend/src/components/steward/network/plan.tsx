@@ -1,143 +1,101 @@
-import type { Plan } from "./place"
+import type { Arrangement } from "./place"
 
 /**
- * The arrangement the network view is drawn from - draft **h**, chosen by Till on 2026-09-18 and
- * rebuilt to his six follow-up changes from the same message.
+ * The arrangement the network view is drawn from - one arrangement, for every width.
  *
- * It was one of two letters on a throwaway page until it was chosen; that page, the other letter and
- * the route that served them are deleted, which steward/81 said from the start would happen to
- * whichever drafts lost. This file is what is left of that round, and the letter is kept in the
- * sentence above only because every note in this ticket calls the arrangement by it.
+ * It began as draft **h**, chosen by Till on 2026-09-18 out of a throwaway page of letters and
+ * rebuilt to his six follow-up changes from the same message. steward/121 took away the one thing
+ * that was still hand-written twice: there was a `wide` table of coordinates and a `narrow` one,
+ * and the drawing jumped from the second to the first at 600px. Now there is this, in lanes, and
+ * `place.tsx` resolves it against whatever width the panel has.
  *
- * The shape stays what it was: two branches run down opposite edges and the database lane runs
- * between them. What changes is everything about how the branches are populated and where the
- * lane's own traffic sits, because Till's six points are all about *this* arrangement rather than
- * about the shared node, the curve or the colour - those were settled in the previous round.
+ * <h2>Three lanes and a row per thing</h2>
+ * Lane 0 is the left column, lane 1 the right, lane 0.5 the middle, and what those mean in pixels
+ * is `place.tsx`'s one formula. The shape is unchanged from the letter Till picked: two branches
+ * run down opposite edges and the database lane runs between them.
  *
- * <h2>The six changes, and where each one lives below</h2>
+ * `y` is absolute and deliberately not stretched - the vertical is not where a wider window's extra
+ * room is, and a picture that grew taller as it grew wider would push the rest of the start page
+ * down for nothing. The consequence is worth stating plainly because it is a real cost of having
+ * one arrangement instead of two: the drawing is **956px tall at every width**, where the old
+ * `wide` was 700 and only the old `narrow` was this tall. The height is set by the two group
+ * frames and by `discord-bot` under them, and the one layout that was shorter - `discord-bot`
+ * between the two frames on their shared bottom line - only fits from about 600px up, which is
+ * exactly the reflow this ticket exists to remove.
  *
- * 1. **`players` moves to top centre**, at the same height it already had (`y` unchanged from the
- *    previous round) - "not between the services", so it stays above the `caddy`/`proxy`
- *    row rather than moving into the grid the row implies.
- * 2. **`discord-bot` moves to bottom centre, between the two groups** - it has no traffic edge at
- *    all (see `topology.ts`), so the middle of the bottom row is the one place that does not imply
- *    a relationship that is not there, the same reasoning the old top-right corner used before this
- *    round moved it.
- * 3. **`postgres` moves to the middle of the picture**, both ways - `keeps postgres in the middle
- *    third of the canvas` in `geometry.test.ts` holds it there. It used to sit at the very bottom;
- *    now the upper singles (`caddy`, `proxy`, `steward-ui`) sit above it and the two
- *    groups plus `discord-bot` sit below it, which is what "the middle of the action" means once
- *    two things happen on both sides of a card rather than one thing flowing into it.
- * 4. **The three Paper services, and separately `steward-worker`/`steward-deployer`, pack into one
- *    bordered group each** (`GroupSpec` in `place.tsx`) - `gap-1` (4px, `GROUP_GAP`) between
- *    members, one grey frame (`GROUP_PADDING` on every side) around the stack.
- * 5. **One arrow into each group, one line to postgres out of each group** - not because the edge
- *    list changed (it did not: `topology.ts` still lists `proxy -> smp`, `-> hunger-games`
- *    and `-> limbo` as three edges), but because `wires.tsx`'s `resolveEndpoint` folds a grouped
- *    member's end of an edge into its group's own frame, and three edges that resolve to the same
- *    pair draw once.
- * 6. **The alignment**: two singles and a group on the left (`caddy`, `steward-ui`,
- *    `steward-ops`), one single and a group on the right (`proxy`, `paper`) - and three
- *    things share the picture's bottom line: both groups and `discord-bot`. `caddy` and
- *    `proxy` share the top line the same way.
+ * <h2>Why the middle lane's cards each get a row of their own</h2>
+ * At `minWidth` the three lanes overlap: a 144px card in lane 0.5 and one in lane 0 share 36px of
+ * x. That is fine and is the point of a narrow canvas - but only as long as nothing in the middle
+ * lane is ever level with something in a side lane. So `players`, `postgres` and `discord-bot` each
+ * sit at a height no side card occupies, and the gaps between the rows are what the database feet
+ * use to cross the picture. `geometry.test.ts` runs the whole collision suite at several widths
+ * rather than one, which is what turns that sentence into a check.
  *
- * <h2>Why the junction sits below `postgres`, not above it</h2>
- * The database fan used to gather above the sink, because the sink used to be the lowest thing on
- * the page. Now three of five sources - both groups and `discord-bot` - sit *below* `postgres`,
- * and only two (`proxy`, `steward-ui`) sit above it. Putting the junction above `postgres`
- * would force `discord-bot`'s foot, which shares `postgres`'s own x, to run in a dead straight
- * vertical line through the middle of the card to get there. Putting the junction **below**
- * `postgres` instead - `wide`'s sits at `(300, 450)`, 62px under the sink - means the three
- * below-postgres sources reach it without ever entering postgres's own row, and the trunk
- * (`bundle`'s `M junction.x junction.y L junction.x sink.y`) travels from the junction up through
- * the space below the card and then behind it, which paints as "arrives at the bottom edge" rather
- * than "cuts through the middle" because the card (`z-10`) sits over the SVG (`z-0`) for the part of
- * the line that would otherwise show through. The two above-postgres sources still pass near the
- * card on their way down to the junction, the same way a source has always been allowed to pass
- * near the sink it is heading for - `postgres` is excluded from every foot's own crossing check for
- * exactly that reason, in both this round and the one before it.
+ * <h2>The six changes of 2026-09-18, and where each one lives below</h2>
+ *
+ * 1. **`players` at top centre** - "not between the services", so it stays above the `caddy`/`proxy`
+ *    row rather than moving into the grid that row implies.
+ * 2. **`discord-bot` at bottom centre** - it has no traffic edge at all (see `topology.ts`), so the
+ *    middle of the bottom row is the one place that does not imply a relationship that is not there.
+ * 3. **`postgres` in the middle of the picture**, both ways - the upper singles (`caddy`, `proxy`,
+ *    `steward-ui`) sit above it and the two groups plus `discord-bot` below it.
+ * 4. **Two groups, packed and framed** - the three Paper services on the right, the two deploy
+ *    services on the left.
+ * 5. **`caddy` and `proxy` share a top edge**, which is the row the two branches start from.
+ * 6. **Two singles and a group on the left, one single and a group on the right.**
+ *
+ * <h2>The database lane</h2>
+ * The junction sits at y=520, in the 52px band between `postgres`'s bottom edge and the Paper
+ * group's frame - a row no card occupies at any width. Every source drops or rises in its own lane
+ * and flattens onto that row; `bundle` in `wires.tsx` is the shape and says why. Three of the five
+ * resolved sources are *below* the junction and two are above it, which is why the junction is
+ * under `postgres` rather than over it: two feet have to come round the sink either way, and two is
+ * fewer than three.
  *
  * <h2>No detours left to bow</h2>
- * The previous round needed `bows` because three separate edges left `proxy` stacked in
- * one lane, and the two further siblings ran straight through the nearer ones. Collapsing those
- * three edges into one - into the group, not into three lines that happen to overlap - removes the
- * siblings, and with them the reason `bows` existed on this draft. Both arrangements below carry no
- * `bows` at all, which is itself the evidence the collapsing did its job rather than something
- * hand-tuned away.
- *
- * <h2>On a phone</h2>
- * The columns move from 92/508 (416px apart) to 84/268 (184px apart), which is what buys two
- * 144px-wide columns inside a 352px canvas at all - but nothing shares a row across that gap: every
- * centre-lane card (`players`, `postgres`) sits at a height no side card occupies, so the columns
- * can overlap in x without ever overlapping in the picture. `postgres` in particular moved off the
- * height it would have shared with `steward-ui` at the wider spacing (both would have landed with
- * overlapping x *and* y) down to its own row between the singles and the groups.
- *
- * <h2>`discord-bot` does not fit in the sixth change's bottom row, and moves instead of squeezing</h2>
- * At `wide`, change six puts `discord-bot` between the two groups on their shared bottom line, and
- * there is room: 600px across two 164px-wide group frames and one 144px card. At 352px there is
- * not - the two group frames alone already span from x=2 to x=350, `GROUP_PADDING` having widened
- * each one past its members' own footprint, and nothing is left between them for a third box. Rather
- * than shrink a frame Till asked to be one size, `discord-bot` drops below both groups on `narrow`,
- * still centred, still the lowest card in the picture - a real second arrangement making a different
- * call, not the wide one measured wrong. `geometry.test.ts` holds this arrangement to that claim
- * rather than to the wide one's "same bottom line", which cannot hold here.
- *
- * The canvas is 940px tall and scrolls, which a topology map may; it is 352px wide and does not,
- * which it must not.
+ * A previous round needed `bows` because three separate edges left `proxy` stacked in one lane and
+ * the two further siblings ran straight through the nearer ones. Collapsing those three edges into
+ * one - into the group, not into three lines that happen to overlap - removed the siblings, and
+ * with them the reason `bows` existed here. The arrangement below carries none at all, which is
+ * itself the evidence the collapsing did its job rather than something hand-tuned away.
  */
-
-const wide: Plan["wide"] = {
-  width: 600,
-  height: 700,
-  junction: { x: 300, y: 450 },
+export const PLAN: Arrangement = {
+  // 372px, measured rather than chosen: at a 1024px viewport the start page's two columns and the
+  // sidebar are all present at once, and the panel holding this picture is exactly that wide there
+  // (2026-09-20) - the narrowest it gets anywhere above the 768px line, below which the panel draws
+  // the table instead and this arrangement is not used at all.
+  //
+  // It is a floor and not a design size. What sets it is the 32px corridor between the two group
+  // frames, which `discord-bot`'s foot runs up; go much below this and the line has single-figure
+  // clearance on each side and stops reading as passing *between* them. A browser that takes a few
+  // pixels for a scrollbar lands just under it and the picture is scaled by 0.98, which is the
+  // safety net doing its job rather than a mode being entered.
+  minWidth: 372,
+  // 720px, and it is a judgement rather than a measurement: at the 820px the panel gets on a 1920px
+  // screen the three lanes are 328px apart, the two traffic arrows that cross the picture are
+  // longer than anything they connect, and the middle is empty. 720 is where the arrows still read
+  // as arrows. Past it the drawing is centred in the room it has instead of filling it.
+  maxWidth: 720,
+  height: 956,
+  junction: { lane: 0.5, y: 520 },
   spots: [
-    { id: "players", x: 300, y: 44 },
+    { id: "players", lane: 0.5, y: 40 },
 
-    { id: "caddy", x: 92, y: 182 },
-    { id: "proxy", x: 508, y: 182 },
+    { id: "caddy", lane: 0, y: 170 },
+    { id: "proxy", lane: 1, y: 170 },
 
-    { id: "steward-ui", x: 92, y: 320 },
+    { id: "steward-ui", lane: 0, y: 300 },
 
-    { id: "postgres", x: 300, y: 350 },
+    { id: "postgres", lane: 0.5, y: 430 },
 
-    { id: "discord-bot", x: 300, y: 622 },
+    { id: "discord-bot", lane: 0.5, y: 888 },
   ],
   groups: [
-    // The three Paper servers - `proxy` is the only thing that routes to any of them,
-    // and the group is what turns three arrows into one.
-    { id: "paper", members: ["smp", "hunger-games", "limbo"], x: 508, y: 532 },
-    // `steward-ui` calls both of these; same collapse, same reasoning, one column over.
-    { id: "steward-ops", members: ["steward-worker", "steward-deployer"], x: 92, y: 572 },
+    // The three Paper servers - `proxy` is the only thing that routes to any of them, and the group
+    // is what turns three arrows into one. Its frame runs 562..818.
+    { id: "paper", members: ["smp", "hunger-games", "limbo"], lane: 1, y: 690 },
+    // `steward-ui` calls both of these; same collapse, same reasoning, one lane over. Its frame runs
+    // 642..818, so the two groups finish on the same bottom line.
+    { id: "steward-ops", members: ["steward-worker", "steward-deployer"], lane: 0, y: 730 },
   ],
 }
-
-const narrow: Plan["narrow"] = {
-  width: 352,
-  height: 940,
-  junction: { x: 176, y: 510 },
-  spots: [
-    { id: "players", x: 176, y: 40 },
-
-    { id: "caddy", x: 84, y: 170 },
-    { id: "proxy", x: 268, y: 170 },
-
-    { id: "steward-ui", x: 84, y: 300 },
-
-    // Moved well clear of `steward-ui`'s row - at the narrower 84/268 columns the two would share
-    // both an x-range and a y-range at the old spacing, which is an overlap the wide arrangement
-    // never has to worry about because its columns sit 416px apart instead of 184.
-    { id: "postgres", x: 176, y: 430 },
-
-    // Below both groups, not between them - see the class comment for why change six's bottom row
-    // does not fit at this width. 30px clear of the groups' own bottom edge (800), which is enough
-    // that `geometry.test.ts`'s general overlap check has margin rather than landing on a seam.
-    { id: "discord-bot", x: 176, y: 868 },
-  ],
-  groups: [
-    { id: "paper", members: ["smp", "hunger-games", "limbo"], x: 268, y: 672 },
-    { id: "steward-ops", members: ["steward-worker", "steward-deployer"], x: 84, y: 712 },
-  ],
-}
-
-export const PLAN: Plan = { wide, narrow }

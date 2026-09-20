@@ -102,8 +102,12 @@ const DRIFT_WORDS: Record<string, string> = {
  *
  * The word for each of the four is in the tooltip on the line, not here: `aria-label` is what a
  * screen reader reads, and a sighted reader gets the same sentence by pointing at the line.
+ *
+ * Exported for `table.tsx`: below 768px the picture becomes a row per service (steward/121), and a
+ * row carries the same four facts a card does. A second mark drawn from a second `switch` is the
+ * kind of copy that stays right for exactly as long as nobody edits either one.
  */
-function DriftMark({ drift }: { drift: string }) {
+export function DriftMark({ drift }: { drift: string }) {
   switch (drift) {
     case "OUTDATED":
       return (
@@ -177,8 +181,11 @@ export function Vitals({ service }: { service: Service }) {
  * Both are ghost and both are icon-only, which is the second half of Till's note of 2026-09-17: a
  * filled or outlined button on every one of ten cards is ten rectangles competing with the lines
  * that are the actual subject of the picture.
+ *
+ * Exported for `table.tsx`, and for the same reason `DriftMark` is: the phone's row is the card's
+ * contents on one line, not a second design.
  */
-function NodeToolbar({ id }: { id: Exclude<NodeId, typeof INGRESS> }) {
+export function NodeToolbar({ id }: { id: Exclude<NodeId, typeof INGRESS> }) {
   return (
     <div className="mt-auto flex items-center justify-end gap-0.5">
       <Tooltip>

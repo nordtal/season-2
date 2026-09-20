@@ -79,8 +79,8 @@ export function OverviewPage() {
         twice a season.
 
         **On a phone the picture goes last**, which is the one place this layout is not simply the
-        desktop one stacked. The narrow arrangement is 940px tall on purpose and scrolls; putting it
-        above Season and the actions would mean a screen and a half of drawing before the first
+        desktop one stacked. Since steward/121 a phone gets a table of ten rows rather than the
+        940px drawing that used to be here - shorter, but still most of a screen before the first
         thing that changed today. It replaced a one-line disclosure, and a one-line disclosure is
         what was cheap to scroll past - so the order changes rather than the picture.
       */}

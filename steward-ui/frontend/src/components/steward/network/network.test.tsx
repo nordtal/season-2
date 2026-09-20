@@ -6,11 +6,13 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router"
-import { cleanup, render, waitFor, within } from "@testing-library/react"
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { SERVICES } from "@/app/navigation"
 import { Vitals } from "@/components/steward/network/node"
+import { NetworkTable } from "@/components/steward/network/table"
+import { SECTIONS } from "@/components/steward/network/topology"
 import { NetworkPanel } from "@/components/steward/network/view"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -76,7 +78,7 @@ function json(body: unknown): Response {
   })
 }
 
-function draw(table: unknown = TABLE) {
+function draw(table: unknown = TABLE, component: () => React.ReactNode = NetworkPanel) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
@@ -94,7 +96,7 @@ function draw(table: unknown = TABLE) {
   // thing it links into and a root that draws it.
   const root = createRootRoute()
   const routeTree = root.addChildren([
-    createRoute({ getParentRoute: () => root, path: "/", component: NetworkPanel }),
+    createRoute({ getParentRoute: () => root, path: "/", component: component as never }),
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: () => null }),
   ])
   const router = createRouter({
@@ -110,6 +112,13 @@ function draw(table: unknown = TABLE) {
       </TooltipProvider>
     </QueryClientProvider>,
   )
+}
+
+/** One row of the phone's table, found the way the table marks it. */
+function row(id: string): HTMLElement {
+  const found = document.querySelector<HTMLElement>(`[data-row="${id}"]`)
+  if (!found) throw new Error(`no row was drawn for ${id}`)
+  return found
 }
 
 /** One box, found the same way the line drawing finds it. */
@@ -323,5 +332,68 @@ describe("the view collapses a group's edges into one drawn line each (Till, 202
     // The database fan: five sources once the Paper trio and the deploy pair have each collapsed
     // to their group's own frame, down from the seven raw database clients in topology.ts.
     expect(document.querySelectorAll("[data-foot]")).toHaveLength(5)
+  })
+})
+
+/**
+ * The phone's half of steward/121: below 768px the drawing is a list of rows.
+ *
+ * `NetworkTable` is rendered directly rather than through `NetworkPanel` with a narrowed window,
+ * and that is the honest way round: `useIsMobile` reads `window.innerWidth` and a `matchMedia` that
+ * `vitest.setup.ts` stubs to "never matches", so a test that set the width and rendered the panel
+ * would be asserting against the stub's opinion rather than the component's. Which of the two the
+ * panel picks is one line and is stated in `view.tsx`; what the table itself draws is ten rows, and
+ * that is what is worth holding.
+ */
+describe("the network on a phone (steward/121)", () => {
+  it("draws one row per service, in the sections' order, and no row for players", async () => {
+    draw(TABLE, NetworkTable)
+    await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
+
+    const drawn = [...document.querySelectorAll("[data-row]")].map(
+      (node) => (node as HTMLElement).dataset.row,
+    )
+    for (const name of SERVICES) expect(drawn, `${name} has no row`).toContain(name)
+    expect(new Set(drawn).size).toBe(drawn.length)
+    // The order is the sections', flattened - which is the only thing left in the table that says
+    // anything about the topology, Till having ruled out a "connected to" column.
+    expect(drawn).toEqual(SECTIONS.flatMap((section) => section.members))
+    // `players` is a box in the drawing and not a service; it gets no row. See SECTIONS.
+    expect(drawn).not.toContain("players")
+  })
+
+  it("prints a section heading for each group of the plan", async () => {
+    draw(TABLE, NetworkTable)
+    await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
+
+    for (const section of SECTIONS) {
+      expect(
+        screen.getByRole("heading", { name: section.title }),
+        `${section.title} has no heading`,
+      ).toBeTruthy()
+    }
+  })
+
+  it("carries the same four facts a card does, and nothing it does not", async () => {
+    draw(TABLE, NetworkTable)
+    await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
+
+    // health, tag, count, and the two buttons - the card's contents on one line.
+    expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy()
+    expect(row("smp").textContent).toContain("1.4.0")
+    expect(row("smp").textContent).not.toContain("ghcr.io")
+    expect(within(row("smp")).getByTitle("players").textContent).toBe("3")
+    expect(within(row("smp")).getByRole("link", { name: "smp" })).toBeTruthy()
+    expect(within(row("smp")).getByRole("link", { name: "open smp" })).toBeTruthy()
+
+    // The same silence the card keeps: five services carry no count and must draw none.
+    for (const silent of ["postgres", "caddy", "steward-ui", "steward-worker", "discord-bot"]) {
+      expect(within(row(silent)).queryByTitle("players")).toBeNull()
+    }
+    // And the same drift marks, from the same component.
+    expect(within(row("hunger-games")).getByLabelText("a newer image exists")).toBeTruthy()
+    expect(within(row("proxy")).getByLabelText("built on this host")).toBeTruthy()
+    expect(within(row("discord-bot")).getByLabelText("image not compared")).toBeTruthy()
+    expect(within(row("smp")).queryByLabelText("a newer image exists")).toBeNull()
   })
 })

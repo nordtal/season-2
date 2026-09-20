@@ -4,12 +4,15 @@ import { PLAN } from "./plan"
 import {
   GROUP_GAP,
   GROUP_PADDING,
+  MARGIN,
   NODE,
-  type Arrangement,
+  type Placed,
   allSpots,
   geometryOf,
   groupBox,
   groupMemberSpots,
+  laneX,
+  place,
   regionsOf,
 } from "./place"
 import { DATABASE_CLIENTS, EDGES, layoutFaults, type NodeId } from "./topology"
@@ -21,23 +24,26 @@ import { type Box, bundle, curve, inside, overlaps, resolvedSources, samplePath 
  * The first two rounds laid the cards out with CSS grids and read their positions back out of the
  * DOM. jsdom has no layout, so every rectangle was zero there and nothing about the drawing could
  * be asserted: a line running through the middle of a card was found by photographing it, twice,
- * and one of them (`g`'s loop back into its own source) survived a whole review round. Cards are
- * now placed at points a plan names, so the geometry is a pure function of that plan and these are
- * ordinary assertions about numbers.
+ * and one of them survived a whole review round. Cards are now placed at points a plan names, so
+ * the geometry is a pure function of that plan and these are ordinary assertions about numbers.
+ *
+ * <h2>Every assertion runs at several widths (steward/121)</h2>
+ * There used to be two arrangements and this file ran everything twice, once against each. There is
+ * one now, and what it runs against instead is a list of **widths** - because a plan in lanes is
+ * only correct if it is correct at every width it can be given, and the failures live at the ends:
+ * the narrowest is where two lanes are closest to touching, the widest is where a line that took a
+ * shortcut has the most room to show it.
+ *
+ * The four widths below are not decoration. 372 is `minWidth`, measured off the real panel at a
+ * 1024px viewport. 720 is `maxWidth`. 410 and 560 are two in between, and one of them - 410 - is
+ * what the panel actually is on a 1100px screen.
  *
  * What this still cannot say is whether the result is nice to look at. That needs an eye, and the
  * ticket says whose.
  */
+const WIDTHS = [372, 410, 560, 720] as const
 
-/**
- * Both arrangements of the one plan that is left. `i` stood beside it here until Till chose `h`
- * on 2026-09-18; the two lists this file used to keep - every draft, and then the subset that
- * groups anything - collapsed into this one when the loser was deleted.
- */
-const PLANS = [
-  ["wide", PLAN.wide],
-  ["narrow", PLAN.narrow],
-] as const
+const LAYOUTS = WIDTHS.map((width) => [`${width}px`, place(PLAN, width)] as const)
 
 const TRAFFIC = EDGES.filter((edge) => edge.kind === "traffic")
 
@@ -55,14 +61,14 @@ function crossings(d: string, boxes: Record<string, Box>, allowed: string[]): st
   return [...hit]
 }
 
-describe.each(PLANS)("%s", (_name, arrangement: Arrangement) => {
+describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
   it("places every service in navigation.ts, exactly once, and the box the traffic comes from", () => {
-    expect(layoutFaults(allSpots(arrangement).map((spot) => spot.id as NodeId))).toEqual([])
+    expect(layoutFaults(allSpots(placed).map((spot) => spot.id as NodeId))).toEqual([])
   })
 
   it("keeps every card and every group's frame inside the canvas", () => {
-    const { width, height } = geometryOf(arrangement)
-    for (const [id, box] of Object.entries(regionsOf(arrangement))) {
+    const { width, height } = geometryOf(placed)
+    for (const [id, box] of Object.entries(regionsOf(placed))) {
       expect(`${id} left ${box.x}`).toBe(`${id} left ${Math.max(box.x, 0)}`)
       expect(`${id} right ${box.x + box.width}`).toBe(
         `${id} right ${Math.min(box.x + box.width, width)}`,
@@ -77,7 +83,7 @@ describe.each(PLANS)("%s", (_name, arrangement: Arrangement) => {
     // A member's own box sits inside its group's frame on purpose - that is not a collision, it is
     // what the frame is for - so this checks the picture's top-level shapes (`regionsOf`, one per
     // lone card and one per group) rather than every individual box.
-    const regions = regionsOf(arrangement)
+    const regions = regionsOf(placed)
     const ids = Object.keys(regions)
     for (let a = 0; a < ids.length; a++) {
       for (let b = a + 1; b < ids.length; b++) {
@@ -91,8 +97,8 @@ describe.each(PLANS)("%s", (_name, arrangement: Arrangement) => {
     // Resolved the same way `wires.tsx` resolves an edge: a member's `from`/`to` becomes its
     // group's own key, and two edges that resolve to the same pair are the same drawn line, so
     // only the first is checked - checking it twice would just repeat the same assertion.
-    const geometry = geometryOf(arrangement)
-    const regions = regionsOf(arrangement)
+    const geometry = geometryOf(placed)
+    const regions = regionsOf(placed)
     const seen = new Set<string>()
     for (const edge of TRAFFIC) {
       const fromKey = geometry.memberOf[edge.from] ?? edge.from
@@ -103,17 +109,27 @@ describe.each(PLANS)("%s", (_name, arrangement: Arrangement) => {
       const key = `${fromKey}-${toKey}`
       if (seen.has(key)) continue
       seen.add(key)
-      const d = curve(from, to, arrangement.bows?.[key] ?? 0)
+      const d = curve(from, to, placed.bows?.[key] ?? 0)
       const through = crossings(d, regions, [fromKey, toKey])
       expect(`${key} through ${through.join(", ")}`).toBe(`${key} through `)
     }
   })
 
-  it("keeps the database lane clear of every card or group", () => {
-    const geometry = geometryOf(arrangement)
-    const regions = regionsOf(arrangement)
-    const junction = arrangement.junction
-    if (!junction) return
+  /**
+   * The database bundle, and **`postgres` is no longer excused from this check** (steward/121).
+   *
+   * It used to be, on the argument that a foot is heading for the sink anyway and may pass close to
+   * it. That argument let through the exact fault Till reported by eye: the two sources above
+   * `postgres` left through their own sides and cut diagonally across it, and the trunk ran from
+   * the junction underneath the card to the *far* edge of it. Both were lines drawn behind a
+   * service, which is the one thing he asked for by name, and both were invisible here because the
+   * only box that could have caught them was the one being skipped.
+   */
+  it("keeps the database bundle clear of every card and group, the sink included", () => {
+    const geometry = geometryOf(placed)
+    const regions = regionsOf(placed)
+    const junction = placed.junction
+    if (!junction) throw new Error("the arrangement names no junction")
     const sink = geometry.boxes.postgres
     const resolved = resolvedSources(DATABASE_CLIENTS, geometry)
     const merged = bundle(
@@ -127,41 +143,39 @@ describe.each(PLANS)("%s", (_name, arrangement: Arrangement) => {
     }
 
     resolved.forEach(({ key }, index) => {
-      const through = crossings(merged.feet[index], regions, [key, "postgres"])
+      const through = crossings(merged.feet[index], regions, [key])
       expect(`${key} foot through ${through.join(", ")}`).toBe(`${key} foot through `)
     })
-  })
-})
 
-/**
- * Till, 2026-09-18, choosing `h` and asking for six further changes in the same message. Each of
- * these checks one of them; the seventh ("two singles and a group on the left, one single and a
- * group on the right") is the column shape the other checks below already pin down together, so it
- * has no test of its own.
- */
-describe.each(PLANS)("%s - Till's six changes of 2026-09-18", (_name, arrangement: Arrangement) => {
+    // The trunk is the line that was wrong, and until `samplePath` learned to read `M … L …` it was
+    // read as an empty path and could not be checked at all.
+    expect(samplePath(merged.trunk).length).toBeGreaterThan(1)
+    const throughTrunk = crossings(merged.trunk, regions, [])
+    expect(`trunk through ${throughTrunk.join(", ")}`).toBe("trunk through ")
+  })
+
   it("centres players and keeps it above every other card", () => {
-    const players = arrangement.spots.find((spot) => spot.id === "players")
+    const players = placed.spots.find((spot) => spot.id === "players")
     if (!players) throw new Error("players is not a loose spot in this arrangement")
-    expect(players.x).toBe(arrangement.width / 2)
-    for (const spot of allSpots(arrangement)) {
+    expect(players.x).toBe(placed.width / 2)
+    for (const spot of allSpots(placed)) {
       if (spot.id === "players") continue
       expect(`${spot.id} y ${spot.y}`).toBe(`${spot.id} y ${Math.max(spot.y, players.y + 1)}`)
     }
   })
 
   it("puts discord-bot on the centre line, below every other card", () => {
-    const bot = arrangement.spots.find((spot) => spot.id === "discord-bot")
+    const bot = placed.spots.find((spot) => spot.id === "discord-bot")
     if (!bot) throw new Error("discord-bot is not a loose spot in this arrangement")
-    expect(bot.x).toBe(arrangement.width / 2)
-    for (const spot of allSpots(arrangement)) {
+    expect(bot.x).toBe(placed.width / 2)
+    for (const spot of allSpots(placed)) {
       if (spot.id === "discord-bot") continue
       expect(`${spot.id} y ${spot.y}`).toBe(`${spot.id} y ${Math.min(spot.y, bot.y - 1)}`)
     }
   })
 
   it("keeps postgres in the middle third of the canvas, both ways", () => {
-    const { boxes, width, height } = geometryOf(arrangement)
+    const { boxes, width, height } = geometryOf(placed)
     const centre = {
       x: boxes.postgres.x + boxes.postgres.width / 2,
       y: boxes.postgres.y + boxes.postgres.height / 2,
@@ -173,14 +187,13 @@ describe.each(PLANS)("%s - Till's six changes of 2026-09-18", (_name, arrangemen
   })
 
   it("gives caddy and proxy the same top edge", () => {
-    const { boxes } = geometryOf(arrangement)
+    const { boxes } = geometryOf(placed)
     expect(boxes.caddy.y).toBe(boxes["proxy"].y)
   })
 
   it("has exactly two groups: the three Paper services, and the two deploy services", () => {
-    const groups = arrangement.groups ?? []
-    expect(groups).toHaveLength(2)
-    const byMember = new Map(groups.map((group) => [group.id, new Set(group.members)]))
+    expect(placed.groups).toHaveLength(2)
+    const byMember = new Map(placed.groups.map((group) => [group.id, new Set(group.members)]))
     const paper = [...byMember.values()].find((members) => members.has("smp"))
     const deploy = [...byMember.values()].find((members) => members.has("steward-worker"))
     expect(paper && [...paper].sort()).toEqual(["hunger-games", "limbo", "smp"])
@@ -188,7 +201,7 @@ describe.each(PLANS)("%s - Till's six changes of 2026-09-18", (_name, arrangemen
   })
 
   it("packs a group's members GROUP_GAP apart under one frame padded by GROUP_PADDING on every side", () => {
-    for (const group of arrangement.groups ?? []) {
+    for (const group of placed.groups) {
       const members = groupMemberSpots(group)
       for (let i = 1; i < members.length; i++) {
         // The vertical distance between two stacked centres is one card's own height plus the gap
@@ -210,7 +223,7 @@ describe.each(PLANS)("%s - Till's six changes of 2026-09-18", (_name, arrangemen
   })
 
   it("draws exactly one traffic edge into each group, and one data edge out of each group", () => {
-    const geometry = geometryOf(arrangement)
+    const geometry = geometryOf(placed)
     const paperGroup = geometry.memberOf.smp
     const deployGroup = geometry.memberOf["steward-worker"]
     expect(paperGroup).toBeTruthy()
@@ -232,39 +245,73 @@ describe.each(PLANS)("%s - Till's six changes of 2026-09-18", (_name, arrangemen
     expect(keys.filter((key) => key === paperGroup)).toHaveLength(1)
     expect(keys.filter((key) => key === deployGroup)).toHaveLength(1)
   })
-})
 
-/**
- * "The groups and `discord-bot` finish on one bottom line" only has room to mean what it says at
- * `wide`'s 600px: two group frames and one card, side by side, all ending at the same y. At 352px
- * the two frames alone already span 2px to 350px of the canvas - `GROUP_PADDING` widens a group
- * past its members' own footprint on every side, and there is no gap left between them for a third
- * box, let alone one on the same row. `discord-bot` is below both groups on `narrow` instead
- * (still centred, still the lowest card there is) rather than squeezed into a row that cannot hold
- * it - a deliberate reflow, not the same arrangement measured wrong.
- */
-describe("h wide - the bottom line", () => {
-  it("gives both groups and discord-bot the same bottom edge", () => {
-    const geometry = geometryOf(PLAN.wide)
-    const bot = geometry.boxes["discord-bot"]
+  it("gives both groups and nothing else the same bottom edge", () => {
+    const geometry = geometryOf(placed)
     const bottoms = new Set(
-      [...(PLAN.wide.groups ?? []).map((group) => geometry.groups[group.id]), bot].map(
-        (box) => box.y + box.height,
-      ),
+      placed.groups.map((group) => {
+        const box = geometry.groups[group.id]
+        return box.y + box.height
+      }),
     )
     expect(bottoms.size).toBe(1)
   })
 })
 
-describe("h narrow - discord-bot does not fit beside the groups", () => {
-  it("keeps discord-bot clear of both groups and below both of them", () => {
-    const geometry = geometryOf(PLAN.narrow)
-    const regions = regionsOf(PLAN.narrow)
-    const bot = geometry.boxes["discord-bot"]
-    for (const group of PLAN.narrow.groups ?? []) {
-      const box = regions[group.id]
-      expect(overlaps(box, bot) ? `${group.id} overlaps discord-bot` : "clear").toBe("clear")
-      expect(bot.y).toBeGreaterThanOrEqual(box.y + box.height)
+/**
+ * The half of steward/121 that is not about collisions: the drawing stretches, and the cards do
+ * not.
+ *
+ * Till, 2026-09-20: proportional would be fine, but the boxes must not grow with it - only the
+ * arrows should stretch. That sentence has two halves and they need two different
+ * assertions - one that something grows, one that something does not - because a change that got
+ * either half alone would look right in exactly one screenshot.
+ */
+describe("stretching", () => {
+  it("leaves every card the same size at every width", () => {
+    for (const [, placed] of LAYOUTS) {
+      for (const box of Object.values(geometryOf(placed).boxes)) {
+        expect(`${box.width}x${box.height}`).toBe(`${NODE.width}x${NODE.height}`)
+      }
+    }
+  })
+
+  it("moves the lanes apart as the canvas grows, which is what lengthens the lines", () => {
+    const gaps = WIDTHS.map((width) => laneX(1, width) - laneX(0, width))
+    for (let i = 1; i < gaps.length; i++) {
+      expect(`at ${WIDTHS[i]}px the lanes are ${gaps[i]}px apart`).toBe(
+        `at ${WIDTHS[i]}px the lanes are ${Math.max(gaps[i], gaps[i - 1] + 1)}px apart`,
+      )
+    }
+    // And by exactly the extra room, not by some fraction of it: everything a wider canvas gains
+    // goes into the one gap between lane 0 and lane 1.
+    expect(gaps[gaps.length - 1] - gaps[0]).toBe(WIDTHS[WIDTHS.length - 1] - WIDTHS[0])
+  })
+
+  it("keeps a lane-0 group's frame on the canvas, which is what MARGIN is for", () => {
+    for (const [, placed] of LAYOUTS) {
+      const geometry = geometryOf(placed)
+      const left = Math.min(...Object.values(geometry.groups).map((box) => box.x))
+      expect(left).toBe(MARGIN - GROUP_PADDING)
+      expect(left).toBeGreaterThan(0)
+    }
+  })
+
+  it("puts nothing in the middle lane level with anything in a side lane", () => {
+    // The one rule that makes a single arrangement survive being squeezed: at `minWidth` a centre
+    // card and a side card share 30px of x, so they must never share a row. Checked against the
+    // spots rather than against the drawn result, because it is a fact about the plan.
+    const placed = place(PLAN, PLAN.minWidth)
+    const middle = placed.spots.filter((spot) => spot.x === placed.width / 2)
+    const sides = allSpots(placed).filter((spot) => spot.x !== placed.width / 2)
+    expect(middle.map((spot) => spot.id).sort()).toEqual(["discord-bot", "players", "postgres"])
+    for (const centre of middle) {
+      for (const side of sides) {
+        const apart = Math.abs(centre.y - side.y)
+        expect(`${centre.id} and ${side.id} ${apart >= NODE.height ? "clear" : "level"}`).toBe(
+          `${centre.id} and ${side.id} clear`,
+        )
+      }
     }
   })
 })

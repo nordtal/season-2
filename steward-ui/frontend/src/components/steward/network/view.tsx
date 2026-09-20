@@ -1,6 +1,9 @@
+import { useIsMobile } from "@/hooks/use-mobile"
+
 import { useNetwork } from "./data"
 import { Field } from "./place"
 import { PLAN } from "./plan"
+import { NetworkTable } from "./table"
 import { QueryState } from "@/components/steward/query-state"
 
 /**
@@ -25,9 +28,18 @@ import { QueryState } from "@/components/steward/query-state"
  * container in the project" empty state when it answered with none. That last one is worth keeping
  * even though it is nearly impossible on a running host: a picture of ten boxes drawn from an empty
  * list is ten boxes saying nothing, which looks like a stack that is fine.
+ *
+ * <h2>Below 768px it is a table, and the line is the app's own (steward/121)</h2>
+ * `useIsMobile` - the same 768px that decides whether a dialog is a dialog or a bottom sheet, and
+ * whether the command palette prints its right-hand column - is what picks between the drawing and
+ * {@link NetworkTable}. It is deliberately **not** a measured container width, which is what the
+ * old `wide`/`narrow` switch used: that measurement is 0 in jsdom, so the branch it controlled was
+ * invisible to every test, and "the table is for a phone" is a decision about the device rather
+ * than about how many pixels this particular panel happens to have been given.
  */
 export function NetworkPanel() {
   const network = useNetwork()
+  const narrow = useIsMobile()
 
   return (
     <section className="flex min-w-0 flex-col gap-3">
@@ -42,7 +54,7 @@ export function NetworkPanel() {
       >
         {/* `Field` reads `useNetwork` itself, so it draws with or without an answer - which is
             exactly the shape this component is asking for. */}
-        {() => <Field plan={PLAN} id="network" />}
+        {() => (narrow ? <NetworkTable /> : <Field plan={PLAN} id="network" />)}
       </QueryState>
     </section>
   )

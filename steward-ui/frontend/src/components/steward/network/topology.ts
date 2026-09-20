@@ -54,6 +54,44 @@ export const DATABASE_CLIENTS: ServiceName[] = [
   "steward-ui",
 ]
 
+/**
+ * The order and the grouping the picture turns into on a phone (steward/121).
+ *
+ * Till, 2026-09-19, translated: on the mobile view the whole thing has to become a table again,
+ * with every service node drawn as one row carrying what it carries in the network plan. Asked what
+ * then happens to the wiring: **no "connected to" column** - the table is subdivided by the plan's
+ * own groups instead, and the topology becomes the reading order.
+ *
+ * So this is the third thing in this file that is a second copy of something, and like the other
+ * two it is kept honest by a test rather than by care: `topology.test.ts` asks `layoutFaults`
+ * whether these five lists between them name every service exactly once, which is the same question
+ * it asks the drawing's own arrangement.
+ *
+ * <h2>Five sections, and why not four</h2>
+ * Till named four - proxy, the Paper services, Steward, the database - which covers nine of the ten.
+ * `discord-bot` is in none of them: it talks to no service in this project except the database, it
+ * is not part of the way in and it is not part of Steward, which is exactly why the drawing puts it
+ * on its own at the bottom with no traffic edge at all. It gets its own line here for the same
+ * reason rather than being filed under the nearest heading.
+ *
+ * <h2>`players` is not a row</h2>
+ * It is the one box in the drawing that is not a service (see {@link INGRESS}), it has no health,
+ * no image and nothing to open, and a row of four empty cells says less than no row. The number it
+ * carries - how many people are on the network - is already the first line of this page, above
+ * everything, which is where somebody looking for it would look first anyway.
+ */
+export const SECTIONS: Array<{ id: string; title: string; members: ServiceName[] }> = [
+  { id: "entry", title: "Entry", members: ["caddy", "proxy"] },
+  { id: "paper", title: "Paper", members: ["smp", "hunger-games", "limbo"] },
+  {
+    id: "steward",
+    title: "Steward",
+    members: ["steward-ui", "steward-worker", "steward-deployer"],
+  },
+  { id: "discord", title: "Discord", members: ["discord-bot"] },
+  { id: "database", title: "Database", members: ["postgres"] },
+]
+
 export const EDGES: Edge[] = [
   { from: INGRESS, to: "proxy", kind: "traffic" },
   { from: INGRESS, to: "caddy", kind: "traffic" },

@@ -38,9 +38,9 @@ export type Point = { x: number; y: number }
 
 export type Geometry = {
   boxes: Record<string, Box>
-  /** A group's own frame, keyed by the group id an arrangement chose. Empty for a plan with no
-   *  groups - `i` today - rather than absent, so a caller never has to guard against `undefined`
-   *  on top of an empty map. See `place.tsx`. */
+  /** A group's own frame, keyed by the group id the arrangement chose. Empty rather than absent
+   *  when an arrangement draws no frames, so a caller never has to guard against `undefined` on
+   *  top of an empty map. See `place.tsx`. */
   groups: Record<string, Box>
   /** Which group a member belongs to, if any - the map {@link resolveEndpoint} collapses through. */
   memberOf: Record<string, string>
@@ -112,41 +112,158 @@ export function curve(from: Box, to: Box, bow = 0, standoff = 3): string {
 }
 
 /**
- * Sample a cubic Bézier the way a browser draws it, so a test can walk along a line.
+ * Walk a path the way a browser draws it, so a test can ask where a line actually goes.
  *
- * Only the `M x y C …` form this file produces is understood; anything else returns nothing rather
- * than guessing, because a parser that silently mis-reads a path would make a test that passes for
- * the wrong reason - the one failure worse than no test.
+ * Only the three commands this file emits are understood - `M`, `L` and `C`, absolute, in that
+ * vocabulary and no other. Anything else returns nothing rather than guessing, because a parser
+ * that silently mis-reads a path would make a test that passes for the wrong reason, which is the
+ * one failure worse than having no test.
+ *
+ * <h2>It used to understand one cubic and nothing else</h2>
+ * Until steward/121 this matched the first eight numbers of an `M … C …` string and ignored the
+ * rest, which had two consequences that both hid real lines from every check: a foot with a
+ * straight lead-in before its curve was read as the curve alone, and **the trunk - `M … L …`, with
+ * no `C` in it at all - was read as an empty path**, so the one line that was actually drawn
+ * through the middle of a card was the one line no assertion could see. The junction's trunk ran
+ * from below `postgres` to the *top* of its box, and every test stayed green.
+ *
+ * `steps` is per segment, so a two-segment path is sampled twice as densely as a one-segment one -
+ * which is what a caller checking clearances wants, rather than a fixed budget spread thinner the
+ * longer the path gets.
  */
 export function samplePath(d: string, steps = 40): Point[] {
-  const numbers = d.match(/-?\d+(\.\d+)?/g)
-  if (!d.startsWith("M") || !d.includes("C") || !numbers || numbers.length < 8) return []
-  const [x0, y0, x1, y1, x2, y2, x3, y3] = numbers.slice(0, 8).map(Number)
+  const tokens = d.match(/[MLC]|-?\d+(?:\.\d+)?/g)
+  if (!tokens || tokens[0] !== "M") return []
+
   const points: Point[] = []
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps
-    const u = 1 - t
-    points.push({
-      x: u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3,
-      y: u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3,
-    })
+  let at: Point | undefined
+  let i = 0
+  const number = () => {
+    const value = Number(tokens[i++])
+    return Number.isFinite(value) ? value : NaN
   }
-  return points
+
+  while (i < tokens.length) {
+    const command = tokens[i++]
+    if (command === "M") {
+      at = { x: number(), y: number() }
+      points.push(at)
+    } else if (command === "L") {
+      if (!at) return []
+      const to = { x: number(), y: number() }
+      for (let step = 1; step <= steps; step++) {
+        const t = step / steps
+        points.push({ x: at.x + (to.x - at.x) * t, y: at.y + (to.y - at.y) * t })
+      }
+      at = to
+    } else if (command === "C") {
+      if (!at) return []
+      const x1 = number(), y1 = number(), x2 = number(), y2 = number()
+      const x3 = number(), y3 = number()
+      for (let step = 1; step <= steps; step++) {
+        const t = step / steps
+        const u = 1 - t
+        points.push({
+          x: u * u * u * at.x + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3,
+          y: u * u * u * at.y + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3,
+        })
+      }
+      at = { x: x3, y: y3 }
+    } else {
+      return []
+    }
+  }
+  return points.some((point) => Number.isNaN(point.x) || Number.isNaN(point.y)) ? [] : points
 }
 
 /**
- * Seven lines into one, and one line into the card - the "duck feet" of a service map.
+ * How far before the junction a foot has flattened onto the shared line, in pixels.
+ *
+ * It is a cap rather than a proportion: the last stretch of every foot is meant to be the *same*
+ * stretch, so it must not grow with how far away the source happens to be, or the two ends of the
+ * bundle would flatten at different distances and the thing a reader is supposed to see as one line
+ * would be a slow convergence instead. 48px is about a third of a card's width - long enough to
+ * read as shared, short enough that the curve before it is still a curve.
+ */
+const BUNDLE_FLAT = 48
+
+/**
+ * How early a foot leaves its own lane, as a fraction of how far sideways it has to go, and the
+ * hard ceiling on the same thing.
+ *
+ * This is about the **shape**, not about clearance - {@link LANE_OFFSET} is what buys the room, and
+ * it buys 54px of it at the narrowest width, which is more than any curve needs. What this buys is
+ * that the curve reads as a turn: a foot runs straight down its source's lane, is past the sink's
+ * row before it starts to bend, and then sweeps once onto the junction's line. Without the straight
+ * part the whole thing is one long diagonal that happens to end horizontally, which is the shape
+ * the first round of this drawing had and the shape a reader cannot trace back to a card.
+ *
+ * Capped by the sideways offset as well, so a short hop is mostly curve rather than mostly line.
+ */
+const BUNDLE_BEND = 0.9
+const BUNDLE_BEND_MAX = 96
+
+/**
+ * How far off a card's own centre line a foot leaves it, on the side away from the junction.
+ *
+ * Zero would be the obvious choice and is wrong for a drawn reason: a card's centre line is where
+ * its **traffic** edge already leaves, and three of the five sources have one. `steward-ui` sends an
+ * arrow straight down to the deploy group and also writes to the database; with both leaving the
+ * same point in the same direction, the dashed foot ran underneath the solid arrow for two hundred
+ * pixels and read as one line drawn twice. 28px is enough that the two separate immediately and
+ * little enough that the foot still plainly belongs to the card it came from.
+ *
+ * It is subtracted rather than added - the foot steps *away* from the junction before turning
+ * towards it - and that direction is the one that is measurably safe. At the narrowest width the
+ * arrangement is defined at, stepping away leaves the descent 54px clear of `postgres`; stepping
+ * towards it leaves 2, which is inside the rounding of anything and is the same corridor the fault
+ * this rewrite removes was running down.
+ */
+const LANE_OFFSET = 28
+
+/**
+ * Five lines into one, and one line into the card - the database bundle.
  *
  * Every service that writes to the database has the same line to draw, and drawing seven of them
  * separately is what made `postgres` look like it was under attack from all sides in the first
- * round of this ticket. They are gathered instead: each source curves into a single junction that
- * sits in a lane no card ever stands in, and one trunk leaves the junction for the sink. What a
- * reader then has to follow is one thick line with a fan at the top, and counting the strands of
- * the fan answers "how many services write to the database" without reading a single label.
+ * round of steward/81. They are gathered instead: each source runs down (or up) **its own lane**,
+ * flattens onto a shared line at the junction's height, and one trunk leaves the junction for the
+ * sink. What a reader then has to follow is one line with a fan hanging off it, and counting the
+ * strands of the fan answers "how many services write to the database" without reading a label.
  *
- * The junction is the caller's to choose, and choosing it badly is the one way this goes wrong: it
- * has to sit somewhere no card does, or the fan crosses the cards it came from. `place.ts` reserves
- * that lane, and a test checks it is still empty.
+ * <h2>What steward/121 changed, and why</h2>
+ * Till, 2026-09-20, looking at the shipped version, translated: it also looks as though the
+ * postgres lines are *trying* to bundle, and if so it is certainly not working as intended. He
+ * would like them to find a way **between** the services rather than behind them, and to bundle as
+ * closely as possible into one. Both halves were real and both were this function:
+ *
+ * - **A source left through its own side.** A card whose x was more than half a card away from the
+ *   lane exited sideways, at its own height, and curved diagonally to the junction. For the two
+ *   sources sitting *above* `postgres` that diagonal ran straight across `postgres` itself - which
+ *   is the "behind a service" half, and it was invisible to the test because `postgres` was
+ *   excluded from every foot's own crossing check as "the sink it is heading for anyway". The sink
+ *   is no longer excluded, and the exit is no longer sideways: a foot leaves through the edge that
+ *   **faces the junction vertically** and descends in its source's own lane, which is a corridor an
+ *   arrangement already has to keep clear for the card itself.
+ * - **Nothing was shared.** Each foot aimed at the junction with a handle half its own length away,
+ *   so five curves of five different lengths met at a point and agreed about nothing before it.
+ *   Now every one of them has the same second handle - {@link BUNDLE_FLAT} back along the junction's
+ *   own row - so the last 48px of all five strands lie on top of one another. That is the "as close
+ *   to one as possible" half, and it is what makes the fan read as a bus rather than as five lines
+ *   that happen to end together.
+ *
+ * <h2>The trunk stops at the near edge, which is the whole of the fourth finding</h2>
+ * His fourth finding, translated: where all the lines lead to postgres there is also some other
+ * odd line drawn behind postgres. It was this line, and it was not a stray path or an edge to a node
+ * that is not there: the trunk was drawn from the junction to `sink.y` - the **top** of the sink's
+ * box - while the junction sits *below* the sink. So it ran from below the card, through the whole
+ * card, and stopped at its far edge; the card's own `z-10` hid the middle of it and left a stub
+ * poking out underneath that belonged to nothing. It now ends at whichever edge faces the junction,
+ * so it is 38px long and entirely outside the card.
+ *
+ * The junction is the caller's to choose, and choosing it badly is the one way this still goes
+ * wrong: it has to sit in a row no card occupies, and every source's lane has to be clear between
+ * the source and that row. `geometry.test.ts` checks both, at several widths, with nothing excluded.
  */
 export function bundle(
   sources: readonly Box[],
@@ -156,27 +273,35 @@ export function bundle(
   if (sources.length === 0) return { feet: [], trunk: "" }
   const feet = sources.map((box) => {
     const from = centre(box)
+    // Which of the source's own horizontal edges faces the junction. A source is never level with
+    // the junction in this arrangement - the junction sits in a row of its own - so this is a
+    // decision and not a guess.
     const down = junction.y > from.y
+    const exitY = down ? box.y + box.height : box.y
     const way = down ? 1 : -1
-    // A strand leaves through the side that faces the lane, not through the bottom, unless the card
-    // is standing on the lane already. Leaving through the bottom is what put a strand straight
-    // through whatever the arrangement had placed underneath its own source - the failure the first
-    // round of this ticket shipped, one layer down.
-    const sideways = Math.abs(junction.x - from.x) > box.width / 2
-    const exit = sideways
-      ? { x: junction.x > from.x ? box.x + box.width : box.x, y: from.y }
-      : { x: from.x, y: down ? box.y + box.height : box.y }
-    const reach = Math.max(Math.abs(junction.y - exit.y) / 2, 24)
-    // The sideways handle never reaches past the lane it is aiming at. Letting it run a flat
-    // distance overshot on a narrow canvas - the strand swung out beyond the lane and came back,
-    // and on the way back it went through whatever card was standing on the other side.
-    const span = Math.abs(junction.x - exit.x)
-    const handle = sideways
-      ? { x: exit.x + (junction.x > from.x ? 1 : -1) * Math.min(reach, span * 0.8), y: exit.y }
-      : { x: exit.x, y: exit.y + way * reach }
-    return `M ${exit.x} ${exit.y} C ${handle.x} ${handle.y}, ${junction.x} ${junction.y - way * reach}, ${junction.x} ${junction.y}`
+    const towards = Math.sign(junction.x - from.x)
+    // The lane this foot runs down: the card's own, stepped LANE_OFFSET clear of the arrow that
+    // leaves the same edge. A source standing in the junction's lane has no direction to step in
+    // and keeps the centre, which is what makes its foot and the trunk one straight line.
+    const lane = from.x - towards * LANE_OFFSET
+    const drop = Math.abs(junction.y - exitY)
+    const across = Math.abs(junction.x - lane)
+    // How far above (or below) the junction's row the turn begins - the straight part before it is
+    // what keeps a foot inside its own lane until it is past the sink's row.
+    const bend = Math.min(drop, across * BUNDLE_BEND, BUNDLE_BEND_MAX)
+    // Capped by the offset itself as well as by BUNDLE_FLAT, so a source standing in the junction's
+    // own lane (`discord-bot`) gets a flat length of zero and draws a straight line down rather
+    // than a curve that leaves the lane in order to come back to it.
+    const flat = Math.min(BUNDLE_FLAT, across * 0.4)
+    const turn = junction.y - way * bend
+    return (
+      `M ${lane} ${exitY} L ${lane} ${turn} ` +
+      `C ${lane} ${junction.y}, ${junction.x - towards * flat} ${junction.y}, ` +
+      `${junction.x} ${junction.y}`
+    )
   })
-  return { feet, trunk: `M ${junction.x} ${junction.y} L ${junction.x} ${sink.y}` }
+  const nearEdge = junction.y > centre(sink).y ? sink.y + sink.height : sink.y
+  return { feet, trunk: `M ${junction.x} ${junction.y} L ${junction.x} ${nearEdge}` }
 }
 
 /**

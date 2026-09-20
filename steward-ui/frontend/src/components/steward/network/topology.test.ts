@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { SERVICES } from "@/app/navigation"
 
-import { EDGES, INGRESS, imageTag, layoutFaults, type NodeId } from "./topology"
+import { EDGES, INGRESS, SECTIONS, imageTag, layoutFaults, type NodeId } from "./topology"
 
 /**
  * A draft arranges the ten services by hand, and a hand-written arrangement is where the eleventh
@@ -31,6 +31,28 @@ describe("layoutFaults names what an arrangement forgot (steward/81)", () => {
 
   it("notices the same box drawn twice", () => {
     expect(layoutFaults([INGRESS, ...SERVICES, "postgres"])).toEqual(["postgres is placed twice"])
+  })
+})
+
+/**
+ * The table on a phone is a second hand-written list of the same ten names (steward/121), and a
+ * hand-written list is where the eleventh service goes missing - silently, the same way it goes
+ * missing from an arrangement. It is checked with the same function for the same reason.
+ */
+describe("the sections cover every service, once (steward/121)", () => {
+  it("names all ten between them and repeats none", () => {
+    const rows = SECTIONS.flatMap((section) => section.members)
+    // `INGRESS` is prepended rather than expected in a section: `players` is not a service and
+    // deliberately has no row - see the comment on SECTIONS - but `layoutFaults` is the drawing's
+    // checker and asks for it, so this hands it the one thing it is entitled to expect.
+    expect(layoutFaults([INGRESS, ...rows])).toEqual([])
+  })
+
+  it("gives every section a heading and at least one row", () => {
+    for (const section of SECTIONS) {
+      expect(`${section.id} has ${section.members.length} rows`).not.toBe(`${section.id} has 0 rows`)
+      expect(section.title).toMatch(/^[A-Z]/)
+    }
   })
 })
 

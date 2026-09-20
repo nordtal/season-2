@@ -784,6 +784,29 @@ export function useAskForRun() {
   })
 }
 
+/**
+ * Taking a run back (steward/131).
+ *
+ * The backend calls `UpdateDirectory#cancelCountdown`, whose SQL takes whichever row is
+ * `PENDING`/`RUNNING` with `not_before` still in the future - so this is one endpoint for both the
+ * countdown ticking away right now and the row entered for tonight, and the interface never has to
+ * say which of the two it means. A 409 is the only interesting refusal: the countdown ran out
+ * between the tap and the request, and nothing was stopped by asking.
+ *
+ * Both lists are invalidated rather than one: `/operations` draws the runs list and a run's own
+ * page draws the single row, and after a cancel they disagree until the next poll.
+ */
+export function useCancelRun() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api<Run>("/api/updates/cancel", { method: "POST" }),
+    onSuccess: (cancelled) => {
+      client.invalidateQueries({ queryKey: ["runs"] })
+      client.invalidateQueries({ queryKey: keys.run(String(cancelled.id)) })
+    },
+  })
+}
+
 export function useConsole(service: string) {
   return useMutation({
     mutationFn: (command: string) =>

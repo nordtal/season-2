@@ -106,6 +106,32 @@ class ConfigsTest {
     }
 
     @Test
+    @DisplayName("localhost is a relying party, and only when the address is localhost too")
+    void theLoopbackIsTheOneNamedException() {
+        // season-2-ops/148. A Vite dev server is http://localhost:5173 and nothing else, WebAuthn
+        // allows exactly one origin, so the relying party id there is `localhost` or there is no
+        // sign-in to develop against. The rule above refused it for a reason that does not apply:
+        // localhost is not a public suffix, every browser takes it, and it is a secure context.
+        Configs.requireRelyingParty("localhost", "http://localhost:5173");
+        Configs.requireRelyingParty("localhost", "https://localhost");
+        Configs.requireRelyingParty("LocalHost", "http://LOCALHOST:8080");
+
+        // AND IT WIDENS NOTHING, which is the half worth testing. The exception is one value
+        // against one host, not "single labels are fine now".
+        assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("eu", "https://steward.dev.nordtal.eu"));
+        assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("localhost", "https://steward.dev.nordtal.eu"));
+        // The other direction: an address on localhost does not accept some other single label.
+        assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("intranet", "http://localhost:5173"));
+        // And a name that merely ENDS in localhost is a different host, the same near miss the
+        // dot in the comparison above exists for.
+        assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("localhost", "http://notlocalhost:5173"));
+    }
+
+    @Test
     @DisplayName("a relying party written as a URL is refused, because it is a domain")
     void aRelyingPartyIsNotAUrl() {
         assertThrows(IllegalArgumentException.class,

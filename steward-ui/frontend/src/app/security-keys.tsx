@@ -10,6 +10,7 @@ import { useState } from "react"
 import type { Me, SecurityKey } from "@/lib/api"
 import { relative } from "@/lib/format"
 import { useRegisterKey, useRemoveKey, useRenameKey } from "@/lib/queries"
+import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import {
   ResponsiveAlertDialog,
@@ -63,6 +64,14 @@ export function useSecurityKeyActions(me: Me | undefined) {
 
   return {
     keys,
+    /**
+     * Whether `/api/me` has answered at all (steward/120).
+     *
+     * `keys` is `me?.keys ?? []`, so an unanswered session and an account with no key are the same
+     * empty array here - and the list said "No key is registered." to somebody who has three. This
+     * is the one bit that tells them apart.
+     */
+    waiting: me === undefined,
     add,
     rename,
     remove,
@@ -105,6 +114,9 @@ export function useSecurityKeyActions(me: Me | undefined) {
  * one that answered "no", and only a definite no is a reason to press for a second key - a passkey
  * synced through iCloud already exists in two places.
  */
+/** Two rows while `/api/me` is read. One key is the common case, two the recommended one. */
+const WAITING_KEYS = [0, 1]
+
 export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
   const { keys } = state
   const onlyOneAndItIsPhysical = keys.length === 1 && keys[0].backedUp === false
@@ -120,7 +132,19 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
         </Button>
       </div>
 
-      {keys.length === 0 ? (
+      {state.waiting ? (
+        <ul className="flex flex-col">
+          {WAITING_KEYS.map((index) => (
+            <li key={index} className="flex items-center gap-2 py-1">
+              <Skeleton className="size-4 shrink-0 rounded-sm" />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <SkeletonText width="long" className="max-w-[10rem] text-sm" />
+                <SkeletonText width="medium" className="max-w-[8rem] text-xs" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : keys.length === 0 ? (
         <p className="px-1 py-2 text-sm text-muted-foreground">No key is registered.</p>
       ) : (
         <ul className="flex flex-col">

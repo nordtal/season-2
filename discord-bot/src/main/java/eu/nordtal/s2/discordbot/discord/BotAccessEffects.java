@@ -40,7 +40,7 @@ import java.util.concurrent.Executor;
  * thread has three seconds. The one behind the command inbox runs it inline, because the inbox
  * settles a request row when the command returns.
  */
-public final class BotAccessEffects implements AccessEffects {
+public final class BotAccessEffects implements AccessEffects, AccessChanges {
 
     private final Executor executor;
     private final JDA jda;
@@ -125,6 +125,18 @@ public final class BotAccessEffects implements AccessEffects {
 
     @Override
     public Instant grant(final String discordId, final int days, final NordtalUser by) {
+        return grant(discordId, days, Actor.of(by));
+    }
+
+    /**
+     * The grant itself, for whoever asked (season-2-community/08).
+     *
+     * <p>Four things, and only this process can do three of them: the row, the role, the direct
+     * message in the recipient's own language, and the line in the admin channel. A surface that
+     * wrote only the first was the defect this seam closes.</p>
+     */
+    @Override
+    public Instant grant(final String discordId, final int days, final Actor by) {
         final AccessGrant granted =
                 access.grantAccess(discordId, days, AccessSource.ADMIN, null);
         seasonStart.warnIfUnanchored(discordId, granted);
@@ -133,39 +145,51 @@ public final class BotAccessEffects implements AccessEffects {
                 "days", String.valueOf(days),
                 "until", AccessRoles.timestamp(granted.validUntil())));
 
-        admin.record("GRANT_ACCESS", actor(by), discordId, by.minecraftUuid().orElse(null),
+        admin.record("GRANT_ACCESS", by.filed(), discordId, by.minecraftUuid(),
                 days + " days");
-        admin.note(mention(by) + " granted <@" + discordId + "> " + days + " days of access, until "
+        admin.note(by.mention() + " granted <@" + discordId + "> " + days + " days of access, until "
                 + AccessRoles.timestamp(granted.validUntil()) + ".");
         return granted.validUntil();
     }
 
     @Override
     public int revoke(final String discordId, final NordtalUser by) {
+        return revoke(discordId, Actor.of(by));
+    }
+
+    /** @return how many grants were revoked - zero is a legitimate answer and worth saying. */
+    @Override
+    public int revoke(final String discordId, final Actor by) {
         final int revoked = access.revokeAccess(discordId);
         roles.applyAccessRole(discordId, false);
         if (revoked > 0) {
             roles.dm(discordId, messages.get(roles.localeOf(discordId), "dm.revoked"));
         }
 
-        admin.record("REVOKE_ACCESS", actor(by), discordId, by.minecraftUuid().orElse(null),
+        admin.record("REVOKE_ACCESS", by.filed(), discordId, by.minecraftUuid(),
                 revoked + " grant(s)");
-        admin.note(mention(by) + " revoked <@" + discordId + ">'s access (" + revoked
+        admin.note(by.mention() + " revoked <@" + discordId + ">'s access (" + revoked
                 + " grant(s)).");
         return revoked;
     }
 
     @Override
     public boolean unlink(final String discordId, final NordtalUser by) {
+        return unlink(discordId, Actor.of(by));
+    }
+
+    /** @return whether there was a link to break. */
+    @Override
+    public boolean unlink(final String discordId, final Actor by) {
         // Read before the unlink: afterwards there is no row to read it from, and the audit entry is
         // the only place the UUID survives.
         final Optional<UUID> linked = access.linkedMinecraftAccount(discordId);
         if (!access.unlink(discordId)) {
             return false;
         }
-        admin.record("UNLINK", actor(by), discordId, linked.orElse(null),
+        admin.record("UNLINK", by.filed(), discordId, linked.orElse(null),
                 "by an admin, not self-service");
-        admin.note(mention(by) + " unlinked <@" + discordId + ">'s Minecraft account `"
+        admin.note(by.mention() + " unlinked <@" + discordId + ">'s Minecraft account `"
                 + linked.map(UUID::toString).orElse("?") + "`.");
         return true;
     }
@@ -177,6 +201,12 @@ public final class BotAccessEffects implements AccessEffects {
 
     @Override
     public Settled settle(final String reference, final NordtalUser by) {
+        return settle(reference, Actor.of(by));
+    }
+
+    /** Book a payment by hand, for whoever asked. */
+    @Override
+    public Settled settle(final String reference, final Actor by) {
         final Optional<PaymentRequest> request = requests.byReference(reference);
         if (request.isEmpty()) {
             return new Settled(Settlement.UNKNOWN, null, 0, null);
@@ -198,12 +228,35 @@ public final class BotAccessEffects implements AccessEffects {
         roles.dm(found.discordId(), messages.format(roles.localeOf(found.discordId()), "dm.granted",
                 "until", AccessRoles.timestamp(granted.validUntil())));
 
-        admin.record("SETTLE", actor(by), found.discordId(), by.minecraftUuid().orElse(null),
+        admin.record("SETTLE", by.filed(), found.discordId(), by.minecraftUuid(),
                 "manual, reference=" + reference + " days=" + found.days());
-        admin.note(mention(by) + " settled `" + reference + "` by hand: " + found.days()
+        admin.note(by.mention() + " settled `" + reference + "` by hand: " + found.days()
                 + " days for <@" + found.discordId() + ">.");
         return new Settled(Settlement.BOOKED, granted.validUntil(), found.days(),
                 found.status().name());
+    }
+
+    /**
+     * Write somebody's total play time (season-2-community/08).
+     *
+     * <p>New here, and it was nowhere before: steward wrote the column and a journal line, and the
+     * admin channel never heard about it. It joins the other four so that "an access change" means
+     * the same set of consequences whoever asked for it.</p>
+     *
+     * <p><b>No direct message.</b> The other four change what somebody may do and they are told;
+     * this corrects a number that is only ever read by admins, and a DM saying "your play time is
+     * now 42 hours" is an interruption about nothing. The tier it derives into is visible in game
+     * the moment it changes, which is the only part a player would notice.</p>
+     *
+     * @param seconds the new total, which is what the column holds
+     */
+    @Override
+    public void setPlaytime(final String discordId, final long seconds, final Actor by) {
+        access.setPlaytimeSeconds(discordId, seconds);
+        admin.record("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(),
+                seconds + " seconds");
+        admin.note(by.mention() + " set <@" + discordId + ">'s play time to " + seconds
+                + " seconds.");
     }
 
     @Override
@@ -226,20 +279,4 @@ public final class BotAccessEffects implements AccessEffects {
         return List.copyOf(messages.unknownOverrideKeys());
     }
 
-    /**
-     * Who to file this against.
-     *
-     * <p>A Discord id when there is one - which is every admin, since the login gate refuses an
-     * unlinked player - and the readable name otherwise, which is the console. The column is free
-     * text for exactly this reason: a foreign key would mean an action taken from a game surface by
-     * an admin who has not linked could not be recorded at all.</p>
-     */
-    private static String actor(final NordtalUser by) {
-        return by.discordId().orElseGet(by::name);
-    }
-
-    /** The same, as something that renders in the admin channel. */
-    private static String mention(final NordtalUser by) {
-        return by.discordId().map(id -> "<@" + id + ">").orElseGet(() -> "`" + by.name() + "`");
-    }
 }

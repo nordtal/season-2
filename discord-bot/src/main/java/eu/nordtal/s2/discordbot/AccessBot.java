@@ -11,6 +11,7 @@ import eu.nordtal.s2.discordbot.config.Configs;
 import eu.nordtal.s2.discordbot.config.DatabaseSpec;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
+import eu.nordtal.s2.discordbot.discord.AccessInbox;
 import eu.nordtal.s2.discordbot.discord.AdminLog;
 import eu.nordtal.s2.discordbot.discord.GuildState;
 import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
@@ -88,7 +89,18 @@ public class AccessBot implements AutoCloseable {
      * sessions back out. It carries no guarantee of its own; the timer in {@link #schedule} does
      * that, and this only decides when.</p>
      */
+    /** How long the access inbox waits before reading the queue again without being told to. */
+    private static final Duration ACCESS_POLL = Duration.ofSeconds(30);
+
     private final NotificationListener paymentListener;
+
+    /**
+     * The `nordtal_access` half (season-2-community/08). A second listener rather than a second
+     * channel on the payment one: they are configured from different places - the payment poll is
+     * the access config's, this one is the inbox's own - and one listener whose wait interval is
+     * whichever of the two happened to be passed is the kind of thing nobody notices is wrong.
+     */
+    private final NotificationListener accessListener;
 
     /**
      * Bounds a database that has gone away without closing the socket. It is <b>not</b> the wait:
@@ -309,6 +321,13 @@ public class AccessBot implements AutoCloseable {
             this.paymentListener = listenForPayments(databaseConfig, accessConfig, processor,
                     purchaseFlow);
 
+            // Every access change, whoever asked for it (season-2-community/08). The effects are
+            // the ones the command inbox already uses - one executor, so a grant from steward and a
+            // grant typed in Discord are the same four things.
+            this.accessListener = listenForAccess(databaseConfig,
+                    new AccessInbox(eu.nordtal.s2.common.access.AccessRequests.on(
+                            database.dataSource()), inboxEffects, log));
+
             // The readiness marker sits last on purpose: nothing above writes one, so a marker on
             // disk means this bot got all the way through its constructor. It shares the timer
             // thread with the payment poll deliberately - a wedged timer thread is a bot that has
@@ -410,6 +429,37 @@ public class AccessBot implements AutoCloseable {
         return listener;
     }
 
+    /**
+     * Starts the {@code nordtal_access} listener (season-2-community/08).
+     *
+     * <p>One refresh, handed to {@code worker} rather than run on the listener thread: carrying a
+     * grant out calls Discord four times, and a listener thread inside a REST call is a listener
+     * that is not listening.</p>
+     *
+     * <p>The wait is the poll, and the poll is the guarantee - the notification only makes a change
+     * feel instant. Thirty seconds rather than the payment seam's configured interval: an access
+     * change is nearly always announced, and the poll exists for the case where the announcement
+     * was lost, not for the ordinary one.</p>
+     */
+    private NotificationListener listenForAccess(final DatabaseSpec databaseConfig,
+                                                 final AccessInbox accessInbox) {
+        final NotificationListener listener = new NotificationListener(
+                PostgresNotifications.connector(
+                        databaseConfig.jdbcUrl(),
+                        databaseConfig.username(),
+                        databaseConfig.password(),
+                        LISTENER_SOCKET_TIMEOUT_SECONDS,
+                        "access-bot-access-listener",
+                        List.of(Channels.ACCESS)),
+                "access-bot-access-listener",
+                List.of(new NotificationListener.Refresh("access requests",
+                        () -> worker.execute(guarded("access inbox", accessInbox::drain)))),
+                log,
+                ACCESS_POLL);
+        listener.start();
+        return listener;
+    }
+
     private Runnable guarded(final String name, final Runnable task) {
         return () -> {
             try {
@@ -430,6 +480,7 @@ public class AccessBot implements AutoCloseable {
     public void close() {
         log.info("Shutting down");
         paymentListener.close();
+        accessListener.close();
         timers.shutdownNow();
         worker.shutdownNow();
         try {

@@ -296,8 +296,12 @@ public final class Evacuation {
      *
      * <p>A row with no readable report gives an empty set and therefore no evacuation. That is the
      * safe direction: the old behaviour, not a guess at every backend.</p>
+     *
+     * <p>Package-visible rather than private since season-2-ops/118: {@code RestartWatch} asks the
+     * same question of the row it is <em>counting down</em>, so that the announcement can say which
+     * service this is about. Two parsers of one report would be two answers to one question.</p>
      */
-    private static Set<String> backends(final UpdateRequest request) {
+    static Set<String> backends(final UpdateRequest request) {
         return UpdateReports.parse(request.result())
                 .map(report -> report.services().stream()
                         .filter(UpdateReport.ServiceLine::isMoving)

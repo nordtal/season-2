@@ -143,6 +143,21 @@ public final class ProxySwap {
     }
 
     /**
+     * Whether there is a standby proxy answering right now, for somebody who needs to say so.
+     *
+     * <p>Read by {@code RestartWatch} once per countdown (season-2-ops/118), to tell a player
+     * whether they are about to see a loading screen or a disconnect. It is the same question
+     * {@link #decide} asks last and for the same reason - it opens a socket, so it is asked once a
+     * run and never on a pass that has nothing to do.</p>
+     *
+     * <p>False on the standby itself and on a proxy with no {@code public-address}: neither parks
+     * anybody, so neither has a standby in the sense this question means.</p>
+     */
+    public boolean canPark() {
+        return isArmed() && probe.answers(standby, STANDBY_ANSWERS_WITHIN);
+    }
+
+    /**
      * One pass. Scheduled beside {@code Evacuation}, on the same interval and for the same reason it
      * has a task of its own: a watch that throws is a watch Velocity stops running, and the failure
      * mode of that is a season of updates during which the proxy takes the network down with it and

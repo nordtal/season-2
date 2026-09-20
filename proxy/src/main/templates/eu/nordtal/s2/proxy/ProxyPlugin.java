@@ -490,7 +490,7 @@ public final class ProxyPlugin {
         // absolute instant on it, and this counts towards that instant rather than a duration of
         // its own.
         this.restartWatch = new RestartWatch(this, proxy, logger,
-                UpdateDirectory.using(pool), roster, messages, Clock.systemUTC());
+                UpdateDirectory.using(pool), roster, messages, phaseServers, Clock.systemUTC());
         proxy.getScheduler().buildTask(this, this.restartWatch::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
@@ -544,6 +544,12 @@ public final class ProxyPlugin {
             this.evacuation.check();
             swap.check();
         });
+        // AND THE ANNOUNCEMENT LEARNS WHETHER THERE IS A STANDBY (season-2-ops/118). It is the
+        // difference between telling a player they will see a loading screen and telling them they
+        // are about to be thrown out, and it is a fact about right now rather than about the
+        // configuration - the standby lives in a profile of its own and is stopped most of the
+        // time. Asked once per countdown, never on a pass with nothing to do.
+        this.restartWatch.standbyProxyAnswers(swap::canPark);
         proxy.getScheduler().buildTask(this, swap::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)

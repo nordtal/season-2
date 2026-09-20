@@ -16,7 +16,7 @@
 #                                   (a JAR swap. After editing deploy/dev.env, run `up` instead:
 #                                    `restart` reuses the container and its environment with it)
 #   deploy/dev pack                 build the resource pack and point the proxy at it
-#   deploy/dev ui                   the interface: containers in the background, Vite in front
+#   deploy/dev ui                   the interface: the stack in the background, Vite in front
 #                                   (http://localhost:5173. Ctrl-C leaves the containers up)
 #   deploy/dev logs [service]       follow the logs
 #   deploy/dev console <service>    attach to the real server console (Ctrl-b then d to detach)
@@ -442,8 +442,27 @@ cmd_pack() {
 cmd_ui() {
     [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is not there. Run: deploy/dev init"
 
-    log "bringing up the interface and what it reads"
-    compose up -d postgres steward-worker steward-ui steward-deployer
+    # ONE PORT, TWO LOCAL PROFILES. pack-host and steward-ui both default to 127.0.0.1:8080, and
+    # `devpack` is on in every local env file. Docker's own message for that is about a bind
+    # address, three services after the one that matters, so the collision is named here instead.
+    local pack_port steward_port
+    pack_port="$(sed -n 's/^PACK_PORT=//p' "$ENV_FILE" | tail -n1)"
+    steward_port="$(sed -n 's/^STEWARD_UI_PORT=//p' "$ENV_FILE" | tail -n1)"
+    if [[ "${pack_port:-8080}" == "${steward_port:-8080}" ]]; then
+        die "PACK_PORT and STEWARD_UI_PORT are both ${steward_port:-8080} in $ENV_FILE, and the
+       resource pack host and the interface cannot both have it. Set PACK_PORT=8081 - the pack
+       URL is written by 'deploy/dev pack', which reads that value, so nothing else has to change."
+    fi
+
+    # THE WHOLE STACK, not the four services the interface reads directly: what it draws is the
+    # servers, their plugins and their players, and a page whose every card says "not running" is
+    # not the page anybody wants to work on. COMPOSE_PROFILES picks what that means - db,mc,devpack
+    # locally - and the three steward services are named rather than added to it, because `steward`
+    # carries Caddy as well and a laptop has no certificate for it.
+    log "bringing up the stack ($(sed -n 's/^COMPOSE_PROFILES=//p' "$ENV_FILE" | tail -n1))"
+    compose up -d
+    log "and the three services the interface is"
+    compose up -d steward-worker steward-ui steward-deployer
 
     # THE PRIVATE NODE IS SEARCHED FOR, NEVER SPELLED OUT. The directory carries the platform in
     # its name - node-v24.21.0-linux-x64 here, something else on a Mac - so a written path works on
@@ -461,7 +480,7 @@ cmd_ui() {
        That task downloads it; if it did not, its output says why - there is no 'install node
        first' step to fall back on."
 
-    log "the interface is on http://localhost:5173 - the container itself is on 127.0.0.1:8080"
+    log "the interface is on http://localhost:5173 - the container itself is on 127.0.0.1:${steward_port:-8080}"
     log "Ctrl-C stops Vite and LEAVES THE CONTAINERS RUNNING. The counter-command is: deploy/dev stop"
     PATH="$node:$PATH" npm --prefix "$ROOT/steward-ui/frontend" run dev
 }

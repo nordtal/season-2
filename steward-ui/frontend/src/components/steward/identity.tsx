@@ -1,9 +1,10 @@
-import { CheckIcon, CopyIcon, ImageBrokenIcon, UserIcon } from "@phosphor-icons/react"
+import { CheckIcon, CopyIcon, QuestionIcon, UserIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import { StewardMark } from "@/app/steward-mark"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Skeleton } from "@/components/ui/skeleton"
 
 /**
  * The one display of a person, and the one place a Discord id or a Minecraft UUID may be drawn.
@@ -317,9 +318,22 @@ function DiscordAvatar({
 /**
  * The small rounded-square Minecraft head, drawn from a composed URL.
  *
- * A head that fails to load is a placeholder, not a broken-image icon - Crafatar is a free service
- * with no uptime promise (steward/45), and this page must not wait on it or look damaged when it is
- * briefly gone.
+ * <h2>Three states, one size (steward/120)</h2>
+ * Till, 2026-09-19: *"Gerade bei den Minecraft Köpfen sieht es ohne Skeleton erst recht komisch aus
+ * wenn die nachladen."* He is describing the second of these three, which had no drawing at all:
+ *
+ * <ul>
+ *   <li><b>Nothing to draw yet</b> - `mcUuid` undefined, because the row around this head is itself
+ *       still waiting. A skeleton in the head's exact size.</li>
+ *   <li><b>On its way</b> - the URL is composed and the image has not decoded. The same skeleton
+ *       sits underneath it and the image fades in over the top, so the box is never empty and never
+ *       changes size. This is the one that used to be a blank bordered square.</li>
+ *   <li><b>It will not come</b> - a question mark on a flat surface. Crafatar and mc-heads are free
+ *       services with no uptime promise (steward/45); a broken-image icon says the page is damaged,
+ *       and it is not.</li>
+ * </ul>
+ *
+ * The layout does not move between any of the three, which is the whole requirement.
  */
 export function MinecraftHead({
   mcUuid,
@@ -327,23 +341,34 @@ export function MinecraftHead({
   size = "size-5",
   rounded = "rounded-sm",
 }: {
-  mcUuid: string
+  /** Absent while the row around this head is still loading. */
+  mcUuid?: string
   baseUrl?: string
   size?: string
   rounded?: string
 }) {
   const [broken, setBroken] = useState(false)
-  const url = minecraftHeadUrl(baseUrl, mcUuid)
+  const [loaded, setLoaded] = useState(false)
+  const url = mcUuid ? minecraftHeadUrl(baseUrl, mcUuid) : undefined
 
+  if (!mcUuid) {
+    return <Skeleton className={`${size} shrink-0 ${rounded}`} />
+  }
   if (url && !broken) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- this is not Next.js
-      <img
-        src={url}
-        alt=""
-        className={`${size} shrink-0 ${rounded} border border-border object-cover`}
-        onError={() => setBroken(true)}
-      />
+      <span className={`${size} relative inline-block shrink-0`}>
+        {loaded ? null : <Skeleton className={`absolute inset-0 ${rounded}`} />}
+        {/* eslint-disable-next-line @next/next/no-img-element -- this is not Next.js */}
+        <img
+          src={url}
+          alt=""
+          className={`absolute inset-0 size-full ${rounded} border border-border object-cover transition-opacity duration-150 ${
+            loaded ? "opacity-100" : "opacity-0"
+          }`}
+          onLoad={() => setLoaded(true)}
+          onError={() => setBroken(true)}
+        />
+      </span>
     )
   }
   return (
@@ -351,7 +376,7 @@ export function MinecraftHead({
       className={`${size} inline-flex shrink-0 items-center justify-center ${rounded} border border-border bg-secondary text-muted-foreground`}
       title="No head image available right now."
     >
-      <ImageBrokenIcon aria-hidden className="size-3" />
+      <QuestionIcon aria-hidden className="size-3" />
     </span>
   )
 }

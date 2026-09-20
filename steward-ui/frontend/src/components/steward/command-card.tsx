@@ -11,7 +11,7 @@ import {
   usePeople,
 } from "@/lib/queries"
 import { personLabel } from "@/components/steward/identity"
-import { Failure, QueryState } from "@/components/steward/query-state"
+import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import {
   ResponsiveAlertDialog,
   ResponsiveAlertDialogAction,
@@ -83,11 +83,22 @@ export function CommandCard({
       <CardContent className="flex flex-col gap-3">
         <QueryState
           query={{ ...commands, data: shown } as typeof commands}
-          rows={4}
           isEmpty={(list) => list.length === 0}
-          empty={{ title: "No command is released to the interface." }}
+          empty={{
+            title: "No command is released to the interface.",
+            note: "A command appears here once its declaration carries Surface.WEB.",
+          }}
         >
-          {(list) => list.map((command) => <CommandRow key={command.name} command={command} />)}
+          {/*
+            Four rows while waiting, because four is roughly what every page carrying this card
+            has. The count sits here rather than in a constant somewhere: it is a fact about this
+            card, and a card that grows a fifth command should change it here or not at all.
+          */}
+          {(list) =>
+            (list ?? PLACEHOLDERS).map((command, index) => (
+              <CommandRow key={command?.name ?? index} command={command} />
+            ))
+          }
         </QueryState>
       </CardContent>
     </Card>
@@ -105,18 +116,28 @@ export function isAccessCommand(command: AdminCommand): boolean {
   return command.path[0] === "access"
 }
 
-function CommandRow({ command }: { command: AdminCommand }) {
+/** Four absent commands, so the card waits at about the height it will have. */
+const PLACEHOLDERS: (AdminCommand | undefined)[] = [undefined, undefined, undefined, undefined]
+
+/**
+ * One command, with or without knowing which one yet (steward/120).
+ *
+ * The same rows, the same paddings and the same button, so nothing on the card moves when the
+ * names arrive. The button is drawn rather than hidden because its height is part of the row.
+ */
+function CommandRow({ command }: { command?: AdminCommand }) {
   const [values, setValues] = useState<Record<string, string>>({})
   const [confirming, setConfirming] = useState(false)
   const [running, setRunning] = useState<string | null>(null)
   const ask = useAdminCommand()
   const run = useCommandRun(running)
 
-  const missing = command.arguments.filter(
+  const missing = (command?.arguments ?? []).filter(
     (argument) => argument.required && !(values[argument.name] ?? "").trim(),
   )
 
   function send() {
+    if (!command) return
     ask.mutate(
       { name: command.name, arguments: values },
       {
@@ -133,26 +154,34 @@ function CommandRow({ command }: { command: AdminCommand }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-sm">{command.name}</span>
-            {command.irreversible ? <Badge variant="destructive">irreversible</Badge> : null}
+            {command ? (
+              <span className="font-mono text-sm">{command.name}</span>
+            ) : (
+              <SkeletonText className="w-32 text-sm" />
+            )}
+            {command?.irreversible ? <Badge variant="destructive">irreversible</Badge> : null}
           </div>
-          <span className="text-sm text-muted-foreground">
-            Runs on <span className="font-mono">{command.target.toLowerCase()}</span>.
-          </span>
+          {command ? (
+            <span className="text-sm text-muted-foreground">
+              Runs on <span className="font-mono">{command.target.toLowerCase()}</span>.
+            </span>
+          ) : (
+            <SkeletonText className="w-24 text-sm" />
+          )}
         </div>
         <Button
           type="button"
           size="sm"
-          variant={command.irreversible ? "outline" : "default"}
-          disabled={missing.length > 0 || ask.isPending}
-          onClick={() => (command.irreversible ? setConfirming(true) : send())}
+          variant={command?.irreversible ? "outline" : "default"}
+          disabled={!command || missing.length > 0 || ask.isPending}
+          onClick={() => (command?.irreversible ? setConfirming(true) : send())}
         >
           <PlayIcon aria-hidden />
           Run
         </Button>
       </div>
 
-      {command.arguments.length > 0 ? (
+      {command && command.arguments.length > 0 ? (
         <div className="flex flex-wrap gap-3">
           {command.arguments.map((argument) => (
             <ArgumentField
@@ -182,7 +211,7 @@ function CommandRow({ command }: { command: AdminCommand }) {
         <ResponsiveAlertDialogContent>
           <ResponsiveAlertDialogHeader>
             <ResponsiveAlertDialogTitle>
-              Run <span className="font-mono">{command.name}</span>?
+              Run <span className="font-mono">{command?.name}</span>?
             </ResponsiveAlertDialogTitle>
             <ResponsiveAlertDialogDescription>
               This command is declared irreversible - chat and Discord ask for the same

@@ -4,6 +4,7 @@ import type { ReactNode } from "react"
 import { ApiError } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+export { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
 /**
  * Loading, empty and failed - the three states every list in this interface has to have.
@@ -18,6 +19,16 @@ import { Skeleton } from "@/components/ui/skeleton"
  * An empty table would say none of them.
  */
 
+/**
+ * The fallback shape, for the places whose own layout is a single block anyway.
+ *
+ * **This is not the normal way to wait any more** (steward/120). A component that carries data
+ * draws its own skeleton, because a generic grey row is not what replaces it and the difference
+ * shows as a jump the moment the answer lands. `rows` stays for the handful of views whose loading
+ * state genuinely is n bars of the same height - and for the ones where the real layout cannot be
+ * drawn without the data, which is a case the ticket foresaw and asked to be written down where it
+ * happens rather than smuggled in.
+ */
 export function Loading({ rows = 5, label }: { rows?: number; label?: string }) {
   return (
     <div className="flex flex-col gap-2" role="status" aria-busy="true">
@@ -25,6 +36,23 @@ export function Loading({ rows = 5, label }: { rows?: number; label?: string }) 
       {Array.from({ length: rows }, (_, index) => (
         <Skeleton key={index} className="h-row w-full" />
       ))}
+    </div>
+  )
+}
+
+/**
+ * What the child is wrapped in while it is drawing itself without data.
+ *
+ * A screen reader is told once, here, that something is on its way; the skeleton surfaces inside
+ * are `aria-hidden` and would otherwise be an announcement of nothing at all. `pointer-events-none`
+ * is the other half: a skeleton that borrows a button's layout also borrows its hit area, and a
+ * click on a control that does not exist yet is at best nothing and at worst the wrong thing.
+ */
+export function Waiting({ children, label }: { children: ReactNode; label?: string }) {
+  return (
+    <div role="status" aria-busy="true" className="pointer-events-none select-none">
+      <span className="sr-only">{label ?? "Loading…"}</span>
+      {children}
     </div>
   )
 }
@@ -104,8 +132,26 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
  * The three states around one query, in one place - and the fourth, which is not a state of the
  * query at all.
  *
- * `data` is handed to the child only once it exists, so a page never writes `data?.` chains for a
- * value it has already waited for.
+ * <h2>One layout expression per call site (steward/120)</h2>
+ * `children` is called **twice**: once with `undefined` while the answer is on its way, and again
+ * with the data. So a call site names its layout once
+ *
+ * ```tsx
+ * <QueryState query={services}>{(data) => <ServiceList services={data} />}</QueryState>
+ * ```
+ *
+ * and `ServiceList` takes `services?: Service[]`, drawing its own rows with `Skeleton` inside them
+ * when it has none. That is the whole rule, and everything else here follows from it: a separate
+ * `ServiceListSkeleton` would be a second layout, and two layouts drift - which is visible exactly
+ * once, as a jump, on the day somebody adds a column to one of them.
+ *
+ * `rows` opts back out, into the flat grey bars `Loading` draws. It is for the views whose real
+ * shape is n bars of one height anyway, and for the few that cannot be drawn without their data.
+ *
+ * **The skeleton appears immediately and only on the first load.** No delay and no minimum
+ * duration (Till, 2026-09-19: *"Gerade bei den Minecraft Köpfen sieht es ohne Skeleton erst recht
+ * komisch aus wenn die nachladen"*), and `isPending` is false as soon as there is anything to show,
+ * so a refetch leaves the old data standing rather than greying the page out on every poll.
  *
  * **A disabled query is `isPending` for ever**, and that is the trap this component fell into.
  * Measured on 2026-09-14 on `/configuration`: skeletons, and nothing after them, because the page
@@ -113,26 +159,44 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
  * and none is coming, so "loading" was a lie the interface told indefinitely. `fetchStatus` tells
  * the two apart - `"idle"` beside `isPending` is switched off, `"fetching"` is on its way - and it
  * is optional here because some callers hand in a plain object rather than a query result.
+ *
+ * **A failure is never a skeleton that keeps pulsing.** `Failure` takes the same place in the page
+ * and says what is wrong, because a surface that goes on shimmering is a promise that something is
+ * coming.
  */
-export function QueryState<T>({
-  query,
-  children,
-  rows,
-  empty,
-  isEmpty,
-}: {
-  query: {
-    data: T | undefined
-    error: unknown
-    isPending: boolean
-    fetchStatus?: "fetching" | "paused" | "idle"
-    refetch?: () => void
-  }
-  children: (data: T) => ReactNode
-  rows?: number
-  empty?: { title: string; note?: string }
-  isEmpty?: (data: T) => boolean
-}) {
+type QueryLike<T> = {
+  data: T | undefined
+  error: unknown
+  isPending: boolean
+  fetchStatus?: "fetching" | "paused" | "idle"
+  refetch?: () => void
+}
+
+export function QueryState<T>(
+  props: {
+    query: QueryLike<T>
+    empty?: { title: string; note?: string }
+    isEmpty?: (data: T) => boolean
+  } & (
+    | {
+        /**
+         * Flat grey bars instead of the child's own shape. Read the note above before reaching for
+         * it - and note what it buys in exchange: the child is then only ever called with data, so
+         * a view that opts out does not pay for the optional prop everywhere inside it.
+         */
+        rows: number
+        children: (data: T) => ReactNode
+      }
+    | {
+        rows?: undefined
+        /** Called with `undefined` while waiting, and with the data once it is here. */
+        children: (data: T | undefined) => ReactNode
+      }
+  ),
+) {
+  const { query, empty, isEmpty } = props
+  const draw = props.children as (data: T | undefined) => ReactNode
+
   if (query.isPending && query.fetchStatus === "idle") {
     return (
       <Empty
@@ -141,9 +205,10 @@ export function QueryState<T>({
       />
     )
   }
-  if (query.isPending) return <Loading rows={rows} />
   if (query.error) return <Failure error={query.error} onRetry={query.refetch} />
-  if (query.data === undefined) return <Loading rows={rows} />
+  if (query.isPending || query.data === undefined) {
+    return props.rows === undefined ? <Waiting>{draw(undefined)}</Waiting> : <Loading rows={props.rows} />
+  }
   if (empty && isEmpty?.(query.data)) return <Empty title={empty.title} note={empty.note} />
-  return <>{children(query.data)}</>
+  return <>{draw(query.data)}</>
 }

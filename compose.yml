@@ -1015,7 +1015,21 @@ services:
       # ONE NAME, TWO USES. This is the value Caddy answers on and the redirect URI Discord is
       # given, derived from the same variable so the two cannot disagree - which they would, once,
       # silently, on the day somebody changed one of them.
-      NORDTAL_STEWARD_UI_PUBLIC_URL: https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}
+      #
+      # STEWARD_UI_PUBLIC_URL overrides the whole address, and exists for the one case where the
+      # browser does not reach this container through Caddy at all (season-2-ops/146): a Vite dev
+      # server on http://localhost:5173 IS the address, so `https://<host>` would be the wrong
+      # redirect URI and the wrong WebAuthn origin. Unset - which is every real deployment - the
+      # name below is still the only source, and STEWARD_HOST is still required; Compose evaluates
+      # the inner `:?` only when the default is the one being used, which was measured rather than
+      # assumed.
+      NORDTAL_STEWARD_UI_PUBLIC_URL: ${STEWARD_UI_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}}
+      # The domain security keys are registered against. Empty means "whatever steward-ui.yml
+      # says", which on a real host is nordtal.eu and is what jcore's EnvOverlay does with a
+      # set-but-empty variable. It is here because `Configs.requireRelyingParty` holds it against
+      # the host of the address above and refuses the container otherwise - so an address that is
+      # not under nordtal.eu needs this line or nothing starts at all.
+      NORDTAL_STEWARD_UI_WEBAUTHN_RELYING_PARTY_ID: ${STEWARD_WEBAUTHN_RP_ID:-}
       # The worker's secret and the deployer's, and they are NOT the same value. The deployer may
       # create containers and the worker may not; one token for both would make that boundary a
       # comment in a Java file.
@@ -1052,6 +1066,16 @@ services:
       # the very first start, before the file has one.
       NORDTAL_STEWARD_UI_WEB_PUSH_PUBLIC_KEY: ${STEWARD_UI_WEB_PUSH_PUBLIC_KEY:-}
       NORDTAL_STEWARD_UI_WEB_PUSH_PRIVATE_KEY: ${STEWARD_UI_WEB_PUSH_PRIVATE_KEY:-}
+    ports:
+      # LOOPBACK, AND THAT IS THE WHOLE POINT (season-2-ops/146). In production Caddy is the way in
+      # and this publish is only reachable from a shell on the host, where it is worth having when
+      # the question is whether the interface or the proxy in front of it is the broken half.
+      # Locally it is the way in: `npm run dev` proxies to 127.0.0.1:8080, and before this line
+      # steward-ui published nothing at all, so the dev server had nothing to talk to.
+      #
+      # It collides with pack-host, which defaults to the same 127.0.0.1:8080 - two local profiles,
+      # never both wanted at once, and STEWARD_UI_PORT is the way out if somebody does want both.
+      - "${STEWARD_UI_BIND:-127.0.0.1}:${STEWARD_UI_PORT:-8080}:8080"
     volumes:
       - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/app/config
       # THE STACK'S CONFIGURATION IS NOT MOUNTED HERE, AND THAT IS THE DECISION (Till, 2026-09-14).

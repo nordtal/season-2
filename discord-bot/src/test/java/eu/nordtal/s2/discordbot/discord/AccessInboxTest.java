@@ -148,6 +148,19 @@ class AccessInboxTest {
         assertTrue(carriedOut.isEmpty(), "nothing was granted");
     }
 
+    /**
+     * A row past its patience is already dead - the claim refuses it - and one still labelled
+     * PENDING looks like work nobody has got to yet. The bot is the only thing that looks at this
+     * table on a schedule, so the sweep rides on its pass.
+     */
+    @Test
+    void everyPassGivesUpOnWhatWasNeverPickedUp() {
+        subject.drain();
+        subject.drain();
+
+        assertEquals(2, inbox.sweeps, "the sweep is part of a pass, not something a caller adds");
+    }
+
     @Test
     void aRowNobodySignedIsStillFiledUnderSomething() {
         inbox.waiting.add(row(1, AccessRequestKind.REVOKE, "400000000000000002", null, null));
@@ -199,6 +212,7 @@ class AccessInboxTest {
         private final Deque<AccessRequest> waiting = new ArrayDeque<>();
         private final java.util.Map<Long, String> settled = new java.util.HashMap<>();
         private final java.util.Map<Long, Boolean> ok = new java.util.HashMap<>();
+        private int sweeps;
 
         @Override
         public AccessRequest submit(final NewAccessRequest request) {
@@ -233,6 +247,7 @@ class AccessInboxTest {
 
         @Override
         public int expireDue() {
+            sweeps++;
             return 0;
         }
 

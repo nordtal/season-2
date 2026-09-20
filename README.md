@@ -175,6 +175,15 @@ roles saves one loading screen and buys a persistent "which one is live" that so
 right about. A cookie on the client would carry the return note, and would make the client the
 authority on which server it may enter. All three were weighed and none is built.
 
+**Parking is a moment; the door is a state.** The park happens once, when the countdown reaches
+zero, to whoever is connected then — and the process does not stop for another several seconds
+while the worker waits for the backends to empty (sixteen of them in run 59 on 2026-09-20).
+Somebody who connected inside that window was never parked, because parking was over, and met
+Velocity's own *Proxy shutting down*. So for as long as a run is moving this proxy, an arrival is
+**refused** with a sentence rather than let onto a process that is about to go. Refused and not
+transferred, deliberately: a screen that says come back in a moment is better than a loading bar
+that ends in a dropped connection (season-2-ops/151).
+
 **And being configured is not being there.** A standby address that resolves is not a standby that
 is running — those containers sit in a compose profile of their own and are stopped for all but a
 minute of the season. The proxy therefore probes before it parks, and a silent standby means the

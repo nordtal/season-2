@@ -36,6 +36,7 @@ import eu.nordtal.s2.proxy.gate.LoginRoster;
 import eu.nordtal.s2.proxy.gate.BackendHealth;
 import eu.nordtal.s2.proxy.gate.BackendKick;
 import eu.nordtal.s2.proxy.gate.MisconfiguredGate;
+import eu.nordtal.s2.proxy.gate.RestartGate;
 import eu.nordtal.s2.proxy.launch.LaunchCountdown;
 import eu.nordtal.s2.proxy.pack.PackMessages;
 import eu.nordtal.s2.proxy.pack.PackOffer;
@@ -549,6 +550,13 @@ public final class ProxyPlugin {
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();
+
+        // THE PARK IS A MOMENT AND THE DOOR IS A STATE (season-2-ops/151). Between the park above
+        // and the actual stop lie the seconds the worker spends waiting for the backends to empty
+        // - sixteen in run 59 - and whoever connects in them was never parked. They get a sentence
+        // now instead of Velocity's "Proxy shutting down".
+        proxy.getEventManager().register(this,
+                new RestartGate(logger, swap::isStopping, gateMessages, fallback));
 
         final StandbyReturn standbyReturn = new StandbyReturn(proxy, logger, swaps, role,
                 publicAddress, Clock.systemUTC());

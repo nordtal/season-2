@@ -21,6 +21,22 @@
 #   ./nordtal.sh --address IP          this host's public address, for a host behind NAT
 #   ./nordtal.sh --no-self-update      run this file as it is, without asking GitHub for a newer one
 #
+# AND ONE SUBCOMMAND, WHICH IS NOT AN INSTALL AT ALL (season-2-ops/153). It writes a row into
+# `update_request` and waits for the worker to finish it - the same row Steward and Discord write,
+# and the way to start a run when the only other doors are inside the stack being updated:
+#
+#   ./nordtal.sh update                the whole network: install what is new, restart what needs it
+#   ./nordtal.sh update --restart      restart everything, install nothing
+#   ./nordtal.sh update --backup       one backup run, now
+#   ./nordtal.sh update --down smp     stop one service and hold it down
+#   ./nordtal.sh update --start [svc]  release a hold - everything, or one service
+#   ./nordtal.sh update --in 10        let the countdown run for ten minutes first
+#   ./nordtal.sh update --no-wait      print the request id and return, instead of waiting
+#
+# It touches nothing else: no self-update, no menu, no deploy. It reads two variables out of the
+# environment file (the database user and the database name), reaches the database through
+# `docker exec` on the postgres container, and prints the run's own report when it is over.
+#
 # IT RENEWS ITSELF ON EVERY RUN, and the reason is RUN IT AGAIN AFTER EVERY RELEASE below: a new
 # compose.yml reaches this host only inside a new steward-deployer image, and a directory that has
 # stood for half a year would otherwise deploy with a script that knows nothing about it. So the
@@ -741,6 +757,126 @@ set_secret() {
     log "$name generated ($bytes random bytes, hex)"
 }
 
+# --- an update run, asked for from the host (season-2-ops/153) ------------------------------------
+# WHY THIS IS HERE AT ALL: `/update` on a Minecraft console is the one surface that does not depend
+# on what is being updated, and season-2-ops/154 removes it. Steward is the other door and Steward
+# is a container in this stack. So the emergency exit is this file, which is already outside the
+# deployment, already knows where the environment file is, and already has to exist.
+#
+# Everything in this block is a decision and touches nothing: `cmd_update` below the seam is the
+# half that reaches for Docker. deploy/nordtal-test.sh exercises these.
+
+# The kinds `update_request.kind` accepts, in the order the flags below name them. REPORT and APPLY
+# are the worker's own internal kinds and are deliberately not offered here.
+UPDATE_KINDS=(UPDATE RESTART BACKUP DOWN START)
+
+# How long a wait may last before the command gives up and says so. It gives up on WAITING, never
+# on the run: the row stays, the worker carries on, and the id is printed so it can be looked at.
+UPDATE_TIMEOUT_DEFAULT=1800
+
+# `update_request_scope_check` in the database, spelled the same way. A scope that does not match
+# is refused HERE rather than by a constraint violation three layers down.
+update_scope_ok() {
+    [[ "$1" =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]]
+}
+
+# Who asked, for the `requested_by` column - which is 64 characters and carries no foreign key.
+# EVERYTHING OUTSIDE THE ALLOWED SHAPE BECOMES A DASH, which is what makes the SQL below safe to
+# assemble by hand: there is no quote left in it to close.
+update_requester() {
+    local who host
+    who="${SUDO_USER:-${USER:-$(id -un 2>/dev/null || echo unknown)}}"
+    host="$(hostname -s 2>/dev/null || echo unknown)"
+    printf '%s' "${who}@${host}" | tr -c 'A-Za-z0-9._@-' '-' | cut -c1-64
+}
+
+# Reads the flags of `./nordtal.sh update` into UPDATE_KIND, UPDATE_SCOPE, UPDATE_DELAY,
+# UPDATE_WAIT, UPDATE_TIMEOUT and UPDATE_ENV_FILE. Dies on anything it does not recognise rather
+# than ignoring it: this command starts a run that stops servers.
+parse_update_args() {
+    UPDATE_KIND=UPDATE
+    UPDATE_SCOPE=""
+    UPDATE_DELAY=0
+    UPDATE_WAIT=true
+    UPDATE_TIMEOUT="$UPDATE_TIMEOUT_DEFAULT"
+    UPDATE_ENV_FILE="$DEFAULT_ENV_FILE"
+    local kinds=0
+    while (( $# > 0 )); do
+        case "$1" in
+            --restart)  UPDATE_KIND=RESTART; kinds=$(( kinds + 1 )); shift ;;
+            --backup)   UPDATE_KIND=BACKUP;  kinds=$(( kinds + 1 )); shift ;;
+            --down)     UPDATE_KIND=DOWN;    kinds=$(( kinds + 1 ))
+                        UPDATE_SCOPE="${2:-}"
+                        [[ -n "$UPDATE_SCOPE" ]] || die "update --down needs a service to stop"
+                        shift 2 ;;
+            # THE SERVICE IS OPTIONAL HERE AND NOWHERE ELSE: `--start` with nothing after it
+            # releases every hold, which is what somebody who has forgotten what they stopped
+            # actually wants. A following flag is not a service name.
+            --start)    UPDATE_KIND=START;   kinds=$(( kinds + 1 ))
+                        if [[ -n "${2:-}" && "${2:0:1}" != "-" ]]; then
+                            UPDATE_SCOPE="$2"; shift 2
+                        else
+                            shift
+                        fi ;;
+            --in)       UPDATE_DELAY="${2:-}"; shift 2 || die "update --in needs a number of minutes" ;;
+            --no-wait)  UPDATE_WAIT=false; shift ;;
+            --timeout)  UPDATE_TIMEOUT="${2:-}"; shift 2 || die "update --timeout needs seconds" ;;
+            --env-file) UPDATE_ENV_FILE="${2:-}"; shift 2 || die "update --env-file needs a path" ;;
+            *)          die "unknown argument to \`update\`: $1" ;;
+        esac
+    done
+
+    (( kinds <= 1 )) || die "update takes one of --restart, --backup, --down or --start, not several"
+    [[ "$UPDATE_DELAY" =~ ^[0-9]+$ ]] || die "update --in takes whole minutes, got: $UPDATE_DELAY"
+    (( UPDATE_DELAY <= 1440 )) || die "update --in is capped at a day (1440 minutes)"
+    [[ "$UPDATE_TIMEOUT" =~ ^[0-9]+$ ]] || die "update --timeout takes seconds, got: $UPDATE_TIMEOUT"
+    [[ -n "$UPDATE_ENV_FILE" ]] || die "update --env-file needs a path"
+    if [[ -n "$UPDATE_SCOPE" ]]; then
+        update_scope_ok "$UPDATE_SCOPE" \
+            || die "'$UPDATE_SCOPE' is not a service name: lowercase, digits and dashes, commas
+       between several. That is the shape the database itself enforces."
+    fi
+}
+
+# The statement that writes the row and rings the bell in one go, exactly as `UpdateDao#submit`
+# does: the `pg_notify` rides along in the same statement, so there is no window in which a row
+# exists that nobody was told about.
+#
+# ASSEMBLED BY CONCATENATION AND THAT IS SAFE HERE, because every one of the four values has been
+# through a shape check first: the kind is one of UPDATE_KINDS, the scope matched the database's
+# own regular expression, the delay is digits, and the requester has had every character outside
+# [A-Za-z0-9._@-] replaced. None of them can carry a quote.
+update_insert_sql() {
+    local kind="$1" scope="$2" minutes="$3" requester="$4"
+    local scope_sql="NULL"
+    [[ -n "$scope" ]] && scope_sql="'$scope'"
+    cat <<SQL
+WITH inserted AS (
+    INSERT INTO update_request (kind, source, requested_by, not_before, scope)
+    VALUES ('$kind', 'CONSOLE', '$requester',
+            now() + make_interval(mins => $minutes), $scope_sql)
+    RETURNING id
+), notified AS (
+    SELECT pg_notify('nordtal_update', '') FROM inserted
+)
+SELECT inserted.id FROM inserted, notified;
+SQL
+}
+
+# One line: the status, then a tab, then the report. `coalesce` rather than a NULL, so that the
+# caller can split on the tab without having to know whether the run has written anything yet.
+update_status_sql() {
+    printf "SELECT status, coalesce(result, '') FROM update_request WHERE id = %s;\n" "$1"
+}
+
+# Whether a status means the worker is finished with this row, one way or another.
+update_is_over() {
+    case "$1" in
+        DONE|FAILED|CANCELLED) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # --- sourced rather than executed ----------------------------------------------------------------
 # Everything above this line is definitions; everything below reaches for Docker, the resolver and
 # the filesystem. deploy/nordtal-test.sh sources this file to exercise the decisions above, the same
@@ -753,6 +889,119 @@ set_secret() {
 # to fall through here, and only a genuine `source` may return.
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
+fi
+
+# --- update: the subcommand that is not an install (season-2-ops/153) ------------------------------
+# Deliberately FIRST, above the argument parser and above §0's self-update. Starting a run is what
+# somebody does when something is wrong, and a command that fetches a new copy of itself from
+# GitHub before doing it would pick exactly that moment to need the network.
+
+# One psql, inside the postgres container, reading its statement from stdin.
+#
+# THROUGH THE CONTAINER AND NOT A CLIENT ON THE HOST, which is the way the rest of this repository
+# already reaches the database: there is no psql to install, no port to publish, and above all no
+# password anywhere in the process tree - the container is already authenticated as its own user.
+update_psql() {
+    local container="$1" user="$2" database="$3"
+    docker exec -i "$container" \
+        psql -v ON_ERROR_STOP=1 -qtAX -F $'\t' -U "$user" -d "$database"
+}
+
+cmd_update() {
+    parse_update_args "$@"
+
+    [[ -f "$UPDATE_ENV_FILE" ]] \
+        || die "$UPDATE_ENV_FILE is not there, so this host has no deployment to update.
+       If the environment file is somewhere else: ./nordtal.sh update --env-file PATH"
+
+    # TWO VARIABLES AND NOT THE FILE. The same file holds the Discord token and the bunq key, and
+    # `env_value` reads one name at a time on purpose - see IT NEVER PRINTS A SECRET at the top.
+    local project user database container
+    project="$(env_value "$UPDATE_ENV_FILE" COMPOSE_PROJECT_NAME)"
+    project="${project:-$DEFAULT_PROJECT}"
+    user="$(env_value "$UPDATE_ENV_FILE" POSTGRES_USER)"
+    database="$(env_value "$UPDATE_ENV_FILE" POSTGRES_DB)"
+    [[ -n "$user" && -n "$database" ]] \
+        || die "POSTGRES_USER and POSTGRES_DB are not both set in $UPDATE_ENV_FILE"
+    container="${project}-postgres-1"
+
+    # `docker ps` and not `docker inspect`: the question is only whether it is running, and an
+    # inspect of a container carrying a live secret is a door this repository keeps shut.
+    # A here-string and not a pipe: `grep -q` stops reading at its first match, and under the
+    # `pipefail` at the top of this file that is a SIGPIPE for docker - deploy/pipe-safety-test.sh
+    # refuses the pattern outright.
+    grep -qxF "$container" <<<"$(docker ps --format '{{.Names}}')" \
+        || die "$container is not running, so there is nowhere to write the request.
+       \`docker compose -p $project ps\` says what is up."
+
+    local id
+    id="$(update_insert_sql "$UPDATE_KIND" "$UPDATE_SCOPE" "$UPDATE_DELAY" "$(update_requester)" \
+        | update_psql "$container" "$user" "$database" | sed -n '1p' | tr -d '[:space:]')"
+    [[ "$id" =~ ^[0-9]+$ ]] || die "the database did not answer with a request id (got: '$id')"
+
+    local when=""
+    (( UPDATE_DELAY > 0 )) && when=", not before $UPDATE_DELAY minute(s) from now"
+    log "request $id: $UPDATE_KIND${UPDATE_SCOPE:+ $UPDATE_SCOPE}$when"
+    if [[ "$UPDATE_WAIT" != true ]]; then
+        printf '%s\n' "$id"
+        return 0
+    fi
+
+    update_wait "$id" "$container" "$user" "$database"
+}
+
+# Follows one request until the worker is finished with it, then prints the report the run wrote
+# into its own row - the same report `/update` shows on a Minecraft console today.
+update_wait() {
+    local id="$1" container="$2" user="$3" database="$4"
+    local waited=0 answer status report said=""
+
+    log "waiting; Ctrl-C stops WATCHING and never the run itself"
+    while :; do
+        answer="$(update_status_sql "$id" | update_psql "$container" "$user" "$database" | sed -n '1p')"
+        status="${answer%%$'\t'*}"
+        report="${answer#*$'\t'}"
+        [[ "$status" == "$answer" ]] && report=""
+
+        if [[ -n "$status" && "$status" != "$said" ]]; then
+            log "request $id is $status"
+            said="$status"
+        fi
+        if [[ -z "$status" ]]; then
+            die "request $id is no longer in update_request. Somebody deleted the row."
+        fi
+        if update_is_over "$status"; then
+            # jq IF IT IS THERE AND THE RAW LINE IF IT IS NOT. The report is one long line of JSON
+            # and this is somebody reading it on a console in the middle of something going wrong;
+            # requiring jq for that would be a dependency bought at exactly the wrong moment.
+            if [[ -n "$report" ]]; then
+                if command -v jq >/dev/null 2>&1; then
+                    printf '%s\n' "$report" | jq . || printf '%s\n' "$report"
+                else
+                    printf '%s\n' "$report"
+                fi
+            fi
+            [[ "$status" == DONE ]] && return 0
+            return 1
+        fi
+
+        (( waited += 5 ))
+        if (( waited > UPDATE_TIMEOUT )); then
+            # THE RUN IS NOT GIVEN UP ON, only the watching. The row is still there and the worker
+            # is still on it; what ran out is this command's patience.
+            warn "request $id is still $status after ${UPDATE_TIMEOUT}s. The run continues without
+       this command watching it; ./nordtal.sh update --no-wait prints ids, and the interface shows
+       the run under /operations."
+            return 2
+        fi
+        sleep 5
+    done
+}
+
+if [[ "${1:-}" == update ]]; then
+    shift
+    cmd_update "$@"
+    exit $?
 fi
 
 # --- arguments -------------------------------------------------------------------------------------

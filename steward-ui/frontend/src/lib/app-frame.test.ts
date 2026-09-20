@@ -51,6 +51,21 @@ describe("measuredHeight - the window, and the moments that are not the window",
     expect(measuredHeight(view({ visual: { height: 300, scale: 2.5 } }), null)).toBeNull()
   })
 
+  it("takes a measurement that is LARGER than the last one, because neither refusal can grow a window", () => {
+    // steward/148. Both refusals above exist to ignore a SHRINKING viewport - a keyboard and a
+    // pinch are the two things that do that. Applied to a measurement that is bigger than the one
+    // on screen they ignore the window getting bigger, which nothing can undo but a `focusout`.
+    const input = document.createElement("input")
+    expect(measuredHeight(view({ visual: { height: 900, scale: 1 } }), input, 700)).toBe(900)
+    expect(measuredHeight(view({ visual: { height: 900, scale: 2.5 } }), null, 700)).toBe(900)
+  })
+
+  it("still refuses a smaller one, which is the shape a keyboard and a pinch actually have", () => {
+    const input = document.createElement("input")
+    expect(measuredHeight(view({ visual: { height: 500, scale: 1 } }), input, 800)).toBeNull()
+    expect(measuredHeight(view({ visual: { height: 500, scale: 2.5 } }), null, 800)).toBeNull()
+  })
+
   it("treats a zero height as no measurement rather than as a window of no height", () => {
     expect(measuredHeight(view({ visual: { height: 0, scale: 1 } }), null)).toBeNull()
     expect(measuredHeight(view({ innerHeight: 0, visual: null }), null)).toBeNull()
@@ -106,6 +121,37 @@ describe("trackAppFrame - what lands on the document", () => {
 
     field.blur()
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("500px")
+
+    stop()
+    field.remove()
+  })
+
+  it("follows a window that GROWS while a field has focus, instead of staying short below it", () => {
+    // STEWARD/148, AND IT IS THE SAME SHELL FAILING A SECOND WAY. Measured in Firefox on the dev
+    // host at 1280x700 grown to 1280x1000 with the cursor in a field: the scrolling column stayed
+    // 700px tall and left a 300px band of background under it, and no event and no poll tick
+    // corrected it - `measuredHeight` refused every one of them - until the field was left.
+    const visual = { height: 700, scale: 1, addEventListener() {}, removeEventListener() {} }
+    Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
+    const field = document.createElement("input")
+    document.body.append(field)
+
+    const stop = trackAppFrame(window)
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("700px")
+
+    field.focus()
+    visual.height = 1000
+    window.dispatchEvent(new Event("resize"))
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("1000px")
+
+    // And the keyboard is still ignored: a viewport that shrinks under a focused field is what
+    // this whole guard was built for, and it keeps the last good number exactly as before.
+    visual.height = 600
+    window.dispatchEvent(new Event("resize"))
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("1000px")
+
+    field.blur()
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("600px")
 
     stop()
     field.remove()

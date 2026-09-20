@@ -9,7 +9,7 @@ import { SecurityKeys } from "@/app/security-keys"
 import { api } from "@/lib/api"
 import { useMe, useSettings } from "@/lib/queries"
 import { PageHeader } from "@/components/steward/page-header"
-import { QueryState } from "@/components/steward/query-state"
+import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -59,19 +59,29 @@ export function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <QueryState query={me} rows={2}>
+          <QueryState query={me}>
             {(who) => (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-1">
-                  <span className="text-sm font-medium">{who.name ?? "unknown"}</span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    Discord {who.id ?? "—"}
-                  </span>
+                  {who ? (
+                    <>
+                      <span className="text-sm font-medium">{who.name ?? "unknown"}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        Discord {who.id ?? "—"}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <SkeletonText className="text-sm" width="medium" />
+                      <SkeletonText className="text-xs" width="long" />
+                    </>
+                  )}
                 </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  disabled={!who}
                   onClick={async () => {
                     await api<void>("/auth/logout", { method: "POST" })
                     window.location.assign("/")
@@ -98,22 +108,24 @@ export function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <QueryState query={settings} rows={3}>
+          <QueryState query={settings}>
             {(thresholds) => (
               <>
+                {/* The labels and the notes are written into this page; only the three numbers are
+                    fetched, so only the three badges wait. */}
                 <Threshold
                   label="Disk in use"
-                  value={`from ${thresholds.disk} %`}
+                  value={thresholds ? `from ${thresholds.disk} %` : undefined}
                   note="Yellow as soon as the disk is fuller than this."
                 />
                 <Threshold
                   label="Memory in use"
-                  value={`from ${thresholds.memory} %`}
+                  value={thresholds ? `from ${thresholds.memory} %` : undefined}
                   note="No container in the stack sets a limit, so this is the share of the whole machine."
                 />
                 <Threshold
                   label="Age of the newest backup"
-                  value={`from ${thresholds.backupAgeHours} hours`}
+                  value={thresholds ? `from ${thresholds.backupAgeHours} hours` : undefined}
                   note="Red. It counts files on the disk, not runs that reported success."
                 />
               </>
@@ -138,16 +150,29 @@ export function SettingsPage() {
   )
 }
 
-function Threshold({ label, value, note }: { label: string; value: string; note: string }) {
+function Threshold({
+  label,
+  value,
+  note,
+}: {
+  label: string
+  /** Absent while `/api/settings` is out. */
+  value?: string
+  note: string
+}) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0">
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-sm font-medium">{label}</span>
         <span className="max-w-prose text-sm text-muted-foreground">{note}</span>
       </div>
-      <Badge variant="secondary" className="shrink-0 tabular-nums">
-        {value}
-      </Badge>
+      {value === undefined ? (
+        <Skeleton className="h-5 w-24 shrink-0 rounded-full" />
+      ) : (
+        <Badge variant="secondary" className="shrink-0 tabular-nums">
+          {value}
+        </Badge>
+      )}
     </div>
   )
 }

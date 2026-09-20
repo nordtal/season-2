@@ -23,7 +23,7 @@ import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
 import { RunStatus } from "@/components/steward/status"
-import { Empty, Failure, Loading } from "@/components/steward/query-state"
+import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -267,6 +267,9 @@ function ran(run: Run): string {
  * `StewardUi.ActorFields` for where `requestedBy` is read apart into the id, the plain label or
  * the flag that says this was Steward's own nightly clock.
  */
+/** Four absent runs - the panel shows eight at most and rarely has that many. */
+const WAITING_BACKUP_RUNS = Array.from({ length: 4 }, () => undefined)
+
 function Runs() {
   const navigate = useNavigate()
   const runs = useRuns(40)
@@ -276,13 +279,15 @@ function Runs() {
 
   return (
     <Panel title="Runs">
-      {runs.isPending ? (
-        <Loading rows={4} />
-      ) : runs.error ? (
-        <Failure error={runs.error} onRetry={runs.refetch} />
-      ) : rows.length === 0 ? (
-        <Empty title="No backup run yet" />
-      ) : (
+      <QueryState
+        query={runs}
+        isEmpty={() => rows.length === 0}
+        empty={{
+          title: "No backup run yet",
+          note: "The worker's clock and the Back up now button both land here once one has run.",
+        }}
+      >
+        {(answer) => (
         <Table className="steward-table">
           <TableHeader>
             <TableRow>
@@ -295,41 +300,58 @@ function Runs() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((run) => {
-              const archives = saved(run)
-              const known = run.actorDiscordId
+            {(answer ? rows : WAITING_BACKUP_RUNS).map((run, index) => {
+              const archives = run ? saved(run) : undefined
+              const known = run?.actorDiscordId
                 ? people.data?.find((person) => person.discordId === run.actorDiscordId)
                 : undefined
               return (
                 <TableRow
-                  key={run.id}
-                  className="cursor-pointer"
+                  key={run?.id ?? index}
+                  className={run ? "cursor-pointer" : undefined}
                   onClick={() =>
+                    run &&
                     navigate({ to: "/operations/backups/$id", params: { id: String(run.id) } })
                   }
                 >
                   <TableCell data-label="Run" className="font-medium tnum">
-                    <Link
-                      to="/operations/backups/$id"
-                      params={{ id: String(run.id) }}
-                      className="underline-offset-4 hover:text-primary hover:underline"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      #{run.id}
-                    </Link>
+                    {run ? (
+                      <Link
+                        to="/operations/backups/$id"
+                        params={{ id: String(run.id) }}
+                        className="underline-offset-4 hover:text-primary hover:underline"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        #{run.id}
+                      </Link>
+                    ) : (
+                      <SkeletonText width="short" />
+                    )}
                   </TableCell>
-                  <TableCell data-label="When">{dateTime(run.started || run.requested)}</TableCell>
+                  <TableCell data-label="When">
+                    {run ? dateTime(run.started || run.requested) : <SkeletonText width="long" />}
+                  </TableCell>
                   <TableCell data-label="Status">
-                    <RunStatus status={run.status} />
+                    {run ? (
+                      <RunStatus status={run.status} />
+                    ) : (
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                    )}
                   </TableCell>
                   <TableCell data-label="Archives" className="text-right tnum">
-                    {archives.total === 0 ? "–" : count(archives.saved)}
+                    {archives ? (
+                      archives.total === 0 ? "–" : count(archives.saved)
+                    ) : (
+                      <SkeletonText width="short" className="ml-auto" />
+                    )}
                   </TableCell>
                   <TableCell data-label="Took" className="text-right tnum">
-                    {ran(run)}
+                    {run ? ran(run) : <SkeletonText width="short" className="ml-auto" />}
                   </TableCell>
                   <TableCell data-label="Initiated by" className="text-muted-foreground">
-                    {run.system ? (
+                    {!run ? (
+                      <SkeletonText width="medium" />
+                    ) : run.system ? (
                       <PersonIdentity system />
                     ) : run.actorDiscordId ? (
                       <PersonIdentity
@@ -350,7 +372,8 @@ function Runs() {
             })}
           </TableBody>
         </Table>
-      )}
+        )}
+      </QueryState>
     </Panel>
   )
 }
@@ -751,6 +774,9 @@ function holds(backup: Backup): string {
  * archives, not one, and "a backup" in every other sentence on this page already means the run, not
  * one file out of it.
  */
+/** Three absent archives: a backup run writes one per volume it was asked for, and three is usual. */
+const WAITING_ARCHIVES = Array.from({ length: 3 }, () => undefined)
+
 export function BackupRunDetailPage() {
   const { id } = useParams({ from: "/operations/backups/$id" })
   const runs = useRuns(80)
@@ -762,23 +788,30 @@ export function BackupRunDetailPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title={`Backup #${id}`} />
 
-      {runs.isPending || backups.isPending ? (
-        <Loading rows={4} />
-      ) : runs.error ? (
-        <Failure error={runs.error} onRetry={runs.refetch} />
-      ) : !run ? (
-        <Empty title="No such run" note="It may be older than this page's own window." />
-      ) : (
+      <QueryState
+        query={runs}
+        isEmpty={() => !run}
+        empty={{
+          title: "No such run",
+          note: "It may be older than this page's own window.",
+        }}
+      >
+        {(answer) => (
         <>
           <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
-            <Stat label="Status" value={<RunStatus status={run.status} />} />
-            <Stat label="When" value={dateTime(run.started || run.requested)} />
-            <Stat label="Took" value={ran(run)} />
-            <Stat label="Archives" value={count(files.length)} />
+            {/* The four figures are the head of the page and are always four, so they keep their
+                places while the run is looked up. */}
+            <Stat label="Status" value={run ? <RunStatus status={run.status} /> : undefined} />
+            <Stat label="When" value={run ? dateTime(run.started || run.requested) : undefined} />
+            <Stat label="Took" value={run ? ran(run) : undefined} />
+            <Stat
+              label="Archives"
+              value={answer && backups.data ? count(files.length) : undefined}
+            />
           </div>
 
           <Panel title="Archives">
-            {files.length === 0 ? (
+            {answer && backups.data && files.length === 0 ? (
               <Empty title="No archive matched this run's own window" />
             ) : (
               <Table className="steward-table">
@@ -792,18 +825,26 @@ export function BackupRunDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {files.map((backup) => (
-                    <TableRow key={backup.name}>
+                  {(answer && backups.data ? files : WAITING_ARCHIVES).map((backup, index) => (
+                    <TableRow key={backup?.name ?? index}>
                       <TableCell data-label="Archive">
-                        <code className="text-xs">{backup.name}</code>
+                        {backup ? (
+                          <code className="text-xs">{backup.name}</code>
+                        ) : (
+                          <SkeletonText className="text-xs" width="long" />
+                        )}
                       </TableCell>
-                      <TableCell data-label="Holds">{holds(backup)}</TableCell>
-                      <TableCell data-label="Written">{dateTime(backup.modified)}</TableCell>
+                      <TableCell data-label="Holds">
+                        {backup ? holds(backup) : <SkeletonText width="medium" />}
+                      </TableCell>
+                      <TableCell data-label="Written">
+                        {backup ? dateTime(backup.modified) : <SkeletonText width="long" />}
+                      </TableCell>
                       <TableCell data-label="Size" className="text-right tnum">
-                        {bytes(backup.bytes)}
+                        {backup ? bytes(backup.bytes) : <SkeletonText width="short" className="ml-auto" />}
                       </TableCell>
                       <TableCell data-label="Download">
-                        {backup.partial ? null : (
+                        {!backup || backup.partial ? null : (
                           <a
                             href={`/api/backups/${encodeURIComponent(backup.name)}/download`}
                             download={backup.name}
@@ -821,7 +862,8 @@ export function BackupRunDetailPage() {
             )}
           </Panel>
         </>
-      )}
+        )}
+      </QueryState>
     </div>
   )
 }

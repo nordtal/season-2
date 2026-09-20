@@ -23,7 +23,7 @@ import { Stat } from "@/components/steward/stat"
 import { RecreateButton } from "@/components/steward/recreate"
 import { AskButton } from "@/pages/operations"
 import { DriftBadge, ServiceState, StatusBadge } from "@/components/steward/status"
-import { Empty, Failure, Loading } from "@/components/steward/query-state"
+import { Empty, Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -81,15 +81,10 @@ export function ServicePage() {
         }
       />
 
-      {service.isPending ? (
-        <Loading rows={3} />
-      ) : service.error ? (
-        <Failure error={service.error} onRetry={service.refetch} />
-      ) : service.data === undefined ? (
-        <Empty title="Unknown service" note={`"${name}" belongs to no container of the stack.`} />
-      ) : (
-        <ServiceHead service={service.data} />
-      )}
+      {/* The "unknown service" case used to be an empty state here. It is a 404 from the worker
+          and arrives as a failure, which says the same thing with the name of the service in it -
+          and an answered query with no body is not a state this route can produce. */}
+      <QueryState query={service}>{(data) => <ServiceHead service={data} />}</QueryState>
 
       <LogPanel name={name} hasConsole={service.data?.hasConsole ?? false} />
 
@@ -114,7 +109,12 @@ export function ServicePage() {
  * The head of a service page, exported for its own test: steward/86's second half is a field that
  * must be *absent* rather than zero, and that is only observable on a rendered head.
  */
-export function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useService>["data"]> }) {
+export function ServiceHead({
+  service,
+}: {
+  /** Absent while `/api/services/{name}` is out. Every field below then draws its own shape. */
+  service?: NonNullable<ReturnType<typeof useService>["data"]>
+}) {
   return (
     <Card>
       <CardContent className="flex flex-wrap items-start gap-x-6 gap-y-4 pt-6">
@@ -123,11 +123,15 @@ export function ServiceHead({ service }: { service: NonNullable<ReturnType<typeo
             State
           </span>
           <div className="flex items-center gap-2">
-            <ServiceState state={service.state} health={service.health} />
+            {service ? (
+              <ServiceState state={service.state} health={service.health} />
+            ) : (
+              <Skeleton className="h-5 w-20 rounded-full" />
+            )}
             {/* Ahead of the drift badge, because it changes what every other badge here means: a
                 service being held down is not behind on its image, it is out of the network on
                 purpose. */}
-            {service.hold ? (
+            {service?.hold ? (
               <StatusBadge
                 tone="warn"
                 title={`Held down since ${dateTime(service.hold.since)}${
@@ -137,27 +141,41 @@ export function ServiceHead({ service }: { service: NonNullable<ReturnType<typeo
                 Held down
               </StatusBadge>
             ) : null}
-            <DriftBadge drift={service.drift} />
-            {service.hasConsole ? (
+            {service ? <DriftBadge drift={service.drift} /> : null}
+            {service?.hasConsole ? (
               <StatusBadge tone="idle" title="This service has a server console.">
                 Console
               </StatusBadge>
             ) : null}
           </div>
-          <span className="text-xs text-muted-foreground">{service.status}</span>
+          {service ? (
+            <span className="text-xs text-muted-foreground">{service.status}</span>
+          ) : (
+            <SkeletonText className="w-48 text-xs" />
+          )}
         </div>
 
         <Separator orientation="vertical" className="hidden h-14 sm:block" />
 
-        <Stat label="Uptime" value={service.startedAt ? since(service.startedAt) : "–"} />
-        <Stat label="RAM" value={bytes(service.memoryBytes)} hint="share of the host - no limit" />
-        <Stat label="CPU" value={percent(service.cpuPercent)} />
+        <Stat
+          label="Uptime"
+          value={service ? (service.startedAt ? since(service.startedAt) : "–") : undefined}
+        />
+        <Stat
+          label="RAM"
+          value={service ? bytes(service.memoryBytes) : undefined}
+          hint="share of the host - no limit"
+        />
+        <Stat label="CPU" value={service ? percent(service.cpuPercent) : undefined} />
         {/*
           steward/86, Till on 2026-09-18: the start page had the numbers and this page did not.
           Only the four services that carry one get the field at all - `players === undefined` means
           nobody has said, and a `0` in its place would be a claim the row does not make.
         */}
-        {service.players === undefined ? null : (
+        {/* Not drawn while waiting either, and that is the lesser of two jumps: six of the ten
+            services never carry a count, so a Players field on every page would arrive and then
+            leave again on most of them. */}
+        {service?.players === undefined ? null : (
           <Stat label="Players" value={count(service.players)} />
         )}
 
@@ -165,8 +183,14 @@ export function ServiceHead({ service }: { service: NonNullable<ReturnType<typeo
           <span className="text-xs font-medium text-muted-foreground">
             Image
           </span>
-          <code className="truncate text-sm">{service.image}</code>
-          {service.digests?.length ? (
+          {service ? (
+            <code className="truncate text-sm">{service.image}</code>
+          ) : (
+            <SkeletonText className="text-sm" width="long" />
+          )}
+          {!service ? (
+            <SkeletonText className="text-xs" width="medium" />
+          ) : service.digests?.length ? (
             <code className="truncate text-xs text-muted-foreground" title={service.digests[0]}>
               {service.digests[0]}
             </code>

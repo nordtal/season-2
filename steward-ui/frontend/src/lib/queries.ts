@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { UseQueryOptions } from "@tanstack/react-query"
 
 import {
@@ -805,6 +805,10 @@ export function usePluginSearch(service: string, query: string, enabled: boolean
     // Somebody typing back over a word they just deleted should not wait for the same answer
     // twice.
     staleTime: 5 * 60 * SECOND,
+    // steward/120: every keystroke is a new query key, so "first load" is true on every letter and
+    // the list would go to skeletons under somebody's fingers. The previous hits stay until the
+    // next answer replaces them - the one place in this interface that needs this.
+    placeholderData: keepPreviousData,
   })
 }
 

@@ -14,7 +14,7 @@ import {
   takePendingMessageJump,
   type PendingMessageJump,
 } from "@/lib/settings-search"
-import { Failure, QueryState } from "@/components/steward/query-state"
+import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -82,22 +82,25 @@ export function ServiceMessages({ service }: { service: string }) {
       <CardContent className="flex flex-col">
         <QueryState
           query={bundles}
-          rows={3}
           isEmpty={() => mine.length === 0}
           empty={{
             title: "This service has no message bundle here.",
             note: "Nothing under messages/ in its jar was found, so there is no packaged text to override.",
           }}
         >
-          {() =>
-            mine.map((bundle) => (
-              <Fragment key={bundle.path}>
+          {(answer) =>
+            // Two rows while waiting: a service carries one bundle per module, and two is what the
+            // ones that have any actually have.
+            (answer ? mine : WAITING_BUNDLES).map((bundle, index) => (
+              <Fragment key={bundle?.path ?? index}>
                 <BundleRow
                   bundle={bundle}
-                  open={open === bundle.path}
-                  onToggle={() => setOpen((current) => (current === bundle.path ? null : bundle.path))}
+                  open={bundle !== undefined && open === bundle.path}
+                  onToggle={() =>
+                    bundle && setOpen((current) => (current === bundle.path ? null : bundle.path))
+                  }
                 />
-                {open === bundle.path ? (
+                {bundle && open === bundle.path ? (
                   <OneBundle
                     path={bundle.path}
                     jump={jump && jump.path === bundle.path ? jump : null}
@@ -112,17 +115,21 @@ export function ServiceMessages({ service }: { service: string }) {
   )
 }
 
+/** Two absent bundles - the shape of the card before `/api/messages` answers. */
+const WAITING_BUNDLES: (MessageBundleLocation | undefined)[] = [undefined, undefined]
+
 function BundleRow({
   bundle,
   open,
   onToggle,
 }: {
-  bundle: MessageBundleLocation
+  /** Absent while the list is out. */
+  bundle?: MessageBundleLocation
   open: boolean
   onToggle: () => void
 }) {
   const Chevron = open ? CaretDownIcon : CaretRightIcon
-  const label = bundle.module || bundle.service
+  const label = bundle ? bundle.module || bundle.service : undefined
 
   return (
     <button
@@ -133,9 +140,13 @@ function BundleRow({
     >
       <span className="flex min-w-0 items-center gap-2">
         <Chevron className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <span className="truncate text-sm">{label}</span>
+        {label === undefined ? (
+          <SkeletonText className="text-sm" width="medium" />
+        ) : (
+          <span className="truncate text-sm">{label}</span>
+        )}
       </span>
-      {bundle.writable ? null : (
+      {!bundle || bundle.writable ? null : (
         <Badge variant="outline" className="shrink-0 gap-1">
           <LockIcon className="size-3" aria-hidden />
           read only
@@ -150,6 +161,8 @@ function OneBundle({ path, jump }: { path: string; jump: PendingMessageJump | nu
 
   return (
     <div className="border-t border-border pt-4 pb-6">
+      {/* `rows`, for the reason `configuration.tsx` gives beside the same call: a bundle's form is
+          one row per key in the bundle, and the keys are inside the answer. */}
       <QueryState query={document} rows={8}>
         {(read) => <BundleForm key={path} path={path} bundle={read} jump={jump} />}
       </QueryState>

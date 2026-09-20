@@ -42,7 +42,7 @@ import {
 import { colourRuns } from "@/components/steward/colour-control"
 import { ServiceSettingsSearch } from "@/components/steward/config-search"
 import { RawConfigEditor } from "@/components/steward/raw-config-editor"
-import { Empty, Failure, QueryState } from "@/components/steward/query-state"
+import { Empty, Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import {
   type SectionValues,
   RepeatableCards,
@@ -174,22 +174,25 @@ export function ServiceConfiguration({ service }: { service: string }) {
         />
         <QueryState
           query={files}
-          rows={3}
           isEmpty={() => mine.length === 0}
           empty={{
             title: "This service has no configuration file here.",
             note: `Nothing under ${service}/ in the mount point is a readable text file. Its settings are somewhere else, or it has none.`,
           }}
         >
-          {() =>
-            mine.map((file) => (
-              <Fragment key={file.path}>
+          {(answer) =>
+            // Three rows while waiting: every service that has configuration at all has at least
+            // one, and three is the middle of what the stack's services actually carry.
+            (answer ? mine : WAITING_FILES).map((file, index) => (
+              <Fragment key={file?.path ?? index}>
                 <FileRow
                   file={file}
-                  open={open === file.path}
-                  onToggle={() => setOpen((current) => (current === file.path ? null : file.path))}
+                  open={file !== undefined && open === file.path}
+                  onToggle={() =>
+                    file && setOpen((current) => (current === file.path ? null : file.path))
+                  }
                 />
-                {open === file.path ? (
+                {file && open === file.path ? (
                   <OneFile
                     file={file.path}
                     highlight={highlight}
@@ -205,12 +208,16 @@ export function ServiceConfiguration({ service }: { service: string }) {
   )
 }
 
+/** Three absent files - the shape of a service's configuration card before the list arrives. */
+const WAITING_FILES: (ConfigLocation | undefined)[] = [undefined, undefined, undefined]
+
 function FileRow({
   file,
   open,
   onToggle,
 }: {
-  file: ConfigLocation
+  /** Absent while `/api/configs` is out: the row is drawn, its name is not. */
+  file?: ConfigLocation
   open: boolean
   onToggle: () => void
 }) {
@@ -223,9 +230,9 @@ function FileRow({
       onClick={onToggle}
       // Not openable rather than openable-into-an-error. There is nothing behind it: the service
       // cannot read the file, so the form would be an alert with a path in it.
-      disabled={!file.readable}
+      disabled={!file?.readable}
       title={
-        file.readable
+        !file || file.readable
           ? undefined
           : "Steward can see this file but may not open it. It belongs to another user - the mount that would let Steward read it is missing, or its permissions changed."
       }
@@ -239,8 +246,12 @@ function FileRow({
           `humanFileName` carries the path's words into the name anyway - a config under
           `nordtal-smp/` reads "Nordtal smp config" - so the second line said the same thing twice.
         */}
-        <span className="min-w-0 truncate text-sm">{humanFileName(file.name)}</span>
-        {file.service === "" ? (
+        {file ? (
+          <span className="min-w-0 truncate text-sm">{humanFileName(file.name)}</span>
+        ) : (
+          <SkeletonText className="text-sm" width="medium" />
+        )}
+        {file?.service === "" ? (
           <Badge variant="outline" className="shrink-0">
             no service
           </Badge>
@@ -250,7 +261,7 @@ function FileRow({
         Three states, not two. "not readable" is the one that used to be invisible: the row looked
         ordinary and opening it produced an error alert with the file's path in it.
       */}
-      {!file.readable ? (
+      {!file ? null : !file.readable ? (
         <Badge variant="outline" className="shrink-0 gap-1 text-destructive">
           <LockIcon className="size-3" aria-hidden />
           not readable
@@ -279,6 +290,12 @@ function OneFile({
 
   return (
     <div className="border-t border-border pt-4 pb-6">
+      {/*
+        `rows` - the documented way out of steward/120's rule, and this is the case the ticket
+        foresaw: a config form's whole layout is the schema inside the answer. There is no shape to
+        draw without the document, only a made-up number of made-up fields, and a made-up shape
+        that is replaced by a different one is exactly the jump the rule exists to prevent.
+      */}
       <QueryState query={document} rows={8}>
         {(read) =>
           // `raw` splits the two forms this route ever answers with (steward/56): a document this

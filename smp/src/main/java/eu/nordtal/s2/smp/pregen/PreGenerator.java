@@ -15,8 +15,10 @@ import java.util.function.Consumer;
  * <p>Chunky is a <b>required</b> plugin (paper-plugin.yml). Writing our own throttled generator was
  * the alternative and was rejected on 2026-09-01: Chunky already solves exactly this, its throttle
  * is the one operators already know how to turn down, and an in-house copy would be a second thing
- * to re-test on every Minecraft update. What Chunky does not do is decide <em>when</em> - that is
- * the farm world's schedule, and it lives next door.
+ * to re-test on every Minecraft update. What Chunky does not do is decide <em>when</em>.
+ *
+ * <p>The farm world's nightly schedule was what asked, and it went with season-2-ingame/30. Nothing
+ * calls this at the moment; whether it stays is season-2-ops/152.
  *
  * <p>The API arrives through Bukkit's {@code ServicesManager} rather than by casting the plugin
  * instance, which is why the module takes {@code chunky-common} as {@code compileOnly} and never

@@ -40,7 +40,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * /limbo reload carries [GAME, DISCORD]
  * /network reload carries [GAME, DISCORD]
  * /smp reload carries [GAME, DISCORD]
- * /smp farmreset now carries [GAME, DISCORD]
  * /smp objective complete carries [GAME, DISCORD]
  * /smp milestone unlock carries [GAME, DISCORD]
  * /smp aura carries [GAME, DISCORD]

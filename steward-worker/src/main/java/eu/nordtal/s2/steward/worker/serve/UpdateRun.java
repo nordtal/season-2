@@ -245,8 +245,9 @@ final class UpdateRun {
      * this process did - which is why the service line stays {@code STOPPED} - and a backup taken
      * over it is still a real archive of a real volume. What it is not is something to report as an
      * ordinary success: that is the shape of run 23, a green report over a backup nobody should
-     * have trusted. Owner's decision, 2026-09-13: the run settles {@code FAILED}, and the
-     * consequence is the one that was wanted, because a failed run authorises no farm reset.</p>
+     * have trusted. Owner's decision, 2026-09-13: the run settles {@code FAILED}, so that nothing
+     * downstream - a report, a retention count, an operator reading the list - counts an archive
+     * nobody can vouch for as one.</p>
      */
     @NotNull List<String> unverifiedStops() {
         return List.copyOf(unverifiedStops);

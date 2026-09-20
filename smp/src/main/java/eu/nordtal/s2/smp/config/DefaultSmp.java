@@ -26,12 +26,11 @@ final class DefaultSmp {
      */
     static final List<SmpSpec.SpawnRegionSpec> SPAWN_REGIONS = List.of(
             region("nordtal", 106 - 32, 40, 88 - 32, 106 + 32, 140, 88 + 32),
-            region("farm", -32, 40, -32, 32, 140, 32),
             region("nordtal_nether", -32, 20, -32, 32, 120, 32));
 
     /**
-     * Placeholder balloon volumes, one per world that has one - Nordtal, the farm world and the
-     * Nether. The End has none on purpose.
+     * Placeholder balloon volumes, one per world that has one - Nordtal and the Nether. The End
+     * has none on purpose.
      *
      * <p>Nordtal's box sits at radius ~15 of the border centre X 106 / Z 88, which is the only one
      * of these numbers that is not arbitrary: it has to land between radius 10 and 21.5 so that
@@ -41,7 +40,6 @@ final class DefaultSmp {
      */
     static final List<SmpSpec.BalloonSpec> BALLOONS = List.of(
             balloon("nordtal", 106 + 13, 64, 88 - 2, 106 + 17, 68, 88 + 2),
-            balloon("farm", -2, 64, -2, 2, 68, 2),
             balloon("nordtal_nether", -2, 32, -2, 2, 36, 2));
 
     /**
@@ -83,19 +81,15 @@ final class DefaultSmp {
     static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_NORDTAL =
             spawnPoint(106.5, 68.0, 88.5, 0f, 0f);
 
-    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_FARM =
-            spawnPoint(0.5, 64.0, 0.5, 0f, 0f);
-
     static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_NETHER =
             spawnPoint(0.5, 32.0, 0.5, 0f, 0f);
 
     static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_END =
             spawnPoint(0.5, 64.0, 0.5, 0f, 0f);
 
-    /** The four of them together, which is what the top-level key answers with. */
+    /** The three of them together, which is what the top-level key answers with. */
     static final SmpSpec.BalloonSpawnPointsSpec BALLOON_SPAWN_POINTS = balloonSpawnPoints(
             BALLOON_SPAWN_POINT_NORDTAL,
-            BALLOON_SPAWN_POINT_FARM,
             BALLOON_SPAWN_POINT_NETHER,
             BALLOON_SPAWN_POINT_END);
 
@@ -305,11 +299,10 @@ final class DefaultSmp {
     }
 
     private static SmpSpec.BalloonSpawnPointsSpec balloonSpawnPoints(
-            final SmpSpec.SpawnPointSpec nordtal, final SmpSpec.SpawnPointSpec farm,
-            final SmpSpec.SpawnPointSpec nether, final SmpSpec.SpawnPointSpec end) {
+            final SmpSpec.SpawnPointSpec nordtal, final SmpSpec.SpawnPointSpec nether,
+            final SmpSpec.SpawnPointSpec end) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("nordtal", nordtal);
-        values.put("farm", farm);
         values.put("nether", nether);
         values.put("end", end);
         return Specs.createUnsafe(SmpSpec.BalloonSpawnPointsSpec.class, values);

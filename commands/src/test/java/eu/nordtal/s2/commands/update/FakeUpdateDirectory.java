@@ -82,7 +82,7 @@ final class FakeUpdateDirectory implements UpdateDirectory {
 
     @Override
     public Optional<UpdateRequest> lastSuccessfulBackup(final java.time.Duration within) {
-        throw new UnsupportedOperationException("only smp's farm reset asks whether a backup exists");
+        throw new UnsupportedOperationException("nothing in this module asks whether a backup exists");
     }
 
     @Override

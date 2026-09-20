@@ -114,18 +114,18 @@ describe("ServiceSettingsSearch - config only, unchanged (steward/58)", () => {
       ...loc,
       revision: "r1",
       header: [],
-      entries: [entry({ path: "farm.reset.enabled", key: "enabled", label: "Farm reset enabled" })],
+      entries: [entry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" })],
     }
     wire({ files: [{ location: loc, document }] })
     const onJump = vi.fn()
 
     render(<ServiceSettingsSearch files={[loc]} onJump={onJump} />)
-    await typeInto("Search this service's settings…", "farm reset")
+    await typeInto("Search this service's settings…", "grave decay")
 
-    const hit = await screen.findByText("Farm reset enabled")
+    const hit = await screen.findByText("Grave decay enabled")
     fireEvent.click(hit)
 
-    expect(onJump).toHaveBeenCalledWith("smp/steward.yml", "farm.reset.enabled")
+    expect(onJump).toHaveBeenCalledWith("smp/steward.yml", "grave.decay.enabled")
   })
 })
 
@@ -141,14 +141,14 @@ describe("ServiceSettingsSearch - message bundles too (steward/87)", () => {
     const bundleLoc = bundleLocation({ path: "smp/smp" })
     const bundle: MessageBundle = {
       ...bundleLoc,
-      entries: [messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })],
+      entries: [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })],
     }
     wire({ files: [{ location: loc, document }], bundles: [{ location: bundleLoc, bundle }] })
 
     render(<ServiceSettingsSearch files={[loc]} onJump={vi.fn()} />)
-    await typeInto("Search this service's settings…", "resetting")
+    await typeInto("Search this service's settings…", "decayed")
 
-    expect(await screen.findByText("farm.reset.announce")).not.toBeNull()
+    expect(await screen.findByText("grave.decay.announce")).not.toBeNull()
   })
 
   it("shows the four-part location for a bundle hit - module, language and key", async () => {
@@ -157,13 +157,13 @@ describe("ServiceSettingsSearch - message bundles too (steward/87)", () => {
     const bundleLoc = bundleLocation({ path: "smp/smp", module: "smp" })
     const bundle: MessageBundle = {
       ...bundleLoc,
-      entries: [messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })],
+      entries: [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })],
     }
     wire({ files: [{ location: loc, document }], bundles: [{ location: bundleLoc, bundle }] })
 
     render(<ServiceSettingsSearch files={[loc]} onJump={vi.fn()} />)
-    await typeInto("Search this service's settings…", "resetting")
-    await screen.findByText("farm.reset.announce")
+    await typeInto("Search this service's settings…", "decayed")
+    await screen.findByText("grave.decay.announce")
 
     // Module and language both show; the service itself does not (the box is already scoped to
     // one service, the same way a config hit's row omits it too - `showService` defaults to false).
@@ -177,20 +177,20 @@ describe("ServiceSettingsSearch - message bundles too (steward/87)", () => {
     const bundleLoc = bundleLocation({ path: "smp/smp", service: "smp" })
     const bundle: MessageBundle = {
       ...bundleLoc,
-      entries: [messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })],
+      entries: [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })],
     }
     wire({ files: [{ location: loc, document }], bundles: [{ location: bundleLoc, bundle }] })
     const onJump = vi.fn()
 
     render(<ServiceSettingsSearch files={[loc]} onJump={onJump} />)
-    await typeInto("Search this service's settings…", "resetting")
-    fireEvent.click(await screen.findByText("farm.reset.announce"))
+    await typeInto("Search this service's settings…", "decayed")
+    fireEvent.click(await screen.findByText("grave.decay.announce"))
 
     expect(onJump).not.toHaveBeenCalled()
     expect(takePendingMessageJump("smp")).toEqual({
       path: "smp/smp",
       language: "en",
-      key: "farm.reset.announce",
+      key: "grave.decay.announce",
     })
   })
 
@@ -205,8 +205,8 @@ describe("ServiceSettingsSearch - message bundles too (steward/87)", () => {
       ...bundleLoc,
       entries: [
         messageEntry({
-          key: "farm.reset.announce",
-          english: "The farm world is resetting.",
+          key: "grave.decay.announce",
+          english: "Your grave has decayed.",
           german: "packaged-de-marker",
         }),
       ],
@@ -216,7 +216,7 @@ describe("ServiceSettingsSearch - message bundles too (steward/87)", () => {
     render(<ServiceSettingsSearch files={[loc]} onJump={vi.fn()} />)
     await typeInto("Search this service's settings…", "de-marker")
 
-    expect(await screen.findByText("farm.reset.announce")).not.toBeNull()
+    expect(await screen.findByText("grave.decay.announce")).not.toBeNull()
   })
 
   it("shows one list, not two groups - a config hit and a bundle hit both matching the same query", async () => {
@@ -225,20 +225,20 @@ describe("ServiceSettingsSearch - message bundles too (steward/87)", () => {
       ...loc,
       revision: "r1",
       header: [],
-      entries: [entry({ path: "farm.reset.enabled", key: "enabled", label: "Farm reset enabled" })],
+      entries: [entry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" })],
     }
     const bundleLoc = bundleLocation({ path: "smp/smp" })
     const bundle: MessageBundle = {
       ...bundleLoc,
-      entries: [messageEntry({ key: "farm.reset.announce", english: "Farm reset announcement" })],
+      entries: [messageEntry({ key: "grave.decay.announce", english: "Grave decay announcement" })],
     }
     wire({ files: [{ location: loc, document }], bundles: [{ location: bundleLoc, bundle }] })
 
     render(<ServiceSettingsSearch files={[loc]} onJump={vi.fn()} />)
-    await typeInto("Search this service's settings…", "farm reset")
+    await typeInto("Search this service's settings…", "grave decay")
 
-    expect(await screen.findByText("Farm reset enabled")).not.toBeNull()
-    expect(await screen.findByText("farm.reset.announce")).not.toBeNull()
+    expect(await screen.findByText("Grave decay enabled")).not.toBeNull()
+    expect(await screen.findByText("grave.decay.announce")).not.toBeNull()
   })
 })
 

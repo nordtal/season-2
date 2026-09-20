@@ -37,8 +37,8 @@ public final class Navigation {
     /**
      * Drops every navigation pointing into a world.
      *
-     * <p>Called for the farm world at each daily reset, alongside its POIs: the arrow would
-     * otherwise point confidently at terrain that no longer exists.
+     * <p>Called when a POI is deleted: the arrow would otherwise point confidently at a target
+     * that no longer exists.
      */
     public void clearWorld(final String world) {
         active.entrySet().removeIf(entry -> entry.getValue().isIn(world));

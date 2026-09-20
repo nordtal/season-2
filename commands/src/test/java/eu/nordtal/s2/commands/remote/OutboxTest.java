@@ -136,7 +136,7 @@ class OutboxTest {
     @DisplayName("claimed just as the wait ran out is a different sentence, and a better one")
     void losingTheExpiryRaceIsReportedAsRunning() {
         // The good case: it IS running. Saying "no answer" here would tell an admin nothing
-        // happened while the farm world was being deleted behind them.
+        // happened while a milestone was being unlocked behind them.
         final FakeUser user = FakeUser.inDiscord();
         outbox.send(AURA, user, aura(10));
         until(user, 1);

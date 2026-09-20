@@ -119,8 +119,8 @@ class AnnouncerTest {
         rows.refuse = new IllegalStateException("pool exhausted");
         final List<String> warnings = new ArrayList<>();
         new Announcer(rows, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message))
-                .announce("smp.announce.farm-reset", Map.of("minutes", 30));
+                .announce("smp.announce.milestone", Map.of("milestone", "Departure"));
         assertEquals(Announcer.LANGUAGES.size(), warnings.size());
-        assertTrue(warnings.getFirst().contains("smp.announce.farm-reset"));
+        assertTrue(warnings.getFirst().contains("smp.announce.milestone"));
     }
 }

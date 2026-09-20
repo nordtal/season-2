@@ -1,6 +1,5 @@
 package eu.nordtal.s2.smp.config;
 
-import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,7 +19,6 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -76,7 +74,7 @@ class ConfigsTest {
      * <p>It exists so a machine that is not a dedicated server can stop Chunky taking every core
      * for the minutes after a start ({@code pregeneration-on-start}, 2026-09-05). A setting added
      * for a laptop is exactly the kind that gets a convenient default by accident, and this one
-     * would then quietly cost the season's first farm world reset on the production host - where
+     * would then quietly cost the production host the pre-generation it is there to do - where
      * nobody is watching the load, because that host exists for nothing else.
      */
     @Test
@@ -91,56 +89,10 @@ class ConfigsTest {
                 "the key is not written into a fresh config.yml, so nobody would find it");
     }
 
-    /**
-     * The backup check is on by default, and its window is one a nightly pair can satisfy.
-     *
-     * <p>This is what is left of {@code theNightlyBackupIsOnAndComesBeforeTheReset}, which held
-     * {@code backup-time} against {@code farm-reset-time} until the backup clock moved to
-     * steward-worker on 2026-09-13. The old assertion cannot be made any more - the two times are
-     * in two processes' configuration now - and this is the assertion that replaced the coupling
-     * it was guarding: <b>0 means the farm world is deleted without anything being checked</b>, and
-     * a window of a day or more means yesterday's backup authorises today's reset, which is the
-     * whole failure the check exists to prevent.</p>
-     */
-    @Test
-    void theBackupCheckIsOnAndItsWindowIsUnderADay() throws Exception {
-        final SmpSpec config = Configs.load(directory, LOGGER).get();
-
-        assertTrue(config.farmResetBackupWindowHours() > 0,
-                "farm-reset-backup-window-hours defaults to 0, which deletes the farm world every"
-                        + " night without checking that anything was ever saved");
-        assertTrue(config.farmResetBackupWindowHours() < 24,
-                "the window is " + config.farmResetBackupWindowHours() + " hours, so a backup from"
-                        + " the night before can authorise tonight's reset - and the reset and the"
-                        + " backup are about a quarter of an hour apart, so 24 would let"
-                        + " yesterday's through by ten minutes");
-        assertTrue(Files.readString(directory.resolve("config.yml"))
-                        .contains("farm-reset-backup-window-hours:"),
-                "the key is not written into a fresh config.yml, so nobody would find it");
-    }
-
-    /**
-     * The default being under a day is not the same as a day being refused.
-     *
-     * <p>The key's own comment has always said the window must be "far enough under 24", and until
-     * 2026-09-13 nothing held an operator to it: {@code 24} loaded, and the gate then accepted a
-     * backup from the night before as proof for tonight's reset - by about ten minutes, which is
-     * the gap between the backup and the reset.</p>
-     */
-    @Test
-    void aWindowOfADayOrMoreIsRefused() throws Exception {
-        Configs.load(directory, LOGGER);
-        final Path file = directory.resolve("config.yml");
-        Files.writeString(file, Files.readString(file)
-                .replaceFirst("(?m)^farm-reset-backup-window-hours: .*$",
-                        "farm-reset-backup-window-hours: 24"));
-
-        // jcore wraps a rejected value; the sentence an operator reads is the one underneath.
-        final ConfigValidationException refused = assertThrows(ConfigValidationException.class,
-                () -> Configs.load(directory, LOGGER));
-
-        assertTrue(refused.getMessage().contains("the night before"), refused.getMessage());
-    }
+    // theBackupCheckIsOnAndItsWindowIsUnderADay and aWindowOfADayOrMoreIsRefused stood here
+    // until 2026-09-20. Both guarded farm-reset-backup-window-hours, which said how recent a
+    // backup had to be before the nightly reset was allowed to delete the farm world. The farm
+    // world went with season-2-ingame/30 and took the reset, the gate and the key with it.
 
     /**
      * {@code config.yml} does not carry the sounds, and a config that still does loses the block
@@ -218,13 +170,12 @@ class ConfigsTest {
         assertEquals(written.balloons().getFirst().world(), reread.balloons().getFirst().world());
 
         // Two levels of nesting, which nothing else in this file has: balloon-spawn-points is a
-        // spec whose four values are themselves specs. A missing key in DefaultSmp comes back null
-        // from createUnsafe, and the first getter to touch it throws - so reading all five numbers
-        // of all four points is the check, not that the object exists.
+        // spec whose three values are themselves specs. A missing key in DefaultSmp comes back
+        // null from createUnsafe, and the first getter to touch it throws - so reading all five
+        // numbers of all three points is the check, not that the object exists.
         final SmpSpec.BalloonSpawnPointsSpec points = reread.balloonSpawnPoints();
         assertAll(
                 () -> assertPoint(written.balloonSpawnPoints().nordtal(), points.nordtal(), "nordtal"),
-                () -> assertPoint(written.balloonSpawnPoints().farm(), points.farm(), "farm"),
                 () -> assertPoint(written.balloonSpawnPoints().nether(), points.nether(), "nether"),
                 () -> assertPoint(written.balloonSpawnPoints().end(), points.end(), "end")
         );

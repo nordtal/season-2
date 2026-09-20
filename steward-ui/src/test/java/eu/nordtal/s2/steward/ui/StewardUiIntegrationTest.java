@@ -1317,7 +1317,7 @@ class StewardUiIntegrationTest {
         assertEquals(
                 List.of("/access settle", "/access unlink", "/announce", "/hg start",
                         "/phase launch", "/phase set", "/phase show", "/phase smp-start",
-                        "/smp farmreset now", "/smp milestone unlock", "/smp objective complete"),
+                        "/smp milestone unlock", "/smp objective complete"),
                 offered.asList().stream()
                         .map(command -> command.getAsJsonObject().get("name").getAsString())
                         .toList());

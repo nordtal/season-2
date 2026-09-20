@@ -157,8 +157,8 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
             return;
         }
         // Three keys and not four: one period belongs to one account, so "one period across several
-        // accounts" cannot happen. Selecting here rather than writing "period(s)" is the same rule
-        // the farm-reset warning follows - a parenthetical plural is not a sentence in either
+        // accounts" cannot happen. Selecting here rather than writing "period(s)" is the rule
+        // BundleContinuationTest enforces - a parenthetical plural is not a sentence in either
         // language, and in German it degenerates into "Zeitraum/Zeitraeume".
         final String key = change.grants() == 1 ? "phase.date.moved.one"
                 : change.accounts() == 1 ? "phase.date.moved.one-account"

@@ -6,7 +6,7 @@ import eu.nordtal.s2.common.stage.Cinematic;
 import eu.nordtal.s2.papercommon.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
-import eu.nordtal.s2.smp.farm.LandingSite;
+import eu.nordtal.s2.smp.world.LandingSite;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;

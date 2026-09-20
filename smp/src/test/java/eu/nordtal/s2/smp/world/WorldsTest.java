@@ -18,17 +18,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * That {@link Worlds#balloonSpawnPoint} hands back the point that was configured for that role.
  *
  * <h2>Why this is worth a test at all</h2>
- * It is four lines of {@code switch} and it has exactly one way to be wrong: two arms crossed. That
- * is invisible everywhere it matters - the four points are all valid coordinates, the teleport
- * succeeds, {@code LandingSite} finds ground, the player is told they arrived, and the only symptom
- * is somebody standing in the wrong world's landing site wondering what happened. Nothing throws
- * and no log line is written.
+ * It is three lines of {@code switch} and it has exactly one way to be wrong: two arms crossed.
+ * That is invisible everywhere it matters - the three points are all valid coordinates, the
+ * teleport succeeds, {@code LandingSite} finds ground, the player is told they arrived, and the
+ * only symptom is somebody standing in the wrong world's landing site wondering what happened.
+ * Nothing throws and no log line is written.
  *
- * <p>Crossed arms are also what the defaults cannot catch: two of the four placeholder points in
- * {@code DefaultSmp} are the same coordinates, so a config.yml round trip would pass with FARM and
- * END swapped. Hence the deliberately distinct numbers below rather than the real defaults.
+ * <p>Crossed arms are also what the defaults cannot catch: the Nether and End placeholders in
+ * {@code DefaultSmp} share their x and z, so a config.yml round trip would pass with those two
+ * arms crossed in everything but height. Hence the deliberately distinct numbers below rather
+ * than the real defaults.
  *
- * <p><b>No server.</b> {@code Worlds}' constructor reads four strings out of the config and
+ * <p><b>No server.</b> {@code Worlds}' constructor reads three strings out of the config and
  * {@code balloonSpawnPoint} reads the config again - neither touches {@code Bukkit}, which is the
  * whole reason this one method can be tested here while the rest of the class cannot.
  */
@@ -83,8 +84,6 @@ class WorldsTest {
     private static SmpSpec configWith(final Map<WorldRole, SmpSpec.SpawnPointSpec> points) {
         final SmpSpec.BalloonSpawnPointsSpec section = new SmpSpec.BalloonSpawnPointsSpec() {
             @Override public SmpSpec.SpawnPointSpec nordtal() { return points.get(WorldRole.NORDTAL); }
-
-            @Override public SmpSpec.SpawnPointSpec farm() { return points.get(WorldRole.FARM); }
 
             @Override public SmpSpec.SpawnPointSpec nether() { return points.get(WorldRole.NETHER); }
 

@@ -36,8 +36,8 @@ const SAFE: AdminCommand = {
 }
 
 const IRREVERSIBLE: AdminCommand = {
-  name: "farmworld reset",
-  path: ["farmworld", "reset"],
+  name: "milestone unlock",
+  path: ["milestone", "unlock"],
   target: "SMP",
   adminOnly: true,
   irreversible: true,
@@ -98,7 +98,7 @@ describe("CommandCard - a command that refuses to be written", () => {
     vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
     draw(<CommandCard />)
 
-    fireEvent.click(within(await row("farmworld reset")).getByRole("button", { name: /Run/ }))
+    fireEvent.click(within(await row("milestone unlock")).getByRole("button", { name: /Run/ }))
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: /Run/ }))
 
@@ -116,7 +116,7 @@ describe("CommandCard - a command that refuses to be written", () => {
     vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
     draw(<CommandCard />)
 
-    fireEvent.click(within(await row("farmworld reset")).getByRole("button", { name: /Run/ }))
+    fireEvent.click(within(await row("milestone unlock")).getByRole("button", { name: /Run/ }))
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: /Run/ }))
 
@@ -131,7 +131,7 @@ describe("CommandCard - a command that refuses to be written", () => {
     vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
     draw(<CommandCard />)
 
-    const irreversible = await row("farmworld reset")
+    const irreversible = await row("milestone unlock")
     fireEvent.click(within(irreversible).getByRole("button", { name: /Run/ }))
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: /Run/ }))
@@ -204,7 +204,7 @@ describe("CommandCard - what became of a row that was written", () => {
       "fetch",
       backend({
         ask: () => ({ status: 202, body: { id: "r1", status: "PENDING" } }),
-        run: () => ({ status: 200, body: { id: "r1", status: "FAILED", result: "no such world: farm_2" } }),
+        run: () => ({ status: 200, body: { id: "r1", status: "FAILED", result: "no such milestone: harvest" } }),
       }),
     )
     draw(<CommandCard />)
@@ -212,7 +212,7 @@ describe("CommandCard - what became of a row that was written", () => {
     const safe = await row("season phase")
     fireEvent.click(within(safe).getByRole("button", { name: /Run/ }))
 
-    await waitFor(() => expect(safe.textContent).toContain("no such world: farm_2"))
+    await waitFor(() => expect(safe.textContent).toContain("no such milestone: harvest"))
   })
 })
 

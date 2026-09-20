@@ -44,13 +44,16 @@ class SmpCommandsTest {
     // ------------------------------------------------------------------ the declarations
 
     @Test
-    @DisplayName("the three that cannot be undone ask first, and the other three do not")
+    @DisplayName("the two that cannot be undone ask first, and the others do not")
     void whatIsIrreversible() {
         // A flag on everything that writes is a flag nobody reads. /smp aura is not guarded because
         // applying the negative is an exact undo; /smp reload is not because re-reading a file
         // changes nothing that was not already on disk.
+        //
+        // "/smp farmreset now" was the third and the starkest: it deleted a world a player could be
+        // standing in. It went with the farm world itself on 2026-09-20 (season-2-ingame/30).
         assertEquals(
-                Set.of("/smp farmreset now", "/smp objective complete", "/smp milestone unlock"),
+                Set.of("/smp objective complete", "/smp milestone unlock"),
                 SmpCommands.declarations().stream()
                         .filter(Declaration::irreversible)
                         .map(Declaration::name)
@@ -58,7 +61,7 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("status and /aura stay as they were; the six admin commands are console (and web) only")
+    @DisplayName("status and /aura stay as they were; the five admin commands are console (and web) only")
     void adminSixAreConsoleOnly() {
         // ops/18, 2026-09-15: "alles Admin nur noch Konsole und Web" took Surface.GAME and
         // Surface.DISCORD off every admin command. /smp status is not an admin's - three read-only
@@ -269,26 +272,6 @@ class SmpCommandsTest {
                 "the answer does not name both problems: " + printed);
         assertEquals(List.of("reload"), smp.did,
                 "the reload did not run - the sounds and the wording are re-read regardless");
-    }
-
-    // ------------------------------------------------------------------ farm reset
-
-    @Test
-    @DisplayName("the farm reset answers before it starts, because there is no moment afterwards")
-    void farmResetAnswersFirst() {
-        final FakeUser user = run(new ResetFarmWorld(), Map.of());
-
-        assertEquals(List.of("smp.admin.farmreset"), user.keys());
-        assertEquals(List.of("farmreset"), smp.did);
-    }
-
-    @Test
-    @DisplayName("a farm reset that fails half way says the world may be half deleted")
-    void farmResetFailure() {
-        smp.failure = new IllegalStateException("the folder is locked");
-        final FakeUser user = run(new ResetFarmWorld(), Map.of());
-
-        assertEquals(List.of("smp.admin.farmreset", "smp.admin.farmreset-failed"), user.keys());
     }
 
     // ------------------------------------------------------------------ objectives

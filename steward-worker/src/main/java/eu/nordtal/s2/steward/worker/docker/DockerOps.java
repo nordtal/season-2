@@ -85,10 +85,9 @@ public final class DockerOps implements ContainerOps {
      * looks like a restore point.
      *
      * <p>So the container is inspected afterwards and exit code 137 - SIGKILL - is reported as a
-     * refusal. The line is then {@code FAILED}, a run is settled {@code FAILED} the moment any line
-     * is, and a failed run authorises no farm reset. Nothing here tries to be cleverer than that:
-     * the world is already saved or it is not, and the only useful thing left is to stop calling it
-     * a success.</p>
+     * refusal. The line is then {@code FAILED}, and a run is settled {@code FAILED} the moment any
+     * line is. Nothing here tries to be cleverer than that: the world is already saved or it is
+     * not, and the only useful thing left is to stop calling it a success.</p>
      *
      * <h2>And an inspect nobody could read is a third answer</h2>
      * {@linkplain RedeployResult#unverified Unverified}, not refused and not an ordinary success.

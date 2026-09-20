@@ -12,7 +12,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The two things about the portal gate that only a running server could otherwise answer.
+ * The one thing about the portal gate that only a running server could otherwise answer.
  *
  * <p>Cancelling {@code PortalCreateEvent} stops the portal and nothing else: the flint and steel
  * has already placed a fire block, and vanilla leaves it standing. So a refused ignition burns the
@@ -27,24 +27,10 @@ class PortalGateWiringTest {
     private static final String SOURCE =
             "smp/src/main/java/eu/nordtal/s2/smp/travel/PortalGate.java";
 
-    @Test
-    @DisplayName("the farm world's exit hangs off the event that actually arrives there")
-    void theFarmWorldExitExists() {
-        // Every portal in the farm world leads to the Nordtal spawn, but PlayerPortalEvent is never
-        // raised there: the farm world is a custom dimension and vanilla links only overworld to
-        // nether. EntityPortalEnterEvent is raised from the block, which is why it arrives at all.
-        final String source = read();
-
-        assertTrue(source.contains("EntityPortalEnterEvent"),
-                "nothing carries a player out of the farm world: PlayerPortalEvent does not arrive"
-                        + " for a custom dimension, so the exit has to hang off the portal block");
-        assertTrue(source.contains("LandingSite.safeAt("),
-                "the farm world's exit drops the player at a raw spawn location, which is a"
-                        + " coordinate rather than a promise that anybody survives it");
-        assertTrue(source.contains("leaving.add(player.getUniqueId())"),
-                "EntityPortalEnterEvent fires every tick the player is in the portal, so the"
-                        + " countdown has to be armed once rather than once per tick");
-    }
+    // theFarmWorldExitExists stood here until 2026-09-20. It held the EntityPortalEnterEvent
+    // handler that carried a player out of the farm world, which vanilla's PlayerPortalEvent
+    // never reaches for a custom dimension. The farm world went with season-2-ingame/30 and the
+    // handler with it.
 
     @Test
     @DisplayName("cancelling the portal also puts out the fire the ignition left")

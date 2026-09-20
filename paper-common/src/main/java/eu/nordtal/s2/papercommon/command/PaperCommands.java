@@ -456,8 +456,8 @@ public final class PaperCommands {
         }
         // And the same rule for the surface (steward/106): a command that is not in this player's
         // tree must not be listed to them either. Without this, a bare /smp typed by an admin in
-        // chat would name /smp farmreset now - a command they would then be told does not exist,
-        // which is a worse lie than the sentence steward/106 removed.
+        // chat would name /smp reload - a command they would then be told does not exist, which is
+        // a worse lie than the sentence steward/106 removed.
         if (user.origin() == NordtalUser.Origin.GAME) {
             below.removeIf(declaration ->
                     !declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.GAME));

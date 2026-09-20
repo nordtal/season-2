@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.farm;
+package eu.nordtal.s2.smp.world;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -6,19 +6,24 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 
 /**
- * Finds somewhere in a freshly generated farm world that a person can be put down without dying.
+ * Finds somewhere in a world that a person can be put down without dying.
  *
- * <p>A new seed every day means the point 0/0 is a lottery - a lava lake, the roof of a ravine, a
- * hundred blocks of ocean - so the arrival point is searched for: a square spiral outwards from the
- * border centre, taking the first column with solid ground, two blocks of air above it and nothing
- * dangerous underfoot.
+ * <p>A configured arrival point is a coordinate somebody typed, and terrain is not obliged to agree
+ * with it - a lava lake, the roof of a ravine, a hundred blocks of ocean. So the arrival point is
+ * searched for: a square spiral outwards from the given point, taking the first column with solid
+ * ground, two blocks of air above it and nothing dangerous underfoot.
  *
- * <p>Runs on the main thread against a world that Chunky has already filled, so every chunk it
- * touches is on disk and no generation happens here.
+ * <p>It lived in {@code smp.farm} until 2026-09-20, because the farm world's nightly regeneration
+ * was what needed it first - a new seed every day made 0/0 a lottery. The farm world went with
+ * season-2-ingame/30 and this did not: every balloon arrival, every portal and the season welcome
+ * go through it, and a configured point is a lottery in exactly the same way.
+ *
+ * <p>Runs on the main thread against a world whose chunks are already on disk, so no generation
+ * happens here.
  */
 public final class LandingSite {
 
-    /** How far out to look before giving up. Well inside the farm world's 2000-block border. */
+    /** How far out to look before giving up. Well inside any world border this server sets. */
     private static final int MAX_RADIUS = 256;
 
     private LandingSite() {
@@ -28,7 +33,7 @@ public final class LandingSite {
      * The first safe spot at or near the world centre.
      *
      * <p>Falls back to the world's own spawn when the search finds nothing: an unsafe arrival is
-     * still better than a farm world nobody can enter.
+     * still better than a world nobody can enter.
      */
     public static Location find(final World world) {
         final Location found = find(world, 0, 0);
@@ -82,9 +87,9 @@ public final class LandingSite {
      * The same search, for a caller that is allowed to say no.
      *
      * <p>{@link #safeAt}'s fallback to {@code preferred} is right where not arriving is worse than
-     * arriving badly - a duel has to end, the farm-world reset has to empty a world. The balloon is
-     * the one caller where it is not: it already has a "destination unavailable" branch, and its
-     * success path tells the player they arrived somewhere they may not survive.</p>
+     * arriving badly - a duel has to end. The balloon is the one caller where it is not: it already
+     * has a "destination unavailable" branch, and its success path tells the player they arrived
+     * somewhere they may not survive.</p>
      *
      * @param world     the world
      * @param preferred where the caller would like them

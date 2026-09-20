@@ -325,14 +325,8 @@ public interface SmpDao {
     @SqlUpdate("DELETE FROM smp_poi WHERE id = :id")
     int deletePoi(@Bind("id") UUID id);
 
-    /**
-     * Drops every POI in a world.
-     *
-     * <p>Called for the farm world at every daily reset: an arrow pointing confidently at terrain
-     * that no longer exists is worse than none.
-     */
-    @SqlUpdate("DELETE FROM smp_poi WHERE world = :world")
-    int deletePoisIn(@Bind("world") String world);
+    // deletePoisIn stood here until 2026-09-20. The nightly farm-world reset was its only
+    // caller, and both went with season-2-ingame/30. A single POI still goes through deletePoi.
 
     // ---------------------------------------------------------------- last death
 
@@ -556,13 +550,8 @@ public interface SmpDao {
     @SqlUpdate("UPDATE smp_grave SET contents = :contents WHERE id = :id AND looted IS NULL")
     int updateGraveContents(@Bind("id") UUID id, @Bind("contents") byte[] contents);
 
-    /**
-     * Drops every grave in a world.
-     *
-     * <p>The farm world at its daily reset. Everything there is destroyed, graves included.
-     */
-    @SqlUpdate("DELETE FROM smp_grave WHERE world = :world")
-    int deleteGravesIn(@Bind("world") String world);
+    // deleteGravesIn stood here until 2026-09-20, for the nightly farm-world reset that destroyed
+    // everything in that world, graves included. It went with season-2-ingame/30.
 
     /**
      * Deletes every grave older than {@code hours}, and says which ones went.

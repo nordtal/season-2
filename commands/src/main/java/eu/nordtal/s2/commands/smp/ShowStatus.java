@@ -38,8 +38,8 @@ public final class ShowStatus implements NordtalCommand<SmpEffects> {
                 user.reply("smp.status.finished", Map.of(), Tone.GOOD);
             }
             // Three keys, chosen here rather than a "{online} player(s)" in one - the same rule
-            // the farm-reset warning and /phase's grant count already follow. A parenthetical
-            // plural is not a sentence in either language, and in German it degenerates worse.
+            // /phase's grant count already follows. A parenthetical plural is not a sentence in
+            // either language, and in German it degenerates worse.
             user.reply(status.online() == 0 ? "smp.status.online.none"
                             : status.online() == 1 ? "smp.status.online.one" : "smp.status.online",
                     Map.of("online", status.online()), Tone.MUTED);

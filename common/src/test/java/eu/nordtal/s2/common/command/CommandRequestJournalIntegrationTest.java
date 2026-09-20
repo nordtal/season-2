@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * Before 2026-09-14 {@code steward-ui} wrote the request and then, separately, the journal line. A
  * failure of the second left an executable {@code PENDING} row in the table while the operator's
  * browser was shown an error - and the next thing an operator does when told a command did not go
- * through is press the button again. Two farm resets, one of them in nobody's name.
+ * through is press the button again. Two unlocked milestones, one of them in nobody's name.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CommandRequestJournalIntegrationTest {

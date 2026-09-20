@@ -71,7 +71,7 @@ interface CommandRequestDao {
      * row is not a fact about the past, it is <b>work waiting to be claimed</b>: if the insert
      * commits and the journal line then fails, the interface answers the operator with an error
      * while a target quietly picks the row up and runs the command - and the operator, told it did
-     * not work, presses the button again. Two farm resets, one of them in nobody's name.
+     * not work, presses the button again. Two unlocked milestones, one of them in nobody's name.
      *
      * <p>So the two rows are one statement. Not a JDBI transaction around two DAOs - one statement,
      * which cannot half-happen and needs nobody to remember to open it. {@code journalled} is a

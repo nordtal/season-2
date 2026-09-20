@@ -665,8 +665,8 @@ services:
       # required: true, and PacketEvents is required under it. The guard is in entrypoint.sh.
       # Terralith and Dungeons and Taverns, pinned by sha512, fetched into the level-name world's
       # datapacks/ folder BEFORE the server starts. Datapacks are server-global and read once at
-      # start, so this one folder feeds every world including the nightly farm world - and a pack
-      # added later changes no terrain.
+      # start, so this one folder feeds every world this server generates - and a pack added
+      # later changes no terrain.
       DATAPACK_URLS: ${SMP_DATAPACK_URLS:-f5283548323149ecd3f218b8efbe03c1c582df3f40b6bb3b095ba9e4cac0c87108b98adabd6ebd3a8037ec239773a253f75b8bee7db52e6f5663bf9dc63c2ea3@https://cdn.modrinth.com/data/8oi3bsk5/versions/CzijfXJQ/Terralith_26.2_v2.6.4.zip cf026b67f4fc0f5ab15229995f11faf43fdd41b29777a6756151276e83da65f887fe03b6356c5011f8ba32371f98941778928e4258e81b4c97411a40af1635ca@https://cdn.modrinth.com/data/tpehi7ww/versions/CS77UwHE/Dungeons%20and%20Taverns%20v5.3.2.zip}
       # Must match SmpSpec#world-nordtal: without it Paper generates `world`, the datapacks above go
       # into a folder nothing reads, and the SMP refuses to start on a season world that does not
@@ -700,9 +700,10 @@ services:
       # this variable itself, which replaces pasting it into three config files - it does
       # NOT keep it out of the volume, Paper writes it into paper-global.yml on first load.
       PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
-      # Whether smp starts pre-generating tomorrow's farm world in its onEnable. True in production;
-      # a machine also used for something else wants false, because Chunky takes every core it is
-      # given. The cost is one postponed reset.
+      # Whether smp starts a pre-generation in its onEnable. True in production; a machine also
+      # used for something else wants false, because Chunky takes every core it is given. What
+      # asked for it was the farm world, which went with season-2-ingame/30; season-2-ops/152
+      # decides whether this key and Chunky stay.
       #
       # No fallback here, deliberately. jcore's EnvOverlay SKIPS a blank variable - it is unset,
       # not an override - so `${VAR:-}` leaves SmpSpec's own default in force and, more to the
@@ -710,18 +711,9 @@ services:
       # which means switching pre-generation off in the interface would silently do nothing.
       # This comment used to claim the opposite; see jcore 3.1.0 EnvOverlay.applyTo.
       NORDTAL_SMP_PREGENERATION_ON_START: ${SMP_PREGENERATION_ON_START:-}
-      # HOW RECENT A BACKUP HAS TO BE BEFORE THIS SERVER WILL RESET THE FARM WORLD.
-      #
-      # The nightly clock moved to steward-worker on 2026-09-13 (§9a), because a season with `smp`
-      # down had no backup at all and nothing said so. What used to make the order safe was two
-      # times fifteen minutes apart in two different config files - a promise no test could hold.
-      # Now the reset asks the database instead: no successful backup inside this window means the
-      # world is left alone, loudly.
-      #
-      # No fallback, for the reason above: a blank variable is unset to jcore, so SmpSpec's own
-      # default stands and smp.yml stays the thing that decides. `0` turns the check off, which is
-      # what a local stack with no steward-worker wants, and which is logged on every start.
-      NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS: ${SMP_FARM_RESET_BACKUP_WINDOW_HOURS:-}
+      # NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS stood here until 2026-09-20. It gated the
+      # nightly farm-world reset on a recent backup; the farm world went with season-2-ingame/30
+      # and there is nothing left to gate.
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
       NORDTAL_SMP_DATABASE_PASSWORD: *db-password

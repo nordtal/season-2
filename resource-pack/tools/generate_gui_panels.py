@@ -12,7 +12,7 @@ WHY SIX PANELS AND NOT ONE. A chest's window height is 114 + 18*rows, so the six
 another. All six are even, which is why they centre identically; a hopper (imageHeight 133,
 odd) would break that, and a test asserts no menu opens a non-chest inventory.
 
-WHAT AN OVERLAY IS. The travel panel bakes its four world tiles into one image. What varies
+WHAT AN OVERLAY IS. The travel panel bakes its three world tiles into one image. What varies
 per player is a tile's *state* - locked, or "you are here" - so each state is a separate
 tile-sized glyph, declared once per tile row in gui.json with the ascent that lands it
 there. One base plus two overlays covers every combination.
@@ -79,14 +79,18 @@ PLAYER_HOTBAR_FROM_BOTTOM = 26
 # counted from the corner inwards. Row 0 loses three, row 1 two, row 2 one.
 CORNER_CHAMFER = (3, 2, 1)
 
-# --- The travel panel's geometry: four tiles of 3 rows x 4 columns, column 4 the gap. ---
+# --- The travel panel's geometry: three tiles of 3 rows x 4 columns, column 4 the gap. ---
 #
 # A tile is drawn TILE_INSET pixels inside the slot cells it covers, so the two rows of
 # tiles read as separate cards (there is no gap row between slot rows 2 and 3) and the
-# clickable area still ends within two pixels of the art. Everything outside the four
-# tiles is frame. The four positions are fixed - Nordtal, farm world / Nether, End - and
-# the Java side (smp's BalloonMenu) carries the same slot map; TILE_* below is what its
-# overlay offsets are derived from, through MenuTitleTest reading these PNGs back.
+# clickable area still ends within two pixels of the art. Everything outside the tiles is
+# frame. The positions are fixed - Nordtal, Nether / End - and the Java side (smp's
+# BalloonMenu) carries the same slot map; TILE_* below is what its overlay offsets are
+# derived from, through MenuTitleTest reading these PNGs back.
+#
+# The bottom right is empty since 2026-09-20. There were four cards, one per world, until
+# the farm world went with season-2-ingame/30; the hole is at the end of the reading order
+# rather than in the middle, where it would read as a card that failed to draw.
 TILE_COLUMNS = 4
 TILE_ROWS = 3
 TILE_INSET = 2
@@ -116,7 +120,6 @@ PALETTE = {
 # reads as embossed into the card rather than printed on it.
 TILES = {
     "nordtal": {"fill": (82, 168, 84), "dark": (44, 108, 48), "light": (140, 210, 136)},
-    "farm":    {"fill": (236, 168, 56), "dark": (170, 110, 24), "light": (250, 214, 130)},
     "nether":  {"fill": (206, 66, 58), "dark": (136, 34, 30), "light": (242, 140, 120)},
     "end":     {"fill": (128, 82, 190), "dark": (78, 44, 130), "light": (190, 150, 232)},
 }
@@ -282,14 +285,6 @@ def pictogram(name):
         c.fill_polygon([(cx - 6, cy + 14), (cx + 10, cy - 18), (cx + 26, cy + 14)])
         c.fill_rect(cx - 20, cy + 4, cx - 6, cy + 16)          # house body
         c.fill_polygon([(cx - 22, cy + 5), (cx - 13, cy - 3), (cx - 4, cy + 5)])  # roof
-    elif name == "farm":
-        # An ear of wheat: a stem, and grains alternating up either side of it.
-        c.stroke_line(cx, cy + 20, cx, cy - 16, 2.4)
-        for i in range(5):
-            y = cy + 10 - i * 6
-            c.fill_circle(cx - 5, y - 1, 3.4)
-            c.fill_circle(cx + 5, y - 4, 3.4)
-        c.fill_circle(cx, cy - 18, 3.6)
     elif name == "nether":
         # The same flame the HUD icon draws, scaled up.
         c.fill_polygon([
@@ -339,7 +334,7 @@ def tile(buf, width, x, y, colours, name):
 
 
 def travel_panel():
-    """The balloon's panel: a 6-row window with four world cards and no readable title.
+    """The balloon's panel: a 6-row window with three world cards and no readable title.
 
     No hairline either, and that is not an oversight: F4b's line separates a title from the
     content under it, and this panel has no title at all.
@@ -349,8 +344,8 @@ def travel_panel():
     buf = blank(WIDTH, height, PALETTE["ground"])
     frame(buf, WIDTH, height)
     player_inventory(buf, WIDTH, height)
-    for name, (column, row) in (("nordtal", (0, 0)), ("farm", (1, 0)),
-                                ("nether", (0, 1)), ("end", (1, 1))):
+    for name, (column, row) in (("nordtal", (0, 0)), ("nether", (1, 0)),
+                                ("end", (0, 1))):
         tile(buf, WIDTH, TILE_X[column], TILE_Y[row], TILES[name], name)
     return WIDTH, height, bytes(buf)
 

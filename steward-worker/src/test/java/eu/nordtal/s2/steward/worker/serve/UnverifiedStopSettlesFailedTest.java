@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Every line can be green - the service stopped, the volume saved, the jars moved, the servers came
  * back - and the one thing missing is the evidence that the server had finished writing when the
  * next step touched its files. Owner's decision, 2026-09-13: that settles the run {@code FAILED} on
- * both paths, because a failed run authorises no farm reset and that is the irreversible thing a
+ * both paths, because an archive nobody can vouch for is the irreversible thing a
  * green-looking run would otherwise unlock.
  *
  * <h2>Why the note is asserted on the same object as the stage, every time</h2>
@@ -93,7 +93,7 @@ class UnverifiedStopSettlesFailedTest {
         assertTrue(note(settled).contains("Nothing was thrown away and nothing was undone"),
                 "without this sentence a FAILED backup reads as a night with nothing saved, and the"
                         + " next person restores from an older archive: " + note(settled));
-        assertTrue(note(settled).contains("authorises no farm reset"),
+        assertTrue(note(settled).contains("nothing counts this archive as one"),
                 "and it has to say what failing costs, or somebody spends the morning looking for a"
                         + " reset that was never going to run: " + note(settled));
     }
@@ -147,7 +147,7 @@ class UnverifiedStopSettlesFailedTest {
     @DisplayName("an ordinary run settles DONE with nothing added to it")
     void nothingWrongIsDone() {
         // The other half of the claim, and the expensive half to get wrong: this is the nightly
-        // backup. A rule that failed it would stop the farm reset every night instead of on the
+        // backup. A rule that failed it would fail the run every night instead of on the
         // night it matters, and a warning that is always on is one people stop reading.
         final UpdateReport settled = Runner.settle(green(), List.of(), ARCHIVES, false, FAILS);
 
@@ -225,7 +225,7 @@ class UnverifiedStopSettlesFailedTest {
 
         assertEquals(UpdateReport.Stage.DONE, settled.stage(),
                 "a restart leaves nothing behind that anybody has to decide whether to trust, so"
-                        + " failing it would block a farm reset over a run that wrote nothing");
+                        + " failing it would condemn a run that wrote nothing");
         assertTrue(note(settled).startsWith("UNVERIFIED STOP."),
                 "and it is still said: the server may have been killed mid-save and started again"
                         + " on that world, and this is the run somebody asked for BECAUSE it was"
@@ -248,7 +248,7 @@ class UnverifiedStopSettlesFailedTest {
 
         assertTrue(note(failing).contains("reported as FAILED for that reason alone"),
                 note(failing));
-        assertTrue(note(failing).contains("authorises no farm reset"), note(failing));
+        assertTrue(note(failing).contains("nothing counts this archive as one"), note(failing));
         assertFalse(note(failing).contains("not reported as a failure"),
                 "the failing mode must not also claim it did not fail: " + note(failing));
 
@@ -257,7 +257,7 @@ class UnverifiedStopSettlesFailedTest {
         assertFalse(note(saying).contains("reported as FAILED"),
                 "this run settled DONE. A note saying it was reported FAILED would send somebody"
                         + " looking for a failure that is not in the row: " + note(saying));
-        assertFalse(note(saying).contains("farm reset"),
+        assertFalse(note(saying).contains("nothing counts this archive as one"),
                 "and nothing was blocked, so promising a consequence that did not happen is the"
                         + " same lie in the other direction: " + note(saying));
     }

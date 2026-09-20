@@ -68,8 +68,8 @@ public final class NavigateListener implements Listener {
     /**
      * Records where a death happened.
      *
-     * <p>Written even for a death in the farm world, which will be gone by tomorrow: the arrow is
-     * useful for the rest of today, and the daily reset clears the navigation itself.
+     * <p>One row per player, overwritten by the next death: {@code /navigate death} is a way back
+     * to where you just died, not a history of every time you have.
      */
     @EventHandler(ignoreCancelled = true)
     public void onDeath(final PlayerDeathEvent event) {

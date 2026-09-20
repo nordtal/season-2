@@ -59,12 +59,6 @@ final class FakeSmp implements SmpEffects {
     }
 
     @Override
-    public void resetFarmWorld() {
-        throwIfAsked();
-        did.add("farmreset");
-    }
-
-    @Override
     public Optional<String> activeMilestone() {
         throwIfAsked();
         return Optional.ofNullable(activeMilestone);

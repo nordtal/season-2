@@ -54,7 +54,9 @@ class WebSurfaceTest {
             "/phase set",
             "/phase show",
             "/phase smp-start",
-            "/smp farmreset now",
+            // "/smp farmreset now" stood here until 2026-09-20. The farm world went with
+            // season-2-ingame/30 and nothing took its place - resources come out of the SMP world
+            // now - so the button is gone from Steward as well.
             "/smp milestone unlock",
             "/smp objective complete");
 

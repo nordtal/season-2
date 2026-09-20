@@ -24,15 +24,14 @@ import java.util.Locale;
  *       option.</li>
  * </ul>
  *
- * <p>So every world this server generates - Nordtal, the farm world, the Nether and the End - gets
- * the same packs, and the farm world's nightly regeneration inherits them with nothing copied.
+ * <p>So every world this server generates - Nordtal, the Nether and the End - gets the same packs.
  * Installing them is the container entrypoint's job, before the server starts, because worldgen
  * registries are read once at start: a pack dropped in afterwards changes no terrain.
  *
- * <p>And terrain is never re-rolled once it is on disk. A farm world generated without Terralith is
- * one flat day; Nordtal generated without it is the whole season, on a world that has a spawn built
- * on it and therefore cannot be thrown away. That asymmetry is why a missing pack stops the plugin
- * instead of logging a warning nobody reads.
+ * <p>And terrain is never re-rolled once it is on disk. There is no world here that can be thrown
+ * away and generated again - Nordtal carries a built spawn, and the Nether and the End are the
+ * season's. A world generated without Terralith is vanilla terrain for the whole season, which is
+ * why a missing pack stops the plugin instead of logging a warning nobody reads.
  */
 public final class Datapacks {
 

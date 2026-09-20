@@ -198,7 +198,7 @@ public final class BalloonGui implements Surface {
         final SmpSpec.SpawnPointSpec point = worlds.balloonSpawnPoint(entry.destination());
         final org.bukkit.Location target = new org.bukkit.Location(destination, point.x(), point.y(),
                 point.z(), point.yaw(), point.pitch());
-        final org.bukkit.Location landing = eu.nordtal.s2.smp.farm.LandingSite
+        final org.bukkit.Location landing = eu.nordtal.s2.smp.world.LandingSite
                 .findSafeAt(destination, target)
                 .orElse(null);
         if (landing == null || !player.teleport(landing)) {

@@ -38,16 +38,16 @@ class NavigationTest {
     }
 
     /**
-     * The farm world is regenerated daily and nothing in it survives. An arrow that outlived its
-     * target would still point confidently at terrain that no longer exists.
+     * A POI that is deleted takes every arrow pointing into its world with it. An arrow that
+     * outlived its target would still point confidently at something that no longer exists.
      */
     @Test
     void clearingAWorldDropsOnlyTheTargetsInIt() {
         final UUID other = UUID.randomUUID();
-        navigation.set(player, NavigationTarget.poi(UUID.randomUUID(), "the mine", "farm", 10, 60, 10));
+        navigation.set(player, NavigationTarget.poi(UUID.randomUUID(), "the mine", "nordtal_nether", 10, 60, 10));
         navigation.set(other, NavigationTarget.poi(UUID.randomUUID(), "the tavern", "nordtal", 106, 70, 88));
 
-        navigation.clearWorld("farm");
+        navigation.clearWorld("nordtal_nether");
 
         assertFalse(navigation.isNavigating(player));
         assertTrue(navigation.isNavigating(other), "Nordtal's targets are untouched");

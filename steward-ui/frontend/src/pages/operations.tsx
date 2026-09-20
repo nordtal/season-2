@@ -52,7 +52,7 @@ import {
   type Tone,
 } from "@/components/steward/status"
 import { RecreateButton } from "@/components/steward/recreate"
-import { Empty, Failure, Loading, QueryState } from "@/components/steward/query-state"
+import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import {
   ResponsiveAlertDialog,
   ResponsiveAlertDialogAction,
@@ -480,7 +480,10 @@ export function AskButton({
                 {schedule.data.backupAt} {schedule.data.zone}), so the two do not fight over the
                 same lock.
               </>
-            ) : schedule.isPending ? (
+            ) : schedule.data === undefined ? (
+              // Not `isPending`: this is prose rather than a layout, and "nothing has answered"
+              // covers the failed read too - the sentence below claims the worker has no clock,
+              // which is a thing only an answer may say.
               <> - the worker's backup clock is being read right now.</>
             ) : (
               <>
@@ -533,6 +536,9 @@ function AskBar() {
  */
 const DRIFT_RANK: Record<string, number> = { OUTDATED: 0, LOCAL: 2, UP_TO_DATE: 3 }
 
+/** Ten absent services, because this stack has ten. */
+const WAITING_SERVICES = Array.from({ length: 10 }, () => undefined)
+
 function DriftCard() {
   const services = useServices()
 
@@ -544,7 +550,6 @@ function DriftCard() {
       <CardContent className="flex flex-col gap-4">
         <QueryState
           query={services}
-          rows={6}
           empty={{
             title: "No container in the project",
             note: "steward-worker answered, but no container carries the compose project label.",
@@ -552,19 +557,28 @@ function DriftCard() {
           isEmpty={(table: ServiceTable) => table.services.length === 0}
         >
           {(table) => {
-            const rows = [...table.services].sort(
-              (left, right) =>
-                (DRIFT_RANK[left.drift] ?? 1) - (DRIFT_RANK[right.drift] ?? 1) ||
-                left.service.localeCompare(right.service, LOCALE),
-            )
+            const rows = table
+              ? [...table.services].sort(
+                  (left, right) =>
+                    (DRIFT_RANK[left.drift] ?? 1) - (DRIFT_RANK[right.drift] ?? 1) ||
+                    left.service.localeCompare(right.service, LOCALE),
+                )
+              : // Ten, because the stack has ten services. The number is a fact about this
+                // deployment and belongs beside the table that draws it, not in a shared constant
+                // that would then be wrong for the next list (steward/120).
+                WAITING_SERVICES
             return (
               <>
-                <p className="text-xs text-muted-foreground">
-                  {table.drift.checkedAt
-                    ? `Registry last queried ${relative(table.drift.checkedAt)} (${dateTime(table.drift.checkedAt)}) - that is the age of this comparison, not of the row beside it.`
-                    : "The registry has not been queried yet; no row below is a comparison."}
-                </p>
-                {table.drift.reached === false ? (
+                {table ? (
+                  <p className="text-xs text-muted-foreground">
+                    {table.drift.checkedAt
+                      ? `Registry last queried ${relative(table.drift.checkedAt)} (${dateTime(table.drift.checkedAt)}) - that is the age of this comparison, not of the row beside it.`
+                      : "The registry has not been queried yet; no row below is a comparison."}
+                  </p>
+                ) : (
+                  <SkeletonText className="text-xs" width="long" />
+                )}
+                {table?.drift.reached === false ? (
                   <p className="flex items-start gap-2 text-xs text-warning">
                     <WarningIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                     The registry could not be reached
@@ -583,32 +597,40 @@ function DriftCard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((service) => (
-                      <TableRow key={service.service}>
+                    {rows.map((service, index) => (
+                      <TableRow key={service?.service ?? index}>
                         <TableCell data-label="Service" className="font-medium">
-                          <Link
-                            to="/services/$name"
-                            params={{ name: service.service }}
-                            className="underline-offset-4 hover:text-primary hover:underline"
-                          >
-                            {service.service}
-                          </Link>
+                          {service ? (
+                            <Link
+                              to="/services/$name"
+                              params={{ name: service.service }}
+                              className="underline-offset-4 hover:text-primary hover:underline"
+                            >
+                              {service.service}
+                            </Link>
+                          ) : (
+                            <SkeletonText width="medium" />
+                          )}
                         </TableCell>
                         <TableCell data-label="Image" className="text-muted-foreground">
-                          <code className="text-xs">{service.image}</code>
+                          {service ? (
+                            <code className="text-xs">{service.image}</code>
+                          ) : (
+                            <SkeletonText className="text-xs" width="long" />
+                          )}
                         </TableCell>
                         <TableCell data-label="Compared">
-                          <DriftBadge drift={service.drift} />
+                          {service ? <DriftBadge drift={service.drift} /> : <Skeleton className="h-5 w-16 rounded-full" />}
                         </TableCell>
                         <TableCell data-label="Container" className="text-right">
-                          <RecreateButton service={service.service} />
+                          {service ? <RecreateButton service={service.service} /> : null}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
 
-                {table.drift.unverifiable.length > 0 ? (
+                {table && table.drift.unverifiable.length > 0 ? (
                   <p className="text-xs text-muted-foreground">
                     Unchecked: {table.drift.unverifiable.join(", ")} - either the registry did not
                     answer, or this container's exact image is no longer on file locally (its tag
@@ -668,26 +690,27 @@ function HostCard() {
         <CardTitle className="text-sm font-medium">Host</CardTitle>
       </CardHeader>
       <CardContent>
-        {host.isPending ? (
-          <Loading rows={1} />
-        ) : host.error ? (
-          <Failure error={host.error} onRetry={host.refetch} />
-        ) : (
-          <Stat
-            label="Load"
-            value={load(host.data?.load1)}
-            // No cpu count, no hint - "across - cores" is a half sentence (steward/123).
-            hint={
-              host.data?.cpus == null
-                ? undefined
-                : `1-minute average across ${count(host.data.cpus)} cores`
-            }
-          />
-        )}
+        <QueryState query={host}>
+          {(data) => (
+            <Stat
+              label="Load"
+              value={data ? load(data.load1) : undefined}
+              // No cpu count, no hint - "across - cores" is a half sentence (steward/123).
+              hint={
+                data?.cpus == null
+                  ? undefined
+                  : `1-minute average across ${count(data.cpus)} cores`
+              }
+            />
+          )}
+        </QueryState>
       </CardContent>
     </Card>
   )
 }
+
+/** Eight absent runs: shorter than the twenty asked for, and taller than the card ever needs. */
+const WAITING_RUNS = Array.from({ length: 8 }, () => undefined)
 
 function RunsCard() {
   const runs = useRuns(20)
@@ -716,7 +739,6 @@ function RunsCard() {
       <CardContent>
         <QueryState
           query={runs}
-          rows={8}
           empty={{
             title: "No run yet",
             note: "There is no row in update_request - not from this interface, not from Discord, not from the worker's clock.",
@@ -737,43 +759,61 @@ function RunsCard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((run) => (
-                  <TableRow key={run.id}>
+                {(rows ?? WAITING_RUNS).map((run, index) => (
+                  <TableRow key={run?.id ?? index}>
                     <TableCell data-label="Run" className="font-medium tnum">
-                      <Link
-                        to="/operations/runs/$id"
-                        params={{ id: String(run.id) }}
-                        className="underline-offset-4 hover:text-primary hover:underline"
-                      >
-                        #{run.id}
-                      </Link>
+                      {run ? (
+                        <Link
+                          to="/operations/runs/$id"
+                          params={{ id: String(run.id) }}
+                          className="underline-offset-4 hover:text-primary hover:underline"
+                        >
+                          #{run.id}
+                        </Link>
+                      ) : (
+                        <SkeletonText width="short" />
+                      )}
                     </TableCell>
-                    <TableCell data-label="Kind">{RUN_KIND[run.kind] ?? run.kind}</TableCell>
+                    <TableCell data-label="Kind">
+                      {run ? (RUN_KIND[run.kind] ?? run.kind) : <SkeletonText width="medium" />}
+                    </TableCell>
                     <TableCell data-label="Status">
-                      <div className="flex items-center gap-1.5">
-                        <RunStatus status={run.status} />
-                        {run.report && ENDINGS.has(run.report.stage) === false ? (
-                          <StageBadge stage={run.report.stage} />
-                        ) : null}
-                      </div>
+                      {run ? (
+                        <div className="flex items-center gap-1.5">
+                          <RunStatus status={run.status} />
+                          {run.report && ENDINGS.has(run.report.stage) === false ? (
+                            <StageBadge stage={run.report.stage} />
+                          ) : null}
+                        </div>
+                      ) : (
+                        <Skeleton className="h-5 w-20 rounded-full" />
+                      )}
                     </TableCell>
                     <TableCell data-label="Requested by" className="truncate text-muted-foreground">
-                      {run.requestedBy}
-                      <span className="ml-1 text-xs">
-                        ({SOURCE_LABEL[run.source] ?? run.source})
-                      </span>
+                      {run ? (
+                        <>
+                          {run.requestedBy}
+                          <span className="ml-1 text-xs">
+                            ({SOURCE_LABEL[run.source] ?? run.source})
+                          </span>
+                        </>
+                      ) : (
+                        <SkeletonText width="long" />
+                      )}
                     </TableCell>
                     <TableCell data-label="When"
                       className="text-muted-foreground"
-                      title={dateTime(run.requested)}
+                      title={run ? dateTime(run.requested) : undefined}
                     >
-                      {relative(run.requested)}
+                      {run ? relative(run.requested) : <SkeletonText width="medium" />}
                     </TableCell>
                     <TableCell data-label="Duration" className="text-right tnum text-muted-foreground">
-                      {duration(runSeconds(run))}
+                      {run ? duration(runSeconds(run)) : <SkeletonText width="short" className="ml-auto" />}
                     </TableCell>
                     <TableCell data-label="Result">
-                      {run.report?.stage === "NOTHING_TO_DO" ? (
+                      {!run ? (
+                        <SkeletonText width="long" />
+                      ) : run.report?.stage === "NOTHING_TO_DO" ? (
                         <span className="flex items-center gap-1.5 text-muted-foreground">
                           <ProhibitInsetIcon className="size-3.5 shrink-0" aria-hidden />
                           nothing to do
@@ -822,6 +862,9 @@ const AVAILABLE_RANK: Record<string, number> = {
   UP_TO_DATE: 5,
 }
 
+/** Six absent rows - about what a resolve of this stack answers with. */
+const WAITING_CHANGES = Array.from({ length: 6 }, () => undefined)
+
 function AvailableCard() {
   const available = useAvailable()
 
@@ -833,7 +876,6 @@ function AvailableCard() {
       <CardContent className="flex flex-col gap-4">
         <QueryState
           query={available}
-          rows={6}
           empty={{
             title: "Nothing was resolved",
             note: "steward-worker answered, but its plan carries no artefact at all.",
@@ -841,18 +883,24 @@ function AvailableCard() {
           isEmpty={(plan) => plan.changes.length === 0}
         >
           {(plan) => {
-            const rows = [...plan.changes].sort(
-              (left, right) =>
-                (AVAILABLE_RANK[left.status] ?? 3) - (AVAILABLE_RANK[right.status] ?? 3) ||
-                (left.service ?? "").localeCompare(right.service ?? "", LOCALE) ||
-                left.artifact.localeCompare(right.artifact, LOCALE),
-            )
+            const rows = plan
+              ? [...plan.changes].sort(
+                  (left, right) =>
+                    (AVAILABLE_RANK[left.status] ?? 3) - (AVAILABLE_RANK[right.status] ?? 3) ||
+                    (left.service ?? "").localeCompare(right.service ?? "", LOCALE) ||
+                    left.artifact.localeCompare(right.artifact, LOCALE),
+                )
+              : WAITING_CHANGES
             return (
               <>
-                <p className="text-xs text-muted-foreground">
-                  {`Sources last asked ${relative(plan.checkedAt)} (${dateTime(plan.checkedAt)}) - that is the age of this reading. Nothing here starts a run.`}
-                </p>
-                {plan.hasFailures ? (
+                {plan ? (
+                  <p className="text-xs text-muted-foreground">
+                    {`Sources last asked ${relative(plan.checkedAt)} (${dateTime(plan.checkedAt)}) - that is the age of this reading. Nothing here starts a run.`}
+                  </p>
+                ) : (
+                  <SkeletonText className="text-xs" width="long" />
+                )}
+                {plan?.hasFailures ? (
                   <p className="flex items-start gap-2 text-xs text-destructive">
                     <WarningIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                     A source could not be asked, so this list is incomplete. Read it as "unknown",
@@ -871,10 +919,12 @@ function AvailableCard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((change) => (
-                      <TableRow key={`${change.service ?? "-"}/${change.artifact}`}>
+                    {rows.map((change, index) => (
+                      <TableRow key={change ? `${change.service ?? "-"}/${change.artifact}` : index}>
                         <TableCell data-label="Service" className="font-medium">
-                          {change.service ? (
+                          {!change ? (
+                            <SkeletonText width="medium" />
+                          ) : change.service ? (
                             <Link
                               to="/services/$name"
                               params={{ name: change.service }}
@@ -886,30 +936,40 @@ function AvailableCard() {
                             <span className="text-muted-foreground">resource pack</span>
                           )}
                         </TableCell>
-                        <TableCell data-label="Plugin">{change.artifact}</TableCell>
+                        <TableCell data-label="Plugin">
+                          {change ? change.artifact : <SkeletonText width="long" />}
+                        </TableCell>
                         <TableCell data-label="Installed" className="text-muted-foreground">
-                          {change.installed ? (
+                          {!change ? (
+                            <SkeletonText className="text-xs" width="medium" />
+                          ) : change.installed ? (
                             <code className="text-xs">{change.installed}</code>
                           ) : (
                             <span className="text-xs">nothing</span>
                           )}
                         </TableCell>
                         <TableCell data-label="Available" className="text-muted-foreground">
-                          {change.version ? (
+                          {!change ? (
+                            <SkeletonText className="text-xs" width="medium" />
+                          ) : change.version ? (
                             <code className="text-xs">{change.version}</code>
                           ) : (
                             <span className="text-xs">{change.note ?? "unknown"}</span>
                           )}
                         </TableCell>
                         <TableCell data-label="State" className="text-right">
-                          <AvailableBadge status={change.status} />
+                          {change ? (
+                            <AvailableBadge status={change.status} />
+                          ) : (
+                            <Skeleton className="ml-auto h-5 w-20 rounded-full" />
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
 
-                {plan.unclaimed.length > 0 ? (
+                {plan && plan.unclaimed.length > 0 ? (
                   <p className="text-xs text-muted-foreground">
                     Claimed by nothing:{" "}
                     {plan.unclaimed.map((one) => `${one.service}/${one.fileName}`).join(", ")} -
@@ -917,7 +977,7 @@ function AvailableCard() {
                     run never touches these.
                   </p>
                 ) : null}
-                <Notes notes={plan.notes} />
+                {plan ? <Notes notes={plan.notes} /> : null}
               </>
             )
           }}
@@ -968,16 +1028,18 @@ export function OperationsPlanPage() {
           <CardTitle className="text-sm font-medium">Last resolved</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {runs.isPending ? (
-            <Loading rows={4} />
-          ) : runs.error ? (
-            <Failure error={runs.error} onRetry={runs.refetch} />
-          ) : planned === undefined ? (
-            <Empty
-              title="No run is in the plan right now"
-              note={`Among the last 20 rows there is none whose report still stands at "Resolving" or "Planned". What an update would do can therefore only be read here from the image comparison below.`}
-            />
-          ) : (
+          <QueryState
+            query={runs}
+            isEmpty={() => planned === undefined}
+            empty={{
+              title: "No run is in the plan right now",
+              note: `Among the last 20 rows there is none whose report still stands at "Resolving" or "Planned". What an update would do can therefore only be read here from the image comparison below.`,
+            }}
+            // `rows`: this card is a run's own report, and there is no report to lay out until it
+            // is known whether there is a run at all - the empty state is the usual answer.
+            rows={4}
+          >
+            {() => (
             <>
               <div className="flex flex-wrap items-center gap-4">
                 <Stat
@@ -985,29 +1047,30 @@ export function OperationsPlanPage() {
                   value={
                     <Link
                       to="/operations/runs/$id"
-                      params={{ id: String(planned.id) }}
+                      params={{ id: String(planned!.id) }}
                       className="underline-offset-4 hover:text-primary hover:underline"
                     >
-                      #{planned.id}
+                      #{planned!.id}
                     </Link>
                   }
                   hint={
                     <span className="flex flex-col gap-0.5">
-                      <span>{RUN_KIND[planned.kind] ?? planned.kind}</span>
-                      <span>{planned.requestedBy}</span>
+                      <span>{RUN_KIND[planned!.kind] ?? planned!.kind}</span>
+                      <span>{planned!.requestedBy}</span>
                     </span>
                   }
                 />
                 <Stat
                   label="Stage"
-                  value={<StageBadge stage={planned.report!.stage} />}
-                  hint={`resolved ${relative(planned.requested)}`}
+                  value={<StageBadge stage={planned!.report!.stage} />}
+                  hint={`resolved ${relative(planned!.requested)}`}
                 />
               </div>
-              <ReportLines lines={planned.report!.services} />
-              <Notes notes={planned.report!.notes} />
+              <ReportLines lines={planned!.report!.services} />
+              <Notes notes={planned!.report!.notes} />
             </>
           )}
+          </QueryState>
         </CardContent>
       </Card>
 
@@ -1050,10 +1113,10 @@ export function OperationsRunPage() {
         }
       />
 
-      {wantsNewest && newest.isPending ? (
-        <Loading rows={4} />
-      ) : wantsNewest && newest.error ? (
-        <Failure error={newest.error} onRetry={newest.refetch} />
+      {/* `rows`: this is the lookup that turns the word "latest" into a number, and until it
+          answers there is not even a run to draw the shape of. */}
+      {wantsNewest && (newest.isPending || newest.error) ? (
+        <QueryState query={newest} rows={4}>{() => null}</QueryState>
       ) : wantsNewest && !numeric ? (
         <Empty
           title="No run yet"
@@ -1064,24 +1127,23 @@ export function OperationsRunPage() {
           title="Not a run number"
           note={`"${id}" is neither a number nor the word "latest". A run is addressed by the number of its row.`}
         />
-      ) : run.isPending ? (
-        <Loading rows={4} />
-      ) : run.error ? (
-        <Failure error={run.error} onRetry={run.refetch} />
-      ) : run.data === undefined ? (
-        <Empty title="Unknown run" note={`There is no row for #${resolved}.`} />
       ) : (
-        <RunDetail run={run.data} />
+        // "Unknown run" was an empty state here; the worker answers a missing row with a 404, which
+        // arrives as a failure with the number in it, and an answered query with no body is not a
+        // state this route can produce.
+        <QueryState query={run}>{(data) => <RunDetail run={data} />}</QueryState>
       )}
     </div>
   )
 }
 
-function RunDetail({ run }: { run: Run }) {
-  const report = run.report
-  const finished = report
-    ? ENDINGS.has(report.stage)
-    : run.status !== "PENDING" && run.status !== "RUNNING"
+function RunDetail({ run }: { run?: Run }) {
+  const report = run?.report
+  const finished = !run
+    ? false
+    : report
+      ? ENDINGS.has(report.stage)
+      : run.status !== "PENDING" && run.status !== "RUNNING"
 
   return (
     <>
@@ -1092,28 +1154,45 @@ function RunDetail({ run }: { run: Run }) {
               Status
             </span>
             <div className="flex items-center gap-2">
-              <RunStatus status={run.status} />
+              {run ? <RunStatus status={run.status} /> : <Skeleton className="h-5 w-20 rounded-full" />}
               {report ? <StageBadge stage={report.stage} /> : null}
             </div>
             <span className="flex flex-col text-xs text-muted-foreground">
-              <span>{RUN_KIND[run.kind] ?? run.kind}</span>
-              <span>{SOURCE_LABEL[run.source] ?? run.source}</span>
+              {run ? (
+                <>
+                  <span>{RUN_KIND[run.kind] ?? run.kind}</span>
+                  <span>{SOURCE_LABEL[run.source] ?? run.source}</span>
+                </>
+              ) : (
+                <>
+                  <SkeletonText className="text-xs" width="medium" />
+                  <SkeletonText className="text-xs" width="short" />
+                </>
+              )}
             </span>
           </div>
 
           <Separator orientation="vertical" className="h-14" />
 
-          <Stat label="Requested by" value={run.requestedBy} hint={dateTime(run.requested)} />
+          <Stat
+            label="Requested by"
+            value={run?.requestedBy}
+            hint={run ? dateTime(run.requested) : undefined}
+          />
           <Stat
             label="No earlier than"
-            value={dateTime(run.notBefore)}
+            value={run ? dateTime(run.notBefore) : undefined}
             hint="the worker does not pick the row up before this"
           />
-          <Stat label="Started" value={dateTime(run.started)} hint={relative(run.started)} />
+          <Stat
+            label="Started"
+            value={run ? dateTime(run.started) : undefined}
+            hint={run ? relative(run.started) : undefined}
+          />
           <Stat
             label="Duration"
-            value={duration(runSeconds(run))}
-            hint={finished ? dateTime(run.finished) : "still running"}
+            value={run ? duration(runSeconds(run)) : undefined}
+            hint={!run ? undefined : finished ? dateTime(run.finished) : "still running"}
           />
         </CardContent>
       </Card>
@@ -1133,7 +1212,7 @@ function RunDetail({ run }: { run: Run }) {
         </div>
       ) : null}
 
-      {run.savedSomething === false && run.kind === "BACKUP" && finished ? (
+      {run?.savedSomething === false && run.kind === "BACKUP" && finished ? (
         <div
           className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
           role="alert"
@@ -1148,7 +1227,7 @@ function RunDetail({ run }: { run: Run }) {
         </div>
       ) : null}
 
-      {report ? (
+      {report && run ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">Stages</CardTitle>
@@ -1170,7 +1249,11 @@ function RunDetail({ run }: { run: Run }) {
           <CardTitle className="text-sm font-medium">Report</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {run.resultText ? (
+          {!run ? (
+            // The card keeps its place while the row is read: it is the tallest thing on the page,
+            // and a Report card that appears after the head above it would move the whole page.
+            <Loading rows={4} />
+          ) : run.resultText ? (
             <>
               <p className="flex items-start gap-2 text-sm text-warning">
                 <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -1405,10 +1488,10 @@ export function OperationsBackupPage() {
         }
       />
 
-      {backups.isPending ? (
-        <Loading rows={4} />
-      ) : backups.error ? (
-        <Failure error={backups.error} onRetry={backups.refetch} />
+      {backups.isPending || backups.error ? (
+        // `rows`: this page is one file out of the directory listing, and until the listing is
+        // here there is no telling whether there is a file to draw at all.
+        <QueryState query={backups} rows={4}>{() => null}</QueryState>
       ) : backup === undefined ? (
         <Empty
           title={wantsNewest ? "No backup present" : "Unknown file"}
@@ -1474,49 +1557,58 @@ export function OperationsBackupPage() {
               <CardTitle className="text-sm font-medium">The run behind it</CardTitle>
             </CardHeader>
             <CardContent>
-              {runs.isPending ? (
-                <Loading rows={2} />
-              ) : runs.error ? (
-                <Failure error={runs.error} onRetry={runs.refetch} />
-              ) : match === undefined ? (
-                <Empty
-                  title="No matching run found"
-                  note="Among the last 50 rows there is none that matches in time and name. That does not mean there was none - it means it is no longer among the last 50."
-                />
-              ) : (
-                <div className="flex flex-wrap items-center gap-4">
-                  <Stat
-                    label="Run"
-                    value={
-                      <Link
-                        to="/operations/runs/$id"
-                        params={{ id: String(match.id) }}
-                        className="underline-offset-4 hover:text-primary hover:underline"
-                      >
-                        #{match.id}
-                      </Link>
-                    }
-                    hint={
-                      <span className="flex flex-col gap-0.5">
-                        <span>{RUN_KIND[match.kind] ?? match.kind}</span>
-                        <span>{match.requestedBy}</span>
-                      </span>
-                    }
-                  />
-                  <Stat label="Status" value={<RunStatus status={match.status} />} />
-                  <Stat
-                    label="Ran"
-                    value={dateTime(match.started)}
-                    hint={duration(runSeconds(match))}
-                  />
-                  <Button asChild variant="outline" size="sm" className="ml-auto">
-                    <Link to="/operations/runs/$id" params={{ id: String(match.id) }}>
-                      <PlayIcon aria-hidden />
-                      View the report
-                    </Link>
-                  </Button>
-                </div>
-              )}
+              <QueryState
+                query={runs}
+                isEmpty={() => match === undefined}
+                empty={{
+                  title: "No matching run found",
+                  note: "Among the last 50 rows there is none that matches in time and name. That does not mean there was none - it means it is no longer among the last 50.",
+                }}
+              >
+                {(answer) => (
+                  <div className="flex flex-wrap items-center gap-4">
+                    <Stat
+                      label="Run"
+                      value={
+                        answer && match ? (
+                          <Link
+                            to="/operations/runs/$id"
+                            params={{ id: String(match.id) }}
+                            className="underline-offset-4 hover:text-primary hover:underline"
+                          >
+                            #{match.id}
+                          </Link>
+                        ) : undefined
+                      }
+                      hint={
+                        answer && match ? (
+                          <span className="flex flex-col gap-0.5">
+                            <span>{RUN_KIND[match.kind] ?? match.kind}</span>
+                            <span>{match.requestedBy}</span>
+                          </span>
+                        ) : undefined
+                      }
+                    />
+                    <Stat
+                      label="Status"
+                      value={answer && match ? <RunStatus status={match.status} /> : undefined}
+                    />
+                    <Stat
+                      label="Ran"
+                      value={answer && match ? dateTime(match.started) : undefined}
+                      hint={answer && match ? duration(runSeconds(match)) : undefined}
+                    />
+                    {answer && match ? (
+                      <Button asChild variant="outline" size="sm" className="ml-auto">
+                        <Link to="/operations/runs/$id" params={{ id: String(match.id) }}>
+                          <PlayIcon aria-hidden />
+                          View the report
+                        </Link>
+                      </Button>
+                    ) : null}
+                  </div>
+                )}
+              </QueryState>
             </CardContent>
           </Card>
         </>
@@ -1577,10 +1669,10 @@ export function OperationsRestorePage() {
           <CardTitle className="text-sm font-medium">Choose an archive</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {backups.isPending ? (
-            <Loading rows={3} />
-          ) : backups.error ? (
-            <Failure error={backups.error} onRetry={backups.refetch} />
+          {backups.isPending || backups.error ? (
+            // `rows`: the control below is one select, and a skeleton select that becomes an empty
+            // state on most days would be a control offered and then withdrawn.
+            <QueryState query={backups} rows={3}>{() => null}</QueryState>
           ) : restorable.length === 0 ? (
             // The empty state is about what can be RESTORED, not about what lies there. A
             // directory holding three .partial files used to draw a selector with three entries,

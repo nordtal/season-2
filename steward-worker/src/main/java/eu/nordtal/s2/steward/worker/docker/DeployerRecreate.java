@@ -20,10 +20,11 @@ import java.time.Duration;
 import java.time.Instant;
 
 /**
- * {@link ContainerOps#recreate}, asked of {@code steward-deployer} over HTTP instead of refused.
+ * {@link ContainerOps#deploy} and {@link ContainerOps#recreate}, asked of
+ * {@code steward-deployer} over HTTP instead of refused.
  *
  * <h2>The boundary this decorates rather than removes</h2>
- * {@link DockerOps#recreate} still refuses every time: it has no compose file, and a container
+ * {@link DockerOps#deploy} still refuses every time: it has no compose file, and a container
  * rebuilt from an {@code inspect} would drift from it silently (season-2-ops/22). That refusal is
  * correct and stays exactly where it is. What was missing was a way to ask <em>across</em> the
  * boundary rather than a hole in it - {@code steward-deployer} carries the compose file and exposes
@@ -31,7 +32,7 @@ import java.time.Instant;
  * rather than reported {@code FAILED} on every single run until a person runs
  * {@code docker compose up} by hand.
  *
- * <h2>It asks for a deploy, not a recreate, and that is season-2-ops/140</h2>
+ * <h2>An update run asks for a deploy, not a recreate, and that is season-2-ops/140</h2>
  * The deployer has two routes and season-2-ops/134 put a real difference between them:
  * {@code POST /api/recreate/{service}} rebuilds the container <b>from the image already on this
  * host</b>, and {@code POST /api/deploy} pulls first. That split is right - the button an admin
@@ -53,6 +54,9 @@ import java.time.Instant;
  * again and settles the line {@code FAILED} - the same fallback that was already there for a
  * refused recreate.</p>
  *
+ * <p><b>The recreate route is not dead, it has a different caller</b> (season-2-ops/122): a standby
+ * is started with it, precisely because it must <em>not</em> fetch. See {@link #recreate}.</p>
+ *
  * <h2>Everything else passes through unchanged</h2>
  * {@link #runtime}, {@link #stop}, {@link #start} and {@link #images} are the delegate's, untouched
  * - this class only ever speaks to the deployer for the one thing {@code DockerOps} cannot do.
@@ -60,7 +64,7 @@ import java.time.Instant;
  * <h2>Why a poll and not the SSE stream</h2>
  * steward-deployer also serves {@code GET /api/jobs/{id}/stream}, which is what steward-ui's
  * console reads from. An update run has no console to draw into: {@code UpdateRun} calls
- * {@link #recreate} once and needs exactly one verdict - triggered, refused or unverified - so a
+ * {@link #deploy} once and needs exactly one verdict - triggered, refused or unverified - so a
  * plain {@code GET /api/jobs/{id}} asked every few seconds is the whole answer, with no connection
  * to keep alive underneath a bigger retry loop.
  */
@@ -127,43 +131,75 @@ public final class DeployerRecreate implements ContainerOps {
      * been made here before.</p>
      */
     @Override
+    public @NotNull RedeployResult deploy(final @NotNull String service) {
+        return submit(service, "deploy", () -> request("/api/deploy")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(deployBody(service)))
+                .build());
+    }
+
+    /**
+     * {@code POST /api/recreate/{service}}: the container again, from the image already here.
+     *
+     * <p>The other of the two routes season-2-ops/134 separated, and the one a standby needs. A
+     * standby exists to stand in for a live service for a minute, so it has to run <b>the same
+     * image that service is running</b> - and on this deployment that image is very often one built
+     * on the host and pushed to no registry. A pull here would put the published image under the
+     * standby while the live proxy runs the local one, which is the same silent downgrade
+     * season-2-ops/134 removed from the admin's Recreate button, arriving through a different
+     * door.</p>
+     */
+    @Override
     public @NotNull RedeployResult recreate(final @NotNull String service) {
+        return submit(service, "recreate",
+                () -> request("/api/recreate/" + service)
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .build());
+    }
+
+    /**
+     * Sends one of the two requests and follows the job it hands back.
+     *
+     * @param what the word every message uses for what was asked - "deploy" or "recreate". Both
+     *             routes fail in exactly the same ways and a reader of the report has to be able to
+     *             tell which one was asked, because whether an image was fetched is the difference
+     *             between the two
+     */
+    private RedeployResult submit(final String service, final String what,
+                                  final java.util.function.Supplier<HttpRequest> build) {
         final Instant deadline = waiting.now().plus(patience);
 
         final HttpResponse<String> accepted;
         try {
-            accepted = http.send(request("/api/deploy")
-                            .header("Content-Type", "application/json")
-                            .POST(HttpRequest.BodyPublishers.ofString(deployBody(service)))
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString());
+            accepted = http.send(build.get(), HttpResponse.BodyHandlers.ofString());
         } catch (final HttpTimeoutException slow) {
-            return RedeployResult.refused("steward-deployer did not accept the recreate of "
+            return RedeployResult.refused("steward-deployer did not accept the " + what + " of "
                     + service + " within " + requestTimeout.toSeconds() + "s");
         } catch (final IOException unreachable) {
-            return RedeployResult.refused("could not reach steward-deployer to recreate " + service
-                    + ": " + unreachable.getMessage());
+            return RedeployResult.refused("could not reach steward-deployer to " + what + " "
+                    + service + ": " + unreachable.getMessage());
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             return RedeployResult.refused(
-                    "interrupted while asking steward-deployer to recreate " + service);
+                    "interrupted while asking steward-deployer to " + what + " " + service);
         }
         if (accepted.statusCode() != 202) {
             return RedeployResult.refused("steward-deployer answered " + accepted.statusCode()
-                    + " for the recreate of " + service + ": " + accepted.body());
+                    + " for the " + what + " of " + service + ": " + accepted.body());
         }
 
         final String jobId;
         try {
             jobId = GSON.fromJson(accepted.body(), JsonObject.class).get("id").getAsString();
         } catch (final RuntimeException malformed) {
-            return RedeployResult.unverified("steward-deployer accepted the recreate of " + service
-                    + " but its answer named no job id to follow: " + accepted.body());
+            return RedeployResult.unverified("steward-deployer accepted the " + what + " of "
+                    + service + " but its answer named no job id to follow: " + accepted.body());
         }
-        return poll(service, jobId, deadline);
+        return poll(service, what, jobId, deadline);
     }
 
-    private RedeployResult poll(final String service, final String jobId, final Instant deadline) {
+    private RedeployResult poll(final String service, final String what,
+                                final String jobId, final Instant deadline) {
         while (true) {
             final JsonObject job;
             try {
@@ -171,40 +207,41 @@ public final class DeployerRecreate implements ContainerOps {
                         request("/api/jobs/" + jobId).GET().build(),
                         HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() != 200) {
-                    return RedeployResult.unverified("steward-deployer accepted the recreate of "
+                    return RedeployResult.unverified("steward-deployer accepted the " + what + " of "
                             + service + " (job " + jobId + ") but answered " + response.statusCode()
                             + " when asked how it went");
                 }
                 job = GSON.fromJson(response.body(), JsonObject.class);
             } catch (final IOException failure) {
-                return RedeployResult.unverified("steward-deployer accepted the recreate of "
+                return RedeployResult.unverified("steward-deployer accepted the " + what + " of "
                         + service + " (job " + jobId + "), and whether it finished could not be"
                         + " read back: " + failure.getMessage());
             } catch (final InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
-                return RedeployResult.unverified("interrupted while waiting for steward-deployer's"
-                        + " recreate of " + service + " (job " + jobId + ") to finish");
+                return RedeployResult.unverified("interrupted while waiting for steward-deployer's "
+                        + what + " of " + service + " (job " + jobId + ") to finish");
             }
 
             final String state = job.has("state") ? job.get("state").getAsString() : "";
             if ("DONE".equals(state)) {
                 return RedeployResult.triggered(
-                        "steward-deployer recreated " + service + " (job " + jobId + ")");
+                        "steward-deployer finished the " + what + " of " + service
+                                + " (job " + jobId + ")");
             }
             if ("FAILED".equals(state)) {
-                return RedeployResult.refused("steward-deployer's recreate of " + service
+                return RedeployResult.refused("steward-deployer's " + what + " of " + service
                         + " failed (job " + jobId + "): " + lastLine(job));
             }
 
             if (!waiting.now().isBefore(deadline)) {
-                return RedeployResult.unverified("steward-deployer's recreate of " + service
+                return RedeployResult.unverified("steward-deployer's " + what + " of " + service
                         + " (job " + jobId + ") had not finished after " + patience.toSeconds()
                         + "s; it may still be running - check `docker logs"
                         + " nordtal-s2-steward-deployer-1` or GET /api/jobs/" + jobId);
             }
             if (!waiting.sleep(POLL_INTERVAL)) {
-                return RedeployResult.unverified("interrupted while waiting for steward-deployer's"
-                        + " recreate of " + service + " (job " + jobId + ") to finish");
+                return RedeployResult.unverified("interrupted while waiting for steward-deployer's "
+                        + what + " of " + service + " (job " + jobId + ") to finish");
             }
         }
     }

@@ -461,13 +461,16 @@ public final class ProxyPlugin {
         // online_count is numbers and nothing else by its own migration's decision. One pass over
         // the proxy, two tables - a second timer would let the count and the list describe two
         // different moments.
+        // season-2-ops/122: the task ticks every second and the writer decides whether that tick
+        // is due. It is not a tenfold increase in writes - on all but the seconds of an actual run
+        // it is two comparisons - and it is what makes "is this service free of players yet" a
+        // question steward-worker can answer inside its ten-second cap.
         final OnlineWriter onlineWriter = new OnlineWriter(proxy, phaseServers,
                 OnlineDirectory.using(pool), OnlineRoster.using(pool), role, logger);
-        final Duration onlineInterval = OnlineDirectory.WRITE_INTERVAL;
         onlineWriter.write();
-        proxy.getScheduler().buildTask(this, onlineWriter::write)
-                .delay(onlineInterval)
-                .repeat(onlineInterval)
+        proxy.getScheduler().buildTask(this, onlineWriter::tick)
+                .delay(OnlineWriter.TICK)
+                .repeat(OnlineWriter.TICK)
                 .schedule();
 
         // ------------------------------------------------------------ play time
@@ -507,6 +510,8 @@ public final class ProxyPlugin {
                 UpdateDirectory.using(pool), phaseServers, Clock.systemUTC());
         packs.whenUpdating(this.evacuation::isMoving);
         packs.whenHeld(this.evacuation::isHeld);
+        // And the counts get their fast cadence from the same watch - see OnlineWriter#tick.
+        onlineWriter.whenHurrying(this.evacuation::isAnyMoving);
         proxy.getScheduler().buildTask(this, this.evacuation::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)

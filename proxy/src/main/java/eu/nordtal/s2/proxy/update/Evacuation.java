@@ -117,6 +117,19 @@ public final class Evacuation {
     }
 
     /**
+     * @return whether a run has anything at all stopped or about to be
+     *
+     * <p>Read by {@code OnlineWriter}, which writes its counts ten times as often while this is
+     * true (season-2-ops/122). steward-worker waits for those counts to reach zero before it stops
+     * a service and gives up after ten seconds, and a number that is itself ten seconds old cannot
+     * answer that question - so the one process that knows a run is imminent is the one that says
+     * when the numbers have to be fresh.</p>
+     */
+    public boolean isAnyMoving() {
+        return !moving.isEmpty();
+    }
+
+    /**
      * @param server a backend name
      * @return whether somebody is holding it down on purpose, which is what puts {@code HELD} on
      *         the waiting room's screen instead of {@code BACKEND} or {@code UPDATE}

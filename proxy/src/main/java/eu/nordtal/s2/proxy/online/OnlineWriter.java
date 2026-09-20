@@ -10,11 +10,15 @@ import eu.nordtal.s2.proxy.routing.ProxyRole;
 
 import org.slf4j.Logger;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 
 /**
  * Writes what the proxy currently sees into {@code online_count}, on a timer (steward/86).
@@ -46,6 +50,18 @@ import java.util.Objects;
  * <p>The two writes are guarded separately, which is the one place they are not treated as one
  * thing: a roster write that fails must not cost the counts their tick, since a number with no
  * faces is most of what the dashboard shows and faces with no number is none of it.
+ *
+ * <h2>Ten seconds is a dashboard's cadence and not a run's (season-2-ops/122)</h2>
+ * steward-worker waits, after the countdown, for a service to be free of players before it stops
+ * it - and gives up after ten. A number that is itself up to ten seconds old cannot answer that
+ * question at all: it would still be describing the moment before the players were moved, so the
+ * run would wait the whole cap every time and then report a count that was never true.
+ *
+ * <p>So {@link #tick()} is called every second and decides for itself. It writes on
+ * {@link OnlineDirectory#WRITE_INTERVAL} as it always did, <b>unless</b> a run is about to stop
+ * something, in which case it writes every second for the ten or twenty seconds that lasts. Still
+ * one timer and still one pass over the proxy, which is what keeps the count and the roster
+ * describing the same moment - the thing a second timer would have cost.</p>
  */
 public final class OnlineWriter {
 
@@ -55,6 +71,21 @@ public final class OnlineWriter {
     private final OnlineRoster roster;
     private final ProxyRole role;
     private final Logger logger;
+    private final Clock clock;
+
+    /**
+     * How often {@link #tick()} is called, which is not how often it writes.
+     *
+     * <p>One second. The scheduled task is cheap by construction: on all but the ten seconds of a
+     * run it does two comparisons and returns.</p>
+     */
+    public static final Duration TICK = Duration.ofSeconds(1);
+
+    /** Whether a run is close enough to a stop that a ten-second-old number is no use. */
+    private volatile BooleanSupplier hurry = () -> false;
+
+    /** When this last wrote, so the ordinary cadence survives being ticked ten times as often. */
+    private volatile Instant lastWrite;
 
     /**
      * @param role which of the two proxies this process is. A standby writes nothing at all - see
@@ -63,12 +94,79 @@ public final class OnlineWriter {
     public OnlineWriter(final ProxyServer proxy, final PhaseServers servers,
                         final OnlineDirectory online, final OnlineRoster roster,
                         final ProxyRole role, final Logger logger) {
+        this(proxy, servers, online, roster, role, logger, Clock.systemUTC());
+    }
+
+    public OnlineWriter(final ProxyServer proxy, final PhaseServers servers,
+                        final OnlineDirectory online, final OnlineRoster roster,
+                        final ProxyRole role, final Logger logger, final Clock clock) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.servers = Objects.requireNonNull(servers, "servers");
         this.online = Objects.requireNonNull(online, "online");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.role = Objects.requireNonNull(role, "role");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    /**
+     * @param hurry asked every tick whether a run is about to stop something; in production this is
+     *              {@code Evacuation::isAnyMoving}. Set after construction because the watch that
+     *              answers it is built from a pool this class never sees - the same reason
+     *              {@code PackStation#whenUpdating} is set the same way
+     */
+    public void whenHurrying(final BooleanSupplier hurry) {
+        this.hurry = Objects.requireNonNull(hurry, "hurry");
+    }
+
+    /**
+     * One tick of the one-second timer: writes, or decides it is not due yet.
+     *
+     * <p>The decision itself is {@link #isDue}, which is where the two cadences are and is the part
+     * worth asserting. Everything here is the clock and the two writes.</p>
+     */
+    public void tick() {
+        if (role.isStandby()) {
+            return;
+        }
+        final Instant now = clock.instant();
+        if (!isDue(lastWrite, now, hurrying())) {
+            return;
+        }
+        lastWrite = now;
+        writeCounts();
+        writeRoster();
+    }
+
+    private boolean hurrying() {
+        try {
+            return hurry.getAsBoolean();
+        } catch (final RuntimeException failure) {
+            // The watch behind this reads a database row. A pass that cannot answer is a pass that
+            // falls back to the ordinary cadence, never one that stops writing counts altogether.
+            logger.debug("Could not tell whether a run is imminent; writing on the usual cadence",
+                    failure);
+            return false;
+        }
+    }
+
+    /**
+     * Whether this tick writes.
+     *
+     * <p>Static and free of every Velocity type, for the reason {@link OnlineCounts#of} is: this is
+     * the whole of season-2-ops/122's half of this class, and it is two comparisons that a test can
+     * hold without a proxy, a pool or ten real seconds.</p>
+     *
+     * @param lastWrite when this last wrote, or {@code null} on the very first tick - which always
+     *                  writes, because a deployment whose first row appears ten seconds after start
+     *                  is one where every dashboard says "nothing known" for ten seconds
+     * @param hurrying  whether a run is close enough to a stop that the ordinary cadence is no use
+     */
+    static boolean isDue(final Instant lastWrite, final Instant now, final boolean hurrying) {
+        if (lastWrite == null || hurrying) {
+            return true;
+        }
+        return !Duration.between(lastWrite, now).minus(OnlineDirectory.WRITE_INTERVAL).isNegative();
     }
 
     /**
@@ -93,6 +191,7 @@ public final class OnlineWriter {
         if (role.isStandby()) {
             return;
         }
+        lastWrite = clock.instant();
         writeCounts();
         writeRoster();
     }

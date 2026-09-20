@@ -64,5 +64,26 @@ public interface ContainerOps {
      * @param service the compose service name, not a container id - it is resolved against the
      *                compose project, and a container id here names nothing
      */
+    @NotNull RedeployResult deploy(@NotNull String service);
+
+    /**
+     * Makes one service's container again, <b>from the image already on this host</b>.
+     *
+     * <h2>The difference from {@link #deploy} is the whole of season-2-ops/134</h2>
+     * Nothing is pulled here. "Recreate" means <em>make this container again</em>; "deploy" means
+     * <em>fetch what is new</em>, and the two were one call until a measured run showed an admin's
+     * Recreate button silently replacing a locally built image with the published one. An update
+     * run wants the fetching one, because its reason to touch a container is that the registry has
+     * moved. A <b>standby</b> wants this one, because its reason to exist is to be the same thing
+     * as the service it stands in for - including the image, which on this deployment is very often
+     * built on the host and published nowhere.
+     *
+     * <p>It is also how a standby is started at all: the standbys live in a compose profile that no
+     * ordinary selection carries, so nothing brings them up on its own and naming one explicitly is
+     * what enables its profile for that call (measured against Compose v5.5.1 on this host,
+     * 2026-09-20).</p>
+     *
+     * @param service the compose service name
+     */
     @NotNull RedeployResult recreate(@NotNull String service);
 }

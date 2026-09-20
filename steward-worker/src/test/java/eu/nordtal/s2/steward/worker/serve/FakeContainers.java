@@ -39,7 +39,7 @@ final class FakeContainers implements ContainerOps {
     /** service -> what the drift check found. Absent means UNKNOWN, which is never work. */
     private final Map<String, ImageResult.State> images = new LinkedHashMap<>();
 
-    /** Services whose recreate is refused - a 404 on the project id, a pull that failed. */
+    /** Services whose deploy or recreate is refused - a 404 on the project id, a pull that failed. */
     private final java.util.Set<String> recreateRefused = new java.util.LinkedHashSet<>();
 
     /** volume -> how many polls it stays running before it settles. */
@@ -76,9 +76,24 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
-    /** The recreate of these services is refused, so they keep running their old image. */
+    /** The deploy of these services is refused, so they keep running their old image. */
     FakeContainers recreateRefused(final String... names) {
         recreateRefused.addAll(List.of(names));
+        return this;
+    }
+
+    /** Services whose container comes up and never passes its healthcheck. */
+    private final java.util.Set<String> neverHealthy = new java.util.LinkedHashSet<>();
+
+    /**
+     * These come back {@code running} and {@code unhealthy}, for ever.
+     *
+     * <p>The interesting failure of a standby: the container exists, compose is happy, and the
+     * plugin inside it threw in {@code onEnable}. A run that reads "it started" rather than "it is
+     * back" would park every player on it.</p>
+     */
+    FakeContainers neverHealthy(final String... names) {
+        neverHealthy.addAll(List.of(names));
         return this;
     }
 
@@ -91,8 +106,20 @@ final class FakeContainers implements ContainerOps {
     }
 
     @Override
+    public @NotNull RedeployResult deploy(final @NotNull String service) {
+        // "recreate:" and not "deploy:", so that every existing assertion about the order of a run
+        // keeps meaning what it meant. What the two routes differ in is whether an image is
+        // fetched, and this fake has no images to fetch.
+        return made("recreate:" + service, service);
+    }
+
+    @Override
     public @NotNull RedeployResult recreate(final @NotNull String service) {
-        calls.add("recreate:" + service);
+        return made("recreate-local:" + service, service);
+    }
+
+    private RedeployResult made(final String call, final String service) {
+        calls.add(call);
         if (!reachable) {
             return RedeployResult.refused("no docker socket");
         }
@@ -102,7 +129,8 @@ final class FakeContainers implements ContainerOps {
         // A recreate is a new container, and the run has to keep working against the service name
         // rather than the id it remembered. Handing back a different id is what makes a test that
         // relies on the old one fail here rather than on the deployment.
-        services.put(service, new ServiceRuntime(service, service + "-container-2", "running", "healthy"));
+        services.put(service, new ServiceRuntime(service, service + "-container-2", "running",
+                neverHealthy.contains(service) ? "unhealthy" : "healthy"));
         return RedeployResult.triggered("HTTP 200");
     }
 

@@ -291,7 +291,7 @@ final class UpdateRun {
                 report = report.with(line.at(UpdateReport.State.STARTING)
                         .withDetail("pulling its image and recreating the container"));
                 progress.accept(report);
-                final RedeployResult recreated = containers.recreate(service);
+                final RedeployResult recreated = containers.deploy(service);
                 if (recreated.triggered()) {
                     report = report.with(report.line(service).at(UpdateReport.State.STARTING));
                     progress.accept(report);

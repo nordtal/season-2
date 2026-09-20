@@ -328,22 +328,23 @@ describe("OverviewPage - the tile that replaced steward/64's banner", () => {
  * that would have caught it: every real phase renders as its sentence, never as its own name.
  */
 describe("OverviewPage - the season tile speaks in sentences, not enum names (steward/90)", () => {
-  it("prints the label for every real phase, and never the raw constant", async () => {
-    for (const phase of SEASON_PHASES) {
-      vi.stubGlobal(
-        "fetch",
-        backend({ season: { phase: phase.name, launch: null, smpStart: null } }),
-      )
-      draw()
+  // ONE CASE PER PHASE, not one loop over all five (season-2-ops/158). It was a loop, and it drew
+  // the whole page five times inside a single `it` - about 13 s of the file's runtime in one test
+  // body against vitest's 5 s budget for one. It passed on a quiet machine and timed out on a CI
+  // runner, which is the worst way for a guard to fail: intermittently, in somebody else's commit.
+  // Split, each phase gets its own budget and a failure names the phase.
+  it.each(SEASON_PHASES)("prints the label for $name, and never the raw constant", async (phase) => {
+    vi.stubGlobal(
+      "fetch",
+      backend({ season: { phase: phase.name, launch: null, smpStart: null } }),
+    )
+    draw()
 
-      await waitFor(() => expect(screen.getByText(phase.label)).toBeTruthy())
-      // The regression itself: `PRE_LAUNCH` printed literally because the tile's own list did not
-      // know it. A phase name and its label never collide by construction (see season-phases.ts),
-      // so finding the raw name on the page at all means the lookup fell through to its fallback.
-      expect(screen.queryByText(phase.name)).toBeNull()
-
-      cleanup()
-    }
+    await waitFor(() => expect(screen.getByText(phase.label)).toBeTruthy())
+    // The regression itself: `PRE_LAUNCH` printed literally because the tile's own list did not
+    // know it. A phase name and its label never collide by construction (see season-phases.ts),
+    // so finding the raw name on the page at all means the lookup fell through to its fallback.
+    expect(screen.queryByText(phase.name)).toBeNull()
   })
 
   it("labels the SMP launch date in English, not a German compound", async () => {

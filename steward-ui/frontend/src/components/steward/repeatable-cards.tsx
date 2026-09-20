@@ -8,15 +8,15 @@ import {
   isRequiredChannel,
 } from "@/components/steward/config-controls"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+  ResponsiveAlertDialog,
+  ResponsiveAlertDialogAction,
+  ResponsiveAlertDialogCancel,
+  ResponsiveAlertDialogContent,
+  ResponsiveAlertDialogDescription,
+  ResponsiveAlertDialogFooter,
+  ResponsiveAlertDialogHeader,
+  ResponsiveAlertDialogTitle,
+} from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -222,25 +222,25 @@ export function RepeatableCards({
         </Button>
       </div>
 
-      <AlertDialog
+      <ResponsiveAlertDialog
         open={pendingRemoval !== null}
         onOpenChange={(open) => open || setPendingRemoval(null)}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
+        <ResponsiveAlertDialogContent>
+          <ResponsiveAlertDialogHeader>
+            <ResponsiveAlertDialogTitle>
               Remove {pendingRemoval !== null && sectionTitle
                 ? `"${sectionTitle(value[pendingRemoval], pendingRemoval)}"`
                 : `entry ${(pendingRemoval ?? 0) + 1}`}?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="whitespace-pre-wrap text-left">
+            </ResponsiveAlertDialogTitle>
+            <ResponsiveAlertDialogDescription className="whitespace-pre-wrap text-left">
               {listExplanation ??
                 "This only changes the draft - nothing is written to the file until Save."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
-            <AlertDialogAction
+            </ResponsiveAlertDialogDescription>
+          </ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogFooter>
+            <ResponsiveAlertDialogCancel>Keep it</ResponsiveAlertDialogCancel>
+            <ResponsiveAlertDialogAction
               onClick={() => {
                 if (pendingRemoval !== null) {
                   onChange(value.filter((_, at) => at !== pendingRemoval))
@@ -249,10 +249,10 @@ export function RepeatableCards({
               }}
             >
               Remove it
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </ResponsiveAlertDialogAction>
+          </ResponsiveAlertDialogFooter>
+        </ResponsiveAlertDialogContent>
+      </ResponsiveAlertDialog>
     </div>
   )
 }

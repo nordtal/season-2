@@ -3,12 +3,12 @@ import { Command as CommandPrimitive } from "cmdk"
 import { cn } from "cn"
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog"
 import {
   InputGroup,
   InputGroupAddon,
@@ -53,29 +53,33 @@ function CommandDialog({
   className,
   showCloseButton = false,
   ...props
-}: React.ComponentProps<typeof Dialog> & {
+}: React.ComponentProps<typeof ResponsiveDialog> & {
   title?: string
   description?: string
   label?: string
   /**
    * How a row is scored against what was typed, handed straight to `cmdk`'s own `filter`.
    *
-   * Named here rather than left to the spread above, because the spread goes to `Dialog` and would
-   * have dropped it silently (steward/105). Undefined keeps cmdk's default subsequence filter.
+   * Named here rather than left to the spread above, because the spread goes to the shell and
+   * would have dropped it silently (steward/105). Undefined keeps cmdk's default subsequence
+   * filter.
    */
   filter?: React.ComponentProps<typeof CommandPrimitive>["filter"]
   className?: string
   showCloseButton?: boolean
 }) {
   return (
-    <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
-      <DialogContent
+    <ResponsiveDialog {...props}>
+      <ResponsiveDialogHeader className="sr-only">
+        <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
+        <ResponsiveDialogDescription>{description}</ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
+      <ResponsiveDialogContent
+        // `top-1/3` is the dialog half only. As a sheet the shell already sits at the bottom edge
+        // and vaul moves it above the on-screen keyboard once the input takes focus, so a second
+        // opinion about vertical position here would fight it.
         className={cn(
-          "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0",
+          "overflow-hidden rounded-xl! p-0 md:top-1/3 md:translate-y-0",
           className
         )}
         showCloseButton={showCloseButton}
@@ -83,8 +87,8 @@ function CommandDialog({
         <Command label={label ?? title} filter={filter}>
           {children}
         </Command>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }
 
@@ -178,7 +182,7 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-foreground",
+        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! in-data-[slot=drawer-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-foreground",
         className
       )}
       {...props}

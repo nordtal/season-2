@@ -216,7 +216,7 @@ function FileRow({
   open,
   onToggle,
 }: {
-  /** Absent while `/api/configs` is out: the row is drawn, its name is not. */
+  /** Absent while `/api/config` is out: the row is drawn, its name is not. */
   file?: ConfigLocation
   open: boolean
   onToggle: () => void

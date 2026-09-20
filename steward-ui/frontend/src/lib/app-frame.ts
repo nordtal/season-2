@@ -15,6 +15,15 @@
  * THE TWO MEASUREMENTS THAT MUST BE IGNORED, and they are why {@link measuredHeight} can say no:
  * a soft keyboard shrinks the visual viewport, and so does a pinch. Either would shrink the shell
  * and leave it shrunk. Neither is the window getting smaller, so neither is taken.
+ *
+ * AND THEY ONLY APPLY TO A SHRINKING ONE (steward/148). Both of those are things that make the
+ * visible viewport SMALLER - that is the entire reason they are here. Refusing a measurement that
+ * is *larger* than the one currently on screen does not ignore a keyboard, it ignores the window
+ * getting bigger, and nothing corrects that afterwards: the resume events and the once-a-second
+ * poll all come back through this function and are refused for the same reason, so the shell stays
+ * short until the field happens to be left. Measured in Firefox on the dev host on 2026-09-20: a
+ * desktop window grown from 700px to 1000px with the cursor in a field left a 300px band of
+ * background under the scrolling column, for as long as the cursor stayed there.
  */
 
 /** What this needs off `window`. A type, so a test can hand it a plain object. */
@@ -38,13 +47,24 @@ function isEditable(element: Element | null): boolean {
  * `null` is not an error and is not zero: it means "keep the last good number", which is what the
  * caller does with it. A shell that followed the keyboard down would stay down after it closed on
  * every browser that does not fire a second resize.
+ *
+ * `last` is the height the shell is currently drawn at, and it is what makes the two refusals
+ * one-directional. A keyboard and a pinch can only take height away; a measurement above `last` is
+ * therefore neither of them, whoever has focus. Without it, the shell is left standing short of the
+ * bottom edge with no event able to correct it - steward/148, and the file header has the numbers.
  */
-export function measuredHeight(view: ViewLike, focused: Element | null): number | null {
+export function measuredHeight(
+  view: ViewLike,
+  focused: Element | null,
+  last: number | null = null
+): number | null {
   const visual = view.visualViewport
   if (!visual) return view.innerHeight > 0 ? view.innerHeight : null
+  if (visual.height <= 0) return null
+  if (last !== null && visual.height > last) return visual.height
   if (visual.scale !== 1) return null
   if (isEditable(focused)) return null
-  return visual.height > 0 ? visual.height : null
+  return visual.height
 }
 
 /**
@@ -105,9 +125,15 @@ export function trackAppFrame(view: Window = window): () => void {
   // cheap fallback and an expensive one. It is also why `apply` is safe to call as often as we like.
   let published: string | null = null
 
+  // The raw height behind `published`, and the thing that tells a growing window from a keyboard.
+  // It is the unrounded measurement rather than the string, because the comparison in
+  // `measuredHeight` is about direction and half a pixel is not one.
+  let measured: number | null = null
+
   const apply = () => {
-    const height = measuredHeight(view, view.document.activeElement)
+    const height = measuredHeight(view, view.document.activeElement, measured)
     if (height === null) return
+    measured = height
     const next = `${Math.round(height)}px`
     if (next === published) return
     published = next

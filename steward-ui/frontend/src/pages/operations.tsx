@@ -54,6 +54,7 @@ import {
   RUN_KIND,
   RunStatus,
   StatusBadge,
+  held,
   type Tone,
 } from "@/components/steward/status"
 import { RecreateButton } from "@/components/steward/recreate"
@@ -433,7 +434,9 @@ const ASKS: Record<
   },
   START: {
     title: "Start",
-    what: "Takes the hold off and starts the service again. No countdown.",
+    what:
+      "Takes the hold off and starts it again - every service that is being held, when none is" +
+      " named. No countdown.",
     icon: PlayIcon,
   },
 }
@@ -597,8 +600,35 @@ function AskBar() {
       <AskButton kind="UPDATE" variant="default" />
       <AskButton kind="BACKUP" />
       <AskButton kind="RESTART" />
+      <StartHeldButton />
     </div>
   )
+}
+
+/** Every service that is stopped and meant to be, by name. */
+export function heldServices(table?: ServiceTable): string[] {
+  return (table?.services ?? []).filter(held).map((service) => service.service)
+}
+
+/**
+ * One way back up for everything that was put down (steward/134).
+ *
+ * `/update start` without an argument exists for the case Till named when he built it: after a
+ * restart, not knowing any more which services you held. In Steward the only way back was the
+ * service page of each one in turn, which is the same errand done N times.
+ *
+ * **It sends no scope**, which is the whole point and not a shortcut: the worker lifts every hold
+ * in `service_hold`, including one on a service this browser's table does not know about because
+ * its answer is a minute old. A list assembled here would be a second opinion about what is held.
+ *
+ * **Below two holds it does not draw.** For a single one the service's own page is the shorter way
+ * and carries the since and the by with it; a button that is always there is one nobody reads.
+ */
+function StartHeldButton() {
+  const services = useServices()
+  const names = heldServices(services.data)
+  if (names.length < 2) return null
+  return <AskButton kind="START" label={`Start held (${names.length})`} />
 }
 
 // --- the drift table, shared by /operations and /operations/plan ---------------------------------------

@@ -1,7 +1,8 @@
 import { UsersIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 
-import { HealthDot } from "@/components/steward/status"
+import { dateTime } from "@/lib/format"
+import { HealthDot, held } from "@/components/steward/status"
 import { SkeletonText } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -69,7 +70,16 @@ export function NetworkTable() {
                         <HealthDot service={service} quiet={false} />
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent>{service.status ?? service.state}</TooltipContent>
+                    {/* steward/134: for a held service Docker's own sentence is true and beside
+                        the point - "Exited (0) 5 minutes ago" is what a crash says too. The row
+                        that makes it a decision is `service_hold`, so that is what this says. */}
+                    <TooltipContent>
+                      {held(service)
+                        ? `Held down since ${dateTime(service.hold!.since)}${
+                            service.hold!.by ? ` by ${service.hold!.by}` : ""
+                          }.`
+                        : (service.status ?? service.state)}
+                    </TooltipContent>
                   </Tooltip>
                 ) : (
                   <HealthDot />

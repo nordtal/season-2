@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
-import { LOCALE, bytes, clock, count, dateTime, percent, since } from "@/lib/format"
+import { LOCALE, bytes, clock, count, percent, since } from "@/lib/format"
 import { useConsole, useLogSearch, useService } from "@/lib/queries"
 import { useLogStream, LIMIT } from "@/lib/use-log-stream"
 import { ServiceConfiguration } from "@/components/steward/configuration"
@@ -123,24 +123,15 @@ export function ServiceHead({
             State
           </span>
           <div className="flex items-center gap-2">
+            {/* The hold is part of the state badge since steward/134, rather than a second badge
+                beside it: a service put down on purpose is not "exited" in red plus an explanation,
+                it is one reading, and it is now the same reading the sidebar and the network view
+                draw for it. Since and by moved into that badge's title with it. */}
             {service ? (
-              <ServiceState state={service.state} health={service.health} />
+              <ServiceState state={service.state} health={service.health} hold={service.hold} />
             ) : (
               <Skeleton className="h-5 w-20 rounded-full" />
             )}
-            {/* Ahead of the drift badge, because it changes what every other badge here means: a
-                service being held down is not behind on its image, it is out of the network on
-                purpose. */}
-            {service?.hold ? (
-              <StatusBadge
-                tone="warn"
-                title={`Held down since ${dateTime(service.hold.since)}${
-                  service.hold.by ? ` by ${service.hold.by}` : ""
-                }. No update and no restart starts it again.`}
-              >
-                Held down
-              </StatusBadge>
-            ) : null}
             {service ? <DriftBadge drift={service.drift} /> : null}
             {service?.hasConsole ? (
               <StatusBadge tone="idle" title="This service has a server console.">

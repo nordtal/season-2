@@ -218,8 +218,8 @@ class TopologyTest {
     @Test
     @DisplayName("the waiting room has no voice chat, and that is how it stays silent")
     void theLimboHasNoVoice() {
-        // season-2-ops/141. Till, 2026-09-20: "auf den limbos sollte voice chat UND text chat
-        // generell nicht funktionieren." Text chat is the limbo plugin's own doing; voice is this
+        // season-2-ops/141. Till asked on 2026-09-20 that neither voice chat nor text chat work on
+        // the limbos at all. Text chat is the limbo plugin's own doing; voice is this
         // line and nothing else - Simple Voice Chat needs its Bukkit plugin on the server the
         // player is standing on, and the waiting room has never had it. Written down as a rule
         // rather than left as an absence, because an absence is what somebody adds a jar to.

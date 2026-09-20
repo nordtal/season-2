@@ -44,9 +44,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * a command that does not exist produces no message to assert on.
  *
  * <h2>Why the gap is reachable here at all, unchanged from ops/25</h2>
- * {@code ProxyPlugin} hands this adapter {@code PhaseCommands}, {@code NetworkCommands},
- * {@code UpdateCommands}, {@code ChatCommands} and {@code InfoCommands} through {@code local()},
- * and after {@code season-2-ops/18} the first three carry no {@code Surface.GAME} - {@code /network
+ * {@code ProxyPlugin} hands this adapter {@code PhaseCommands}, {@code NetworkCommands} and
+ * {@code UpdateCommands} through {@code local()} - and since {@code season-2-ops/155} nothing else:
+ * the five a player types are native Brigadier beside this tree rather than declarations in it. So
+ * after {@code season-2-ops/18} all three carry no {@code Surface.GAME} - {@code /network
  * reload} and the {@code /update} family are {@code CONSOLE} only, {@code /phase} is {@code CONSOLE}
  * and {@code WEB}. {@link VelocityUser#origin()} returns {@code GAME} for every connected player.
  *

@@ -62,7 +62,7 @@ class OneMessageFormatTest {
             Map.entry("proxy/src/main/java/eu/nordtal/s2/proxy/command/VelocityUser.java",
                     "NordtalUser#replyLiteral - text that IS already the answer and must not be"
                             + " rendered twice"),
-            Map.entry("proxy/src/main/java/eu/nordtal/s2/proxy/command/ProxyChatEffects.java",
+            Map.entry("proxy/src/main/java/eu/nordtal/s2/proxy/command/PrivateMessages.java",
                     "a private message's own text, wrapped so that it can be handed to"
                             + " MessageRenderer's COMPONENT slot - which is what keeps a player"
                             + " called <red> from colouring somebody else's chat. The line around"

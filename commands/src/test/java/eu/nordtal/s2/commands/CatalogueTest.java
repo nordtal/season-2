@@ -170,15 +170,18 @@ class CatalogueTest {
         // may have executed. The SMP is unaffected - it writes source CONSOLE, which that check
         // lets through on its own.
         //
-        // The private messages are the newest and they arrived with a reason (Till, 2026-09-08):
-        // the command allowlist takes vanilla's /tell, /msg, /w and /teammsg away from players, and
-        // these are what replaces them. They are on the proxy because it is the only process that
-        // can see both people. See ChatCommands.
-        // /aura, /discord and /rules arrived with the same change and for the same reason: the
-        // allowlist leaves a player with our commands and nothing else, so ours have to cover what
-        // a player actually needs - where they stand, where the Discord is, and what the rules are.
-        assertEquals(List.of("/smp status", "/aura", "/msg", "/whisper", "/r",
-                        "/discord", "/rules"),
+        // /msg, /whisper, /r, /discord and /rules left this list on 2026-09-20 (season-2-ops/155),
+        // and left the module with it: they are native Velocity Brigadier in :proxy now. None of
+        // the four things a Declaration is worth its cost for applied to any of them - one surface,
+        // one target, no confirmation, no admin flag, and arguments that never travel through a
+        // database row - so they were paying for a catalogue entry no other surface could reach.
+        // THIS LIST IS THEREFORE SHORTER THAN IT WAS, and that is the change and not a regression;
+        // the five still exist and a player still types them.
+        //
+        // What remains is the two a non-admin can reach through a tree this module builds. /aura is
+        // the SMP's and /smp status is the proxy's; the allowlist takes vanilla's commands away, so
+        // ours have to cover what a player actually needs.
+        assertEquals(List.of("/smp status", "/aura"),
                 Catalogue.all().stream()
                 .filter(declaration -> !declaration.adminOnly())
                 .map(Declaration::name)

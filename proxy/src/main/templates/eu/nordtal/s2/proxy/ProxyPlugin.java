@@ -43,8 +43,6 @@ import eu.nordtal.s2.proxy.pack.PackOffer;
 import eu.nordtal.s2.proxy.pack.PackStation;
 import eu.nordtal.s2.proxy.pack.WaitingBook;
 import eu.nordtal.s2.commands.Target;
-import eu.nordtal.s2.commands.chat.ChatCommands;
-import eu.nordtal.s2.commands.info.InfoCommands;
 import eu.nordtal.s2.commands.network.NetworkCommands;
 import eu.nordtal.s2.commands.network.NetworkEffects;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
@@ -55,8 +53,8 @@ import eu.nordtal.s2.common.phase.SeasonDates;
 import eu.nordtal.s2.common.command.AllowlistDirectory;
 import eu.nordtal.s2.common.command.CommandAllowlist;
 import eu.nordtal.s2.proxy.command.CommandGate;
-import eu.nordtal.s2.proxy.command.ProxyChatEffects;
-import eu.nordtal.s2.proxy.command.ProxyInfoEffects;
+import eu.nordtal.s2.proxy.command.InfoTexts;
+import eu.nordtal.s2.proxy.command.PrivateMessages;
 import eu.nordtal.s2.proxy.command.ProxyNetworkEffects;
 import eu.nordtal.s2.proxy.command.VelocityCommands;
 import eu.nordtal.s2.proxy.phase.ProxyPhaseEffects;
@@ -651,32 +649,40 @@ public final class ProxyPlugin {
                         updateWatch::watch);
         eu.nordtal.s2.commands.update.UpdateCommands.all()
                 .forEach(command -> tree.local(command, updateEffects));
-        // The network's own private messages. Target.PROXY and Surface.GAME, and NOT admin-only:
-        // the command allowlist takes vanilla's /tell, /msg, /w and /teammsg away from players and
-        // these replace them. The proxy owns them because it is the only process that can see both
-        // people - vanilla's are per-server, and crossing between servers is the ordinary case here.
+        // ---------------------------------------------- the five a player types, natively
         //
-        // The effects are a listener as well as an effect: they hold who last spoke to whom, for
-        // /r, and that has to be dropped when somebody leaves. Nothing about a private message is
-        // persisted.
-        final ProxyChatEffects chatEffects = new ProxyChatEffects(proxy, roster, messages,
-                ProxyNetworkEffects.async(this, proxy), logger);
-        proxy.getEventManager().register(this, chatEffects);
-        ChatCommands.all().forEach(command -> tree.local(command, chatEffects));
+        // /msg, /whisper, /r, /discord and /rules are NOT built through `tree`: they are plain
+        // Velocity Brigadier, registered below beside it (season-2-ops/155). They went that way
+        // because none of the four things a Declaration is worth its cost for applies to any of
+        // them - one surface, one target, no confirmation, no admin flag, and no argument that
+        // ever travels through a database row. What they lost is a declaration, an effects
+        // interface and a catalogue entry; what they do is unchanged.
+        //
+        // NOT admin-only, in either half: the command allowlist takes vanilla's /tell, /msg, /w and
+        // /teammsg away from players, and these replace them. The proxy owns them because it is
+        // the only process that can see both people, and because /discord and /rules have to work
+        // in the waiting room - where the player who most needs to be told how to reach us is
+        // standing.
+        final PrivateMessages privateMessages =
+                new PrivateMessages(proxy, roster, messages, () -> colours, logger);
+        // A listener as well as a command: it holds who last spoke to whom, for /r, and that has to
+        // be dropped when somebody leaves. Nothing about a private message is persisted.
+        proxy.getEventManager().register(this, privateMessages);
 
-        // /discord and /rules. On the proxy so that they work in the waiting room, which is where
-        // the player who most needs to be told how to reach us is standing. The invite is
-        // gate.yml's, the same string every login screen already uses.
-        final ProxyInfoEffects infoEffects = new ProxyInfoEffects(proxy, messages,
-                gateConfig.discordInviteUrl(), ProxyNetworkEffects.async(this, proxy), logger);
-        InfoCommands.all().forEach(command -> tree.local(command, infoEffects));
+        // The invite is gate.yml's, the same string every login screen already uses.
+        final InfoTexts infoTexts =
+                new InfoTexts(messages, gateConfig.discordInviteUrl(), roster);
 
         // "clear" is not guessable and is the only value of this argument that is not a date.
         tree.suggest(PhaseCommands.LAUNCH, "when", () -> List.of(SeasonDates.CLEAR));
         tree.suggest(PhaseCommands.SMP_START, "when", () -> List.of(SeasonDates.CLEAR));
 
         final CommandManager commands = proxy.getCommandManager();
-        tree.build().forEach(command -> commands.register(
+        final List<com.velocitypowered.api.command.BrigadierCommand> registered =
+                new java.util.ArrayList<>(tree.build());
+        registered.addAll(privateMessages.commands());
+        registered.addAll(infoTexts.commands());
+        registered.forEach(command -> commands.register(
                 commands.metaBuilder(command).plugin(this).build(), command));
 
         // The proxy's own inbox: /network reload asked for in Discord arrives as a request row.

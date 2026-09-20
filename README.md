@@ -132,6 +132,14 @@ admin command works in game and in Discord alike; where its effect belongs to an
 travels as a row in `command_request`. A player command must additionally be on the allowlist in
 `network.yml`, or it does not exist — everything unlisted is refused with the same line a typo gets.
 
+**A declaration is what a command on several surfaces costs, and a command on one does not pay it.**
+`/msg`, `/whisper`, `/r`, `/discord` and `/rules` are plain Velocity Brigadier in `:proxy`: one
+surface, one process, no confirmation, no admin flag, and no argument that travels through a
+database row. Going through `:commands` bought them an effects interface, an adapter translation and
+a catalogue entry that no other surface could reach. The test for whether a new command belongs in
+`:commands` is therefore not "is it a command" but "does anything other than the process that runs
+it need to know about it".
+
 **The season runs through four phases** — `PRE_EVENT`, `START_EVENT`, `SMP`, `MAINTENANCE` — which
 decide who gets in and where they land. The phase is one database row, switched from either the proxy
 or Discord and propagated by `NOTIFY`, with polling as the guarantee behind it.

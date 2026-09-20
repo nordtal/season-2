@@ -20,6 +20,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -39,8 +40,10 @@ import java.util.Objects;
  * screen. The world's gamerules and the player's own flags cover most of this already - these are
  * the cases where a rule exists but an event can still fire.
  *
- * <p>There is no chat here. A player who types sees nothing happen, which is intended: everybody
- * in the waiting room is invisible to everybody else and is about to leave.
+ * <p>There is no chat here, and since season-2-ops/141 there are no commands either: a player who
+ * types sees nothing happen, which is intended. Everybody in the waiting room is invisible to
+ * everybody else and is about to leave, and nothing said in a room nobody moderates may reach
+ * anybody outside it - {@code /msg} included.
  */
 public final class PresenceListener implements Listener {
 
@@ -185,6 +188,43 @@ public final class PresenceListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onChat(final AsyncChatEvent event) {
         event.setCancelled(true);
+    }
+
+    /**
+     * And every command with it, because {@code /msg} is chat with a different prefix
+     * (season-2-ops/141).
+     *
+     * <p>Till, 2026-09-20: the waiting room is a passage, and nothing said in it may reach anybody
+     * - which is not the same promise as "the chat box does nothing". A player who cannot type in
+     * chat can still {@code /msg}, {@code /me} or {@code /tell} from here, and every one of those
+     * is a sentence delivered out of a room nobody moderates and that does not exist a minute
+     * later. Blocked as a class rather than by a list of names: a list is a hole the next
+     * Minecraft version fills in for us.</p>
+     *
+     * <p><b>Silently</b>, exactly like {@link #onChat}. The screen holds one title saying what is
+     * being waited for, and an error over it would be the waiting room talking back for the first
+     * time - about a command nobody here needs.</p>
+     *
+     * <p>An admin keeps their commands: {@code /limbo} is the only reason anybody with a client
+     * would run one here, and the flag is the same one every other backend uses, read out of the
+     * cache {@link FullServerGate} filled at pre-login.</p>
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onCommand(final PlayerCommandPreprocessEvent event) {
+        if (!mutes(admission.admits(event.getPlayer().getUniqueId()))) {
+            return;
+        }
+        event.setCancelled(true);
+    }
+
+    /**
+     * Whether this player's commands are swallowed.
+     *
+     * <p>A method rather than a condition inside the handler so that the rule can be held by a test
+     * on a module whose every other line needs a running server.</p>
+     */
+    public static boolean mutes(final boolean admin) {
+        return !admin;
     }
 
     @EventHandler(ignoreCancelled = true)

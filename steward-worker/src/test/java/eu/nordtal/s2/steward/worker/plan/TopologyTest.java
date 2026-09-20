@@ -215,6 +215,23 @@ class TopologyTest {
         }
     }
 
+    @Test
+    @DisplayName("the waiting room has no voice chat, and that is how it stays silent")
+    void theLimboHasNoVoice() {
+        // season-2-ops/141. Till, 2026-09-20: "auf den limbos sollte voice chat UND text chat
+        // generell nicht funktionieren." Text chat is the limbo plugin's own doing; voice is this
+        // line and nothing else - Simple Voice Chat needs its Bukkit plugin on the server the
+        // player is standing on, and the waiting room has never had it. Written down as a rule
+        // rather than left as an absence, because an absence is what somebody adds a jar to.
+        final Topology.Service limbo = Topology.SERVICES.stream()
+                .filter(candidate -> candidate.name().equals(Topology.LIMBO))
+                .findFirst()
+                .orElseThrow();
+
+        assertFalse(limbo.plugins().contains(Topology.VOICE_CHAT),
+                "the limbo carries voice chat, so two people waiting can hear each other");
+    }
+
     /** Every published port of a compose service, as written. */
     private List<String> ports(final String service) {
         @SuppressWarnings("unchecked")

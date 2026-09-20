@@ -1,0 +1,36 @@
+<!--
+  gradlew test
+
+  Runs `test` in all eleven modules that have one. No frontend, no shell suites - those are
+  `tests: ui vitest` and `tests: deploy scripts (all five)`.
+
+  Results land in the Run window's test tree, which is the reason these are Gradle configurations
+  and not shell ones like the `dev:` folders.
+
+  Why these are Gradle configurations while the `dev:` folders are shell ones - and what the
+  interpreter note means - is in .run/README.md.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="tests: jvm (all modules)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: jvm">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value="test" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <ForceTestExec>false</ForceTestExec>
+    <method v="2" />
+  </configuration>
+</component>

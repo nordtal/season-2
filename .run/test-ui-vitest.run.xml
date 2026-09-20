@@ -1,0 +1,38 @@
+<!--
+  gradlew :steward-ui:viteTest
+
+  The Steward frontend's vitest suite - steward-ui/frontend, everything under src/.
+
+  IT GOES THROUGH GRADLE AND NOT THROUGH npm, because the Node this repository uses is the private
+  one under steward-ui/build/nodejs that `npmInstall` downloads. `npx vitest` with no node on PATH
+  exits 0 having tested nothing, which is exactly the failure worth avoiding here.
+
+  The first run installs the packages and takes a while; the suite itself is about four seconds.
+
+  Why these are Gradle configurations while the `dev:` folders are shell ones - and what the
+  interpreter note means - is in .run/README.md.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="tests: ui vitest" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: ui">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value=":steward-ui:viteTest" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <ForceTestExec>false</ForceTestExec>
+    <method v="2" />
+  </configuration>
+</component>

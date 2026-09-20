@@ -1,0 +1,36 @@
+<!--
+  gradlew check
+
+  Every test in the repository: the JVM suites, the Steward frontend's vitest run, and all five
+  deploy script suites. What CI runs on a push.
+
+  THE SLOW ONE, and the folders beside this are how not to wait for it - `tests: jvm`, `tests: ui`
+  and `tests: deploy scripts` are the same suites split the way they are actually worked on.
+
+  Why these are Gradle configurations while the `dev:` folders are shell ones - and what the
+  interpreter note means - is in .run/README.md.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="tests: check (everything)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: all">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value="check" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <ForceTestExec>false</ForceTestExec>
+    <method v="2" />
+  </configuration>
+</component>

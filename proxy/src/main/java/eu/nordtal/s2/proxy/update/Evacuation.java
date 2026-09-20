@@ -75,6 +75,9 @@ public final class Evacuation {
     private final Logger logger;
     private final UpdateDirectory updates;
     private final PhaseServers servers;
+
+    /** Who to tell, when their server takes them back. */
+    private final Homecoming homecoming;
     /**
      * The backends a run currently has, or is about to have, stopped.
      *
@@ -99,11 +102,13 @@ public final class Evacuation {
     private volatile boolean warnedAboutWaitingRoom;
 
     public Evacuation(final ProxyServer proxy, final Logger logger,
-                      final UpdateDirectory updates, final PhaseServers servers) {
+                      final UpdateDirectory updates, final PhaseServers servers,
+                      final Homecoming homecoming) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
         this.servers = Objects.requireNonNull(servers, "servers");
+        this.homecoming = Objects.requireNonNull(homecoming, "homecoming");
     }
 
     /**
@@ -337,6 +342,10 @@ public final class Evacuation {
 
         logger.info("Moving {} player(s) off {} into '{}' before the update stops them",
                 leaving.size(), new HashSet<>(backends), waitingRoom);
+        // Written down before they are moved, so that the release at the other end of the wait has
+        // a sentence to say (season-2-ops/118). These, and not everybody the waiting room later
+        // lets out: limbo is where every login waits.
+        homecoming.movedOut(leaving);
         for (final Player player : leaving) {
             // fireAndForget rather than waiting on the future: this runs on the proxy's scheduler
             // with seconds to spare, and blocking it on one slow connection would delay everybody

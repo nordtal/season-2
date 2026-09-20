@@ -75,6 +75,7 @@ import eu.nordtal.s2.proxy.routing.RouteIntents;
 import eu.nordtal.s2.proxy.update.Evacuation;
 import eu.nordtal.s2.proxy.update.ParkedSeats;
 import eu.nordtal.s2.proxy.update.ProxySwap;
+import eu.nordtal.s2.proxy.update.Homecoming;
 import eu.nordtal.s2.proxy.update.StandbyReturn;
 import eu.nordtal.s2.proxy.update.SwapAddresses;
 import eu.nordtal.s2.proxy.update.SwapStore;
@@ -301,9 +302,14 @@ public final class ProxyPlugin {
                 new RouteIntents(roster, phaseServers, logger);
         proxy.getEventManager().register(this, intents);
 
+        // THE WAY BACK HAS A VOICE TOO (season-2-ops/118). One object for both returns - out of
+        // the waiting room and off the standby proxy - because they are one sentence said twice
+        // and the register of who is owed it is the same register.
+        final Homecoming homecoming = new Homecoming(logger, messages, roster, phaseServers);
+
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
                 roster, fallback, gateMessages, packs, intents, backendHealth,
-                parkedSeats);
+                parkedSeats, homecoming);
         routerRef.set(router);
         packs.onRelease(router::releaseFromLimbo);
         proxy.getEventManager().register(this, router);
@@ -506,7 +512,7 @@ public final class ProxyPlugin {
         // that throws must not take the other one down with it, and these two are the only things
         // standing between a player and a disconnect nobody explained.
         this.evacuation = new Evacuation(proxy, logger,
-                UpdateDirectory.using(pool), phaseServers);
+                UpdateDirectory.using(pool), phaseServers, homecoming);
         packs.whenUpdating(this.evacuation::isMoving);
         packs.whenHeld(this.evacuation::isHeld);
         // And the counts get their fast cadence from the same watch - see OnlineWriter#tick.
@@ -562,8 +568,8 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this,
                 new RestartGate(logger, swap::isStopping, gateMessages, fallback));
 
-        final StandbyReturn standbyReturn = new StandbyReturn(proxy, logger, swaps, role,
-                publicAddress, Clock.systemUTC());
+        final StandbyReturn standbyReturn = new StandbyReturn(this, proxy, logger, swaps, role,
+                publicAddress, Clock.systemUTC(), homecoming);
         proxy.getScheduler().buildTask(this, standbyReturn::check)
                 .delay(StandbyReturn.INTERVAL)
                 .repeat(StandbyReturn.INTERVAL)

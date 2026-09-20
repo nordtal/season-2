@@ -84,11 +84,15 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
      */
     private final ParkedSeats seats;
 
+    /** The voice on the way back: a player a run moved out of the way is told before they return. */
+    private final eu.nordtal.s2.proxy.update.Homecoming homecoming;
+
     public PlayerRouter(final Object plugin, final ProxyServer proxy, final Logger logger,
                         final AccessDirectory access, final PhaseRouting routing, final PhaseWatch phases,
                         final LoginRoster roster, final FallbackCache fallback, final GateMessages messages,
                         final PackStation packs, final RouteIntents intents, final BackendHealth health,
-                        final ParkedSeats seats) {
+                        final ParkedSeats seats,
+                        final eu.nordtal.s2.proxy.update.Homecoming homecoming) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -102,6 +106,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         this.intents = Objects.requireNonNull(intents, "intents");
         this.health = Objects.requireNonNull(health, "health");
         this.seats = Objects.requireNonNull(seats, "seats");
+        this.homecoming = Objects.requireNonNull(homecoming, "homecoming");
     }
 
     // ------------------------------------------------------------------ login
@@ -186,6 +191,11 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                 final String destination = seats.releaseTo(player.getUniqueId(),
                         roster.isAdmin(player.getUniqueId()), decision.server(),
                         registeredServerNames(), routing.servers());
+                // AND THE WAY BACK GETS A SENTENCE (season-2-ops/118). Only for a player a run put
+                // in here, and only once - Homecoming holds both halves of that rule, because this
+                // method is also every ordinary login's last step and nobody wants to be told
+                // their server is back when they have just arrived.
+                homecoming.comingBack(player, destination);
                 connect(player, destination, roster.localeOf(player.getUniqueId()),
                         cause -> packs.releaseFailed(player, cause));
             }

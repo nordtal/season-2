@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -77,6 +78,7 @@ public final class StandbyReturn {
      */
     static final Duration SETTLE = Duration.ofSeconds(4);
 
+    private final Object plugin;
     private final ProxyServer proxy;
     private final Logger logger;
     private final SwapStore seats;
@@ -85,15 +87,39 @@ public final class StandbyReturn {
     private final Clock clock;
     private final Probe probe;
 
+    /**
+     * The voice of the return (season-2-ops/118). Everything this network says is said on the way
+     * out; the way back was silent, and this one lands in the middle of a game rather than at the
+     * end of a wait - the player has been playing on the SMP through the standby the whole time.
+     */
+    private final Homecoming voice;
+
+    /** The same planner the way out uses, so the return counts in the same voice. */
+    private final Countdown notice = new Countdown();
+
+    /** A new number per return, because {@link Countdown} plans one row once. */
+    private long notices;
+
+    /**
+     * Whether the network has been promised a return and is being counted towards one.
+     *
+     * <p>Once this is set the decision above is not asked again: the transfer is a scheduled beat
+     * now, and a probe that flickers during those ten seconds must not start a second countdown or
+     * take the promise back. If the live proxy really has gone again, the transfer fails, nobody
+     * moves, and the next pass sees the outage from the beginning.</p>
+     */
+    private boolean returning;
+
     /** Whether the public address has refused a connection since this proxy last had players. */
     private boolean outageSeen;
 
     /** When it started answering again, or {@code null} while it is not. */
     private Instant answeringSince;
 
-    public StandbyReturn(final ProxyServer proxy, final Logger logger, final SwapStore seats,
-                         final ProxyRole role, final InetSocketAddress home, final Clock clock) {
-        this(proxy, logger, seats, role, home, clock, StandbyReturn::connects);
+    public StandbyReturn(final Object plugin, final ProxyServer proxy, final Logger logger,
+                         final SwapStore seats, final ProxyRole role, final InetSocketAddress home,
+                         final Clock clock, final Homecoming voice) {
+        this(plugin, proxy, logger, seats, role, home, clock, voice, StandbyReturn::connects);
     }
 
     /**
@@ -101,9 +127,11 @@ public final class StandbyReturn {
      *              below is the part worth asserting, and asserting it against a real socket would
      *              mean binding a port in a unit test
      */
-    StandbyReturn(final ProxyServer proxy, final Logger logger, final SwapStore seats,
-                  final ProxyRole role, final InetSocketAddress home, final Clock clock,
-                  final Probe probe) {
+    StandbyReturn(final Object plugin, final ProxyServer proxy, final Logger logger,
+                  final SwapStore seats, final ProxyRole role, final InetSocketAddress home,
+                  final Clock clock, final Homecoming voice, final Probe probe) {
+        this.plugin = Objects.requireNonNull(plugin, "plugin");
+        this.voice = Objects.requireNonNull(voice, "voice");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.seats = Objects.requireNonNull(seats, "seats");
@@ -140,6 +168,11 @@ public final class StandbyReturn {
             logger.warn("Could not report how many players the standby is holding", failure);
         }
 
+        if (returning) {
+            // Counted down to and scheduled. Nothing this pass observes can improve on a promise
+            // already made to somebody watching a number.
+            return;
+        }
         if (players.isEmpty()) {
             // Nobody to protect, so nothing observed about the live proxy is worth keeping: the
             // next group to arrive has to see its own outage.
@@ -172,9 +205,47 @@ public final class StandbyReturn {
             return;
         }
 
-        sendHome(players);
-        outageSeen = false;
-        answeringSince = null;
+        announceThenSendHome(players);
+    }
+
+    /**
+     * Tells the players the network is back, counts the last ten seconds out loud, and transfers
+     * them on zero (season-2-ops/118).
+     *
+     * <p>Ten seconds is the promise, not an optimisation: the return interrupts whatever the player
+     * is doing exactly as much as the way out did, and that is the reason the way out has a
+     * countdown. Somebody sitting in the standby's waiting room gets the chat half only -
+     * {@link Homecoming} draws that line.</p>
+     *
+     * <p>Scheduled rather than slept through: this runs on the proxy's own scheduler thread, and a
+     * pass that blocks for ten seconds is ten seconds in which nothing else on this proxy ticks.</p>
+     */
+    private void announceThenSendHome(final Collection<Player> players) {
+        returning = true;
+        final List<Countdown.Beat> beats = notice.beats(++notices, Homecoming.NOTICE)
+                .orElseGet(List::of);
+        logger.info("{} is answering again: telling {} player(s) and handing them back in {}s",
+                home, players.size(), Homecoming.NOTICE.toSeconds());
+
+        for (final Countdown.Beat beat : beats) {
+            proxy.getScheduler().buildTask(plugin, () -> {
+                // Asked again per beat rather than held: somebody who logged out during the
+                // countdown is not a player any more, and somebody who logged in is owed the same
+                // sentence as everybody else.
+                final Collection<Player> here = proxy.getAllPlayers();
+                voice.say(here, beat.announcement());
+                if (beat.announcement().kind() != Announcement.Kind.NOW) {
+                    return;
+                }
+                // The sentence first and the transfer second, which is the opposite of the way
+                // out. There the move is what a player can be hurt by; here the move is what ends
+                // their connection to this proxy, and a message sent after it reaches nobody.
+                sendHome(here);
+                returning = false;
+                outageSeen = false;
+                answeringSince = null;
+            }).delay(beat.delay()).schedule();
+        }
     }
 
     /**
@@ -196,7 +267,7 @@ public final class StandbyReturn {
     }
 
     private void sendHome(final Collection<Player> players) {
-        logger.info("{} is answering again: transferring {} player(s) back", home, players.size());
+        logger.info("Transferring {} player(s) back to {}", players.size(), home);
         for (final Player player : players) {
             try {
                 player.transferToHost(home);

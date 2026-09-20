@@ -111,6 +111,19 @@ public final class AccessInbox {
                 effects.setPlaytime(request.subject(), request.number(), by);
                 yield json("seconds", String.valueOf(request.number()));
             }
+            case RELOAD_MESSAGES -> {
+                if (!effects.reloadMessages()) {
+                    // A bundle that no longer parses leaves the running one in place, so this is a
+                    // failure and has to read as one: the surface that asked must say "not applied"
+                    // rather than "applied, nothing to report".
+                    throw new IllegalStateException("the message bundles could not be re-read;"
+                            + " the running ones are unchanged");
+                }
+                // The typos, by name. A key in the override that no bundle declares does nothing at
+                // all today, silently, and naming it is the whole reason /access reload prints
+                // anything.
+                yield json("unknown", String.join(",", effects.unknownOverrideKeys()));
+            }
         };
     }
 

@@ -35,4 +35,15 @@ public interface AccessChanges {
 
     /** Write somebody's total play time, in seconds - the unit the column holds. */
     void setPlaytime(String discordId, long seconds, Actor by);
+
+    /**
+     * Re-read the message bundles (season-2-community/09).
+     *
+     * @return {@code true} when the re-read succeeded. A failure leaves the running bundles
+     *         unchanged, which is the only safe thing to do with a file that no longer parses
+     */
+    boolean reloadMessages();
+
+    /** Override keys the bundles do not declare, after a reload. Empty when there are none. */
+    java.util.List<String> unknownOverrideKeys();
 }

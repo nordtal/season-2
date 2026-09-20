@@ -23,5 +23,18 @@ public enum AccessRequestKind {
     UNLINK,
 
     /** Write somebody's total play time. The argument is seconds, which is what the column holds. */
-    SET_PLAYTIME
+    SET_PLAYTIME,
+
+    /**
+     * Re-read the bot's message bundles (season-2-community/09).
+     *
+     * <p>The odd one out, and deliberately here rather than on a reload mechanism of its own: this
+     * inbox is "do the thing only you can do", and re-reading a bundle held in the bot's own memory
+     * is exactly that. {@code ConfigApi}'s console-command map stays what reloads a Minecraft
+     * service; the bot has no console.</p>
+     *
+     * <p>The subject is the bundle whose override was written. The bot re-reads all of them either
+     * way - they are layered - so it is recorded rather than acted on.</p>
+     */
+    RELOAD_MESSAGES
 }

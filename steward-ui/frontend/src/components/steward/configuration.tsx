@@ -32,7 +32,7 @@ import {
   useSaveConfig,
 } from "@/lib/queries"
 import { languageName } from "@/lib/language-names"
-import { takePendingJump } from "@/lib/settings-search"
+import { onPendingJump, takePendingJump } from "@/lib/settings-search"
 import {
   colourValue,
   explanationOf,
@@ -139,12 +139,23 @@ export function ServiceConfiguration({ service }: { service: string }) {
   // before navigating, since this component is mounted fresh on arrival rather than handed a prop
   // for it. Runs on mount and again whenever `service` changes under an already-mounted page - both
   // are "arriving at this service" as far as a pending jump is concerned.
+  //
+  // AND WHILE IT STAYS MOUNTED (steward/127). The palette is reachable from the service page
+  // itself, and a hit on the service you are already looking at navigates to the route you are
+  // already on: nothing remounts, `service` does not change, and without the subscription below the
+  // click does nothing - then fires the next time somebody arrives on this page, which is worse
+  // than nothing. `ServiceMessages` has worked this way since steward/87; this is the half that was
+  // left behind because `configuration.tsx` was frozen for that ticket.
   useEffect(() => {
-    const jump = takePendingJump(service)
-    if (jump) {
-      setOpen(jump.file)
-      setHighlight(jump.path)
+    const land = () => {
+      const jump = takePendingJump(service)
+      if (jump) {
+        setOpen(jump.file)
+        setHighlight(jump.path)
+      }
     }
+    land()
+    return onPendingJump(land)
   }, [service])
   // A file with no service is one sitting directly in the mount point rather than in a service's
   // directory, and there were none of those on 2026-09-14 - all twenty-five were under exactly one

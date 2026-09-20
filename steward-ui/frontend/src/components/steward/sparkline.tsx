@@ -2,6 +2,7 @@ import { useMemo } from "react"
 import { Area, AreaChart, ResponsiveContainer } from "recharts"
 
 import type { MetricPoint } from "@/lib/api"
+import { Skeleton } from "@/components/ui/skeleton"
 
 /**
  * A curve with no axis, no grid and no tooltip - the shape of a value over time and nothing else.
@@ -22,18 +23,26 @@ export function Sparkline({
   colour = "var(--chart-4)",
   height = 28,
 }: {
-  points: MetricPoint[]
+  /** Absent while the series is still being read - drawn as a bar of the same height. */
+  points?: MetricPoint[]
   colour?: string
   height?: number
 }) {
   const data = useMemo(
-    () => points.map((point) => ({ at: new Date(point.at).getTime(), value: point.value })),
+    () => (points ?? []).map((point) => ({ at: new Date(point.at).getTime(), value: point.value })),
     [points],
   )
 
-  // No data points yet is not an error worth a sentence here - `SeriesChart` already says so where
-  // there is room for it, and the tile's own value already prints "–" for the same reason. A flat,
-  // empty strip beneath it is the quiet version of the same fact.
+  // steward/120: no skeleton chart is wanted, only a skeleton of about the size the chart will
+  // have, filling the same area until it is drawn. So no faked axis and no faked curve - the strip
+  // this occupies, shimmering, and nothing else.
+  if (points === undefined) {
+    return <Skeleton style={{ height }} className="w-full" />
+  }
+
+  // A read that came back with nothing in it is a different statement, and it is not an error worth
+  // a sentence here - `SeriesChart` already says so where there is room for it. A flat, empty strip
+  // is the quiet version of the same fact.
   if (data.length === 0) {
     return <div style={{ height }} aria-hidden />
   }

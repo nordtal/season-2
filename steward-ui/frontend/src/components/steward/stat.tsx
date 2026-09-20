@@ -1,12 +1,19 @@
 import type { ReactNode } from "react"
 import { cn } from "cn"
 
+import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
+
 /**
  * One labelled number.
  *
  * The label is small and quiet, the figure is large and `tabular-nums`, and the hint underneath is
  * where the caveat goes - "share of the host, no container has a limit" belongs next to the number
  * it qualifies and nowhere else.
+ *
+ * **`value` is optional, and that is the waiting shape** (steward/120). The label is known before
+ * the figure is - it is written into the page, not fetched - so a stat that is still waiting shows
+ * its label and a bar where the number will be. Nothing moves when the number lands, and the page
+ * already reads as itself while it is empty.
  */
 export function Stat({
   label,
@@ -16,7 +23,8 @@ export function Stat({
   className,
 }: {
   label: string
-  value: ReactNode
+  /** Absent while the figure is on its way. */
+  value?: ReactNode
   hint?: ReactNode
   tone?: "ok" | "warn" | "down"
   className?: string
@@ -34,7 +42,7 @@ export function Stat({
           tone === "down" && "text-destructive",
         )}
       >
-        {value}
+        {value === undefined ? <SkeletonText width="short" className="h-[1lh]" /> : value}
       </span>
       {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
     </div>
@@ -53,11 +61,15 @@ export function UsageBar({
   warnAt = 80,
   dangerAt = 90,
 }: {
-  used: number
-  total: number
+  /** Both absent while the reading is on its way: the track is then drawn empty and shimmering. */
+  used?: number
+  total?: number
   warnAt?: number
   dangerAt?: number
 }) {
+  if (used === undefined || total === undefined) {
+    return <Skeleton className="h-1.5 w-full rounded-full" />
+  }
   const share = total > 0 ? Math.min(100, (used / total) * 100) : 0
   const tone = share >= dangerAt ? "bg-destructive" : share >= warnAt ? "bg-warning" : "bg-success"
   return (

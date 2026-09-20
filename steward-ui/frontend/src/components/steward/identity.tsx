@@ -319,8 +319,9 @@ function DiscordAvatar({
  * The small rounded-square Minecraft head, drawn from a composed URL.
  *
  * <h2>Three states, one size (steward/120)</h2>
- * Till, 2026-09-19: *"Gerade bei den Minecraft Köpfen sieht es ohne Skeleton erst recht komisch aus
- * wenn die nachladen."* He is describing the second of these three, which had no drawing at all:
+ * Till, 2026-09-19, asking for this: a head that loads in with nothing drawn where it is going to
+ * be looks worse than anything else on the page. He is describing the second of these three, which
+ * had no drawing at all:
  *
  * <ul>
  *   <li><b>Nothing to draw yet</b> - `mcUuid` undefined, because the row around this head is itself
@@ -351,7 +352,9 @@ export function MinecraftHead({
   const [loaded, setLoaded] = useState(false)
   const url = mcUuid ? minecraftHeadUrl(baseUrl, mcUuid) : undefined
 
-  if (!mcUuid) {
+  // `undefined` and `""` are different statements and both reach here: nobody has said yet, and
+  // nobody has one. The first waits, the second is the question mark at the bottom.
+  if (mcUuid === undefined) {
     return <Skeleton className={`${size} shrink-0 ${rounded}`} />
   }
   if (url && !broken) {

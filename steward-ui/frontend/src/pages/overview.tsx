@@ -22,7 +22,7 @@ import { OnlineLine, useOnline } from "@/components/steward/online"
 import { Panel } from "@/components/steward/panel"
 import { Sparkline } from "@/components/steward/sparkline"
 import { Stat, UsageBar } from "@/components/steward/stat"
-import { Empty, Failure, Loading } from "@/components/steward/query-state"
+import { QueryState, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 
 /**
@@ -120,6 +120,9 @@ export function OverviewPage() {
  * for this: "Issues" is that same tile moved, and "Latest backup" is the tile that used to be
  * called "Newest backup" and is nothing else.
  */
+/** The quiet line under a figure, while the figure is still out. */
+const WAITING_HINT = <SkeletonText className="w-20 text-xs" />
+
 function MetricRow() {
   const host = useHost()
   const cpu = useMetrics("host", "cpu_percent", 6)
@@ -171,25 +174,29 @@ function MetricRow() {
       */}
       <MetricTile
         label="CPU"
-        value={percent(host.data?.cpuPercent)}
-        hint={unreadable ?? `${count(host.data?.cpus)} cores`}
+        value={host.data ? percent(host.data.cpuPercent) : undefined}
+        hint={host.data ? (unreadable ?? `${count(host.data.cpus)} cores`) : WAITING_HINT}
         className="col-span-2 min-[26rem]:col-span-3 lg:col-span-1"
       >
-        <UsageBar used={host.data?.cpuPercent ?? 0} total={100} />
-        <Sparkline points={cpu.data?.points ?? []} />
+        <UsageBar used={host.data?.cpuPercent ?? (host.data ? 0 : undefined)} total={host.data ? 100 : undefined} />
+        <Sparkline points={cpu.data?.points} />
       </MetricTile>
 
       <MetricTile
         label="Memory"
-        value={memoryShare(host.data)}
+        value={host.data ? memoryShare(host.data) : undefined}
         hint={
-          unreadable ??
-          (host.data?.memoryTotalBytes
-            ? `${bytes(usedMemory)} of ${bytes(host.data.memoryTotalBytes)}`
-            : "–")
+          host.data
+            ? (unreadable ??
+              (host.data.memoryTotalBytes
+                ? `${bytes(usedMemory)} of ${bytes(host.data.memoryTotalBytes)}`
+                : "–"))
+            : WAITING_HINT
         }
       >
-        {host.data?.memoryTotalBytes ? (
+        {!host.data ? (
+          <UsageBar />
+        ) : host.data.memoryTotalBytes ? (
           <UsageBar used={usedMemory ?? 0} total={host.data.memoryTotalBytes} />
         ) : null}
       </MetricTile>
@@ -197,18 +204,24 @@ function MetricRow() {
       <MetricTile
         label="Disk"
         value={
-          host.data?.diskTotalBytes
-            ? percent(((host.data.diskUsedBytes ?? 0) / host.data.diskTotalBytes) * 100, 0)
-            : "–"
+          !host.data
+            ? undefined
+            : host.data.diskTotalBytes
+              ? percent(((host.data.diskUsedBytes ?? 0) / host.data.diskTotalBytes) * 100, 0)
+              : "–"
         }
         hint={
-          unreadable ??
-          (host.data?.diskTotalBytes
-            ? `${bytes(host.data.diskUsedBytes)} of ${bytes(host.data.diskTotalBytes)}`
-            : "–")
+          host.data
+            ? (unreadable ??
+              (host.data.diskTotalBytes
+                ? `${bytes(host.data.diskUsedBytes)} of ${bytes(host.data.diskTotalBytes)}`
+                : "–"))
+            : WAITING_HINT
         }
       >
-        {host.data?.diskTotalBytes ? (
+        {!host.data ? (
+          <UsageBar />
+        ) : host.data.diskTotalBytes ? (
           <UsageBar used={host.data.diskUsedBytes ?? 0} total={host.data.diskTotalBytes} />
         ) : null}
       </MetricTile>
@@ -220,17 +233,23 @@ function MetricRow() {
       <Link to="/operations/backups" className="flex min-w-0 flex-col gap-1.5">
         <Stat
           label="Latest backup"
-          value={newest ? relative(newest.modified) : backups.data ? "none" : "–"}
+          value={newest ? relative(newest.modified) : backups.data ? "none" : undefined}
           tone={backups.data && !newest ? "down" : undefined}
-          hint={newest ? newest.human : backups.data ? "no finished backup" : "–"}
+          hint={newest ? newest.human : backups.data ? "no finished backup" : WAITING_HINT}
         />
       </Link>
 
       <MetricTile
         label="Behind"
-        value={count(outdated.length)}
+        value={services.data ? count(outdated.length) : undefined}
         tone={outdated.length > 0 ? "warn" : undefined}
-        hint={outdated.length === 0 ? "up to date" : outdated.map((service) => service.service).join(", ")}
+        hint={
+          !services.data
+            ? WAITING_HINT
+            : outdated.length === 0
+              ? "up to date"
+              : outdated.map((service) => service.service).join(", ")
+        }
       />
 
       <IssuesTile triggers={triggers} waiting={waiting} failed={failed} />
@@ -262,7 +281,10 @@ function IssuesTile({
   failed: boolean
 }) {
   if (triggers.length === 0) {
-    if (waiting) return <MetricTile label="Issues" value="–" hint="reading" />
+    // Not a dash and not a zero: the tile is drawn as a tile with nothing in it yet (steward/120).
+    // The old dash and the word "reading" were this same statement in the only vocabulary the row
+    // had before there was a skeleton to say it with.
+    if (waiting) return <MetricTile label="Issues" value={undefined} hint={WAITING_HINT} />
     if (failed) return <MetricTile label="Issues" value="–" tone="warn" hint="could not be read" />
     return <MetricTile label="Issues" value={count(0)} hint="all clear" />
   }
@@ -325,22 +347,20 @@ function SeasonPanel() {
   const season = useSeason()
   return (
     <Panel title="Season">
-      {season.isPending ? (
-        <Loading rows={2} />
-      ) : season.error ? (
-        <Failure error={season.error} onRetry={season.refetch} />
-      ) : (
-        <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-4 min-[26rem]:grid-cols-3">
-            <Stat label="Phase" value={seasonPhaseLabel(season.data!.phase)} />
-            <Stat label="Season start" value={dateTime(season.data!.launch)} />
-            <Stat label="SMP start" value={dateTime(season.data!.smpStart)} />
+      <QueryState query={season}>
+        {(data) => (
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 gap-4 min-[26rem]:grid-cols-3">
+              <Stat label="Phase" value={data ? seasonPhaseLabel(data.phase) : undefined} />
+              <Stat label="Season start" value={data ? dateTime(data.launch) : undefined} />
+              <Stat label="SMP start" value={data ? dateTime(data.smpStart) : undefined} />
+            </div>
+            <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
+              <Link to="/season">To the season</Link>
+            </Button>
           </div>
-          <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
-            <Link to="/season">To the season</Link>
-          </Button>
-        </div>
-      )}
+        )}
+      </QueryState>
     </Panel>
   )
 }
@@ -360,38 +380,44 @@ function SeasonPanel() {
  * small grey capitalised line reads as a section label, and this is content, so it gets the same
  * weight the page's own `PageHeader` gives a title.
  */
+/** Four absent rows, the length `useActions(5)` settles at once the season is running. */
+const WAITING_ACTIONS = [undefined, undefined, undefined, undefined]
+
 function ActionsPanel() {
   const actions = useActions(5)
   const people = usePeople()
   const avatarBase = useAvatarBaseUrl()
   const now = Date.now()
-  const entries = actions.data ?? []
 
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold text-foreground">Latest actions</h2>
-      {actions.isPending ? (
-        <Loading rows={4} />
-      ) : actions.error ? (
-        <Failure error={actions.error} onRetry={actions.refetch} />
-      ) : entries.length === 0 ? (
-        <Empty title="Nothing recorded yet" />
-      ) : (
-        <ul className="flex flex-col">
-          {entries.map((action, index) => (
-            <ActionRow
-              // The feed carries no id of its own - a run and a journal line have different
-              // primary keys, and stamping a synthetic one on here would be a fact this page
-              // invented. Position is stable because the list is never reordered client-side.
-              key={index}
-              action={action}
-              people={people.data}
-              avatarBaseUrl={avatarBase.data}
-              now={now}
-            />
-          ))}
-        </ul>
-      )}
+      <QueryState
+        query={actions}
+        isEmpty={(list) => list.length === 0}
+        empty={{
+          title: "Nothing recorded yet",
+          note: "Every update, backup and access change shows up here as it happens.",
+        }}
+      >
+        {(list) => (
+          <ul className="flex flex-col">
+            {/* Four while waiting, because that is what `useActions(5)` all but always answers. */}
+            {(list ?? WAITING_ACTIONS).map((action, index) => (
+              <ActionRow
+                // The feed carries no id of its own - a run and a journal line have different
+                // primary keys, and stamping a synthetic one on here would be a fact this page
+                // invented. Position is stable because the list is never reordered client-side.
+                key={index}
+                action={action}
+                people={people.data}
+                avatarBaseUrl={avatarBase.data}
+                now={now}
+              />
+            ))}
+          </ul>
+        )}
+      </QueryState>
       <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
         <Link to="/journal">The whole journal</Link>
       </Button>

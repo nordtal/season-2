@@ -149,8 +149,9 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
  * shape is n bars of one height anyway, and for the few that cannot be drawn without their data.
  *
  * **The skeleton appears immediately and only on the first load.** No delay and no minimum
- * duration (Till, 2026-09-19: *"Gerade bei den Minecraft Köpfen sieht es ohne Skeleton erst recht
- * komisch aus wenn die nachladen"*), and `isPending` is false as soon as there is anything to show,
+ * duration - Till named the Minecraft heads as the case that made the point, where an image
+ * arriving into nothing is worse than anything a delay would save. `isPending` is false as soon as
+ * there is anything to show,
  * so a refetch leaves the old data standing rather than greying the page out on every poll.
  *
  * **A disabled query is `isPending` for ever**, and that is the trap this component fell into.

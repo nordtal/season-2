@@ -127,7 +127,10 @@ afterEach(() => {
 describe("the network view", () => {
   it("draws every service in navigation.ts, plus the box the traffic comes from", async () => {
     draw()
-    await waitFor(() => expect(box("smp")).toBeTruthy())
+    // The BOX is no longer the signal that the answer arrived: since steward/120 the whole picture
+    // is drawn from `PLAN` before `/api/services` has said anything, and only the three fetched
+    // things inside a box wait. So these wait on one of those instead.
+    await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     const drawn = [...document.querySelectorAll("[data-node]")].map(
       (node) => (node as HTMLElement).dataset.node,
@@ -150,7 +153,7 @@ describe("the network view", () => {
 
   it("puts a count on the four that have one and nothing at all on the six that do not", async () => {
     draw()
-    await waitFor(() => expect(box("smp")).toBeTruthy())
+    await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     expect(within(box("smp")).getByTitle("players").textContent).toBe("3")
     expect(within(box("limbo")).getByTitle("players").textContent).toBe("4")
@@ -188,7 +191,7 @@ describe("the network view", () => {
    */
   it("never puts the count on the identifier's own row, which is what truncated it", async () => {
     draw()
-    await waitFor(() => expect(box("smp")).toBeTruthy())
+    await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     for (const name of ["smp", "limbo", "proxy", "hunger-games"]) {
       const identifier = within(box(name)).getByRole("link", { name })
@@ -210,7 +213,7 @@ describe("the network view", () => {
 
   it("marks the three image states that are not current, and leaves the current one unmarked", async () => {
     draw()
-    await waitFor(() => expect(box("smp")).toBeTruthy())
+    await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     expect(within(box("hunger-games")).getByLabelText("a newer image exists")).toBeTruthy()
     expect(within(box("proxy")).getByLabelText("built on this host")).toBeTruthy()
@@ -225,7 +228,7 @@ describe("the network view", () => {
 
   it("puts the running tag under the name, not the whole reference", async () => {
     draw()
-    await waitFor(() => expect(box("smp")).toBeTruthy())
+    await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     expect(box("smp").textContent).toContain("1.4.0")
     expect(box("smp").textContent).not.toContain("ghcr.io")
@@ -245,7 +248,7 @@ describe("the network view", () => {
       }),
     }
     draw(silent)
-    await waitFor(() => expect(box("smp")).toBeTruthy())
+    await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     for (const name of ["smp", "hunger-games", "limbo", "proxy", "players"]) {
       expect(within(box(name)).queryByTitle("players"), `${name} must draw no count`).toBeNull()
@@ -304,7 +307,7 @@ describe("a stopped node says nothing rather than half of something (steward/123
 describe("the view collapses a group's edges into one drawn line each (Till, 2026-09-18)", () => {
   it("draws one traffic edge into each group and one data foot out of each group", async () => {
     draw()
-    await waitFor(() => expect(box("smp")).toBeTruthy())
+    await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     const edgeKeys = [...document.querySelectorAll("[data-edge]")].map(
       (el) => (el as HTMLElement).dataset.edge,

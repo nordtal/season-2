@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { useAvatarBaseUrl, useServices } from "@/lib/queries"
 import { count } from "@/lib/format"
 import { MinecraftHead } from "@/components/steward/identity"
+import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
@@ -108,6 +109,19 @@ function Stack({
   // Never negative, and never computed from the faces alone: with no roster the overflow IS the
   // whole count, which is the state this interface is actually in today.
   const rest = Math.max((online.total ?? 0) - shown.length, 0)
+
+  // steward/120: `pending` has been arriving on this object since it existed and was read by
+  // nobody. One circle, because one circle is the shape this stack has on almost every day of the
+  // season - and because an invented number of them would be a guess about how busy the server is.
+  if (online.pending) {
+    return (
+      <ul className="flex shrink-0 items-center -space-x-2">
+        <li className="rounded-md ring-2 ring-background">
+          <Skeleton className={`${size} rounded-md`} />
+        </li>
+      </ul>
+    )
+  }
   if (online.total === undefined || online.total === 0) return null
 
   return (
@@ -139,6 +153,14 @@ function Stack({
 
 /** Where they are, as numbers - the one thing the heading can add that the tiles below do not. */
 function Where({ online, className }: { online: Online; className?: string }) {
+  if (online.pending) {
+    return (
+      <div className={`flex items-center gap-3 ${className ?? ""}`}>
+        <SkeletonText className="w-14 text-xs" />
+        <SkeletonText className="w-20 text-xs" />
+      </div>
+    )
+  }
   if (online.servers.length === 0) return null
   return (
     <ul className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground ${className ?? ""}`}>
@@ -171,10 +193,17 @@ export function OnlineLine({ online }: { online: Online }) {
     <Heading>
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <Stack online={online} base={base} />
-        <p className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-semibold tabular-nums tracking-tight">{number}</span>
-          <span className="text-sm text-muted-foreground">{word}</span>
-        </p>
+        {online.pending ? (
+          <p className="flex items-baseline gap-1.5">
+            <SkeletonText className="w-10 text-2xl" />
+            <SkeletonText className="w-24 text-sm" />
+          </p>
+        ) : (
+          <p className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-semibold tabular-nums tracking-tight">{number}</span>
+            <span className="text-sm text-muted-foreground">{word}</span>
+          </p>
+        )}
       </div>
       <Where online={online} />
     </Heading>

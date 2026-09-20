@@ -176,12 +176,19 @@ job: holding the ten seconds in which the proxy itself is gone. Two Paper proces
 would not work at all (`session.lock`), which is why the standby of a backend is a *different*
 world and never a second copy of the same one.
 
-**Those ten seconds are the price, and they were chosen rather than lost.** An L4 frontend on 25565
-would remove them, and would put a permanent process in front of the whole network whose drain
-never finishes when sessions run for hours. A doorman that keeps both proxies up forever and swaps
-roles saves one loading screen and buys a persistent "which one is live" that somebody has to be
-right about. A cookie on the client would carry the return note, and would make the client the
-authority on which server it may enter. All three were weighed and none is built.
+**Those ten seconds used to be the price, and since season-2-ops/162 the door stays open through
+them.** Caddy - the same container that fronts the interface, rebuilt with `caddy-l4` - owns 25565
+and hands the stream to `proxy`, and to `proxy-standby` for as long as the live proxy does not take
+it. Measured on the dev host on 2026-09-20: run 73 left the port dead for 26 seconds; run 87, a
+restart of the same proxy with the guard in front, answered 349 of 349 pings. The guard is in no
+profile an update run touches and `Topology.SERVICES` does not know it, which is the whole of why it
+is allowed to be the one permanent process in front of the network: a guard that restarted with the
+proxy would have moved the dead port rather than closed it. The cost it does carry is that Velocity
+now sees the guard's address, so both proxies run with `haproxy-protocol` and the guard writes a
+PROXY header - one without the other answers nobody. The two alternatives weighed beside it are
+still not built: a doorman that keeps both proxies up forever and swaps roles buys a persistent
+"which one is live" that somebody has to be right about, and a cookie on the client would make the
+client the authority on which server it may enter.
 
 **Parking is a moment; the door is a state.** The park happens once, when the countdown reaches
 zero, to whoever is connected then — and the process does not stop for another several seconds

@@ -124,6 +124,14 @@ export function summarise(input: {
     if (service.standby === true && !isUp(service.state)) {
       continue
     }
+    // The same exemption for the same reason, one ticket later (steward/134): a service somebody
+    // put down on purpose is not a fault either. `hold` is the `service_hold` row the worker passes
+    // through, and it is the only thing that can tell a deliberate stop from a crash - the
+    // container is `exited` in both cases. A held service that is RUNNING and unhealthy falls
+    // through to the check below and stays red, exactly as a standby does.
+    if (service.hold !== undefined && !isUp(service.state)) {
+      continue
+    }
     if (!isUp(service.state)) {
       triggers.push({
         level: "down",

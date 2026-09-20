@@ -1,6 +1,7 @@
 import { cn } from "cn"
 
 import type { Service } from "@/lib/api"
+import { dateTime } from "@/lib/format"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -76,8 +77,8 @@ export function StatusBadge({
   )
 }
 
-/** The two fields {@link serviceTone} and {@link ServiceState} actually need. */
-export type ServiceHealth = Pick<Service, "state" | "health">
+/** The three fields {@link serviceTone} and {@link ServiceState} actually need. */
+export type ServiceHealth = Pick<Service, "state" | "health" | "hold">
 
 /**
  * One service, reduced to the tone the rest of this file already draws in three colours.
@@ -88,16 +89,58 @@ export type ServiceHealth = Pick<Service, "state" | "health">
  * fine" is exactly how `panel.tsx` drifted from the rest of the app's Caps rule (steward/77): one
  * of them gets fixed and the other is forgotten.
  */
-export function serviceTone(service: ServiceHealth): Exclude<Tone, "idle"> {
+export function serviceTone(service: ServiceHealth): Tone {
+  // steward/134: a stopped service somebody put down on purpose is the one case where "not
+  // running" is not a fault. `hold` is the row out of `service_hold` and the only thing that can
+  // say so - the container is `exited` whether it was stopped or fell over - and `idle` is this
+  // file's existing word for "nothing is wrong and nothing is green either".
+  if (held(service)) return "idle"
   if (service.state !== "running") return "down"
   if (service.health === "unhealthy") return "down"
   if (service.health === "starting") return "warn"
   return "ok"
 }
 
+/**
+ * Whether this service is stopped **and** meant to be.
+ *
+ * Both halves, and the second one is why this is a function: a hold on a container that is running
+ * anyway describes nothing about its health - `health.ts` keeps such a row red for the same reason,
+ * and a hold that outlived its stop must not paint an unhealthy service neutral.
+ */
+export function held(service: ServiceHealth): boolean {
+  return service.hold !== undefined && service.state !== "running"
+}
+
 /** Docker's container state, with health folded in where there is one. */
-export function ServiceState({ state, health }: { state: string; health?: string }) {
+export function ServiceState({
+  state,
+  health,
+  hold,
+}: {
+  state: string
+  health?: string
+  /** The hold, where the caller has one. A stopped service with one reads as held, not as down. */
+  hold?: Service["hold"]
+}) {
   if (state !== "running") {
+    if (hold) {
+      // One badge, not two (steward/134). The service page used to draw Docker's word in red and a
+      // second badge beside it saying the state was deliberate - which is the same sentence twice,
+      // and the red half of it was the wrong half. What Docker calls the container is in the title,
+      // where it is still readable and no longer an accusation.
+      return (
+        <StatusBadge
+          tone="idle"
+          title={
+            `Held down since ${dateTime(hold.since)}${hold.by ? ` by ${hold.by}` : ""}.` +
+            ` No update and no restart starts it again. Docker reports the state "${state}".`
+          }
+        >
+          held down
+        </StatusBadge>
+      )
+    }
     return (
       <StatusBadge tone="down" title={`Docker reports the state "${state}".`}>
         {STATES[state] ?? state}
@@ -135,16 +178,21 @@ const STATES: Record<string, string> = {
   dead: "dead",
 }
 
-const DOT_TONE: Record<Exclude<Tone, "idle">, string> = {
+const DOT_TONE: Record<Tone, string> = {
   ok: "bg-success",
   warn: "bg-warning",
   down: "bg-destructive",
+  // Neither of the three, on purpose: a held service is not an alarm and not a clean bill of
+  // health. `border` rather than a fill, so it also differs from the other three in shape and not
+  // only in colour - the rule at the top of this file, applied to a dot that carries no word.
+  idle: "border border-muted-foreground/60 bg-muted-foreground/30",
 }
 
-const DOT_WORD: Record<Exclude<Tone, "idle">, string> = {
+const DOT_WORD: Record<Tone, string> = {
   ok: "healthy",
   warn: "starting",
   down: "unhealthy",
+  idle: "held down",
 }
 
 /**

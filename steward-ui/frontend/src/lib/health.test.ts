@@ -192,6 +192,76 @@ describe("summarise - a standby that is off", () => {
   })
 })
 
+describe("summarise - a service somebody put down on purpose", () => {
+  const SINCE = new Date(NOW - HOUR).toISOString()
+
+  it("two held services are not two faults, because somebody decided both of them", () => {
+    // steward/134, and the same argument steward/125 makes one describe above for the standbys: a
+    // state an operator produced on purpose must not be reported as a fault, or the counter stops
+    // being read. The difference between "put down" and "fell over" exists only in `service_hold`,
+    // and `hold` is the worker passing that row through - so this is keyed on it and nothing else.
+    const { level, triggers } = summarise({
+      ...healthy(),
+      table: table([
+        service({
+          service: "smp",
+          state: "exited",
+          status: "Exited (0) 5 minutes ago",
+          hold: { since: SINCE, by: "hmtill" },
+        }),
+        service({
+          service: "hunger-games",
+          state: "exited",
+          status: "Exited (0) 5 minutes ago",
+          hold: { since: SINCE, by: null },
+        }),
+      ]),
+    })
+
+    expect(level).toBe("ok")
+    expect(triggers).toHaveLength(0)
+  })
+
+  it("a held service that is RUNNING and unhealthy is still red", () => {
+    // A hold says "this is meant to be stopped". A container that is up anyway and failing its own
+    // healthcheck is not what anybody asked for, so the exemption ends where the standbys' does.
+    const { level, triggers } = summarise({
+      ...healthy(),
+      table: table([
+        service({
+          service: "smp",
+          state: "running",
+          health: "unhealthy",
+          hold: { since: SINCE, by: "hmtill" },
+        }),
+      ]),
+    })
+
+    expect(level).toBe("down")
+    expect(triggers[0].text).toBe("smp is running, but reports itself unhealthy.")
+  })
+
+  it("a stopped service beside a held one is still a fault of its own", () => {
+    // The whole risk of this exemption: a real outage going quiet because something else is held.
+    const { level, triggers } = summarise({
+      ...healthy(),
+      table: table([
+        service({
+          service: "smp",
+          state: "exited",
+          status: "Exited (0) 5 minutes ago",
+          hold: { since: SINCE, by: "hmtill" },
+        }),
+        service({ service: "proxy", state: "exited", status: "Exited (1) 1 minute ago" }),
+      ]),
+    })
+
+    expect(level).toBe("down")
+    expect(triggers).toHaveLength(1)
+    expect(triggers[0].subject).toBe("proxy")
+  })
+})
+
 describe("summarise - a service that is not running", () => {
   it("turns the light red and names the service and Docker's own words", () => {
     const { level, triggers } = summarise({

@@ -74,12 +74,16 @@ describe("ServiceHead - a service somebody is holding down (season-2-ops/125)", 
       />,
     )
 
-    expect(screen.queryByText("Held down")).not.toBeNull()
+    // steward/134 merged the two badges into one: the state badge itself reads "held down" now,
+    // rather than Docker's word in red with an explanation beside it.
+    expect(screen.queryByText("held down")).not.toBeNull()
+    expect(screen.queryByText("exited")).toBeNull()
   })
 
   it("says nothing of the sort about a service that merely stopped", () => {
     draw(<ServiceHead service={service({ state: "exited", status: "Exited (1) 4 minutes ago" })} />)
 
-    expect(screen.queryByText("Held down")).toBeNull()
+    expect(screen.queryByText("held down")).toBeNull()
+    expect(screen.queryByText("exited")).not.toBeNull()
   })
 })

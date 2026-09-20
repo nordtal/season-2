@@ -95,3 +95,39 @@ describe("the sidebar stays silent (steward/83, unchanged by steward/81)", () =>
     expect(mentionsQuiet(broken).length).toBe(1)
   })
 })
+
+/**
+ * Held down is its own reading (steward/134).
+ *
+ * `service_hold` is the only place the difference between "somebody put this down" and "this fell
+ * over" exists - the container state is `exited` either way. Until this ticket that difference was
+ * drawn on exactly one page, the service's own, so the sidebar and the network view showed a
+ * deliberate hold in the colour of an outage.
+ */
+describe("a held service is not a broken one (steward/134)", () => {
+  const held = { state: "exited", hold: { since: "2026-09-20T18:00:00Z", by: "hmtill" } }
+
+  it("says the word, in neither the fine colour nor the broken one", () => {
+    render(<HealthDot service={held} />)
+    const dot = screen.getByLabelText("held down")
+    expect(dot.className).not.toContain("bg-destructive")
+    expect(dot.className).not.toContain("bg-success")
+  })
+
+  it("is never silent, because being held is what somebody came to the list to find", () => {
+    const { container } = render(<HealthDot service={held} />)
+    expect(container.innerHTML).not.toBe("")
+  })
+
+  it("leaves a service that fell over looking like one", () => {
+    render(<HealthDot service={{ state: "exited" }} />)
+    expect(screen.getByLabelText("unhealthy").className).toContain("bg-destructive")
+  })
+
+  it("changes nothing about a held container that is running anyway", () => {
+    // The hold describes being stopped. One that is up and failing its healthcheck is not what
+    // anybody asked for, and `health.ts` keeps it red for the same reason.
+    render(<HealthDot service={{ ...held, state: "running", health: "unhealthy" }} quiet={false} />)
+    expect(screen.getByLabelText("unhealthy").className).toContain("bg-destructive")
+  })
+})

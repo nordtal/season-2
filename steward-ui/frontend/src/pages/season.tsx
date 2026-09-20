@@ -1,5 +1,5 @@
 import { CalendarDotIcon, FlagIcon, ShieldWarningIcon } from "@phosphor-icons/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import type { Season } from "@/lib/api"
@@ -8,7 +8,7 @@ import { useSeason, useSetPhase, useSetSeasonDate } from "@/lib/queries"
 import { SEASON_PHASES as PHASES, type SeasonPhaseName as PhaseName } from "@/lib/season-phases"
 import { CommandCard, isAccessCommand } from "@/components/steward/command-card"
 import { PageHeader } from "@/components/steward/page-header"
-import { Failure, QueryState } from "@/components/steward/query-state"
+import { Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   ResponsiveAlertDialog,
@@ -50,7 +50,7 @@ export function SeasonPage() {
         title="Season"
       />
 
-      <QueryState query={season} rows={4}>
+      <QueryState query={season}>
         {(current) => (
           <>
             <PhaseCard season={current} />
@@ -74,11 +74,11 @@ export function SeasonPage() {
   )
 }
 
-function PhaseCard({ season }: { season: Season }) {
+function PhaseCard({ season }: { season?: Season }) {
   const [asked, setAsked] = useState<PhaseName | null>(null)
   const [reason, setReason] = useState("")
   const change = useSetPhase()
-  const current = PHASES.find((phase) => phase.name === season.phase)
+  const current = PHASES.find((phase) => phase.name === season?.phase)
 
   function confirm() {
     if (!asked) return
@@ -103,8 +103,14 @@ function PhaseCard({ season }: { season: Season }) {
           Phase
         </CardTitle>
         <CardDescription>
-          <span className="font-medium text-foreground">{current?.label ?? season.phase}</span>{" "}
-          <span className="font-mono text-xs">({season.phase})</span>
+          {season ? (
+            <>
+              <span className="font-medium text-foreground">{current?.label ?? season.phase}</span>{" "}
+              <span className="font-mono text-xs">({season.phase})</span>
+            </>
+          ) : (
+            <SkeletonText width="medium" />
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -117,8 +123,10 @@ function PhaseCard({ season }: { season: Season }) {
         */}
         {change.error && asked === null ? <Failure error={change.error} /> : null}
 
+        {/* The five phases are written into this file, so the whole list is drawn at once and
+            only the one thing that is fetched - which of them is current - waits. */}
         {PHASES.map((phase) => {
-          const active = phase.name === season.phase
+          const active = phase.name === season?.phase
           return (
             <div
               key={phase.name}
@@ -130,6 +138,7 @@ function PhaseCard({ season }: { season: Season }) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{phase.label}</span>
                   {active ? <Badge variant="secondary">now</Badge> : null}
+                  {season ? null : <Skeleton className="h-5 w-10 rounded-full" />}
                   <span className="font-mono text-xs text-muted-foreground">{phase.name}</span>
                 </div>
                 <p className="max-w-prose text-sm text-muted-foreground">{phase.who}</p>
@@ -141,7 +150,7 @@ function PhaseCard({ season }: { season: Season }) {
                 type="button"
                 variant={active ? "ghost" : "outline"}
                 size="sm"
-                disabled={active || change.isPending}
+                disabled={!season || active || change.isPending}
                 onClick={() => setAsked(phase.name)}
               >
                 {active ? "current" : "Switch"}
@@ -206,7 +215,7 @@ function PhaseCard({ season }: { season: Season }) {
   )
 }
 
-function DatesCard({ season }: { season: Season }) {
+function DatesCard({ season }: { season?: Season }) {
   return (
     <Card>
       <CardHeader>
@@ -220,13 +229,15 @@ function DatesCard({ season }: { season: Season }) {
           which="launch"
           label="Network launch"
           note="What the countdown before launch counts towards."
-          at={season.launch}
+          at={season?.launch}
+          waiting={!season}
         />
         <DateField
           which="smpStart"
           label="SMP launch"
           note="When the season properly begins."
-          at={season.smpStart}
+          at={season?.smpStart}
+          waiting={!season}
         />
       </CardContent>
     </Card>
@@ -238,32 +249,47 @@ function DateField({
   label,
   note,
   at,
+  waiting,
 }: {
   which: "launch" | "smpStart"
   label: string
   note: string
   at?: string
+  /** `at` is absent for two different reasons: no date is set, or none has arrived yet. */
+  waiting?: boolean
 }) {
-  const [local, setLocal] = useState(toLocalInput(at))
+  const saved = toLocalInput(at)
+  const [local, setLocal] = useState(saved)
   const change = useSetSeasonDate()
-  const dirty = local !== toLocalInput(at)
+  const dirty = local !== saved
+
+  // steward/120: the field is mounted before the answer, so its initial state is the empty string
+  // and `useState` would keep it there for ever. Nothing is overwritten that somebody typed: this
+  // only runs while the field is still exactly what it was initialised with.
+  useEffect(() => {
+    setLocal((current) => (current === "" ? saved : current))
+  }, [saved])
 
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={which}>{label}</Label>
       <p className="max-w-prose text-sm text-muted-foreground">{note}</p>
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          id={which}
-          type="datetime-local"
-          className="w-auto"
-          value={local}
-          onChange={(event) => setLocal(event.target.value)}
-        />
+        {waiting ? (
+          <Skeleton className="h-control w-56" />
+        ) : (
+          <Input
+            id={which}
+            type="datetime-local"
+            className="w-auto"
+            value={local}
+            onChange={(event) => setLocal(event.target.value)}
+          />
+        )}
         <Button
           type="button"
           size="sm"
-          disabled={!dirty || local === "" || change.isPending}
+          disabled={waiting || !dirty || local === "" || change.isPending}
           onClick={() =>
             change.mutate(
               { which, at: new Date(local).toISOString() },
@@ -279,9 +305,13 @@ function DateField({
           </Button>
         ) : null}
       </div>
-      <p className="text-sm text-muted-foreground">
-        {at ? `Saved: ${dateTime(at)} (${relative(at)})` : "No date set yet."}
-      </p>
+      {waiting ? (
+        <SkeletonText className="text-sm" width="long" />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {at ? `Saved: ${dateTime(at)} (${relative(at)})` : "No date set yet."}
+        </p>
+      )}
       {change.error ? <Failure error={change.error} /> : null}
     </div>
   )

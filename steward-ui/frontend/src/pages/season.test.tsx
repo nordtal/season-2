@@ -58,12 +58,27 @@ function draw(node: ReactNode) {
   )
 }
 
-/** Press "Switch" on the row of one phase, found by the constant printed beside its label. */
+/**
+ * Press "Switch" on the row of one phase, found by the constant printed beside its label.
+ *
+ * The five rows are drawn from a constant in the page, so since steward/120 they are on screen
+ * before `/api/season` has answered - and their buttons are disabled until it has, because a
+ * Switch that cannot know which phase is current is a Switch that might be the current one.
+ *
+ * **Every lookup here is repeated inside the `waitFor`, and that is not style.** The first pass
+ * finds a row that is still waiting; by the time the button is enabled React has re-rendered that
+ * subtree, and a node captured before the answer can be one that is no longer in the document. A
+ * detached button is disabled for ever and reports nothing else, so holding one turns this into a
+ * five-second timeout with no message worth reading.
+ */
 async function ask(phase: string): Promise<HTMLElement> {
-  const name = await screen.findByText(phase)
-  const card = name.closest("div.rounded-md")
-  if (!card) throw new Error(`the row of ${phase} is not shaped the way this test assumed`)
-  fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "Switch" }))
+  const live = () => {
+    const card = screen.getByText(phase).closest("div.rounded-md")
+    if (!card) throw new Error(`the row of ${phase} is not shaped the way this test assumed`)
+    return within(card as HTMLElement).getByRole("button", { name: "Switch" }) as HTMLButtonElement
+  }
+  await waitFor(() => expect(live().disabled).toBe(false))
+  fireEvent.click(live())
   return screen.findByRole("alertdialog")
 }
 

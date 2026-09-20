@@ -27,13 +27,13 @@ afterEach(cleanup)
 const row = (data: string | undefined) => <span>{data ?? "…"}</span>
 
 describe("QueryState", () => {
-  it("draws skeletons while a query is actually running", () => {
+  it("draws the waiting shape while a query is actually running", () => {
     render(
       <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "fetching" }}>
         {row}
       </QueryState>,
     )
-    expect(screen.getByRole("status")).toBeTruthy()
+    expect(screen.getByText("…")).toBeTruthy()
   })
 
   it("says so when a query is switched off, rather than waiting for ever", () => {
@@ -46,12 +46,12 @@ describe("QueryState", () => {
     expect(screen.getByText(/nothing was requested/i)).toBeTruthy()
   })
 
-  it("still draws skeletons when nothing said which it is", () => {
+  it("still draws the waiting shape when nothing said which it is", () => {
     // `fetchStatus` is optional, because a page may hand in a plain object rather than a query.
     render(
       <QueryState query={{ data: undefined, error: null, isPending: true }}>{row}</QueryState>,
     )
-    expect(screen.getByRole("status")).toBeTruthy()
+    expect(screen.getByText("…")).toBeTruthy()
   })
 
   it("hands the data to the child once it is there", () => {
@@ -88,6 +88,8 @@ describe("QueryState", () => {
         {(data: string) => <span>{data}</span>}
       </QueryState>,
     )
+    // `role="status"` belongs to `Loading` alone: it is a box of its own, so it can be announced
+    // without standing in anybody's layout. The shaped branch above deliberately has no wrapper.
     expect(screen.getByRole("status")).toBeTruthy()
     expect(screen.queryByText("…")).toBeNull()
   })

@@ -41,21 +41,25 @@ export function Loading({ rows = 5, label }: { rows?: number; label?: string }) 
 }
 
 /**
- * What the child is wrapped in while it is drawing itself without data.
+ * <h2>There is no wrapper around a waiting child, and that is load-bearing</h2>
+ * The obvious shape for the waiting branch below is a `<div role="status" aria-busy>` around the
+ * child. It was written that way first and it is wrong, for a reason that cost an afternoon: React
+ * reconciles by position, so a child that sits inside a wrapper in one render and directly in the
+ * fragment in the next is **unmounted and mounted again** the moment the answer lands. Everything
+ * the DOM was holding goes with it - focus, scroll position, the text in an uncontrolled field, an
+ * open popover - and `season.test.tsx` caught it as a button that stayed disabled for ever,
+ * because the node the test was holding had been thrown away a millisecond after it found it.
  *
- * A screen reader is told once, here, that something is on its way; the skeleton surfaces inside
- * are `aria-hidden` and would otherwise be an announcement of nothing at all. `pointer-events-none`
- * is the other half: a skeleton that borrows a button's layout also borrows its hit area, and a
- * click on a control that does not exist yet is at best nothing and at worst the wrong thing.
+ * Keeping the wrapper in *both* branches fixes the remount and buys a second problem: the div then
+ * sits inside every `<TableBody>` a call site wraps, where it is not valid markup. So both branches
+ * render `<>{children(...)}</>` and nothing else.
+ *
+ * What that costs is the announcement. A screen reader is told "loading" only on the `rows` path,
+ * where {@link Loading} is a box of its own and can carry `role="status"` without being in
+ * anybody's layout. On the shaped path the skeletons are `aria-hidden` and the surrounding page -
+ * headings, labels, the table's own header - is already on screen and already readable, which is
+ * the whole point of drawing the shape rather than a grey block.
  */
-export function Waiting({ children, label }: { children: ReactNode; label?: string }) {
-  return (
-    <div role="status" aria-busy="true" className="pointer-events-none select-none">
-      <span className="sr-only">{label ?? "Loading…"}</span>
-      {children}
-    </div>
-  )
-}
 
 export function Empty({ title, note, action }: { title: string; note?: string; action?: ReactNode }) {
   return (
@@ -208,7 +212,7 @@ export function QueryState<T>(
   }
   if (query.error) return <Failure error={query.error} onRetry={query.refetch} />
   if (query.isPending || query.data === undefined) {
-    return props.rows === undefined ? <Waiting>{draw(undefined)}</Waiting> : <Loading rows={props.rows} />
+    return props.rows === undefined ? <>{draw(undefined)}</> : <Loading rows={props.rows} />
   }
   if (empty && isEmpty?.(query.data)) return <Empty title={empty.title} note={empty.note} />
   return <>{draw(query.data)}</>

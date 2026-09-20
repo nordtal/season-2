@@ -173,6 +173,19 @@ jobs:
             ghcr.io/nordtal/steward-ui:${{ env.VERSION }}
             ghcr.io/nordtal/steward-ui:latest
 
+      # The guard in front of 25565 (season-2-ops/162), which is Caddy plus `caddy-l4` and therefore
+      # cannot be the stock image from Docker Hub any more: a layer 4 app is a Go module and the
+      # module list is decided at build time. It carries no Gradle output either - it is an xcaddy
+      # build - so, like the minecraft image, a change to it needs a release to reach production.
+      - name: Build and push the caddy image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: deploy/caddy
+          push: true
+          tags: |
+            ghcr.io/nordtal/caddy:${{ env.VERSION }}
+            ghcr.io/nordtal/caddy:latest
+
       # The one image that carries compose.yml (§8b), which is what makes "which compose file is
       # live" a question with a version number for an answer. It is also the one image nothing in
       # the stack can renew: the service that would have to do it is this one, so a new version of

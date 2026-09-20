@@ -115,50 +115,89 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("voice chat is one UDP port, on the proxy, and no backend publishes one")
-    void voiceChatIsOneUdpPortOnTheProxy() {
+    @DisplayName("voice chat is one UDP port, on the guard, and no service of the network publishes one")
+    void voiceChatIsOneUdpPortOnTheGuard() {
         // With Simple Voice Chat's Velocity plugin the proxy detects each backend's voice address
         // itself and forwards over the internal network, so the outside world needs exactly one UDP
-        // port. A backend that grows a UDP port again expects audio somewhere the proxy is not
-        // looking.
-        final List<String> proxyUdp = udpPorts(Topology.PROXY);
-        assertEquals(1, proxyUdp.size(), "the proxy publishes " + proxyUdp + " UDP. Voice chat needs"
-                + " exactly one, because voicechat-proxy.properties ships port: -1 and therefore"
-                + " binds the proxy's own port.");
+        // port. Since season-2-ops/162 that port is published by the GUARD and no longer by the
+        // proxy: caddy owns 25565 in both protocols and hands each on to whichever proxy is
+        // answering. A service of the network that grows a port again takes it away from the guard.
+        for (final Topology.Service service : Topology.SERVICES) {
+            assertEquals(List.of(), ports(service.name()), service.name() + " publishes "
+                    + ports(service.name()) + ". Since the guard (season-2-ops/162) nothing in the"
+                    + " network is reachable from outside except through caddy - a port here is"
+                    + " either a leftover or a second, disagreeing arrangement, and it takes the"
+                    + " number away from the guard that needs it.");
+        }
 
-        // "${PROXY_BIND:-0.0.0.0}:25565:25565/udp"
-        final String mapping = proxyUdp.getFirst();
-        final List<String> parts = fields(mapping.substring(0, mapping.length() - "/udp".length()));
-        assertEquals(3, parts.size(), mapping + " is not bind:host:container");
-        assertEquals(parts.get(1), parts.get(2), "the proxy maps UDP " + parts.get(1) + " to "
-                + parts.get(2) + ". Simple Voice Chat hands the client the port it is bound to"
-                + " INSIDE the container, so a remapped port answers the handshake and then times"
-                + " out every packet after it.");
+        // "${PROXY_BIND:-0.0.0.0}:25565:25565/udp" on the guard, and the two 25565 are the point:
+        // voicechat-proxy.properties ships port: -1, so the plugin binds whatever port Velocity
+        // bound INSIDE the container and hands the CLIENT that same number. A remapped port answers
+        // the handshake and then times out every packet after it.
+        final String voice = udpPorts(GUARD).stream()
+                .filter(port -> port.contains(":25565:25565/udp"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(GUARD + " publishes " + udpPorts(GUARD)
+                        + " UDP and none of them is 25565 onto 25565. Voice chat needs exactly that"
+                        + " one, because the plugin binds the proxy's own port."));
+        final List<String> parts = fields(voice.substring(0, voice.length() - "/udp".length()));
+        assertEquals(3, parts.size(), voice + " is not bind:host:container");
 
         // The voice endpoint is the Minecraft endpoint with a different protocol; if the two ever
         // separate, the client is told to talk to a port compose does not publish.
-        final List<String> tcp = ports(Topology.PROXY).stream()
-                .filter(port -> !port.endsWith("/udp"))
-                .toList();
-        assertEquals(1, tcp.size(), "the proxy publishes " + tcp + " TCP");
-        final List<String> tcpParts = fields(tcp.getFirst());
-        assertEquals(tcpParts.getFirst(), parts.getFirst(), "voice is bound to " + parts.getFirst()
-                + " and Minecraft to " + tcpParts.getFirst() + ". One endpoint, one address.");
-        assertEquals(tcpParts.get(2), parts.get(2), "Velocity listens on " + tcpParts.get(2)
-                + " inside the container and voice chat is published from " + parts.get(2)
+        final String game = ports(GUARD).stream()
+                .filter(port -> !port.endsWith("/udp") && port.endsWith(":25565"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(GUARD + " publishes no TCP port onto 25565,"
+                        + " so the guard is listening for Minecraft nowhere"));
+        final List<String> gameParts = fields(game);
+        assertEquals(gameParts.getFirst(), parts.getFirst(), "voice is bound to " + parts.getFirst()
+                + " and Minecraft to " + gameParts.getFirst() + ". One endpoint, one address.");
+        assertEquals(gameParts.get(2), parts.get(2), "the guard listens on " + gameParts.get(2)
+                + " for Minecraft and publishes voice from " + parts.get(2)
                 + ". port: -1 means they are the same port, so these cannot differ.");
+    }
 
-        // Nobody else has one: a backend publishing UDP is a port left behind or a half-restored
-        // per-backend arrangement.
-        for (final Topology.Service service : Topology.SERVICES) {
-            if (service.name().equals(Topology.PROXY)) {
-                continue;
-            }
-            assertEquals(List.of(), udpPorts(service.name()), service.name() + " publishes a UDP"
-                    + " port. With voice chat's proxy plugin installed the backends are reached"
-                    + " over the compose network and publish nothing; a port here is either a"
-                    + " leftover or a second, disagreeing arrangement.");
-        }
+    /**
+     * The guard in front of 25565 (season-2-ops/162), which is a compose service and deliberately
+     * NOT a {@link Topology} one: a run stops what Topology names, and a guard that restarted with
+     * the proxy would have moved the dead port rather than closed it.
+     */
+    private static final String GUARD = "caddy";
+
+    @Test
+    @DisplayName("the guard prefers the live proxy and falls back to the standby")
+    void theGuardFallsBackToTheStandby() {
+        // The whole of what this ticket bought, in the one file that decides it. Run 73 left 25565
+        // dead for 26 seconds; the route below is why run 87 answered 349 of 349 pings through the
+        // same restart. `first` and the ORDER of the two upstreams are the rule: the standby is
+        // only ever the answer when the live proxy does not take the connection.
+        final String caddyfile = configContent("caddyfile");
+        assertTrue(caddyfile.contains("layer4 {"), "the caddy config has no layer4 app any more, so"
+                + " 25565 is published by a container that cannot speak it");
+        assertTrue(caddyfile.contains("lb_policy first"),
+                "the guard no longer prefers one upstream over the other: with any other policy"
+                        + " half the players land on the standby while the live proxy is up");
+        final int live = caddyfile.indexOf("upstream proxy:25565");
+        final int spare = caddyfile.indexOf("upstream proxy-standby:25565");
+        assertTrue(live > 0 && spare > 0,
+                "the guard does not name both proxies as upstreams: " + caddyfile);
+        assertTrue(live < spare, "the standby is named before the live proxy, and `first` takes"
+                + " them in order - every player would be parked on the standby");
+
+        // Both halves of the PROXY protocol, which are two files apart and only work together.
+        assertTrue(caddyfile.contains("proxy_protocol v2"),
+                "the guard stopped writing a PROXY header, so Velocity sees the guard's address for"
+                        + " every player - and with haproxy-protocol still true it sees nothing at"
+                        + " all");
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment =
+                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY))
+                        .get("environment");
+        assertTrue(String.valueOf(environment.get("VELOCITY_HAPROXY")).contains("true"),
+                "the proxy is not told to expect a PROXY header (VELOCITY_HAPROXY is "
+                        + environment.get("VELOCITY_HAPROXY") + "), while the guard writes one."
+                        + " One without the other is a network that answers nobody.");
     }
 
     @Test
@@ -1426,51 +1465,51 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("the standby proxy is the same proxy on a second port, and that is the port a client is told")
-    void theStandbyProxyPublishesTheSecondPort() {
+    @DisplayName("the standby is reached on a second port, and that is the port a client is told")
+    void theStandbyIsReachedOnTheSecondPort() {
         final String standby = Topology.standbyOf(Topology.PROXY);
-        final List<String> published = ports(standby);
-        final List<String> tcp = published.stream().filter(port -> !port.endsWith("/udp")).toList();
-        final List<String> udp = udpPorts(standby);
-        assertEquals(1, tcp.size(), standby + " publishes " + published + " - it needs exactly one"
-                + " TCP port, which is where a transferred client arrives");
-        assertEquals(1, udp.size(), standby + " publishes " + published + " - the UDP half belongs"
-                + " beside it, even limited as it is");
+        assertEquals(List.of(), ports(standby), standby + " publishes " + ports(standby)
+                + ". Since season-2-ops/162 it is reached through the guard, which forwards with a"
+                + " PROXY header - a connection arriving any other way is one Velocity drops,"
+                + " because haproxy-protocol is true in its velocity.toml.");
+
+        // The guard publishes it instead, in both protocols and on one host port: the TCP half is
+        // where a transferred client arrives, the UDP half is the voice the standby cannot use yet.
+        final List<String> tcp = ports(GUARD).stream()
+                .filter(port -> !port.endsWith("/udp") && port.contains("PROXY_STANDBY_PORT"))
+                .toList();
+        final List<String> udp = udpPorts(GUARD).stream()
+                .filter(port -> port.contains("PROXY_STANDBY_PORT"))
+                .toList();
+        assertEquals(1, tcp.size(), GUARD + " publishes " + tcp + " for the standby - it needs"
+                + " exactly one TCP port, which is where a transferred client arrives");
+        assertEquals(1, udp.size(), GUARD + " publishes " + udp + " for the standby");
 
         final List<String> tcpParts = fields(tcp.getFirst());
         final String withProtocol = udp.getFirst();
         final List<String> udpParts =
                 fields(withProtocol.substring(0, withProtocol.length() - "/udp".length()));
         assertEquals(tcpParts.get(1), udpParts.get(1),
-                standby + " publishes Minecraft and voice on two different host ports");
+                "the guard publishes the standby's Minecraft and voice on two different host ports");
 
-        // Velocity binds 25565 INSIDE every proxy container - the entrypoint seeds
-        // `bind = "0.0.0.0:25565"` and nothing parameterises it - so the container side is 25565
-        // here as well. This is also why voice chat cannot work on the standby: the plugin hands a
-        // client the port it is bound to, and on this host that number belongs to the other
-        // container. The note at the service says what that costs; this assertion is here so that
-        // nobody "fixes" the voice half by renumbering the container side and silently breaks the
-        // transfer instead.
-        assertEquals("25565", tcpParts.get(2),
-                standby + " maps its host port onto " + tcpParts.get(2) + " in the container, but"
-                        + " Velocity binds 25565 in there");
-        assertEquals("25565", udpParts.get(2), standby + " maps UDP onto " + udpParts.get(2));
+        // Not the live proxy's number: one host port serving both is the thing this was built to
+        // avoid, and the transfer would then send a player to the proxy he is leaving.
+        final String game = ports(GUARD).stream()
+                .filter(port -> !port.endsWith("/udp") && port.endsWith(":25565"))
+                .findFirst()
+                .orElseThrow();
+        assertNotEquals(fields(game).get(1), tcpParts.get(1), "the guard publishes the standby on"
+                + " the same host port as the live proxy, so a transfer sends a player nowhere");
 
-        final List<String> live = fields(ports(Topology.PROXY).stream()
-                .filter(port -> !port.endsWith("/udp")).findFirst().orElseThrow());
-        assertNotEquals(live.get(1), tcpParts.get(1), "the standby publishes the same host port as"
-                + " the proxy, so only one of the two could ever be up - which is the whole thing"
-                + " this was built to avoid");
-
-        // The port a transferred client is told to reconnect on has to be the port compose
-        // publishes. Two literals are two chances to write 25566 and 25567.
+        // The port a transferred client is told to reconnect on has to be the port the guard
+        // listens on. Two literals are two chances to write 25566 and 25567.
         @SuppressWarnings("unchecked")
         final Map<String, Object> environment =
                 (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY))
                         .get("environment");
         assertEquals(tcpParts.get(1),
                 String.valueOf(environment.get("NORDTAL_PROXY_NETWORK_STANDBY_PORT")),
-                "the proxy sends a client to a port compose does not publish for the standby");
+                "the proxy sends a client to a port the guard does not listen on");
     }
 
     @Test
@@ -1526,6 +1565,30 @@ class TopologyTest {
                 .findFirst()
                 .orElseThrow()
                 .plugins();
+    }
+
+    /**
+     * One entry of compose.yml's {@code configs:} block, as the file writes it.
+     *
+     * <p>The caddy configuration is the guard's whole behaviour (season-2-ops/162) and it lives
+     * there rather than in a file of its own, so a test about what the guard does has to read it
+     * where it is written.</p>
+     */
+    private static String configContent(final String name) {
+        final Path compose = findUpwards("compose.yml");
+        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> configs = (Map<String, Object>) root.get("configs");
+            assertNotNull(configs, compose + " has no configs block");
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> one = (Map<String, Object>) configs.get(name);
+            assertNotNull(one, compose + " has no config '" + name + "'");
+            return String.valueOf(one.get("content"));
+        } catch (final IOException unreadable) {
+            throw new AssertionError("could not read " + compose, unreadable);
+        }
     }
 
     private static Map<String, Object> readComposeServices() {

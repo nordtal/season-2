@@ -36,6 +36,14 @@ bunq-config.conf
 /deploy/servers/
 # The pack zip the devpack profile serves on localhost. Built from resource-pack/, never edited.
 /deploy/pack/
+# The local environment file, and it is a SECRET FILE (season-2-ops/147). It was a copy of the
+# example with obvious placeholders in it until `deploy/dev init` started asking real questions;
+# it now holds a generated database password, two Steward tokens and - for anybody who answers
+# them - a Discord application's client secret and a bot token. Untracked is not enough on its own,
+# because `git add -A` does not ask.
+/deploy/dev.env
+# Everything NORDTAL_DIR points at locally: worlds, jars, configs, the database's data directory.
+/deploy/local/
 
 ### IDE ###
 .idea/

@@ -1,0 +1,44 @@
+<!--
+  The Java half of local development (season-2-ops/149).
+
+  `deploy/dev ui` is the other half and is the default: the container on 127.0.0.1:8080 with the
+  Vite dev server in front of it, which needs Docker and Node and no JDK in the foreground. This
+  one is for the times the change IS in the Java - a route, a gate, the internal client - where a
+  rebuilt container for every edit is the wrong loop.
+
+  THE TWO CANNOT RUN AT ONCE. Both want :8080, and the second one to start says "Address already
+  in use" or, on the Docker side, a bind failure. `deploy/dev stop` is the way out of the first.
+
+  IT CARRIES NO CONFIGURATION AND NO SECRET, on purpose: this file is checked in. `:steward-ui:run`
+  takes its environment from `deploy/dev.env`, which is gitignored and which `deploy/dev init`
+  writes - see the block in steward-ui/build.gradle.kts. Without that file the process refuses to
+  start and names the first value it is missing, which is the right answer rather than a puzzle.
+
+  It lives in `.run/` because IntelliJ reads run configurations from there by itself, and because
+  `.run/` - unlike `.idea/`, `.vscode/` and `.fleet/` - is in no .gitignore in this repository. So
+  it is everybody's, not one laptop's.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="steward-ui (Java, :8080)" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value=":steward-ui:run" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <ForceTestExec>false</ForceTestExec>
+    <method v="2" />
+  </configuration>
+</component>

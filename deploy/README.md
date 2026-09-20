@@ -614,7 +614,8 @@ Chunky and the SMP's two world-generation datapacks. It does **not** fetch our f
 `deploy/dev up` has already put them in `plugins/` and the bootstrap installs only what is missing.
 Then join `localhost` with a real client.
 
-`deploy/dev` also carries `logs`, `console`, `mc`, `psql`, `ps`, `stop`, `down`, `pack` and `reset`;
+`deploy/dev` also carries `ui`, `logs`, `console`, `mc`, `psql`, `ps`, `stop`, `down`, `pack` and
+`reset`;
 `deploy/dev help` prints the list. Everything it does is `docker compose` with
 `--env-file deploy/dev.env`, so any of it can be typed by hand. **After editing `deploy/dev.env`,
 run `deploy/dev up` and not `deploy` —** `deploy` restarts the existing container, which reuses the
@@ -645,6 +646,40 @@ that does not work.
   every core. The cost is one postponed reset: the first daily reset finds no finished world, says
   so, and builds it then. The production default is `true`.
 - **Small heaps and `NETWORK_MAX_PLAYERS=20`.**
+
+### The interface
+
+Two halves, and the reason there is a command for it at all is that they are easy to start in the
+wrong order.
+
+```bash
+deploy/dev ui
+```
+
+brings up `postgres`, `steward-worker`, `steward-ui` and `steward-deployer` in the background, asks
+Gradle for the private Node and the npm packages, and then runs Vite in the foreground. The
+interface is on **http://localhost:5173**; the Java process behind it answers on `127.0.0.1:8080`,
+and Vite proxies `/api` and `/auth` to it. **Ctrl-C stops Vite and leaves the containers running** —
+the counter-command is `deploy/dev stop`.
+
+- **Naming the four services is what selects them.** Compose activates a service's profile when the
+  service is named on the command line, so nothing here needs `--profile` and Caddy stays out.
+- **There is no Node on this host and there is not going to be one.** `:steward-ui:npmInstall`
+  downloads its own under `steward-ui/build/nodejs/`, and `deploy/dev ui` *searches* for it rather
+  than spelling the path out — the directory name carries the platform, so a written path works on
+  one machine only. (`npx vitest` with no Node on `PATH` exits 0 having tested nothing, which is
+  how this matters.)
+- **Working on the Java half instead** means running `:steward-ui:run` and pointing Vite's proxy at
+  it — the same `:8080`, so the container and the Gradle process cannot both have it. Stop the
+  container first (`docker compose --env-file deploy/dev.env stop steward-ui`) or set
+  `STEWARD_UI_PORT` to something else in `deploy/dev.env`. The `run` task reads `deploy/dev.env`
+  into its environment, so it needs no configuration of its own and carries no secret in a run
+  configuration; `.run/steward-ui.run.xml` is that configuration for IntelliJ.
+- **`STEWARD_UI_PUBLIC_URL` is the address the browser uses**, which locally is
+  `http://localhost:5173` and not the container's port. Discord compares the redirect URI as a
+  string and WebAuthn compares the relying party to the page's own host, so a value that names the
+  wrong half fails at sign-in rather than at startup. `STEWARD_WEBAUTHN_RP_ID` is that address's
+  host, and `deploy/dev init` derives it rather than asking twice.
 
 ### The resource pack
 

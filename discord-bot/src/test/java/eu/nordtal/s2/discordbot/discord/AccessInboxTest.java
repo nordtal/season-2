@@ -66,7 +66,21 @@ class AccessInboxTest {
         public void setPlaytime(final String discordId, final long seconds, final Actor by) {
             carriedOut.add("playtime " + discordId + " " + seconds + " by " + by.filed());
         }
+
+        @Override
+        public boolean reloadMessages() {
+            carriedOut.add("reload");
+            return reloadSucceeds;
+        }
+
+        @Override
+        public java.util.List<String> unknownOverrideKeys() {
+            return unknownKeys;
+        }
     };
+
+    private boolean reloadSucceeds = true;
+    private List<String> unknownKeys = List.of();
 
     private final Inbox inbox = new Inbox();
 
@@ -161,6 +175,34 @@ class AccessInboxTest {
         assertEquals(2, inbox.sweeps, "the sweep is part of a pass, not something a caller adds");
     }
 
+    /**
+     * The three answers season-2-community/09 asks the interface to be able to give, as far as this
+     * side can produce them: re-read with nothing to report, re-read with typos named, and a
+     * re-read that did not happen. The third is a FAILED row on purpose - a bundle that no longer
+     * parses leaves the running one in place, and "applied, nothing to report" would be a lie.
+     */
+    @Test
+    @DisplayName("a reload names the keys nobody declares, and a failed one is a failure")
+    void reloadingMessagesReportsWhatItFound() {
+        inbox.waiting.add(row(1, AccessRequestKind.RELOAD_MESSAGES, "access", null, "admin"));
+        subject.drain();
+        assertEquals(List.of("reload"), carriedOut);
+        assertTrue(inbox.ok.get(1L));
+        assertEquals("{\"unknown\":\"\"}", inbox.settled.get(1L));
+
+        unknownKeys = List.of("dm.grantd", "dm.revokd");
+        inbox.waiting.add(row(2, AccessRequestKind.RELOAD_MESSAGES, "access", null, "admin"));
+        subject.drain();
+        assertEquals("{\"unknown\":\"dm.grantd,dm.revokd\"}", inbox.settled.get(2L));
+
+        reloadSucceeds = false;
+        inbox.waiting.add(row(3, AccessRequestKind.RELOAD_MESSAGES, "access", null, "admin"));
+        subject.drain();
+        assertFalse(inbox.ok.get(3L),
+                "a bundle that no longer parses leaves the running one in place; reporting that as"
+                        + " a success is how a saved change silently does nothing");
+    }
+
     @Test
     void aRowNobodySignedIsStillFiledUnderSomething() {
         inbox.waiting.add(row(1, AccessRequestKind.REVOKE, "400000000000000002", null, null));
@@ -202,6 +244,16 @@ class AccessInboxTest {
 
         @Override
         public void setPlaytime(final String discordId, final long seconds, final Actor by) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean reloadMessages() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public java.util.List<String> unknownOverrideKeys() {
             throw new UnsupportedOperationException();
         }
     }

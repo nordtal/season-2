@@ -116,7 +116,7 @@ function InstalledRow({ service, plugin }: { service: string; plugin?: ServicePl
         )}
       </div>
       {!plugin || plugin.running ? null : (
-        <StatusBadge tone="idle" title="Installs with the next update run.">
+        <StatusBadge tone="idle" tipContent="Installs with the next update run.">
           pre-booked
         </StatusBadge>
       )}
@@ -325,7 +325,7 @@ function InstallButton({
   // network gives it and nothing may take it away.
   if (hit.fixed) {
     return (
-      <StatusBadge tone="ok" title="The network gives this plugin. It cannot be removed.">
+      <StatusBadge tone="ok" tipContent="The network gives this plugin. It cannot be removed.">
         given
       </StatusBadge>
     )

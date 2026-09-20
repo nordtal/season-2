@@ -724,7 +724,7 @@ function DriftCard() {
                           )}
                         </TableCell>
                         <TableCell data-label="Compared">
-                          {service ? <DriftBadge drift={service.drift} /> : <Skeleton className="h-5 w-16 rounded-full" />}
+                          {service ? <DriftBadge drift={service.drift} image={service.image}/> : <Skeleton className="h-5 w-16 rounded-full" />}
                         </TableCell>
                         <TableCell data-label="Container" className="text-right">
                           {service ? <RecreateButton service={service.service} /> : null}

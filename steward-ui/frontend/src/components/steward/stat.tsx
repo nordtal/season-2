@@ -31,7 +31,7 @@ export function Stat({
 }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-0.5", className)}>
-      <span className="text-xs font-medium text-muted-foreground">
+      <span className="text-xs font-medium font-heading text-muted-foreground">
         {label}
       </span>
       <span

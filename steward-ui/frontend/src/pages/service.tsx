@@ -117,9 +117,9 @@ export function ServiceHead({
 }) {
   return (
     <Card>
-      <CardContent className="flex flex-wrap items-start gap-x-6 gap-y-4 pt-6">
+      <CardContent className="flex flex-wrap items-start gap-x-6 gap-y-4">
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-medium text-muted-foreground">
+          <span className="text-xs font-medium font-heading text-muted-foreground">
             State
           </span>
           <div className="flex items-center gap-2">
@@ -132,26 +132,16 @@ export function ServiceHead({
             ) : (
               <Skeleton className="h-5 w-20 rounded-full" />
             )}
-            {service ? <DriftBadge drift={service.drift} /> : null}
-            {service?.hasConsole ? (
-              <StatusBadge tone="idle" title="This service has a server console.">
-                Console
-              </StatusBadge>
-            ) : null}
+            {service ? <DriftBadge drift={service.drift} image={service.image} digests={service.digests} /> : null}
           </div>
-          {service ? (
-            <span className="text-xs text-muted-foreground">{service.status}</span>
-          ) : (
-            <SkeletonText className="w-48 text-xs" />
-          )}
-        </div>
-
-        <Separator orientation="vertical" className="hidden h-14 sm:block" />
-
         <Stat
           label="Uptime"
           value={service ? (service.startedAt ? since(service.startedAt) : "–") : undefined}
         />
+        </div>
+
+
+        <Separator orientation="vertical" className="hidden h-auto sm:block" />
         <Stat
           label="RAM"
           value={service ? bytes(service.memoryBytes) : undefined}
@@ -169,28 +159,6 @@ export function ServiceHead({
         {service?.players === undefined ? null : (
           <Stat label="Players" value={count(service.players)} />
         )}
-
-        <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:min-w-64">
-          <span className="text-xs font-medium text-muted-foreground">
-            Image
-          </span>
-          {service ? (
-            <code className="truncate text-sm">{service.image}</code>
-          ) : (
-            <SkeletonText className="text-sm" width="long" />
-          )}
-          {!service ? (
-            <SkeletonText className="text-xs" width="medium" />
-          ) : service.digests?.length ? (
-            <code className="truncate text-xs text-muted-foreground" title={service.digests[0]}>
-              {service.digests[0]}
-            </code>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              No registry digest - built here, published nowhere.
-            </span>
-          )}
-        </div>
       </CardContent>
     </Card>
   )
@@ -361,7 +329,7 @@ function LogPanel({ name, hasConsole }: { name: string; hasConsole: boolean }) {
 function StreamState({ stream }: { stream: ReturnType<typeof useLogStream> }) {
   if (stream.state === "open") {
     return (
-      <StatusBadge tone="ok" title="The log stream is up.">
+      <StatusBadge tone="ok" tipContent="The log stream is up.">
         connected
       </StatusBadge>
     )
@@ -371,7 +339,7 @@ function StreamState({ stream }: { stream: ReturnType<typeof useLogStream> }) {
   }
   return (
     <span className="flex items-center gap-2">
-      <StatusBadge tone="down" title={stream.error ?? undefined}>
+      <StatusBadge tone="down" tipContent={stream.error ?? undefined}>
         disconnected
       </StatusBadge>
       <Button type="button" variant="outline" size="sm" onClick={stream.reconnect}>

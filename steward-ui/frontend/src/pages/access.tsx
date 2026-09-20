@@ -128,13 +128,13 @@ function MemberBadge({ state }: { state: string }) {
   // page that printed nothing for a value added tomorrow would look empty rather than new.
   if (!known) {
     return (
-      <StatusBadge tone="idle" title="This interface does not know this membership state.">
+      <StatusBadge tone="idle" tipContent="This interface does not know this membership state.">
         {state}
       </StatusBadge>
     )
   }
   return (
-    <StatusBadge tone={known.tone} title={known.title}>
+    <StatusBadge tone={known.tone} tipContent={known.title}>
       {known.label}
     </StatusBadge>
   )
@@ -160,7 +160,7 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
     return (
       <StatusBadge
         tone="ok"
-        title={`An unrevoked period covers right now, until ${dateTime(person.accessUntil)}.`}
+        tipContent={`An unrevoked period covers right now, until ${dateTime(person.accessUntil)}.`}
       >
         active until {date(person.accessUntil)}
       </StatusBadge>
@@ -168,7 +168,7 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
   }
   if (until === null) {
     return (
-      <StatusBadge tone="idle" title="No period has ever been written for this account.">
+      <StatusBadge tone="idle" tipContent="No period has ever been written for this account.">
         never
       </StatusBadge>
     )
@@ -177,7 +177,7 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
     return (
       <StatusBadge
         tone="down"
-        title={
+        tipContent={
           "No valid period covers now, although the latest one runs on paper until " +
           dateTime(person.accessUntil) +
           ". That means either revoked - or bought before the SMP opened, and therefore not yet begun. Which of the two is shown in this person's periods."
@@ -188,7 +188,7 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
     )
   }
   return (
-    <StatusBadge tone="idle" title="The latest period has expired.">
+    <StatusBadge tone="idle" tipContent="The latest period has expired.">
       expired {relative(person.accessUntil, now)}
     </StatusBadge>
   )
@@ -206,7 +206,7 @@ function LinkBadge({ person }: { person: Person }) {
   return (
     <StatusBadge
       tone={person.accessActive ? "warn" : "idle"}
-      title={
+      tipContent={
         person.accessActive
           ? "Access paid for, but no Minecraft account linked - this person cannot reach the server until they type the code from the login screen into Discord."
           : "No Minecraft account linked."
@@ -577,7 +577,7 @@ export function AccessPage() {
                               {person.donor ? (
                                 <StatusBadge
                                   tone="idle"
-                                  title="Given once, never taken away - which is why handing the role out in Discord is harmless."
+                                  tipContent="Given once, never taken away - which is why handing the role out in Discord is harmless."
                                 >
                                   Supporter
                                 </StatusBadge>
@@ -585,7 +585,7 @@ export function AccessPage() {
                               {person.admin ? (
                                 <StatusBadge
                                   tone="idle"
-                                  title="Mirrors the Discord admin role. If the role goes, this mark goes with it."
+                                  tipContent="Mirrors the Discord admin role. If the role goes, this mark goes with it."
                                 >
                                   Admin
                                 </StatusBadge>
@@ -1333,7 +1333,7 @@ function PersonGrants({
                     {dateTime(row.validFrom)} – {dateTime(row.validUntil)}
                   </TableCell>
                   <TableCell data-label="State">
-                    <StatusBadge tone={state.tone} title={state.title}>
+                    <StatusBadge tone={state.tone} tipContent={state.title}>
                       {state.label}
                     </StatusBadge>
                   </TableCell>
@@ -1614,7 +1614,7 @@ export function PaymentsPage() {
                                 <div className="flex items-center gap-1">
                                   <StatusBadge
                                     tone={late ? "warn" : (state?.tone ?? "idle")}
-                                    title={
+                                    tipContent={
                                       state?.title ??
                                       "This interface does not know this status."
                                     }
@@ -1624,7 +1624,7 @@ export function PaymentsPage() {
                                   {late ? (
                                     <StatusBadge
                                       tone="warn"
-                                      title="The deadline has passed but the status still reads OPEN - the bot's cleanup run has not touched it yet."
+                                      tipContent="The deadline has passed but the status still reads OPEN - the bot's cleanup run has not touched it yet."
                                     >
                                       overdue
                                     </StatusBadge>
@@ -1890,11 +1890,11 @@ function AuthenticationCard() {
             wrong for exactly as long as nobody re-read this file.
           */}
           {(me.data?.keys?.length ?? 0) > 0 ? (
-            <StatusBadge tone="ok" title="A key was registered and is required to be here at all.">
+            <StatusBadge tone="ok" tipContent="A key was registered and is required to be here at all.">
               Security key: registered
             </StatusBadge>
           ) : (
-            <StatusBadge tone="warn" title="§10a asks for a security key after Discord.">
+            <StatusBadge tone="warn" tipContent="§10a asks for a security key after Discord.">
               Security key: none on this account
             </StatusBadge>
           )}

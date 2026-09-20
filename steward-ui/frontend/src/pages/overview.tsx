@@ -84,12 +84,11 @@ export function OverviewPage() {
         thing that changed today. It replaced a one-line disclosure, and a one-line disclosure is
         what was cheap to scroll past - so the order changes rather than the picture.
       */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="order-last lg:order-first">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="order-last lg:order-first lg:col-span-2">
           <NetworkPanel />
         </div>
-        <div className="flex flex-col gap-6">
-          <SeasonPanel />
+        <div className="flex flex-col lg:col-start-3">
           <ActionsPanel />
         </div>
       </div>

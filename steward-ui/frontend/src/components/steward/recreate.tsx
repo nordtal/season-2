@@ -228,7 +228,7 @@ function Output({ job }: { job: ReturnType<typeof useDeployerJob>["data"] }) {
       <div className="flex items-center gap-2">
         <StatusBadge
           tone={state === "DONE" ? "ok" : state === "FAILED" ? "down" : "idle"}
-          title={
+          tipContent={
             state === "DONE"
               ? "compose came back with 0."
               : state === "FAILED"

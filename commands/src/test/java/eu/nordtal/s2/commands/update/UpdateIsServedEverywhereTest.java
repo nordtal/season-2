@@ -35,16 +35,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class UpdateIsServedEverywhereTest {
 
-    /** The five places a command tree is wired, and the one that can forget. */
+    /**
+     * The four places a command tree is wired, and each one can forget.
+     *
+     * <p><b>discord-bot left this list on 2026-09-20</b> (season-2-community/10), and the reason is
+     * the point of the whole class rather than an exception to it. A process has to opt in because
+     * nothing carries {@code /update} to it - but opting in only means anything where the process
+     * has a surface to be typed on. The bot's was Discord, and Discord is not a surface any
+     * declaration carries any more; it has no console, and a {@link Target#LOCAL} command never
+     * arrives through an inbox. Registering it there would not have been an opt-in, it would have
+     * been a line of code that reads like one.</p>
+     *
+     * <p>That is not the same as saying an admin has lost a way to start a run. Steward starts one,
+     * from a page, and has since season-2-ops/127; the bot still reports every run in the admin
+     * channel through {@code UpdateFeed}, which is its own listener and was never part of the
+     * catalogue.</p>
+     */
     private static final List<String> ADAPTERS = List.of(
             "smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/command/HungerGamesCommand.java",
             "limbo/src/main/java/eu/nordtal/s2/limbo/command/LimboCommand.java",
-            "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java",
-            "discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java");
+            "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java");
 
     @Test
-    @DisplayName("all five processes register the update commands")
+    @DisplayName("all four processes with a surface register the update commands")
     void nobodyForgets() {
         for (final String file : ADAPTERS) {
             assertTrue(read(file).contains("UpdateCommands.all()"),

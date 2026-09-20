@@ -38,10 +38,16 @@ public final class SmpCommands {
 
     /**
      * {@code /smp status} alone - the one {@code /smp} command that is not an admin's, so it keeps
-     * every surface an admin command lost on 2026-09-15 (ops/18).
+     * the surfaces an admin command lost on 2026-09-15 (ops/18).
+     *
+     * <p><b>Discord is no longer among them</b> (season-2-community/10). It was the last
+     * declaration in the whole catalogue carrying {@link Surface#DISCORD}, and it held up 611 lines
+     * of adapter - JDA registration, a permission check and a translation of arguments into slash
+     * options - for one read-only command that Steward answers twice over, as a service page and
+     * through {@code POST /api/services/{name}/console}. The enum value itself outlives this
+     * ticket; it falls with season-2-ops/157.</p>
      */
-    private static final Set<Surface> EVERYWHERE =
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
+    private static final Set<Surface> EVERYWHERE = Set.of(Surface.GAME, Surface.CONSOLE);
 
     /**
      * {@code reload}, {@code aura} and {@code access}: console only, 2026-09-15 (ops/18).

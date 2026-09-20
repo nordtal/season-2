@@ -1,29 +1,33 @@
 # Nordtal Steward - frontend
 
 The web interface of the season 2 stack. React + TypeScript + Vite, TanStack Router and Query,
-Tailwind v4 and shadcn/ui. This is the **alpha scaffold**: shell, theme, navigation and one
-placeholder page per route. Nothing fetches anything yet.
+Tailwind v4 and shadcn/ui. It reads and writes the real backend: every page talks to the Javalin
+process in `steward-ui/src/main/java`, which talks to steward-worker.
 
 ## Running it
 
-**There is no Node on the dev host and there is not going to be one.** The Gradle node plugin
-downloads its own copy under `steward-ui/build/nodejs/`, and that is the only Node this repository
-knows about.
+**One command, and it is described in one place:**
 
 ```sh
-# From the repository root. Downloads node, runs `npm ci`, runs `vite build`, and packs the result
-# into the jar as web/.
-sh gradlew :steward-ui:build
+deploy/dev ui
 ```
 
-To work on the frontend with hot reload, put that private Node on `PATH` first:
+It brings up the four containers the interface reads, gets Node and the packages through Gradle,
+and runs Vite on http://localhost:5173. What that starts, why the port matters, and how to work on
+the Java half instead are in [`deploy/README.md` § *Locally* → *The interface*](../../deploy/README.md#the-interface).
+**That section is the description of the local start; this file does not keep a second copy of it.**
+
+The two things that belong here because they are about this directory and not about the stack:
+
+```sh
+npm run typecheck    # tsc -b --noEmit, the same check `npm run build` runs first
+npm run test         # vitest
+```
+
+Both need the private Node on `PATH`, which `deploy/dev ui` puts there for Vite and nothing else:
 
 ```sh
 export PATH="$PWD/steward-ui/build/nodejs/node-v24.21.0-linux-x64/bin:$PATH"
-cd steward-ui/frontend
-npm ci
-npm run dev          # http://localhost:5173, /api and /auth proxied to a StewardUi on :8080
-npm run typecheck    # tsc -b --noEmit, the same check `npm run build` runs first
 ```
 
 **A path outside `/api` and `/auth` needs a line in `vite.config.ts` as well as a route in

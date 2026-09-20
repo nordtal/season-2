@@ -124,6 +124,26 @@ ok "no scheme, a trailing slash, a path, a query and a wrong scheme are all refu
 ok "the relying party id is the host and nothing else"
 
 # ------------------------------------------------------------------------------------------------
+case_begin "help prints the whole header, and the header names every command"
+# season-2-ops/149. THE FAILURE THIS CATCHES HAS ALREADY HAPPENED ONCE: the help was a hard-coded
+# line range, `sed -n '2,23p'`, and two added lines pushed the last commands out of it. Nothing
+# said so - a truncated help looks exactly like a complete one. The range is pattern-delimited
+# now, and this is what notices when a marker is renamed or a command is added without a line.
+header="$(sed -n '/^# The local season 2 network/,/^# Everything here runs/p' "$DEV")"
+[[ -n "$header" ]] || bad "the help range matched nothing - a marker line was renamed"
+grep -q "^# Everything here runs" <<<"$header" || bad "the help stops before the closing marker"
+
+# The verbs, read off the dispatch itself rather than listed here a second time.
+verbs="$(sed -n '/^case "\$command" in$/,/^esac$/p' "$DEV" \
+    | grep -E '^    [a-z]+\)' | sed -E 's/^    ([a-z]+)\).*/\1/')"
+[[ -n "$verbs" ]] || bad "no commands were found in the dispatch"
+while read -r verb; do
+    [[ -n "$verb" ]] || continue
+    grep -qE "(^|[ |])$verb([ |]|$)" <<<"$header" || bad "deploy/dev $verb is in no line of the help"
+done <<<"$verbs"
+ok "every dispatched command has a line in the header the help prints"
+
+# ------------------------------------------------------------------------------------------------
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

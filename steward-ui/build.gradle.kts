@@ -162,6 +162,40 @@ tasks.named<ProcessResources>("processResources") {
     }
 }
 
+// `:steward-ui:run` takes its configuration from deploy/dev.env, if there is one (season-2-ops/149).
+//
+// WHY THE BUILD READS AN ENVIRONMENT FILE AT ALL. This task is the half of local development that
+// is not `deploy/dev ui`: the container for frontend work, the IDE for Java work. Started from an
+// IDE it inherits that IDE's environment, which has none of this in it, so it used to refuse on
+// the first required value and the way round it was to paste secrets into a run configuration -
+// a file that is checked in. Reading the gitignored file the local stack already uses means the
+// run configuration in `.run/` stays a plain task name with nothing secret in it.
+//
+// PRESENT VALUES ONLY, AND NOTHING IS PRINTED. A line is `NAME=value`; comments and blanks are
+// skipped, single or double quotes around a value are taken off, and nothing here ever logs a
+// key or a value - this is the process that holds the Discord client secret.
+//
+// BOTH HALVES WANT :8080 and cannot run at once. Docker reports that as a bind failure and this
+// reports it as "Address already in use"; `deploy/dev stop` is the way out of the first one.
+// `providers.fileContents`, not `File.readLines()`: the configuration cache only knows about a
+// file the build read if it was read through a provider, and a cache that does not know is a cache
+// that hands back yesterday's environment after the file changed.
+val localEnvironment = providers.fileContents(
+    rootProject.layout.projectDirectory.file("deploy/dev.env")
+).asText.map { text ->
+    text.lines()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.startsWith("#") && it.contains('=') }
+        .associate { line ->
+            line.substringBefore('=') to
+                line.substringAfter('=').removeSurrounding("\"").removeSurrounding("'")
+        }
+}.orElse(emptyMap())
+
+tasks.named<JavaExec>("run") {
+    environment(localEnvironment.get())
+}
+
 dependencies {
     // The web layer. Javalin's json mapper is wired to gson explicitly in StewardUi, because
     // jackson-databind is optional in its POM and this repo does not carry Jackson at all.

@@ -16,6 +16,8 @@
 #                                   (a JAR swap. After editing deploy/dev.env, run `up` instead:
 #                                    `restart` reuses the container and its environment with it)
 #   deploy/dev pack                 build the resource pack and point the proxy at it
+#   deploy/dev ui                   the interface: containers in the background, Vite in front
+#                                   (http://localhost:5173. Ctrl-C leaves the containers up)
 #   deploy/dev logs [service]       follow the logs
 #   deploy/dev console <service>    attach to the real server console (Ctrl-b then d to detach)
 #   deploy/dev mc <service> <cmd>   send one console command
@@ -423,6 +425,47 @@ cmd_pack() {
     compose restart proxy
 }
 
+# --- ui ------------------------------------------------------------------------------------------
+# The interface, with a browser in front of it and hot reload behind (season-2-ops/149).
+#
+# THE DEFAULT IS THE CONTAINER. steward-ui is published on 127.0.0.1:8080 (season-2-ops/146) and
+# the Vite dev server proxies /api and /auth to it, so working on the frontend needs Docker and
+# Node and no JDK in the foreground at all. The other half - editing the Java - is the run
+# configuration in `.run/`, and the two CANNOT run at once: both want :8080. That is a sentence
+# here and in the README rather than a surprise in a log file.
+#
+# CADDY STAYS OUT, and it is left out BY NAME rather than by a profile of its own. Naming a
+# service activates its profile, so `steward` need not be in COMPOSE_PROFILES either; a new profile
+# would have to be added to the production selection in /etc/nordtal/season-2.env as well, and
+# forgetting that makes the interface unreachable from the internet. Locally Caddy has nothing to
+# do: there is no name it could get a certificate for.
+cmd_ui() {
+    [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is not there. Run: deploy/dev init"
+
+    log "bringing up the interface and what it reads"
+    compose up -d postgres steward-worker steward-ui steward-deployer
+
+    # THE PRIVATE NODE IS SEARCHED FOR, NEVER SPELLED OUT. The directory carries the platform in
+    # its name - node-v24.21.0-linux-x64 here, something else on a Mac - so a written path works on
+    # exactly one machine. Gradle downloads it and installs the packages; this only has to find it
+    # afterwards. (`npx vitest` with no node on PATH exits 0 having tested nothing, which is how
+    # this matters.)
+    log "node and the npm packages, through Gradle - the only supported way to get them"
+    sh gradlew :steward-ui:npmInstall
+
+    local node
+    # `sed -n '1p'` and not `head -n1`: under this file's pipefail a head that closes the pipe
+    # early turns find into a SIGPIPE, and deploy/pipe-safety-test.sh refuses the pattern outright.
+    node="$(find "$ROOT/steward-ui/build/nodejs" -maxdepth 2 -type d -name bin 2>/dev/null | sed -n '1p')"
+    [[ -n "$node" ]] || die "no node under steward-ui/build/nodejs after :steward-ui:npmInstall.
+       That task downloads it; if it did not, its output says why - there is no 'install node
+       first' step to fall back on."
+
+    log "the interface is on http://localhost:5173 - the container itself is on 127.0.0.1:8080"
+    log "Ctrl-C stops Vite and LEAVES THE CONTAINERS RUNNING. The counter-command is: deploy/dev stop"
+    PATH="$node:$PATH" npm --prefix "$ROOT/steward-ui/frontend" run dev
+}
+
 # --- the rest ------------------------------------------------------------------------------------
 cmd_logs()    { compose logs -f "$@"; }
 cmd_ps()      { compose ps; }
@@ -490,6 +533,7 @@ case "$command" in
     up)      cmd_up "$@" ;;
     deploy)  cmd_deploy "$@" ;;
     pack)    cmd_pack "$@" ;;
+    ui)      cmd_ui "$@" ;;
     logs)    cmd_logs "$@" ;;
     ps)      cmd_ps "$@" ;;
     stop)    cmd_stop "$@" ;;
@@ -499,7 +543,10 @@ case "$command" in
     psql)    cmd_psql "$@" ;;
     reset)   cmd_reset "$@" ;;
     ""|help|-h|--help)
-        sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+        # Pattern-delimited rather than a line range: the header grows, and a range that has
+        # gone stale prints a truncated help nobody notices (it had, by two lines).
+        sed -n '/^# The local season 2 network/,/^# Everything here runs/p' "${BASH_SOURCE[0]}" \
+            | sed 's/^# \{0,1\}//'
         ;;
     *)
         die "unknown command '$command'. Try: deploy/dev help"

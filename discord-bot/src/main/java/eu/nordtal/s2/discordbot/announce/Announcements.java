@@ -18,7 +18,7 @@ import java.util.concurrent.TimeoutException;
  * announcement channel.
  *
  * <p>Two callers. The command inbox, for lines a server sent as a {@code command_request} row -
- * a milestone, a farm-reset warning - with {@code Runnable::run} as the executor because the inbox
+ * a milestone, a phase change - with {@code Runnable::run} as the executor because the inbox
  * settles the row when the command returns. And the bot itself, for a phase change it noticed on
  * its own status tick, through {@link #postAll}. Neither renders anything: the text arrives
  * finished, in the language of the channel it goes into.</p>

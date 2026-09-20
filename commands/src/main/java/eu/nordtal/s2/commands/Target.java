@@ -4,9 +4,9 @@ package eu.nordtal.s2.commands;
  * Which process runs a command's effect.
  *
  * <h2>Why a command has a target at all</h2>
- * Because the effect is bound to a JVM and no abstraction removes that. {@code /smp farmreset}
- * deletes a world, so it can only run where that world is open; {@code /hg start} releases players
- * from a lobby that exists in one process. The front half of a command - who is asking, may they, in
+ * Because the effect is bound to a JVM and no abstraction removes that. {@code /smp milestone
+ * unlock} moves a world's border and tells everyone standing in it, so it can only run where that
+ * world is open; {@code /hg start} releases players from a lobby that exists in one process. The front half of a command - who is asking, may they, in
  * which language - is the same everywhere, which is what {@link NordtalUser} is for. The back half
  * has an address, and this is it.
  *

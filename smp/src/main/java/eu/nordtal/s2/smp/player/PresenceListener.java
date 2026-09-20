@@ -18,8 +18,8 @@ import org.bukkit.plugin.Plugin;
 /**
  * Join and quit: the operator grant, the surfaces, and the language the join line waits for.
  *
- * <p>Chat itself is per Paper server: the SMP is one server holding four worlds, so Nordtal, the
- * farm world, the Nether and the End share one chat. The composition in front of the message is
+ * <p>Chat itself is per Paper server: the SMP is one server holding three worlds, so Nordtal, the
+ * Nether and the End share one chat. The composition in front of the message is
  * drawn by {@link SystemLines} in {@code :paper-common}.
  *
  * <p>An admin becomes a server <b>operator</b> at join and stops being one at quit, through

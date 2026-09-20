@@ -317,10 +317,8 @@ public interface StewardSpec {
             "",
             "STEWARD-WORKER DOES NOT SCHEDULE THIS AND MUST NOT. `serve` has exactly one rule it is",
             "protected by - it does nothing at all until a row appears in update_request - and a",
-            "timer here would be the end of it. The nightly row is written by `smp`, which already",
-            "owns a daily clock for the farm world; see smp's config.yml#backup-time. An admin",
-            "asks for one with /backup now. The consequence is written down rather than hidden: a",
-            "season with `smp` down has no nightly backup and nothing else notices."
+            "timer here would be the end of it. That held until 2026-09-13, when the clock moved",
+            "here - see backup.at, which says what was kept of the rule and what was given up."
     })
     @Explain("steward-worker does not schedule this itself - the nightly row is written by smp's own daily clock, so a season with smp down gets no nightly backup and nothing else notices.")
     BackupSpec backup();
@@ -812,16 +810,16 @@ public interface StewardSpec {
                 "else. It never claims one, never runs one, never touches a jar. Everything after",
                 "the row is the same path /backup now takes, lock and countdown included.",
                 "",
-                "04:45 is what the SMP used. The farm world is reset shortly after, and since the",
-                "same day `smp` refuses to reset a world that has no recent successful backup",
-                "behind it - so this time and that one are no longer a promise two config files",
-                "make to each other.",
+                "04:45 is what the SMP used, and it is kept: it is the quietest hour of this",
+                "network's day. It was chosen because the farm world was reset shortly after and",
+                "the reset refused to run without a recent backup behind it; the farm world went",
+                "on 2026-09-20 (season-2-ingame/30) and the hour did not become a worse one.",
                 "",
                 "THE TIMEZONE IS THIS CONTAINER'S (compose sets TZ). The resolved zone and the next",
                 "firing are logged on every start, because a backup that runs an hour off is a",
                 "thing nobody notices until the clocks change."
         })
-        @Explain("Empty means no nightly backup at all. smp's farm-world reset checks for a successful backup inside its own window before running, so a backup that never fires here also holds back that reset.")
+        @Explain("Empty means no nightly backup at all, and nothing else in the stack makes one.")
         default String at() {
             return "04:45";
         }

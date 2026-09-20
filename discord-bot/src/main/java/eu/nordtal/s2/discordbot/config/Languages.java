@@ -210,7 +210,7 @@ public final class Languages {
      * @param hungerGamesChannelId  where the hunger games Register message goes - a separate channel
      *                              from {@code contributionChannelId} on purpose, since registering
      *                              for the start event and buying paid access are unrelated actions
-     * @param announcementChannelId where a milestone, a farm-reset warning and a phase change are
+     * @param announcementChannelId where a milestone and a phase change are
      *                              POSTED in this language, or {@code ""} for none - the second
      *                              optional id, and the one the servers write through
      * @param statusChannelId       the channel whose NAME carries the countdown and then the live

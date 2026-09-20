@@ -180,7 +180,7 @@ class UnverifiedStopBackupTest {
         assertEquals(Map.of(), snapshots.marks());
         assertEquals(List.of(), run.unverifiedStops(),
                 "and nothing here may settle an ordinary nightly run FAILED, which would stop the"
-                        + " farm reset every night rather than on the night it matters");
+                        + " run every night rather than on the night it matters");
         assertNull(saved.line("mc-smp").detail(),
                 "a good backup's line says what it saved and nothing else");
         assertNull(stopped.report().line(Topology.SMP).detail());

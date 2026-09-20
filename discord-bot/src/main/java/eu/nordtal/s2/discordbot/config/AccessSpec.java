@@ -312,8 +312,8 @@ public interface AccessSpec {
         @Key("announcement-channel")
         @Comment({
                 "The channel this language's announcements are POSTED into, as a channel id: a",
-                "milestone the community finished, a farm-world reset that is minutes away, a",
-                "season phase that changed. Written by the bot, read by everybody.",
+                "milestone the community finished, a season phase that changed. Written by the",
+                "bot, read by everybody.",
                 "",
                 "OPTIONAL, like status-channel: empty means this language gets no announcements",
                 "and every line the servers send for it settles as \"no channel\" in",

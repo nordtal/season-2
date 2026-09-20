@@ -182,26 +182,25 @@ public final class Configs {
     }
 
     /**
-     * The farm reset is authorised by <em>this</em> list, so the world has to be in it.
+     * The world is the one volume that cannot be rebuilt, so it has to be in this list.
      *
      * <h2>What a successful backup is taken to prove</h2>
-     * {@code smp} refuses to reset the farm world unless a successful backup sits within
-     * {@code farm-reset-backup-window-hours} behind it, and "successful" means this service
-     * reported {@code DONE}. What it does <b>not</b> mean, until here, is that the world was among
-     * the things saved: a list that kept {@code bot-config} and dropped {@code mc-smp} produced a
-     * perfectly successful backup every night, and the gate then let the reset proceed over a world
-     * that was in no archive anywhere. The one volume in this deployment that cannot be rebuilt is
-     * the one the guarantee quietly stopped covering.
+     * Until 2026-09-20 this rule had a second, sharper reason: {@code smp} refused to reset the
+     * farm world unless a successful backup sat behind it, and "successful" meant this service
+     * reported {@code DONE} - which said nothing about <em>what</em> was saved. A list that kept
+     * {@code bot-config} and dropped {@code mc-smp} produced a perfectly successful backup every
+     * night while the one volume the guarantee was about was in no archive anywhere. The farm
+     * world and its reset went with season-2-ingame/30, and the hole they exposed did not.
      *
      * <p>Refused at load, therefore, and not warned about: the cost of being wrong here is Nordtal,
-     * and the operator who edits this list is not the one standing in the world at 04:45.</p>
+     * which is in no repository and in no release, and the operator who edits this list is not the
+     * one who finds out.</p>
      */
     private static void requireTheWorld(final List<String> volumes) {
         if (volumes.stream().noneMatch(volume -> volume != null && volume.endsWith("mc-smp"))) {
             throw new IllegalArgumentException("backup.volumes does not list the smp world volume"
-                    + " (a name ending in mc-smp), and it is not optional: smp asks whether a"
-                    + " successful backup is recent enough before it resets the farm world, and a"
-                    + " backup that saved everything except the world would answer yes. Nordtal is"
+                    + " (a name ending in mc-smp), and it is not optional: a backup that saved"
+                    + " everything except the world would still report DONE every night. Nordtal is"
                     + " the one thing in this deployment that is in no repository and in no"
                     + " release. See deploy/README.md#backups.");
         }

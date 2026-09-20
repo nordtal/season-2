@@ -84,13 +84,13 @@ public interface SoundsSpec {
     default SoundSpec select() { return DefaultSounds.SELECT; }
 
     @Order(8) @Key("travel")
-    @Comment("Going somewhere: the balloon, the farm reset moving you, the duel arena.")
-    @Explain("Going somewhere: the balloon, a farm reset, or the duel arena.")
+    @Comment("Going somewhere: the balloon, or the duel arena.")
+    @Explain("Going somewhere: the balloon, or the duel arena.")
     default SoundSpec travel() { return DefaultSounds.TRAVEL; }
 
     @Order(9) @Key("countdown-tick")
-    @Comment("One tick of a clock running out: a duel start, a farm reset warning.")
-    @Explain("One tick of a clock running out: a duel start, or a farm reset warning.")
+    @Comment("One tick of a clock running out: a duel start.")
+    @Explain("One tick of a clock running out: a duel start.")
     default SoundSpec countdownTick() { return DefaultSounds.COUNTDOWN_TICK; }
 
     @Order(10) @Key("network-event")

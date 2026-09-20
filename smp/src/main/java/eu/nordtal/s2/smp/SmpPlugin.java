@@ -34,14 +34,11 @@ import eu.nordtal.s2.smp.db.JoinGate;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.smp.db.SmpPool;
-import eu.nordtal.s2.smp.farm.FarmWorldReset;
-import eu.nordtal.s2.smp.farm.FarmWorldSwap;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneState;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.StoredProgress;
 import eu.nordtal.s2.smp.milestone.TrackValidation;
-import eu.nordtal.s2.smp.pregen.PreGenerator;
 import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
@@ -99,7 +96,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The season 2 SMP: Nordtal, the farm world, the Nether and the End, plus milestones, aura,
+ * The season 2 SMP: Nordtal, the Nether and the End, plus milestones, aura,
  * prestige, duels, POIs and graves.
  *
  * <p>Wiring and startup refusals. The refusals are the interesting part: each stops the plugin
@@ -204,7 +201,6 @@ public final class SmpPlugin extends JavaPlugin {
     private Worlds worlds;
     private final SeasonState season = new SeasonState();
     private Identities identities;
-    private FarmWorldReset farmReset;
     private SmpHud hud;
     private Boards boards;
     private final Navigation navigation = new Navigation();
@@ -344,18 +340,13 @@ public final class SmpPlugin extends JavaPlugin {
         // Everything below this line touches the database, so it happens off the main thread.
         Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
 
-        final PreGenerator pregen = PreGenerator.open(this, config.pregenerationPattern()).orElse(null);
-        if (pregen == null) {
-            severe("smp is not starting: Chunky is installed but did not register its API service. "
-                    + "The farm world cannot be pre-generated without it, and a reset that keeps "
-                    + "postponing itself looks like nothing at all.");
-            return;
-        }
+        // Chunky was a hard requirement here until 2026-09-20: the farm world was regenerated
+        // every night and could not be pre-generated without it, so a server that came up without
+        // Chunky came up unable to do the one thing that happened every day. The farm world went
+        // with season-2-ingame/30 and the requirement went with it. `smp.pregen` itself is still
+        // in the tree - Chunky and pre-generation are season-2-ops/152, so that this ticket stays
+        // one sitting.
 
-        final FarmWorldSwap swap = new FarmWorldSwap(this, config.worldFarm(),
-                config.farmWorldStagingSuffix(), config.farmWorldRetiredSuffix());
-        // The HUD is built before the reset: the four reset warnings take the status bar over, and
-        // that is the half of the warning that reaches somebody mining with chat closed.
         hud = new SmpHud(this, worlds, season, navigation, messages, locales);
         hud.start();
 
@@ -365,17 +356,6 @@ public final class SmpPlugin extends JavaPlugin {
         announcer = new eu.nordtal.s2.smp.announce.Announcer(requests, messages,
                 BukkitSmpEffects.async(this),
                 (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
-
-        // The reset asks the database whether a backup succeeded before it deletes a world. The
-        // nightly backup clock used to live in this plugin, fifteen minutes ahead of the reset;
-        // it belongs to steward-worker since 2026-09-13 (konzept-eigenstaendiger-stack.md §9a),
-        // and a coupling that was two numbers in one file is now a query. See BackupGate.
-        farmReset = new FarmWorldReset(this, config, worlds, swap, pregen, messages, locales,
-                dao, navigation, sounds, hud, announcer,
-                new eu.nordtal.s2.smp.farm.BackupGate(UpdateDirectory.using(pool),
-                        config.farmResetBackupWindowHours()),
-                BukkitSmpEffects.async(this));
-        farmReset.start();
 
         // One instance: the object that stamped a rocket has to be the one asked whether that
         // rocket may hurt anybody (WorldEffects#onDamage).
@@ -501,12 +481,6 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new WheelListener(ConfigBoxes.wheelRegions(config), wheel), this);
 
-        // A grave in the farm world dies with the daily reset, like everything else there.
-        farmReset.onWorldReplaced(world -> {
-            graves.forgetWorld(world);
-            Bukkit.getScheduler().runTaskAsynchronously(this, () -> dao.deleteGravesIn(world));
-        });
-
         // Graves outlive a restart, so they are read back once the world is up.
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             final var rows = dao.openGraves();
@@ -537,7 +511,7 @@ public final class SmpPlugin extends JavaPlugin {
         final eu.nordtal.s2.common.access.AccessDirectory access =
                 eu.nordtal.s2.common.access.AccessDirectory.using(pool);
         chatEffects = new BukkitSmpEffects(this, BukkitSmpEffects.async(this), jdbi, dao, engine,
-                farmReset, identities, access, this::reloadTrack, this::status);
+                identities, access, this::reloadTrack, this::status);
 
         commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
             final Thread thread = new Thread(task, getName() + "-command-waiter");
@@ -555,7 +529,7 @@ public final class SmpPlugin extends JavaPlugin {
                 new PaperCommandInbox(this, Target.SMP, requests, access, sharedMessages);
         // Inline, on purpose - see the field comment.
         final SmpEffects inboxEffects = new BukkitSmpEffects(this, Runnable::run, jdbi, dao, engine,
-                farmReset, identities, access, this::reloadTrack, this::status);
+                identities, access, this::reloadTrack, this::status);
         SmpCommands.all().forEach(command -> inbox.register(command, inboxEffects));
         inbox.start(this);
 
@@ -659,9 +633,6 @@ public final class SmpPlugin extends JavaPlugin {
         }
         if (boards != null) {
             quietly("boards.stop", boards::stop);
-        }
-        if (farmReset != null) {
-            quietly("farmReset.stop", farmReset::stop);
         }
         // Before the pool: the listener thread is parked on a connection of its own, but a refresh
         // already in flight reads through the pool.
@@ -954,8 +925,8 @@ public final class SmpPlugin extends JavaPlugin {
                 return String.format(Locale.ROOT,
                         "Nordtal's balloon sits at radius %.1f of the border centre %d/%d. It has to "
                                 + "be outside 10 and inside 21.5, because that is what makes border "
-                                + "20 withhold the farm world and the opening expansion to 43 hand "
-                                + "it over.",
+                                + "20 withhold travel and the opening expansion to 43 hand it "
+                                + "over.",
                         distance, config.borderCentreX(), config.borderCentreZ());
             }
         }

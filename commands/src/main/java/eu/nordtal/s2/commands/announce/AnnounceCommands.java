@@ -12,8 +12,8 @@ import java.util.Set;
 /**
  * {@code announce <language> <text>}: one line into one language's Discord announcement channel.
  *
- * <p>Sent by a server, never typed: the SMP renders a milestone completion or a farm-reset warning
- * in each language it has a bundle for and submits one row per language through the
+ * <p>Sent by a server, never typed: the SMP renders a milestone completion in each language it
+ * has a bundle for and submits one row per language through the
  * {@code command_request} transport; the bot's inbox runs it and posts.</p>
  *
  * <p>The text arrives already rendered, because the names it carries live in the sender's bundle -

@@ -31,10 +31,10 @@ public enum Feedback {
     /** A click inside a surface that picked something. */
     SELECT,
 
-    /** Going somewhere: the balloon, the farm world reset moving you, the duel arena. */
+    /** Going somewhere: the balloon, or the duel arena. */
     TRAVEL,
 
-    /** One tick of a clock running out: a duel start, a farm reset warning, a restart. */
+    /** One tick of a clock running out: a duel start, or a restart. */
     COUNTDOWN_TICK,
 
     /** Everybody hears it: a milestone for everyone who did not finish it, a phase switch. */

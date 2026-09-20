@@ -17,14 +17,13 @@ import java.util.Optional;
  *
  * <p>Nordtal is expected to exist already - it is the {@code level-name} world, it carries the
  * built spawn, and it is pre-generated once to its final border of 4000 before the phase opens. The
- * other three are created here if the server has never seen them.
+ * other two are created here if the server has never seen them.
  *
  * <p><b>Where a created world lands is not where the old Bukkit layout put it.</b> Measured on
  * Paper 26.2 build 121 on 2026-09-01: a world created through {@code WorldCreator} appears at
  * {@code <level-name>/dimensions/minecraft/<name>}, inside the primary world rather than beside it.
- * Nothing here hard-codes a path because of that - the farm world's swap works off
- * {@link World#getWorldFolder()} and its parent, so the layout can move again without this breaking
- * quietly.
+ * Nothing here hard-codes a path because of that; anything that needs a world's folder asks
+ * {@link World#getWorldFolder()}, so the layout can move again without this breaking quietly.
  */
 public final class Worlds {
 
@@ -34,7 +33,6 @@ public final class Worlds {
     public Worlds(final SmpSpec config) {
         this.config = config;
         names.put(WorldRole.NORDTAL, config.worldNordtal());
-        names.put(WorldRole.FARM, config.worldFarm());
         names.put(WorldRole.NETHER, config.worldNether());
         names.put(WorldRole.END, config.worldEnd());
     }
@@ -58,13 +56,12 @@ public final class Worlds {
         final SmpSpec.BalloonSpawnPointsSpec points = config.balloonSpawnPoints();
         return switch (role) {
             case NORDTAL -> points.nordtal();
-            case FARM -> points.farm();
             case NETHER -> points.nether();
             case END -> points.end();
         };
     }
 
-    /** The loaded world for a role, if it is loaded at all. The farm world briefly is not. */
+    /** The loaded world for a role, if it is loaded at all. */
     public Optional<World> world(final WorldRole role) {
         return Optional.ofNullable(Bukkit.getWorld(names.get(role)));
     }
@@ -101,7 +98,6 @@ public final class Worlds {
             return Optional.empty();
         }
 
-        ensure(WorldRole.FARM, World.Environment.NORMAL);
         ensure(WorldRole.NETHER, World.Environment.NETHER);
         ensure(WorldRole.END, World.Environment.THE_END);
         return Optional.of(nordtal);
@@ -122,7 +118,7 @@ public final class Worlds {
      * a milestone unlocks, which is {@link #expandNordtal} below. Everything else is a constant
      * from {@code config.yml}.
      *
-     * <p>The three secondary worlds are centred on 0/0, which is where their pre-generation is
+     * <p>The two secondary worlds are centred on 0/0, which is where their pre-generation is
      * centred and where {@link #balloonSpawnPoint} defaults to - Nordtal is the only world whose
      * centre is a built place and therefore the only one that needs a configured one.
      */
@@ -131,7 +127,6 @@ public final class Worlds {
             final WorldBorder border = world.getWorldBorder();
             border.setCenter(config.borderCentreX(), config.borderCentreZ());
         });
-        centreAndSize(WorldRole.FARM, config.farmWorldBorderDiameter());
         centreAndSize(WorldRole.NETHER, config.netherBorderDiameter());
         centreAndSize(WorldRole.END, config.endBorderDiameter());
     }

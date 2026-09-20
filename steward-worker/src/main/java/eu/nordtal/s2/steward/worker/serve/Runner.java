@@ -705,8 +705,8 @@ public final class Runner implements RequestRunner {
         /**
          * The run wrote something while those servers were down - an archive, or jars in a
          * {@code plugins/} directory. Owner's decision, 2026-09-13: the run settles {@code FAILED},
-         * and the consequence is the one that was wanted, because a failed run authorises no farm
-         * reset. Run 23's shape is a green report over an archive nobody should have trusted; 147's
+         * so that nothing downstream counts what it left behind as trustworthy. Run 23's shape is a
+         * green report over an archive nobody should have trusted; 147's
          * is jars moved into a directory a JVM may not have let go of, and it is the worse of the
          * two.
          */
@@ -753,8 +753,8 @@ public final class Runner implements RequestRunner {
                         + " whether the server had finished writing when " + whatIsAtRisk + "."
                         + " Nothing was thrown away and nothing was undone."
                         + (doubt == Doubt.FAILS_THE_RUN
-                                ? " This run is reported as FAILED for that reason alone, which"
-                                        + " also means it authorises no farm reset."
+                                ? " This run is reported as FAILED for that reason alone, so"
+                                        + " that nothing counts this archive as one."
                                 : " This run is not reported as a failure over it: it left nothing"
                                         + " behind that anybody has to decide whether to trust."));
         final boolean failed = (doubt == Doubt.FAILS_THE_RUN && !unverified.isEmpty())

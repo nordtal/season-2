@@ -187,13 +187,14 @@ public interface UpdateDirectory {
      * The most recent nightly backup that finished, succeeded, and can be <em>shown</em> to have
      * saved something.
      *
-     * <h2>What it is for</h2>
-     * Until 2026-09-13 the guarantee that the farm world had just been saved was two clocks in two
-     * config files - {@code smp}'s backup at 04:45 against its reset at 05:00 - and no test
-     * anywhere could hold one against the other. The clock moved to steward-worker, so the
-     * coupling is gone and the reset asks the database instead: no backup here means no reset, a
-     * loud line, and a farm world that survives one more day. That is the trade, and it is the
-     * owner's (2026-09-13).
+     * <h2>What it was for, and that it currently has no caller</h2>
+     * The farm world's nightly reset asked this before deleting anything: no provable backup meant
+     * no reset. The farm world went on 2026-09-20 (season-2-ingame/30) and nothing has asked since.
+     *
+     * <p>It is kept rather than deleted because the question it answers is not about the farm world
+     * - "is there an archive from the last N hours that demonstrably saved something" is the
+     * question anything irreversible should ask, and the three conditions below are the part that
+     * was expensive to get right. Whether it stays is not this ticket's to decide.</p>
      *
      * <h2>How deep "successful" goes, and why exactly this deep</h2>
      * Three conditions, and each one is there because the one before it is not enough:
@@ -215,12 +216,12 @@ public interface UpdateDirectory {
      * <p><b>This is a blocking database call.</b> A Paper plugin calls it from its async executor
      * and never from the server thread.</p>
      *
-     * @param within how far back to look. Hours, not days: see {@code smp}'s
-     *               {@code farm-reset-backup-window-hours} for why the number has to be well under
-     *               a day and well over one slow backup
+     * @param within how far back to look. Hours, not days: a window of a day or more lets
+     *               yesterday's backup authorise today's irreversible thing, and one shorter than a
+     *               slow backup refuses every night
      * @return the run, so a caller's log line can name it and an admin can read the row. Empty
      *         means all three of "there was none", "they failed" and "they saved nothing" - which
-     *         are one outcome for whoever is deciding whether to delete a world
+     *         are one outcome for whoever is deciding whether to do something irreversible
      */
     Optional<UpdateRequest> lastSuccessfulBackup(Duration within);
 

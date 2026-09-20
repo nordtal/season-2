@@ -25,11 +25,14 @@ import java.util.Set;
  * {@code update_request}, and is not folded in: it is answered by a container that is not a command
  * target and its report is text that must not be rendered twice.
  *
- * <h2>Which three ask first</h2>
- * {@code farmreset}, {@code objective complete} and {@code milestone unlock}. {@code aura} does not,
- * because applying the negative is an exact undo, and {@code reload} does not, because re-reading a
- * file changes nothing that was not already on disk. A flag on everything that writes is a flag
- * nobody reads.
+ * <h2>Which two ask first</h2>
+ * {@code objective complete} and {@code milestone unlock}. {@code aura} does not, because applying
+ * the negative is an exact undo, and {@code reload} does not, because re-reading a file changes
+ * nothing that was not already on disk. A flag on everything that writes is a flag nobody reads.
+ *
+ * <p>{@code farmreset} was the third and the reason the flag exists at all - it deleted a world a
+ * player could be standing in. The farm world went on 2026-09-20 (season-2-ingame/30) and nothing
+ * took its place; resources come out of the SMP world now.</p>
  */
 public final class SmpCommands {
 
@@ -81,16 +84,6 @@ public final class SmpCommands {
     public static final Declaration STATUS = new Declaration(
             List.of("smp", "status"), Target.SMP, EVERYWHERE, false, false, List.of());
 
-    /**
-     * {@code /smp farmreset now} - deletes the farm world folder and regenerates it.
-     *
-     * <p>The literal {@code now} is kept from the chat command it was. It reads as a deliberate act
-     * in a way {@code /smp farmreset} does not, and the confirmation is keyed on the whole line, so
-     * dropping it would also silently invalidate every pending confirmation.</p>
-     */
-    public static final Declaration FARM_RESET = new Declaration(
-            List.of("smp", "farmreset", "now"), Target.SMP, CONSOLE_AND_WEB, true, true, List.of());
-
     /** {@code /smp objective complete <key>} - closes one objective, paying out what was collected. */
     public static final Declaration COMPLETE_OBJECTIVE = new Declaration(
             List.of("smp", "objective", "complete"), Target.SMP, CONSOLE_AND_WEB, true, true,
@@ -137,9 +130,8 @@ public final class SmpCommands {
 
     /** Every {@code /smp} command, for an adapter to register and for the catalogue. */
     public static List<NordtalCommand<SmpEffects>> all() {
-        return List.of(new ReloadSmp(), new ResetFarmWorld(), new CompleteObjective(),
-                new UnlockMilestone(), new ChangeAura(), new ShowAccess(), new ShowStatus(),
-                new ShowAura());
+        return List.of(new ReloadSmp(), new CompleteObjective(), new UnlockMilestone(),
+                new ChangeAura(), new ShowAccess(), new ShowStatus(), new ShowAura());
     }
 
     /** Every {@code /smp} declaration. */

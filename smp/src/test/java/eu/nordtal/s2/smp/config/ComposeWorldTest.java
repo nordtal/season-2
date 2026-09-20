@@ -100,23 +100,9 @@ class ComposeWorldTest {
                         + " unchangeable from the interface.");
     }
 
-    /**
-     * The same rule for the backup window, which had the same comment and the same mistake.
-     *
-     * <p>{@code 0} turns the check off, which is what a local stack with no steward-worker wants.
-     * That is a value somebody sets deliberately, in the file or in the environment - not one
-     * compose should be carrying on every start.</p>
-     */
-    @Test
-    void theBackupWindowIsNotPinnedEither() {
-        final String composed = defaultOf(
-                environmentOf("smp").get("NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS"),
-                "smp.NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS");
-
-        assertEquals("", composed,
-                "compose.yml's fallback for farm-reset-backup-window-hours is '" + composed
-                        + "' rather than empty, which pins it over smp.yml for ever.");
-    }
+    // theBackupWindowIsNotPinnedEither stood here until 2026-09-20. It said the same thing about
+    // NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS, which compose no longer sets: the farm world and
+    // its reset went with season-2-ingame/30.
 
     /** The datapacks have to land in the world Paper actually generates, not beside it. */
     @Test

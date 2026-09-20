@@ -9,7 +9,6 @@ import eu.nordtal.s2.smp.db.AuraPlace;
 import eu.nordtal.s2.smp.db.AuraRow;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
-import eu.nordtal.s2.smp.farm.FarmWorldReset;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
 
@@ -36,10 +35,10 @@ import java.util.concurrent.Executor;
  *
  * <h2>Which thread each piece of work needs is decided here, and only here</h2>
  * That is the whole reason this class exists rather than the command calling Bukkit directly.
- * Everything below is a database round trip and belongs off the main thread - except the farm world
- * reset, which unloads and deletes a world folder and can only happen <em>on</em> it. So that one
- * hops back and waits, which is exactly the inversion the command layer must not have to know
- * about.
+ * Everything below is a database round trip and belongs off the main thread. Until 2026-09-20 one
+ * of them was not - the farm world reset unloaded and deleted a world folder and could only happen
+ * <em>on</em> the main thread, so it hopped back and waited. That inversion went with the farm
+ * world (season-2-ingame/30); the rule it proved is why the decision still lives here.
  */
 public final class BukkitSmpEffects implements SmpEffects {
 
@@ -47,7 +46,6 @@ public final class BukkitSmpEffects implements SmpEffects {
     private final Executor executor;
     private final SmpDao dao;
     private final ObjectiveEngine engine;
-    private final FarmWorldReset farmReset;
     private final Identities identities;
     private final AccessDirectory access;
     private final java.util.function.Supplier<java.util.List<String>> reload;
@@ -66,7 +64,7 @@ public final class BukkitSmpEffects implements SmpEffects {
 
     public BukkitSmpEffects(final Plugin plugin, final Executor executor,
                             final org.jdbi.v3.core.Jdbi jdbi, final SmpDao dao,
-                            final ObjectiveEngine engine, final FarmWorldReset farmReset,
+                            final ObjectiveEngine engine,
                             final Identities identities, final AccessDirectory access,
                             final java.util.function.Supplier<java.util.List<String>> reload,
                             final java.util.function.Function<java.util.Locale, Status> status) {
@@ -76,7 +74,6 @@ public final class BukkitSmpEffects implements SmpEffects {
         this.jdbi = java.util.Objects.requireNonNull(jdbi, "jdbi");
         this.dao = dao;
         this.engine = engine;
-        this.farmReset = farmReset;
         this.identities = identities;
         this.access = access;
         this.reload = reload;
@@ -100,17 +97,6 @@ public final class BukkitSmpEffects implements SmpEffects {
     @Override
     public java.util.List<String> reload() {
         return reload.get();
-    }
-
-    @Override
-    public void resetFarmWorld() {
-        // On the main thread, and waited for: it unloads a world, deletes its folder and
-        // regenerates it, none of which is safe from anywhere else. Waiting is what lets a failure
-        // reach whoever asked instead of only the console.
-        onMainThread(() -> {
-            farmReset.resetNow();
-            return null;
-        });
     }
 
     @Override

@@ -65,6 +65,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *     org.opentest4j.AssertionFailedError: /smp farmreset is CONSOLE and WEB, so it is not in a
  *     player's tree ==&gt; expected: &lt;false&gt; but was: &lt;true&gt;
  * </pre>
+ *
+ * <p>The second of those was {@code /smp farmreset}, which went with the farm world on 2026-09-20
+ * (season-2-ingame/30). {@code /smp reload} took its place below: it is console-only for the same
+ * reason and asks the same question of the tree. The failure above is left verbatim because it is
+ * the evidence, and evidence is not edited to match what replaced it.</p>
  */
 class AdminCommandsAreGoneFromTheGameTest {
 
@@ -91,19 +96,19 @@ class AdminCommandsAreGoneFromTheGameTest {
     }
 
     @Test
-    @DisplayName("...and no /smp farmreset either, while /smp status stays")
+    @DisplayName("...and no /smp reload either, while /smp status stays")
     void onlyTheOffGameBranchesGo() {
         final PaperCommands commands = adapter(Target.SMP);
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
         }
         final LiteralCommandNode<CommandSourceStack> smp = root(commands.build(), "smp");
-        final Predicate<CommandSourceStack> farmreset = child(smp, "farmreset").getRequirement();
+        final Predicate<CommandSourceStack> reload = child(smp, "reload").getRequirement();
         final Predicate<CommandSourceStack> status = child(smp, "status").getRequirement();
 
-        assertFalse(farmreset.test(source(player())),
-                "/smp farmreset is CONSOLE and WEB, so it is not in a player's tree");
-        assertTrue(farmreset.test(source(sender(ConsoleCommandSender.class))),
+        assertFalse(reload.test(source(player())),
+                "/smp reload is CONSOLE only, so it is not in a player's tree");
+        assertTrue(reload.test(source(sender(ConsoleCommandSender.class))),
                 "the console keeps it");
         assertTrue(status.test(source(player())),
                 "/smp status is the one /smp command that kept Surface.GAME - cutting it would be"

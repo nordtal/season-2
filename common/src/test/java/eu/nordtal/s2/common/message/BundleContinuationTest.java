@@ -96,8 +96,8 @@ class BundleContinuationTest {
      * a real client, saying "You have 0 earned spin(s) waiting" underneath a refusal that had
      * already said there were none.
      *
-     * <p>The alternative costs one line of Java, and this repository already writes it: the
-     * farm-reset warning picks {@code smp.farm.warning.one} at one minute. So the rule is absolute
+     * <p>The alternative costs one line of Java, and this repository already writes it: the wheel
+     * picks {@code smp.wheel.available.one} at one spin. So the rule is absolute
      * rather than an allowlist - there is no value that genuinely wants a parenthetical plural, and
      * an allowlist is where the next one would go.</p>
      */
@@ -128,7 +128,7 @@ class BundleContinuationTest {
         }
         assertEquals(List.of(), parenthesised,
                 "a bundle value must not spell a plural with a parenthesis - pick a key on the"
-                        + " count instead, the way the farm-reset warning does at one minute");
+                        + " count instead, the way the wheel does at one spin");
     }
 
     /**

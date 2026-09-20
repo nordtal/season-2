@@ -57,9 +57,9 @@ public final class SmpHud {
     /**
      * How long a status-bar announcement stays up before the ordinary line comes back.
      *
-     * <p>Short, because the farm reset warns at 30, 10, 5 and 1 minutes: a warning that held the
-     * bar between two of those would hide the dimension and milestone for twenty minutes to say
-     * something that has not changed.
+     * <p>Short, because the bar's ordinary line is the one that carries the dimension and the
+     * milestone: an announcement that held it for longer would hide both to say something that
+     * has already been read.
      */
     private static final Duration ANNOUNCEMENT = Duration.ofSeconds(8);
 

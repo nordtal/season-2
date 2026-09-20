@@ -64,14 +64,6 @@ public interface SmpEffects extends CommandEffects {
      */
     java.util.List<String> reload();
 
-    /**
-     * Delete the farm world folder and regenerate it.
-     *
-     * <p>The one command in this repository that destroys something a player can be standing in,
-     * which is why {@code deploy/minecraft/entrypoint-test.sh} exists at all.</p>
-     */
-    void resetFarmWorld();
-
     /** The active milestone's key, or empty when the track has not started or is finished. */
     Optional<String> activeMilestone();
 

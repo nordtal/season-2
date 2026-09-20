@@ -735,10 +735,9 @@ public final class Graves implements InventoryHolder {
                 // grave used to disappear silently, and should not).
                 //
                 // And here rather than inside erase, which is the one place the ticket pointed at.
-                // erase has two other callers that are not a grave finishing: clearDisplays at
-                // plugin disable, and forgetWorld on the daily farm reset. A sound there would play
-                // a skeleton's death once per grave at every shutdown and every reset, to nobody's
-                // benefit.
+                // erase has another caller that is not a grave finishing: clearDisplays at plugin
+                // disable. A sound there would play a skeleton's death once per grave at every
+                // shutdown, to nobody's benefit.
                 final World graveWorld = Bukkit.getWorld(row.world());
                 if (graveWorld != null) {
                     sounds.playAt(new Location(graveWorld, row.x() + 0.5, row.y() + 0.5, row.z() + 0.5),
@@ -767,10 +766,6 @@ public final class Graves implements InventoryHolder {
                 GravePanel.contentSlots(contentRows));
     }
 
-    /** Forgets every grave in a world, for the daily farm-world reset. Main thread. */
-    public void forgetWorld(final String world) {
-        List.copyOf(open.values()).stream()
-                .filter(row -> row.world().equals(world))
-                .forEach(row -> erase(row.id()));
-    }
+    // forgetWorld stood here until 2026-09-20: it erased every grave in a world for the nightly
+    // farm-world reset, which was its only caller. Both went with season-2-ingame/30.
 }

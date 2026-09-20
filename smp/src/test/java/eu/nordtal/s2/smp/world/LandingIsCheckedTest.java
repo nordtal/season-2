@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.farm;
+package eu.nordtal.s2.smp.world;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,8 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * balloon - whose whole design is "always the world spawn, so that a world spawn is a landmark
  * everybody knows" - dropped the first player who took it to the Nether inside netherrack, which
  * cost them twenty aura for suffocating (134). Two more raw uses were still standing when that was
- * found: the farm-world reset, which is the one teleport here that moves <em>everybody</em> at five
- * in the morning with nobody watching, and the portal event's farm branch.
+ * found, both of them the farm world's; they went with it on 2026-09-20 (season-2-ingame/30), and
+ * the rule they were found by did not.
  *
  * <p>{@link LandingSite#safeAt} costs nothing where the spot is already good - it takes the
  * preferred location whenever a player actually fits there - so a built world keeps its landmark
@@ -42,7 +42,7 @@ class LandingIsCheckedTest {
     /** Files allowed to name a world spawn without routing it through a landing check. */
     private static final List<String> ALLOWED = List.of(
             // The class that implements the check, and whose own fallback is the raw spawn.
-            "smp/src/main/java/eu/nordtal/s2/smp/farm/LandingSite.java",
+            "smp/src/main/java/eu/nordtal/s2/smp/world/LandingSite.java",
             // Reads the three coordinates into a message; moves nobody.
             "smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigateGui.java");
 
@@ -79,8 +79,7 @@ class LandingIsCheckedTest {
      * Either helper counts, and the difference between them is what the caller does with nothing.
      *
      * <p>{@code safeAt} ends with the preferred spot when its search comes back empty, which is
-     * right for a duel that has to end and for a farm world that is about to be deleted.
-     * {@code findSafeAt} hands the emptiness back, which is right for the balloon: it can say the
+     * right for a duel that has to end. {@code findSafeAt} hands the emptiness back, which is right for the balloon: it can say the
      * destination is unavailable instead of announcing an arrival nobody survives.</p>
      */
     private static boolean checked(final String line) {

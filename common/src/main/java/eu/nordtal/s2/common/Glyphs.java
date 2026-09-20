@@ -143,7 +143,7 @@ public final class Glyphs {
     public static final String ICON_DEATH = cp(0xFE083);
     public static final String ICON_ADVANCEMENT = cp(0xFE084);
 
-    /** In front of a line the whole server is told: a milestone, an objective, a farm reset. */
+    /** In front of a line the whole server is told: a milestone, an objective, a restart. */
     public static final String ICON_ANNOUNCE = cp(0xFE085);
 
     // === nordtal:board ===
@@ -250,9 +250,11 @@ public final class Glyphs {
     public static final String BOSSBAR_ICON_FGREEN = cp(0xFEF02);
     public static final String BOSSBAR_ICON_FRED = cp(0xFEF03);
     public static final String BOSSBAR_ICON_FWHITE = cp(0xFEF04);
-    // Dimension icons - U+FEF05..U+FEF08, one per world the SMP/hunger games HUDs name.
+    // Dimension icons - U+FEF05, U+FEF07 and U+FEF08, one per world the SMP/hunger games HUDs
+    // name. U+FEF06 was the farm world and is a deliberate gap since 2026-09-20
+    // (season-2-ingame/30): a code point is an address, and renumbering the two below it would
+    // move art that is already drawn in order to close a hole nobody can see.
     public static final String BOSSBAR_ICON_DIM_OVERWORLD = cp(0xFEF05);
-    public static final String BOSSBAR_ICON_DIM_FARM_WORLD = cp(0xFEF06);
     public static final String BOSSBAR_ICON_DIM_NETHER = cp(0xFEF07);
     public static final String BOSSBAR_ICON_DIM_END = cp(0xFEF08);
     // The hunger games HUD's own icons - a heart, a skull, a chest, a dashed border.

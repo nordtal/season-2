@@ -327,7 +327,7 @@ Height 10, ascent 4.
 | `\uFEF03` | `ui/bossbar/icons/fred.png`, 8 × 10 | Land flag, red — reset zone | keep — season 1 |
 | `\uFEF04` | `ui/bossbar/icons/fwhite.png`, 8 × 10 | Land flag, white — server-protected spawn area | keep — season 1 |
 | `\uFEF05` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_overworld.png) | Dimension: Nordtal (overworld), 10 × 10 — a mountain with a snow cap | generated — final candidate |
-| `\uFEF06` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_farmworld.png) | Dimension: farm world, 10 × 10 — an ear of wheat | generated — final candidate |
+| `\uFEF06` | — | *free.* Was the farm-world dimension icon; the farm world went on 2026-09-20 (season-2-ingame/30). Left as a gap rather than renumbered — a code point is an address. | — |
 | `\uFEF07` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_nether.png) | Dimension: Nether, 10 × 10 — a flame | generated — final candidate |
 | `\uFEF08` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_end.png) | Dimension: End, 10 × 10 — an ender eye | generated — final candidate |
 | `\uFEF09` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_alive.png) | Players alive, 10 × 10 — a heart | generated — final candidate |
@@ -345,7 +345,6 @@ picked exactly one of them for the player's current position and paired it with 
 |---|---|---|
 | `fwhite` | `Server-protected` | inside the spawn area |
 | `fblue` | the area's display name and its owner | inside a player's preserved area |
-| `fred` | `Reset zone` | land the farm-world reset clears |
 | `fgreen` | `Permanent` | land the reset leaves alone |
 
 `\uFEF00`'s compass was the companion icon naming the world itself. **Nothing in season 2 draws any
@@ -418,7 +417,7 @@ its icon before the name beside it, so a row is composed left to right.
 
 | Char code | File | Ascent | Description | Status |
 |---|---|---|---|---|
-| `\uFE066` | ![source](src/assets/nordtal/textures/ui/gui/travel.png) | 13 | The balloon's panel: a 6-row window with no title strip and the four world cards baked in — Nordtal, farm world / Nether, End — each 68 × 50 at x 9 or 99, y 19 or 73, covering slot columns 0–3 and 5–8 of rows 0–2 and 3–5 | generated — final candidate |
+| `\uFE066` | ![source](src/assets/nordtal/textures/ui/gui/travel.png) | 13 | The balloon's panel: a 6-row window with no title strip and the three world cards baked in — Nordtal, Nether / End — each 68 × 50 at x 9 or 99, y 19 or 73, covering slot columns 0–3 and 5–8 of rows 0–2 and 3–5; the bottom right is empty since 2026-09-20, where the farm world's card was | generated — final candidate |
 | `\uFE067` | ![source](src/assets/nordtal/textures/ui/gui/travel_locked.png) | −6 | Locked: a translucent shade with a padlock, the size of one card, landing on the **upper** row | generated — final candidate |
 | `\uFE068` | the same file | −60 | Locked, landing on the **lower** row | — |
 | `\uFE069` | ![source](src/assets/nordtal/textures/ui/gui/travel_here.png) | −6 | "You are here": a 2 px white frame, transparent inside, upper row | generated — final candidate |

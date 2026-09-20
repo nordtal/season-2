@@ -253,7 +253,7 @@ public class AccessBot implements AutoCloseable {
                     roles, requests, admin, seasonStart, messages, sharedMessages, log);
             AccessCommands.all().forEach(command -> inbox.register(command, inboxEffects));
             // The servers' line into the announcement channels: `announce <language> <text>` rows
-            // from the SMP (a milestone, a farm-reset warning), posted here verbatim. Inline for
+            // from the SMP (a milestone, a phase change), posted here verbatim. Inline for
             // the same reason as above.
             final eu.nordtal.s2.discordbot.announce.Announcements announcements =
                     new eu.nordtal.s2.discordbot.announce.Announcements(jda, languages, Runnable::run, log);

@@ -106,7 +106,7 @@ class AdminSourceTest {
         // instead of one ternary. The behaviour behind both halves is held where a tree can
         // actually be built: AdminCommandsAreGoneFromTheGameTest (paper-common) and
         // VelocityCommandsGameSurfaceTest (proxy) assert /smp status stays open to a
-        // player while /smp farmreset and /access do not.
+        // player while /smp reload and /access do not.
         for (final String relative : List.of(
                 "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/PaperCommands.java",
                 "proxy/src/main/java/eu/nordtal/s2/proxy/command/VelocityCommands.java")) {

@@ -50,23 +50,6 @@ public interface SmpSpec {
         return "nordtal";
     }
 
-    @Order(2)
-    @Key("world-farm")
-    @Comment({
-            "The farm world, regenerated daily with a new seed. Everything in it dies with the",
-            "reset - chests, graves and POIs - and that is stated plainly to players rather than",
-            "softened.",
-            "",
-            "The reset is a SWAP, not a rebuild in place: tomorrow's world is pre-generated during",
-            "the day into a separate folder and the reset itself is an unload, a rename and a load.",
-            "A pre-generation that has not finished POSTPONES the reset rather than swapping in a",
-            "half-built world."
-    })
-    @Explain("The farm world's folder name. Regenerated daily as a full swap - everything placed in it, chests included, dies with the reset.")
-    default String worldFarm() {
-        return "farm";
-    }
-
     @Order(3)
     @Key("world-nether")
     @Comment("The Nether. Fixed border, generated once before its own milestone unlocks.")
@@ -81,20 +64,6 @@ public interface SmpSpec {
     @NoExplanationNeeded
     default String worldEnd() {
         return "nordtal_the_end";
-    }
-
-    @Order(5)
-    @Key("farm-world-border-diameter")
-    @Comment({
-            "A DIAMETER, like every border in this repository, because that is what Minecraft's",
-            "world border takes.",
-            "",
-            "This is the number to lower if the daily pre-generation turns out to cost tick time",
-            "with players online. Halving it quarters the work."
-    })
-    @Explain("Lower this if the daily pre-generation costs tick time with players online - halving it quarters the work.")
-    default int farmWorldBorderDiameter() {
-        return 2000;
     }
 
     @Order(6)
@@ -147,54 +116,6 @@ public interface SmpSpec {
         return 1.5;
     }
 
-    @Order(11)
-    @Key("farm-reset-time")
-    @Comment("Local time of day the farm world is swapped, HH:mm. Also available on command.")
-    @NoExplanationNeeded
-    default String farmResetTime() {
-        return "05:00";
-    }
-
-    @Order(12)
-    @Key("farm-reset-backup-window-hours")
-    @Comment({
-            "How recently a network backup must have succeeded for the daily reset above to run.",
-            "",
-            "THE RESET DELETES A WORLD AND THERE IS NO WAY BACK. Until 2026-09-13 the guarantee",
-            "that the world had just been saved was two clocks in two files: this plugin asked for",
-            "a backup at 04:45 and reset at 05:00, and the fifteen minutes between them were the",
-            "whole of it. Nothing could hold those two numbers against each other, and a season",
-            "with this plugin down had no backup at all with nothing saying so. The clock now",
-            "belongs to steward-worker, so the coupling is gone and the reset asks the database",
-            "instead: it looks for a BACKUP run that finished, succeeded, and whose report shows a",
-            "volume actually saved. NO SUCH RUN MEANS NO RESET - a loud line in the log and a farm",
-            "world that lives another day. That is the trade, and it was chosen deliberately.",
-            "",
-            "TWELVE HOURS, and the number has two edges. It must be long enough that a backup which",
-            "ran late still counts - the run stops three servers and snapshots several volumes, so",
-            "it is minutes, not seconds, and an operator may well move it. And it must be far",
-            "enough under 24 that YESTERDAY's backup can never pass for today's: at 15 minutes of",
-            "separation, a 24-hour window would have accepted yesterday's by ten minutes, and the",
-            "hour that Europe/Berlin moves twice a year would have decided it either way.",
-            "",
-            "ZERO TURNS THE CHECK OFF and the reset runs unconditionally. That is for a stack with",
-            "no steward-worker in it, where the check would otherwise block every reset forever.",
-            "It is logged as a WARNING at every start, because a guard nobody can see is off is",
-            "worse than no guard."
-    })
-    @Explain("How stale a verified backup may be before the daily reset is allowed to run. 0 disables the check entirely, for a stack with no steward-worker - no successful backup inside the window means no reset happens.")
-    default int farmResetBackupWindowHours() {
-        return 12;
-    }
-
-    @Order(13)
-    @Key("farm-reset-warning-minutes")
-    @Comment("How far ahead the reset is announced, in chat and on the HUD, in every language.")
-    @NoExplanationNeeded
-    default List<Integer> farmResetWarningMinutes() {
-        return List.of(30, 10, 5, 1);
-    }
-
     // ------------------------------------------------- world generation plumbing
 
     @Order(14)
@@ -213,12 +134,11 @@ public interface SmpSpec {
             "DATAPACKS ARE SERVER-GLOBAL and are read only from <level-name>/datapacks/. There is",
             "no per-world datapack API: DatapackManager hangs off Server, not World, and",
             "WorldCreator has no datapack option. So every world this server generates gets the",
-            "same packs, and the farm world's nightly regeneration inherits them without anything",
-            "being copied.",
+            "same packs.",
             "",
             "Why this is worth failing the start over: a world generated without its packs is",
-            "vanilla terrain permanently, because terrain is never re-rolled once it is on disk.",
-            "For the farm world that is one bad day; for Nordtal it is the whole season."
+            "vanilla terrain permanently, because terrain is never re-rolled once it is on disk,",
+            "and no world here is ever thrown away and generated again."
     })
     @Explain("Checked at enable, never installed by this plugin - a world generated without these packs is vanilla terrain forever, since terrain is never re-rolled once it is on disk.")
     default List<String> requiredDatapacks() {
@@ -232,11 +152,11 @@ public interface SmpSpec {
             "an interrupted run still leaves a usable middle; 'loop', 'spiral' and 'csv' are the",
             "other shapes Chunky accepts.",
             "",
-            "Chunky is a REQUIRED plugin (paper-plugin.yml). The daily reset waits for its",
-            "completion event and postpones itself rather than swapping in a half-built world, so",
-            "without Chunky the farm world would quietly stop resetting instead of failing."
+            "Chunky is a REQUIRED plugin (paper-plugin.yml). What used to ask it for a world was",
+            "the farm world's nightly reset, which went with season-2-ingame/30; whether anything",
+            "still needs it is season-2-ops/152."
     })
-    @Explain("The order Chunky walks chunks in - 'concentric' leaves a usable middle if a run is interrupted. Without the required Chunky plugin the farm world quietly stops resetting rather than failing loudly.")
+    @Explain("The order Chunky walks chunks in - 'concentric' leaves a usable middle if a run is interrupted.")
     default String pregenerationPattern() {
         return "concentric";
     }
@@ -244,58 +164,20 @@ public interface SmpSpec {
     @Order(16)
     @Key("pregeneration-on-start")
     @Comment({
-            "Whether tomorrow's farm world starts being pre-generated as soon as this plugin",
-            "enables. True is the production answer and the default: the first daily reset then",
-            "has a finished world waiting for it.",
+            "Whether this plugin starts a pre-generation as soon as it enables. True is the",
+            "production answer and the default.",
             "",
             "Set it to false on a machine you also want to use. Chunky takes every core it is",
             "given, so a stack that has just come up spends the next minutes at full load - which",
             "is right on a server that exists for nothing else and wrong on a laptop.",
             "",
-            "WHAT IT COSTS, exactly: the first reset of the day finds no finished world, postpones",
-            "itself (players in the farm world are told so) and starts the pre-generation there.",
-            "So it is one reset later rather than one reset lost, and nothing is deleted either",
-            "way. Every later reset behaves normally.",
-            "",
-            "This does NOT turn Chunky off. It is a required plugin and the reset still waits for",
-            "its completion event; whether Chunky itself resumes an interrupted task when the",
-            "server starts is Chunky's own setting, in plugins/Chunky/config.yml."
+            "WHAT IT ASKED FOR was the farm world, which was regenerated nightly and wanted a",
+            "finished one waiting. The farm world went with season-2-ingame/30 and nothing reads",
+            "this key at the moment; season-2-ops/152 decides whether it and Chunky stay."
     })
-    @Explain("True pre-generates tomorrow's farm world at once, which spends the next minutes at full CPU load - set it false on a machine also used for something else; the first reset then just postpones itself by a day.")
+    @Explain("True starts a pre-generation at once, which spends the next minutes at full CPU load - set it false on a machine also used for something else.")
     default boolean pregenerationOnStart() {
         return true;
-    }
-
-    @Order(17)
-    @Key("farm-world-staging-suffix")
-    @Comment({
-            "Tomorrow's farm world is generated under the live name plus this suffix, and renamed",
-            "onto the live name at the reset. Unloading a world releases its folder, so the folder",
-            "can be deleted, another renamed into its place, and the SAME name loaded again with no",
-            "restart - which is why there is one world name here and not a pair alternating daily."
-    })
-    @Explain("The suffix tomorrow's farm world is generated under before being renamed onto the live name at reset - the rename is instant regardless of world size, which is what keeps the swap itself short.")
-    default String farmWorldStagingSuffix() {
-        return "-next";
-    }
-
-    @Order(18)
-    @Key("farm-world-retired-suffix")
-    @Comment({
-            "Yesterday's farm world is RENAMED to this suffix during the swap and deleted",
-            "afterwards, off the main thread.",
-            "",
-            "The rename is what keeps the swap short. Renaming a directory is one filesystem",
-            "operation whether it holds one file or a hundred thousand; deleting a farm world is",
-            "gigabytes of unlinking, and doing that inside the swap would freeze the server for the",
-            "length of an rm -rf.",
-            "",
-            "A leftover folder with this suffix means a previous delete was interrupted. It is",
-            "cleaned up at the next start and is never loaded as a world."
-    })
-    @Explain("Yesterday's farm world is renamed to this suffix and deleted afterwards off the main thread - deleting inline would freeze the server for the length of the delete.")
-    default String farmWorldRetiredSuffix() {
-        return "-old";
     }
 
     // ---------------------------------------------------------------- the balloons
@@ -306,7 +188,7 @@ public interface SmpSpec {
             "Where the balloons stand. Stepping into one of these boxes opens the travel GUI; the",
             "balloon itself is a model on a barrier-block floor, and this is the volume above it.",
             "",
-            "One box per world that has a balloon: Nordtal, the farm world and the Nether. The End",
+            "One box per world that has a balloon: Nordtal and the Nether. The End",
             "deliberately has none - it is entered by balloon and left through the vanilla exit",
             "portal, which does not work until the dragon is dead, and that one-way trip is the",
             "point of unlocking it together.",
@@ -578,7 +460,7 @@ public interface SmpSpec {
             "contains a block wins. THE COORDINATES BELOW ARE PLACEHOLDERS - the spawn build does",
             "not exist yet, and the one hard geometric constraint on it is that the balloon stands",
             "outside radius 10 and inside radius 21.5 of the border centre, so that border 20",
-            "withholds the farm world and the opening expansion to 43 hands it over."
+            "withholds travel and the opening expansion to 43 hands it over."
     })
     @Explain("Protected boxes, checked in order with the first match winning. Deliberately not WorldGuard - avoids a large third-party dependency of unverified Minecraft 26.2 availability for what only needs a handful of fixed boxes.")
     default List<SpawnRegionSpec> spawnRegions() {
@@ -932,16 +814,6 @@ public interface SmpSpec {
         @NoExplanationNeeded
         default SpawnPointSpec nordtal() {
             return DefaultSmp.BALLOON_SPAWN_POINT_NORDTAL;
-        }
-
-        @Order(2) @Key("farm")
-        @Comment({
-                "Where it lands in the farm world. Regenerated daily, so this one is a column in",
-                "fresh terrain rather than a built place - expect the safety search to move it."
-        })
-        @Explain("Regenerated daily, so this is a column in fresh terrain rather than a built place - expect the safety search to move it rather than land exactly here.")
-        default SpawnPointSpec farm() {
-            return DefaultSmp.BALLOON_SPAWN_POINT_FARM;
         }
 
         @Order(3) @Key("nether")

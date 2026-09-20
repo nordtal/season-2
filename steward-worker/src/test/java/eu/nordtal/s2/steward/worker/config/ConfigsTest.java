@@ -91,12 +91,12 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("a volume list without the world is refused, because the farm reset leans on it")
+    @DisplayName("a volume list without the world is refused, because the world cannot be rebuilt")
     void theWorldCannotBeDroppedFromTheList() throws Exception {
-        // The hole this closes: smp resets the farm world only when a successful backup is recent
-        // enough behind it, and this list decides what "successful" saved. Keep one volume, drop
-        // mc-smp, and every night reports DONE while Nordtal is in no archive at all - the gate
-        // then authorises a reset over a world nobody can put back.
+        // The hole this closes: a run reports DONE for saving what this list names, and the list
+        // is the only thing that says what that was. Keep one volume, drop mc-smp, and every night
+        // reports DONE while Nordtal - the one thing in no repository and no release - is in no
+        // archive at all.
         java.nio.file.Files.writeString(directory.resolve("steward.yml"), """
                 backup:
                   volumes:
@@ -107,7 +107,7 @@ class ConfigsTest {
                 assertThrows(ConfigValidationException.class, () -> Configs.steward(directory, LOGGER));
 
         final String message = String.valueOf(error.getMessage() + error.getCause());
-        assertTrue(message.contains("resets the farm world"),
+        assertTrue(message.contains("in no repository and in no"),
                 "and it says what the missing volume is load-bearing for: " + message);
     }
 

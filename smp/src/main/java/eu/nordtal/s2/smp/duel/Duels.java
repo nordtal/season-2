@@ -112,7 +112,7 @@ public final class Duels {
      */
     private Location spawn() {
         return worlds.world(WorldRole.NORDTAL)
-                .map(world -> eu.nordtal.s2.smp.farm.LandingSite.safeAt(world, world.getSpawnLocation()))
+                .map(world -> eu.nordtal.s2.smp.world.LandingSite.safeAt(world, world.getSpawnLocation()))
                 .orElse(null);
     }
 

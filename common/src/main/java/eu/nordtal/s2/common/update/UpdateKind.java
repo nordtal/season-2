@@ -75,8 +75,9 @@ public enum UpdateKind {
      * <p>What that broke is the guarantee that came free from the fifteen minutes between
      * {@code smp}'s backup and {@code smp}'s farm reset: the world about to be deleted had just
      * been saved. Two clocks in two containers cannot be held against each other, so the reset
-     * asks instead - see {@link UpdateDirectory#lastSuccessfulBackup(java.time.Duration)}, and no
-     * provable backup means no reset.</p>
+     * asked instead - {@link UpdateDirectory#lastSuccessfulBackup(java.time.Duration)}. The farm
+     * world went on 2026-09-20 (season-2-ingame/30) and took the question with it; the method is
+     * still there and now has no caller.</p>
      */
     BACKUP,
 

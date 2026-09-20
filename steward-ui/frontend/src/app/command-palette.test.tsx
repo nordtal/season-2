@@ -387,15 +387,15 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
   it("finds a bundle key that no config file mentions - the ticket's own red-then-green case", async () => {
     const loc = bundleLocation({ path: "smp/smp" })
     oneBundle(loc, [
-      messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." }),
+      messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." }),
     ])
 
-    await search("resetting")
+    await search("decayed")
 
     // The row's main label is the matched text, not the key - the same split a config hit already
     // draws between its human `label` and its technical `path` (steward/87, see command-palette.tsx
     // and config-search.tsx's `SettingsHitRow`). The key still rides along in the shortcut text.
-    expect(screen.queryByText("The farm world is resetting.")).not.toBeNull()
+    expect(screen.queryByText("Your grave has decayed.")).not.toBeNull()
   })
 
   it("finds a key by its German translation, not only its English default", async () => {
@@ -405,8 +405,8 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
     const loc = bundleLocation({ path: "smp/smp" })
     oneBundle(loc, [
       messageEntry({
-        key: "farm.reset.announce",
-        english: "The farm world is resetting.",
+        key: "grave.decay.announce",
+        english: "Your grave has decayed.",
         german: "packaged-de-marker",
       }),
     ])
@@ -418,33 +418,33 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
 
   it("finds a key by the key itself", async () => {
     const loc = bundleLocation({ path: "smp/smp" })
-    oneBundle(loc, [messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })])
+    oneBundle(loc, [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })])
 
-    await search("farm.reset")
+    await search("grave.decay")
 
     // Matched by the key (there is no German text on this entry, so only the English row survives
     // `searchMessagesAcross`'s per-language guard) - the visible label is still the English text,
     // and the key that was actually typed shows up in the shortcut instead.
-    expect(screen.queryByText("The farm world is resetting.")).not.toBeNull()
+    expect(screen.queryByText("Your grave has decayed.")).not.toBeNull()
   })
 
   it("shows nothing before anything is typed, same as a config hit", async () => {
     const loc = bundleLocation({ path: "smp/smp" })
-    oneBundle(loc, [messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })])
+    oneBundle(loc, [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })])
 
     render(<CommandPalette />)
     ctrlK(document.body)
     await waitFor(() => expect(searchInput()).not.toBeNull())
 
-    expect(screen.queryByText("farm.reset.announce")).toBeNull()
+    expect(screen.queryByText("grave.decay.announce")).toBeNull()
   })
 
   it("selecting a bundle hit navigates to the service page and hands the messages tool a jump, not the configuration form", async () => {
     const loc = bundleLocation({ path: "smp/smp", service: "smp" })
-    oneBundle(loc, [messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })])
+    oneBundle(loc, [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })])
 
-    await search("resetting")
-    fireEvent.click(await screen.findByText("The farm world is resetting."))
+    await search("decayed")
+    fireEvent.click(await screen.findByText("Your grave has decayed."))
 
     expect(navigateSpy).toHaveBeenCalledWith({
       to: "/services/$name",
@@ -453,7 +453,7 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
     expect(takePendingMessageJump("smp")).toEqual({
       path: "smp/smp",
       language: "en",
-      key: "farm.reset.announce",
+      key: "grave.decay.announce",
     })
     // And never the config map - a bundle hit must not be mistaken for a config one downstream.
     expect(takePendingJump("smp")).toBeUndefined()
@@ -468,9 +468,9 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
       writable: true,
     }
     const configEntry: ConfigEntry = {
-      path: "farm.reset.enabled",
+      path: "grave.decay.enabled",
       key: "enabled",
-      label: "Farm reset enabled",
+      label: "Grave decay enabled",
       comments: [],
       explanation: "",
       noExplanationNeeded: false,
@@ -490,13 +490,13 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
       },
     ] as never)
     oneBundle(bundleLocation({ path: "smp/smp", service: "smp" }), [
-      messageEntry({ key: "farm.reset.announce", english: "Farm reset announcement" }),
+      messageEntry({ key: "grave.decay.announce", english: "Grave decay announcement" }),
     ])
 
-    await search("farm reset")
+    await search("grave decay")
 
-    expect(screen.queryByText("Farm reset enabled")).not.toBeNull()
-    expect(screen.queryByText("Farm reset announcement")).not.toBeNull()
+    expect(screen.queryByText("Grave decay enabled")).not.toBeNull()
+    expect(screen.queryByText("Grave decay announcement")).not.toBeNull()
   })
 })
 

@@ -26,7 +26,7 @@ final class DefaultTrack {
     static final List<MilestonesSpec.MilestoneEntry> LIST = List.of(
 
             // M0. Where the phase switch leaves the world. Border 20 is a physical gate rather than
-            // ceremony: the balloon stands outside radius 10, so 20 withholds the farm world.
+            // ceremony: the balloon stands outside radius 10, so 20 withholds travel entirely.
             milestone("waiting", "BORDER", 20, 0, false, List.of()),
 
             // M1. Opened by an admin at the opening, and the whole content of the season's first

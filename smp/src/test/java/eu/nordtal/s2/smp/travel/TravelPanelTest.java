@@ -46,14 +46,13 @@ class TravelPanelTest {
     private static final Path ASSETS = ROOT.resolve("resource-pack/src/assets/nordtal");
 
     /**
-     * The four cards' colours - fill, outline, highlight - verbatim from
+     * The three cards' colours - fill, outline, highlight - verbatim from
      * generate_gui_panels.py's TILES. A card is the bounding box of every pixel in any of its
      * three exact colours; the pictogram is the highlight colour blended at partial alpha and
      * therefore never exact, so it cannot widen the box.
      */
     private static final Map<WorldRole, List<Integer>> COLOURS = Map.of(
             WorldRole.NORDTAL, List.of(rgb(82, 168, 84), rgb(44, 108, 48), rgb(140, 210, 136)),
-            WorldRole.FARM, List.of(rgb(236, 168, 56), rgb(170, 110, 24), rgb(250, 214, 130)),
             WorldRole.NETHER, List.of(rgb(206, 66, 58), rgb(136, 34, 30), rgb(242, 140, 120)),
             WorldRole.END, List.of(rgb(128, 82, 190), rgb(78, 44, 130), rgb(190, 150, 232)));
 
@@ -99,10 +98,10 @@ class TravelPanelTest {
         final String surface = plain(TravelPanel.title(entries));
 
         assertEquals(1, count(surface, Glyphs.GUI_TRAVEL_PANEL));
-        assertEquals(1, count(surface, Glyphs.GUI_TRAVEL_HERE_BOTTOM), "the Nether is HERE");
-        assertEquals(1, count(surface, Glyphs.GUI_TRAVEL_LOCKED_BOTTOM), "the End is locked");
-        assertEquals(0, count(surface, Glyphs.GUI_TRAVEL_LOCKED_TOP), "the overworlds are never locked");
-        assertEquals(0, count(surface, Glyphs.GUI_TRAVEL_HERE_TOP));
+        assertEquals(1, count(surface, Glyphs.GUI_TRAVEL_HERE_TOP), "the Nether is HERE, on row 0");
+        assertEquals(1, count(surface, Glyphs.GUI_TRAVEL_LOCKED_BOTTOM), "the End is locked, on row 1");
+        assertEquals(0, count(surface, Glyphs.GUI_TRAVEL_LOCKED_TOP), "Nordtal is never locked");
+        assertEquals(0, count(surface, Glyphs.GUI_TRAVEL_HERE_BOTTOM));
     }
 
     @Test

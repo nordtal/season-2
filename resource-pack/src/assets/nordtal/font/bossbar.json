@@ -190,15 +190,6 @@
         },
         {
             "type": "bitmap",
-            "file": "nordtal:ui/bossbar/icons/dim_farmworld.png",
-            "ascent": 4,
-            "height": 10,
-            "chars": [
-                "\uDBBB\uDF06"
-            ]
-        },
-        {
-            "type": "bitmap",
             "file": "nordtal:ui/bossbar/icons/dim_nether.png",
             "ascent": 4,
             "height": 10,

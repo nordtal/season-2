@@ -228,8 +228,8 @@ function bundle(loc: MessageBundleLocation, entries: MessageEntry[]): MessageBun
 
 describe("messageEntryHaystack / matchesMessageQuery", () => {
   it("matches the English default", () => {
-    const e = messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })
-    expect(matchesMessageQuery(e, "en", "resetting")).toBe(true)
+    const e = messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })
+    expect(matchesMessageQuery(e, "en", "decayed")).toBe(true)
   })
 
   it("matches the German translation, and only for the German language", () => {
@@ -237,8 +237,8 @@ describe("messageEntryHaystack / matchesMessageQuery", () => {
     // German and a fixture is not exempt from that, the same reason `messages.test.tsx` (steward/48)
     // spells its own German fixtures as "packaged-de-text" rather than an actual sentence.
     const e = messageEntry({
-      key: "farm.reset.announce",
-      english: "The farm world is resetting.",
+      key: "grave.decay.announce",
+      english: "Your grave has decayed.",
       german: "packaged-de-marker",
     })
     expect(matchesMessageQuery(e, "de", "de-marker")).toBe(true)
@@ -247,31 +247,31 @@ describe("messageEntryHaystack / matchesMessageQuery", () => {
 
   it("matches an operator's override, not only the packaged text", () => {
     const e = messageEntry({
-      key: "farm.reset.announce",
-      english: "The farm world is resetting.",
-      overrideEnglish: "The farm is being wiped.",
+      key: "grave.decay.announce",
+      english: "Your grave has decayed.",
+      overrideEnglish: "The grave is being cleared.",
     })
-    expect(matchesMessageQuery(e, "en", "wiped")).toBe(true)
+    expect(matchesMessageQuery(e, "en", "cleared")).toBe(true)
   })
 
   it("matches the key, in both languages - the key has no language of its own", () => {
-    const e = messageEntry({ key: "farm.reset.announce", english: "x", german: "y" })
-    expect(matchesMessageQuery(e, "en", "farm.reset")).toBe(true)
-    expect(matchesMessageQuery(e, "de", "farm.reset")).toBe(true)
+    const e = messageEntry({ key: "grave.decay.announce", english: "x", german: "y" })
+    expect(matchesMessageQuery(e, "en", "grave.decay")).toBe(true)
+    expect(matchesMessageQuery(e, "de", "grave.decay")).toBe(true)
   })
 
   it("is case-insensitive", () => {
-    const e = messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })
-    expect(matchesMessageQuery(e, "en", "RESETTING")).toBe(true)
+    const e = messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })
+    expect(matchesMessageQuery(e, "en", "DECAYED")).toBe(true)
   })
 
   it("finds nothing for an empty query", () => {
-    const e = messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." })
+    const e = messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })
     expect(matchesMessageQuery(e, "en", "   ")).toBe(false)
   })
 
   it("does not leak the other language's text into this one's haystack", () => {
-    const e = messageEntry({ key: "farm.reset.announce", english: "wipe", german: "de-only-marker" })
+    const e = messageEntry({ key: "grave.decay.announce", english: "wipe", german: "de-only-marker" })
     expect(messageEntryHaystack(e, "en")).not.toContain("de-only-marker")
     expect(messageEntryHaystack(e, "de")).not.toContain("wipe")
   })
@@ -282,14 +282,14 @@ describe("searchMessagesAcross", () => {
     const loc = bundleLocation({ path: "smp/smp" })
     const doc = bundle(loc, [
       messageEntry({
-        key: "farm.reset.announce",
-        english: "The farm world is resetting.",
+        key: "grave.decay.announce",
+        english: "Your grave has decayed.",
         german: "packaged-de-marker",
       }),
     ])
     // A query that matches the key matches it in both languages - one hit per language, since
     // each is a different destination (a different tab) once it is found.
-    const hits = searchMessagesAcross([{ location: loc, bundle: doc }], "farm.reset")
+    const hits = searchMessagesAcross([{ location: loc, bundle: doc }], "grave.decay")
     expect(hits.map((hit) => hit.language).sort()).toEqual(["de", "en"])
   })
 
@@ -349,35 +349,35 @@ describe("searchSettingsAndMessages - one list, from two suppliers", () => {
   it("finds a text that lives only in a bundle - not in any config file of the same service", () => {
     const loc = configLocation({ path: "smp/steward.yml", name: "steward.yml" })
     const configDoc = configDocument(loc, [
-      configEntry({ path: "farm.reset.enabled", key: "enabled", label: "Farm reset enabled" }),
+      configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
     ])
     const bundleLoc = bundleLocation({ path: "smp/smp" })
     const bundleDoc = bundle(bundleLoc, [
-      messageEntry({ key: "farm.reset.announce", english: "The farm world is resetting." }),
+      messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." }),
     ])
 
     // The "before" half: config search alone finds nothing for this text.
-    expect(searchAcross([{ location: loc, document: configDoc }], "resetting")).toEqual([])
+    expect(searchAcross([{ location: loc, document: configDoc }], "decayed")).toEqual([])
 
     // The "after" half: both suppliers together find it.
     const hits = searchSettingsAndMessages(
       [{ location: loc, document: configDoc }],
       [{ location: bundleLoc, bundle: bundleDoc }],
-      "resetting",
+      "decayed",
     )
     expect(hits).toHaveLength(1)
-    expect(hits[0]).toMatchObject({ kind: "message", entry: { key: "farm.reset.announce" } })
+    expect(hits[0]).toMatchObject({ kind: "message", entry: { key: "grave.decay.announce" } })
   })
 
   it("still finds a config hit when the query matches only a config file", () => {
     const loc = configLocation({ path: "smp/steward.yml", name: "steward.yml" })
     const configDoc = configDocument(loc, [
-      configEntry({ path: "farm.reset.enabled", key: "enabled", label: "Farm reset enabled" }),
+      configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
     ])
     const hits = searchSettingsAndMessages(
       [{ location: loc, document: configDoc }],
       [],
-      "farm reset enabled",
+      "grave decay enabled",
     )
     expect(hits).toHaveLength(1)
     expect(hits[0].kind).toBe("config")
@@ -386,17 +386,17 @@ describe("searchSettingsAndMessages - one list, from two suppliers", () => {
   it("finds both a config hit and a message hit for one query, in one list", () => {
     const loc = configLocation({ path: "smp/steward.yml", name: "steward.yml" })
     const configDoc = configDocument(loc, [
-      configEntry({ path: "farm.reset.enabled", key: "enabled", label: "Farm reset enabled" }),
+      configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
     ])
     const bundleLoc = bundleLocation({ path: "smp/smp" })
     const bundleDoc = bundle(bundleLoc, [
-      messageEntry({ key: "farm.reset.announce", english: "Farm reset announcement" }),
+      messageEntry({ key: "grave.decay.announce", english: "Grave decay announcement" }),
     ])
 
     const hits = searchSettingsAndMessages(
       [{ location: loc, document: configDoc }],
       [{ location: bundleLoc, bundle: bundleDoc }],
-      "farm reset",
+      "grave decay",
     )
     expect(hits.map((hit) => hit.kind).sort()).toEqual(["config", "message"])
   })
@@ -404,11 +404,11 @@ describe("searchSettingsAndMessages - one list, from two suppliers", () => {
 
 describe("pending message jump", () => {
   it("hands a jump to the one read that follows, then forgets it", () => {
-    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "farm.reset.announce" })
+    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "grave.decay.announce" })
     expect(takePendingMessageJump("smp")).toEqual({
       path: "smp/smp",
       language: "en",
-      key: "farm.reset.announce",
+      key: "grave.decay.announce",
     })
     expect(takePendingMessageJump("smp")).toBeUndefined()
   })
@@ -421,13 +421,13 @@ describe("pending message jump", () => {
   })
 
   it("is a separate map from the config jump - the same service name in both never collides", () => {
-    setPendingJump("smp", { file: "smp/steward.yml", path: "farm.reset.enabled" })
-    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "farm.reset.announce" })
-    expect(takePendingJump("smp")).toEqual({ file: "smp/steward.yml", path: "farm.reset.enabled" })
+    setPendingJump("smp", { file: "smp/steward.yml", path: "grave.decay.enabled" })
+    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "grave.decay.announce" })
+    expect(takePendingJump("smp")).toEqual({ file: "smp/steward.yml", path: "grave.decay.enabled" })
     expect(takePendingMessageJump("smp")).toEqual({
       path: "smp/smp",
       language: "en",
-      key: "farm.reset.announce",
+      key: "grave.decay.announce",
     })
   })
 

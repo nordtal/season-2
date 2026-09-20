@@ -1113,13 +1113,13 @@ describe("a hit that arrives while this page is already open (steward/127)", () 
     drawWith([entry({ path: "worker.base-url", key: "base-url", label: "Base url" })])
     await screen.findByText("Steward")
 
-    setPendingJump("smp", { file: "smp/steward.yml", path: "farm.reset.enabled" })
+    setPendingJump("smp", { file: "smp/steward.yml", path: "grave.decay.enabled" })
 
     // Still shut, and the other service's jump is still there for the page it was meant for.
     await waitFor(() => expect(screen.queryByText("Base url")).toBeNull())
     expect(takePendingJump("smp")).toEqual({
       file: "smp/steward.yml",
-      path: "farm.reset.enabled",
+      path: "grave.decay.enabled",
     })
   })
 })

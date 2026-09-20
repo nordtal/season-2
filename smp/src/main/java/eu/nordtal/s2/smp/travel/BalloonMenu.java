@@ -12,14 +12,14 @@ import java.util.Set;
 /**
  * What a balloon shows, worked out without a server so it can be tested as a table.
  *
- * <p>Four equal cards in fixed places:
+ * <p>Three equal cards in fixed places:
  *
  * <pre>
  *   +-------------+   +-------------+
- *   |   Nordtal   |   |  farm world |   rows 0-2, columns 0-3 and 5-8
+ *   |   Nordtal   |   |    Nether   |   rows 0-2, columns 0-3 and 5-8
  *   +-------------+   +-------------+
- *   |   Nether    |   |     End     |   rows 3-5, the same columns
- *   +-------------+   +-------------+
+ *   |     End     |                     rows 3-5, columns 0-3
+ *   +-------------+
  * </pre>
  *
  * <p>Every world keeps its place at every balloon; the card of the world the player is standing in
@@ -61,7 +61,7 @@ public final class BalloonMenu {
         }
     }
 
-    /** The inventory is six rows of nine; the cards cover all of it but column 4. */
+    /** The inventory is six rows of nine; the cards cover all of it but column 4 and the hole. */
     public static final int ROWS = 6;
 
     /** A card is three slot rows tall and four slot columns wide. */
@@ -71,10 +71,18 @@ public final class BalloonMenu {
     /** The slot column each card column starts at: 0..3 and 5..8, leaving 4 as the gap. */
     private static final int[] CARD_COLUMN_START = {0, 5};
 
-    /** The four cards' fixed places: (column, row) in the 2 x 2 grid. */
+    /**
+     * The three cards' fixed places: (column, row) in the 2 x 2 grid, read left to right.
+     *
+     * <p>There were four until 2026-09-20, one per world, and the grid was full. The farm world
+     * went with season-2-ingame/30, so the bottom right is empty - the loop below reads each row's
+     * own length, which is why a ragged row is a layout and not a special case. The hole is at the
+     * end of the reading order deliberately: a gap in the middle would read as a card that failed
+     * to draw.</p>
+     */
     private static final WorldRole[][] PLACES = {
-            {WorldRole.NORDTAL, WorldRole.FARM},
-            {WorldRole.NETHER, WorldRole.END},
+            {WorldRole.NORDTAL, WorldRole.NETHER},
+            {WorldRole.END},
     };
 
     private BalloonMenu() {
@@ -87,7 +95,7 @@ public final class BalloonMenu {
      * @param unlocked which unlocks the completed milestones have handed out
      */
     public static List<Entry> of(final WorldRole here, final Set<Unlock> unlocked) {
-        final List<Entry> entries = new ArrayList<>(4);
+        final List<Entry> entries = new ArrayList<>(3);
         for (int row = 0; row < PLACES.length; row++) {
             for (int column = 0; column < PLACES[row].length; column++) {
                 final WorldRole destination = PLACES[row][column];
@@ -125,9 +133,8 @@ public final class BalloonMenu {
         return switch (destination) {
             case NETHER -> unlocked.contains(Unlock.NETHER) ? State.OPEN : State.LOCKED;
             case END -> unlocked.contains(Unlock.END) ? State.OPEN : State.LOCKED;
-            // The two overworlds are never locked here: until the opening expansion the farm world
-            // is withheld by the border, not by this menu.
-            case NORDTAL, FARM -> State.OPEN;
+            // Nordtal is never locked here: it is where a player already is or is coming back to.
+            case NORDTAL -> State.OPEN;
         };
     }
 

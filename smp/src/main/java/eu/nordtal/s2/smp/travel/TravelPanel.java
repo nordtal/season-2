@@ -13,8 +13,8 @@ import java.util.Optional;
  * Draws the balloon's surface: the travel panel, and a state overlay on every card that needs one.
  *
  * <h2>What is baked in and what is laid over</h2>
- * The panel ({@link Glyphs#GUI_TRAVEL_PANEL}) carries all four world cards, because all four are
- * always shown in the same places. What varies per player is a card's state - {@code LOCKED} gets
+ * The panel ({@link Glyphs#GUI_TRAVEL_PANEL}) carries all three world cards, because all three
+ * are always shown in the same places. What varies per player is a card's state - {@code LOCKED} gets
  * a shade with a padlock, {@code HERE} gets a white frame, {@code OPEN} gets nothing - and each
  * state is one card-sized glyph declared twice in {@code gui.json}, once per card row at the ascent
  * that lands it there. {@link MenuTitle.Canvas} walks the cursor to the card's x and draws it.

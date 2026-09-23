@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 
-import { useAvatarBaseUrl, useServices } from "@/lib/queries"
+import { useAvatarBaseUrl, useService, useServices } from "@/lib/queries"
 import { count } from "@/lib/format"
 import { MinecraftHead } from "@/components/steward/identity"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -309,4 +309,36 @@ export function OnlineFigure({ online }: { online: Online }) {
  */
 function Heading({ children }: { children: ReactNode }) {
   return <header className="flex flex-col gap-1.5">{children}</header>
+}
+
+/**
+ * The same line on a service page, counted for that service alone (steward/140).
+ *
+ * The faces come from the roster row *of this service* - `ServicesApi.freshRoster` already files
+ * each player under the backend they are on, and `proxy`'s row is the whole network. The line is
+ * missing entirely where the row carries no `players`: six of the ten services never do, and a
+ * line that arrives and leaves again on most pages is worse than one that arrives late on four. So
+ * there is no skeleton either.
+ */
+export function useServiceOnline(name: string): Online | undefined {
+  const service = useService(name)
+  const players = service.data?.players
+  if (players === undefined) return undefined
+  return { total: players, servers: [], roster: service.data?.roster ?? [], pending: false }
+}
+
+export function ServiceOnlineLine({ name }: { name: string }) {
+  const online = useServiceOnline(name)
+  const base = useAvatarBaseUrl().data
+  if (!online) return null
+  const { number, word } = said(online.total)
+  return (
+    <div className="flex min-w-0 items-center gap-x-3">
+      <Stack online={online} base={base} size="size-7" />
+      <p className="flex items-baseline gap-1.5">
+        <span className="text-lg font-semibold tabular-nums tracking-tight">{number}</span>
+        <span className="text-sm text-muted-foreground">{word}</span>
+      </p>
+    </div>
+  )
 }

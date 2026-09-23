@@ -9,7 +9,7 @@ import {
   OperationsRestorePage,
 } from "@/pages/operations"
 import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
-import { ServicePage } from "@/pages/service"
+import { ServicePage, serviceSearch } from "@/pages/service"
 import { SettingsPage } from "@/pages/settings"
 import { SeasonPage } from "@/pages/season"
 import { JournalPage, AccountsPage, PaymentsPage, AccessPage } from "@/pages/access"
@@ -31,7 +31,14 @@ const rootRoute = createRootRoute({
 
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: OverviewPage }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/services/$name", component: ServicePage }),
+  // steward/140: the open tab and the chosen file are in the URL, so a reload stays where it was
+  // and Ctrl-K can land on a tab. Console is the default and is never written out.
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/services/$name",
+    component: ServicePage,
+    validateSearch: serviceSearch,
+  }),
   createRoute({ getParentRoute: () => rootRoute, path: "/operations", component: OperationsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/operations/plan", component: OperationsPlanPage }),
   createRoute({

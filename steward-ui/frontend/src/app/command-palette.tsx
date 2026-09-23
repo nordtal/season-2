@@ -313,7 +313,7 @@ export function CommandPalette() {
                       onSelect={() => {
                         setOpen(false)
                         setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
-                        void navigate({ to: "/services/$name", params: { name: service } })
+                        void navigate({ to: "/services/$name", params: { name: service }, search: { tab: "settings" } })
                       }}
                       className="min-h-control gap-2.5"
                     >
@@ -350,7 +350,7 @@ export function CommandPalette() {
                         language: hit.language,
                         key: hit.entry.key,
                       })
-                      void navigate({ to: "/services/$name", params: { name: service } })
+                      void navigate({ to: "/services/$name", params: { name: service }, search: { tab: "settings" } })
                     }}
                     className="min-h-control gap-2.5"
                   >

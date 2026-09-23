@@ -37,6 +37,12 @@ export function RecreateButton({
   service,
   variant = "outline",
   compact = false,
+  size,
+  labelClassName,
+  className,
+  open: openProp,
+  onOpenChange,
+  trigger = true,
 }: {
   service: string
   /**
@@ -61,44 +67,30 @@ export function RecreateButton({
    * word anywhere there is room for it.
    */
   compact?: boolean
+  size?: "default" | "sm"
+  /** Lets a page hide the word below a breakpoint; the button keeps it as its accessible name. */
+  labelClassName?: string
+  className?: string
+  /** Steerable from outside, for the service page's ⋯ menu (steward/140). */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  /** `false` draws the dialog alone, for a caller that opens it from somewhere else. */
+  trigger?: boolean
 }) {
-  const deployer = useDeployer()
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const open = openProp ?? ownOpen
+  const setOpen = (next: boolean) => {
+    setOwnOpen(next)
+    onOpenChange?.(next)
+  }
   const [jobId, setJobId] = useState<string | null>(null)
   const recreate = useRecreate()
   const job = useDeployerJob(open ? jobId : null)
+  const { unavailable, title } = useRecreateGate(service)
 
   // The deployer refuses to recreate itself - it is the container the request travels through - so
   // the button for it is not drawn at all rather than drawn and then refused.
   if (service === "steward-deployer") return null
-
-  // Five states, not two (steward/97): `available === false` with a reason steward-deployer gave,
-  // `available: true` but `reachable: false`, an error on `/api/deployer` itself (404, network,
-  // steward-ui down), the ordinary first load before anything has answered, and finally the one
-  // state the confident title belongs to. Only the last may be claimed with confidence.
-  //
-  // What separates the states that lock the button from the one that does not is whether an answer
-  // exists, not whether it is good news: `available: false` and `reachable: false` are both
-  // *measurements* - the second is a live GET /api/health the endpoint performed on our behalf
-  // (`InternalClient#isReachable`) - and an error is the measurement failing. A first load is none
-  // of those, so it stays open: a slow query is not a broken one, and going grey for it would be
-  // the same dishonesty in the other direction.
-  //
-  // `reachable` was carried in the payload and read by nobody until now, which is the same defect
-  // one layer down from the one this ticket is about: a configured deployer whose container is not
-  // answering looked exactly like a healthy one, down to the sentence promising the image is
-  // already on this host.
-  const unreachable = deployer.data?.available === true && deployer.data.reachable === false
-  const unavailable = deployer.data?.available === false || unreachable || deployer.isError
-  const title = deployer.data?.available === false
-    ? deployer.data.reason
-    : unreachable
-      ? "steward-deployer is configured but not answering."
-      : deployer.isError
-        ? "The state of steward-deployer is unknown: /api/deployer did not answer."
-        : deployer.data?.available === true
-          ? `Recreate the container for ${service} from the image already on this host.`
-          : "The state of steward-deployer is not known yet."
 
   // `job.data` survives a failed poll, so without the error guard this stayed true forever once one
   // answer had said RUNNING - and `running` is what disables the close button AND what makes
@@ -121,7 +113,7 @@ export function RecreateButton({
         }
       }}
     >
-      {compact ? (
+      {!trigger ? null : compact ? (
         <Tooltip>
           <TooltipTrigger asChild>
             <ResponsiveDialogTrigger asChild>
@@ -142,9 +134,16 @@ export function RecreateButton({
         </Tooltip>
       ) : (
         <ResponsiveDialogTrigger asChild>
-          <Button variant={variant} disabled={unavailable} title={title}>
+          <Button
+            variant={variant}
+            size={size}
+            className={className}
+            disabled={unavailable}
+            title={title}
+            aria-label={labelClassName ? "Recreate" : undefined}
+          >
             <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
-            Recreate
+            <span className={labelClassName}>Recreate</span>
           </Button>
         </ResponsiveDialogTrigger>
       )}
@@ -219,6 +218,44 @@ export function RecreateButton({
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   )
+}
+
+/**
+ * Whether Recreate can be offered, and the sentence that says why not.
+ *
+ * Its own hook since steward/140, because the service page's ⋯ menu has to grey out the same item
+ * the button greys out, for the same reason, without drawing the button.
+ */
+export function useRecreateGate(service: string): { unavailable: boolean; title: string | undefined } {
+  const deployer = useDeployer()
+  // Five states, not two (steward/97): `available === false` with a reason steward-deployer gave,
+  // `available: true` but `reachable: false`, an error on `/api/deployer` itself (404, network,
+  // steward-ui down), the ordinary first load before anything has answered, and finally the one
+  // state the confident title belongs to. Only the last may be claimed with confidence.
+  //
+  // What separates the states that lock the button from the one that does not is whether an answer
+  // exists, not whether it is good news: `available: false` and `reachable: false` are both
+  // *measurements* - the second is a live GET /api/health the endpoint performed on our behalf
+  // (`InternalClient#isReachable`) - and an error is the measurement failing. A first load is none
+  // of those, so it stays open: a slow query is not a broken one, and going grey for it would be
+  // the same dishonesty in the other direction.
+  //
+  // `reachable` was carried in the payload and read by nobody until now, which is the same defect
+  // one layer down from the one this ticket is about: a configured deployer whose container is not
+  // answering looked exactly like a healthy one, down to the sentence promising the image is
+  // already on this host.
+  const unreachable = deployer.data?.available === true && deployer.data.reachable === false
+  const unavailable = deployer.data?.available === false || unreachable || deployer.isError
+  const title = deployer.data?.available === false
+    ? deployer.data.reason
+    : unreachable
+      ? "steward-deployer is configured but not answering."
+      : deployer.isError
+        ? "The state of steward-deployer is unknown: /api/deployer did not answer."
+        : deployer.data?.available === true
+          ? `Recreate the container for ${service} from the image already on this host.`
+          : "The state of steward-deployer is not known yet."
+  return { unavailable, title }
 }
 
 function Output({ job }: { job: ReturnType<typeof useDeployerJob>["data"] }) {

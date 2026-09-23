@@ -1617,4 +1617,17 @@ class TopologyTest {
         }
         throw new IllegalStateException("could not find " + relative + " above " + Path.of("").toAbsolutePath());
     }
+
+    @Test
+    @DisplayName("exactly the four Minecraft services have plugins, and nothing else does")
+    void hasPluginsIsTheFour() {
+        assertAll(
+                () -> assertTrue(Topology.hasPlugins(Topology.SMP)),
+                () -> assertTrue(Topology.hasPlugins(Topology.PROXY)),
+                () -> assertTrue(Topology.hasPlugins(Topology.LIMBO)),
+                () -> assertTrue(Topology.hasPlugins(Topology.HUNGER_GAMES)),
+                () -> assertFalse(Topology.hasPlugins("postgres")),
+                () -> assertFalse(Topology.hasPlugins(Topology.DISCORD_BOT)),
+                () -> assertFalse(Topology.hasPlugins(Topology.standbyOf(Topology.PROXY))));
+    }
 }

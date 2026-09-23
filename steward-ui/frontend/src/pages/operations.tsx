@@ -1,6 +1,7 @@
 import {
   ArchiveIcon,
   ArrowCounterClockwiseIcon,
+  ArrowCircleUpIcon,
   ArrowRightIcon,
   ArrowsClockwiseIcon,
   CheckIcon,
@@ -11,7 +12,7 @@ import {
   PlayIcon,
   ProhibitInsetIcon,
   ShieldWarningIcon,
-  StopIcon,
+  PowerIcon,
   WarningIcon,
   XCircleIcon,
 } from "@phosphor-icons/react"
@@ -411,7 +412,9 @@ const ASKS: Record<
     title: "Enter an update",
     what:
       "Queries every source for the newest version, stops the services where something changes, swaps their jars and starts them again. If nothing is new, nothing is stopped - the run then ends at \"Nothing to do\".",
-    icon: ArrowsClockwiseIcon,
+    // steward/140: its own symbol, not Recreate's. The two sit side by side on a service page,
+    // and a button that looks like another one is a risk on a phone.
+    icon: ArrowCircleUpIcon,
   },
   BACKUP: {
     title: "Enter a backup",
@@ -427,10 +430,10 @@ const ASKS: Record<
     icon: ArrowCounterClockwiseIcon,
   },
   DOWN: {
-    title: "Put down",
+    title: "Take down",
     what: "Counts down, stops the service and leaves it stopped. No update and no restart starts it again.",
     warning: "It stays down until somebody presses Start.",
-    icon: StopIcon,
+    icon: PowerIcon,
   },
   START: {
     title: "Start",
@@ -454,6 +457,12 @@ export function AskButton({
   variant = "outline",
   services,
   label,
+  size,
+  labelClassName,
+  className,
+  open,
+  onOpenChange,
+  trigger = true,
 }: {
   kind: Kind
   variant?: "default" | "outline"
@@ -464,6 +473,18 @@ export function AskButton({
   services?: string[]
   /** Overrides the button's own word, for a page where "Update" alone would be ambiguous. */
   label?: string
+  size?: "default" | "sm"
+  /** Lets a page hide the word below a breakpoint; the button keeps it as its accessible name. */
+  labelClassName?: string
+  className?: string
+  /**
+   * The dialog, steerable from outside (steward/140): the service page's ⋯ menu opens the same
+   * confirmation a button would, rather than a second copy of it.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  /** `false` draws the dialog alone, for a caller that opens it from somewhere else. */
+  trigger?: boolean
 }) {
   const ask = useAskForRun()
   const schedule = useSchedule()
@@ -503,13 +524,22 @@ export function AskButton({
   }
 
   return (
-    <ResponsiveAlertDialog>
-      <ResponsiveAlertDialogTrigger asChild>
-        <Button type="button" variant={variant} disabled={ask.isPending}>
-          <Icon aria-hidden />
-          {label ?? RUN_KIND[kind]}
-        </Button>
-      </ResponsiveAlertDialogTrigger>
+    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
+      {trigger ? (
+        <ResponsiveAlertDialogTrigger asChild>
+          <Button
+            type="button"
+            variant={variant}
+            size={size}
+            className={className}
+            disabled={ask.isPending}
+            aria-label={labelClassName ? (label ?? RUN_KIND[kind]) : undefined}
+          >
+            <Icon aria-hidden />
+            <span className={labelClassName}>{label ?? RUN_KIND[kind]}</span>
+          </Button>
+        </ResponsiveAlertDialogTrigger>
+      ) : null}
       <ResponsiveAlertDialogContent>
         <ResponsiveAlertDialogHeader>
           <ResponsiveAlertDialogTitle>

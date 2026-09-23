@@ -252,6 +252,20 @@ public final class Topology {
                     List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY, VOICE_CHAT, CORE_PROTECT),
                     List.of(VOICE_CHAT, CORE_PROTECT)));
 
+    /**
+     * Whether {@code service} is one of the four with a plugins folder (steward/140).
+     *
+     * <p>The service page asks this through {@code hasPlugins} on {@code /api/services/{name}} so
+     * that its Plugins tab is drawn or not drawn from one answer, rather than drawn and then taken
+     * away again when {@code /plugins} comes back 404.
+     *
+     * @param service a compose service name
+     * @return {@code true} for proxy, limbo, hunger-games and smp
+     */
+    public static boolean hasPlugins(final @NotNull String service) {
+        return SERVICES.stream().anyMatch(candidate -> candidate.name().equals(service));
+    }
+
     // ---------------------------------------------------------------- the standbys
 
     /** What a replacement instance of a service is called: its own name and this (season-2-ops/117). */

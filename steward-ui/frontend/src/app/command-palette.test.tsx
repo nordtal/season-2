@@ -351,6 +351,7 @@ describe("CommandPalette - finding a setting (steward/58)", () => {
     expect(navigateSpy).toHaveBeenCalledWith({
       to: "/services/$name",
       params: { name: "steward-worker" },
+      search: { tab: "settings" },
     })
     expect(takePendingJump("steward-worker")).toEqual({
       file: "steward-worker/steward.yml",
@@ -449,6 +450,7 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
     expect(navigateSpy).toHaveBeenCalledWith({
       to: "/services/$name",
       params: { name: "smp" },
+      search: { tab: "settings" },
     })
     expect(takePendingMessageJump("smp")).toEqual({
       path: "smp/smp",

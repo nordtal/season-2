@@ -359,6 +359,8 @@ export type Service = {
   unreadable?: string
   /** Only on the single-service endpoint. */
   digests?: string[]
+  /** Only on the single-service endpoint: one of the four with a plugins folder (steward/140). */
+  hasPlugins?: boolean
   logLimit?: string
 }
 

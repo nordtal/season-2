@@ -1,5 +1,11 @@
 import {
   ArrowClockwiseIcon,
+  ArrowsClockwiseIcon,
+  DotsThreeIcon,
+  PlugIcon,
+  PowerIcon,
+  TerminalWindowIcon,
+  WrenchIcon,
   ArrowLineDownIcon,
   CaretRightIcon,
   MagnifyingGlassIcon,
@@ -9,98 +15,261 @@ import {
   TrashIcon,
 } from "@phosphor-icons/react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useParams } from "@tanstack/react-router"
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import { LOCALE, bytes, clock, count, percent, since } from "@/lib/format"
-import { useConsole, useLogSearch, useService } from "@/lib/queries"
+import { useConfigs, useConsole, useLogSearch, useMessageBundles, useService } from "@/lib/queries"
 import { useLogStream, LIMIT } from "@/lib/use-log-stream"
 import { ServiceConfiguration } from "@/components/steward/configuration"
 import { ServiceMessages } from "@/components/steward/messages"
 import { ServicePlugins } from "@/components/steward/plugins"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
-import { RecreateButton } from "@/components/steward/recreate"
+import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
+import { ServiceOnlineLine } from "@/components/steward/online"
 import { AskButton } from "@/pages/operations"
 import { DriftBadge, ServiceState, StatusBadge } from "@/components/steward/status"
 import { Empty, Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+/** What `/services/$name` keeps in its URL (steward/140). Console is the default and never written. */
+export type ServiceSearch = { tab?: "settings" | "plugins"; file?: string }
+
+export function serviceSearch(search: Record<string, unknown>): ServiceSearch {
+  const answer: ServiceSearch = {}
+  if (search.tab === "settings" || search.tab === "plugins") answer.tab = search.tab
+  if (typeof search.file === "string" && search.file !== "") answer.file = search.file
+  return answer
+}
+
+type Tab = "console" | "settings" | "plugins"
+
 /**
- * One service: what it is doing, what it is saying, and - for the four Minecraft servers - a way to
- * say something back.
+ * Which tabs this service has, or `undefined` while that is not known yet.
  *
- * **The console is part of the log, not a card of its own.** `mc <command>` hands the line to the
- * server's own tmux session and the server prints its reply on its own console - which is this log,
- * three lines above where it was typed. Two cards made that into two places; a card titled
- * "Console" over a field labelled "Command" made it into four names for one input. It is one line
- * under the window now, which is also what it looks like on every server console there has ever
- * been. That the answer appears above rather than beside is not a limitation to apologise for: it
- * is what makes a second admin's command visible to the first instead of private.
+ * **A tab with nothing behind it is not there** (steward/140). Settings needs a config file or a
+ * message bundle of this service - or a listing that failed, because then the failure is what the
+ * tab has to show. Plugins needs the worker's `hasPlugins`, so the tab is decided by one answer
+ * instead of being drawn and taken away again when `/plugins` comes back 404.
+ */
+export function useServiceTabs(name: string): Tab[] | undefined {
+  const service = useService(name)
+  const configs = useConfigs()
+  const bundles = useMessageBundles()
+  if (service.isPending || configs.isPending || bundles.isPending) return undefined
+  const settings =
+    configs.isError ||
+    bundles.isError ||
+    (configs.data ?? []).some(
+      (file) => file.service === name || (file.service === "" && name === "steward-ui"),
+    ) ||
+    (bundles.data ?? []).some((bundle) => bundle.service === name)
+  return [
+    "console",
+    ...(settings ? (["settings"] as const) : []),
+    ...(service.data?.hasPlugins ? (["plugins"] as const) : []),
+  ]
+}
+
+/**
+ * One service: a head with its actions and who is on it, and three tabs under it (steward/140).
+ *
+ * Every service gets the same page. The six that are not Minecraft servers get the same head and
+ * the same Console, and simply have fewer tabs - two layouts to keep would be the more expensive
+ * half of that decision.
  */
 export function ServicePage() {
   const { name } = useParams({ from: "/services/$name" })
+  const search = useSearch({ from: "/services/$name" })
+  const navigate = useNavigate({ from: "/services/$name" })
   const service = useService(name)
+  const tabs = useServiceTabs(name)
+  const tab: Tab = search.tab ?? "console"
+
+  // A tab the service does not have - typed in, or left over from another service - goes back to
+  // Console, replacing the entry so Back does not return to it.
+  useEffect(() => {
+    if (tabs && !tabs.includes(tab)) {
+      void navigate({ search: {}, replace: true })
+    }
+  }, [tabs, tab, navigate])
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title={name}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {/*
-              season-2-ops/127: a run for this service alone. It is the same run - countdown, the
-              wait in limbo, health, report - with a smaller scope, which is why it is the same
-              button rather than a second mechanism.
+      <div className="flex flex-col gap-2">
+        <PageHeader title={name} actions={<ServiceActions name={name} service={service.data} />} />
+        <ServiceOnlineLine name={name} />
+      </div>
 
-              It is offered on every service page, including the ones a run has nothing to install
-              for. That run ends at "Nothing to do", which is a true answer; hiding the button
-              behind a list of updatable services kept in the browser would be a second opinion
-              about what a run touches, and the worker is the only thing allowed to have one.
-            */}
-            <AskButton kind="UPDATE" services={[name]} label="Update" />
-            {/*
-              season-2-ops/125: Down and Start are one button, because they are one switch. Which
-              half is offered follows the `hold` field and nothing else - not whether the container
-              is running, because a service that crashed is stopped and must still offer Down, and
-              a held service whose container somehow came back must still offer Start to clear the
-              hold. While the row is loading neither is drawn: a Down button that turns into a
-              Start button under somebody's finger is worse than a button that arrives late.
-            */}
-            {service.data === undefined ? null : service.data.hold ? (
-              <AskButton kind="START" services={[name]} label="Start" variant="default" />
-            ) : (
-              <AskButton kind="DOWN" services={[name]} label="Put down" />
-            )}
-            <RecreateButton service={name} />
-          </div>
+      <Tabs
+        value={tab}
+        onValueChange={(next) =>
+          // A tab change replaces the entry, so Back leaves the page rather than walking back
+          // through every tab somebody looked at.
+          void navigate({
+            search: (previous) =>
+              next === "console"
+                ? {}
+                : next === "settings"
+                  ? { tab: "settings", file: previous.file }
+                  : { tab: "plugins" },
+            replace: true,
+          })
         }
+        className="gap-6"
+      >
+        {tabs ? (
+          tabs.length > 1 ? (
+            <TabsList className="w-full sm:w-fit">
+              <TabsTrigger value="console" className="sm:px-3">
+                <TerminalWindowIcon aria-hidden />
+                Console
+              </TabsTrigger>
+              {tabs.includes("settings") ? (
+                <TabsTrigger value="settings" className="sm:px-3">
+                  <WrenchIcon aria-hidden />
+                  <span className="sm:hidden">Settings</span>
+                  <span className="max-sm:hidden">Settings &amp; Translations</span>
+                </TabsTrigger>
+              ) : null}
+              {tabs.includes("plugins") ? (
+                <TabsTrigger value="plugins" className="sm:px-3">
+                  <PlugIcon aria-hidden />
+                  Plugins
+                </TabsTrigger>
+              ) : null}
+            </TabsList>
+          ) : (
+            // One tab is not a choice: postgres and the rest get the Console bar alone, so the page
+            // still says what it is showing.
+            <TabsList className="w-full sm:w-fit">
+              <TabsTrigger value="console" className="sm:px-3">
+                <TerminalWindowIcon aria-hidden />
+                Console
+              </TabsTrigger>
+            </TabsList>
+          )
+        ) : (
+          <Skeleton className="h-8 w-full rounded-lg sm:w-96" />
+        )}
+
+        <TabsContent value="console" className="flex flex-col gap-6">
+          {/* The "unknown service" case is a 404 from the worker and arrives as a failure, which
+              says the same thing with the name of the service in it. */}
+          <QueryState query={service}>{(data) => <ServiceHead service={data} />}</QueryState>
+          <LogPanel name={name} hasConsole={service.data?.hasConsole ?? false} />
+        </TabsContent>
+
+        <TabsContent value="settings" className="flex flex-col gap-6">
+          <ServiceConfiguration service={name} />
+          {/* Its own card, not a section of Configuration above: a message bundle has no YAML
+              shape, no schema, and keys are merged one at a time (steward/48). */}
+          <ServiceMessages service={name} />
+        </TabsContent>
+
+        <TabsContent value="plugins" className="flex flex-col gap-6">
+          <ServicePlugins service={name} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+/**
+ * Update, Take down (or Start), Recreate - each with its own symbol (steward/140).
+ *
+ * From `sm` up all three stand with their word. Below it Update stays as a symbol and the other
+ * two move into a ⋯ menu, which opens exactly the confirmation the button would have: the dialogs
+ * are the buttons' own, steered from here, not a second copy.
+ */
+function ServiceActions({
+  name,
+  service,
+}: {
+  name: string
+  service?: NonNullable<ReturnType<typeof useService>["data"]>
+}) {
+  const [dialog, setDialog] = useState<"hold" | "recreate" | null>(null)
+  const gate = useRecreateGate(name)
+  // season-2-ops/125: Take down and Start are one switch, and which half is offered follows `hold`
+  // and nothing else. While the row is loading neither is drawn: a Take down that turns into Start
+  // under somebody's finger is worse than a button that arrives late.
+  const hold = service === undefined ? undefined : service.hold ? "START" : "DOWN"
+  const recreatable = name !== "steward-deployer"
+  const HoldIcon = hold === "START" ? PlayIcon : PowerIcon
+  const holdLabel = hold === "START" ? "Start" : "Take down"
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* season-2-ops/127: a run for this service alone, offered on every page - a run with
+          nothing to install ends at "Nothing to do", which is a true answer. */}
+      <AskButton
+        kind="UPDATE"
+        services={[name]}
+        label="Update"
+        size="sm"
+        labelClassName="max-sm:hidden"
+        className="max-sm:size-7 max-sm:px-0"
       />
-
-      {/* The "unknown service" case used to be an empty state here. It is a 404 from the worker
-          and arrives as a failure, which says the same thing with the name of the service in it -
-          and an answered query with no body is not a state this route can produce. */}
-      <QueryState query={service}>{(data) => <ServiceHead service={data} />}</QueryState>
-
-      <LogPanel name={name} hasConsole={service.data?.hasConsole ?? false} />
-
-      {/* season-2-ops/129. Under the log for the same reason the configuration is: the log is what
-          somebody came here for, the plugin list is what they came here for once. It draws itself
-          away entirely on a service with no plugins folder. */}
-      <ServicePlugins service={name} />
-
-      {/* Below the log on purpose. The log is what somebody came here for; the configuration is
-          what they came here for once. */}
-      <ServiceConfiguration service={name} />
-
-      {/* Its own card, not a section of Configuration above: a message bundle has no YAML shape,
-          no schema, and keys are merged one at a time rather than a whole file rewritten
-          (steward/48). */}
-      <ServiceMessages service={name} />
+      {hold ? (
+        <AskButton
+          kind={hold}
+          services={[name]}
+          label={holdLabel}
+          variant={hold === "START" ? "default" : "outline"}
+          size="sm"
+          className="max-sm:hidden"
+          open={dialog === "hold"}
+          onOpenChange={(open) => setDialog(open ? "hold" : null)}
+        />
+      ) : null}
+      <RecreateButton
+        service={name}
+        size="sm"
+        className="max-sm:hidden"
+        open={dialog === "recreate"}
+        onOpenChange={(open) => setDialog(open ? "recreate" : null)}
+      />
+      {hold || recreatable ? (
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="sm:hidden"
+              aria-label="More actions"
+            >
+              <DotsThreeIcon aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {hold ? (
+              <DropdownMenuItem onSelect={() => setDialog("hold")}>
+                <HoldIcon aria-hidden />
+                {holdLabel}
+              </DropdownMenuItem>
+            ) : null}
+            {recreatable ? (
+              <DropdownMenuItem disabled={gate.unavailable} onSelect={() => setDialog("recreate")}>
+                <ArrowsClockwiseIcon aria-hidden />
+                Recreate
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </div>
   )
 }

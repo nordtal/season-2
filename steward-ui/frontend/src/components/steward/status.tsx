@@ -422,7 +422,7 @@ export const RUN_KIND: Record<string, string> = {
     UPDATE: "Update",
     BACKUP: "Backup",
     RESTART: "Restart",
-    DOWN: "Put down",
+    DOWN: "Take down",
     START: "Start",
     // Two kinds nothing in this interface asks for, but old rows carry them and a table that printed
     // the enum name for them would look broken rather than historical.

@@ -31,7 +31,7 @@ export const RUN_KIND_SEARCH_TERMS: Record<string, string[]> = {
   BACKUP: ["backup", GERMAN_BACKUP_SYNONYM, "dump", "report", "archive"],
   UPDATE: ["update"],
   RESTART: ["restart"],
-  DOWN: ["down", "put down", "stop", "stopped", "hold", "held"],
+  DOWN: ["down", "take down", "put down", "stop", "stopped", "hold", "held"],
   START: ["start", "started", "up", "release"],
   REPORT: ["report"],
   APPLY: ["apply"],

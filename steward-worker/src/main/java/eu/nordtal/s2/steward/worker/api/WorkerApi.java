@@ -939,6 +939,7 @@ public final class WorkerApi implements AutoCloseable {
                 .map(container -> {
                     final Map<String, Object> row = describe(container, drift, online(), holds);
                     row.put("digests", docker.repoDigests(container.imageId()));
+                    row.put("hasPlugins", Topology.hasPlugins(name));
                     row.put("logLimit", "docker keeps up to 50 MB per container (5 x 10 MB) and "
                             + "nothing older; recreating the container starts that again");
                     return row;

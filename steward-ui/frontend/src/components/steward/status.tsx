@@ -348,7 +348,7 @@ export function AvailableBadge({status}: { status: string }) {
     }
 }
 
-export function DriftBadge({drift, image, digests}: { drift: string, image: string, digests?: string[] }) {
+export function DriftBadge({drift, image}: { drift: string, image: string, digests?: string[] }) {
     switch (drift) {
         case "UP_TO_DATE":
             return (

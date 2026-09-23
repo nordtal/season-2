@@ -30,7 +30,7 @@ import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
 import { ServiceOnlineLine } from "@/components/steward/online"
 import { AskButton } from "@/pages/operations"
 import { DriftBadge, ServiceState, StatusBadge } from "@/components/steward/status"
-import { Empty, Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { Empty, Failure, QueryState, Skeleton } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,

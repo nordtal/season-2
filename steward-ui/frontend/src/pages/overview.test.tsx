@@ -10,7 +10,6 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { OverviewPage } from "@/pages/overview"
-import { SEASON_PHASES } from "@/lib/season-phases"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
@@ -320,43 +319,6 @@ describe("OverviewPage - the tile that replaced steward/64's banner", () => {
 })
 
 /**
- * steward/90: the Season tile used to keep a second, invented phase list
- * (`{ PRE_EVENT, EVENT, SMP, ENDED }`) that agreed with neither `season.tsx` nor the backend, so a
- * phase it did not know - which, `PRE_LAUNCH` included, was three of the five real ones - reached
- * the screen as the bare enum constant: versals and an underscore in an interface that otherwise
- * speaks in sentences. There is now exactly one list (`lib/season-phases.ts`), and this is the test
- * that would have caught it: every real phase renders as its sentence, never as its own name.
- */
-describe("OverviewPage - the season tile speaks in sentences, not enum names (steward/90)", () => {
-  // ONE CASE PER PHASE, not one loop over all five (season-2-ops/158). It was a loop, and it drew
-  // the whole page five times inside a single `it` - about 13 s of the file's runtime in one test
-  // body against vitest's 5 s budget for one. It passed on a quiet machine and timed out on a CI
-  // runner, which is the worst way for a guard to fail: intermittently, in somebody else's commit.
-  // Split, each phase gets its own budget and a failure names the phase.
-  it.each(SEASON_PHASES)("prints the label for $name, and never the raw constant", async (phase) => {
-    vi.stubGlobal(
-      "fetch",
-      backend({ season: { phase: phase.name, launch: null, smpStart: null } }),
-    )
-    draw()
-
-    await waitFor(() => expect(screen.getByText(phase.label)).toBeTruthy())
-    // The regression itself: `PRE_LAUNCH` printed literally because the tile's own list did not
-    // know it. A phase name and its label never collide by construction (see season-phases.ts),
-    // so finding the raw name on the page at all means the lookup fell through to its fallback.
-    expect(screen.queryByText(phase.name)).toBeNull()
-  })
-
-  it("labels the SMP launch date in English, not a German compound", async () => {
-    vi.stubGlobal("fetch", backend({}))
-    draw()
-
-    await waitFor(() => expect(screen.getByText("SMP start")).toBeTruthy())
-    expect(screen.queryByText("SMP-Start")).toBeNull()
-  })
-})
-
-/**
  * steward/92: the number row tore open between the first two rows at 390px, and closed again
  * between the second and third - a gap of ~66px where the grid's own `gap-y-5` is 20px.
  *
@@ -488,7 +450,7 @@ describe("OverviewPage - the heading is how many are in the game (steward/64)", 
 })
 
 /**
- * The bottom section is the network picture and, beside it, the season and the actions - and the
+ * The bottom section is the network picture and, beside it, the actions - and the
  * service table that used to stand above it is gone (steward/81).
  *
  * Two assertions, because the ticket is two things: the picture arrived, and the thing it replaced

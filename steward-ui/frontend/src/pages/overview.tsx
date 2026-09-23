@@ -2,9 +2,8 @@ import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 import { cn } from "cn"
 
-import { bytes, count, dateTime, percent, relative } from "@/lib/format"
+import { bytes, count, percent, relative } from "@/lib/format"
 import { summarise } from "@/lib/health"
-import { seasonPhaseLabel } from "@/lib/season-phases"
 import {
   useActions,
   useAvatarBaseUrl,
@@ -12,14 +11,12 @@ import {
   useHost,
   useMetrics,
   usePeople,
-  useSeason,
   useServices,
   useSettings,
 } from "@/lib/queries"
 import { ActionRow } from "@/components/steward/actions"
 import { NetworkPanel } from "@/components/steward/network/view"
 import { OnlineLine, useOnline } from "@/components/steward/online"
-import { Panel } from "@/components/steward/panel"
 import { Sparkline } from "@/components/steward/sparkline"
 import { Stat, UsageBar } from "@/components/steward/stat"
 import { QueryState, SkeletonText } from "@/components/steward/query-state"
@@ -340,32 +337,8 @@ function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: n
   return percent((used / host.memoryTotalBytes) * 100, 0)
 }
 
-// --- Season and the journal, flattened ------------------------------------------------------------
-
-function SeasonPanel() {
-  const season = useSeason()
-  return (
-    <Panel title="Season">
-      <QueryState query={season}>
-        {(data) => (
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 gap-4 min-[26rem]:grid-cols-3">
-              <Stat label="Phase" value={data ? seasonPhaseLabel(data.phase) : undefined} />
-              <Stat label="Season start" value={data ? dateTime(data.launch) : undefined} />
-              <Stat label="SMP start" value={data ? dateTime(data.smpStart) : undefined} />
-            </div>
-            <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
-              <Link to="/season">To the season</Link>
-            </Button>
-          </div>
-        )}
-      </QueryState>
-    </Panel>
-  )
-}
-
 /**
- * The right half of the new bottom section (steward/82; the left is {@code SeasonPanel}, steward/81).
+ * The right half of the new bottom section (steward/82).
  *
  * Fed by steward-worker's own {@code /api/actions} rather than by sorting {@link useJournal}'s
  * `audit_log` rows together with a second call for `update_request` here - see that endpoint's own

@@ -10,8 +10,6 @@ import {
 } from "@/pages/operations"
 import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
 import { ServicePage, serviceSearch } from "@/pages/service"
-import { SettingsPage } from "@/pages/settings"
-import { SidebarGalleryPage } from "@/app/designs/sidebar-gallery"
 import { SeasonPage } from "@/pages/season"
 import { JournalPage, AccountsPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { OverviewPage } from "@/pages/overview"
@@ -72,18 +70,13 @@ const routes = [
   }),
   // There is no `/configuration` route any more (2026-09-14). Every file belongs to exactly one
   // service, so it is a card on that service's page - see `components/steward/configuration.tsx`.
+  // Nor a `/settings` (2026-09-24): its account half is the popover behind the round picture, and
+  // the thresholds it showed are set in the notifications dialog beside it.
   createRoute({ getParentRoute: () => rootRoute, path: "/season", component: SeasonPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/accounts", component: AccountsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/settings",
-    component: SettingsPage,
-  }),
-  // The sidebar proposals, side by side. Goes with `app/designs/` once one is picked.
-  createRoute({ getParentRoute: () => rootRoute, path: "/designs/sidebar", component: SidebarGalleryPage }),
 ]
 
 const routeTree = rootRoute.addChildren(routes)

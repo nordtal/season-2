@@ -253,8 +253,7 @@ const ALERTS_FILE = "steward-ui.yml"
  * and all.
  *
  * <h2>Not a second form over one value</h2>
- * `/settings` still only *shows* them, and the configuration page still owns editing every other
- * key in that file. What this is, is the three keys a notification is about, at the moment somebody
+ * The configuration page still owns editing every other key in that file. What this is, is the three keys a notification is about, at the moment somebody
  * is reading a notification. The revision guard is what makes two ways in safe: a save from here
  * against a stale revision is refused with a 409 exactly as one from the form would be.
  *
@@ -341,9 +340,9 @@ function Thresholds({ state }: { state: NotificationActions }) {
               {
                 onSuccess: () => {
                   setEdited({})
-                  // The traffic light and `/settings` read the effective numbers from
+                  // The traffic light reads the effective numbers from
                   // `/api/settings`, which is a different cache entry from the file this just
-                  // wrote. Without this they keep the old thresholds until something else
+                  // wrote. Without this it keeps the old thresholds until something else
                   // refetches them, and the dialog would look like it had not saved.
                   void client.invalidateQueries({ queryKey: keys.settings })
                 },

@@ -1046,8 +1046,7 @@ export function useAdminCommand() {
 
 /**
  * Every message bundle steward-worker found - one row per module's `messages/` directory,
- * without opening a single jar. `ServiceMessages` filters this by `service` itself, the same way
- * `useConfigs` is filtered by `ServiceConfiguration`, so one listing serves every service's page.
+ * without opening a single jar. `ServiceSettings` filters this and `useConfigs` by `service` itself, so one listing serves every service's page.
  */
 export function useMessageBundles(enabled = true) {
   return useQuery({

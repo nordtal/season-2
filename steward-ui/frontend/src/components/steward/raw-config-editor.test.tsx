@@ -9,7 +9,7 @@ import type { EditableRawConfigDocument } from "@/lib/api"
 /**
  * `RawConfigEditor` is what `RawConfigView` in `configuration.tsx` hands a raw file to since
  * steward/60 gave that view a save path. `configuration.test.tsx` already exercises this component
- * end to end, wired through the real file list and the real `ServiceConfiguration` page; this file
+ * end to end, wired through the real file list and the real `ServiceSettings` tab; this file
  * is the narrower one - the tokeniser by itself, and the component alone against a fake
  * `PUT /api/config-raw/<file>` rather than the whole page.
  *

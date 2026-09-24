@@ -18,8 +18,7 @@ import {
   useService,
 } from "@/lib/queries"
 import { ServiceConsole } from "@/components/steward/console"
-import { ServiceConfiguration } from "@/components/steward/configuration"
-import { ServiceMessages } from "@/components/steward/messages"
+import { ServiceSettings } from "@/components/steward/settings"
 import { ServicePlugins } from "@/components/steward/plugins"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
@@ -170,11 +169,14 @@ export function ServicePage() {
           />
         </TabsContent>
 
-        <TabsContent value="settings" className="flex flex-col gap-6">
-          <ServiceConfiguration service={name} />
-          {/* Its own card, not a section of Configuration above: a message bundle has no YAML
-              shape, no schema, and keys are merged one at a time (steward/48). */}
-          <ServiceMessages service={name} />
+        <TabsContent value="settings">
+          <ServiceSettings
+            service={name}
+            file={search.file}
+            onFile={(file, replace) =>
+              void navigate({ search: file ? { tab: "settings", file } : { tab: "settings" }, replace })
+            }
+          />
         </TabsContent>
 
         <TabsContent value="plugins" className="flex flex-col gap-6">

@@ -17,8 +17,7 @@ import type {
  * steward/87 adds a second supplier - the message bundles of steward/48 - rather than a second
  * search. `searchAcross` (config files) and `searchMessagesAcross` (bundles) below share the same
  * shape of question ("does this haystack contain this needle, case-insensitively") and both feed
- * {@link SettingsHit}, the one type both callers - `config-search.tsx` and `command-palette.tsx` -
- * already read. A bundle has no `secret` key, so the guard that matters for config has nothing to
+ * {@link SettingsHit}, the one type `command-palette.tsx` reads. A bundle has no `secret` key, so the guard that matters for config has nothing to
  * do on the message side; what changes there is the *location* a hit carries, since a bundle's
  * identity is four parts (service, module, language, key) rather than a file's three.
  */
@@ -179,11 +178,8 @@ export function searchMessagesAcross(
 /**
  * Both suppliers, one list, not two groups (Till, steward/87): config hits and
  * message hits are concatenated rather than grouped, config first only because that preserves the
- * order the two existing callers already drew config hits in before this ticket. Neither caller is
- * required to use this - `config-search.tsx`'s per-service box calls both suppliers directly, since
- * it already had its own config-only call before this ticket and folding it into one function here
- * would have hidden, rather than shown, that it now has two - but `command-palette.tsx`'s global
- * search does, because there is no such history to preserve.
+ * order the two existing callers already drew config hits in before this ticket. `command-palette.tsx`'s
+ * global search is the caller.
  */
 export function searchSettingsAndMessages(
   configs: Array<{ location: ConfigLocation; document: ConfigDocument | undefined }>,
@@ -358,13 +354,12 @@ const pendingMessageJumps = new Map<string, PendingMessageJump>()
 
 /**
  * Unlike {@link pendingJumps}, this map is read by a component that is already mounted just as
- * often as it is read by one arriving fresh from a navigation: the messages tool
- * (`ServiceMessages`, in `messages.tsx`) sits on the very page the per-service search box
- * (`ServiceSettingsSearch`, in `config-search.tsx`) is also drawn on, and a hit found in that box
- * has nowhere to navigate *to* - both are already on screen. So a jump has to reach a component
+ * often as it is read by one arriving fresh from a navigation: the Settings tab
+ * (`ServiceSettings`, in `settings.tsx`) may already be open when the command palette picks a hit
+ * on the same page, and then the navigation changes nothing that would remount it. So a jump has to reach a component
  * that may already be sitting there, not only one about to mount, which a plain map cannot do on
  * its own - nothing tells an already-rendered subscriber that a new entry showed up. `subscribers`
- * is the difference: `setPendingMessageJump` calls every one of them, and `ServiceMessages` both
+ * is the difference: `setPendingMessageJump` calls every one of them, and `ServiceSettings` both
  * checks once on mount/service-change (the command-palette-then-navigate case, the same way
  * `configuration.tsx` checks `pendingJumps`) and subscribes for as long as it stays mounted (the
  * same-page case).

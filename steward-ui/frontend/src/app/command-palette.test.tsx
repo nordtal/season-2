@@ -351,7 +351,7 @@ describe("CommandPalette - finding a setting (steward/58)", () => {
     expect(navigateSpy).toHaveBeenCalledWith({
       to: "/services/$name",
       params: { name: "steward-worker" },
-      search: { tab: "settings" },
+      search: { tab: "settings", file: "steward-worker/steward.yml" },
     })
     expect(takePendingJump("steward-worker")).toEqual({
       file: "steward-worker/steward.yml",
@@ -393,10 +393,10 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
 
     await search("decayed")
 
-    // The row's main label is the matched text, not the key - the same split a config hit already
-    // draws between its human `label` and its technical `path` (steward/87, see command-palette.tsx
-    // and config-search.tsx's `SettingsHitRow`). The key still rides along in the shortcut text.
-    expect(screen.queryByText("Your grave has decayed.")).not.toBeNull()
+    // The row is named the way the Settings tab names the text - its last key segment made
+    // readable, when no spec names it - and the matched text rides along on the right.
+    expect(screen.queryByText("Announce")).not.toBeNull()
+    expect(screen.queryByText(/Your grave has decayed\./)).not.toBeNull()
   })
 
   it("finds a key by its German translation, not only its English default", async () => {
@@ -414,7 +414,7 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
 
     await search("de-marker")
 
-    expect(screen.queryByText("packaged-de-marker")).not.toBeNull()
+    expect(screen.queryByText(/packaged-de-marker/)).not.toBeNull()
   })
 
   it("finds a key by the key itself", async () => {
@@ -423,10 +423,9 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
 
     await search("grave.decay")
 
-    // Matched by the key (there is no German text on this entry, so only the English row survives
-    // `searchMessagesAcross`'s per-language guard) - the visible label is still the English text,
-    // and the key that was actually typed shows up in the shortcut instead.
-    expect(screen.queryByText("Your grave has decayed.")).not.toBeNull()
+    // Matched by the key, which the row itself never shows.
+    expect(screen.queryByText("Announce")).not.toBeNull()
+    expect(screen.queryByText(/grave\.decay/)).toBeNull()
   })
 
   it("shows nothing before anything is typed, same as a config hit", async () => {
@@ -445,12 +444,12 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
     oneBundle(loc, [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })])
 
     await search("decayed")
-    fireEvent.click(await screen.findByText("Your grave has decayed."))
+    fireEvent.click(await screen.findByText("Announce"))
 
     expect(navigateSpy).toHaveBeenCalledWith({
       to: "/services/$name",
       params: { name: "smp" },
-      search: { tab: "settings" },
+      search: { tab: "settings", file: "bundle:smp/smp" },
     })
     expect(takePendingMessageJump("smp")).toEqual({
       path: "smp/smp",
@@ -498,7 +497,7 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
     await search("grave decay")
 
     expect(screen.queryByText("Grave decay enabled")).not.toBeNull()
-    expect(screen.queryByText("Grave decay announcement")).not.toBeNull()
+    expect(screen.queryByText("Announce")).not.toBeNull()
   })
 })
 

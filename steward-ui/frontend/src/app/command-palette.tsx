@@ -34,7 +34,8 @@ import {
   setPendingJump,
   setPendingMessageJump,
 } from "@/lib/settings-search"
-import { humanFileName } from "@/components/steward/config-controls"
+import { bundleFileId } from "@/components/steward/settings"
+import { messageName } from "@/lib/settings-tree"
 import { RUN_KIND, RUN_STATUS } from "@/components/steward/status"
 
 /**
@@ -294,12 +295,9 @@ export function CommandPalette() {
           <>
             <CommandSeparator />
             {/*
-              steward/87: config hits and message-bundle hits in the one group, in the order
-              `searchSettingsAndMessages` returned them - one list, not two groups, was
-              Till's own choice when offered the alternative. A bundle hit's destination is the
-              messages tool on the same service page, not the configuration form, so it goes
-              through `setPendingMessageJump` rather than `setPendingJump` - the two are separate
-              maps read by two different components, see `settings-search.ts`.
+              Config hits and message hits in one group, in the order the search returned them.
+              Either lands on the Settings & Translations tab with its file open; the pending jump
+              is what the tree there scrolls to and lights up.
             */}
             <CommandGroup heading="Settings">
               {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
@@ -313,31 +311,24 @@ export function CommandPalette() {
                       onSelect={() => {
                         setOpen(false)
                         setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
-                        void navigate({ to: "/services/$name", params: { name: service }, search: { tab: "settings" } })
+                        void navigate({
+                          to: "/services/$name",
+                          params: { name: service },
+                          search: { tab: "settings", file: hit.location.path },
+                        })
                       }}
                       className="min-h-control gap-2.5"
                     >
                       <SlidersHorizontalIcon aria-hidden className="text-muted-foreground" />
                       <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
-                      <CommandShortcut className="truncate text-muted-foreground/70">
-                        {humanFileName(hit.location.name)} ({service})
-                      </CommandShortcut>
+                      <HitDetail service={service} text={hit.entry.value} />
                     </CommandItem>
                   )
                 }
-                const bundleLabel = hit.location.module || hit.location.service
-                const language = hit.language === "en" ? "EN" : "DE"
-                // The matched text, not the raw key, is the main label - the same reasoning as
-                // `SettingsHitRow` in `config-search.tsx` (steward/87): it mirrors a config hit's
-                // own split of a human-facing label up front and the technical identifier tucked
-                // into the metadata instead, and it is what fixed a row showing the same key twice.
-                // `searchMessagesAcross` never produces a hit for a language with neither an
-                // override nor packaged text, so the key fallback below is unreachable today, kept
-                // only so this stays correct on its own.
-                const messageLabel =
-                  (hit.language === "en"
+                const text =
+                  hit.language === "en"
                     ? (hit.entry.overrideEnglish ?? hit.entry.english)
-                    : (hit.entry.overrideGerman ?? hit.entry.german)) ?? hit.entry.key
+                    : (hit.entry.overrideGerman ?? hit.entry.german)
                 return (
                   <CommandItem
                     key={`message-${hit.location.path}-${hit.language}-${hit.entry.key}`}
@@ -350,15 +341,17 @@ export function CommandPalette() {
                         language: hit.language,
                         key: hit.entry.key,
                       })
-                      void navigate({ to: "/services/$name", params: { name: service }, search: { tab: "settings" } })
+                      void navigate({
+                        to: "/services/$name",
+                        params: { name: service },
+                        search: { tab: "settings", file: bundleFileId(hit.location.path) },
+                      })
                     }}
                     className="min-h-control gap-2.5"
                   >
                     <TranslateIcon aria-hidden className="text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate">{messageLabel}</span>
-                    <CommandShortcut className="truncate text-muted-foreground/70">
-                      {bundleLabel} ({service}) {language} {hit.entry.key}
-                    </CommandShortcut>
+                    <span className="min-w-0 flex-1 truncate">{messageName(hit.entry)}</span>
+                    <HitDetail service={service} text={text} />
                   </CommandItem>
                 )
               })}
@@ -367,6 +360,18 @@ export function CommandPalette() {
         ) : null}
       </CommandList>
     </CommandDialog>
+  )
+}
+
+/** The right-hand side of a settings hit: the service, then the value or text, cut short. */
+function HitDetail({ service, text }: { service: string; text: string | null | undefined }) {
+  const flat = (text ?? "").replace(/\s+/g, " ").trim()
+  const short = flat.length > 40 ? `${flat.slice(0, 39)}…` : flat
+  return (
+    <CommandShortcut className="max-w-[45%] truncate text-xs tracking-normal text-muted-foreground max-md:hidden">
+      {service}
+      {short ? ` ${short}` : null}
+    </CommandShortcut>
   )
 }
 

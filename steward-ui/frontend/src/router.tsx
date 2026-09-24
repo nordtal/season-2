@@ -11,7 +11,7 @@ import {
 import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
 import { ServicePage, serviceSearch } from "@/pages/service"
 import { SeasonPage } from "@/pages/season"
-import { JournalPage, AccountsPage, PaymentsPage, AccessPage } from "@/pages/access"
+import { JournalPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { OverviewPage } from "@/pages/overview"
 
 /**
@@ -75,7 +75,6 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/season", component: SeasonPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/accounts", component: AccountsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
 ]
 

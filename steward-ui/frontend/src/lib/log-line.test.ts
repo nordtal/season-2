@@ -75,6 +75,22 @@ describe("parseLogLine", () => {
     expect(continuesPrevious("There are 0 of a max of 40 players online:")).toBe(false)
   })
 
+  it("reads postgres's default prefix: the time, the level, and nothing of the date, zone or pid", () => {
+    expect(
+      parseLogLine("2026-09-24T09:29:30.941Z 2026-09-24 11:29:30.941 CEST [29] LOG:  checkpoint starting: time"),
+    ).toEqual({ kind: "parsed", time: "11:29:30", level: "INFO", source: "", text: "checkpoint starting: time" })
+    expect(
+      parseLogLine("2026-09-24 11:29:31.002 CEST [812] FATAL:  password authentication failed for user \"x\""),
+    ).toMatchObject({ level: "ERROR", source: "", text: 'password authentication failed for user "x"' })
+    expect(parseLogLine("2026-09-24 11:29:31.002 CEST [812] WARNING:  no usable system locales")).toMatchObject({
+      level: "WARN",
+    })
+    expect(parseLogLine("2026-09-24 11:29:31.003 CEST [812] DETAIL:  Connection matched file")).toMatchObject({
+      source: "detail",
+      text: "Connection matched file",
+    })
+  })
+
   it("strips only Docker's own timestamp", () => {
     expect(stripDockerStamp("2026-09-23T21:43:12.726838683Z [23:43:12] x")).toBe("[23:43:12] x")
     expect(stripDockerStamp("[23:43:12] x")).toBe("[23:43:12] x")

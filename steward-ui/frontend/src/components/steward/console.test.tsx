@@ -97,6 +97,23 @@ describe("ServiceConsole", () => {
     expect(screen.queryByText(/Server thread/)).toBeNull()
   })
 
+  it("puts a continuation line under the message column, also when its head fell out of the window", () => {
+    mount()
+    feed(
+      ["line", " - DisplayTags (2.2.0), smp (0.9.5)"],
+      ["line", "[21:40:36] [ServerMain/INFO]: [PluginInitializerManager] Bukkit plugins (3):"],
+      ["line", " - Chunky (1.5.3), voicechat (2.6.24)"],
+    )
+    const orphan = screen.getByText(/DisplayTags/)
+    const carried = screen.getByText(/Chunky/)
+    expect(orphan.className).toContain("sm:col-start-3")
+    expect(carried.className).toContain("sm:col-start-3")
+    expect(orphan.className).not.toContain("col-span-full")
+    // A line that carries on nothing keeps the whole width.
+    feed(["line", "There are 0 of a max of 40 players online:"])
+    expect(screen.getByText(/players online/).className).toContain("col-span-full")
+  })
+
   it("filters with Find and counts what it found, and Escape gives everything back", () => {
     mount()
     feed(["line", "[10:00:00] [Server thread/INFO]: alpha"], ["line", "[10:00:01] [Server thread/INFO]: beta"])

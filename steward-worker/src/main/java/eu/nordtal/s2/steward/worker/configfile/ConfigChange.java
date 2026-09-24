@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.worker.configfile;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,11 +28,11 @@ public sealed interface ConfigChange {
     }
 
     /**
-     * @param sections one flat {@code field key -> new value} record per entry of a
+     * @param sections one {@code field key -> new value} record per entry of a
      *                 {@link ConfigEntry.Kind#SECTIONS} list, in order - see {@link Sections}
      */
-    static @NotNull ConfigChange sections(final @NotNull List<Map<String, String>> sections) {
-        return new Sections(sections);
+    static @NotNull ConfigChange sections(final @NotNull List<? extends Map<String, ?>> sections) {
+        return new Sections(sections.stream().<Map<String, Object>>map(LinkedHashMap::new).toList());
     }
 
     /**
@@ -66,7 +67,12 @@ public sealed interface ConfigChange {
 
     /**
      * New field values for every entry of a {@link ConfigEntry.Kind#SECTIONS} list the caller wants
-     * on file afterwards, one flat {@code {key: value}} record per entry, in order (steward/68).
+     * on file afterwards, one {@code {key: value}} record per entry, in order.
+     *
+     * <p>A value has the shape of the field it goes to: a {@link String} for a scalar, a
+     * {@link List} of {@link String} for a list of values, and a {@link List} of records like these
+     * for a field that is itself a list of sections - an objective inside a milestone. Every level
+     * follows the rules below on its own.</p>
      *
      * <p><b>The count usually matches what the file already has</b> - an ordinary edit of one or
      * more fields, on entries otherwise untouched. It may also be exactly one more (an append,
@@ -82,10 +88,10 @@ public sealed interface ConfigChange {
      * invented as a new line - the same "the file is the truth" rule steward/50 applies everywhere
      * else.</p>
      */
-    record Sections(@NotNull List<Map<String, String>> sections) implements ConfigChange {
+    record Sections(@NotNull List<Map<String, Object>> sections) implements ConfigChange {
 
         public Sections {
-            sections = sections.stream().map(Map::copyOf).toList();
+            sections = List.copyOf(sections);
         }
     }
 }

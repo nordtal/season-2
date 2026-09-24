@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 
 import type { ConfigEntry, GuildList } from "@/lib/api"
 import {
+  ListControl,
   ScalarControl,
   explanationOf,
   isRequiredChannel,
@@ -38,23 +39,40 @@ import { Textarea } from "@/components/ui/textarea"
  * comment for why.
  */
 
-/** One section's fields, flattened to the plain `{key: value}` record a card edits. */
-export type SectionValues = Record<string, string>
+/**
+ * One section's fields as the record a card edits: text for a value, a list of text for a list,
+ * and for a list of sections - the objectives of a milestone - the same record one level down.
+ */
+export type SectionValues = { [key: string]: string | string[] | SectionValues[] }
 
 function fieldsToValues(fields: ConfigEntry[]): SectionValues {
   const values: SectionValues = {}
-  for (const field of fields) values[field.key] = field.value ?? ""
+  for (const field of fields) {
+    if (field.kind === "LIST") values[field.key] = field.items ?? []
+    else if (field.kind === "SECTIONS") values[field.key] = (field.sections ?? []).map(fieldsToValues)
+    else values[field.key] = field.value ?? ""
+  }
   return values
 }
 
-/** The document's own sections, as a card's draft starts from - `entry.sections`, flattened. */
+/** The document's own sections, as a card's draft starts from - `entry.sections`, as records. */
 export function sectionsFromEntry(entry: ConfigEntry): SectionValues[] {
   return (entry.sections ?? []).map(fieldsToValues)
 }
 
-/** A brand new, empty section - every key `template` names, with an empty value. */
+/** A brand new, empty section - every key `template` names, empty, lists included. */
 export function blankSection(template: ConfigEntry[]): SectionValues {
-  return fieldsToValues(template)
+  const values: SectionValues = {}
+  for (const field of template) {
+    values[field.key] = field.kind === "LIST" || field.kind === "SECTIONS" ? [] : (field.value ?? "")
+  }
+  return values
+}
+
+/** A field's text, or "" for a field that holds a list. */
+function textOf(section: SectionValues | undefined, key: string): string {
+  const value = section?.[key]
+  return typeof value === "string" ? value : ""
 }
 
 export function RepeatableCards({
@@ -65,6 +83,7 @@ export function RepeatableCards({
   channels,
   onChange,
   sectionTitle,
+  within,
 }: {
   entry: ConfigEntry
   value: SectionValues[]
@@ -79,6 +98,12 @@ export function RepeatableCards({
    * (`tiers`, today), which keeps the plain index.
    */
   sectionTitle?: (section: SectionValues, index: number) => string
+  /**
+   * Set for a list drawn inside another card: its entries are divided by a rule instead of being
+   * cards themselves, since a card inside a card is one frame too many. The value is the parent
+   * card's title, which names this list's add button.
+   */
+  within?: string
 }) {
   const template = entry.template ?? []
   // What a field started from, per section - the only thing `ScalarControl`'s secret placeholder
@@ -108,7 +133,7 @@ export function RepeatableCards({
   // confirm a removal that only fails once the save reaches the worker.
   const protectedIndex = entry.protectedEntry
     ? value.findIndex(
-        (section) => (section[entry.protectedEntry!.field] ?? "") === entry.protectedEntry!.value,
+        (section) => textOf(section, entry.protectedEntry!.field) === entry.protectedEntry!.value,
       )
     : -1
 
@@ -129,7 +154,7 @@ export function RepeatableCards({
             spellCheck={false}
             rows={Math.max(2, Object.keys(section).length)}
             value={Object.entries(section)
-              .map(([key, val]) => `${key}: ${val}`)
+              .map(([key, val]) => `${key}: ${typeof val === "string" ? val : JSON.stringify(val)}`)
               .join("\n")}
             className="font-mono text-sm"
           />
@@ -138,21 +163,27 @@ export function RepeatableCards({
     )
   }
 
+  // A card is named by the caller if it asked to, else by its own `key` - the one field every
+  // repeating structure here that has a natural name keeps it under (a milestone, an objective) -
+  // and only then by its position.
+  const titleOf = (section: SectionValues, index: number) =>
+    sectionTitle?.(section, index) ?? (textOf(section, "key").trim() || `Entry ${index + 1}`)
+
   return (
     <div className="flex flex-col gap-3">
       {value.length === 0 ? (
         <p className="text-sm text-muted-foreground">No entries yet.</p>
       ) : null}
       {value.map((section, index) => {
-        const missing = requiredChannelFields.filter((field) => !(section[field.key] ?? "").trim())
+        const missing = requiredChannelFields.filter((field) => !textOf(section, field.key).trim())
         const isProtected = index === protectedIndex
-        return (
-        <Card key={index} className="gap-3 py-4">
-          <CardContent className="flex flex-col gap-3 px-4">
+        const title = titleOf(section, index)
+        const replace = (key: string, next: string | string[] | SectionValues[]) =>
+          onChange(value.map((s, at) => (at === index ? { ...s, [key]: next } : s)))
+        const body = (
+          <>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                {sectionTitle ? sectionTitle(section, index) : `Entry ${index + 1}`}
-              </span>
+              <span className="text-xs font-medium text-muted-foreground">{title}</span>
               <Button
                 type="button"
                 variant="ghost"
@@ -162,7 +193,9 @@ export function RepeatableCards({
                 aria-label={
                   isProtected
                     ? `Entry ${index + 1} cannot be removed`
-                    : `Remove entry ${index + 1}`
+                    : within
+                      ? `Remove ${title}`
+                      : `Remove entry ${index + 1}`
                 }
                 onClick={() => setPendingRemoval(index)}
               >
@@ -179,9 +212,48 @@ export function RepeatableCards({
             ) : null}
             {template.map((field) => {
               const id = `${entry.path}.${index}.${field.key}`
-              const fieldValue = section[field.key] ?? ""
               const explanation = explanationOf(field)
-              const edited = fieldValue !== (original[index]?.[field.key] ?? "")
+              const fieldValue = section[field.key]
+              let control
+              if (field.kind === "LIST") {
+                control = (
+                  <ListControl
+                    id={id}
+                    items={Array.isArray(fieldValue) ? (fieldValue as string[]) : []}
+                    disabled={disabled}
+                    onChange={(next) => replace(field.key, next)}
+                  />
+                )
+              } else if (field.kind === "SECTIONS") {
+                // The file's own copy of this very list, so the nested cards know what "edited"
+                // and "protected" mean for it; a card added in this draft has none yet.
+                const own = entry.sections?.[index]?.find((f) => f.key === field.key)
+                control = (
+                  <RepeatableCards
+                    entry={{ ...field, ...own, path: id, template: field.template }}
+                    value={Array.isArray(fieldValue) ? (fieldValue as SectionValues[]) : []}
+                    disabled={disabled}
+                    roles={roles}
+                    channels={channels}
+                    onChange={(next) => replace(field.key, next)}
+                    within={title}
+                  />
+                )
+              } else {
+                const text = textOf(section, field.key)
+                control = (
+                  <ScalarControl
+                    id={id}
+                    entry={field}
+                    value={text}
+                    edited={text !== textOf(original[index], field.key)}
+                    disabled={disabled}
+                    roles={roles}
+                    channels={channels}
+                    onChange={(next) => replace(field.key, next)}
+                  />
+                )
+              }
               return (
                 <div key={field.key} className="flex flex-col gap-1.5">
                   <Label htmlFor={id} className="text-sm font-medium">
@@ -190,23 +262,20 @@ export function RepeatableCards({
                   {explanation ? (
                     <p className="text-sm text-muted-foreground">{explanation}</p>
                   ) : null}
-                  <ScalarControl
-                    id={id}
-                    entry={field}
-                    value={fieldValue}
-                    edited={edited}
-                    disabled={disabled}
-                    roles={roles}
-                    channels={channels}
-                    onChange={(next) =>
-                      onChange(value.map((s, at) => (at === index ? { ...s, [field.key]: next } : s)))
-                    }
-                  />
+                  {control}
                 </div>
               )
             })}
-          </CardContent>
-        </Card>
+          </>
+        )
+        return within ? (
+          <div key={index} className="flex flex-col gap-3 border-t pt-3">
+            {body}
+          </div>
+        ) : (
+          <Card key={index} className="gap-3 py-4">
+            <CardContent className="flex flex-col gap-3 px-4">{body}</CardContent>
+          </Card>
         )
       })}
       <div>
@@ -215,6 +284,7 @@ export function RepeatableCards({
           variant="outline"
           size="sm"
           disabled={disabled}
+          aria-label={within ? `Add to ${within}` : undefined}
           onClick={() => onChange([...value, blankSection(template)])}
         >
           <PlusIcon aria-hidden />
@@ -229,9 +299,9 @@ export function RepeatableCards({
         <ResponsiveAlertDialogContent>
           <ResponsiveAlertDialogHeader>
             <ResponsiveAlertDialogTitle>
-              Remove {pendingRemoval !== null && sectionTitle
-                ? `"${sectionTitle(value[pendingRemoval], pendingRemoval)}"`
-                : `entry ${(pendingRemoval ?? 0) + 1}`}?
+              Remove {pendingRemoval !== null
+                ? `"${titleOf(value[pendingRemoval], pendingRemoval)}"`
+                : "entry"}?
             </ResponsiveAlertDialogTitle>
             <ResponsiveAlertDialogDescription className="whitespace-pre-wrap text-left">
               {listExplanation ??

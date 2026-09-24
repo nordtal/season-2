@@ -1,6 +1,8 @@
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import type { ConfigChoices, ConfigEntry, GuildList } from "@/lib/api"
 import { ColourControl } from "@/components/steward/colour-control"
 import { SnowflakePicker } from "@/components/steward/snowflake-picker"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -321,5 +323,71 @@ export function ScalarControl({
       className="font-mono text-sm"
       onChange={(event) => onChange(event.target.value)}
     />
+  )
+}
+
+/**
+ * A list, one row per entry.
+ *
+ * The whole list is sent on save rather than a single added entry: two browsers sending "add one"
+ * both succeed and the result is neither of the two lists anybody was looking at. Sending the list
+ * is only half of it - the two saves would still have overwritten each other, one silently - and
+ * the other half is the `revision` every save carries, which makes the second one a 409.
+ */
+export function ListControl({
+  id,
+  items,
+  disabled,
+  onChange,
+}: {
+  id: string
+  items: string[]
+  disabled: boolean
+  onChange: (items: string[]) => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Empty list.</p>
+      ) : (
+        items.map((item, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <Input
+              id={index === 0 ? id : undefined}
+              disabled={disabled}
+              value={item}
+              spellCheck={false}
+              className="font-mono text-sm"
+              aria-label={`Entry ${index + 1}`}
+              onChange={(event) =>
+                onChange(items.map((old, at) => (at === index ? event.target.value : old)))
+              }
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={disabled}
+              aria-label={`Remove entry ${index + 1}`}
+              onClick={() => onChange(items.filter((_, at) => at !== index))}
+            >
+              <TrashIcon aria-hidden />
+            </Button>
+          </div>
+        ))
+      )}
+      <div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => onChange([...items, ""])}
+        >
+          <PlusIcon aria-hidden />
+          Add entry
+        </Button>
+      </div>
+    </div>
   )
 }

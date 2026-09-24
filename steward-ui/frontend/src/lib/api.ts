@@ -930,10 +930,12 @@ export type ConfigDocument = RawConfigDocument | ParsedConfigDocument
 
 /**
  * What a PUT sends: a string is a scalar, a string array is a list, and an array of records is a
- * `SECTIONS` entry - one flat `{key: value}` record per card, in order. None of the three are
+ * `SECTIONS` entry - one record per card, in order. None of the three are
  * interchangeable.
  */
-export type ConfigChanges = Record<string, string | string[] | Record<string, string>[]>
+/** A value, a list of values, or a list of sections - which may hold lists of sections again. */
+export type ConfigChangeValue = string | string[] | { [key: string]: ConfigChangeValue }[]
+export type ConfigChanges = Record<string, ConfigChangeValue>
 
 /**
  * One admin command the interface may ask for (concept §10b).

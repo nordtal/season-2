@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.config;
 
+import eu.nordtal.jcore.config.spec.annotation.AllowedValues;
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
@@ -118,6 +119,7 @@ public interface MilestonesSpec {
         @Key("unlocks")
         @Comment("BORDER, NETHER, END or NOTHING.")
         @Explain("BORDER, NETHER, END or NOTHING.")
+        @AllowedValues({"BORDER", "NETHER", "END", "NOTHING"})
         default String unlocks() {
             return "NOTHING";
         }
@@ -200,6 +202,7 @@ public interface MilestonesSpec {
                 "ADVANCEMENT how many DISTINCT players earned it; a share is 1 or 0."
         })
         @Explain("HAND_IN, STATISTIC or ADVANCEMENT - decides which of the fields below apply.")
+        @AllowedValues({"HAND_IN", "STATISTIC", "ADVANCEMENT"})
         default String type() {
             return "HAND_IN";
         }

@@ -1,5 +1,6 @@
 import { CommandPalette } from "@/app/command-palette"
-import { AppFrame } from "@/app/frames"
+import { ChosenFrame } from "@/app/designs/chosen-frame"
+import { initialNav } from "@/app/designs/sidebar-variant"
 import { HoldKeyPage } from "@/app/hold-key"
 import { SecurityKeyPage } from "@/app/security-key"
 import { sidebarDefaultOpen } from "@/app/sidebar-state"
@@ -94,10 +95,13 @@ function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
         // skipping that job is what makes a collapsed sidebar spring open again on every reload.
         // The phone's sheet is a different piece of state (`openMobile`) and is untouched by it,
         // which is what lets one sidebar be both things.
-        defaultOpen={sidebarDefaultOpen(document.cookie)}
+        //
+        // A frame on the sidebar comparison page says which state it starts in (`?nav=`), and that
+        // wins over the cookie for as long as the comparison exists.
+        defaultOpen={initialNav() ? initialNav() === "open" : sidebarDefaultOpen(document.cookie)}
         style={{ "--sidebar-width": "13rem" } as React.CSSProperties}
       >
-        <AppFrame me={me} />
+        <ChosenFrame me={me} />
         {/*
           Bottom right on a desktop, bottom centre on a phone - a thumb is in the middle, and a
           corner toast on a narrow screen covers whatever control is in that corner. One Toaster

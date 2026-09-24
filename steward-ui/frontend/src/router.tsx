@@ -11,6 +11,7 @@ import {
 import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
 import { ServicePage, serviceSearch } from "@/pages/service"
 import { SettingsPage } from "@/pages/settings"
+import { SidebarGalleryPage } from "@/app/designs/sidebar-gallery"
 import { SeasonPage } from "@/pages/season"
 import { JournalPage, AccountsPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { OverviewPage } from "@/pages/overview"
@@ -81,6 +82,8 @@ const routes = [
     path: "/settings",
     component: SettingsPage,
   }),
+  // The sidebar proposals, side by side. Goes with `app/designs/` once one is picked.
+  createRoute({ getParentRoute: () => rootRoute, path: "/designs/sidebar", component: SidebarGalleryPage }),
 ]
 
 const routeTree = rootRoute.addChildren(routes)

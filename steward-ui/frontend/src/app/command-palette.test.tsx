@@ -721,4 +721,21 @@ describe("CommandPalette - the shell is a sheet on a phone (steward/128)", () =>
     expect(input.closest("[data-slot='drawer-content']")).not.toBeNull()
     expect(input.closest("[data-slot='dialog-content']")).toBeNull()
   })
+
+  it("takes the typing at once on a phone, and spans the sheet's full width", async () => {
+    window.innerWidth = 390
+    render(<CommandPalette />)
+    ctrlK(document.body)
+
+    const input = await waitFor(() => {
+      const found = searchInput()
+      expect(found).not.toBeNull()
+      return found as HTMLElement
+    })
+    await waitFor(() => expect(document.activeElement).toBe(input))
+    // The dialog's width and offset are the desktop half; on a sheet they shrank it and pushed it aside.
+    const sheet = input.closest("[data-slot='drawer-content']") as HTMLElement
+    const bare = sheet.className.split(/\s+/).filter((name) => !name.includes(":"))
+    expect(bare.some((name) => name.startsWith("w-[") || name.startsWith("top-[") || name.startsWith("translate-"))).toBe(false)
+  })
 })

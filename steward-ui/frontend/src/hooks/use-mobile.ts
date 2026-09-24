@@ -1,6 +1,6 @@
 import * as React from "react"
 
-const MOBILE_BREAKPOINT = 768
+const MOBILE_BREAKPOINT = 640
 
 export function useIsMobile() {
   // Answered on the first render rather than after it: the frame draws a different shape on each

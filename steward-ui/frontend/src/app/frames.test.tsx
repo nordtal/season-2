@@ -102,7 +102,11 @@ afterEach(() => {
 
 /** The phone's shape is chosen by the window's width on the first render, so the width is set first. */
 function asPhone() {
-  Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 390 })
+  atWidth(390)
+}
+
+function atWidth(value: number) {
+  Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value })
 }
 
 afterEach(() => {
@@ -169,6 +173,23 @@ describe("the frame on a desktop", () => {
         screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded"),
       ).toBe("false"),
     )
+  })
+})
+
+describe("where the desktop's frame begins", () => {
+  // At Tailwind's `sm`, not `md` (2026-09-24): a tablet held upright and a small laptop window
+  // were getting the phone's dock with room for the column to spare. The cookie says open, and
+  // only the desktop's column honours it, so the toggle's state tells the two frames apart.
+  it.each([
+    [640, "true"],
+    [700, "true"],
+    [639, "false"],
+  ])("at %ipx the navigation starts expanded: %s", async (width, expanded) => {
+    atWidth(width)
+    drawAt("/services/smp")
+
+    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
+    expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe(expanded)
   })
 })
 

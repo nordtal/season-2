@@ -304,10 +304,9 @@ const DATA = EDGES.filter((edge) => edge.kind === "data")
  *
  * The one exception is below `minWidth`, and it is a safety net rather than a mode: the picture is
  * scaled down instead of overflowing, because a topology map that has to be dragged sideways is not
- * one you can read at a glance. On this interface it should never fire - below 768px the panel
- * draws {@link NetworkTable} instead of this component at all, and the narrowest the panel gets
- * above that line is around 410px, measured 2026-09-20 at a 1100px viewport where the start page's
- * two columns and the sidebar are all present at once.
+ * one you can read at a glance. It fires in one place and barely: below 640px the panel draws
+ * {@link NetworkTable} instead of this component at all, and just above that line, with the column
+ * open, the panel is about 368px against `PLAN`'s 372 (2026-09-24).
  */
 export function Field({ plan, id }: { plan: Arrangement; id: string }) {
   const outer = useRef<HTMLDivElement>(null)

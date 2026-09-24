@@ -21,7 +21,7 @@ import { useSidebar } from "@/components/ui/sidebar"
  * that grows upward into the navigation for a phone ({@link PhoneFrame}). The two he did not pick
  * are deleted rather than kept behind a query parameter; what they tried is in the ticket.
  *
- * The line between them is `useIsMobile`'s 768px, the same line the sidebar provider already keeps
+ * The line between them is `useIsMobile`'s 640px, the same line the sidebar provider already keeps
  * its two open states apart by: `open` for the column, `openMobile` for the dock.
  *
  * <h2>One axis</h2>

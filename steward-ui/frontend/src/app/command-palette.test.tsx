@@ -324,8 +324,8 @@ describe("CommandPalette - finding a setting (steward/58)", () => {
     // carries the path, and on a narrow row the path is the thing that shortens the name in order
     // to be cut off itself - two truncated strings where one whole one would have fitted.
     //
-    // A class assertion and not a visual one: jsdom applies no media query, so "gone below 768px"
-    // can only be stated as the pair of utilities that says it. 768px is `useIsMobile`'s own
+    // A class assertion and not a visual one: jsdom applies no media query, so "gone below 640px"
+    // can only be stated as the pair of utilities that says it. 640px is `useIsMobile`'s own
     // breakpoint, which is what every other narrow/wide decision in this app switches on.
     const loc = location({ path: "steward-worker/steward.yml", name: "steward.yml" })
     oneFile(loc, [entry({ path: "worker.base-url", key: "base-url", label: "Base url" })])
@@ -337,7 +337,7 @@ describe("CommandPalette - finding a setting (steward/58)", () => {
     expect(trailing.length).toBeGreaterThan(0)
     for (const column of trailing) {
       expect(column.className).toContain("hidden")
-      expect(column.className).toContain("md:block")
+      expect(column.className).toContain("sm:block")
     }
   })
 

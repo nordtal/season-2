@@ -7,7 +7,8 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /hg reload} - the wording and the sounds, and nothing else.
@@ -38,9 +39,9 @@ public final class ReloadHungerGames implements NordtalCommand<HungerGamesEffect
             if (sounds && messages) {
                 // No sound: an admin's confirmation of a command they just typed and are already
                 // reading. /smp reload is silent for the same reason.
-                user.reply("hg.admin.reloaded", Map.of(), Tone.GOOD);
+                user.reply(MESSAGES.hg().admin().reloaded(), Tone.GOOD);
             } else {
-                user.reply("hg.admin.reload-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.hg().admin().reloadFailed(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

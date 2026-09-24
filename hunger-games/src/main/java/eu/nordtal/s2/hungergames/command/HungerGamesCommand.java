@@ -31,9 +31,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
+
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 /**
  * The hunger games server's Brigadier trees: three admin commands, one player command, and
@@ -136,12 +137,12 @@ public final class HungerGamesCommand {
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (gameId == null) {
-                user.reply("hg.lobby.not-registered", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.hg().lobby().notRegistered(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             final var discordId = dao.discordIdOf(player.getUniqueId());
             final boolean marked = discordId.isPresent() && lobby.markReady(gameId, discordId.get());
-            user.reply(marked ? "hg.lobby.ready-set" : "hg.lobby.not-registered", Map.of(),
+            user.reply(marked ? MESSAGES.hg().lobby().readySet() : MESSAGES.hg().lobby().notRegistered(),
                     marked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED,
                     marked ? Tone.GOOD : Tone.BAD);
         });

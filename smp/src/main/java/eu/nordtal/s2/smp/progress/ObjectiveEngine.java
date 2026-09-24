@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.aura.AuraPayout;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.db.ContributionRow;
@@ -13,6 +14,7 @@ import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.milestone.Milestone;
+import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveProgress;
@@ -34,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The spine of the season: crediting progress, finishing an objective, paying it out, and unlocking
@@ -270,10 +274,9 @@ public final class ObjectiveEngine {
         Bukkit.getScheduler().runTask(plugin, () -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {
                 final var locale = locales.of(player.getUniqueId());
-                player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.objective.completed",
-                        "icon", Glyphs.ICON_ANNOUNCE,
-                        "objective", nameOf("smp.objective." + milestoneKey + "." + objectiveKey,
-                                objectiveKey, locale)));
+                player.sendMessage(MessageRenderer.of(messages).format(locale,
+                        MESSAGES.smp().objective().completed(Glyphs.ICON_ANNOUNCE,
+                                objectiveKey)));
             }
         });
     }
@@ -294,33 +297,31 @@ public final class ObjectiveEngine {
         // Discord first, and off this thread: one row per language, from the same bundle the chat
         // line uses. The sentence follows the unlock rather than assuming a border step - a Nether
         // or End milestone would otherwise announce a growth that did not happen.
-        final String announcement = switch (unlock) {
-            case BORDER -> "smp.announce.milestone.border";
-            case NETHER -> "smp.announce.milestone.nether";
-            case END -> "smp.announce.milestone.end";
-            case NOTHING -> "smp.announce.milestone";
-        };
-        announcer.announce(announcement, locale -> Map.of("milestone",
-                nameOf("smp.milestone." + milestoneKey, milestoneKey, locale)));
+        announcer.announce(locale -> {
+            final String milestone = MilestoneNames.of(messages, locale, milestoneKey);
+            final SmpMessages.Smp.Announce.Milestone by = MESSAGES.smp().announce().milestoneSection();
+            return switch (unlock) {
+                case BORDER -> by.border(milestone);
+                case NETHER -> by.nether(milestone);
+                case END -> by.end(milestone);
+                case NOTHING -> MESSAGES.smp().announce().milestone(milestone);
+            };
+        });
         final MessageRenderer renderer = MessageRenderer.of(messages);
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final var locale = locales.of(player.getUniqueId());
-            final String name = nameOf("smp.milestone." + milestoneKey, milestoneKey, locale);
+            final String name = MilestoneNames.of(messages, locale, milestoneKey);
 
-            player.sendMessage(renderer.format(locale, "smp.milestone.completed",
-                    "icon", Glyphs.ICON_ANNOUNCE, "milestone", name));
+            player.sendMessage(renderer.format(locale,
+                    MESSAGES.smp().milestone().completed(Glyphs.ICON_ANNOUNCE, name)));
             player.showTitle(Title.title(
-                    renderer.format(locale, "smp.ceremony.title", "milestone", name),
-                    renderer.get(locale, "smp.ceremony.subtitle"),
+                    renderer.format(locale, MESSAGES.smp().ceremony().title(name)),
+                    renderer.format(locale, MESSAGES.smp().ceremony().subtitle()),
                     CEREMONY));
             sounds.play(player, player.getUniqueId().equals(completedBy)
                     ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
             effects.celebrate(player);
         }
-    }
-
-    private String nameOf(final String key, final String fallback, final java.util.Locale locale) {
-        return messages.hasTranslation(locale, key) ? messages.get(locale, key) : fallback;
     }
 
     /** Which Discord account a player's contributions belong to, or empty if they are not linked. */

@@ -70,7 +70,7 @@ class PhaseCommandsTest {
         // One key per constant, so that a new phase produces a missing key rather than silently
         // telling an admin what a different phase would have done.
         for (final SeasonPhase phase : SeasonPhase.values()) {
-            assertEquals("phase.consequence." + phase.name(), SetPhase.consequenceKey(phase));
+            assertEquals("phase.consequence." + phase.name(), SetPhase.consequence(phase).key());
         }
     }
 
@@ -307,8 +307,8 @@ class PhaseCommandsTest {
                 new Values(PhaseCommands.SMP_START, Map.of("when", "2026-11-01 18:00")), effects);
 
         assertEquals(List.of("phase.date.set", "phase.date.moved"), user.keys());
-        assertEquals("7", user.replies.get(1).of("grants"));
-        assertEquals("4", user.replies.get(1).of("accounts"));
+        assertEquals(7, user.replies.get(1).of("grants"));
+        assertEquals(4, user.replies.get(1).of("accounts"));
     }
 
     @Test

@@ -213,7 +213,7 @@ describe("pending jump", () => {
 // --- steward/87: the message bundles are a second supplier, not a second search --------------
 
 function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
-  return { inBundle: true, ...over }
+  return { inBundle: true, args: [], section: [], ...over }
 }
 
 function bundleLocation(

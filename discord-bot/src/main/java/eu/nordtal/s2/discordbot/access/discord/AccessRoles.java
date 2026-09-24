@@ -29,6 +29,8 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+
 /**
  * The two roles, and the messages that go with them.
  *
@@ -213,15 +215,16 @@ public final class AccessRoles {
             final Locale locale = localeOf(deadline.discordId());
             final long days = Math.max(1,
                     Duration.between(Instant.now(), deadline.validUntil()).toDays());
-            dm(deadline.discordId(), messages.format(locale, "dm.expiring",
-                    "until", timestamp(deadline.validUntil()), "days", days));
+            dm(deadline.discordId(), messages.format(locale,
+                    MESSAGES.dm().expiring(timestamp(deadline.validUntil()), days)));
         }
 
         for (final AccessDeadline deadline : dao.endedWithin(EXPIRED_LOOKBACK_HOURS)) {
             if (!claim(deadline, "EXPIRED")) {
                 continue;
             }
-            dm(deadline.discordId(), messages.get(localeOf(deadline.discordId()), "dm.expired"));
+            dm(deadline.discordId(), messages.format(localeOf(deadline.discordId()),
+                    MESSAGES.dm().expired()));
         }
     }
 

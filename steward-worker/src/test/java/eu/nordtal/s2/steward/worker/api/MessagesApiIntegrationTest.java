@@ -128,6 +128,30 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("a placeholder the schema does not declare is refused with the key, and nothing is saved")
+    void anUnknownPlaceholderIsRefused() throws Exception {
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), java.util.Map.of(
+                "messages/smp/en.properties", "greeting=Hello {player}\n",
+                "messages/smp/schema.json", """
+                        {"bundle": "smp", "messages": [{"key": "greeting", "name": "Greeting",
+                          "args": [{"name": "player", "component": false}], "section": ["Join"]}]}
+                        """));
+        Files.createDirectories(configs.resolve("smp/smp/messages"));
+
+        final HttpResponse<String> refused = send("PUT", "/api/messages/smp/smp",
+                "{\"language\":\"en\",\"changes\":{\"greeting\":\"Hello {name}\"}}");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("greeting") && refused.body().contains("{name}"), refused.body());
+        assertFalse(Files.exists(configs.resolve("smp/smp/messages/en.properties")),
+                "a refused save must not write anything");
+        final JsonObject greeting = entry(GSON.fromJson(get("/api/messages/smp/smp"), JsonObject.class), "greeting");
+        assertEquals("Greeting", greeting.get("name").getAsString());
+        assertEquals("player", greeting.getAsJsonArray("args").get(0).getAsJsonObject().get("name").getAsString());
+        assertEquals("Join", greeting.getAsJsonArray("section").get(0).getAsString());
+    }
+
+    @Test
     @DisplayName("resetting a key removes it from the override rather than copying English into it")
     void resettingRemovesTheOverride() throws Exception {
         writeJar(configs.resolve("smp/smp-0.9.1.jar"), java.util.Map.of(
@@ -324,6 +348,13 @@ class MessagesApiIntegrationTest {
                 .build(), HttpResponse.BodyHandlers.ofString());
         assertEquals(200, response.statusCode(), path + " answered " + response.body());
         return response.body();
+    }
+
+    private HttpResponse<String> send(final String method, final String path, final String body) throws Exception {
+        return http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+                .header("Content-Type", "application/json")
+                .method(method, HttpRequest.BodyPublishers.ofString(body))
+                .build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private String post(final String path) throws Exception {

@@ -1,11 +1,13 @@
 package eu.nordtal.s2.common.hud;
 
 import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 
 import net.kyori.adventure.text.Component;
 
 import java.util.Locale;
+import java.util.function.Function;
 
 /**
  * The tab list's header and footer, composed once for every server on the network.
@@ -40,21 +42,12 @@ public final class TabList {
     /**
      * @param messages the renderer; the keys are MiniMessage, so this is not {@code Messages}
      * @param locale   the reader's language - unlike a nametag's flag, which is the wearer's
+     * @param header   the server's own header message, given the logo
      * @return the header, with the logo glyph substituted
      */
-    public static Component header(final MessageRenderer messages, final Locale locale) {
-        return messages.format(locale, "tab.header", "logo", Glyphs.LOGO_HEIGHT_32);
+    public static Component header(final MessageRenderer messages, final Locale locale,
+                                   final Function<Object, MessageRef> header) {
+        return messages.format(locale, header.apply(Glyphs.LOGO_HEIGHT_32));
     }
 
-    /**
-     * @param messages the renderer
-     * @param locale   the reader's language
-     * @param online   players on this server
-     * @param max      this server's player cap
-     * @return the footer
-     */
-    public static Component footer(final MessageRenderer messages, final Locale locale,
-                                   final int online, final int max) {
-        return messages.format(locale, "tab.footer", "online", online, "max", max);
-    }
 }

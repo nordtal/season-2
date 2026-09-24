@@ -8,8 +8,9 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /hg ready-status} - which teams have said they are ready.
@@ -31,22 +32,21 @@ public final class ReadyStatus implements NordtalCommand<HungerGamesEffects> {
         effects.async(() -> {
             final Optional<HungerGamesEffects.Registration> registration = effects.registration();
             if (registration.isEmpty()) {
-                user.reply("hg.start.no-game", Map.of(), Feedback.REFUSED, Tone.WARN);
+                user.reply(MESSAGES.hg().start().noGame(), Feedback.REFUSED, Tone.WARN);
                 return;
             }
 
             final List<HungerGamesEffects.TeamReady> teams =
                     effects.readyStatus(registration.get().gameId());
-            user.reply("hg.ready-status.header", Map.of(), Tone.NEUTRAL);
+            user.reply(MESSAGES.hg().readyStatus().header(), Tone.NEUTRAL);
             // The tone is the whole point of this list: the admin is looking for who is NOT ready
             // yet, and reading a word at the end of forty identically shaped lines is what the
             // colour saves them from.
-            teams.forEach(team -> user.reply("hg.ready-status.line",
-                    Map.of("team", team.team(),
+            teams.forEach(team -> user.reply(MESSAGES.hg().readyStatus().line(team.team(),
                             // A nested message, resolved in the reader's own language: this is what
                             // NordtalUser#phrase exists for.
-                            "status", user.phrase(team.ready()
-                                    ? "hg.ready-status.ready" : "hg.ready-status.not-ready")),
+                            user.phrase(team.ready() ? MESSAGES.hg().readyStatus().ready()
+                                    : MESSAGES.hg().readyStatus().notReady())),
                     team.ready() ? Tone.GOOD : Tone.MUTED));
         });
     }

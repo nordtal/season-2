@@ -7,7 +7,8 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /** {@code /limbo reload} - re-read the wording without taking the waiting room down. */
 public final class ReloadLimbo implements NordtalCommand<LimboEffects> {
@@ -24,7 +25,7 @@ public final class ReloadLimbo implements NordtalCommand<LimboEffects> {
             // reload with the success sound until 2026-09-05, which is the one thing an
             // operator hears without reading.
             final boolean reloaded = effects.reloadMessages();
-            user.reply(reloaded ? "limbo.admin.reloaded" : "limbo.admin.reload-failed", Map.of(),
+            user.reply(reloaded ? MESSAGES.limbo().admin().reloaded() : MESSAGES.limbo().admin().reloadFailed(),
                     reloaded ? Feedback.SMALL_SUCCESS : Feedback.REFUSED,
                     reloaded ? Tone.GOOD : Tone.BAD);
         });

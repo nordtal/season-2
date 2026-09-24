@@ -2,9 +2,11 @@ package eu.nordtal.s2.smp.wheel;
 
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.menu.SlotGeometry;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.papercommon.menu.BlankItem;
+import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.Surface;
 
@@ -17,9 +19,10 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The wheel itself: twelve prizes travelling round a ring, slowing down, and stopping on the one
@@ -82,22 +85,20 @@ public final class WheelGui implements Surface {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         this.inventory = Bukkit.createInventory(this,
                 WheelPanel.ROWS * SlotGeometry.COLUMNS,
-                WheelPanel.title(renderer.get(locale, "smp.wheel.title"),
+                WheelPanel.title(renderer.format(locale, MESSAGES.smp().wheel().title()),
                         String.valueOf(spinsLeft),
-                        messages.format(locale, "smp.wheel.spins-left",
-                                Map.of("spins", spinsLeft)),
-                        messages.get(locale, "smp.wheel.rule-top"),
-                        messages.format(locale, "smp.wheel.rule-bottom",
-                                Map.of("percent", earnAt)),
-                        messages.get(locale, "smp.wheel.again-button")));
+                        messages.format(locale, MESSAGES.smp().wheel().spinsLeft(spinsLeft)),
+                        messages.format(locale, MESSAGES.smp().wheel().ruleTop()),
+                        messages.format(locale, MESSAGES.smp().wheel().ruleBottom(earnAt)),
+                        messages.format(locale, MESSAGES.smp().wheel().againButton())));
 
         final ItemStack hub = BlankItem.of(
-                renderer.format(locale, "smp.wheel.hub", "spins", spinsLeft),
-                List.of(renderer.format(locale, "smp.wheel.hub-hint", "percent", earnAt)));
+                renderer.format(locale, MESSAGES.smp().wheel().hub(spinsLeft)),
+                List.of(renderer.format(locale, MESSAGES.smp().wheel().hubHint(earnAt))));
         inventory.setItem(WheelPanel.HUB_SLOT, hub);
         WheelPanel.INFO_SLOTS.forEach(slot -> inventory.setItem(slot, hub));
 
-        setAgain("smp.wheel.again-waiting", "smp.wheel.again-waiting-hint");
+        setAgain(MESSAGES.smp().wheel().againWaiting(), MESSAGES.smp().wheel().againWaitingHint());
         draw(0);
     }
 
@@ -150,16 +151,17 @@ public final class WheelGui implements Surface {
         }
         if (celebrate && player.isOnline()) {
             sounds.play(player, Feedback.BIG_SUCCESS);
-            setAgain(again == null ? "smp.wheel.again-none" : "smp.wheel.again",
-                    again == null ? "smp.wheel.again-none-hint" : "smp.wheel.again-hint");
+            final SmpMessages.Smp.Wheel wheel = MESSAGES.smp().wheel();
+            setAgain(again == null ? wheel.againNone() : wheel.again(),
+                    again == null ? wheel.againNoneHint() : wheel.againHint());
         }
         payout.accept(player);
     }
 
-    private void setAgain(final String name, final String hint) {
+    private void setAgain(final MessageRef name, final MessageRef hint) {
         final MessageRenderer renderer = MessageRenderer.of(messages);
-        final ItemStack item = BlankItem.of(renderer.get(locale, name),
-                List.of(renderer.get(locale, hint)));
+        final ItemStack item = BlankItem.of(renderer.format(locale, name),
+                List.of(renderer.format(locale, hint)));
         WheelPanel.AGAIN_SLOTS.forEach(slot -> inventory.setItem(slot, item));
     }
 

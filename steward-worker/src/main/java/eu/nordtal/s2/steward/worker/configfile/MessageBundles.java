@@ -1,5 +1,9 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import eu.nordtal.s2.steward.worker.plan.JarName;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -21,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -71,7 +76,16 @@ public final class MessageBundles {
     private static final Logger LOG = LoggerFactory.getLogger(MessageBundles.class);
 
     /** {@code messages/<root>/en.properties} or {@code messages/<root>/de.properties}, anywhere in a jar. */
-    private static final Pattern BUNDLE_ENTRY = Pattern.compile("messages/[^/]+/(en|de)\\.properties");
+    private static final Pattern BUNDLE_ENTRY = Pattern.compile("messages/([^/]+)/(en|de)\\.properties");
+
+    /**
+     * {@code messages/<root>/schema.json}: the names, placeholders and sections a root's message spec
+     * declares, written into the jar at build time by {@code eu.nordtal.s2.common.message.spec.MessageSchema}.
+     */
+    private static final Pattern SCHEMA_ENTRY = Pattern.compile("messages/([^/]+)/schema\\.json");
+
+    /** A placeholder as a message spec declares it: {@code {name}} for text, {@code <_name>} for a legacy tag. */
+    private static final Pattern DECLARABLE = Pattern.compile("\\{([A-Za-z0-9_-]+)}|<(_[A-Za-z0-9_-]+)>");
 
     /**
      * A parameter this project writes two ways: {@code {name}} - substituted by
@@ -186,44 +200,110 @@ public final class MessageBundles {
      * Opens {@code location}'s jar and its override directory, and merges them into one bundle.
      *
      * @param location where to read from
-     * @return the bundle, every key sorted
+     * @return the bundle, the schema's keys in its order, then the rest sorted
      * @throws IOException if the jar or an override file cannot be read
      */
     public static @NotNull MessageBundle read(final @NotNull MessageBundleLocation location) throws IOException {
         final Map<String, String> packagedEnglish = new HashMap<>();
         final Map<String, String> packagedGerman = new HashMap<>();
+        // Root name to its schema, sorted so the order of the entries does not depend on the order
+        // of the jar's directory.
+        final Map<String, List<SchemaEntry>> schemas = new TreeMap<>();
         try (ZipFile jar = new ZipFile(location.jar().toFile())) {
             final Enumeration<? extends ZipEntry> entries = jar.entries();
             while (entries.hasMoreElements()) {
                 final ZipEntry entry = entries.nextElement();
+                final Matcher schema = SCHEMA_ENTRY.matcher(entry.getName());
+                if (schema.matches()) {
+                    try (InputStream in = jar.getInputStream(entry)) {
+                        schemas.put(schema.group(1), readSchema(location, entry.getName(), in));
+                    }
+                    continue;
+                }
                 final Matcher matcher = BUNDLE_ENTRY.matcher(entry.getName());
                 if (!matcher.matches()) {
                     continue;
                 }
                 final Map<String, String> target =
-                        "en".equals(matcher.group(1)) ? packagedEnglish : packagedGerman;
+                        "en".equals(matcher.group(2)) ? packagedEnglish : packagedGerman;
                 try (InputStream in = jar.getInputStream(entry)) {
                     target.putAll(readProperties(in));
                 }
             }
         }
+        final Map<String, SchemaEntry> described = new LinkedHashMap<>();
+        schemas.values().forEach(list -> list.forEach(entry -> described.putIfAbsent(entry.key(), entry)));
 
         final Map<String, String> overrideEnglish = readOverride(location.overrideDirectory(), "en");
         final Map<String, String> overrideGerman = readOverride(location.overrideDirectory(), "de");
 
-        final Set<String> keys = new TreeSet<>();
-        keys.addAll(packagedEnglish.keySet());
-        keys.addAll(packagedGerman.keySet());
-        keys.addAll(overrideEnglish.keySet());
-        keys.addAll(overrideGerman.keySet());
+        // The schema's order first - the order of each English file, the one a person curated - and
+        // everything it does not describe after it, sorted.
+        final Set<String> undescribed = new TreeSet<>();
+        undescribed.addAll(packagedEnglish.keySet());
+        undescribed.addAll(packagedGerman.keySet());
+        undescribed.addAll(overrideEnglish.keySet());
+        undescribed.addAll(overrideGerman.keySet());
+        undescribed.removeAll(described.keySet());
+        final List<String> keys = new ArrayList<>(described.keySet());
+        keys.addAll(undescribed);
 
         final List<MessageEntry> entries = new ArrayList<>(keys.size());
         for (final String key : keys) {
+            final SchemaEntry schema = described.get(key);
             entries.add(new MessageEntry(key, packagedEnglish.get(key), packagedGerman.get(key),
                     overrideEnglish.get(key), overrideGerman.get(key),
-                    packagedEnglish.containsKey(key) || packagedGerman.containsKey(key)));
+                    packagedEnglish.containsKey(key) || packagedGerman.containsKey(key),
+                    schema == null ? null : schema.name(),
+                    schema == null ? null : schema.description(),
+                    schema == null ? List.of() : schema.args(),
+                    schema == null ? List.of() : schema.section()));
         }
         return new MessageBundle(location.service(), location.module(), location.writable(), entries);
+    }
+
+    private record SchemaEntry(String key, String name, String description, List<MessageArg> args,
+                               List<String> section) {
+    }
+
+    /**
+     * One {@code schema.json}. A file this process cannot make sense of is logged and read as empty:
+     * the texts are still worth showing without their names, and refusing the whole bundle over it
+     * would hide the texts as well.
+     */
+    private static List<SchemaEntry> readSchema(final MessageBundleLocation location, final String name,
+                                                final InputStream in) throws IOException {
+        final String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        try {
+            final List<SchemaEntry> answer = new ArrayList<>();
+            for (final JsonElement element : JsonParser.parseString(text).getAsJsonObject()
+                    .getAsJsonArray("messages")) {
+                final JsonObject message = element.getAsJsonObject();
+                final List<MessageArg> args = new ArrayList<>();
+                for (final JsonElement arg : message.getAsJsonArray("args")) {
+                    final JsonObject object = arg.getAsJsonObject();
+                    args.add(new MessageArg(object.get("name").getAsString(),
+                            object.get("component").getAsBoolean()));
+                }
+                final List<String> section = new ArrayList<>();
+                for (final JsonElement part : message.getAsJsonArray("section")) {
+                    section.add(part.isJsonNull() ? null : part.getAsString());
+                }
+                answer.add(new SchemaEntry(message.get("key").getAsString(), stringOf(message, "name"),
+                        stringOf(message, "description"), args, section));
+            }
+            return answer;
+        } catch (final JsonParseException | IllegalStateException | NullPointerException
+                       | UnsupportedOperationException e) {
+            LOG.warn("{}: {} is not a message schema this worker can read, so its names are left out: {}",
+                    location.jar(), name, e.toString());
+            return List.of();
+        }
+    }
+
+    private static @Nullable String stringOf(final JsonObject object, final String field) {
+        final JsonElement value = object.get(field);
+        return value == null || value.isJsonNull() ? null : value.getAsString();
     }
 
     /** {@code <directory>/<language>.properties}, or an empty map when there is no override yet. */
@@ -381,6 +461,36 @@ public final class MessageBundles {
     // -----------------------------------------------------------------------------------------
     // Placeholders
     // -----------------------------------------------------------------------------------------
+
+    /**
+     * The placeholders {@code edited} uses that {@code entry}'s schema does not declare - each
+     * once, in the order they appear. Such a text cannot be filled: the plugin substitutes the
+     * declared arguments and nothing else, so an unknown {@code {name}} would draw literally.
+     *
+     * <p>Only {@code {name}} and the underscored {@code <_name>} tags are checked. An ordinary
+     * MiniMessage tag such as {@code <bold>} is formatting, not a placeholder, and a Component
+     * argument's own tag ({@code <player>}) is indistinguishable from one without a list of every
+     * tag Adventure knows. An entry the schema does not describe is never checked.</p>
+     */
+    public static @NotNull List<String> unknownPlaceholders(final @NotNull MessageEntry entry,
+                                                             final @Nullable String edited) {
+        if (!entry.described() || edited == null || edited.isEmpty()) {
+            return List.of();
+        }
+        final Set<String> declared = new HashSet<>();
+        for (final MessageArg arg : entry.args()) {
+            declared.add(arg.token());
+        }
+        final List<String> unknown = new ArrayList<>();
+        final Matcher matcher = DECLARABLE.matcher(edited);
+        while (matcher.find()) {
+            final String token = matcher.group();
+            if (!declared.contains(token) && !unknown.contains(token)) {
+                unknown.add(token);
+            }
+        }
+        return unknown;
+    }
 
     /** Every placeholder token in {@code text}, in the order it appears; {@code null} reads as none. */
     public static @NotNull List<String> placeholdersOf(final @Nullable String text) {

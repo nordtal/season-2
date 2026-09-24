@@ -43,6 +43,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 /**
  * Graves: what a death leaves behind, everywhere except the duel arena.
  *
@@ -364,11 +366,10 @@ public final class Graves implements InventoryHolder {
         final Locale locale = row.ownerUuid() == null ? Locale.ENGLISH : locales.of(row.ownerUuid());
         final MessageRenderer renderer = MessageRenderer.of(messages);
         if (timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0) {
-            return renderer.format(locale, "smp.grave.hologram-seconds",
-                    "seconds", timeLeft.toSeconds());
+            return renderer.format(locale, MESSAGES.smp().grave().hologramSeconds(timeLeft.toSeconds()));
         }
-        return renderer.format(locale, "smp.grave.hologram",
-                "hours", timeLeft.toHours(), "minutes", timeLeft.toMinutesPart());
+        return renderer.format(locale,
+                MESSAGES.smp().grave().hologram(timeLeft.toHours(), timeLeft.toMinutesPart()));
     }
 
     /** Once a minute normally, once a second inside {@link #HOLOGRAM_FINAL_STRETCH}. */
@@ -510,12 +511,12 @@ public final class Graves implements InventoryHolder {
 
         final Inventory window = Bukkit.createInventory(null,
                 GravePanel.rows(contentRows) * 9,
-                GravePanel.title(renderer.get(locale, "smp.grave.title"), contentRows,
+                GravePanel.title(renderer.format(locale, MESSAGES.smp().grave().title()), contentRows,
                         row.experience() > 0
-                                ? messages.format(locale, "smp.grave.experience-line",
-                                        Map.of("experience", row.experience()))
+                                ? messages.format(locale,
+                                        MESSAGES.smp().grave().experienceLine(row.experience()))
                                 : "",
-                        messages.get(locale, "smp.grave.take-all-button")));
+                        messages.format(locale, MESSAGES.smp().grave().takeAllButton())));
 
         final int slots = GravePanel.contentSlots(contentRows);
         for (int slot = 0; slot < slots && slot < contents.length; slot++) {
@@ -527,14 +528,13 @@ public final class Graves implements InventoryHolder {
         // The name is on the head rather than in the title: one window is shared by everybody
         // standing in the grave, so a title would carry the first opener's language.
         final ItemStack experience = eu.nordtal.s2.papercommon.menu.BlankItem.of(
-                renderer.get(locale, "smp.grave.experience-tooltip"),
-                List.of(renderer.format(locale, "smp.grave.experience-hint",
-                        "experience", row.experience())));
+                renderer.format(locale, MESSAGES.smp().grave().experienceTooltip()),
+                List.of(renderer.format(locale, MESSAGES.smp().grave().experienceHint(row.experience()))));
         GravePanel.experienceSlots(contentRows).forEach(slot -> window.setItem(slot, experience));
 
         final ItemStack takeAll = eu.nordtal.s2.papercommon.menu.BlankItem.of(
-                renderer.get(locale, "smp.grave.take-all"),
-                List.of(renderer.get(locale, "smp.grave.take-all-hint")));
+                renderer.format(locale, MESSAGES.smp().grave().takeAll()),
+                List.of(renderer.format(locale, MESSAGES.smp().grave().takeAllHint())));
         GravePanel.takeAllSlots(contentRows).forEach(slot -> window.setItem(slot, takeAll));
 
         return window;
@@ -567,12 +567,12 @@ public final class Graves implements InventoryHolder {
                 skull.setOwningPlayer(Bukkit.getOfflinePlayer(row.ownerUuid()));
             }
             meta.displayName(renderer.format(locale,
-                            name == null ? "smp.grave.owner-unknown" : "smp.grave.owner",
-                            "player", name == null ? "" : name)
+                            name == null ? MESSAGES.smp().grave().ownerUnknown()
+                                    : MESSAGES.smp().grave().owner(name))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
             final String date = GRAVE_DATE.format(row.created().atZone(SeasonDates.ZONE));
-            meta.lore(List.of(renderer.format(locale, "smp.grave.died-at",
-                            "date", date, "x", row.x(), "y", row.y(), "z", row.z())
+            meta.lore(List.of(renderer.format(locale,
+                    MESSAGES.smp().grave().diedAt(date, row.x(), row.y(), row.z()))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });
         return head;
@@ -747,8 +747,7 @@ public final class Graves implements InventoryHolder {
                 if (experience > 0 && player.isOnline()) {
                     player.giveExp(experience);
                     player.sendMessage(MessageRenderer.of(messages).format(
-                            locales.of(player.getUniqueId()), "smp.grave.experience",
-                            "experience", experience));
+                            locales.of(player.getUniqueId()), MESSAGES.smp().grave().experience(experience)));
                     sounds.play(player, Feedback.SMALL_SUCCESS);
                 }
             });

@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 /**
  * The far end of a travelling command: claim a request, run it here, write the answer back.
  *
@@ -231,8 +233,8 @@ public final class CommandInbox {
             // updated and another did not - and it is worth saying so plainly, because the
             // alternative reading ("the command silently did nothing") is the one somebody would
             // otherwise arrive at.
-            settle(request, false, messages.format(localeOf(request), "command.remote.unknown",
-                    Map.of("command", "/" + request.command())));
+            settle(request, false, messages.format(localeOf(request),
+                    MESSAGES.command().remote().unknown("/" + request.command())));
             return;
         }
 
@@ -242,7 +244,7 @@ public final class CommandInbox {
         } catch (final RuntimeException failure) {
             warn.accept("could not re-check the admin flag for /" + request.command(), failure);
             settle(request, false,
-                    messages.format(localeOf(request), "command.remote.failed", Map.of()));
+                    messages.format(localeOf(request), MESSAGES.command().remote().failed()));
             return;
         }
 
@@ -251,7 +253,7 @@ public final class CommandInbox {
             // Not a duplicate of the asking side's check: this is the revocation that happened while
             // the row waited. It settles DONE rather than FAILED - the command was answered, and
             // the answer is no.
-            user.reply("command.not-admin", Map.of(), Tone.BAD);
+            user.reply(MESSAGES.command().notAdmin(), Tone.BAD);
             settle(request, true, user.text());
             return;
         }
@@ -262,8 +264,8 @@ public final class CommandInbox {
         } catch (final RuntimeException malformed) {
             warn.accept("/" + request.command() + " arrived with arguments this build cannot read: "
                     + request.arguments(), malformed);
-            settle(request, false, messages.format(localeOf(request), "command.remote.arguments",
-                    Map.of("command", "/" + request.command())));
+            settle(request, false, messages.format(localeOf(request),
+                    MESSAGES.command().remote().arguments("/" + request.command())));
             return;
         }
 
@@ -273,7 +275,7 @@ public final class CommandInbox {
             warn.accept("/" + request.command() + " threw while running for " + request.requestedBy(),
                     failure);
             settle(request, false,
-                    messages.format(localeOf(request), "command.remote.failed", Map.of()));
+                    messages.format(localeOf(request), MESSAGES.command().remote().failed()));
             return;
         }
 
@@ -281,7 +283,7 @@ public final class CommandInbox {
         // decoration: a blank reply and a request that never ran look identical to whoever is
         // watching a spinner in Discord.
         settle(request, true, user.lineCount() == 0
-                ? messages.format(localeOf(request), "command.remote.silent", Map.of())
+                ? messages.format(localeOf(request), MESSAGES.command().remote().silent())
                 : user.text());
     }
 

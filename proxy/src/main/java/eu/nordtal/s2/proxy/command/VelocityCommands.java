@@ -1,5 +1,6 @@
 package eu.nordtal.s2.proxy.command;
 
+import eu.nordtal.s2.common.message.MessageRef;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -36,6 +37,8 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 /**
  * {@code :paper-common}'s {@code PaperCommands}, for Velocity.
  *
@@ -67,7 +70,7 @@ public final class VelocityCommands {
 
     private record Entry(Declaration declaration, BiConsumer<NordtalUser, Values> run,
                          java.util.function.Function<Values,
-                                 java.util.Optional<Map.Entry<String, Map<String, ?>>>> problem) {
+                                 java.util.Optional<MessageRef>> problem) {
     }
 
     private static final class Node {
@@ -333,7 +336,7 @@ public final class VelocityCommands {
                 && !entry.declaration().surfaces().contains(Surface.CONSOLE)) {
             // /phase is the one this exists for: it records who took the decision, and the console
             // is nobody in particular.
-            user.reply("command.not-from-console", Map.of(), Feedback.REFUSED, Tone.BAD);
+            user.reply(MESSAGES.command().notFromConsole(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -349,14 +352,14 @@ public final class VelocityCommands {
         // tree would have given them, and not a hint that the command is somewhere else.
         if (user.origin() == NordtalUser.Origin.GAME
                 && !entry.declaration().surfaces().contains(Surface.GAME)) {
-            user.reply("command.unknown", Map.of(), Feedback.REFUSED, Tone.BAD);
+            user.reply(MESSAGES.command().unknown(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
         // The lock behind the tree's gate: a root-level command has no node above it to carry a
         // requires, so this check cannot be skipped by the tree's shape.
         if (entry.declaration().adminOnly() && !mayUse(context.getSource())) {
-            user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
+            user.reply(MESSAGES.command().notAdmin(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -365,11 +368,11 @@ public final class VelocityCommands {
                 continue;
             }
             if (argument.kind() == Argument.Kind.PLAYER) {
-                user.reply("command.player-offline", Map.of(), Feedback.REFUSED, Tone.WARN);
+                user.reply(MESSAGES.command().playerOffline(), Feedback.REFUSED, Tone.WARN);
                 return Command.SINGLE_SUCCESS;
             }
             if (argument.kind() == Argument.Kind.ACCOUNT) {
-                user.reply("command.account-unreachable", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.command().accountUnreachable(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -378,8 +381,7 @@ public final class VelocityCommands {
         // says the phase does not exist.
         final var problem = entry.problem().apply(new Values(entry.declaration(), values));
         if (problem.isPresent()) {
-            user.reply(problem.get().getKey(), problem.get().getValue(), Feedback.REFUSED,
-                    Tone.BAD);
+            user.reply(problem.get(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -395,9 +397,8 @@ public final class VelocityCommands {
         if (confirmations.confirm(user, what)) {
             return true;
         }
-        user.reply("command.confirm.retype", Map.of(
-                "command", what,
-                "seconds", String.valueOf(Confirmations.WINDOW.toSeconds())),
+        user.reply(
+                MESSAGES.command().confirm().retype(what, String.valueOf(Confirmations.WINDOW.toSeconds())),
                 Feedback.REFUSED, Tone.WARN);
         return false;
     }
@@ -423,7 +424,7 @@ public final class VelocityCommands {
         if (!mayUse(context.getSource())) {
             below.removeIf(Declaration::adminOnly);
             if (below.isEmpty()) {
-                user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.command().notAdmin(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -432,32 +433,31 @@ public final class VelocityCommands {
         if (user.origin() == NordtalUser.Origin.GAME) {
             below.removeIf(declaration -> !declaration.surfaces().contains(Surface.GAME));
             if (below.isEmpty()) {
-                user.reply("command.unknown", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.command().unknown(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
         if (below.isEmpty()) {
-            user.reply("command.help.nothing", Map.of(), Feedback.REFUSED, Tone.WARN);
+            user.reply(MESSAGES.command().help().nothing(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         if (below.size() == 1) {
             return usage(context, below.getFirst());
         }
 
-        user.reply("command.help.header", Map.of("command", "/" + node.literal), Tone.NEUTRAL);
+        user.reply(MESSAGES.command().help().header("/" + node.literal), Tone.NEUTRAL);
         below.stream()
                 .sorted(Comparator.comparing(Declaration::name))
-                .forEach(declaration -> user.reply("command.help.line",
-                        Map.of("usage", declaration.usage(),
-                                "what", user.phrase(declaration.describeKey())), Tone.MUTED));
+                .forEach(declaration -> user.reply(MESSAGES.command().help().line(declaration.usage(),
+                        user.phrase(declaration.describe())), Tone.MUTED));
         return Command.SINGLE_SUCCESS;
     }
 
     private int usage(final CommandContext<CommandSource> context, final Declaration declaration) {
         final NordtalUser user = user(context.getSource());
-        user.reply("command.help.usage", Map.of("usage", declaration.usage()),
+        user.reply(MESSAGES.command().help().usage(declaration.usage()),
                 Feedback.REFUSED, Tone.NEUTRAL);
-        user.reply("command.help.what", Map.of("what", user.phrase(declaration.describeKey())),
+        user.reply(MESSAGES.command().help().what(user.phrase(declaration.describe())),
                 Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }

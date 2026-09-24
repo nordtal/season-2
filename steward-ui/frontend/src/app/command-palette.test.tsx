@@ -374,7 +374,7 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
   }
 
   function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
-    return { inBundle: true, ...over }
+    return { inBundle: true, args: [], section: [], ...over }
   }
 
   /** Wires `useMessageBundles`/`useMessageDocuments` for one bundle, the same pairing-by-index

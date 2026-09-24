@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.navigate;
 
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.menu.SlotGeometry;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -18,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The list {@code /navigate} opens: the current world's spawn, the player's last death, and every
@@ -82,9 +85,9 @@ public final class NavigateGui implements Surface {
 
         this.inventory = Bukkit.createInventory(this, NavigatePanel.ROWS * SlotGeometry.COLUMNS,
                 NavigatePanel.title(
-                        MessageRenderer.of(messages).get(locale, "smp.navigate.title"),
+                        MessageRenderer.of(messages).format(locale, MESSAGES.smp().navigate().title()),
                         entries,
-                        messages.get(locale, "smp.navigate.stop-button"),
+                        messages.format(locale, MESSAGES.smp().navigate().stopButton()),
                         NavigatePage.pageLabel(this.page, targets.size(), messages, locale),
                         this.page > 0,
                         this.page < NavigatePage.pages(targets.size()) - 1));
@@ -133,21 +136,21 @@ public final class NavigateGui implements Surface {
         }
 
         final ItemStack stop = BlankItem.of(
-                MessageRenderer.of(messages).get(locale, "smp.navigate.stop"),
-                List.of(MessageRenderer.of(messages).get(locale, "smp.navigate.stop-hint")));
+                MessageRenderer.of(messages).format(locale, MESSAGES.smp().navigate().stop()),
+                List.of(MessageRenderer.of(messages).format(locale, MESSAGES.smp().navigate().stopHint())));
         NavigatePanel.STOP_SLOTS.forEach(slot -> inventory.setItem(slot, stop));
 
         final int pages = NavigatePage.pages(targets.size());
         inventory.setItem(
                 NavigatePanel.PREV_SLOT,
-                page > 0 ? pageItem("smp.navigate.previous-page") : null);
+                page > 0 ? pageItem(MESSAGES.smp().navigate().previousPage()) : null);
         inventory.setItem(
                 NavigatePanel.NEXT_SLOT,
-                page < pages - 1 ? pageItem("smp.navigate.next-page") : null);
+                page < pages - 1 ? pageItem(MESSAGES.smp().navigate().nextPage()) : null);
     }
 
-    private ItemStack pageItem(final String key) {
-        return BlankItem.of(MessageRenderer.of(messages).get(locale, key), List.of());
+    private ItemStack pageItem(final MessageRef label) {
+        return BlankItem.of(MessageRenderer.of(messages).format(locale, label), List.of());
     }
 
     private ItemStack entryItem(final NavigationTarget target) {
@@ -155,12 +158,11 @@ public final class NavigateGui implements Surface {
         // which is the one place a `<click:...>` in a POI name could otherwise run in somebody
         // else's menu (finding 48). The colour is the bundle's.
         return BlankItem.of(
-                MessageRenderer.of(messages).format(locale, "smp.navigate.target",
-                        "target", NavigatePage.label(target, messages, locale)),
-                List.of(MessageRenderer.of(messages).format(locale, "smp.navigate.at",
-                                "world", target.world(), "x", target.x(),
-                                "y", target.y(), "z", target.z()),
-                        MessageRenderer.of(messages).get(locale, "smp.navigate.click")));
+                MessageRenderer.of(messages).format(locale,
+                        MESSAGES.smp().navigate().target(NavigatePage.label(target, messages, locale))),
+                List.of(MessageRenderer.of(messages).format(locale,
+                        MESSAGES.smp().navigate().at(target.world(), target.x(), target.y(), target.z())),
+                        MessageRenderer.of(messages).format(locale, MESSAGES.smp().navigate().click())));
     }
 
     /** What a click did: what to play, and whether to close the window or open another. */
@@ -190,7 +192,8 @@ public final class NavigateGui implements Surface {
         }
         if (NavigatePanel.STOP_SLOTS.contains(slot)) {
             navigation.clear(player.getUniqueId());
-            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.navigate.stopped"));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.smp().navigate().stopped()));
             return Click.closing();
         }
         if (slot == NavigatePanel.PREV_SLOT || slot == NavigatePanel.NEXT_SLOT) {
@@ -208,8 +211,8 @@ public final class NavigateGui implements Surface {
         }
         final NavigationTarget target = shown.get(row);
         navigation.set(player.getUniqueId(), target);
-        player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.navigate.started",
-                "target", NavigatePage.label(target, messages, locale)));
+        player.sendMessage(MessageRenderer.of(messages).format(locale,
+                MESSAGES.smp().navigate().started(NavigatePage.label(target, messages, locale))));
         return Click.closing();
     }
 }

@@ -1,6 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.common.message.Locales;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
@@ -27,12 +28,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /update} - what is new, install it, restart the network.
@@ -151,7 +153,7 @@ public final class UpdateCommand extends ListenerAdapter {
             // Checked on every click and not only on the command: a confirmation can sit on screen
             // while the role is taken away, and these are the clicks that change something.
             if (!dao.isAdmin(userId).orElse(false)) {
-                plain(hook, say(locale, "command.not-admin"));
+                plain(hook, say(locale, MESSAGES.command().notAdmin()));
                 return;
             }
 
@@ -163,7 +165,7 @@ public final class UpdateCommand extends ListenerAdapter {
             if (kind.stopsServers()) {
                 announceCountdown(hook, locale, userId, request);
             } else {
-                plain(hook, say(locale, "update.waiting.check"));
+                plain(hook, say(locale, MESSAGES.update().waiting().check()));
             }
             watch(hook, locale, request, Instant.now().plus(PATIENCE));
         } catch (final RuntimeException failure) {
@@ -191,11 +193,10 @@ public final class UpdateCommand extends ListenerAdapter {
                 + " after it.");
 
         hook.editOriginal(new MessageEditBuilder()
-                        .setContent(say(locale, "update.countdown.started",
-                                Map.of("seconds", seconds)))
+                        .setContent(say(locale, MESSAGES.update().countdown().started(seconds)))
                         .setEmbeds(List.of())
                         .setComponents(ActionRow.of(Button.secondary(Ids.UPDATE_CANCEL,
-                                say(locale, "update.button.cancel"))))
+                                say(locale, MESSAGES.update().button().cancel()))))
                         .build())
                 .queue();
     }
@@ -204,7 +205,7 @@ public final class UpdateCommand extends ListenerAdapter {
                         final net.dv8tion.jda.api.entities.User user) {
         try {
             if (!dao.isAdmin(user.getId()).orElse(false)) {
-                plain(hook, say(locale, "command.not-admin"));
+                plain(hook, say(locale, MESSAGES.command().notAdmin()));
                 return;
             }
             final Optional<UpdateRequest> cancelled = updates.cancelCountdown(
@@ -216,9 +217,9 @@ public final class UpdateCommand extends ListenerAdapter {
                 final String what = cancelled.get().kind() == UpdateKind.UPDATE
                         ? "update" : "restart";
                 admin.note(user.getAsMention() + " stopped the " + what + " before it happened.");
-                plain(hook, say(locale, "update.cancelled"));
+                plain(hook, say(locale, MESSAGES.update().cancelled()));
             } else {
-                plain(hook, say(locale, "update.too-late"));
+                plain(hook, say(locale, MESSAGES.update().tooLate()));
             }
         } catch (final RuntimeException failure) {
             fail(hook, locale, "cancelling the countdown", failure);
@@ -249,7 +250,7 @@ public final class UpdateCommand extends ListenerAdapter {
             try {
                 final Optional<UpdateRequest> row = updates.find(request.id());
                 if (row.isEmpty()) {
-                    plain(hook, say(locale, "update.gone"));
+                    plain(hook, say(locale, MESSAGES.update().gone()));
                     return;
                 }
                 final UpdateRequest current = row.get();
@@ -258,8 +259,7 @@ public final class UpdateCommand extends ListenerAdapter {
                     return;
                 }
                 if (Instant.now().isAfter(deadline)) {
-                    plain(hook, say(locale, "update.timeout",
-                            Map.of("status", current.status())));
+                    plain(hook, say(locale, MESSAGES.update().timeout(current.status())));
                     return;
                 }
 
@@ -291,12 +291,8 @@ public final class UpdateCommand extends ListenerAdapter {
         hook.editOriginal(text).setEmbeds(List.of()).setComponents(List.of()).queue();
     }
 
-    private String say(final Locale locale, final String key) {
-        return messages.format(locale, key, Map.of());
-    }
-
-    private String say(final Locale locale, final String key, final Map<String, ?> placeholders) {
-        return messages.format(locale, key, placeholders);
+    private String say(final Locale locale, final MessageRef message) {
+        return messages.format(locale, message);
     }
 
     /**
@@ -335,8 +331,8 @@ public final class UpdateCommand extends ListenerAdapter {
 
     private Button button(final UpdateKind kind, final Locale locale) {
         return kind == UpdateKind.REPORT
-                ? Button.danger(Ids.UPDATE_INSTALL, say(locale, "update.button.install"))
-                : Button.danger(Ids.UPDATE_RESTART, say(locale, "update.button.restart"));
+                ? Button.danger(Ids.UPDATE_INSTALL, say(locale, MESSAGES.update().button().install()))
+                : Button.danger(Ids.UPDATE_RESTART, say(locale, MESSAGES.update().button().restart()));
     }
 
     /**
@@ -377,7 +373,7 @@ public final class UpdateCommand extends ListenerAdapter {
      */
     static MessageEmbed fields(final UpdateReport report, final UpdateRequest request,
                                final Messages messages, final Locale locale, final String footer) {
-        final String headline = messages.format(locale, "update.stage." + report.stage(), Map.of());
+        final String headline = messages.format(locale, MESSAGES.update().stage(report.stage()));
         final net.dv8tion.jda.api.EmbedBuilder embed = new net.dv8tion.jda.api.EmbedBuilder()
                 .setTitle(headline)
                 .setColor(colour(report.stage() == UpdateReport.Stage.FAILED))
@@ -435,24 +431,22 @@ public final class UpdateCommand extends ListenerAdapter {
     private static String body(final UpdateReport.ServiceLine line, final Messages messages,
                                final Locale locale) {
         final StringBuilder text = new StringBuilder(marker(line.state())).append(' ')
-                .append(messages.format(locale, "update.state." + line.state(), Map.of()));
+                .append(messages.format(locale, MESSAGES.update().state(line.state())));
         for (final UpdateReport.Change change : line.changes()) {
             text.append('\n').append(switch (change.state()) {
                 // An artefact whose publisher has no build for this Minecraft version. Not a
                 // failure: no server is stopped for it and nothing beside it is held back.
-                case UNSUPPORTED -> messages.format(locale, "update.change.unsupported",
-                        Map.of("artefact", change.artefact()));
+                case UNSUPPORTED -> messages.format(locale,
+                        MESSAGES.update().changeSection().unsupported(change.artefact()));
                 case MOVING -> change.from() == null
-                        ? messages.format(locale, "update.change.new", Map.of(
-                                "artefact", change.artefact(), "to", change.to()))
-                        : messages.format(locale, "update.change", Map.of(
-                                "artefact", change.artefact(), "from", change.from(),
-                                "to", change.to()));
+                        ? messages.format(locale,
+                                MESSAGES.update().changeSection().newMessage(change.artefact(), change.to()))
+                        : messages.format(locale,
+                                MESSAGES.update().change(change.artefact(), change.from(), change.to()));
             });
         }
         if (line.detail() != null && !line.detail().isBlank()) {
-            text.append('\n').append(messages.format(locale, "update.detail",
-                    Map.of("detail", line.detail())));
+            text.append('\n').append(messages.format(locale, MESSAGES.update().detail(line.detail())));
         }
         // Discord's per-field limit. A failure message carrying a cause chain is the one thing
         // here that can reach it.
@@ -498,9 +492,9 @@ public final class UpdateCommand extends ListenerAdapter {
      */
     private String title(final UpdateRequest request, final Locale locale) {
         return request.status() == UpdateStatus.CANCELLED
-                ? say(locale, "update.stage.CANCELLED")
+                ? say(locale, MESSAGES.update().stage().cancelled())
                 // Retired kinds still need a heading: their old rows are still readable.
-                : say(locale, "update.title." + request.kind());
+                : say(locale, MESSAGES.update().title(request.kind()));
     }
 
     /**
@@ -512,6 +506,6 @@ public final class UpdateCommand extends ListenerAdapter {
                       final RuntimeException failure) {
         log.error("An update interaction failed while {}", what, failure);
         admin.alert("An update interaction failed while " + what + ": `" + failure + "`");
-        plain(hook, say(locale, "update.interaction-failed"));
+        plain(hook, say(locale, MESSAGES.update().interactionFailed()));
     }
 }

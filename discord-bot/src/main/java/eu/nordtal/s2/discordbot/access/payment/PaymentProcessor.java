@@ -22,6 +22,8 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import java.util.Locale;
 import java.util.Optional;
 
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+
 /**
  * Turns money steward-worker has <em>found</em> into access.
  *
@@ -146,14 +148,13 @@ public final class PaymentProcessor {
         // "Downgraded" means the payer edited the amount down on the bunq.me page. Saying so is
         // the difference between a confusing purchase and an obvious one.
         roles.dm(request.discordId(), settlement.downgraded()
-                ? messages.format(locale, "dm.granted.short",
-                "paid", Money.format(cents),
-                "days", settlement.days(),
-                "until", AccessRoles.timestamp(grant.validUntil()))
-                : messages.format(locale, "dm.granted", "until", AccessRoles.timestamp(grant.validUntil())));
+                ? messages.format(locale,
+                        MESSAGES.dm().grantedSection().shortMessage(Money.format(cents), settlement.days(),
+                                AccessRoles.timestamp(grant.validUntil())))
+                : messages.format(locale, MESSAGES.dm().granted(AccessRoles.timestamp(grant.validUntil()))));
 
         if (settlement.donation()) {
-            roles.dm(request.discordId(), messages.get(locale, "dm.donor"));
+            roles.dm(request.discordId(), messages.format(locale, MESSAGES.dm().donor()));
             announceDonation(request.discordId(), settlement.donationCents(), locale);
         }
 
@@ -187,9 +188,8 @@ public final class PaymentProcessor {
             log.error("Contribution channel {} is not available; the thank-you was not posted", channelId);
             return;
         }
-        channel.sendMessage(messages.format(locale, "public.donation",
-                        "user", "<@" + discordId + ">",
-                        "amount", Money.format(donationCents)))
+        channel.sendMessage(messages.format(locale,
+                MESSAGES.publicSection().donation("<@" + discordId + ">", Money.format(donationCents))))
                 .queue(ok -> {
                 }, failure -> log.error("Could not post the donation thank-you", failure));
     }

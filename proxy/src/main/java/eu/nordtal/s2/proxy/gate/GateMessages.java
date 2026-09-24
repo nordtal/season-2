@@ -12,6 +12,8 @@ import net.kyori.adventure.text.format.TextDecoration;
 import java.time.Instant;
 import java.util.Locale;
 
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+
 /**
  * Builds the disconnect and chat components the login gate, the expiry check and the phase router
  * show, so that {@link LoginGate} and {@link ExpiryWatch} stay about deciding what happens.
@@ -34,15 +36,16 @@ public final class GateMessages {
      * is unknown at this point and there is no locale to pick from.
      */
     Component notLinked(final String code, final Instant launch, final Instant now) {
-        Component result = MessageRenderer.of(messages).format(Locale.ENGLISH, "gate.not-linked", "code", code)
+        Component result = MessageRenderer.of(messages).format(Locale.ENGLISH,
+                MESSAGES.gate().notLinked(code))
                 .appendNewline()
-                .append(MessageRenderer.of(messages).format(Locale.GERMAN, "gate.not-linked", "code", code)
+                .append(MessageRenderer.of(messages).format(Locale.GERMAN, MESSAGES.gate().notLinked(code))
                         .color(NamedTextColor.GRAY)
                         .decorate(TextDecoration.ITALIC));
         if (hasInvite()) {
             result = result.appendNewline().appendNewline()
-                    .append(MessageRenderer.of(messages).format(Locale.ENGLISH, "gate.not-linked.invite",
-                            "invite", config.discordInviteUrl()));
+                    .append(MessageRenderer.of(messages).format(Locale.ENGLISH,
+                            MESSAGES.gate().notLinkedSection().invite(config.discordInviteUrl())));
         }
         return withCountdown(result, Locale.ENGLISH, launch, now);
     }
@@ -53,7 +56,7 @@ public final class GateMessages {
      * path is not a login.
      */
     public Component unlinked(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "gate.unlinked");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.gate().unlinked());
     }
 
     /**
@@ -62,27 +65,27 @@ public final class GateMessages {
      * because the proxy saying it is about to stop cannot know when it comes back.
      */
     public Component restarting(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "gate.restarting");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.gate().restarting());
     }
 
     /** Not a Discord member, or banned. */
     public Component notMember(final Locale locale) {
-        Component result = MessageRenderer.of(messages).get(locale, "gate.not-member");
+        Component result = MessageRenderer.of(messages).format(locale, MESSAGES.gate().notMember());
         if (hasInvite()) {
             result = result.appendNewline().appendNewline()
-                    .append(MessageRenderer.of(messages).format(locale, "gate.not-member.invite",
-                            "invite", config.discordInviteUrl()));
+                    .append(MessageRenderer.of(messages).format(locale,
+                            MESSAGES.gate().notMemberSection().invite(config.discordInviteUrl())));
         }
         return result;
     }
 
     /** Linked, a member, but no access is running right now. */
     public Component noAccess(final Locale locale) {
-        Component result = MessageRenderer.of(messages).get(locale, "gate.no-access");
+        Component result = MessageRenderer.of(messages).format(locale, MESSAGES.gate().noAccess());
         if (hasInvite()) {
             result = result.appendNewline().appendNewline()
-                    .append(MessageRenderer.of(messages).format(locale, "gate.no-access.invite",
-                            "invite", config.discordInviteUrl()));
+                    .append(MessageRenderer.of(messages).format(locale,
+                            MESSAGES.gate().noAccessSection().invite(config.discordInviteUrl())));
         }
         return result;
     }
@@ -97,7 +100,7 @@ public final class GateMessages {
      * </p>
      */
     public Component maintenance(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "gate.maintenance");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.gate().maintenance());
     }
 
     /**
@@ -106,7 +109,7 @@ public final class GateMessages {
      * {@code gate.yml}'s server names not matching {@code velocity.toml}.
      */
     public Component noServer(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "gate.no-server");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.gate().noServer());
     }
 
     /**
@@ -115,7 +118,7 @@ public final class GateMessages {
      * "full" alone reads as something broken.
      */
     Component full(final Locale locale, final int online, final int max) {
-        return MessageRenderer.of(messages).format(locale, "gate.full", "online", online, "max", max);
+        return MessageRenderer.of(messages).format(locale, MESSAGES.gate().full(online, max));
     }
 
     /**
@@ -123,18 +126,19 @@ public final class GateMessages {
      * that the SMP is playable the moment the event ends.
      */
     public Component preLaunchBuy(final Locale locale, final Instant launch, final Instant now) {
-        Component result = MessageRenderer.of(messages).get(locale, "gate.pre-launch.buy");
+        Component result = MessageRenderer.of(messages).format(locale, MESSAGES.gate().preLaunch().buy());
         if (hasInvite()) {
             result = result.appendNewline()
-                    .append(MessageRenderer.of(messages).format(locale, "gate.no-access.invite",
-                            "invite", config.discordInviteUrl()));
+                    .append(MessageRenderer.of(messages).format(locale,
+                            MESSAGES.gate().noAccessSection().invite(config.discordInviteUrl())));
         }
         return withCountdown(result, locale, launch, now);
     }
 
     /** {@code PRE_LAUNCH}, linked, and a period already bought. Nothing to do but wait. */
     public Component preLaunchReady(final Locale locale, final Instant launch, final Instant now) {
-        return withCountdown(MessageRenderer.of(messages).get(locale, "gate.pre-launch.ready"), locale, launch, now);
+        return withCountdown(MessageRenderer.of(messages).format(locale,
+                MESSAGES.gate().preLaunch().ready()), locale, launch, now);
     }
 
     /**
@@ -158,22 +162,23 @@ public final class GateMessages {
      * produced the kick never decided anything to say. See {@link BackendKick}.
      */
     public Component connectionLost(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "gate.connection-lost");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.gate().connectionLost());
     }
 
     /** The database is unreachable and the fallback cache has nothing usable for this player. */
     public Component trouble(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "gate.trouble");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.gate().trouble());
     }
 
     /** The in-chat warning shown a few minutes before access runs out. */
     Component expiryWarning(final Locale locale, final long minutesRemaining) {
-        return MessageRenderer.of(messages).format(locale, "gate.expiry.warning", "minutes", minutesRemaining);
+        return MessageRenderer.of(messages).format(locale,
+                MESSAGES.gate().expiry().warning(minutesRemaining));
     }
 
     /** The disconnect shown the moment access actually runs out mid-session. */
     Component expired(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "gate.expiry.expired");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.gate().expiry().expired());
     }
 
     private boolean hasInvite() {

@@ -27,6 +27,7 @@ class WaitingTextTest {
 
     private final Messages messages = Messages.load(WaitingTextTest.class.getClassLoader(),
             "messages/limbo", Locale.ENGLISH, Locale.GERMAN);
+    private final LimboMessages.Limbo.Wait screens = LimboMessages.MESSAGES.limbo().waiting();
 
     @Test
     void bothBundlesAreLoaded() {
@@ -39,9 +40,9 @@ class WaitingTextTest {
     void everyWaitReasonHasATitleAndASubtitleInEveryLanguage() {
         for (final WaitReason reason : WaitReason.values()) {
             for (final Locale locale : new Locale[]{Locale.ENGLISH, Locale.GERMAN}) {
-                assertTrue(messages.hasTranslation(locale, reason.titleKey()),
+                assertTrue(messages.hasTranslation(locale, screens.of(reason).title().key()),
                         reason + " has no title in " + locale);
-                assertTrue(messages.hasTranslation(locale, reason.subtitleKey()),
+                assertTrue(messages.hasTranslation(locale, screens.of(reason).subtitle().key()),
                         reason + " has no subtitle in " + locale);
             }
         }
@@ -53,8 +54,8 @@ class WaitingTextTest {
         // hasTranslation so that a bundle whose file exists but whose key is misspelled is caught.
         for (final WaitReason reason : WaitReason.values()) {
             for (final Locale locale : new Locale[]{Locale.ENGLISH, Locale.GERMAN}) {
-                assertNotEquals(reason.titleKey(), messages.get(locale, reason.titleKey()));
-                assertNotEquals(reason.subtitleKey(), messages.get(locale, reason.subtitleKey()));
+                assertNotEquals(screens.of(reason).title().key(), messages.get(locale, screens.of(reason).title().key()));
+                assertNotEquals(screens.of(reason).subtitle().key(), messages.get(locale, screens.of(reason).subtitle().key()));
             }
         }
     }
@@ -67,7 +68,7 @@ class WaitingTextTest {
         // narrow window - and it exists so that a translation cannot quietly grow past it.
         for (final WaitReason reason : WaitReason.values()) {
             for (final Locale locale : new Locale[]{Locale.ENGLISH, Locale.GERMAN}) {
-                final String raw = messages.get(locale, reason.titleKey());
+                final String raw = messages.get(locale, screens.of(reason).title().key());
                 final String drawn = drawn(raw);
 
                 assertFalse(drawn.length() > 40,

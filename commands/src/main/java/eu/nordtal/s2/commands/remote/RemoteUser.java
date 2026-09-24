@@ -3,12 +3,12 @@ package eu.nordtal.s2.commands.remote;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.command.CommandRequest;
 import eu.nordtal.s2.common.message.Locales;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Messages;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,7 +36,7 @@ import java.util.UUID;
  * about permission travels on the row.
  *
  * <h2>Sound is dropped, and that is the honest answer</h2>
- * {@link #reply(String, Map, eu.nordtal.s2.common.feedback.Feedback)} falls through to the plain
+ * {@link #reply(MessageRef, eu.nordtal.s2.common.feedback.Feedback)} falls through to the plain
  * one. A {@code Feedback} is a noise made at somebody standing in a world; the person who typed this
  * command is in Discord, or on another server. Playing it to nobody, or worse to whoever happens to
  * share their UUID's server, is not a better failure than silence.
@@ -87,13 +87,13 @@ public final class RemoteUser implements NordtalUser {
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders) {
-        lines.add(messages.format(locale, messageKey, placeholders));
+    public void reply(final MessageRef message) {
+        lines.add(messages.format(locale, message));
     }
 
     @Override
-    public String phrase(final String messageKey) {
-        return messages.get(locale, messageKey);
+    public String phrase(final MessageRef message) {
+        return messages.format(locale, message);
     }
 
     @Override

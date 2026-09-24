@@ -1,6 +1,7 @@
 package eu.nordtal.s2.smp.npc;
 
 import eu.nordtal.s2.common.menu.SlotGeometry;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.papercommon.menu.BlankItem;
@@ -8,6 +9,7 @@ import eu.nordtal.s2.smp.board.ProgressBar;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.milestone.Milestone;
+import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
 
@@ -19,8 +21,9 @@ import org.bukkit.inventory.ItemStack;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * What the spawn NPC opens: the current milestone's objectives, each with what is needed and how
@@ -98,7 +101,7 @@ public final class ObjectiveGui implements Surface {
         this.inventory = Bukkit.createInventory(this,
                 ObjectivePanel.ROWS * SlotGeometry.COLUMNS,
                 ObjectivePanel.title(
-                        MessageRenderer.of(messages).get(locale, "smp.objectives.title"),
+                        MessageRenderer.of(messages).format(locale, MESSAGES.smp().objectives().title()),
                         milestoneName(),
                         ProgressBar.of(finishedRatio(), ObjectivePanel.HEADING_BAR_WIDTH),
                         finished() + "/" + rows.size(),
@@ -164,13 +167,11 @@ public final class ObjectiveGui implements Surface {
     }
 
     private String milestoneName() {
-        final String key = "smp.milestone." + milestone.key();
-        return messages.hasTranslation(locale, key) ? messages.get(locale, key) : milestone.key();
+        return MilestoneNames.of(messages, locale, milestone.key());
     }
 
     private String name(final Objective definition) {
-        final String key = "smp.objective." + milestone.key() + "." + definition.key();
-        return messages.hasTranslation(locale, key) ? messages.get(locale, key) : definition.key();
+        return definition.key();
     }
 
     /**
@@ -182,18 +183,17 @@ public final class ObjectiveGui implements Surface {
      */
     private String shareLine() {
         if (share.empty()) {
-            return messages.get(locale, "smp.objectives.share-none");
+            return messages.format(locale, MESSAGES.smp().objectives().shareNone());
         }
-        return messages.format(locale, "smp.objectives.share",
-                Map.of("spins", String.valueOf(share.spins())));
+        return messages.format(locale, MESSAGES.smp().objectives().share(String.valueOf(share.spins())));
     }
 
     private void fill() {
         final ItemStack heading = BlankItem.of(
-                MessageRenderer.of(messages).format(locale, "smp.objectives.heading",
-                        "milestone", milestoneName()),
-                List.of(MessageRenderer.of(messages).format(locale, "smp.objectives.heading-hint",
-                        "done", finished(), "total", rows.size())));
+                MessageRenderer.of(messages).format(locale,
+                        MESSAGES.smp().objectives().heading(milestoneName())),
+                List.of(MessageRenderer.of(messages).format(locale,
+                        MESSAGES.smp().objectives().headingHint(finished(), rows.size()))));
         for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
             inventory.setItem(SlotGeometry.slot(column, ObjectivePanel.HEADING_ROW), heading);
         }
@@ -204,7 +204,7 @@ public final class ObjectiveGui implements Surface {
         }
 
         final ItemStack shareItem = BlankItem.of(
-                MessageRenderer.of(messages).get(locale, "smp.objectives.share-tooltip"),
+                MessageRenderer.of(messages).format(locale, MESSAGES.smp().objectives().shareTooltip()),
                 shareLore());
         for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
             inventory.setItem(SlotGeometry.slot(column, ObjectivePanel.SHARE_ROW), shareItem);
@@ -212,15 +212,15 @@ public final class ObjectiveGui implements Surface {
 
         // Last, so they win the two cells the share plate also covers.
         if (page > 0) {
-            inventory.setItem(ObjectivePanel.PREV_SLOT, pageItem("smp.objectives.previous-page"));
+            inventory.setItem(ObjectivePanel.PREV_SLOT, pageItem(MESSAGES.smp().objectives().previousPage()));
         }
         if (page < pages() - 1) {
-            inventory.setItem(ObjectivePanel.NEXT_SLOT, pageItem("smp.objectives.next-page"));
+            inventory.setItem(ObjectivePanel.NEXT_SLOT, pageItem(MESSAGES.smp().objectives().nextPage()));
         }
     }
 
-    private ItemStack pageItem(final String key) {
-        return BlankItem.of(MessageRenderer.of(messages).get(locale, key), List.of());
+    private ItemStack pageItem(final MessageRef label) {
+        return BlankItem.of(MessageRenderer.of(messages).format(locale, label), List.of());
     }
 
     private ItemStack cardItem(final Entry entry) {
@@ -229,38 +229,37 @@ public final class ObjectiveGui implements Surface {
         final Objective definition = entry.objective();
 
         final List<Component> lore = new ArrayList<>();
-        lore.add(renderer.format(locale, "smp.objectives.progress",
-                "bar", ProgressBar.of(row.ratio(), 20),
-                "amount", row.amount(), "target", row.target()));
+        lore.add(renderer.format(locale,
+                MESSAGES.smp().objectives().progress(ProgressBar.of(row.ratio(), 20), row.amount(),
+                        row.target())));
         share.lines().stream()
                 .filter(line -> line.key().equals(definition.key()))
                 .findFirst()
-                .ifPresent(line -> lore.add(renderer.format(locale, "smp.objectives.your-share",
-                        "percent", OwnShare.format(line.percent(), locale),
-                        "spins", line.spins())));
+                .ifPresent(line -> lore.add(renderer.format(locale,
+                        MESSAGES.smp().objectives().yourShare(OwnShare.format(line.percent(), locale),
+                                line.spins()))));
         if (row.completed()) {
-            lore.add(renderer.get(locale, "smp.objectives.done"));
+            lore.add(renderer.format(locale, MESSAGES.smp().objectives().done()));
         } else if (definition.type() == ObjectiveType.HAND_IN) {
-            lore.add(renderer.get(locale, "smp.objectives.click-to-hand-in"));
-            lore.add(renderer.format(locale, "smp.objectives.items", "items",
-                    String.join(", ",
-                            definition.items() == null ? List.of() : definition.items())));
+            lore.add(renderer.format(locale, MESSAGES.smp().objectives().clickToHandIn()));
+            lore.add(renderer.format(locale, MESSAGES.smp().objectives().items(String.join(", ",
+                            definition.items() == null ? List.of() : definition.items()))));
         } else {
-            lore.add(renderer.get(locale, "smp.objectives.counts-itself"));
+            lore.add(renderer.format(locale, MESSAGES.smp().objectives().countsItself()));
         }
 
         // The objective's name goes in as a parameter so MessageRenderer escapes it; the colour is
         // the bundle's (finding 48).
         return BlankItem.of(renderer.format(locale,
-                row.completed() ? "smp.objectives.item-done" : "smp.objectives.item",
-                "objective", name(definition)), lore);
+                row.completed() ? MESSAGES.smp().objectives().itemDone(name(definition))
+                        : MESSAGES.smp().objectives().item(name(definition))), lore);
     }
 
     private List<Component> shareLore() {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         final List<Component> lore = new ArrayList<>();
         if (share.empty()) {
-            lore.add(renderer.get(locale, "smp.objectives.share-empty-hint"));
+            lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareEmptyHint()));
             return lore;
         }
         for (final OwnShare.Line line : share.lines()) {
@@ -268,11 +267,11 @@ public final class ObjectiveGui implements Surface {
             if (definition == null) {
                 continue;
             }
-            lore.add(renderer.format(locale, "smp.objectives.share-line",
-                    "objective", name(definition),
-                    "percent", OwnShare.format(line.percent(), locale)));
+            lore.add(renderer.format(locale,
+                    MESSAGES.smp().objectives().shareLine(name(definition), OwnShare.format(line.percent(),
+                            locale))));
         }
-        lore.add(renderer.format(locale, "smp.objectives.share-spins", "spins", share.spins()));
+        lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareSpins(share.spins())));
         return lore;
     }
 }

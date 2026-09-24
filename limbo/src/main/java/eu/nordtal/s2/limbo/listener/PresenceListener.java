@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.hud.TabList;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.limbo.LimboMessages;
 import eu.nordtal.s2.limbo.net.LimboChannel;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
@@ -88,8 +89,8 @@ public final class PresenceListener implements Listener {
     private void sendTabList(final Player player) {
         final java.util.Locale locale = locales.of(player.getUniqueId());
         player.sendPlayerListHeaderAndFooter(
-                TabList.header(messages, locale),
-                TabList.footer(messages, locale, 1, 1));
+                TabList.header(messages, locale, LimboMessages.MESSAGES.tab()::header),
+                messages.format(locale, LimboMessages.MESSAGES.tab().footer()));
     }
 
     /**

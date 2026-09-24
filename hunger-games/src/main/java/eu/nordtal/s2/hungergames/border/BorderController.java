@@ -20,6 +20,8 @@ import org.bukkit.plugin.Plugin;
 import java.time.Instant;
 import java.util.UUID;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 /**
  * Drives {@code World#getWorldBorder()}: centred on spawn, shrinking by a fixed step on every death
  * (extending an in-flight shrink rather than restarting it), plus a slow passive shrink after a
@@ -133,16 +135,16 @@ public final class BorderController {
     private void announce(final double target, final long seconds) {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
-                    "hg.border.shrink-started", "target", String.valueOf(Math.round(target)),
-                    "seconds", String.valueOf(seconds)));
+                    MESSAGES.hg().border().shrinkStarted(String.valueOf(Math.round(target)),
+                            String.valueOf(seconds))));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }
 
     private void announcePassive() {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()),
-                    "hg.border.passive-shrink-started"));
+            player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
+                    MESSAGES.hg().border().passiveShrinkStarted()));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }

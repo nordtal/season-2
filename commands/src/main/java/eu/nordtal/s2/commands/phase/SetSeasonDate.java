@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.phase;
 
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
@@ -10,8 +11,9 @@ import eu.nordtal.s2.common.phase.SeasonDateRefused;
 import eu.nordtal.s2.common.phase.SeasonDates;
 
 import java.time.Instant;
-import java.util.Map;
 import java.util.Optional;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /phase launch &lt;when&gt;} and {@code /phase smp-start &lt;when&gt;} - the season's two
@@ -54,8 +56,8 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
     }
 
     /** The message key naming which date this is, for the sentences that mention it. */
-    public String whatKey() {
-        return launch ? "phase.date.what.launch" : "phase.date.what.smp-start";
+    public MessageRef what() {
+        return launch ? MESSAGES.phase().date().what().launch() : MESSAGES.phase().date().what().smpStart();
     }
 
     /**
@@ -66,16 +68,14 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
      * command would make anyway.</p>
      */
     @Override
-    public java.util.Optional<java.util.Map.Entry<String, Map<String, ?>>> problem(
+    public java.util.Optional<MessageRef> problem(
             final Values values) {
         final String typed = values.string("when");
         if (SeasonDates.isClear(typed) || SeasonDates.parse(typed).isPresent()) {
             return java.util.Optional.empty();
         }
-        return java.util.Optional.of(java.util.Map.entry("phase.date.invalid",
-                Map.of("pattern", SeasonDates.PATTERN,
-                        "zone", SeasonDates.ZONE.getId(),
-                        "clear", SeasonDates.CLEAR)));
+        return java.util.Optional.of(MESSAGES.phase().date().invalid(SeasonDates.PATTERN,
+                SeasonDates.ZONE.getId(), SeasonDates.CLEAR));
     }
 
     @Override
@@ -88,10 +88,9 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
         } else {
             final Optional<Instant> parsed = SeasonDates.parse(typed);
             if (parsed.isEmpty()) {
-                user.reply("phase.date.invalid", Map.of(
-                        "pattern", SeasonDates.PATTERN,
-                        "zone", SeasonDates.ZONE.getId(),
-                        "clear", SeasonDates.CLEAR), Tone.BAD);
+                user.reply(
+                        MESSAGES.phase().date().invalid(SeasonDates.PATTERN, SeasonDates.ZONE.getId(),
+                                SeasonDates.CLEAR), Tone.BAD);
                 return;
             }
             at = parsed.get();
@@ -108,12 +107,12 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
             } catch (final SeasonDateRefused refused) {
                 // Not a failure: the model said no, in a sentence written for the person who typed
                 // it. Nothing was written, so nothing is reported anywhere else.
-                user.reply("phase.date.refused", Map.of("reason", refused.getMessage()),
+                user.reply(MESSAGES.phase().date().refused(refused.getMessage()),
                         Tone.BAD);
                 return;
             } catch (final RuntimeException failure) {
-                effects.warn("setting " + whatKey(), failure);
-                user.reply("phase.date.failed", Map.of(), Tone.BAD);
+                effects.warn("setting " + (launch ? "launch" : "smp-start"), failure);
+                user.reply(MESSAGES.phase().date().failed(), Tone.BAD);
                 return;
             }
 
@@ -127,45 +126,42 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
         // The noun is itself translated ("when the network opens" / "wann das Netzwerk öffnet"), so
         // it is rendered through the asker's own adapter and substituted, rather than written here
         // in one language.
-        final String what = user.phrase(whatKey());
+        final String what = user.phrase(what());
 
         if (change.current() == null) {
-            user.reply("phase.date.cleared", Map.of("what", what), Tone.GOOD);
+            user.reply(MESSAGES.phase().date().cleared(what), Tone.GOOD);
             if (!launch) {
-                user.reply("phase.date.kept", Map.of(), Tone.MUTED);
+                user.reply(MESSAGES.phase().date().kept(), Tone.MUTED);
             }
             return;
         }
 
-        final String unset = user.phrase("phase.date.unset");
+        final String unset = user.phrase(MESSAGES.phase().date().unset());
         if (change.unchanged()) {
-            user.reply("phase.date.unchanged", Map.of(
-                    "what", what, "current", SeasonDates.format(change.current(), unset)),
+            user.reply(MESSAGES.phase().date().unchanged(what, SeasonDates.format(change.current(), unset)),
                     Tone.WARN);
         } else {
-            user.reply("phase.date.set", Map.of(
-                    "what", what,
-                    "current", SeasonDates.format(change.current(), unset),
-                    "previous", SeasonDates.format(change.previous(), unset)), Tone.GOOD);
+            user.reply(
+                    MESSAGES.phase().date().set(what, SeasonDates.format(change.current(), unset),
+                            SeasonDates.format(change.previous(), unset)), Tone.GOOD);
         }
 
         if (launch) {
             return;
         }
         if (!change.movedAccess()) {
-            user.reply("phase.date.none-moved", Map.of(), Tone.MUTED);
+            user.reply(MESSAGES.phase().date().noneMoved(), Tone.MUTED);
             return;
         }
         // Three keys and not four: one period belongs to one account, so "one period across several
         // accounts" cannot happen. Selecting here rather than writing "period(s)" is the rule
         // BundleContinuationTest enforces - a parenthetical plural is not a sentence in either
         // language, and in German it degenerates into "Zeitraum/Zeitraeume".
-        final String key = change.grants() == 1 ? "phase.date.moved.one"
-                : change.accounts() == 1 ? "phase.date.moved.one-account"
-                : "phase.date.moved";
+        final MessageRef moved = change.grants() == 1 ? MESSAGES.phase().date().movedSection().one()
+                : change.accounts() == 1 ? MESSAGES.phase().date().movedSection().oneAccount(change.grants())
+                : MESSAGES.phase().date().moved(change.grants(), change.accounts());
         // WARN, because this is the half of the command nobody asked for: moving smp-start moved
         // other people's paid access with it, and that is the sentence to notice.
-        user.reply(key, Map.of("grants", String.valueOf(change.grants()),
-                "accounts", String.valueOf(change.accounts())), Tone.WARN);
+        user.reply(moved, Tone.WARN);
     }
 }

@@ -31,11 +31,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 /**
  * PvP protection and death handling, for both real players and the armor-stand bodies standing in
@@ -145,11 +146,11 @@ public final class CombatListener implements Listener {
         final Component victim = composition.ofName(marker.getName(), owner);
         final Player killer = killerUuid == null ? null : plugin.getServer().getPlayer(killerUuid);
         if (killer == null) {
-            systemLines.announce("hg.death.body", Glyphs.ICON_DEATH, Map.of("_player", victim));
+            systemLines.announce(MESSAGES.hg().death().body(Glyphs.ICON_DEATH, victim));
             return;
         }
-        systemLines.announce("hg.death.body.by", Glyphs.ICON_DEATH,
-                Map.of("_player", victim, "_killer", composition.of(killer)));
+        systemLines.announce(MESSAGES.hg().death().bodySection().by(Glyphs.ICON_DEATH, victim,
+                composition.of(killer)));
     }
 
     private void handleDeath(final UUID victimMcUuid, final UUID killerMcUuid) {

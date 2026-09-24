@@ -3,6 +3,10 @@ package eu.nordtal.s2.steward.worker.configfile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * One message key, in both languages, packaged and overridden.
  *
@@ -26,6 +30,14 @@ import org.jetbrains.annotations.Nullable;
  *                        {@code false} only for a key that exists solely because an override file
  *                        names it - a typo, or a key a later release retired. Never hidden for it
  *                        (the same rule steward/50 gives {@code ConfigEntry#inSchema})
+ * @param name            the name an admin reads, from the jar's {@code schema.json}; {@code null}
+ *                        for a key the schema does not describe - an override-only key, or a jar
+ *                        built before schemas existed
+ * @param description     a sentence for a hard case, or {@code null}
+ * @param args            the placeholders the message is filled with, in parameter order; empty
+ *                        when the schema does not describe the key
+ * @param section         the names of the sections around the key, outermost first; {@code null} for
+ *                        a section that has none
  */
 public record MessageEntry(
         @NotNull String key,
@@ -33,5 +45,20 @@ public record MessageEntry(
         @Nullable String german,
         @Nullable String overrideEnglish,
         @Nullable String overrideGerman,
-        boolean inBundle) {
+        boolean inBundle,
+        @Nullable String name,
+        @Nullable String description,
+        @NotNull List<MessageArg> args,
+        @NotNull List<String> section) {
+
+    public MessageEntry {
+        args = List.copyOf(args);
+        // A section without a name is a null here, which List.copyOf would refuse.
+        section = Collections.unmodifiableList(new ArrayList<>(section));
+    }
+
+    /** Whether the jar's schema describes this key, which is what makes its placeholders checkable. */
+    public boolean described() {
+        return name != null;
+    }
 }

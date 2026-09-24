@@ -29,6 +29,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 /**
  * What happens when somebody dies, and what happens when somebody opens what they left.
  *
@@ -122,8 +124,8 @@ public final class GraveListener implements Listener {
                     identities.recordAura(player.getUniqueId(), now);
                 }
                 if (player.isOnline()) {
-                    player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.aura.death",
-                            "aura", Math.abs(delta)));
+                    player.sendMessage(MessageRenderer.of(messages).format(locale,
+                            MESSAGES.smp().aura().death(Math.abs(delta))));
                     sounds.play(player, Feedback.LOSS);
                 }
             });

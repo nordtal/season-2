@@ -8,8 +8,9 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-import java.util.Map;
 import java.util.Optional;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /hg start} - the one command that decides the whole event.
@@ -57,24 +58,24 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
                 registration = effects.registration();
             } catch (final RuntimeException failure) {
                 effects.warn("/hg start could not read the registration", failure);
-                user.reply("hg.start.read-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.hg().start().readFailed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
 
             if (registration.isEmpty()) {
-                user.reply("hg.start.no-game", Map.of(), Feedback.REFUSED, Tone.WARN);
+                user.reply(MESSAGES.hg().start().noGame(), Feedback.REFUSED, Tone.WARN);
                 return;
             }
             final HungerGamesEffects.Registration game = registration.get();
             if (!"REGISTRATION".equals(game.state())) {
-                user.reply("hg.start.wrong-state", Map.of("state", game.state()),
+                user.reply(MESSAGES.hg().start().wrongState(game.state()),
                         Feedback.REFUSED, Tone.WARN);
                 return;
             }
             if (game.participants() < HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS) {
-                user.reply("hg.start.below-hard-minimum",
-                        Map.of("minimum", HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS,
-                                "count", game.participants()),
+                user.reply(
+                        MESSAGES.hg().start().belowHardMinimum(HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS,
+                                game.participants()),
                         Feedback.REFUSED, Tone.BAD);
                 return;
             }
@@ -87,7 +88,7 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
                     game.participants() < effects.softMinimumParticipants();
             if (isConfirmation && needsConfirming) {
                 if (!confirmations.consume(user, KEY)) {
-                    user.reply("hg.start.confirm-expired", Map.of(), Feedback.REFUSED, Tone.WARN);
+                    user.reply(MESSAGES.hg().start().confirmExpired(), Feedback.REFUSED, Tone.WARN);
                     return;
                 }
             } else if (needsConfirming) {
@@ -95,10 +96,9 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
                 // REFUSED rather than nothing: the command did not do what was asked, and this is
                 // the one place an admin about to start the season's flagship event should stop and
                 // read rather than type the next thing.
-                user.reply("hg.start.below-soft-minimum",
-                        Map.of("count", game.participants(),
-                                "minimum", effects.softMinimumParticipants(),
-                                "seconds", Confirmations.WINDOW.toSeconds()),
+                user.reply(
+                        MESSAGES.hg().start().belowSoftMinimum(game.participants(),
+                                effects.softMinimumParticipants(), Confirmations.WINDOW.toSeconds()),
                         // The confirmation question, which is neither a refusal nor a success -
                         // it is the one line the admin has to read before typing it again.
                         Feedback.REFUSED, Tone.WARN);
@@ -119,12 +119,12 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
                 effects.start(game.gameId());
             } catch (final RuntimeException failure) {
                 effects.warn("/hg start could not start " + game.gameId(), failure);
-                user.reply("hg.start.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.hg().start().failed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             // Said afterwards, and that ordering is the whole point: the reply used to go out first,
             // so a start that threw told the admin the event had begun.
-            user.reply("hg.start.started", Map.of("count", game.participants()),
+            user.reply(MESSAGES.hg().start().started(game.participants()),
                     Feedback.SMALL_SUCCESS, Tone.GOOD);
         });
     }

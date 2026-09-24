@@ -1,5 +1,6 @@
 plugins {
     id("nordtal.paper-plugin")
+    id("nordtal.message-spec")
 }
 
 repositories {
@@ -33,4 +34,8 @@ dependencies {
     // jdbi3-postgres at runtime scope only. Declared here so it is visible in this module's own
     // dependency list rather than arriving through somebody else's POM.
     implementation(libs.jdbi.postgres)
+}
+
+messageSpec {
+    specClass.set("eu.nordtal.s2.limbo.LimboMessages")
 }

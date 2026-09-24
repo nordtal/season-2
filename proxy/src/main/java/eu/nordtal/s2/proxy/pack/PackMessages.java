@@ -8,6 +8,8 @@ import net.kyori.adventure.text.Component;
 import java.util.Locale;
 import java.util.Objects;
 
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+
 /**
  * The four things the pack station can say to a player, in that player's own language.
  * <p>
@@ -32,7 +34,7 @@ public final class PackMessages {
      * </p>
      */
     public Component prompt(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "pack.prompt");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.pack().prompt());
     }
 
     /**
@@ -45,7 +47,7 @@ public final class PackMessages {
      * </p>
      */
     public Component declined(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "pack.declined");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.pack().declined());
     }
 
     /**
@@ -56,7 +58,7 @@ public final class PackMessages {
      * </p>
      */
     public Component failedDownload(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "pack.failed-download");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.pack().failedDownload());
     }
 
     /**
@@ -64,11 +66,11 @@ public final class PackMessages {
      * pack failure that will happen to <em>everybody</em> at once.
      */
     public Component invalidUrl(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "pack.invalid-url");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.pack().invalidUrl());
     }
 
     /** The client never answered the offer at all, for {@code pack.yml#apply-timeout-seconds}. */
     public Component timedOut(final Locale locale) {
-        return MessageRenderer.of(messages).get(locale, "pack.timeout");
+        return MessageRenderer.of(messages).format(locale, MESSAGES.pack().timeout());
     }
 }

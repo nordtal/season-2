@@ -1,10 +1,10 @@
 package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -77,12 +77,7 @@ public interface NordtalUser {
     Origin origin();
 
     /** Say something, in their language. */
-    void reply(String messageKey, Map<String, ?> placeholders);
-
-    /** Say something with no placeholders. */
-    default void reply(final String messageKey) {
-        reply(messageKey, Map.of());
-    }
+    void reply(MessageRef message);
 
     /**
      * Say something, and make a noise about it where a noise is possible.
@@ -90,9 +85,8 @@ public interface NordtalUser {
      * <p>Discord has no sound and ignores the {@link Feedback}; Paper plays it. The default
      * forwards, so a surface that cannot make noise implements nothing.</p>
      */
-    default void reply(final String messageKey, final Map<String, ?> placeholders,
-                       final Feedback feedback) {
-        reply(messageKey, placeholders);
+    default void reply(final MessageRef message, final Feedback feedback) {
+        reply(message);
     }
 
     /**
@@ -100,9 +94,8 @@ public interface NordtalUser {
      *
      * <p>Discord cannot - an embed has one colour - so the bot uses the default. See {@link Tone}.</p>
      */
-    default void reply(final String messageKey, final Map<String, ?> placeholders,
-                       final Tone tone) {
-        reply(messageKey, placeholders);
+    default void reply(final MessageRef message, final Tone tone) {
+        reply(message);
     }
 
     /**
@@ -113,13 +106,12 @@ public interface NordtalUser {
      * and four colours. The default drops the sound rather than the colour, since a surface that
      * cannot make noise is the common case.</p>
      */
-    default void reply(final String messageKey, final Map<String, ?> placeholders,
-                       final Feedback feedback, final Tone tone) {
-        reply(messageKey, placeholders, tone);
+    default void reply(final MessageRef message, final Feedback feedback, final Tone tone) {
+        reply(message, tone);
     }
 
     /**
-     * One message key, rendered in their language, as plain text meant to go <em>inside</em> another
+     * One message, rendered in their language, as plain text meant to go <em>inside</em> another
      * message.
      *
      * <p>Nothing is sent. It exists because a few replies carry a placeholder that is itself
@@ -128,13 +120,13 @@ public interface NordtalUser {
      * <p>The rendering is plain: whatever markup a surface uses is stripped or never applied, because
      * the result is substituted into another string that will be rendered again.</p>
      */
-    String phrase(String messageKey);
+    String phrase(MessageRef message);
 
     /**
      * Hand back text that is already the answer, verbatim.
      *
      * <p>Only for output produced elsewhere and passed through unchanged - steward-worker's report.
-     * Anything a command composes itself goes through {@link #reply(String, Map)}.</p>
+     * Anything a command composes itself goes through {@link #reply(MessageRef)}.</p>
      */
     void replyLiteral(String text);
 }

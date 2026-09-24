@@ -10,6 +10,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
@@ -110,6 +111,69 @@ class MessageBundlesTest {
         assertEquals("Welcome", welcome.english());
         assertEquals("Willkommen", welcome.german());
         assertTrue(welcome.inBundle());
+    }
+
+    private static final String SCHEMA = """
+            {"bundle": "smp", "messages": [
+              {"key": "welcome", "name": "Welcome", "args": [], "section": ["Join"]},
+              {"key": "duel.won", "name": "Duel won", "description": "Sent to the winner.",
+               "args": [{"name": "opponent", "component": false}, {"name": "_link", "component": true}],
+               "section": ["Duels", null]}
+            ]}
+            """;
+
+    @Test
+    @DisplayName("the jar's schema names each key, in the order of the English file, the rest after it")
+    void theSchemaNamesEachKey() throws IOException {
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
+                "messages/smp/en.properties", "welcome=Welcome\nduel.won=You beat {opponent} <_link>\n",
+                "messages/smp/schema.json", SCHEMA));
+        final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
+        Files.writeString(overrides.resolve("en.properties"), "a.typo=Oops\n", StandardCharsets.UTF_8);
+        final MessageBundleLocation location = new MessageBundleLocation(
+                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
+
+        final MessageBundle bundle = MessageBundles.read(location);
+
+        assertEquals(List.of("welcome", "duel.won", "a.typo"),
+                bundle.entries().stream().map(MessageEntry::key).toList());
+        final MessageEntry won = entry(bundle, "duel.won");
+        assertEquals("Duel won", won.name());
+        assertEquals("Sent to the winner.", won.description());
+        assertEquals(List.of(new MessageArg("opponent", false), new MessageArg("_link", true)), won.args());
+        assertEquals(Arrays.asList("Duels", null), won.section());
+        assertNull(entry(bundle, "a.typo").name());
+    }
+
+    @Test
+    @DisplayName("a placeholder the schema does not declare is found, a declared one and formatting are not")
+    void anUndeclaredPlaceholderIsFound() throws IOException {
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
+                "messages/smp/en.properties", "welcome=Welcome\nduel.won=You beat {opponent} <_link>\n",
+                "messages/smp/schema.json", SCHEMA));
+        final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
+        final MessageBundle bundle = MessageBundles.read(new MessageBundleLocation(
+                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true));
+        final MessageEntry won = entry(bundle, "duel.won");
+
+        assertEquals(List.of(), MessageBundles.unknownPlaceholders(won, "<bold>{opponent}</bold> lost <_link>"));
+        assertEquals(List.of("{oponent}", "<_player>"),
+                MessageBundles.unknownPlaceholders(won, "You beat {oponent} <_player> {oponent}"));
+        assertEquals(List.of("{player}"),
+                MessageBundles.unknownPlaceholders(entry(bundle, "welcome"), "Welcome {player}"));
+    }
+
+    @Test
+    @DisplayName("a key without a schema is shown and never checked")
+    void aKeyWithoutASchemaIsNeverChecked() throws IOException {
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
+                "messages/smp/en.properties", "welcome=Welcome\n"));
+        final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
+        final MessageEntry welcome = entry(MessageBundles.read(new MessageBundleLocation(
+                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true)), "welcome");
+
+        assertNull(welcome.name());
+        assertEquals(List.of(), MessageBundles.unknownPlaceholders(welcome, "Welcome {player}"));
     }
 
     @Test

@@ -8,7 +8,8 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.SeasonDates;
 
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /access settle <reference>} - book a payment by hand.
@@ -37,22 +38,20 @@ public final class SettlePayment implements NordtalCommand<AccessEffects> {
                 settled = effects.settle(reference, user);
             } catch (final RuntimeException failure) {
                 effects.warn("/access settle " + reference, failure);
-                user.reply("access.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.access().failed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
 
             switch (settled.outcome()) {
-                case UNKNOWN -> user.reply("access.settle.unknown",
-                        Map.of("reference", reference), Feedback.REFUSED, Tone.BAD);
+                case UNKNOWN -> user.reply(
+                        MESSAGES.access().settle().unknown(reference), Feedback.REFUSED, Tone.BAD);
                 // WARN and not BAD: the reference exists and nothing went wrong - it is simply
                 // already settled or cancelled, which is a different thing to go and look at.
-                case NOT_OPEN -> user.reply("access.settle.not-open",
-                        Map.of("reference", reference, "status", settled.status()),
+                case NOT_OPEN -> user.reply(MESSAGES.access().settle().notOpen(reference, settled.status()),
                         Feedback.REFUSED, Tone.WARN);
-                case BOOKED -> user.reply("access.settle.booked",
-                        Map.of("reference", reference,
-                                "days", settled.days(),
-                                "until", SeasonDates.format(settled.until())),
+                case BOOKED -> user.reply(
+                        MESSAGES.access().settle().booked(reference, settled.days(),
+                                SeasonDates.format(settled.until())),
                         Feedback.BIG_SUCCESS, Tone.GOOD);
             }
         });

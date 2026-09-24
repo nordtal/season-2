@@ -8,6 +8,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+
 /**
  * What the status channel is called, right now, in one language.
  *
@@ -74,41 +76,37 @@ public final class StatusName {
                                 final NetworkSnapshot snapshot, final Instant launch, final Instant now) {
         return truncate(switch (phase) {
             case PRE_LAUNCH -> countdown(messages, locale, launch, now);
-            case PRE_EVENT -> messages.format(locale, "status.pre-event",
-                    "teams", snapshot.hgTeams(),
-                    "players", snapshot.hgParticipants());
-            case START_EVENT -> messages.format(locale, "status.start-event",
-                    "teams", snapshot.hgTeamsAlive(),
-                    "players", snapshot.hgAlive());
-            case SMP -> messages.format(locale, "status.smp", "players", snapshot.smpPlayers());
-            case MAINTENANCE -> messages.get(locale, "status.maintenance");
+            case PRE_EVENT -> messages.format(locale, MESSAGES.status().preEvent(snapshot.hgTeams()));
+            case START_EVENT -> messages.format(locale,
+                    MESSAGES.status().startEvent(snapshot.hgTeamsAlive(), snapshot.hgAlive()));
+            case SMP -> messages.format(locale, MESSAGES.status().smp(snapshot.smpPlayers()));
+            case MAINTENANCE -> messages.format(locale, MESSAGES.status().maintenance());
         });
     }
 
     private static String countdown(final Messages messages, final Locale locale, final Instant launch,
                                     final Instant now) {
         if (launch == null) {
-            return messages.get(locale, "status.pre-launch.unknown");
+            return messages.format(locale, MESSAGES.status().preLaunch().unknown());
         }
 
         final Duration remaining = Duration.between(now, launch);
         if (remaining.toMinutes() < FINAL_HOUR_STEP_MINUTES) {
             // Covers zero and negative too: the date has passed and nobody has switched the phase.
-            return messages.get(locale, "status.pre-launch.imminent");
+            return messages.format(locale, MESSAGES.status().preLaunch().imminent());
         }
         if (remaining.toDays() >= 1) {
-            return messages.format(locale, "status.pre-launch.days",
-                    "days", remaining.toDays(),
-                    "hours", remaining.toHoursPart());
+            return messages.format(locale,
+                    MESSAGES.status().preLaunch().days(remaining.toDays(), remaining.toHoursPart()));
         }
         if (remaining.toHours() >= 1) {
             // Whole hours, with the minutes deliberately dropped: a name carrying minutes would
             // change sixty times an hour and there is budget for twelve.
-            return messages.format(locale, "status.pre-launch.hours", "hours", remaining.toHours());
+            return messages.format(locale, MESSAGES.status().preLaunch().hours(remaining.toHours()));
         }
         final long steps = remaining.toMinutes() / FINAL_HOUR_STEP_MINUTES;
-        return messages.format(locale, "status.pre-launch.minutes",
-                "minutes", steps * FINAL_HOUR_STEP_MINUTES);
+        return messages.format(locale,
+                MESSAGES.status().preLaunch().minutes(steps * FINAL_HOUR_STEP_MINUTES));
     }
 
     /**

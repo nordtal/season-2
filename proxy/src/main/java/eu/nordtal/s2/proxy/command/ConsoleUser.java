@@ -1,6 +1,7 @@
 package eu.nordtal.s2.proxy.command;
 
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 
@@ -8,7 +9,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,7 +28,6 @@ import java.util.UUID;
  */
 public final class ConsoleUser implements NordtalUser {
 
-    private final Messages messages;
     private final MessageRenderer renderer;
     private final net.kyori.adventure.audience.Audience audience;
 
@@ -39,7 +38,6 @@ public final class ConsoleUser implements NordtalUser {
     /** @param audience where to print, or {@code null} for the JVM's own standard output */
     public ConsoleUser(final Messages messages,
                        final net.kyori.adventure.audience.Audience audience) {
-        this.messages = messages;
         this.renderer = new MessageRenderer(messages);
         this.audience = audience;
     }
@@ -75,33 +73,13 @@ public final class ConsoleUser implements NordtalUser {
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders) {
-        send(render(messageKey, placeholders));
-    }
-
-    /**
-     * Flatten the placeholders into the alternating name and value {@code format} wants.
-     *
-     * <p>This line used to hand {@code format} the {@link Map} itself, which compiles - a map is an
-     * {@code Object} and the parameter is {@code Object...} - and then throws
-     * {@code parameters must alternate name and value, got 1} at runtime, for <b>every</b> reply
-     * including one whose map is empty. The proxy console could answer no command at all; found by
-     * running {@code mc update} against it on 2026-09-15. {@code PaperUser} and {@link VelocityUser}
-     * both already did this; this class was the third and the only one without it.</p>
-     */
-    private Component render(final String messageKey, final Map<String, ?> placeholders) {
-        final Object[] flattened = new Object[placeholders.size() * 2];
-        int index = 0;
-        for (final Map.Entry<String, ?> entry : placeholders.entrySet()) {
-            flattened[index++] = entry.getKey();
-            flattened[index++] = String.valueOf(entry.getValue());
-        }
-        return renderer.format(Locale.ENGLISH, messageKey, flattened);
+    public void reply(final MessageRef message) {
+        send(renderer.format(Locale.ENGLISH, message));
     }
 
     @Override
-    public String phrase(final String messageKey) {
-        return messages.get(Locale.ENGLISH, messageKey);
+    public String phrase(final MessageRef message) {
+        return PlainTextComponentSerializer.plainText().serialize(renderer.format(Locale.ENGLISH, message));
     }
 
     @Override

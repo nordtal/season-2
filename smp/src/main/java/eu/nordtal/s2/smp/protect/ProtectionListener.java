@@ -29,6 +29,8 @@ import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 /**
  * The four spawns, protected by a handful of event handlers over a list of boxes.
  *
@@ -173,7 +175,8 @@ public final class ProtectionListener implements Listener {
         if (!inside(block.getLocation()) || identities.of(player.getUniqueId()).admin()) {
             return false;
         }
-        player.sendActionBar(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.protect.denied"));
+        player.sendActionBar(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
+                MESSAGES.smp().protect().denied()));
         sounds.play(player, Feedback.REFUSED);
         return true;
     }

@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.hungergames.StartGame;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.commands.phase.PhaseEffects;
 import eu.nordtal.s2.commands.phase.SetPhase;
+import eu.nordtal.s2.common.message.MessageRef;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,14 +40,14 @@ class ChoiceCheckTest {
     @Test
     @DisplayName("a value that is not one of the declared choices names itself and the list")
     void anUnknownChoiceIsRefused() {
-        final Optional<Map.Entry<String, Map<String, ?>>> problem = START.check(
+        final Optional<MessageRef> problem = START.check(
                 new Values(HungerGamesCommands.START, Map.of("confirm", "yes")));
 
         assertTrue(problem.isPresent(), "/hg start yes was accepted as a confirmation");
-        assertEquals("command.not-a-choice", problem.get().getKey());
-        assertEquals("confirm", problem.get().getValue().get("argument"));
-        assertEquals("yes", problem.get().getValue().get("typed"));
-        assertEquals("confirm", problem.get().getValue().get("choices"));
+        assertEquals("command.not-a-choice", problem.get().key());
+        assertEquals("confirm", problem.get().args().get("argument"));
+        assertEquals("yes", problem.get().args().get("typed"));
+        assertEquals("confirm", problem.get().args().get("choices"));
     }
 
     @Test
@@ -63,11 +64,11 @@ class ChoiceCheckTest {
         // /phase set takes a CHOICE over the phase names, so its own problem() and this one look at
         // the same argument. Both have to fire, and the generic one first: SetPhase#problem is what
         // produces phase.unknown, and it would never be reached for a value the choices refuse.
-        final Optional<Map.Entry<String, Map<String, ?>>> problem =
+        final Optional<MessageRef> problem =
                 SET.check(new Values(PhaseCommands.SET, Map.of("phase", "NOT_A_PHASE")));
 
         assertTrue(problem.isPresent());
-        assertEquals("command.not-a-choice", problem.get().getKey());
+        assertEquals("command.not-a-choice", problem.get().key());
 
         for (final String phase : List.of("SMP", "MAINTENANCE")) {
             assertTrue(SET.check(new Values(PhaseCommands.SET, Map.of("phase", phase))).isEmpty(),
@@ -96,10 +97,10 @@ class ChoiceCheckTest {
     void anUnknownValueIsNotNormalised() {
         // The refusal names it, so it has to survive unchanged - normalising would be normalising
         // toward something it is not.
-        final Optional<Map.Entry<String, Map<String, ?>>> problem =
+        final Optional<MessageRef> problem =
                 SET.check(new Values(PhaseCommands.SET, Map.of("phase", "MaIntenanz")));
         assertTrue(problem.isPresent());
-        assertEquals("MaIntenanz", problem.get().getValue().get("typed"));
+        assertEquals("MaIntenanz", problem.get().args().get("typed"));
     }
 
     @Test

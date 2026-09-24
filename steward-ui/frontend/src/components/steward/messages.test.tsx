@@ -35,6 +35,8 @@ function location(over: Partial<MessageBundleLocation> & { path: string }): Mess
 function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
   return {
     inBundle: true,
+    args: [],
+    section: [],
     ...over,
   }
 }

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.papercommon.command;
 
+import eu.nordtal.s2.common.message.MessageRef;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -41,6 +42,8 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 /**
  * A {@link Declaration} turned into a real Brigadier tree, once, for all three Paper plugins - so
  * that three hand-built trees cannot answer the same question differently.
@@ -64,7 +67,7 @@ public final class PaperCommands {
     private record Entry(Declaration declaration,
                          java.util.function.BiConsumer<NordtalUser, Values> run,
                          java.util.function.Function<Values,
-                                 java.util.Optional<Map.Entry<String, Map<String, ?>>>> problem) {
+                                 java.util.Optional<MessageRef>> problem) {
     }
 
     private final Plugin plugin;
@@ -450,7 +453,7 @@ public final class PaperCommands {
         if (!mayUse(context.getSource())) {
             below.removeIf(Declaration::adminOnly);
             if (below.isEmpty()) {
-                user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.command().notAdmin(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -462,14 +465,14 @@ public final class PaperCommands {
             below.removeIf(declaration ->
                     !declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.GAME));
             if (below.isEmpty()) {
-                user.reply("command.unknown", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.command().unknown(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
 
         if (below.isEmpty()) {
             // Only reachable for a root whose every command was skipped by remote().
-            user.reply("command.help.nothing", Map.of(), Feedback.REFUSED, Tone.WARN);
+            user.reply(MESSAGES.command().help().nothing(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         if (below.size() == 1) {
@@ -484,13 +487,12 @@ public final class PaperCommands {
         // support was added there. usage() below it already had Feedback.REFUSED; this brings the
         // multi-child listing in line with it rather than leaving the two forms of the same
         // "nothing more specific was runnable" answer sounding different.
-        user.reply("command.help.header", Map.of("command", "/" + node.literal),
+        user.reply(MESSAGES.command().help().header("/" + node.literal),
                 Feedback.REFUSED, Tone.NEUTRAL);
         below.stream()
                 .sorted(java.util.Comparator.comparing(Declaration::name))
-                .forEach(declaration -> user.reply("command.help.line",
-                        Map.of("usage", declaration.usage(),
-                                "what", user.phrase(declaration.describeKey())), Tone.MUTED));
+                .forEach(declaration -> user.reply(MESSAGES.command().help().line(declaration.usage(),
+                        user.phrase(declaration.describe())), Tone.MUTED));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -498,9 +500,9 @@ public final class PaperCommands {
     private int usage(final CommandContext<CommandSourceStack> context,
                       final Declaration declaration) {
         final NordtalUser user = user(context.getSource().getSender());
-        user.reply("command.help.usage", Map.of("usage", declaration.usage()),
+        user.reply(MESSAGES.command().help().usage(declaration.usage()),
                 Feedback.REFUSED, Tone.NEUTRAL);
-        user.reply("command.help.what", Map.of("what", user.phrase(declaration.describeKey())),
+        user.reply(MESSAGES.command().help().what(user.phrase(declaration.describe())),
                 Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }
@@ -634,7 +636,7 @@ public final class PaperCommands {
                 } catch (final RuntimeException failure) {
                     plugin.getLogger().log(java.util.logging.Level.WARNING,
                             "Could not read the account link for " + account.getValue(), failure);
-                    back(() -> user(sender).reply("command.account-unreachable", Map.of(),
+                    back(() -> user(sender).reply(MESSAGES.command().accountUnreachable(),
                             Feedback.REFUSED, Tone.BAD));
                     return;
                 }
@@ -666,7 +668,7 @@ public final class PaperCommands {
         // decided cannot be run by a sender with no identity.
         if (user.origin() == NordtalUser.Origin.CONSOLE
                 && !entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.CONSOLE)) {
-            user.reply("command.not-from-console", Map.of(), Feedback.REFUSED, Tone.BAD);
+            user.reply(MESSAGES.command().notFromConsole(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -682,14 +684,14 @@ public final class PaperCommands {
         // given them, and not a hint that the command is somewhere else.
         if (user.origin() == NordtalUser.Origin.GAME
                 && !entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.GAME)) {
-            user.reply("command.unknown", Map.of(), Feedback.REFUSED, Tone.BAD);
+            user.reply(MESSAGES.command().unknown(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
         // The tree's requires is the gate and this is the lock behind it: a check that lives on the
         // decision itself cannot be skipped by the shape of the tree.
         if (entry.declaration().adminOnly() && !mayUse(sender, isAdmin)) {
-            user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
+            user.reply(MESSAGES.command().notAdmin(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -700,13 +702,13 @@ public final class PaperCommands {
                 continue;
             }
             if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.PLAYER) {
-                user.reply("command.player-offline", Map.of(), Feedback.REFUSED, Tone.WARN);
+                user.reply(MESSAGES.command().playerOffline(), Feedback.REFUSED, Tone.WARN);
                 return Command.SINGLE_SUCCESS;
             }
             if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.ACCOUNT) {
                 // Either not online, or online and not linked - one answer from where the admin is
                 // standing.
-                user.reply("command.account-unreachable", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.command().accountUnreachable(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -715,8 +717,7 @@ public final class PaperCommands {
         // and refused afterwards.
         final var problem = entry.problem().apply(new Values(entry.declaration(), values));
         if (problem.isPresent()) {
-            user.reply(problem.get().getKey(), problem.get().getValue(), Feedback.REFUSED,
-                    Tone.BAD);
+            user.reply(problem.get(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -736,9 +737,7 @@ public final class PaperCommands {
         if (confirmations.confirm(user, what)) {
             return true;
         }
-        user.reply("command.confirm.retype", Map.of(
-                "command", what,
-                "seconds", String.valueOf(Confirmations.WINDOW.toSeconds())),
+        user.reply(MESSAGES.command().confirm().retype(what, String.valueOf(Confirmations.WINDOW.toSeconds())),
                 Feedback.REFUSED, Tone.WARN);
         return false;
     }

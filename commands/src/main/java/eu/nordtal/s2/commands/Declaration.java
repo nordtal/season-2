@@ -126,6 +126,14 @@ public record Declaration(List<String> path, Target target, Set<Surface> surface
         return "command.describe." + String.join(".", path);
     }
 
+    /**
+     * {@link #describeKey()} as a message. One of the few keys still built from parts: the set of
+     * commands is open, so the spec lists the keys and this names one of them.
+     */
+    public eu.nordtal.s2.common.message.MessageRef describe() {
+        return eu.nordtal.s2.common.message.MessageRef.of(describeKey());
+    }
+
     private static String name(final List<String> path) {
         return "/" + String.join(" ", path);
     }

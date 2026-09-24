@@ -25,10 +25,13 @@ class InfoTextTest {
     private static final Messages MESSAGES = Messages.load(InfoTextTest.class.getClassLoader(),
             "messages/proxy", Locale.ENGLISH, Locale.GERMAN);
 
+    private static final List<String> KEYS =
+            List.of(InfoTexts.DISCORD_TEXT.apply("").key(), InfoTexts.RULES_TEXT.apply("").key());
+
     @Test
     @DisplayName("both keys the commands name exist, in both languages")
     void theKeysExist() {
-        for (final String key : List.of(InfoTexts.DISCORD_TEXT, InfoTexts.RULES_TEXT)) {
+        for (final String key : KEYS) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
                 assertTrue(MESSAGES.hasTranslation(locale, key),
                         key + " is missing in " + locale.getLanguage() + ", so the command would"
@@ -40,7 +43,7 @@ class InfoTextTest {
     @Test
     @DisplayName("both texts carry the invite, because that is the one thing they are for")
     void bothNameTheInvite() {
-        for (final String key : List.of(InfoTexts.DISCORD_TEXT, InfoTexts.RULES_TEXT)) {
+        for (final String key : KEYS) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
                 assertTrue(MESSAGES.get(locale, key).contains("{invite}"),
                         key + " (" + locale.getLanguage() + ") does not substitute the Discord"
@@ -58,9 +61,9 @@ class InfoTextTest {
         // a /rules that answers with something plausible is a /rules nobody checks again. When the
         // real text lands, this test is deleted in the same commit - it is a reminder with a build
         // behind it, not a rule about the wording.
-        assertTrue(MESSAGES.get(Locale.ENGLISH, InfoTexts.RULES_TEXT).contains("PLACEHOLDER"),
+        assertTrue(MESSAGES.get(Locale.ENGLISH, InfoTexts.RULES_TEXT.apply("").key()).contains("PLACEHOLDER"),
                 "the English rules text no longer says it is a placeholder");
-        assertTrue(MESSAGES.get(Locale.GERMAN, InfoTexts.RULES_TEXT).contains("PLATZHALTER"),
+        assertTrue(MESSAGES.get(Locale.GERMAN, InfoTexts.RULES_TEXT.apply("").key()).contains("PLATZHALTER"),
                 "the German rules text no longer says it is a placeholder - if the real rules have"
                         + " been written, delete this test with the same commit");
     }

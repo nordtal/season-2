@@ -29,6 +29,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 /**
  * The Paper half of the command allowlist: written once, run by all three backends.
  *
@@ -250,8 +252,8 @@ public final class CommandFilter implements Listener {
      * exists.</p>
      */
     private net.kyori.adventure.text.Component refusal(final UUID player) {
-        return Tones.paint(MessageRenderer.of(messages).get(locales.of(player), "command.unknown"),
-                Tone.BAD, colours.get());
+        return Tones.paint(MessageRenderer.of(messages).format(locales.of(player),
+                MESSAGES.command().unknown()), Tone.BAD, colours.get());
     }
 
     /**

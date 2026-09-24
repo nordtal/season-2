@@ -4,7 +4,6 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
-import eu.nordtal.s2.smp.world.LandingSite;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.state.SeasonState;
@@ -23,6 +22,8 @@ import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.plugin.Plugin;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The three portal rules, each of them deliberate.
@@ -81,7 +82,8 @@ public final class PortalGate implements Listener {
         event.setCancelled(true);
         putOutTheFire(event);
         if (event.getEntity() instanceof Player player) {
-            player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.portal.nether-locked"));
+            player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
+                    MESSAGES.smp().portal().netherLocked()));
             sounds.play(player, Feedback.REFUSED);
         }
     }
@@ -120,7 +122,8 @@ public final class PortalGate implements Listener {
             return;
         }
         event.setCancelled(true);
-        event.getPlayer().sendMessage(MessageRenderer.of(messages).get(locales.of(event.getPlayer().getUniqueId()), "smp.portal.end-inactive"));
+        event.getPlayer().sendMessage(MessageRenderer.of(messages).format(
+                locales.of(event.getPlayer().getUniqueId()), MESSAGES.smp().portal().endInactive()));
         sounds.play(event.getPlayer(), Feedback.REFUSED);
     }
 
@@ -135,7 +138,8 @@ public final class PortalGate implements Listener {
             // Belt and braces: the frame should never have lit, but a portal that predates the
             // plugin, or an admin's, must not become a way past the milestone either.
             event.setCancelled(true);
-            event.getPlayer().sendMessage(MessageRenderer.of(messages).get(locales.of(event.getPlayer().getUniqueId()), "smp.portal.nether-locked"));
+            event.getPlayer().sendMessage(MessageRenderer.of(messages).format(
+                    locales.of(event.getPlayer().getUniqueId()), MESSAGES.smp().portal().netherLocked()));
             sounds.play(event.getPlayer(), Feedback.REFUSED);
         }
     }

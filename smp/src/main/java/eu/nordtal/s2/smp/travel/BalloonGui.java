@@ -10,6 +10,7 @@ import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.milestone.Milestone;
+import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.state.SeasonState;
@@ -27,6 +28,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The travel GUI a balloon opens.
@@ -99,24 +102,22 @@ public final class BalloonGui implements Surface {
         // no `<` in it.
         final MessageRenderer renderer = MessageRenderer.of(messages);
         final boolean locked = entry.state() == BalloonMenu.State.LOCKED;
-        final Component name = renderer.format(locale, locked ? "smp.balloon.card-locked" : "smp.balloon.card",
-                "world", messages.get(locale, nameKey(entry.destination())));
+        final String destination = messages.format(locale, MESSAGES.smp().world(entry.destination()));
+        final Component name = renderer.format(locale, locked
+                ? MESSAGES.smp().balloon().cardLocked(destination)
+                : MESSAGES.smp().balloon().card(destination));
 
         final List<Component> lore = new ArrayList<>();
         switch (entry.state()) {
-            case HERE -> lore.add(renderer.get(locale, "smp.balloon.here"));
-            case OPEN -> lore.add(renderer.get(locale, "smp.balloon.open"));
+            case HERE -> lore.add(renderer.format(locale, MESSAGES.smp().balloon().here()));
+            case OPEN -> lore.add(renderer.format(locale, MESSAGES.smp().balloon().open()));
             case LOCKED -> {
-                lore.add(renderer.format(locale, "smp.balloon.locked",
-                        "milestone", milestoneName(entry.destination(), locale)));
-                lore.add(renderer.get(locale, "smp.balloon.locked-hint"));
+                lore.add(renderer.format(locale,
+                        MESSAGES.smp().balloon().locked(milestoneName(entry.destination(), locale))));
+                lore.add(renderer.format(locale, MESSAGES.smp().balloon().lockedHint()));
             }
         }
         return BlankItem.of(name, lore);
-    }
-
-    private static String nameKey(final WorldRole role) {
-        return "smp.world." + role.name().toLowerCase(Locale.ROOT);
     }
 
     /**
@@ -131,10 +132,9 @@ public final class BalloonGui implements Surface {
                 .filter(candidate -> candidate.unlock() == needed)
                 .findFirst();
         if (milestone.isEmpty()) {
-            return messages.get(locale, "smp.balloon.locked-unknown");
+            return messages.format(locale, MESSAGES.smp().balloon().lockedUnknown());
         }
-        final String key = "smp.milestone." + milestone.get().key();
-        return messages.hasTranslation(locale, key) ? messages.get(locale, key) : milestone.get().key();
+        return MilestoneNames.of(messages, locale, milestone.get().key());
     }
 
     /**
@@ -152,8 +152,8 @@ public final class BalloonGui implements Surface {
         final BalloonMenu.Entry entry = clicked.get();
         if (!entry.travellable()) {
             if (entry.state() == BalloonMenu.State.LOCKED) {
-                player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.balloon.locked",
-                        "milestone", milestoneName(entry.destination(), locale)));
+                player.sendMessage(MessageRenderer.of(messages).format(locale,
+                        MESSAGES.smp().balloon().locked(milestoneName(entry.destination(), locale))));
                 sounds.play(player, Feedback.REFUSED);
             }
             return false;
@@ -161,7 +161,8 @@ public final class BalloonGui implements Surface {
 
         final World destination = worlds.world(entry.destination()).orElse(null);
         if (destination == null) {
-            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.balloon.unavailable"));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.smp().balloon().unavailable()));
             sounds.play(player, Feedback.REFUSED);
             return false;
         }
@@ -202,14 +203,16 @@ public final class BalloonGui implements Surface {
                 .findSafeAt(destination, target)
                 .orElse(null);
         if (landing == null || !player.teleport(landing)) {
-            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.balloon.unavailable"));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.smp().balloon().unavailable()));
             sounds.play(player, Feedback.REFUSED);
             return false;
         }
         effects.travelled(from);
         effects.travelled(landing);
-        player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.balloon.travelled",
-                "world", messages.get(locale, nameKey(entry.destination()))));
+        player.sendMessage(MessageRenderer.of(messages).format(locale,
+                MESSAGES.smp().balloon().travelled(
+                        messages.format(locale, MESSAGES.smp().world(entry.destination())))));
         sounds.play(player, Feedback.TRAVEL);
         return true;
     }

@@ -21,6 +21,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+
 /**
  * {@link AccessEffects} against this bot.
  *
@@ -141,9 +143,9 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
                 access.grantAccess(discordId, days, AccessSource.ADMIN, null);
         seasonStart.warnIfUnanchored(discordId, granted);
         roles.applyAccessRole(discordId, true);
-        roles.dm(discordId, messages.format(roles.localeOf(discordId), "dm.granted.admin",
-                "days", String.valueOf(days),
-                "until", AccessRoles.timestamp(granted.validUntil())));
+        roles.dm(discordId, messages.format(roles.localeOf(discordId),
+                MESSAGES.dm().grantedSection().admin(String.valueOf(days),
+                        AccessRoles.timestamp(granted.validUntil()))));
 
         admin.record("GRANT_ACCESS", by.filed(), discordId, by.minecraftUuid(),
                 days + " days");
@@ -163,7 +165,7 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         final int revoked = access.revokeAccess(discordId);
         roles.applyAccessRole(discordId, false);
         if (revoked > 0) {
-            roles.dm(discordId, messages.get(roles.localeOf(discordId), "dm.revoked"));
+            roles.dm(discordId, messages.format(roles.localeOf(discordId), MESSAGES.dm().revoked()));
         }
 
         admin.record("REVOKE_ACCESS", by.filed(), discordId, by.minecraftUuid(),
@@ -225,8 +227,8 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
             access.setDonor(found.discordId(), true);
             roles.grantDonorRole(found.discordId());
         }
-        roles.dm(found.discordId(), messages.format(roles.localeOf(found.discordId()), "dm.granted",
-                "until", AccessRoles.timestamp(granted.validUntil())));
+        roles.dm(found.discordId(), messages.format(roles.localeOf(found.discordId()),
+                MESSAGES.dm().granted(AccessRoles.timestamp(granted.validUntil()))));
 
         admin.record("SETTLE", by.filed(), found.discordId(), by.minecraftUuid(),
                 "manual, reference=" + reference + " days=" + found.days());

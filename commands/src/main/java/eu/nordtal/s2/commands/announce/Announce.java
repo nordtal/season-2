@@ -6,7 +6,8 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /** Posts the line, and says in the row whether it went anywhere. */
 public final class Announce implements NordtalCommand<AnnounceEffects> {
@@ -25,8 +26,7 @@ public final class Announce implements NordtalCommand<AnnounceEffects> {
             // there so that "why did the announcement not appear" has a row that says "no
             // channel for de" rather than a DONE row and silence.
             final boolean posted = effects.post(language, text);
-            user.reply(posted ? "announce.posted" : "announce.no-channel",
-                    Map.of("language", language), posted ? Tone.GOOD : Tone.WARN);
+            user.reply(posted ? MESSAGES.announce().posted(language) : MESSAGES.announce().noChannel(language), posted ? Tone.GOOD : Tone.WARN);
         });
     }
 }

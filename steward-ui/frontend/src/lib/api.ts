@@ -1034,6 +1034,18 @@ export type MessageEntry = {
   overrideEnglish?: string
   overrideGerman?: string
   inBundle: boolean
+  /** From the jar's `schema.json`; absent for a key the schema does not describe. */
+  name?: string
+  description?: string
+  /** The placeholders the text is filled with; `component` ones are written `<name>`, the rest `{name}`. */
+  args: MessageArg[]
+  /** The names of the sections around the key, outermost first. */
+  section: (string | null)[]
+}
+
+export type MessageArg = {
+  name: string
+  component: boolean
 }
 
 export type MessageBundle = MessageBundleLocation & {

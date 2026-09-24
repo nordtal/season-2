@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+
 /**
  * The bot-maintained Register message: one per configured language, in
  * {@code Language#hungerGamesChannelId()}, carrying the button {@link RegisterFlow} listens for.
@@ -72,7 +74,7 @@ public final class RegisterMessages {
 
         final MessageEmbed embed = registerEmbed(locale);
         final List<ActionRow> components = List.of(ActionRow.of(
-                Button.primary(Ids.REGISTER, messages.get(locale, "register.button"))));
+                Button.primary(Ids.REGISTER, messages.format(locale, MESSAGES.register().button()))));
 
         try {
             final Optional<String> existing = dao.messageIdOf(kind, channelId);
@@ -105,8 +107,8 @@ public final class RegisterMessages {
     private MessageEmbed registerEmbed(final Locale locale) {
         return new EmbedBuilder()
                 .setColor(COLOUR)
-                .setTitle(messages.get(locale, "register.title"))
-                .setDescription(messages.get(locale, "register.body"))
+                .setTitle(messages.format(locale, MESSAGES.register().title()))
+                .setDescription(messages.format(locale, MESSAGES.register().body()))
                 .build();
     }
 }

@@ -157,6 +157,27 @@ public final class MessageRenderer {
     }
 
     /**
+     * Renders a message a spec chose. A {@link Component} value fills its {@code <name>} tag,
+     * every other value its {@code {name}} placeholder, escaped as always.
+     *
+     * @return the formatted message, parsed as MiniMessage
+     */
+    public Component format(final Locale locale, final MessageRef message) {
+        final Map<String, Component> components = new LinkedHashMap<>();
+        final Object[] parameters = new Object[message.args().size() * 2];
+        int index = 0;
+        for (final Map.Entry<String, Object> arg : message.args().entrySet()) {
+            if (arg.getValue() instanceof final Component component) {
+                components.put(arg.getKey(), component);
+            } else {
+                parameters[index++] = arg.getKey();
+                parameters[index++] = arg.getValue();
+            }
+        }
+        return format(locale, message.key(), components, java.util.Arrays.copyOf(parameters, index));
+    }
+
+    /**
      * Makes a substituted value inert for MiniMessage. Only {@code <} can begin a tag, and
      * MiniMessage's own escape for it is a backslash - so <b>two</b> characters have to be handled,
      * in this order, and they are handled here rather than trusted never to appear.

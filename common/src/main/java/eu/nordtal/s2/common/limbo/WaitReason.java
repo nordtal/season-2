@@ -69,16 +69,6 @@ public enum WaitReason {
      */
     UNKNOWN;
 
-    /** @return the message key for this reason's title line */
-    public String titleKey() {
-        return "limbo.wait." + name().toLowerCase(java.util.Locale.ROOT) + ".title";
-    }
-
-    /** @return the message key for this reason's subtitle line */
-    public String subtitleKey() {
-        return "limbo.wait." + name().toLowerCase(java.util.Locale.ROOT) + ".subtitle";
-    }
-
     /**
      * Parses a name off the wire. Never throws: an unknown reason from a newer proxy has to
      * degrade to a screen that says something, not to an exception on a network path.

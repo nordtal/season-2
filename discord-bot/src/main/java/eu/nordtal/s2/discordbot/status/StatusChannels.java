@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 /**
  * Renames one channel per language so the guild's sidebar says what the network is doing.
  *
@@ -149,8 +151,8 @@ public final class StatusChannels {
         if (announcements == null || previous == null || previous == phase) {
             return;
         }
-        announcements.postAll(language -> messages.format(language.locale(), "announce.phase",
-                java.util.Map.of("previous", previous.name(), "phase", phase.name())));
+        announcements.postAll(language -> messages.format(language.locale(),
+                MESSAGES.announce().phase(phase.name(), previous.name())));
     }
 
     private static boolean needsCounts(final SeasonPhase phase) {

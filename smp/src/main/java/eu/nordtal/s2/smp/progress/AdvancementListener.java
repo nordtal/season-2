@@ -23,6 +23,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 /**
  * Advancements, which do two separate things in this design and are easy to confuse.
  *
@@ -91,7 +93,7 @@ public final class AdvancementListener implements Listener {
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     if (player.isOnline()) {
                         player.sendMessage(MessageRenderer.of(messages).format(locale,
-                                "smp.aura.advancement", "aura", award));
+                                MESSAGES.smp().aura().advancement(award)));
                         sounds.play(player, Feedback.SMALL_SUCCESS);
                     }
                 });

@@ -198,12 +198,12 @@ class ConfirmationsTest {
         }
 
         @Override
-        public void reply(final String messageKey, final Map<String, ?> placeholders) {
+        public void reply(final eu.nordtal.s2.common.message.MessageRef message) {
             throw new UnsupportedOperationException("this stub only carries an identity");
         }
 
         @Override
-        public String phrase(final String messageKey) {
+        public String phrase(final eu.nordtal.s2.common.message.MessageRef message) {
             throw new UnsupportedOperationException("this stub only carries an identity");
         }
 

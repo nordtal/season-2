@@ -2,6 +2,7 @@ package eu.nordtal.s2.commands.remote;
 
 import eu.nordtal.s2.commands.Argument;
 import eu.nordtal.s2.commands.CommandEffects;
+import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -102,7 +103,7 @@ class CommandInboxTest {
         final CommandInbox inbox = inbox(true).register(
                 command(RELOAD, (user, values) -> {
                     effects.ran().add("reload");
-                    user.reply("command.remote.silent");
+                    user.reply(CommandMessages.MESSAGES.command().remote().silent());
                 }), effects);
 
         final long id = submit("smp reload", "");
@@ -121,7 +122,7 @@ class CommandInboxTest {
                 "DISCORD", "till", Optional.of("100000000000000001"), Optional.empty(),
                 "de", Instant.now().plusSeconds(30)));
 
-        inbox(true).register(command(RELOAD, (user, values) -> user.reply("command.cancelled")),
+        inbox(true).register(command(RELOAD, (user, values) -> user.reply(CommandMessages.MESSAGES.command().cancelled())),
                 effects).drain();
 
         assertEquals(MESSAGES.get(Locale.GERMAN, "command.cancelled"), requests.resultOf(id),

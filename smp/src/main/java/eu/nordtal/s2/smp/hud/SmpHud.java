@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.hud.BossBarLine;
 import eu.nordtal.s2.common.hud.BossBarLine.Pill;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.navigate.NavigationTarget;
 import eu.nordtal.s2.smp.state.SeasonState;
@@ -27,6 +28,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The SMP's two boss bar lines, drawn with the same technique as the hunger games': the vanilla bar
@@ -192,22 +195,22 @@ public final class SmpHud {
         final int percent = (int) Math.round(active.progress() * 100.0);
         return List.of(
                 Pill.of(dimension, worldName(player, locale)),
-                Pill.of(messages.format(locale, "smp.hud.milestone",
-                        "milestone", milestoneName(active.key(), locale), "percent", percent)));
+                Pill.of(messages.format(locale,
+                        MESSAGES.smp().hud().milestone(milestoneName(active.key(), locale), percent))));
     }
 
     /** The target's pill, led by the arrow to it, then the distance's. */
     List<Pill> navigateLine(final Player player, final Locale locale, final NavigationTarget target) {
         final String label = target.kind() == NavigationTarget.Kind.POI
                 ? target.label()
-                : messages.get(locale, target.label());
+                : messages.format(locale, target.name());
 
         // A target in another world has no bearing worth drawing: the arrow would spin and the
         // distance would span two unrelated coordinate systems.
         if (!target.isIn(player.getWorld().getName())) {
             return List.of(
                     Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, label),
-                    Pill.of(messages.get(locale, "smp.hud.navigate-other-world")));
+                    Pill.of(messages.format(locale, MESSAGES.smp().hud().navigateOtherWorld())));
         }
 
         final Location at = player.getLocation();
@@ -216,7 +219,7 @@ public final class SmpHud {
 
         return List.of(
                 Pill.of(Glyphs.BOSSBAR_ARROWS[arrow], label),
-                Pill.of(messages.format(locale, "smp.hud.distance", "blocks", distance)));
+                Pill.of(messages.format(locale, MESSAGES.smp().hud().distance(distance))));
     }
 
     /** The live announcement for a player, or null - dropping it here rather than on a timer. */
@@ -234,12 +237,11 @@ public final class SmpHud {
 
     private String worldName(final Player player, final Locale locale) {
         return worlds.roleOf(player.getWorld())
-                .map(role -> messages.get(locale, "smp.world." + role.name().toLowerCase(Locale.ROOT)))
+                .map(role -> messages.format(locale, MESSAGES.smp().world(role)))
                 .orElse(player.getWorld().getName());
     }
 
     private String milestoneName(final String key, final Locale locale) {
-        final String messageKey = "smp.milestone." + key;
-        return messages.hasTranslation(locale, messageKey) ? messages.get(locale, messageKey) : key;
+        return MilestoneNames.of(messages, locale, key);
     }
 }

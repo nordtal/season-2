@@ -1,6 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Messages;
 
 import net.dv8tion.jda.api.entities.User;
@@ -9,7 +10,6 @@ import net.dv8tion.jda.api.interactions.InteractionHook;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -83,13 +83,13 @@ public final class DiscordUser implements NordtalUser {
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders) {
-        say(render(messageKey, placeholders));
+    public void reply(final MessageRef message) {
+        say(render(message));
     }
 
     @Override
-    public String phrase(final String messageKey) {
-        return render(messageKey, Map.of());
+    public String phrase(final MessageRef message) {
+        return render(message);
     }
 
     @Override
@@ -133,9 +133,9 @@ public final class DiscordUser implements NordtalUser {
         hook.editOriginal(all).setComponents(List.of()).queue();
     }
 
-    private String render(final String messageKey, final Map<String, ?> placeholders) {
+    private String render(final MessageRef message) {
         // Messages' own named substitution, not a hand-rolled replace: it is what reports a
         // placeholder the template does not carry, and a template placeholder nothing supplied.
-        return messages.format(locale, messageKey, placeholders);
+        return messages.format(locale, message);
     }
 }

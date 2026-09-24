@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 /**
  * The start sequence, in one place: teleport to towers, freeze, countdown, release with PvP
  * protection. Also owns the effective-participant, colour and demotion work that must happen
@@ -149,7 +151,7 @@ public final class HungerGamesManager {
                 // Deliberately silent: the tower teleport in the same tick already played TRAVEL,
                 // and two sounds a tick apart are one noise.
                 online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
-                        "hg.team.demoted", "team", participant.teamName()));
+                        MESSAGES.hg().team().demoted(participant.teamName())));
             }
         }
     }
@@ -173,8 +175,8 @@ public final class HungerGamesManager {
                     final Player online = plugin.getServer().getPlayer(participant.mcUuid());
                     if (online != null) {
                         online.sendMessage(MessageRenderer.of(messages).format(
-                                locales.of(participant.mcUuid()), "hg.start.countdown",
-                                "seconds", remaining));
+                                locales.of(participant.mcUuid()),
+                                        MESSAGES.hg().start().countdown(remaining)));
                         // Not a metronome - the marks are uneven. It is what tells a frozen player
                         // the server is still running, which chat scrolled past does not.
                         sounds.play(online, Feedback.COUNTDOWN_TICK);
@@ -266,7 +268,7 @@ public final class HungerGamesManager {
                 online.setFlying(false);
                 online.setAllowFlight(false);
                 online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
-                        "hg.start.released", "seconds", config.pvpProtectionSeconds()));
+                        MESSAGES.hg().start().released(config.pvpProtectionSeconds())));
                 // The last beat of the countdown, on the same category as the marks before it: a
                 // distinct accent would need a category of its own.
                 sounds.play(online, Feedback.COUNTDOWN_TICK);

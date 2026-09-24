@@ -1,5 +1,6 @@
 plugins {
     id("nordtal.java-base")
+    id("nordtal.message-spec")
     id("java-library")
 }
 
@@ -28,4 +29,8 @@ dependencies {
     // process that consumes it brings its own backend. MessageBundlesTest actually loads the shared
     // bundle, so this module's tests need one too; nothing ships with it.
     testRuntimeOnly(libs.logback.classic)
+}
+
+messageSpec {
+    specClass.set("eu.nordtal.s2.commands.CommandMessages")
 }

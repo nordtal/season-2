@@ -1,5 +1,6 @@
 package eu.nordtal.s2.proxy.command;
 
+import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
@@ -12,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code IllegalArgumentException: parameters must alternate name and value, got 1} on 2026-09-15,
  * from {@code MessageRenderer.format} by way of this class. {@code format} takes
  * {@code (Locale, String, Object...)} and {@link ConsoleUser} handed it the placeholder
- * {@link Map} as a single vararg - which compiles, because a {@code Map} is an {@code Object}, and
+ * {@code Map} as a single vararg - which compiles, because a {@code Map} is an {@code Object}, and
  * which is wrong for every call including one with an empty map. The proxy console could therefore
  * answer <em>no</em> command at all.
  *
@@ -53,11 +53,13 @@ class ConsoleUserTest {
         }
     }
 
+    private static final CommandMessages.Update UPDATE = CommandMessages.MESSAGES.update();
+
     @Test
     @DisplayName("a reply with no placeholders arrives, which is the case that was broken")
     void theEmptyMapIsNotAnArgument() {
         final Spy spy = new Spy();
-        new ConsoleUser(MESSAGES, spy).reply("update.asked", Map.of());
+        new ConsoleUser(MESSAGES, spy).reply(UPDATE.asked());
         assertEquals(List.of("Asking Steward what is new."), spy.lines);
     }
 
@@ -65,7 +67,7 @@ class ConsoleUserTest {
     @DisplayName("a reply substitutes its placeholders instead of printing the braces")
     void placeholdersAreSubstituted() {
         final Spy spy = new Spy();
-        new ConsoleUser(MESSAGES, spy).reply("update.line.UNCHANGED", Map.of("service", "limbo"));
+        new ConsoleUser(MESSAGES, spy).reply(UPDATE.line().unchanged("limbo"));
         assertEquals(List.of("limbo: unchanged"), spy.lines);
     }
 
@@ -78,20 +80,19 @@ class ConsoleUserTest {
         // loses the pairing cannot produce this line by accident. The entry order of `Map.of` is
         // unspecified on purpose here: substitution is by name, so the output must not depend on it.
         final Spy spy = new Spy();
-        new ConsoleUser(MESSAGES, spy).reply("update.change",
-                Map.of("artefact", "velocity", "from", "4.1.1", "to", "4.2.0"));
+        new ConsoleUser(MESSAGES, spy).reply(UPDATE.change("velocity", "4.1.1", "4.2.0"));
         assertEquals(List.of("velocity 4.1.1 -> 4.2.0"), spy.lines);
     }
 
     @Test
     @DisplayName("the overloads every command actually calls reach the same place")
     void theOverloadsWork() {
-        // NordtalUser's default methods funnel Feedback and Tone down to reply(key, placeholders).
+        // NordtalUser's default methods funnel Feedback and Tone down to reply(message).
         // ReportUpdate calls the four-argument one, and that is the call that threw in production.
         final Spy spy = new Spy();
         final ConsoleUser console = new ConsoleUser(MESSAGES, spy);
-        console.reply("update.asked", Map.of(), Feedback.SMALL_SUCCESS, Tone.GOOD);
-        console.reply("update.line.UNCHANGED", Map.of("service", "smp"), Tone.GOOD);
+        console.reply(UPDATE.asked(), Feedback.SMALL_SUCCESS, Tone.GOOD);
+        console.reply(UPDATE.line().unchanged("smp"), Tone.GOOD);
         assertEquals(List.of("Asking Steward what is new.", "smp: unchanged"), spy.lines);
     }
 }

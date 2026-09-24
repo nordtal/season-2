@@ -9,7 +9,8 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /backup now} - count down, take the servers down, save the volumes, bring them back.
@@ -47,11 +48,10 @@ public final class RunBackup implements NordtalCommand<UpdateEffects> {
                 // once the worker has actually recorded it, which is where that news belongs.
                 // SMALL_SUCCESS rather than BIG_SUCCESS for the same reason: the sound says the
                 // command was taken, not that the network is about to go down.
-                user.reply("backup.started", Map.of(
-                        "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
+                user.reply(MESSAGES.backup().started(UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
                         Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
             } catch (final RuntimeException failure) {
-                user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.update().writeFailed(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

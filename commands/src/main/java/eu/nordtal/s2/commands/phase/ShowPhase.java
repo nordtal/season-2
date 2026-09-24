@@ -9,8 +9,9 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.phase.SeasonDates;
 
 import java.time.Instant;
-import java.util.Map;
 import java.util.Optional;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /phase show} - and the bare {@code /phase} on the proxy. Reads, writes nothing.
@@ -61,18 +62,16 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
                 // with no response at all and settled a request row empty. It was suppressed
                 // because phase.read.failed says "the phase above", and on that path there is
                 // nothing above; so the answer is a second key rather than no key.
-                user.reply(saidThePhase ? "phase.read.failed" : "phase.read.failed.only",
-                        Map.of(), Tone.BAD);
+                user.reply(saidThePhase ? MESSAGES.phase().read().failed() : MESSAGES.phase().read().failedSection().only(), Tone.BAD);
                 return;
             }
 
             // "not set" is a state and is said in the asker's language, not in SeasonDates' English
             // - the first German /phase on the local stack read "Das Netzwerk öffnet: not set."
-            final String unset = user.phrase("phase.date.unset");
-            user.reply("phase.dates", Map.of(
-                    "launch", SeasonDates.format(launch, unset),
-                    "smpStart", SeasonDates.format(smpStart, unset),
-                    "zone", SeasonDates.ZONE.getId()), Tone.MUTED);
+            final String unset = user.phrase(MESSAGES.phase().date().unset());
+            user.reply(
+                    MESSAGES.phase().dates(SeasonDates.format(launch, unset), SeasonDates.format(smpStart,
+                            unset), SeasonDates.ZONE.getId()), Tone.MUTED);
         });
     }
 
@@ -80,7 +79,6 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
                                  final boolean everRead) {
         // The unread answer is WARN and not NEUTRAL: it is the proxy's own cache answering
         // because nothing has ever read the row, which is exactly the state /phase is typed in.
-        user.reply(everRead ? "phase.current" : "phase.current.unread",
-                Map.of("phase", phase.name()), everRead ? Tone.NEUTRAL : Tone.WARN);
+        user.reply(everRead ? MESSAGES.phase().current(phase.name()) : MESSAGES.phase().currentSection().unread(phase.name()), everRead ? Tone.NEUTRAL : Tone.WARN);
     }
 }

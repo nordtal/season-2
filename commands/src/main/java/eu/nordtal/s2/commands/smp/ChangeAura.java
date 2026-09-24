@@ -7,9 +7,10 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /smp aura <player> <delta>} - a correction, with its reason recorded.
@@ -45,11 +46,11 @@ public final class ChangeAura implements NordtalCommand<SmpEffects> {
                 discordId = effects.discordIdOf(player);
             } catch (final RuntimeException failure) {
                 effects.warn("/smp aura could not read the account link for " + name, failure);
-                user.reply("smp.admin.read-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.smp().admin().readFailed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             if (discordId.isEmpty()) {
-                user.reply("smp.admin.target-unlinked", Map.of("player", name),
+                user.reply(MESSAGES.smp().admin().targetUnlinked(name),
                         Feedback.REFUSED, Tone.BAD);
                 return;
             }
@@ -61,11 +62,11 @@ public final class ChangeAura implements NordtalCommand<SmpEffects> {
                 // reads the new total back, so a throw here can be either half. "Nothing changed"
                 // would be a claim this branch cannot make.
                 effects.warn("/smp aura " + name + " " + delta + " failed", failure);
-                user.reply("smp.admin.aura-unknown", Map.of("player", name, "delta", delta),
+                user.reply(MESSAGES.smp().admin().auraUnknown(name, delta),
                         Feedback.REFUSED, Tone.BAD);
                 return;
             }
-            user.reply("smp.admin.aura-changed", Map.of("player", name, "delta", delta),
+            user.reply(MESSAGES.smp().admin().auraChanged(name, delta),
                     Feedback.SMALL_SUCCESS, Tone.GOOD);
         });
     }

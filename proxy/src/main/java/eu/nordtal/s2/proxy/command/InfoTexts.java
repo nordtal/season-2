@@ -8,14 +8,18 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /discord} and {@code /rules}: two commands that print one line each.
@@ -41,11 +45,11 @@ import java.util.Objects;
  */
 public final class InfoTexts {
 
-    /** The key {@code /discord} prints. */
-    public static final String DISCORD_TEXT = "info.discord";
+    /** What {@code /discord} prints. */
+    public static final Function<Object, MessageRef> DISCORD_TEXT = ProxyMessages.MESSAGES.info()::discord;
 
-    /** The key {@code /rules} prints. Ships as a marked placeholder until Till writes the rules. */
-    public static final String RULES_TEXT = "info.rules";
+    /** What {@code /rules} prints. Ships as a marked placeholder until the rules are written. */
+    public static final Function<Object, MessageRef> RULES_TEXT = ProxyMessages.MESSAGES.info()::rules;
 
     private final Messages messages;
     private final String invite;
@@ -62,9 +66,9 @@ public final class InfoTexts {
         return List.of(command("discord", DISCORD_TEXT), command("rules", RULES_TEXT));
     }
 
-    private BrigadierCommand command(final String literal, final String key) {
+    private BrigadierCommand command(final String literal, final Function<Object, MessageRef> text) {
         return new BrigadierCommand(BrigadierCommand.literalArgumentBuilder(literal)
-                .executes(context -> print(context, key)));
+                .executes(context -> print(context, text)));
     }
 
     /**
@@ -74,17 +78,17 @@ public final class InfoTexts {
      * because the value is MiniMessage with a clickable link in it and the shared bundle carries no
      * markup at all - the same split these two always had, now without an interface in between.</p>
      */
-    private int print(final CommandContext<CommandSource> context, final String key) {
+    private int print(final CommandContext<CommandSource> context, final Function<Object, MessageRef> text) {
         if (!(context.getSource() instanceof Player player)) {
             // Unchanged from the declaration these replaced: GAME and not CONSOLE. A line meant for
             // a chat window, with a link in it, is not what an operator wants back from a console -
             // and the console has `./nordtal.sh` and the file itself for everything real.
             new ConsoleUser(messages, context.getSource())
-                    .reply("command.not-from-console", Map.of(), Feedback.REFUSED, Tone.BAD);
+                    .reply(MESSAGES.command().notFromConsole(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
         player.sendMessage(MessageRenderer.of(messages)
-                .format(roster.localeOf(player.getUniqueId()), key, "invite", invite));
+                .format(roster.localeOf(player.getUniqueId()), text.apply(invite)));
         return Command.SINGLE_SUCCESS;
     }
 }

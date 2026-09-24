@@ -26,6 +26,8 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 /**
  * What a player who is not an admin may type, and what they are told exists.
  *
@@ -194,7 +196,7 @@ public final class CommandGate {
         }
         event.setResult(CommandExecuteEvent.CommandResult.denied());
         player.sendMessage(Tones.paint(
-                MessageRenderer.of(messages).get(locale(player), "command.unknown"), Tone.BAD,
+                MessageRenderer.of(messages).format(locale(player), MESSAGES.command().unknown()), Tone.BAD,
                 colours.get()));
         chime.play(player, Feedback.REFUSED);
     }

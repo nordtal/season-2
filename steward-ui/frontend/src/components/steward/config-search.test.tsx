@@ -75,7 +75,7 @@ function bundleLocation(
 }
 
 function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
-  return { inBundle: true, ...over }
+  return { inBundle: true, args: [], section: [], ...over }
 }
 
 /** Wires one config file and one message bundle by index, the way the box actually pairs them. */

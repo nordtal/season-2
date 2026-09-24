@@ -131,6 +131,57 @@ describe("the file row", () => {
     // it did before and would pass either way.
     expect(screen.queryByText("steward.yml")).toBeNull()
   })
+
+  it("lists Nordtal's translations, then Nordtal's configs, then everything third-party", async () => {
+    const files = [
+      { service: "smp", name: "bStats/config.yml", path: "smp/bStats/config.yml", readable: true, writable: true, origin: "third-party", plugin: "bStats" },
+      { service: "smp", name: "smp/milestones.yml", path: "smp/smp/milestones.yml", readable: true, writable: true, origin: "nordtal", plugin: "SMP" },
+      { service: "smp", name: "voicechat/voicechat-server.properties", path: "smp/voicechat/voicechat-server.properties", readable: true, writable: true, origin: "third-party", plugin: "voicechat" },
+      { service: "smp", name: "DisplayTags/config.yml", path: "smp/DisplayTags/config.yml", readable: true, writable: true, origin: "nordtal", plugin: "Display Tags" },
+      { service: "smp", name: "smp/config.yml", path: "smp/smp/config.yml", readable: true, writable: true, origin: "nordtal", plugin: "SMP" },
+    ]
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/config") return json(files)
+        if (url === "/api/messages") return json([{ service: "smp", module: "smp", path: "smp/smp/messages", writable: true }])
+        throw new Error(`the list asked for ${url}, which this test did not expect`)
+      }),
+    )
+
+    draw(<Settings service="smp" />)
+
+    await screen.findByText("SMP Translations")
+    const nav = screen.getByRole("navigation", { name: "Files" })
+    const lines = Array.from(nav.querySelectorAll("h3, button")).map((node) => node.textContent?.trim())
+    expect(lines).toEqual([
+      "Nordtal",
+      "SMP Translations",
+      "Config",
+      "Display Tags Config",
+      "Milestones",
+      "Third-party",
+      "bStats Config",
+      "Voicechat Server",
+    ])
+  })
+
+  it("draws no group headings when every file is Nordtal's", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        "discord-bot/bot.yml": {
+          ...location({ path: "discord-bot/bot.yml", name: "bot.yml", service: "discord-bot" }),
+          revision: "r1",
+          header: [],
+          entries: [],
+        },
+      }),
+    )
+    draw(<Settings service="discord-bot" />)
+    await screen.findByText("Bot")
+    expect(screen.getByRole("navigation", { name: "Files" }).querySelector("h3")).toBeNull()
+  })
 })
 
 /**
@@ -495,7 +546,7 @@ describe("database.yml", () => {
       }),
     )
     draw(<Settings service="smp" />)
-    await open("Smp database")
+    await open("Database")
 
     await screen.findByText("Read-only.")
     expect((screen.getByDisplayValue("postgres") as HTMLInputElement).disabled).toBe(true)
@@ -520,10 +571,9 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
     draw(<Settings service="steward-worker" />)
     await open("Readme")
 
-    await screen.findByText("Editable as raw text.")
-    // `getByDisplayValue`'s default normalizer trims trailing whitespace, so the trailing newline
+    // `findByDisplayValue`'s default normalizer trims trailing whitespace, so the trailing newline
     // the fixture's content ends in is not part of what it matches against.
-    screen.getByDisplayValue("Read me.")
+    await screen.findByDisplayValue("Read me.")
     const save = screen.getByRole("button", { name: /Save/ }) as HTMLButtonElement
     expect(save.disabled).toBe(true)
   })
@@ -545,8 +595,7 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
     draw(<Settings service="smp" />)
     await open("Readme")
 
-    await screen.findByText("This file is mounted read-only.")
-    screen.getByDisplayValue("Read me.")
+    await screen.findByDisplayValue("Read me.")
     expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
   })
 

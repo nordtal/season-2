@@ -1,10 +1,8 @@
-import { FileCodeIcon, LockIcon } from "@phosphor-icons/react"
 import { useEffect, useRef, useState } from "react"
 import type { UIEvent } from "react"
 
 import type { EditableRawConfigDocument, RawConfigFormat } from "@/lib/api"
 import { useSaveRawConfig } from "@/lib/queries"
-import { humanFileName } from "@/components/steward/config-controls"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Failure } from "@/components/steward/query-state"
@@ -34,9 +32,12 @@ import { Failure } from "@/components/steward/query-state"
 export function RawConfigEditor({
   file,
   document,
+  origin,
 }: {
   file: string
   document: EditableRawConfigDocument
+  /** Who wrote the file; without it the editor says nothing above the text. */
+  origin?: "nordtal" | "third-party"
 }) {
   const [content, setContent] = useState(document.content)
   const [warnings, setWarnings] = useState<string[]>([])
@@ -62,29 +63,14 @@ export function RawConfigEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      {document.writable ? (
-        <Alert>
-          <FileCodeIcon aria-hidden />
-          <AlertTitle>Editable as raw text.</AlertTitle>
-          <AlertDescription>
-            Steward could not read {humanFileName(document.name)} ({document.name}) as a config
-            file{document.reason ? `: ${document.reason}` : "."} It is shown and edited exactly as
-            it stands on disk - {formatNameOf(format)} is checked on save, but a problem there is a
-            warning naming the line, never a reason this refuses to save.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <Alert>
-          <LockIcon aria-hidden />
-          <AlertTitle>This file is mounted read-only.</AlertTitle>
-          <AlertDescription>
-            Steward could not read {humanFileName(document.name)} ({document.name}) as a config
-            file{document.reason ? `: ${document.reason}` : "."} It is shown exactly as it stands
-            on disk; the mount underneath it does not allow a save from here, so it cannot be
-            edited either.
-          </AlertDescription>
-        </Alert>
-      )}
+      {origin === "nordtal" ? (
+        // A Nordtal file always has a schema, so raw text means it did not parse - worth one line.
+        // A third-party plugin's file is text and nothing more; there is nothing to say above it.
+        <details className="text-sm text-muted-foreground">
+          <summary className="cursor-pointer">Shown as text, it did not parse.</summary>
+          {document.reason ? <p className="mt-1 font-mono text-xs">{document.reason}</p> : null}
+        </details>
+      ) : null}
 
       {save.error ? <Failure error={save.error} /> : null}
 
@@ -111,9 +97,7 @@ export function RawConfigEditor({
 
       {document.writable ? (
         <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 py-3 backdrop-blur">
-          <p className="text-sm text-muted-foreground">
-            {dirty ? "Unsaved changes." : "Nothing changed."}
-          </p>
+          <p className="text-sm text-muted-foreground">{dirty ? "Unsaved changes." : null}</p>
           <div className="flex items-center gap-2">
             <Button
               type="button"
@@ -153,21 +137,6 @@ export function formatOf(fileName: string): RawConfigFormat {
   if (leaf.endsWith(".toml")) return "toml"
   if (leaf.endsWith(".properties")) return "properties"
   return "text"
-}
-
-function formatNameOf(format: RawConfigFormat): string {
-  switch (format) {
-    case "yaml":
-      return "YAML"
-    case "json":
-      return "JSON"
-    case "toml":
-      return "TOML"
-    case "properties":
-      return "properties syntax"
-    case "text":
-      return "nothing"
-  }
 }
 
 // -------------------------------------------------------------------------------------------

@@ -53,7 +53,6 @@ import {
   configLeafMatches,
   configTree,
   filterTree,
-  humanise,
   idsBelow,
   leafCount,
   messageLeafMatches,
@@ -72,7 +71,8 @@ import {
   RawConfigView,
   type Draft,
 } from "@/components/steward/configuration"
-import { explanationOf, humanFileName } from "@/components/steward/config-controls"
+import { explanationOf } from "@/components/steward/config-controls"
+import { configTitle, translationsTitle } from "@/lib/words"
 import type { PairedBlocks } from "@/components/steward/paired-blocks"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
@@ -113,10 +113,11 @@ export function ServiceSettings({
   const report = useRef(onFile)
   report.current = onFile
 
-  const files = useMemo(
-    () => filesOf(service, configs.data ?? [], bundles.data ?? []),
+  const groups = useMemo(
+    () => groupsOf(service, configs.data ?? [], bundles.data ?? []),
     [service, configs.data, bundles.data],
   )
+  const files = useMemo(() => groups.flatMap((group) => group.items), [groups])
   const loading = configs.isPending || bundles.isPending
   // On a wide screen the content column is never empty: without a chosen file it shows the first
   // one. That is derived, not written into the URL - a write from here would still run in the
@@ -163,14 +164,21 @@ export function ServiceSettings({
             ))
           : files.length === 0 && !failure
             ? <p className="px-2 text-sm text-muted-foreground">No files.</p>
-            : files.map((item) => (
-                <FileRow
-                  key={item.id}
-                  item={item}
-                  selected={item.id === shown}
-                  dirty={dirty.includes(item.id)}
-                  onSelect={() => onFile(item.id)}
-                />
+            : groups.map((group) => (
+                <Fragment key={group.label ?? "files"}>
+                  {group.label ? (
+                    <h3 className="px-2 pt-3 pb-1 text-xs font-medium text-muted-foreground first:pt-0">{group.label}</h3>
+                  ) : null}
+                  {group.items.map((item) => (
+                    <FileRow
+                      key={item.id}
+                      item={item}
+                      selected={item.id === shown}
+                      dirty={dirty.includes(item.id)}
+                      onSelect={() => onFile(item.id)}
+                    />
+                  ))}
+                </Fragment>
               ))}
       </nav>
 
@@ -221,14 +229,21 @@ type FileItem =
   | { kind: "config"; id: string; label: string; readable: boolean; writable: boolean; location: ConfigLocation }
   | { kind: "bundle"; id: string; label: string; readable: boolean; writable: boolean; location: MessageBundleLocation }
 
-function filesOf(service: string, configs: ConfigLocation[], bundles: MessageBundleLocation[]): FileItem[] {
+type FileGroup = { label: string | null; items: FileItem[] }
+
+/**
+ * Nordtal's files first - its translations, then its configs - and everything a third-party plugin
+ * wrote below them, by the same Nordtal set the plugins tab uses. The headings only appear when
+ * there is a third-party group to tell apart.
+ */
+function groupsOf(service: string, configs: ConfigLocation[], bundles: MessageBundleLocation[]): FileGroup[] {
   const byLabel = (a: FileItem, b: FileItem) => a.label.localeCompare(b.label)
   const settings: FileItem[] = configs
     .filter((file) => file.service === service || (file.service === "" && service === "steward-ui"))
     .map((location) => ({
       kind: "config",
       id: location.path,
-      label: humanFileName(location.name),
+      label: configTitle(location),
       readable: location.readable,
       writable: location.writable,
       location,
@@ -238,12 +253,19 @@ function filesOf(service: string, configs: ConfigLocation[], bundles: MessageBun
     .map((location) => ({
       kind: "bundle",
       id: bundleFileId(location.path),
-      label: humanise(location.module || location.service),
+      label: translationsTitle(location),
       readable: true,
       writable: location.writable,
       location,
     }))
-  return [...settings.sort(byLabel), ...translations.sort(byLabel)]
+  const thirdParty = (item: FileItem) => item.kind === "config" && item.location.origin === "third-party"
+  const nordtal = [...translations.sort(byLabel), ...settings.filter((item) => !thirdParty(item)).sort(byLabel)]
+  const others = settings.filter(thirdParty).sort(byLabel)
+  if (others.length === 0) return [{ label: null, items: nordtal }]
+  return [
+    { label: "Nordtal", items: nordtal },
+    { label: "Third-party", items: others },
+  ].filter((group) => group.items.length > 0)
 }
 
 /** Whether the two-column layout is showing - Tailwind's `lg`. */
@@ -523,7 +545,7 @@ function ConfigFile({ item, target }: { item: Extract<FileItem, { kind: "config"
     <QueryState query={document} rows={8}>
       {(read) =>
         read.raw ? (
-          <RawConfigView file={item.location.path} document={read} />
+          <RawConfigView file={item.location.path} document={read} origin={item.location.origin} />
         ) : (
           <ConfigForm file={item.id} document={read as ReloadAwareConfigDocument} target={target} />
         )

@@ -104,7 +104,7 @@ describe("the bundle row", () => {
 
     draw(<Settings service="smp" />)
 
-    await screen.findByRole("button", { name: "Smp" })
+    await screen.findByRole("button", { name: "SMP Translations" })
   })
 
   it("shows nothing for a service with no bundle here", async () => {
@@ -134,7 +134,7 @@ describe("the en/de toggle", () => {
   it("shows English packaged text by default", async () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Settings service="smp" />)
-    await open("Smp")
+    await open("SMP Translations")
 
     await screen.findByDisplayValue("Welcome")
   })
@@ -142,7 +142,7 @@ describe("the en/de toggle", () => {
   it("switches to the override once German is selected, rather than the packaged text", async () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Settings service="smp" />)
-    await open("Smp")
+    await open("SMP Translations")
     await screen.findByDisplayValue("Welcome")
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: /DE/ }))
@@ -175,7 +175,7 @@ describe("saving a line", () => {
       ),
     )
     draw(<Settings service="smp" />)
-    await open("Smp")
+    await open("SMP Translations")
     const field = await screen.findByDisplayValue("Hello <_sender>")
     fireEvent.change(field, { target: { value: "Hello there" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
@@ -211,7 +211,7 @@ describe("saving a line", () => {
       ),
     )
     draw(<Settings service="smp" />)
-    await open("Smp")
+    await open("SMP Translations")
     const field = await screen.findByDisplayValue("Welcome")
     fireEvent.change(field, { target: { value: "Howdy" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
@@ -248,7 +248,7 @@ describe("saving a line", () => {
       ),
     )
     draw(<Settings service="discord-bot" />)
-    await open("Discord bot")
+    await open("Discord Bot Translations")
     const field = await screen.findByDisplayValue("You are in")
     fireEvent.change(field, { target: { value: "Welcome in" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
@@ -282,7 +282,7 @@ describe("saving a line", () => {
       ),
     )
     draw(<Settings service="smp" />)
-    await open("Smp")
+    await open("SMP Translations")
     await screen.findByDisplayValue("Howdy")
 
     fireEvent.click(screen.getByRole("button", { name: /Reset/ }))
@@ -314,7 +314,7 @@ describe("the tree of a bundle", () => {
       }),
     )
     draw(<Settings service="smp" />)
-    await open("Smp")
+    await open("SMP Translations")
 
     await screen.findByRole("button", { name: /Graves.*Decay/ })
     screen.getByText("Decay warning")
@@ -346,7 +346,7 @@ describe("both languages in one save", () => {
       ),
     )
     draw(<Settings service="smp" />)
-    await open("Smp")
+    await open("SMP Translations")
 
     fireEvent.change(await screen.findByDisplayValue("one"), { target: { value: "ONE" } })
     const tabs = screen.getAllByRole("tab", { name: /DE/ })
@@ -382,7 +382,7 @@ describe("placeholders", () => {
   it("refuses to save a placeholder the text does not declare, and says which", async () => {
     withGreeting()
     draw(<Settings service="smp" />)
-    await open("Smp")
+    await open("SMP Translations")
 
     fireEvent.change(await screen.findByDisplayValue("Hello {player}"), { target: { value: "Hello {palyer}" } })
 
@@ -393,7 +393,7 @@ describe("placeholders", () => {
   it("inserts a declared placeholder from its badge", async () => {
     withGreeting()
     draw(<Settings service="smp" />)
-    await open("Smp")
+    await open("SMP Translations")
     const field = (await screen.findByDisplayValue("Hello {player}")) as HTMLTextAreaElement
     field.setSelectionRange(0, 0)
 
@@ -415,7 +415,7 @@ describe("a jump from the command palette", () => {
       }),
     )
     draw(<Settings service="smp" />)
-    await screen.findByRole("button", { name: "Smp" })
+    await screen.findByRole("button", { name: "SMP Translations" })
 
     setPendingMessageJump("smp", { path: "smp/smp", language: "de", key: "welcome" })
 

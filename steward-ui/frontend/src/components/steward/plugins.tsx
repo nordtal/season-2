@@ -128,14 +128,14 @@ export function ServicePlugins({ service }: { service: string }) {
       </QueryState>
 
       <ResponsiveDialog open={adding} onOpenChange={setAdding}>
-        <ResponsiveDialogContent>
-          <ResponsiveDialogHeader>
+        {/* The search stays put and only the results scroll, flush to the dialog's edge with the
+            padding inside, so the bar sits on the border rather than against the rows. */}
+        <ResponsiveDialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg" data-testid="add-plugin">
+          <ResponsiveDialogHeader className="px-4 pt-4 pb-3">
             <ResponsiveDialogTitle>Add plugin</ResponsiveDialogTitle>
             <ResponsiveDialogDescription className="sr-only">Search Modrinth</ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
-          <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
-            <Search service={service} loader={plugins.data?.loader} version={plugins.data?.gameVersion} />
-          </div>
+          <Search service={service} loader={plugins.data?.loader} version={plugins.data?.gameVersion} />
         </ResponsiveDialogContent>
       </ResponsiveDialog>
     </div>
@@ -412,7 +412,7 @@ function Search({
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 px-4 pb-3">
         <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <Input
           value={typed}
@@ -427,6 +427,7 @@ function Search({
         ) : null}
       </div>
 
+      <div className="max-h-[60vh] overflow-y-auto border-t border-border px-4 py-3" data-testid="add-plugin-results">
       <QueryState
         query={results}
         isEmpty={(answer) => answer.hits.length === 0}
@@ -466,6 +467,7 @@ function Search({
           </ul>
         )}
       </QueryState>
+      </div>
     </>
   )
 }

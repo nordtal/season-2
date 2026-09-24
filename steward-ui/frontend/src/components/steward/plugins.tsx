@@ -42,10 +42,10 @@ import { StatusBadge } from "@/components/steward/status"
  * added one has a row somebody can delete. The trash button follows from the group, not from a
  * second rule.
  *
- * **A plugin is running or pre-booked, and the badge is the difference.** Installing writes the row
- * and the next update run fetches the jar; a list that drew both the same way would be claiming the
- * server runs something it does not have. A plugin the network gives that is not on the disk yet is
- * the same case from the other side, so it is drawn the same way.
+ * **A plugin is running or not installed, and the badge is the difference.** Installing writes the
+ * row and the next update run that can fetch the jar brings it; a plugin the network gives that is
+ * not on the disk is the same case from the other side. The worker lists both, and the badge says
+ * "No 26.2 build" instead when the update check finds nothing to install.
  *
  * **Check for updates writes nothing.** It asks every source again and shows the answer on the rows;
  * installing it is an update run, which is the Update button in the header.
@@ -96,11 +96,11 @@ export function ServicePlugins({ service }: { service: string }) {
         {(answer) =>
           answer && !answer.mounted ? (
             <Empty title="No volume" />
-          ) : answer && answer.plugins.length === 0 && !missing(service, changes).length ? (
+          ) : answer && answer.plugins.length === 0 ? (
             <Empty title="Nothing installed" />
           ) : answer ? (
             <div className="flex flex-col gap-4">
-              {groupPlugins(answer.plugins, missing(service, changes)).map(([group, rows]) => (
+              {groupPlugins(answer.plugins).map(([group, rows]) => (
                 <section key={group} className="flex flex-col">
                   <h3 className="text-xs text-muted-foreground">{GROUP_TITLES[group]}</h3>
                   <ul className="flex flex-col">
@@ -110,6 +110,7 @@ export function ServicePlugins({ service }: { service: string }) {
                         service={service}
                         plugin={plugin}
                         status={pluginStatus(service, plugin, changes, answer.gameVersion)}
+                        absence={absence(service, plugin, changes, answer.gameVersion)}
                       />
                     ))}
                   </ul>
@@ -157,33 +158,32 @@ const GROUP_TITLES: Record<Group, string> = {
 const WAITING_PLUGINS = [undefined, undefined, undefined]
 
 /**
- * The plugins in their three lists, each alphabetical, empty ones left out. The plugins the network
- * should give but that are not on the disk yet join the preinstalled list.
+ * The plugins in their three lists, empty ones left out. Each is alphabetical, except that a
+ * Nordtal plugin the worker ranks comes first in its rank's order.
  */
-export function groupPlugins(plugins: ServicePlugin[], absent: ServicePlugin[] = []): [Group, ServicePlugin[]][] {
-  const all = [...plugins, ...absent]
+export function groupPlugins(plugins: ServicePlugin[]): [Group, ServicePlugin[]][] {
+  const rank = (plugin: ServicePlugin) => plugin.rank ?? Number.MAX_SAFE_INTEGER
   return GROUP_ORDER.map((group): [Group, ServicePlugin[]] => [
     group,
-    all
+    plugins
       .filter((plugin) => (plugin.group ?? "added") === group)
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })),
+      .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" })),
   ]).filter(([, rows]) => rows.length > 0)
 }
 
 /**
- * A plugin the network gives that is not on the disk: the update check says `MISSING`, and the next
- * run installs it. Drawn as a pre-booked row, because that is what it is.
+ * The badge on a plugin that is not on the disk: no build for this Minecraft version when the update
+ * check says nothing resolves, and otherwise simply that it is not installed.
  */
-export function missing(service: string, changes?: AvailableChange[]): ServicePlugin[] {
-  return (changes ?? [])
-    .filter((change) => change.service === service && change.status === "MISSING")
-    .map((change) => ({
-      name: change.artifact,
-      running: false,
-      removable: false,
-      version: change.version ?? versionOf(change.fileName),
-      group: "preinstalled" as const,
-    }))
+export function absence(
+  service: string,
+  plugin: ServicePlugin,
+  changes: AvailableChange[] | undefined,
+  gameVersion?: string,
+): string | undefined {
+  if (plugin.running) return undefined
+  const change = (changes ?? []).find((it) => it.service === service && it.artifact === plugin.artifact)
+  return change?.status === "UNSUPPORTED" ? (gameVersion ? `No ${gameVersion} build` : "No build") : "Not installed"
 }
 
 /** The version in a jar's name: what follows the last `-` of the stem, as `JarName` reads it. */
@@ -229,10 +229,12 @@ function PluginRow({
   service,
   plugin,
   status,
+  absence,
 }: {
   service: string
   plugin?: ServicePlugin
   status?: PluginStatus
+  absence?: string
 }) {
   const version = plugin ? (plugin.version ?? versionOf(plugin.fileName)) : undefined
   return (
@@ -251,10 +253,8 @@ function PluginRow({
           </>
         )}
       </div>
-      {plugin && !plugin.running ? (
-        <StatusBadge tone="idle" tipContent="Installs with the next update run.">
-          pre-booked
-        </StatusBadge>
+      {plugin && absence ? (
+        <StatusBadge tone="idle">{absence}</StatusBadge>
       ) : status ? (
         <span
           className={
@@ -363,7 +363,7 @@ function RemoveButton({
  * read: both names appear, and `plugins/<name>/` is the one that matters - it is the only
  * hand-edited directory in the whole installation. A running plugin whose jar carried no readable
  * descriptor: the folder is **not** named, because nobody verified it, and the sentence says so
- * rather than inventing one. A pre-booked plugin: there is no jar and no folder, only the row.
+ * rather than inventing one. A plugin that is not installed: there is no jar and no folder, only the row.
  */
 export function removalSentence(plugin: ServicePlugin): string {
   if (!plugin.running) {

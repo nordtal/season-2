@@ -146,7 +146,7 @@ class PluginDirectoryIntegrationTest {
     void theServiceNameIsConstrained() {
         // The same alphabet `update_request.scope` and `service_hold.service` are held to. A row
         // naming `SMP ` or `../smp` is one the resolver would silently never match to a service,
-        // which is the failure that leaves a plugin pre-booked forever with nothing saying why.
+        // which is the failure that leaves a plugin not installed forever with nothing saying why.
         assertThrows(RuntimeException.class,
                 () -> plugins.add(row("SMP", "worldedit", "worldedit-bukkit")));
     }

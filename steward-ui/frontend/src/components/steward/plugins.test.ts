@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { groupPlugins, missing, pluginStatus, removalSentence, versionOf } from "@/components/steward/plugins"
+import { groupPlugins, pluginStatus, removalSentence, versionOf } from "@/components/steward/plugins"
 import type { AvailableChange, ServicePlugin } from "@/lib/api"
 
 /**
@@ -43,7 +43,7 @@ describe("what the confirmation promises before a plugin is removed", () => {
     expect(sentence).toContain("Chunky-Bukkit-1.5.3.jar")
   })
 
-  it("promises nothing about the disk for a plugin that is only pre-booked", () => {
+  it("promises nothing about the disk for a plugin that is not installed", () => {
     const sentence = removalSentence(plugin({ running: false, fileName: undefined }))
 
     expect(sentence).not.toMatch(/plugins\/\S+\//)
@@ -104,13 +104,12 @@ describe("the three lists", () => {
     ])
   })
 
-  it("adds what the network should give but the disk lacks, pre-booked", () => {
-    const absent = missing("smp", [
-      { service: "smp", artifact: "coreprotect", status: "MISSING", work: true, failure: false, version: "24.1" },
-      { service: "limbo", artifact: "other", status: "MISSING", work: true, failure: false },
+  it("puts a Nordtal plugin with a rank before the alphabet", () => {
+    const groups = groupPlugins([
+      plugin({ name: "SMP", group: "nordtal", rank: 1 }),
+      plugin({ name: "Display Tags", group: "nordtal", rank: 0 }),
+      plugin({ name: "Hunger Games", group: "nordtal", rank: 4 }),
     ])
-    expect(absent).toEqual([
-      { name: "coreprotect", running: false, removable: false, version: "24.1", group: "preinstalled" },
-    ])
+    expect(groups[0][1].map((it) => it.name)).toEqual(["Display Tags", "SMP", "Hunger Games"])
   })
 })

@@ -549,6 +549,8 @@ export type ServicePlugin = {
    * `preinstalled` one the network gives from elsewhere, `added` one somebody installed here.
    */
   group?: "nordtal" | "preinstalled" | "added"
+  /** A Nordtal plugin's place in its list, before the alphabet; display-tags leads. */
+  rank?: number
   running: boolean
   removable: boolean
   filePrefix?: string
@@ -562,7 +564,10 @@ export type ServicePlugin = {
    * hand-edited thing in the installation.
    */
   dataFolder?: string
-  /** Only on an added plugin - it is the Modrinth slug, and the id the remove button sends. */
+  /**
+   * On an added plugin the Modrinth slug, and the id the remove button sends; on a plugin the
+   * network gives that is not on the disk, its artefact id in the update check.
+   */
   artifact?: string
   projectId?: string
   added?: string

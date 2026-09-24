@@ -15,6 +15,7 @@ import { cancellable } from "@/pages/operations"
 function row(over: Partial<Run> = {}): Run {
   return {
     id: 79,
+    scope: [],
     kind: "RESTART",
     status: "PENDING",
     source: "CONSOLE",

@@ -86,6 +86,7 @@ function ctrlK(target: Element | Document) {
 function run(over: Partial<Run> = {}): Run {
   return {
     id: 91,
+    scope: [],
     kind: "BACKUP",
     status: "FAILED",
     source: "SCHEDULE",

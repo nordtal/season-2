@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
 
@@ -44,6 +45,7 @@ import java.util.List;
 public interface AccessSpec {
 
     @Order(1)
+    @Name("Guild ID")
     @Key("guild-id")
     @Comment({
             "The one guild the bot manages. Roles are reconciled and members are",
@@ -55,6 +57,7 @@ public interface AccessSpec {
     }
 
     @Order(2)
+    @Name("Tiers")
     @Key("tiers")
     @Comment({
             "What can be bought. A list, so a fourth tier is an edit here and not a release.",
@@ -78,6 +81,7 @@ public interface AccessSpec {
     }
 
     @Order(3)
+    @Name("Donation (cents)")
     @Key("donation-cents")
     @Comment({
             "The optional surcharge that grants the permanent donor role, in cents.",
@@ -91,6 +95,7 @@ public interface AccessSpec {
     }
 
     @Order(4)
+    @Name("Roles")
     @Key("roles")
     @Comment({
             "Role ids that are not per-language. Snowflakes, as strings - a snowflake does not fit",
@@ -100,6 +105,7 @@ public interface AccessSpec {
     RolesSpec roles();
 
     @Order(5)
+    @Name("Channels")
     @Key("channels")
     @Comment({
             "Channel ids that are not per-language. Snowflakes, as strings. The buy-access and",
@@ -109,6 +115,7 @@ public interface AccessSpec {
     ChannelsSpec channels();
 
     @Order(6)
+    @Name("Languages")
     @Key("languages")
     @Comment({
             "Every language the network speaks. A list, so a third language is an edit here and",
@@ -143,6 +150,7 @@ public interface AccessSpec {
     }
 
     @Order(7)
+    @Name("Payment")
     @Key("payment")
     @Comment("The life cycle of a payment request, and how often the bot re-reads the seam.")
     @Explain("The life cycle of a payment request, and how often the bot re-reads the payment seam.")
@@ -152,6 +160,7 @@ public interface AccessSpec {
     // only process that can act on a TTL. proxy's gate.yml owns the only one.
 
     @Order(8)
+    @Name("Reminder before expiry (days)")
     @Key("expiry-reminder-lead-days")
     @Comment("How many days before access runs out the reminder DM is sent.")
     @NoExplanationNeeded
@@ -160,6 +169,7 @@ public interface AccessSpec {
     }
 
     @Order(9)
+    @Name("Role sync interval (minutes)")
     @Key("role-reconcile-interval-minutes")
     @Comment({
             "How often the access role is reconciled against the database.",
@@ -172,6 +182,7 @@ public interface AccessSpec {
     }
 
     @Order(10)
+    @Name("Link code attempts per hour")
     @Key("link-code-attempts-per-hour")
     @Comment({
             "How many WRONG link codes one Discord account may submit per hour before the modal",
@@ -207,6 +218,7 @@ public interface AccessSpec {
     interface TierSpec {
 
         @Order(1)
+        @Name("Duration (days)")
         @Key("days")
         @Comment("How many days of access this buys. A day is exactly 24 hours.")
         @NoExplanationNeeded
@@ -215,6 +227,7 @@ public interface AccessSpec {
         }
 
         @Order(2)
+        @Name("Price (cents)")
         @Key("price-cents")
         @Comment("What it costs, in cents. Integer cents everywhere; never a float.")
         @NoExplanationNeeded
@@ -232,6 +245,7 @@ public interface AccessSpec {
     interface LanguageSpec {
 
         @Order(1)
+        @Name("Tag")
         @Key("tag")
         @Comment({
                 "The language tag, lower case. It is the bundle file name in every module's",
@@ -244,6 +258,7 @@ public interface AccessSpec {
         }
 
         @Order(2)
+        @Name("Discord role")
         @Key("role")
         @Comment({
                 "The role Discord's own onboarding assigns for this language. Read-only for the",
@@ -256,6 +271,7 @@ public interface AccessSpec {
         }
 
         @Order(3)
+        @Name("Contribution channel")
         @Key("contribution-channel")
         @Comment("Carries the buy-access message in this language, and its donation thank-yous.")
         @Explain("Carries the buy-access message in this language, and its donation thank-yous.")
@@ -264,6 +280,7 @@ public interface AccessSpec {
         }
 
         @Order(4)
+        @Name("Link channel")
         @Key("link-channel")
         @Comment("Carries the account-link message in this language.")
         @Explain("Carries the account-link message in this language.")
@@ -272,6 +289,7 @@ public interface AccessSpec {
         }
 
         @Order(5)
+        @Name("Hunger Games channel")
         @Key("hunger-games-channel")
         @Comment({
                 "Carries the hunger games Register message in this language - a separate channel",
@@ -284,6 +302,7 @@ public interface AccessSpec {
         }
 
         @Order(6)
+        @Name("Status channel")
         @Key("status-channel")
         @Comment({
                 "The channel this language's status line is written into, as a channel NAME - the",
@@ -309,6 +328,7 @@ public interface AccessSpec {
         }
 
         @Order(7)
+        @Name("Announcement channel")
         @Key("announcement-channel")
         @Comment({
                 "The channel this language's announcements are POSTED into, as a channel id: a",
@@ -335,6 +355,7 @@ public interface AccessSpec {
     interface RolesSpec {
 
         @Order(1)
+        @Name("Access role")
         @Key("access")
         @Comment({
                 "Strictly bot-owned. It is added and removed to match the database, so granting",
@@ -346,6 +367,7 @@ public interface AccessSpec {
         }
 
         @Order(2)
+        @Name("Donor role")
         @Key("donor")
         @Comment({
                 "Granted on a donation and never taken away, by the bot or by the reconcile.",
@@ -360,6 +382,7 @@ public interface AccessSpec {
         // its `languages` entry, which is what keeps a third language out of the code.
 
         @Order(3)
+        @Name("Admin role")
         @Key("admin")
         @Comment({
                 "Who is an admin. Read-only for the bot, exactly like the language roles on the",
@@ -378,6 +401,7 @@ public interface AccessSpec {
         }
 
         @Order(4)
+        @Name("Admin ping role")
         @Key("admin-ping")
         @Comment({
                 "Mentioned in the admin channel for entries that need a human.",
@@ -401,6 +425,7 @@ public interface AccessSpec {
     interface ChannelsSpec {
 
         @Order(1)
+        @Name("Admin channel")
         @Key("admin")
         @Comment({
                 "Everything a human may need to act on: unmatchable payments, payments on an",
@@ -434,6 +459,7 @@ public interface AccessSpec {
     interface PaymentSpec {
 
         @Order(1)
+        @Name("Poll interval (seconds)")
         @Key("poll-interval-seconds")
         @Comment({
                 "How often the bot re-reads the payment seam: money steward-worker has matched and",
@@ -450,6 +476,7 @@ public interface AccessSpec {
         }
 
         @Order(2)
+        @Name("Request lifetime (hours)")
         @Key("request-ttl-hours")
         @Comment({
                 "How long an unpaid request stays open. Past this the bunq tab is cancelled and",

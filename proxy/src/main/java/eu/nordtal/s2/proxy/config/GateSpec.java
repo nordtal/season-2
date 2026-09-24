@@ -5,6 +5,7 @@ import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code config/gate.yml} - everything the login gate and the mid-session expiry check need that
@@ -29,6 +30,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 public interface GateSpec {
 
     @Order(1)
+    @Name("Discord invite URL")
     @Key("discord-invite-url")
     @Comment({
             "Shown on every disconnect screen that points a player at Discord: not yet a member",
@@ -46,6 +48,7 @@ public interface GateSpec {
     }
 
     @Order(2)
+    @Name("Link code lifetime (minutes)")
     @Key("link-code-ttl-minutes")
     @Comment({
             "How long a freshly issued link code stays valid. A repeated join attempt inside",
@@ -59,6 +62,7 @@ public interface GateSpec {
     }
 
     @Order(3)
+    @Name("Fallback cache window (minutes)")
     @Key("fallback-cache-window-minutes")
     @Comment({
             "How long a player's last-known state stays usable once the database becomes",
@@ -72,6 +76,7 @@ public interface GateSpec {
     }
 
     @Order(4)
+    @Name("Expiry check interval (seconds)")
     @Key("expiry-check-interval-seconds")
     @Comment({
             "How often every connected, linked player's access is re-checked against the",
@@ -89,6 +94,7 @@ public interface GateSpec {
     }
 
     @Order(5)
+    @Name("Warning before expiry (minutes)")
     @Key("expiry-warning-lead-minutes")
     @Comment("How long before access ends the in-chat warning is shown, once, per remaining period.")
     @Explain("Shown once per remaining period, never repeated.")
@@ -97,6 +103,7 @@ public interface GateSpec {
     }
 
     @Order(6)
+    @Name("Phase poll interval (seconds)")
     @Key("phase-poll-interval-seconds")
     @Comment({
             "How often the season_phase row is re-read. THIRTY SECONDS IS THE DECIDED VALUE;",
@@ -115,6 +122,7 @@ public interface GateSpec {
     }
 
     @Order(7)
+    @Name("Listen for phase changes")
     @Key("phase-listen-enabled")
     @Comment({
             "Whether to also hold a dedicated LISTEN connection on the 'nordtal_phase' channel,",
@@ -136,6 +144,7 @@ public interface GateSpec {
     }
 
     @Order(8)
+    @Name("Playtime flush interval (seconds)")
     @Key("playtime-flush-interval-seconds")
     @Comment({
             "How often accumulated online time is written to player_playtime for players who are",
@@ -159,6 +168,7 @@ public interface GateSpec {
     }
 
     @Order(9)
+    @Name("Limbo server")
     @Key("server-limbo")
     @Comment({
             "The three keys below name the backends this proxy routes to, per phase:",
@@ -183,6 +193,7 @@ public interface GateSpec {
     }
 
     @Order(10)
+    @Name("Hunger Games server")
     @Key("server-hunger-games")
     @Comment("The backend for PRE_EVENT and START_EVENT. See server-limbo above.")
     @Explain("The backend name for PRE_EVENT and START_EVENT - must match a real server in velocity.toml.")
@@ -191,6 +202,7 @@ public interface GateSpec {
     }
 
     @Order(11)
+    @Name("SMP server")
     @Key("server-smp")
     @Comment("The backend for SMP. See server-limbo above.")
     @Explain("The backend name for SMP - must match a real server in velocity.toml.")
@@ -199,6 +211,7 @@ public interface GateSpec {
     }
 
     @Order(12)
+    @Name("Limbo standby server")
     @Key("server-limbo-standby")
     @Comment({
             "THE SECOND WAITING ROOM, and the only reason it exists is that the first one can",
@@ -221,6 +234,7 @@ public interface GateSpec {
     }
 
     @Order(13)
+    @Name("Limbo sweep interval (seconds)")
     @Key("limbo-sweep-interval-seconds")
     @Comment({
             "How often the players currently held in the waiting room are re-examined.",
@@ -239,6 +253,7 @@ public interface GateSpec {
     }
 
     @Order(14)
+    @Name("Limbo ready grace (seconds)")
     @Key("limbo-ready-grace-seconds")
     @Comment({
             "How long the waiting room may be down to its last condition - limbo's own",

@@ -5,6 +5,7 @@ import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code config/pack.yml} - the resource pack the proxy offers every player on their way through
@@ -47,6 +48,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 public interface PackSpec {
 
     @Order(1)
+    @Name("Enabled")
     @Key("enabled")
     @Comment({
             "Whether a pack is offered at all.",
@@ -66,6 +68,7 @@ public interface PackSpec {
     }
 
     @Order(2)
+    @Name("URL")
     @Key("url")
     @Comment({
             "Where the client downloads the pack from - the GitHub release asset built by",
@@ -86,6 +89,7 @@ public interface PackSpec {
     }
 
     @Order(3)
+    @Name("SHA-1")
     @Key("sha1")
     @Comment({
             "The SHA-1 of exactly the zip at the url above, as 40 hex characters - the content",
@@ -102,6 +106,7 @@ public interface PackSpec {
     }
 
     @Order(4)
+    @Name("Force")
     @Key("force")
     @Comment({
             "Whether the offer is marked as required.",
@@ -124,6 +129,7 @@ public interface PackSpec {
     }
 
     @Order(5)
+    @Name("Apply timeout (seconds)")
     @Key("apply-timeout-seconds")
     @Comment({
             "How long a player may sit in the waiting room with an unanswered pack offer",

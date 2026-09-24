@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code config/database.yml} - this plugin's own pool on the shared PostgreSQL database, separate
@@ -30,6 +31,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 public interface DatabaseSpec {
 
     @Order(1)
+    @Name("JDBC URL")
     @Key("jdbc-url")
     @Comment("JDBC URL of the PostgreSQL database that holds the hunger games schema.")
     @Explain("The full JDBC connection string, including the database name.")
@@ -38,6 +40,7 @@ public interface DatabaseSpec {
     }
 
     @Order(2)
+    @Name("Username")
     @Key("username")
     @Comment("Database user.")
     @NoExplanationNeeded
@@ -46,6 +49,7 @@ public interface DatabaseSpec {
     }
 
     @Order(3)
+    @Name("Password")
     @Key("password")
     @Comment("Database password. Prefer NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD in production.")
     @NoExplanationNeeded
@@ -54,6 +58,7 @@ public interface DatabaseSpec {
     }
 
     @Order(4)
+    @Name("Connection pool size")
     @Key("maximum-pool-size")
     @Comment("Upper bound of the HikariCP pool.")
     @NoExplanationNeeded
@@ -62,6 +67,7 @@ public interface DatabaseSpec {
     }
 
     @Order(5)
+    @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
     @Comment({
             "How long this plugin waits for the database before giving up - applied BOTH to",

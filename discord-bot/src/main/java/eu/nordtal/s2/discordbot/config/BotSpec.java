@@ -5,6 +5,7 @@ import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
@@ -49,6 +50,7 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
 public interface BotSpec {
 
     @Order(1)
+    @Name("Bot token")
     @Key("token")
     @Comment("Discord bot token. Set NORDTAL_BOT_TOKEN instead of filling this in.")
     @Secret

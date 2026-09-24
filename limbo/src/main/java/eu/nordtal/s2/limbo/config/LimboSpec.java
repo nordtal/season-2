@@ -5,6 +5,7 @@ import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code plugins/limbo/config.yml} - the whole of the waiting room's settings, which is small on
@@ -46,6 +47,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 public interface LimboSpec {
 
     @Order(1)
+    @Name("World name")
     @Key("world-name")
     @Comment({
             "The name of the empty world this plugin creates and puts everybody in.",
@@ -62,6 +64,7 @@ public interface LimboSpec {
     }
 
     @Order(2)
+    @Name("Spawn Y")
     @Key("spawn-y")
     @Comment({
             "The height everybody stands at. Nothing is at any height, so this is only about",
@@ -74,6 +77,7 @@ public interface LimboSpec {
     }
 
     @Order(3)
+    @Name("Title refresh (seconds)")
     @Key("title-refresh-seconds")
     @Comment({
             "How often the waiting title is re-sent to every player here.",
@@ -93,6 +97,7 @@ public interface LimboSpec {
     }
 
     @Order(4)
+    @Name("Blindness")
     @Key("blindness")
     @Comment({
             "Whether players here are blinded, which is what makes the screen actually black.",
@@ -110,6 +115,7 @@ public interface LimboSpec {
     // ---------------------------------------------------------------- admin propagation
 
     @Order(5)
+    @Name("Admin poll interval (seconds)")
     @Key("admin-poll-interval-seconds")
     @Comment({
             "How often this server re-reads who is an admin, in seconds.",
@@ -129,6 +135,7 @@ public interface LimboSpec {
     }
 
     @Order(6)
+    @Name("Listen for admin changes")
     @Key("admin-listen-enabled")
     @Comment({
             "Whether to also open a dedicated LISTEN nordtal_admin connection.",

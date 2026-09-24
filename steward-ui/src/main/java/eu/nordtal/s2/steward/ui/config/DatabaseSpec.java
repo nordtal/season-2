@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code database.yml} - the same database every other process in this stack reads.
@@ -25,6 +26,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 public interface DatabaseSpec {
 
     @Order(1)
+    @Name("JDBC URL")
     @Key("jdbc-url")
     @Comment("The compose service name, not localhost - localhost inside a container is itself.")
     @Explain("The full JDBC connection string. Use the compose service name, not localhost.")
@@ -33,6 +35,7 @@ public interface DatabaseSpec {
     }
 
     @Order(2)
+    @Name("Username")
     @Key("username")
     @NoExplanationNeeded
     default String username() {
@@ -40,6 +43,7 @@ public interface DatabaseSpec {
     }
 
     @Order(3)
+    @Name("Password")
     @Key("password")
     @Comment("From the environment. There is no default, and an empty one refuses to start.")
     @Explain("Set through the environment. An empty value here refuses to start rather than falling back to anything.")
@@ -48,6 +52,7 @@ public interface DatabaseSpec {
     }
 
     @Order(4)
+    @Name("Connection pool size")
     @Key("maximum-pool-size")
     @Comment({
             "Small on purpose. This is an interface for three admins, and every page it draws is",

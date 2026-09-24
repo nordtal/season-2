@@ -46,6 +46,7 @@ import {
   useRuns,
   useServices,
 } from "@/lib/queries"
+import { useRunLock } from "@/lib/run-lock"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import {
@@ -149,7 +150,7 @@ const STAGE_LABEL: Record<string, string> = {
 }
 
 /** The four stages a run stops at. `NOTHING_TO_DO` is one of them and is not a kind of "done". */
-const ENDINGS = new Set(["DONE", "NOTHING_TO_DO", "FAILED", "CANCELLED"])
+export const ENDINGS = new Set(["DONE", "NOTHING_TO_DO", "FAILED", "CANCELLED"])
 
 /**
  * `NOTHING_TO_DO` is grey, not green, and that is the whole point of this function.
@@ -166,7 +167,7 @@ function stageTone(stage: string): Tone {
   return "warn"
 }
 
-function StageBadge({ stage }: { stage: string }) {
+export function StageBadge({ stage }: { stage: string }) {
   return <StatusBadge tone={stageTone(stage)}>{STAGE_LABEL[stage] ?? stage}</StatusBadge>
 }
 
@@ -430,6 +431,7 @@ export function AskButton({
   trigger?: boolean
 }) {
   const ask = useAskForRun()
+  const lock = useRunLock()
   const spec = ASKS[kind]
   const Icon = spec.icon
   const scoped = services !== undefined && services.length > 0
@@ -457,7 +459,8 @@ export function AskButton({
             variant={variant}
             size={size}
             className={className}
-            disabled={ask.isPending}
+            disabled={ask.isPending || lock.locked}
+            title={lock.title}
             aria-label={labelClassName ? (label ?? RUN_KIND[kind]) : undefined}
           >
             <Icon aria-hidden />
@@ -731,7 +734,7 @@ const WAITING_RUNS = Array.from({ length: 8 }, () => undefined)
  * countdown can run out, and then nothing was cancelled and nothing was broken either. The backend
  * sends the sentence; it is shown as it came.
  */
-function CancelButton({ run }: { run: Run }) {
+export function CancelButton({ run }: { run: Run }) {
   const cancel = useCancelRun()
 
   return (

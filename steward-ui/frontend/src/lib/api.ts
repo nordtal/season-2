@@ -471,6 +471,8 @@ export type Run = {
   status: string
   source: string
   requestedBy: string
+  /** The services this run is for. Empty is the whole network. */
+  scope: string[]
   /**
    * `requestedBy`, already picked apart on the backend - see `StewardUi.ActorFields`, the same
    * reading `ActionEntry` gives the unified actions feed. Never absent: an empty string is "none of
@@ -487,6 +489,9 @@ export type Run = {
   savedSomething?: boolean
   resultText?: string
 }
+
+/** `GET /api/updates/active`: the one open run, or `null`. There is never more than one. */
+export type ActiveRun = { run: Run | null }
 
 /**
  * One artefact in the resolve, and what a run would do about it (season-2-ops/128).

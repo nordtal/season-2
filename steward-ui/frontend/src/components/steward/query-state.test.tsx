@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 
-import { QueryState } from "@/components/steward/query-state"
+import { QueryState, TRANSIENT_GRACE_MS, transient } from "@/components/steward/query-state"
+import { ApiError } from "@/lib/api"
 
 /**
  * A query that was never started must not look like one that is still running.
@@ -119,5 +120,32 @@ describe("QueryState", () => {
     )
     expect(screen.getByText("smp")).toBeTruthy()
     expect(screen.queryByRole("status")).toBeNull()
+  })
+})
+
+describe("a gateway that blinked", () => {
+  const now = 1_000_000
+  const gateway = (status: number) => new ApiError(status, "Bad Gateway", "steward-ui")
+
+  it("keeps recent data standing through a 502, 503 or 504", () => {
+    for (const status of [502, 503, 504]) {
+      expect(transient({ data: "x", error: gateway(status), isPending: false, dataUpdatedAt: now - 5_000 }, now)).toBe(true)
+    }
+  })
+
+  it("does not for another status, data that is too old, or no data at all", () => {
+    expect(transient({ data: "x", error: gateway(500), isPending: false, dataUpdatedAt: now }, now)).toBe(false)
+    expect(transient({ data: "x", error: gateway(502), isPending: false, dataUpdatedAt: now - TRANSIENT_GRACE_MS }, now)).toBe(false)
+    expect(transient({ data: undefined, error: gateway(502), isPending: false, dataUpdatedAt: now }, now)).toBe(false)
+  })
+
+  it("draws the data instead of the failure", () => {
+    render(
+      <QueryState query={{ data: "smp", error: gateway(502), isPending: false, dataUpdatedAt: Date.now() }}>
+        {row}
+      </QueryState>,
+    )
+    expect(screen.getByText("smp")).toBeTruthy()
+    expect(screen.queryByRole("alert")).toBeNull()
   })
 })

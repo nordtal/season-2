@@ -32,6 +32,7 @@ import {
   type ReloadAwareConfigDocument,
   type Available,
   type Run,
+  type ActiveRun,
   type Schedule,
   type Season,
   type Service,
@@ -74,6 +75,8 @@ export const keys = {
   backups: ["backups"] as const,
   schedule: ["schedule"] as const,
   runs: (limit: number) => ["runs", limit] as const,
+  /** Under "runs", so asking for a run and cancelling one refresh it with the list. */
+  activeRun: ["runs", "active"] as const,
   run: (id: string) => ["run", id] as const,
   available: ["available"] as const,
   metrics: (subject: string, metric: string, hours: number) =>
@@ -305,6 +308,20 @@ export function useRuns(limit = 20, enabled = true) {
     queryKey: keys.runs(limit),
     queryFn: () => api<Run[]>(`/api/updates?limit=${limit}`),
     refetchInterval: 10 * SECOND,
+    enabled,
+  })
+}
+
+/**
+ * The one open run, or none - one row instead of the whole list, so every service page can afford
+ * to ask. It is what locks Update, Take down and Recreate everywhere: the backend refuses a second
+ * run anyway, and a button that is going to be refused should not look pressable.
+ */
+export function useActiveRun(enabled = true) {
+  return useQuery({
+    queryKey: keys.activeRun,
+    queryFn: () => api<ActiveRun>("/api/updates/active"),
+    refetchInterval: 5 * SECOND,
     enabled,
   })
 }

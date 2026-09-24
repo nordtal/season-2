@@ -8,7 +8,7 @@ import {
   WrenchIcon,
 } from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 
 import { bytes, percent, relative, since } from "@/lib/format"
 import {
@@ -24,8 +24,10 @@ import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
 import { ServiceOnlineLine } from "@/components/steward/online"
-import { AskButton } from "@/pages/operations"
-import { DriftBadge, ServiceState } from "@/components/steward/status"
+import { AskButton, CancelButton, ENDINGS, StageBadge, cancellable } from "@/pages/operations"
+import { DriftBadge, RUN_KIND, RunStatus, ServiceState } from "@/components/steward/status"
+import type { Run } from "@/lib/api"
+import { touches, useRunLock } from "@/lib/run-lock"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Sparkline } from "@/components/steward/sparkline"
 import { Button } from "@/components/ui/button"
@@ -90,6 +92,7 @@ export function ServicePage() {
   const service = useService(name)
   const tabs = useServiceTabs(name)
   const tab: Tab = search.tab ?? "console"
+  const { run } = useRunLock()
 
   // A tab the service does not have - typed in, or left over from another service - goes back to
   // Console, replacing the entry so Back does not return to it.
@@ -103,6 +106,7 @@ export function ServicePage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <PageHeader title={name} actions={<ServiceActions name={name} service={service.data} />} />
+        <ActiveRunLine run={run} name={name} />
         <ServiceOnlineLine name={name} />
       </div>
 
@@ -166,6 +170,7 @@ export function ServicePage() {
             name={name}
             hasConsole={service.data?.hasConsole ?? false}
             capacity={service.data?.logCapacity}
+            offline={offline(run, name, service.data?.state)}
           />
         </TabsContent>
 
@@ -203,6 +208,7 @@ function ServiceActions({
 }) {
   const [dialog, setDialog] = useState<"hold" | "recreate" | null>(null)
   const gate = useRecreateGate(name)
+  const lock = useRunLock()
   // season-2-ops/125: Take down and Start are one switch, and which half is offered follows `hold`
   // and nothing else. While the row is loading neither is drawn: a Take down that turns into Start
   // under somebody's finger is worse than a button that arrives late.
@@ -270,7 +276,7 @@ function ServiceActions({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {hold ? (
-              <DropdownMenuItem onSelect={() => setDialog("hold")}>
+              <DropdownMenuItem disabled={lock.locked} onSelect={() => setDialog("hold")}>
                 <HoldIcon aria-hidden />
                 {holdLabel}
               </DropdownMenuItem>
@@ -286,6 +292,38 @@ function ServiceActions({
       ) : null}
     </div>
   )
+}
+
+/**
+ * The run that is open, on every service page - it is what locks the buttons beside it, so the page
+ * says which run that is. Its stage while it has one, and Cancel while the countdown still runs.
+ */
+export function ActiveRunLine({ run, name }: { run: Run | null; name: string }) {
+  if (!run) return null
+  const stage = run.report && !ENDINGS.has(run.report.stage) ? run.report.stage : null
+  const elsewhere = run.scope.length > 0 && !(run.scope.length === 1 && run.scope[0] === name)
+  return (
+    <div role="status" className="flex flex-wrap items-center gap-2 text-sm">
+      <Link
+        to="/operations/runs/$id"
+        params={{ id: String(run.id) }}
+        className="font-medium underline-offset-4 hover:text-primary hover:underline"
+      >
+        {RUN_KIND[run.kind] ?? run.kind} #{run.id}
+      </Link>
+      {elsewhere ? <span className="text-muted-foreground">{run.scope.join(", ")}</span> : null}
+      {stage ? <StageBadge stage={stage} /> : <RunStatus status={run.status} />}
+      {cancellable(run) ? <CancelButton run={run} /> : null}
+    </div>
+  )
+}
+
+/** Why this service's log may end on purpose - see `ServiceConsole`'s `offline`. */
+export function offline(run: Run | null, name: string, state: string | undefined): "going" | "gone" | undefined {
+  if (run && run.kind !== "START" && run.status === "RUNNING" && touches(run, name)) {
+    return "going"
+  }
+  return state !== undefined && state !== "running" ? "gone" : undefined
 }
 
 /**

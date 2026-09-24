@@ -3,6 +3,7 @@ import {
   DownloadSimpleIcon,
   KeyReturnIcon,
   ListMagnifyingGlassIcon,
+  PowerIcon,
   WarningCircleIcon,
   XIcon,
 } from "@phosphor-icons/react"
@@ -30,9 +31,15 @@ export function ServiceConsole({
   name,
   hasConsole,
   capacity,
+  offline,
 }: {
   name: string
   hasConsole: boolean
+  /**
+   * Why the log may have ended on purpose: a run is taking this service down (`going`), or it is
+   * not running (`gone`). A stream that stops then is the expected answer, not a failure.
+   */
+  offline?: "going" | "gone"
   /** How many lines the worker can fill; the steps above it are not offered. */
   capacity: number | undefined
 }) {
@@ -139,7 +146,12 @@ export function ServiceConsole({
 
       {hasConsole ? <ConsoleLine name={name} /> : null}
 
-      {stream.failure ? (
+      {stream.failure && offline ? (
+        <div role="status" className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans">
+          <PowerIcon className="mb-1 size-5 text-white/60" aria-hidden />
+          <p className="text-sm text-white/85">{offline === "going" ? "Going offline" : "Offline"}</p>
+        </div>
+      ) : stream.failure ? (
         <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans">
           <WarningCircleIcon className="mb-1 size-5 text-white/60" aria-hidden />
           <p className="text-sm text-white/85">Can't reach the log.</p>

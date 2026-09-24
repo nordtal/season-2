@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.worker.http.Http;
+import eu.nordtal.s2.steward.worker.http.HttpException;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -17,6 +18,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collection;
 
 /**
  * The Modrinth v2 API, for the third-party plugins the network runs: PacketEvents, Chunky,
@@ -57,6 +59,8 @@ public final class Modrinth {
 
     /** Where a project's own page lives, which is the link the interface offers next to a hit. */
     private static final String PAGE = "https://modrinth.com/plugin/";
+    private static final String VERSION_FILE = "https://api.modrinth.com/v2/version_file/";
+    private static final String PROJECTS = "https://api.modrinth.com/v2/projects";
 
     /**
      * How many hits one search asks for.
@@ -287,6 +291,64 @@ public final class Modrinth {
                     Json.optionalString(hit, "icon_url"),
                     PAGE + slug,
                     Json.number(hit, "downloads", 0L)));
+        }
+        return List.copyOf(found);
+    }
+
+    // ---------------------------------------------------------------- what a jar is
+
+    /**
+     * A Modrinth project as the plugin list draws it.
+     *
+     * @param iconUrl as Modrinth states it; the caller decides whether a browser may load it
+     */
+    public record Project(@NotNull String projectId, @NotNull String slug, @NotNull String title,
+                          @Nullable String iconUrl, @NotNull String pageUrl) {
+    }
+
+    /**
+     * The project a file with this SHA-512 was published under, or {@code null} when Modrinth has
+     * never published that file.
+     *
+     * <p>The hash is the identity, not the name: {@code Chunky-Bukkit-1.5.3.jar} says nothing about
+     * which project it came from, and the same answer holds for a jar somebody put there by hand. A
+     * 404 is an answer - "not from Modrinth" - and every other failure is a failure.</p>
+     */
+    public @Nullable String projectOfFile(final @NotNull String sha512) throws IOException {
+        final URI uri = URI.create(VERSION_FILE + sha512 + "?algorithm=sha512");
+        final String body;
+        try {
+            body = http.get(uri);
+        } catch (final HttpException answered) {
+            if (answered.status() == 404) {
+                return null;
+            }
+            throw answered;
+        }
+        return Json.string(Json.object(body, "Modrinth version_file"), "project_id", "Modrinth version_file");
+    }
+
+    /** Name, slug and icon of each of {@code projectIds}, in one request. Unknown ids are left out. */
+    public @NotNull List<Project> projects(final @NotNull Collection<String> projectIds) throws IOException {
+        if (projectIds.isEmpty()) {
+            return List.of();
+        }
+        final String ids = projectIds.stream()
+                .map(id -> "\"" + id + "\"")
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
+        final JsonArray answer = Json.array(http.get(URI.create(PROJECTS + "?ids=" + encode(ids))),
+                "Modrinth projects");
+        final List<Project> found = new ArrayList<>();
+        for (final JsonElement element : answer) {
+            final JsonObject project = element.getAsJsonObject();
+            final String id = Json.optionalString(project, "id");
+            final String slug = Json.optionalString(project, "slug");
+            if (id == null || slug == null) {
+                continue;
+            }
+            found.add(new Project(id, slug,
+                    java.util.Objects.requireNonNullElse(Json.optionalString(project, "title"), slug),
+                    Json.optionalString(project, "icon_url"), PAGE + slug));
         }
         return List.copyOf(found);
     }

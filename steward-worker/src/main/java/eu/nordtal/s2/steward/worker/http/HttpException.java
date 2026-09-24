@@ -27,6 +27,11 @@ public class HttpException extends IOException {
         this.status = status;
     }
 
+    /** The HTTP status the server answered with. */
+    public int status() {
+        return status;
+    }
+
     private static String explain(final URI uri, final int status, final String body) {
         final StringBuilder message = new StringBuilder("HTTP ").append(status).append(" from ").append(uri);
         switch (status) {

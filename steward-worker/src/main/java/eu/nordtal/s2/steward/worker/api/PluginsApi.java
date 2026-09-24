@@ -41,11 +41,11 @@ import java.util.Optional;
  * and it carries no remove button because there is no row to delete. <b>That is the enforcement,
  * not a greyed-out control.</b>
  *
- * <p>The one thing this arrangement cannot tell apart is a Nordtal plugin from a jar somebody
- * copied into the volume by hand: both are "on disk and unclaimed". That is deliberate rather than
- * overlooked - the place a hand-placed jar is meant to become visible is the update plan, which
- * lists it under {@code unclaimed}, and duplicating that judgement here would be a second opinion
- * about the same folder.</p>
+ * <p>The unclaimed jars fall into two groups by name: a season jar ({@code smp-0.9.5.jar}) is a
+ * Nordtal plugin, anything else is preinstalled. A jar somebody copied into the volume by hand
+ * lands in the second group too; the place it is meant to become visible is the update plan,
+ * which lists it under {@code unclaimed}. Whether a preinstalled jar came from Modrinth is told by
+ * its hash ({@link JarIdentity}), which is what gives it a name, a picture and a link.</p>
  *
  * <h2>Pre-booked is a row with no jar</h2>
  * Installing is asking, not doing (owner, 2026-09-19): the row is written and the jar arrives with
@@ -80,6 +80,7 @@ public final class PluginsApi {
     private final Modrinth modrinth;
     private final @Nullable Path volumesRoot;
     private final String gameVersion;
+    private final JarIdentity identity;
 
     /**
      * @param volumesRoot where the services' volumes are mounted in this container, or {@code null}
@@ -94,6 +95,7 @@ public final class PluginsApi {
         this.modrinth = Objects.requireNonNull(modrinth, "modrinth");
         this.volumesRoot = volumesRoot;
         this.gameVersion = Objects.requireNonNull(gameVersion, "gameVersion");
+        this.identity = new JarIdentity(modrinth);
     }
 
     // ---------------------------------------------------------------- the list
@@ -107,15 +109,29 @@ public final class PluginsApi {
         final List<Map<String, Object>> rows = new ArrayList<>();
         final List<String> claimed = new ArrayList<>();
 
+        // The jars no row claims are the ones the network gives. Of those, the ones Modrinth
+        // published are drawn like an added plugin - name, picture, link - and the rest by name.
+        final List<Installation.Jar> given = installed.plugins().stream()
+                .filter(jar -> ownerOf(jar, added) == null && !isNordtal(jar))
+                .toList();
+        final Map<String, Modrinth.Project> published = identity.identify(given);
+
         for (final Installation.Jar jar : installed.plugins()) {
             final String prefix = jar.prefix();
-            final ManagedPlugin row = prefix == null ? null : added.stream()
-                    .filter(plugin -> plugin.filePrefix().equals(prefix))
-                    .findFirst().orElse(null);
+            final ManagedPlugin row = ownerOf(jar, added);
             if (row != null) {
                 claimed.add(row.artifact());
             }
-            rows.add(describe(row, prefix, jar, true));
+            final Map<String, Object> described = describe(row, prefix, jar, true);
+            final Modrinth.Project project = published.get(jar.fileName());
+            if (project != null) {
+                described.put("name", project.title());
+                described.put("projectId", project.projectId());
+                described.put("iconUrl", icon(project.iconUrl()));
+                described.put("pageUrl", project.pageUrl());
+            }
+            described.put("group", row != null ? "added" : isNordtal(jar) ? "nordtal" : "preinstalled");
+            rows.add(described);
         }
 
         // Every row nothing on disk answered for. These are the pre-booked ones - and a row whose
@@ -123,7 +139,9 @@ public final class PluginsApi {
         // installs it again, because the row is the wish and the wish is still there.
         for (final ManagedPlugin plugin : added) {
             if (!claimed.contains(plugin.artifact())) {
-                rows.add(describe(plugin, plugin.filePrefix(), null, false));
+                final Map<String, Object> described = describe(plugin, plugin.filePrefix(), null, false);
+                described.put("group", "added");
+                rows.add(described);
             }
         }
 
@@ -173,6 +191,18 @@ public final class PluginsApi {
             row.put("pageUrl", plugin.pageUrl());
         }
         return row;
+    }
+
+    private static @Nullable ManagedPlugin ownerOf(final Installation.Jar jar, final List<ManagedPlugin> added) {
+        final String prefix = jar.prefix();
+        return prefix == null ? null : added.stream()
+                .filter(plugin -> plugin.filePrefix().equals(prefix))
+                .findFirst().orElse(null);
+    }
+
+    /** One of the season's own jars, whose file name is its artefact id - {@code smp-0.9.5.jar}. */
+    private static boolean isNordtal(final Installation.Jar jar) {
+        return jar.prefix() != null && Topology.SEASON_JARS.contains(jar.prefix());
     }
 
     private static String jarName(final @Nullable Installation.Jar jar) {

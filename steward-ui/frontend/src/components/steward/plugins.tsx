@@ -1,13 +1,27 @@
-import { ArrowSquareOutIcon, MagnifyingGlassIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import {
+  ArrowSquareOutIcon,
+  ArrowsCounterClockwiseIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  SpinnerIcon,
+  TrashIcon,
+} from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import { ApiError } from "@/lib/api"
-import type { PluginHit, ServicePlugin } from "@/lib/api"
+import type { AvailableChange, PluginHit, ServicePlugin } from "@/lib/api"
 import { count } from "@/lib/format"
-import { usePluginSearch, usePlugins, useInstallPlugin, useRemovePlugin } from "@/lib/queries"
+import {
+  useAvailable,
+  useInstallPlugin,
+  usePluginSearch,
+  usePlugins,
+  useRefreshAvailable,
+  useRemovePlugin,
+} from "@/lib/queries"
+import { StewardMark } from "@/app/steward-mark"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -17,115 +31,258 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { StatusBadge } from "@/components/steward/status"
 
 /**
- * The plugins on one Minecraft server, and the Modrinth search that adds one (season-2-ops/129).
+ * The plugins on one Minecraft server, in three lists, and the Modrinth search that adds one.
  *
- * **Two lists in one, and the badge is the whole point.** A plugin is *running* when its jar is in
- * the volume and *pre-booked* when it is only a row: installing writes the row and the next update
- * run fetches the jar, with the same countdown and the same report as every other change. A list
- * that drew both the same way would be claiming the server runs something it does not have.
+ * **The groups are where a plugin comes from**, because that decides what can be done to it: a
+ * Nordtal jar is built by this repository, a preinstalled one is given by the network, and only an
+ * added one has a row somebody can delete. The trash button follows from the group, not from a
+ * second rule.
  *
- * **What has no remove button is what has no row.** The plugins the network gives are named in
- * `Topology.SERVICES`, in Java, inside a jar that is already built - so there is nothing to delete
- * and the button is absent rather than disabled. That is the same fact from the other side, not a
- * second rule the interface has to remember.
+ * **A plugin is running or pre-booked, and the badge is the difference.** Installing writes the row
+ * and the next update run fetches the jar; a list that drew both the same way would be claiming the
+ * server runs something it does not have. A plugin the network gives that is not on the disk yet is
+ * the same case from the other side, so it is drawn the same way.
+ *
+ * **Check for updates writes nothing.** It asks every source again and shows the answer on the rows;
+ * installing it is an update run, which is the Update button in the header.
  */
 export function ServicePlugins({ service }: { service: string }) {
   const plugins = usePlugins(service)
+  const available = useAvailable()
+  const refresh = useRefreshAvailable()
+  const [adding, setAdding] = useState(false)
 
   // A service with no plugins folder - the bot, postgres, caddy - answers 404, and the honest
   // thing to draw for it is nothing at all. The worker owns that judgement (it is Topology), so
   // this asks rather than keeping a second list of which services have plugins.
   if (plugins.error instanceof ApiError && plugins.error.status === 404) return null
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Plugins</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="installed">
-          <TabsList>
-            <TabsTrigger value="installed">Installed</TabsTrigger>
-            <TabsTrigger value="add">Add</TabsTrigger>
-          </TabsList>
+  // Unknown is not "up to date": when the reading failed, no row says anything about updates.
+  const unchecked = available.isError || refresh.isError
+  const changes = unchecked ? undefined : available.data?.changes
 
-          <TabsContent value="installed" className="flex flex-col gap-3">
-            <QueryState query={plugins}>
-              {(answer) =>
-                answer && !answer.mounted ? (
-                  <Empty
-                    title="No volume"
-                    note="steward-worker cannot see this service's folder, so it cannot say what is in it."
-                  />
-                ) : answer && answer.plugins.length === 0 ? (
-                  <Empty
-                    title="Nothing installed"
-                    note="Anything added from the Add tab appears here, pre-booked until the next run."
-                  />
-                ) : (
-                  <ul className="flex flex-col gap-2">
-                    {(answer?.plugins ?? WAITING_PLUGINS).map((plugin, index) => (
-                      <InstalledRow
-                        key={plugin?.fileName ?? plugin?.artifact ?? index}
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
+          <PlusIcon aria-hidden />
+          Add plugin
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={refresh.isPending}
+          onClick={() => refresh.mutate()}
+        >
+          {refresh.isPending ? (
+            <SpinnerIcon className="animate-spin" aria-hidden />
+          ) : (
+            <ArrowsCounterClockwiseIcon aria-hidden />
+          )}
+          Check for updates
+        </Button>
+      </div>
+
+      {unchecked ? (
+        <p className="text-sm text-muted-foreground">Updates can&apos;t be checked right now.</p>
+      ) : null}
+
+      <QueryState query={plugins}>
+        {(answer) =>
+          answer && !answer.mounted ? (
+            <Empty title="No volume" />
+          ) : answer && answer.plugins.length === 0 && !missing(service, changes).length ? (
+            <Empty title="Nothing installed" />
+          ) : answer ? (
+            <div className="flex flex-col gap-4">
+              {groupPlugins(answer.plugins, missing(service, changes)).map(([group, rows]) => (
+                <section key={group} className="flex flex-col">
+                  <h3 className="text-xs text-muted-foreground">{GROUP_TITLES[group]}</h3>
+                  <ul className="flex flex-col">
+                    {rows.map((plugin) => (
+                      <PluginRow
+                        key={plugin.fileName ?? plugin.artifact ?? plugin.name}
                         service={service}
                         plugin={plugin}
+                        status={pluginStatus(service, plugin, changes, answer.gameVersion)}
                       />
                     ))}
                   </ul>
-                )
-              }
-            </QueryState>
-          </TabsContent>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <ul className="flex flex-col">
+              {WAITING_PLUGINS.map((_, index) => (
+                <PluginRow key={index} service={service} />
+              ))}
+            </ul>
+          )
+        }
+      </QueryState>
 
-          <TabsContent value="add" className="flex flex-col gap-3">
+      <ResponsiveDialog open={adding} onOpenChange={setAdding}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Add plugin</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="sr-only">Search Modrinth</ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
             <Search service={service} loader={plugins.data?.loader} version={plugins.data?.gameVersion} />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+          </div>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+    </div>
   )
 }
 
 // --- what is on the server ----------------------------------------------------------------------
 
-/** Three absent rows: the count an ordinary Paper service here settles at. */
-const WAITING_PLUGINS: (ServicePlugin | undefined)[] = [undefined, undefined, undefined]
+type Group = NonNullable<ServicePlugin["group"]>
 
-function InstalledRow({ service, plugin }: { service: string; plugin?: ServicePlugin }) {
+const GROUP_ORDER: Group[] = ["nordtal", "preinstalled", "added"]
+
+const GROUP_TITLES: Record<Group, string> = {
+  nordtal: "Nordtal",
+  preinstalled: "Preinstalled",
+  added: "Added",
+}
+
+/** Three absent rows: the count an ordinary Paper service here settles at. */
+const WAITING_PLUGINS = [undefined, undefined, undefined]
+
+/**
+ * The plugins in their three lists, each alphabetical, empty ones left out. The plugins the network
+ * should give but that are not on the disk yet join the preinstalled list.
+ */
+export function groupPlugins(plugins: ServicePlugin[], absent: ServicePlugin[] = []): [Group, ServicePlugin[]][] {
+  const all = [...plugins, ...absent]
+  return GROUP_ORDER.map((group): [Group, ServicePlugin[]] => [
+    group,
+    all
+      .filter((plugin) => (plugin.group ?? "added") === group)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })),
+  ]).filter(([, rows]) => rows.length > 0)
+}
+
+/**
+ * A plugin the network gives that is not on the disk: the update check says `MISSING`, and the next
+ * run installs it. Drawn as a pre-booked row, because that is what it is.
+ */
+export function missing(service: string, changes?: AvailableChange[]): ServicePlugin[] {
+  return (changes ?? [])
+    .filter((change) => change.service === service && change.status === "MISSING")
+    .map((change) => ({
+      name: change.artifact,
+      running: false,
+      removable: false,
+      version: change.version ?? versionOf(change.fileName),
+      group: "preinstalled" as const,
+    }))
+}
+
+/** The version in a jar's name: what follows the last `-` of the stem, as `JarName` reads it. */
+export function versionOf(fileName?: string): string | undefined {
+  if (!fileName) return undefined
+  const stem = fileName.replace(/\.jar$/i, "")
+  const dash = stem.lastIndexOf("-")
+  return dash > 0 && dash < stem.length - 1 ? stem.slice(dash + 1) : undefined
+}
+
+export type PluginStatus = { tone: "idle" | "warn"; text: string }
+
+/**
+ * What the update check says about one running plugin, or nothing. Nothing is also the answer when
+ * the check has not answered, and when it could not tell - a plugin it does not track is not "up to
+ * date", it is simply not something this line talks about.
+ */
+export function pluginStatus(
+  service: string,
+  plugin: ServicePlugin,
+  changes: AvailableChange[] | undefined,
+  gameVersion?: string,
+): PluginStatus | undefined {
+  if (!changes || !plugin.running || !plugin.fileName) return undefined
+  const change = changes.find((it) => it.service === service && it.installed === plugin.fileName)
+  if (!change) return undefined
+  switch (change.status) {
+    case "UP_TO_DATE":
+      return { tone: "idle", text: "up to date" }
+    case "OUTDATED": {
+      const from = plugin.version ?? versionOf(plugin.fileName)
+      const to = versionOf(change.fileName) ?? change.version
+      return { tone: "warn", text: from && to ? `${from} → ${to}` : "update available" }
+    }
+    case "UNSUPPORTED":
+      return { tone: "idle", text: gameVersion ? `no ${gameVersion} build` : "no build" }
+    default:
+      return undefined
+  }
+}
+
+function PluginRow({
+  service,
+  plugin,
+  status,
+}: {
+  service: string
+  plugin?: ServicePlugin
+  status?: PluginStatus
+}) {
+  const version = plugin ? (plugin.version ?? versionOf(plugin.fileName)) : undefined
   return (
-    <li className="flex items-center gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0">
-      <Thumbnail url={plugin?.iconUrl} alt={plugin?.name ?? ""} waiting={!plugin} />
+    <li className="flex min-h-14 items-center gap-3">
+      <Tile plugin={plugin} />
       <div className="flex min-w-0 flex-1 flex-col">
         {plugin ? (
           <>
-            <span className="truncate text-sm">{plugin.name}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {plugin.fileName ?? plugin.filePrefix}
-            </span>
+            <span className="truncate text-sm font-medium">{plugin.name}</span>
+            {version ? <span className="truncate text-xs text-muted-foreground tnum">{version}</span> : null}
           </>
         ) : (
           <>
             <SkeletonText className="text-sm" width="short" />
-            <SkeletonText className="text-xs" width="long" />
+            <SkeletonText className="text-xs" width="short" />
           </>
         )}
       </div>
-      {!plugin || plugin.running ? null : (
+      {plugin && !plugin.running ? (
         <StatusBadge tone="idle" tipContent="Installs with the next update run.">
           pre-booked
         </StatusBadge>
-      )}
-      <Link url={plugin?.pageUrl} title={plugin?.name ?? ""} />
-      {plugin?.removable && plugin.artifact ? (
+      ) : status ? (
+        <span
+          className={
+            status.tone === "warn"
+              ? "shrink-0 text-xs text-warning tnum"
+              : "shrink-0 text-xs text-muted-foreground"
+          }
+        >
+          {status.text}
+        </span>
+      ) : null}
+      {plugin?.projectId ? <Link url={plugin.pageUrl} title={plugin.name} /> : null}
+      {plugin?.group === "added" && plugin.removable && plugin.artifact ? (
         <RemoveButton service={service} plugin={plugin} artifact={plugin.artifact} />
       ) : null}
     </li>
   )
+}
+
+/**
+ * The picture in front of a row: the mark for a Nordtal jar, Modrinth's icon for a Modrinth plugin,
+ * and nothing for a jar from anywhere else - but the room for it stays, so the names line up.
+ */
+function Tile({ plugin }: { plugin?: ServicePlugin }) {
+  if (!plugin) return <Skeleton className="size-9 shrink-0 rounded-md" />
+  if (plugin.group === "nordtal") return <StewardMark className="size-9 shrink-0" />
+  if (plugin.projectId) return <Thumbnail url={plugin.iconUrl} alt={plugin.name} className="size-9 rounded-md" />
+  return <div className="size-9 shrink-0" aria-hidden />
 }
 
 /**
@@ -369,21 +526,31 @@ function InstallButton({
  * allow that host, or these stay blank and only whoever opens the console finds out why. The worker
  * refuses to store a URL pointing anywhere else, so what arrives here is always that one host.
  */
-function Thumbnail({ url, alt, waiting }: { url?: string; alt: string; waiting?: boolean }) {
+function Thumbnail({
+  url,
+  alt,
+  waiting,
+  className = "size-8 rounded-sm",
+}: {
+  url?: string
+  alt: string
+  waiting?: boolean
+  className?: string
+}) {
   // Two different blanks, deliberately: a project with no icon is a flat square, and a row that
   // has not been told yet shimmers. They used to be the same square.
   if (waiting) {
-    return <Skeleton className="size-8 shrink-0 rounded-sm" />
+    return <Skeleton className={`${className} shrink-0`} />
   }
   if (!url) {
-    return <div className="size-8 shrink-0 rounded-sm bg-muted" aria-hidden />
+    return <div className={`${className} shrink-0 bg-muted`} aria-hidden />
   }
   return (
     <img
       src={url}
       alt={alt}
       loading="lazy"
-      className="size-8 shrink-0 rounded-sm object-cover"
+      className={`${className} shrink-0 object-cover`}
       // A project that pulls its icon breaks the row's alignment otherwise, and a broken image
       // icon says nothing a blank square does not.
       onError={(event) => {

@@ -21,14 +21,54 @@ import java.util.Optional;
  */
 final class JdbiUpdateDirectory implements UpdateDirectory {
 
+    /**
+     * The transaction lock every submit takes before it looks for an open run. The worker's own
+     * advisory locks spell {@code nordtalS} and {@code nordtal1}; this one is {@code nordtalR}.
+     */
+    private static final long SUBMIT_LOCK = 0x6E6F726474616C52L;
+
+    private final Jdbi jdbi;
     private final UpdateDao dao;
 
     JdbiUpdateDirectory(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.dao = Jdbi.create(dataSource)
+        this.jdbi = Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(UpdateDao.class);
+                .installPlugin(new PostgresPlugin());
+        this.dao = jdbi.onDemand(UpdateDao.class);
+    }
+
+    /**
+     * One run in the whole network: the write happens only when no other run is pending or
+     * running, and a take-down only when none of its services is already held.
+     *
+     * <h2>A lock first, then a fresh look</h2>
+     * The lock is taken in its own statement so that the look after it is a new snapshot: under
+     * READ COMMITTED a single statement would read the table as it was before it waited, and two
+     * presses a millisecond apart would both find it empty. Not a unique index, because a queue of
+     * several rows is still a legal state for everything that reads the table - it is only
+     * submitting into one that is refused.
+     */
+    private UpdateRequest guarded(final UpdateKind kind, final java.util.List<String> services,
+                                  final java.util.function.Function<UpdateDao, UpdateRequest> write) {
+        return jdbi.inTransaction(handle -> {
+            handle.execute("SELECT pg_advisory_xact_lock(?)", SUBMIT_LOCK);
+            final UpdateDao locked = handle.attach(UpdateDao.class);
+            final Optional<UpdateRequest> open = locked.open();
+            if (open.isPresent()) {
+                throw RunRefused.runOpen(open.get());
+            }
+            if (kind == UpdateKind.DOWN && services != null && !services.isEmpty()) {
+                final java.util.List<String> held = locked.holds().stream()
+                        .map(ServiceHold::service)
+                        .filter(services::contains)
+                        .toList();
+                if (!held.isEmpty()) {
+                    throw RunRefused.alreadyHeld(held);
+                }
+            }
+            return write.apply(locked);
+        });
     }
 
     @Override
@@ -39,7 +79,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         // Clamped rather than rejected: a caller computing a delay from two clocks that disagree
         // should get "now", not an exception on a path that is asking for a restart.
         final long seconds = delay == null ? 0L : Math.max(0L, delay.toSeconds());
-        return dao.submit(kind.name(), source.name(), requestedBy, seconds);
+        return guarded(kind, null, locked -> locked.submit(kind.name(), source.name(), requestedBy, seconds));
     }
 
     @Override
@@ -53,9 +93,9 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         // The unscoped statement, not the scoped one with a NULL bind. They are the same row today;
         // keeping "everything" on the path every existing caller already takes means a change to
         // one can never quietly become a change to the other.
-        return scope == null
-                ? dao.submit(kind.name(), source.name(), requestedBy, seconds)
-                : dao.submitScoped(kind.name(), source.name(), requestedBy, seconds, scope);
+        return guarded(kind, services, locked -> scope == null
+                ? locked.submit(kind.name(), source.name(), requestedBy, seconds)
+                : locked.submitScoped(kind.name(), source.name(), requestedBy, seconds, scope));
     }
 
     @Override

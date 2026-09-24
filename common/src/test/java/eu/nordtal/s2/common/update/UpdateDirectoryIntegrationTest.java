@@ -96,6 +96,30 @@ class UpdateDirectoryIntegrationTest {
         updates = UpdateDirectory.using(dataSource);
     }
 
+    /**
+     * A row written straight into the table, past the one-run rule that {@code submit} enforces.
+     * For the tests about what the table does with several open rows - a state the table still
+     * allows, and which only submitting refuses.
+     */
+    private UpdateRequest queued(final UpdateKind kind, final UpdateSource source, final String by,
+                                 final Duration delay) {
+        try (Connection connection = dataSource.getConnection();
+             java.sql.PreparedStatement insert = connection.prepareStatement(
+                     "INSERT INTO update_request (kind, source, requested_by, not_before) "
+                             + "VALUES (?, ?, ?, now() + make_interval(secs => ?)) RETURNING id")) {
+            insert.setString(1, kind.name());
+            insert.setString(2, source.name());
+            insert.setString(3, by);
+            insert.setDouble(4, Math.max(0, delay.toSeconds()));
+            try (java.sql.ResultSet row = insert.executeQuery()) {
+                row.next();
+                return updates.find(row.getLong(1)).orElseThrow();
+            }
+        } catch (final SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     // ---------------------------------------------------------------- submitting
 
     @Test
@@ -123,9 +147,9 @@ class UpdateDirectoryIntegrationTest {
         // back with nothing while the javadoc promises "at most limit". Either behaviour is
         // defensible; only one of them is written down, and this is the one - clamped, like the
         // journal next door, so the two lists cannot drift apart on a query nobody thinks about.
-        updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
+        queued(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
         final UpdateRequest newest =
-                updates.submit(UpdateKind.BACKUP, UpdateSource.CONSOLE, "b", Duration.ZERO);
+                queued(UpdateKind.BACKUP, UpdateSource.CONSOLE, "b", Duration.ZERO);
 
         assertEquals(List.of(newest.id()), ids(updates.recent(0)));
         assertEquals(List.of(newest.id()), ids(updates.recent(-5)));
@@ -147,7 +171,7 @@ class UpdateDirectoryIntegrationTest {
         // still has to map, because rows carrying it are in the deployed table.
         for (final UpdateKind kind : UpdateKind.values()) {
             final UpdateRequest written =
-                    updates.submit(kind, UpdateSource.CONSOLE, null, Duration.ZERO);
+                    queued(kind, UpdateSource.CONSOLE, null, Duration.ZERO);
             assertEquals(kind, written.kind(), kind + " did not survive the round trip");
         }
     }
@@ -243,12 +267,92 @@ class UpdateDirectoryIntegrationTest {
         }
     }
 
+    // ---------------------------------------------------------------- one run at a time
+
+    @Test
+    @DisplayName("a second run is refused while the first is pending, and the refusal names it")
+    void aSecondRunIsRefusedWhileOneIsPending() {
+        final UpdateRequest first = updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO,
+                List.of("smp"));
+
+        final RunRefused refused = assertThrows(RunRefused.class,
+                () -> updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp")));
+
+        assertEquals(RunRefused.Reason.RUN_OPEN, refused.reason());
+        assertEquals(first.id(), refused.open().id());
+        assertEquals(1, updates.recent(10).size(), "nothing was written for the second press");
+    }
+
+    @Test
+    @DisplayName("a running run refuses every source, whatever it asks for")
+    void aRunningRunRefusesEveryKindFromEverySource() {
+        updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, "a", Duration.ZERO);
+        updates.claimNext().orElseThrow();
+
+        for (final UpdateSource source : UpdateSource.values()) {
+            assertThrows(RunRefused.class,
+                    () -> updates.submit(UpdateKind.REPORT, source, "b", Duration.ZERO), source.name());
+        }
+    }
+
+    @Test
+    void aFinishedRunNoLongerRefusesTheNext() {
+        final UpdateRequest first = updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, "a", Duration.ZERO);
+        updates.claimNext().orElseThrow();
+        updates.finish(first.id(), UpdateStatus.DONE, "{}");
+
+        assertNotNull(updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, "a", Duration.ZERO));
+    }
+
+    @Test
+    @DisplayName("taking down a service that is already held is refused, even with no run open")
+    void takingDownAHeldServiceIsRefused() {
+        final UpdateRequest down = updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO,
+                List.of("smp"));
+        updates.claimNext().orElseThrow();
+        updates.hold("smp", "a", down.id());
+        updates.finish(down.id(), UpdateStatus.DONE, "{}");
+
+        final RunRefused refused = assertThrows(RunRefused.class,
+                () -> updates.submit(UpdateKind.DOWN, UpdateSource.GAME, "b", Duration.ZERO, List.of("limbo", "smp")));
+        assertEquals(RunRefused.Reason.ALREADY_HELD, refused.reason());
+        assertEquals(List.of("smp"), refused.services());
+
+        assertNotNull(updates.submit(UpdateKind.DOWN, UpdateSource.GAME, "b", Duration.ZERO, List.of("limbo")),
+                "a service that is not held can still be taken down");
+    }
+
+    @Test
+    @DisplayName("two presses at the same instant write exactly one run")
+    void twoSimultaneousPressesWriteOneRun() throws Exception {
+        final java.util.concurrent.CyclicBarrier together = new java.util.concurrent.CyclicBarrier(2);
+        final java.util.concurrent.Callable<Boolean> press = () -> {
+            together.await();
+            try {
+                UpdateDirectory.using(dataSource).submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a",
+                        Duration.ZERO, List.of("smp"));
+                return true;
+            } catch (final RunRefused refused) {
+                return false;
+            }
+        };
+        final java.util.concurrent.ExecutorService two = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            final var left = two.submit(press);
+            final var right = two.submit(press);
+            assertTrue(left.get() ^ right.get(), "exactly one of the two presses is written");
+        } finally {
+            two.shutdownNow();
+        }
+        assertEquals(1, updates.recent(10).size());
+    }
+
     // ---------------------------------------------------------------- claiming
 
     @Test
     void claimingTakesTheOldestDueRequestAndMarksItRunning() {
-        final UpdateRequest first = updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
-        final UpdateRequest second = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "b", Duration.ZERO);
+        final UpdateRequest first = queued(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest second = queued(UpdateKind.UPDATE, UpdateSource.DISCORD, "b", Duration.ZERO);
 
         final UpdateRequest claimed = updates.claimNext().orElseThrow();
         assertEquals(first.id(), claimed.id(), "oldest first");
@@ -273,8 +377,8 @@ class UpdateDirectoryIntegrationTest {
     void aDueRequestIsClaimedEvenWhenAnEarlierUndueOneExists() {
         // The restart is written first and is due last. A claim ordered only by id would sit on it
         // and starve everything behind it.
-        updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
-        final UpdateRequest report = updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
+        queued(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
+        final UpdateRequest report = queued(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
 
         assertEquals(report.id(), updates.claimNext().orElseThrow().id());
     }
@@ -535,8 +639,8 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void theEarlierOfTwoRestartsIsTheOneShownAndTheOneCancelled() {
-        final UpdateRequest soon = updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "a", Duration.ofSeconds(60));
-        updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, "b", Duration.ofSeconds(600));
+        final UpdateRequest soon = queued(UpdateKind.RESTART, UpdateSource.GAME, "a", Duration.ofSeconds(60));
+        queued(UpdateKind.RESTART, UpdateSource.DISCORD, "b", Duration.ofSeconds(600));
 
         assertEquals(soon.id(), updates.countingDown().orElseThrow().id());
         assertEquals(soon.id(), updates.cancelCountdown("stop").orElseThrow().id());
@@ -548,8 +652,8 @@ class UpdateDirectoryIntegrationTest {
     @Test
     @DisplayName("the feed reads forward from the last id it drew, and no further back")
     void sinceIsEverythingAfterTheMark() {
-        final UpdateRequest first = updates.submit(UpdateKind.REPORT, UpdateSource.GAME, "a", Duration.ZERO);
-        final UpdateRequest second = updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, null, Duration.ZERO);
+        final UpdateRequest first = queued(UpdateKind.REPORT, UpdateSource.GAME, "a", Duration.ZERO);
+        final UpdateRequest second = queued(UpdateKind.UPDATE, UpdateSource.CONSOLE, null, Duration.ZERO);
 
         assertEquals(List.of(first.id(), second.id()),
                 updates.since(0L).stream().map(UpdateRequest::id).toList(),
@@ -638,10 +742,10 @@ class UpdateDirectoryIntegrationTest {
     void nextDueIsTheEarliestPendingRowAndNothingElse() {
         assertTrue(updates.nextDue().isEmpty(), "an empty inbox has nothing to wake up for");
 
-        final UpdateRequest restart = updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "a", Duration.ofSeconds(60));
+        final UpdateRequest restart = queued(UpdateKind.RESTART, UpdateSource.GAME, "a", Duration.ofSeconds(60));
         assertEquals(restart.notBefore(), updates.nextDue().orElseThrow());
 
-        final UpdateRequest now = updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "b", Duration.ZERO);
+        final UpdateRequest now = queued(UpdateKind.REPORT, UpdateSource.DISCORD, "b", Duration.ZERO);
         assertEquals(now.notBefore(), updates.nextDue().orElseThrow(), "the sooner of the two");
 
         updates.claimNext().orElseThrow();

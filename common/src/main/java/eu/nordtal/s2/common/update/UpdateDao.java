@@ -89,6 +89,15 @@ interface UpdateDao {
                                @Bind("delaySeconds") long delaySeconds,
                                @Bind("scope") String scope);
 
+    /** The oldest run that is pending or running, which is what refuses a new one. */
+    @SqlQuery("""
+            SELECT * FROM update_request
+            WHERE status IN ('PENDING', 'RUNNING')
+            ORDER BY id
+            LIMIT 1
+            """)
+    Optional<UpdateRequest> open();
+
     /** @return the {@code scope} column, or {@code null} for a whole-network run and for no row. */
     @SqlQuery("SELECT scope FROM update_request WHERE id = :id")
     String scope(@Bind("id") long id);

@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateKind;
 
 
@@ -34,6 +35,8 @@ public final class ReportUpdate implements NordtalCommand<UpdateEffects> {
                 // primary key being read out to somebody who cannot do anything with it; the one
                 // reader who can is looking at steward-worker's log, where it still is.
                 user.reply(MESSAGES.update().asked(), Feedback.SMALL_SUCCESS, Tone.GOOD);
+            } catch (final RunRefused refused) {
+                user.reply(Refusals.of(refused), Feedback.REFUSED, Tone.BAD);
             } catch (final RuntimeException failure) {
                 user.reply(MESSAGES.update().writeFailed(), Feedback.REFUSED, Tone.BAD);
             }

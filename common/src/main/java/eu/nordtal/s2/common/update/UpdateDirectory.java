@@ -72,6 +72,9 @@ public interface UpdateDirectory {
      *                    worker knows there is work to do, so a request that finds nothing new
      *                    never counts anything down. Negative is treated as zero
      * @return the row as written, with the id to read the answer back by
+     * @throws RunRefused when another run is pending or running anywhere in the network, or a
+     *                    take-down names a service that is already held - one run at a time,
+     *                    decided here because every source submits through here
      */
     UpdateRequest submit(UpdateKind kind, UpdateSource source, String requestedBy, Duration delay);
 

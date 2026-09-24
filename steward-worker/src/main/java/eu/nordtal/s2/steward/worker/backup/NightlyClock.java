@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.backup;
 
+import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateSource;
@@ -228,24 +229,57 @@ public final class NightlyClock implements AutoCloseable {
     }
 
     private void arm(final Duration until) {
+        arm(until, null);
+    }
+
+    private void arm(final Duration until, final ZonedDateTime due) {
         // Rounded UP. toSeconds() floors, and a wait of 04:44:59.6 floored to zero is a task that
         // fires while the target is still ahead and re-arms into a loop.
         final long seconds = Math.max(1, Math.ceilDiv(until.toNanos(), 1_000_000_000L));
-        clock.schedule(this::fire, seconds, TimeUnit.SECONDS);
+        clock.schedule(() -> {
+            final ZonedDateTime now = ZonedDateTime.now(zone);
+            final ZonedDateTime tonight = due == null ? now : due;
+            // Whatever happened inside. See the class comment.
+            final Duration next = fire(tonight, now);
+            arm(next, next.equals(RETRY) ? tonight : null);
+        }, seconds, TimeUnit.SECONDS);
     }
 
-    private void fire() {
+    /**
+     * How long to wait before asking again when another run is open: only one run happens in the
+     * network at a time, and a backup refused for that reason is asked for again rather than lost.
+     */
+    static final Duration RETRY = Duration.ofMinutes(5);
+
+    /** How long after its moment tonight's backup is still asked for. After that, tomorrow. */
+    static final Duration PATIENCE = Duration.ofHours(2);
+
+    /**
+     * Asks for tonight's backup once.
+     *
+     * @param due when tonight's backup was first due
+     * @return the wait before this clock fires again: {@link #RETRY} while another run is open and
+     *         tonight's patience lasts, otherwise until the next scheduled night
+     */
+    Duration fire(final @NotNull ZonedDateTime due, final @NotNull ZonedDateTime now) {
         try {
             final long id = directory.submit(UpdateKind.BACKUP, SOURCE, REQUESTED_BY,
                     Duration.ZERO).id();
             log.info("asked for the nightly backup as request {}", id);
+        } catch (final RunRefused refused) {
+            if (refused.reason() == RunRefused.Reason.RUN_OPEN
+                    && now.plus(RETRY).isBefore(due.plus(PATIENCE))) {
+                log.info("the nightly backup waits: {}. Asking again in {} minutes.",
+                        refused.getMessage(), RETRY.toMinutes());
+                return RETRY;
+            }
+            log.warn("the nightly backup was not asked for tonight - {}. Tomorrow is tried again.",
+                    refused.getMessage());
         } catch (RuntimeException e) {
             log.warn("the nightly backup could not be asked for - nothing was saved tonight."
                     + " The clock carries on; tomorrow is tried again.", e);
-        } finally {
-            // Whatever happened above. See the class comment.
-            arm(untilNext(ZonedDateTime.now(zone)));
         }
+        return untilNext(now);
     }
 
     /** Always strictly in the future, so firing exactly on the second cannot re-arm at zero. */

@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands.update;
 
 import eu.nordtal.s2.commands.FakeUser;
+import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.update.UpdateKind;
 
@@ -43,6 +44,37 @@ class HoldServiceTest {
         assertEquals(List.of("smp"), directory.submitted.getFirst().services(),
                 "the service was dropped on the way to the row, which makes this a DOWN with an"
                         + " empty scope - and an empty scope is the whole network");
+    }
+
+    @Test
+    @DisplayName("a refused take-down says why, instead of blaming the database")
+    void aRefusedRunIsNamedAsSuch() {
+        final FakeUpdateDirectory directory = new FakeUpdateDirectory();
+        directory.refusing = RunRefused.alreadyHeld(List.of("smp"));
+        final FakeUser user = FakeUser.console();
+
+        new HoldService(UpdateCommands.DOWN).run(user,
+                new Values(UpdateCommands.DOWN, Map.of("service", "smp")),
+                new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> { }, (id, who) -> { }));
+
+        assertEquals("update.already-down", user.only().key());
+        assertEquals("smp", user.only().of("services"));
+    }
+
+    @Test
+    @DisplayName("a run refused because another is open says so")
+    void aBusyNetworkIsNamedAsSuch() {
+        final FakeUpdateDirectory directory = new FakeUpdateDirectory();
+        directory.refusing = RunRefused.runOpen(new eu.nordtal.s2.common.update.UpdateRequest(7L,
+                UpdateKind.UPDATE, eu.nordtal.s2.common.update.UpdateStatus.RUNNING,
+                eu.nordtal.s2.common.update.UpdateSource.DISCORD, "a", java.time.Instant.now(),
+                java.time.Instant.now(), null, null, null));
+        final FakeUser user = FakeUser.console();
+
+        new RunUpdate(UpdateCommands.NOW).run(user, new Values(UpdateCommands.NOW, Map.of()),
+                new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> { }, (id, who) -> { }));
+
+        assertEquals("update.busy", user.only().key());
     }
 
     @Test

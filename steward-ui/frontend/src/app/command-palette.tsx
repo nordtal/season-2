@@ -188,9 +188,13 @@ export function CommandPalette() {
         use, and the haystack rides along beside them.
       */
       filter={(value, query, keywords) => rankValue(keywords?.join("\n") ?? value, query)}
-      className="top-[20%] w-[calc(100%-2rem)] translate-y-0 sm:max-w-2xl"
+      // The dialog half only: on a phone the sheet is the full width at the bottom edge.
+      className="sm:top-[20%] sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:translate-y-0"
     >
       <CommandInput
+        // A sheet does not move focus into itself the way the dialog does, so without this every
+        // search on a phone started with a tap into the field.
+        autoFocus
         value={search}
         onValueChange={setSearch}
         placeholder="Search pages, runs, settings…"

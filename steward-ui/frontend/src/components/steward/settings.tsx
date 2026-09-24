@@ -359,7 +359,18 @@ function TreeView<L>({
   const [highlight, setHighlight] = useState<Highlight | null>(null)
   const opened = useOpened(file)
   const top = useRef<HTMLDivElement>(null)
+  const search = useRef<HTMLDivElement>(null)
   const applied = useRef(-1)
+  // The arrow back up only once the search box has left the screen: on a file that fits, there is
+  // nowhere to go back to.
+  const [scrolledAway, setScrolledAway] = useState(false)
+  useEffect(() => {
+    const node = search.current
+    if (!node || typeof IntersectionObserver === "undefined") return
+    const observer = new IntersectionObserver(([entry]) => setScrolledAway(!entry.isIntersecting))
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
   const closedByDefault = useMemo(() => leafCount(nodes) > 12, [nodes])
 
   const shown = useMemo(
@@ -387,7 +398,7 @@ function TreeView<L>({
 
   return (
     <div ref={top} className="flex scroll-mt-4 flex-col gap-3">
-      <InputGroup>
+      <InputGroup ref={search}>
         <InputGroupAddon>
           <MagnifyingGlassIcon aria-hidden />
         </InputGroupAddon>
@@ -414,16 +425,18 @@ function TreeView<L>({
         />
       )}
       <div className="pointer-events-none sticky bottom-4 mt-2 flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Back to the top"
-          className="pointer-events-auto rounded-full bg-background/90 backdrop-blur"
-          onClick={() => top.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-        >
-          <ArrowUpIcon aria-hidden />
-        </Button>
+        {scrolledAway ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Back to the top"
+            className="pointer-events-auto rounded-full bg-background/90 backdrop-blur"
+            onClick={() => top.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          >
+            <ArrowUpIcon aria-hidden />
+          </Button>
+        ) : null}
         {save}
       </div>
     </div>

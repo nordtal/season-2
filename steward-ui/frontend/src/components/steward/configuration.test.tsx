@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ServiceSettings } from "@/components/steward/settings"
@@ -1183,5 +1183,44 @@ describe("a hit that arrives while this page is already open (steward/127)", () 
       file: "smp/steward.yml",
       path: "grave.decay.enabled",
     })
+  })
+})
+
+describe("the arrow back to the top", () => {
+  it("shows only once the top of the file has scrolled out of view", async () => {
+    let report: ((entries: Array<{ isIntersecting: boolean }>) => void) | null = null
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
+          report = callback
+        }
+        observe() {
+          report?.([{ isIntersecting: true }])
+        }
+        disconnect() {}
+        unobserve() {}
+      },
+    )
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        "steward-worker/steward.yml": {
+          ...location({ path: "steward-worker/steward.yml", name: "steward.yml" }),
+          revision: "r1",
+          header: [],
+          entries: [entry({ path: "port", key: "port", value: "8080" })],
+        },
+      }),
+    )
+    draw(<Settings service="steward-worker" />)
+    await open("Steward")
+    await screen.findByRole("searchbox", { name: "Search this file" })
+
+    // Three fields and nothing scrolls: an arrow here would do nothing.
+    expect(screen.queryByRole("button", { name: "Back to the top" })).toBeNull()
+
+    act(() => report?.([{ isIntersecting: false }]))
+    expect(screen.getByRole("button", { name: "Back to the top" })).toBeTruthy()
   })
 })

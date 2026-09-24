@@ -302,7 +302,10 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
               <div
                 key={entry.seq}
                 className={cn(
-                  "col-span-full break-words whitespace-pre-wrap",
+                  "break-words whitespace-pre-wrap",
+                  // A line that carries on the one before it sits under the message, whether or
+                  // not its head is still in the window; anything else has the whole width.
+                  continuesPrevious(line.text) ? "max-sm:pl-3 sm:col-start-3" : "col-span-full",
                   level ? LEVEL_TEXT[level] : "text-white/85",
                 )}
               >

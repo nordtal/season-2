@@ -1,9 +1,10 @@
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { ServiceConfiguration } from "@/components/steward/configuration"
+import { ServiceSettings } from "@/components/steward/settings"
+import { resetDrafts } from "@/lib/drafts"
 import { setPendingJump, takePendingJump } from "@/lib/settings-search"
 import type { ConfigEntry, ConfigLocation } from "@/lib/api"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -69,6 +70,7 @@ function backend(documents: Record<string, unknown>) {
   })
   return vi.fn(async (url: string) => {
     if (url === "/api/config") return json(listing)
+    if (url === "/api/messages") return json([])
     if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
     const found = Object.entries(documents).find(([path]) => url === `/api/config/${path}`)
     if (found) return json(found[1])
@@ -95,9 +97,16 @@ async function open(humanName: string) {
   fireEvent.click(await screen.findByText(humanName))
 }
 
+/** The tab as the service page draws it, with `?file=` kept in state instead of the URL. */
+function Settings({ service }: { service: string }) {
+  const [file, setFile] = useState<string | undefined>()
+  return <ServiceSettings service={service} file={file} onFile={setFile} />
+}
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  resetDrafts()
 })
 
 describe("the file row", () => {
@@ -114,7 +123,7 @@ describe("the file row", () => {
       }),
     )
 
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
 
     await screen.findByText("Steward")
     // season-2-ops/130: the path used to sit under the name in monospace and made every row in the
@@ -125,11 +134,10 @@ describe("the file row", () => {
 })
 
 /**
- * steward/58: a search box confined to one service's own files - label, key path, current value
- * and explanation text, a secret's value excluded from all of it, and a hit that lands on the field
- * and lights it up rather than merely opening the file it lives in.
+ * The search box of an open file: label, key path, current value and explanation text, a secret's
+ * value excluded from all of it, and the tree cut down to what matched.
  */
-describe("searching a service's settings (steward/58)", () => {
+describe("searching a file", () => {
   const file = "steward-worker/steward.yml"
 
   function withEntries(entries: ConfigEntry[]) {
@@ -146,64 +154,66 @@ describe("searching a service's settings (steward/58)", () => {
     )
   }
 
-  function searchBox() {
-    return screen.getByLabelText("Search this service's settings")
+  async function search(query: string) {
+    fireEvent.change(await screen.findByLabelText("Search this file"), { target: { value: query } })
   }
 
-  it("finds a setting by its label without the file being open first", async () => {
-    withEntries([
-      entry({ path: "worker.base-url", key: "base-url", label: "Base url", value: "http://steward-worker:8081" }),
-    ])
-    draw(<ServiceConfiguration service="steward-worker" />)
-    await screen.findByText("Steward")
+  const twoFields = [
+    entry({ path: "worker.base-url", key: "base-url", label: "Base url", value: "http://steward-worker:8081" }),
+    entry({
+      path: "limits.max-attempts",
+      key: "max-attempts",
+      label: "Max attempts",
+      explanation: "How many times a failed job is retried before it is given up on.",
+    }),
+  ]
 
-    fireEvent.change(searchBox(), { target: { value: "base url" } })
+  it("finds a setting by its label and leaves the others out", async () => {
+    withEntries(twoFields)
+    draw(<Settings service="steward-worker" />)
+    await open("Steward")
 
-    await screen.findByText(/worker\.base-url/)
+    await search("base url")
+
+    await screen.findByText("Base url")
+    expect(screen.queryByText("Max attempts")).toBeNull()
   })
 
   it("finds a setting by its current value", async () => {
-    withEntries([
-      entry({ path: "worker.base-url", key: "base-url", label: "Base url", value: "http://steward-worker:8081" }),
-    ])
-    draw(<ServiceConfiguration service="steward-worker" />)
-    await screen.findByText("Steward")
+    withEntries(twoFields)
+    draw(<Settings service="steward-worker" />)
+    await open("Steward")
 
-    fireEvent.change(searchBox(), { target: { value: "8081" } })
+    await search("8081")
 
-    await screen.findByText(/worker\.base-url/)
+    await screen.findByText("Base url")
+    expect(screen.queryByText("Max attempts")).toBeNull()
   })
 
   it("finds a setting by its explanation text", async () => {
-    withEntries([
-      entry({
-        path: "limits.max-attempts",
-        key: "max-attempts",
-        label: "Max attempts",
-        explanation: "How many times a failed job is retried before it is given up on.",
-      }),
-    ])
-    draw(<ServiceConfiguration service="steward-worker" />)
-    await screen.findByText("Steward")
+    withEntries(twoFields)
+    draw(<Settings service="steward-worker" />)
+    await open("Steward")
 
-    fireEvent.change(searchBox(), { target: { value: "given up" } })
+    await search("given up")
 
     await screen.findByText("Max attempts")
+    expect(screen.queryByText("Base url")).toBeNull()
   })
 
-  it("RED, then fixed: a secret's known value must never surface a hit", async () => {
+  it("never finds a secret by its value", async () => {
     const token = "MTA1NzE4.super-secret-discord-token"
     withEntries([
       // As if a future bug sent a value for a secret anyway - the wire contract in lib/api.ts says
-      // this never happens, and the search box has to refuse it on its own regardless.
+      // this never happens, and the search has to refuse it on its own regardless.
       entry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: token }),
     ])
-    draw(<ServiceConfiguration service="steward-worker" />)
-    await screen.findByText("Steward")
+    draw(<Settings service="steward-worker" />)
+    await open("Steward")
 
-    fireEvent.change(searchBox(), { target: { value: token } })
+    await search(token)
 
-    await screen.findByText("Nothing found.")
+    await screen.findByText("No match.")
     expect(screen.queryByText("Bot token")).toBeNull()
   })
 
@@ -211,33 +221,12 @@ describe("searching a service's settings (steward/58)", () => {
     withEntries([
       entry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: "irrelevant" }),
     ])
-    draw(<ServiceConfiguration service="steward-worker" />)
-    await screen.findByText("Steward")
+    draw(<Settings service="steward-worker" />)
+    await open("Steward")
 
-    fireEvent.change(searchBox(), { target: { value: "bot token" } })
+    await search("bot token")
 
-    await screen.findByText(/discord\.bot-token/)
-  })
-
-  it("a hit opens the file and highlights the field, not just the file", async () => {
-    withEntries([
-      entry({ path: "worker.base-url", key: "base-url", label: "Base url", value: "http://steward-worker:8081" }),
-    ])
-    const { container } = draw(<ServiceConfiguration service="steward-worker" />)
-    await screen.findByText("Steward")
-
-    // Not open yet - this is the whole point: the box finds the field before anybody expands
-    // the file it lives in.
-    expect(screen.queryByText("http://steward-worker:8081")).toBeNull()
-
-    fireEvent.change(searchBox(), { target: { value: "base url" } })
-    fireEvent.click(await screen.findByText(/worker\.base-url/))
-
-    await screen.findByDisplayValue("http://steward-worker:8081")
-    expect(container.querySelector(".ring-primary")).not.toBeNull()
-
-    // The search box clears and its results close once a hit has been taken.
-    expect((searchBox() as HTMLInputElement).value).toBe("")
+    await screen.findByText("Bot token")
   })
 })
 
@@ -286,34 +275,43 @@ describe("headings and explanations", () => {
     )
   })
 
-  it("draws a heading for the first two levels of YAML nesting", async () => {
-    draw(<ServiceConfiguration service="steward-worker" />)
+  it("folds a chain of single-child sections into one row that names all of them", async () => {
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
 
-    await screen.findByRole("heading", { name: "Worker" })
-    screen.getByRole("heading", { name: "Limits" })
+    const row = await screen.findByRole("button", { name: /Worker.*Limits.*Retry/ })
+    expect(row.getAttribute("aria-expanded")).toBe("true")
+    screen.getByText("Max attempts")
   })
 
-  it("stops heading at the third level and lets the leaf's own path name the rest", async () => {
-    draw(<ServiceConfiguration service="steward-worker" />)
+  it("shows no key paths, only names", async () => {
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
-    await screen.findByRole("heading", { name: "Worker" })
+    await screen.findByText("Max attempts")
 
-    expect(screen.queryByRole("heading", { name: "Retry" })).toBeNull()
-    screen.getByText("worker.limits.retry.max-attempts")
+    expect(screen.queryByText("worker.limits.retry.max-attempts")).toBeNull()
+  })
+
+  it("closes a section on a click, and the fields in it go", async () => {
+    draw(<Settings service="steward-worker" />)
+    await open("Steward")
+
+    fireEvent.click(await screen.findByRole("button", { name: /Worker.*Limits.*Retry/ }))
+
+    await waitFor(() => expect(screen.queryByText("Max attempts")).toBeNull())
   })
 
   it("shows the schema's explanation under a label", async () => {
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
 
     await screen.findByText("How many times a failed job is retried before it is given up on.")
   })
 
   it("draws literally no text when the schema says no explanation is needed", async () => {
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
-    await screen.findByRole("heading", { name: "Worker" })
+    await screen.findByText("Max attempts")
 
     expect(
       screen.queryByText("An old mechanical comment that must not show through."),
@@ -321,14 +319,14 @@ describe("headings and explanations", () => {
   })
 
   it("falls back to the mechanical comment when there is no schema explanation", async () => {
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
 
     await screen.findByText("Whatever jcore's comment block above this key used to say.")
   })
 
   it("marks a key the schema does not cover as not in schema", async () => {
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
 
     await screen.findByText("not in schema")
@@ -369,7 +367,7 @@ describe("environment overrides (steward/76)", () => {
 
   it("marks a field the environment currently overrides, and leaves it editable", async () => {
     withField({ environmentOverridden: true })
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
 
     await screen.findByText("env override")
@@ -381,7 +379,7 @@ describe("environment overrides (steward/76)", () => {
 
   it("shows nothing when the environment does not override this field", async () => {
     withField({ environmentOverridden: false })
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
     await screen.findByText("Base url")
 
@@ -390,7 +388,7 @@ describe("environment overrides (steward/76)", () => {
 
   it("shows nothing when the service never reported which paths the environment overrides - absent is not the same as false", async () => {
     withField({})
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
     await screen.findByText("Base url")
 
@@ -421,7 +419,7 @@ describe("a schema's allowed values", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
 
     const combobox = await screen.findByRole("combobox")
@@ -449,7 +447,7 @@ describe("a schema's allowed values", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Steward")
 
     await screen.findByRole("combobox")
@@ -472,12 +470,11 @@ describe("database.yml", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Database")
 
-    await screen.findByText("This file is read-only in Steward.")
-    const save = screen.getByRole("button", { name: /Save/ }) as HTMLButtonElement
-    expect(save.disabled).toBe(true)
+    await screen.findByText("Read-only.")
+    expect((screen.getByDisplayValue("postgres") as HTMLInputElement).disabled).toBe(true)
   })
 
   it("is read-only for a plugin too, whose file is not called database.yml on its own", async () => {
@@ -497,12 +494,11 @@ describe("database.yml", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="smp" />)
+    draw(<Settings service="smp" />)
     await open("Smp database")
 
-    await screen.findByText("This file is read-only in Steward.")
-    const save = screen.getByRole("button", { name: /Save/ }) as HTMLButtonElement
-    expect(save.disabled).toBe(true)
+    await screen.findByText("Read-only.")
+    expect((screen.getByDisplayValue("postgres") as HTMLInputElement).disabled).toBe(true)
   })
 })
 
@@ -521,7 +517,7 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
         },
       }),
     )
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Readme")
 
     await screen.findByText("Editable as raw text.")
@@ -546,7 +542,7 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
         },
       }),
     )
-    draw(<ServiceConfiguration service="smp" />)
+    draw(<Settings service="smp" />)
     await open("Readme")
 
     await screen.findByText("This file is mounted read-only.")
@@ -558,6 +554,7 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
     const file = "steward-worker/config.yml"
     const broken = "one: 1\ntwo: [unterminated\n"
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/messages") return json([])
       if (url === "/api/config") {
         return json([
           { service: "steward-worker", name: "config.yml", path: file, readable: true, writable: true },
@@ -590,7 +587,7 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
     })
     vi.stubGlobal("fetch", fetchMock)
 
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Config")
 
     const editor = (await screen.findByLabelText(
@@ -632,7 +629,7 @@ describe("a file with no schema at all", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="steward-worker" />)
+    draw(<Settings service="steward-worker" />)
     await open("Legacy")
 
     await screen.findByText("Mechanical, no schema wrote this file.")
@@ -689,7 +686,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="discord-bot" />)
+    draw(<Settings service="discord-bot" />)
     await open("Access")
 
     await screen.findByDisplayValue("en")
@@ -711,7 +708,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="discord-bot" />)
+    draw(<Settings service="discord-bot" />)
     await open("Access")
 
     await screen.findByDisplayValue("en")
@@ -739,7 +736,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="discord-bot" />)
+    draw(<Settings service="discord-bot" />)
     await open("Access")
 
     // GUILD_UNAVAILABLE (no bot token in this test) makes the picker degrade to a text input, but
@@ -749,6 +746,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
 
   it("removes a card from the draft only, and writes it on Save - not on the click", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/messages") return json([])
       if (url === "/api/config") {
         return json([
           { service: "discord-bot", name: "access.yml", path: file, readable: true, writable: true },
@@ -777,7 +775,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
     })
     vi.stubGlobal("fetch", fetchMock)
 
-    draw(<ServiceConfiguration service="discord-bot" />)
+    draw(<Settings service="discord-bot" />)
     await open("Access")
     await screen.findByDisplayValue("de")
 
@@ -787,10 +785,10 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
 
     // The card is gone from the draft, and the count says so - but nothing has been written yet.
     expect(screen.queryByDisplayValue("de")).toBeNull()
-    screen.getByText("One setting changed.")
+    screen.getByRole("button", { name: "Save 1" })
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false)
 
-    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    fireEvent.click(screen.getByRole("button", { name: "Save 1" }))
 
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true),
@@ -802,8 +800,8 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
  * steward/63: the five tones of `colours.yml` (season-2-ingame/22), end to end through the real
  * form - `colourRuns` and its unit tests in `colour-control.test.tsx` cover the grouping logic in
  * isolation, but the thing the ticket actually asked for is what a person sees on this page, and
- * that needs `ServiceConfiguration` wired up for real: `EntryList` receiving the file's entries,
- * building the run, and `Field`'s `layout="row"` branch actually reaching the DOM.
+ * that needs the Settings tab wired up for real: the tree receiving the file's entries, building
+ * the run, and the run actually reaching the DOM.
  */
 describe("a file of colours, side by side (steward/63)", () => {
   const file = "smp/colours.yml"
@@ -830,7 +828,7 @@ describe("a file of colours, side by side (steward/63)", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="smp" />)
+    draw(<Settings service="smp" />)
     await open("Colours")
 
     const swatches = await screen.findAllByLabelText("Pick a colour")
@@ -858,7 +856,7 @@ describe("a file of colours, side by side (steward/63)", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="smp" />)
+    draw(<Settings service="smp" />)
     await open("Colours")
 
     await screen.findByLabelText("Pick a colour")
@@ -876,7 +874,7 @@ describe("a file of colours, side by side (steward/63)", () => {
         },
       }),
     )
-    draw(<ServiceConfiguration service="smp" />)
+    draw(<Settings service="smp" />)
     await open("Colours")
 
     await screen.findByDisplayValue("smp")
@@ -943,7 +941,7 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
 
   it("puts a tier's hour and its colour in the same row", async () => {
     withLadder()
-    const { container } = draw(<ServiceConfiguration service="smp" />)
+    const { container } = draw(<Settings service="smp" />)
     await open("Prestige")
 
     await screen.findByDisplayValue("2")
@@ -960,7 +958,7 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
 
   it("names the tier once, and each column once for the whole block", async () => {
     withLadder()
-    const { container } = draw(<ServiceConfiguration service="smp" />)
+    const { container } = draw(<Settings service="smp" />)
     await open("Prestige")
 
     await screen.findByDisplayValue("2")
@@ -982,7 +980,7 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
    */
   it("keeps each half's label for a screen reader", async () => {
     withLadder()
-    draw(<ServiceConfiguration service="smp" />)
+    draw(<Settings service="smp" />)
     await open("Prestige")
 
     await screen.findByDisplayValue("2")
@@ -992,7 +990,7 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
 
   it("keeps the colour picker, because a paired field is still the field it was", async () => {
     withLadder()
-    draw(<ServiceConfiguration service="smp" />)
+    draw(<Settings service="smp" />)
     await open("Prestige")
 
     // Three tiers, plus `admin` standing outside the pair as an ordinary colour field.
@@ -1002,7 +1000,7 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
   it("writes both halves of a row under their own real keys", async () => {
     withLadder()
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
-    const { container } = draw(<ServiceConfiguration service="smp" />)
+    const { container } = draw(<Settings service="smp" />)
     await open("Prestige")
 
     await screen.findByDisplayValue("2")
@@ -1040,7 +1038,7 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
         },
       }),
     )
-    const { container } = draw(<ServiceConfiguration service="smp" />)
+    const { container } = draw(<Settings service="smp" />)
     await open("Prestige")
 
     // Nothing is paired, so nothing is a row - and, crucially, nothing has been dropped either:
@@ -1076,7 +1074,7 @@ describe("a hit that arrives while this page is already open (steward/127)", () 
         },
       }),
     )
-    return draw(<ServiceConfiguration service="steward-worker" />)
+    return draw(<Settings service="steward-worker" />)
   }
 
   afterEach(() => {
@@ -1107,6 +1105,21 @@ describe("a hit that arrives while this page is already open (steward/127)", () 
     await waitFor(() => expect(screen.queryByText("Base url")).not.toBeNull())
 
     expect(takePendingJump("steward-worker")).toBeUndefined()
+  })
+
+  it("lands again on a second, identical hit while still standing on the field", async () => {
+    drawWith([entry({ path: "worker.base-url", key: "base-url", label: "Base url" })])
+    await screen.findByText("Steward")
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView")
+    try {
+      setPendingJump("steward-worker", { file, path: "worker.base-url" })
+      await waitFor(() => expect(scroll).toHaveBeenCalledTimes(1), { timeout: 1500 })
+
+      setPendingJump("steward-worker", { file, path: "worker.base-url" })
+      await waitFor(() => expect(scroll).toHaveBeenCalledTimes(2), { timeout: 1500 })
+    } finally {
+      scroll.mockRestore()
+    }
   })
 
   it("ignores a jump meant for another service", async () => {

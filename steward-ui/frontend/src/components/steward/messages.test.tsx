@@ -1,10 +1,12 @@
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { toast } from "sonner"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ServiceMessages } from "@/components/steward/messages"
+import { ServiceSettings } from "@/components/steward/settings"
+import { resetDrafts } from "@/lib/drafts"
+import { setPendingMessageJump } from "@/lib/settings-search"
 import type { MessageBundleLocation, MessageEntry } from "@/lib/api"
 
 vi.mock("sonner", () => ({
@@ -12,13 +14,8 @@ vi.mock("sonner", () => ({
 }))
 
 /**
- * `ServiceMessages` is the card steward/48 asks for - a service's message bundles, drawn beside
- * its configuration cards rather than inside them, with the packaged jar text and the operator's
- * override for one line sitting next to each other under an en/de toggle.
- *
- * Every scenario here was RED against the state before this file and `messages.tsx` existed at
- * all: there was no `ServiceMessages` export, so every test failed on the import itself. That
- * failure, verbatim, belongs in the ticket's report rather than in this comment.
+ * A service's message bundles on the Settings & Translations tab: one file per bundle, the texts as
+ * a tree of named sections, and each text with its English and German under one field.
  */
 
 function json(body: unknown): Response {
@@ -57,6 +54,7 @@ function backend(
   })
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/messages") return json(listing)
+    if (url === "/api/config") return json([])
     if (init?.method === "PUT") {
       const found = Object.entries(puts).find(([path]) => url === `/api/messages/${path}`)
       if (found) return json(found[1](JSON.parse(String(init.body))))
@@ -79,14 +77,21 @@ async function open(label: string) {
   fireEvent.click(await screen.findByText(label))
 }
 
+/** The tab as the service page draws it, with `?file=` kept in state instead of the URL. */
+function Settings({ service }: { service: string }) {
+  const [file, setFile] = useState<string | undefined>()
+  return <ServiceSettings service={service} file={file} onFile={setFile} />
+}
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
+  resetDrafts()
 })
 
 describe("the bundle row", () => {
-  it("lists a bundle by its module name, in its own Messages card", async () => {
+  it("lists a bundle by its module name, made readable", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -97,19 +102,17 @@ describe("the bundle row", () => {
       }),
     )
 
-    draw(<ServiceMessages service="smp" />)
+    draw(<Settings service="smp" />)
 
-    await screen.findByText("Messages")
-    await screen.findByText("smp")
+    await screen.findByRole("button", { name: "Smp" })
   })
 
   it("shows nothing for a service with no bundle here", async () => {
     vi.stubGlobal("fetch", backend({}))
 
-    draw(<ServiceMessages service="smp" />)
+    draw(<Settings service="smp" />)
 
-    await screen.findByText("Messages")
-    await screen.findByText(/has no message bundle/)
+    await screen.findByText("No files.")
   })
 })
 
@@ -130,19 +133,19 @@ describe("the en/de toggle", () => {
 
   it("shows English packaged text by default", async () => {
     vi.stubGlobal("fetch", backend(fixture))
-    draw(<ServiceMessages service="smp" />)
-    await open("smp")
+    draw(<Settings service="smp" />)
+    await open("Smp")
 
     await screen.findByDisplayValue("Welcome")
   })
 
   it("switches to the override once German is selected, rather than the packaged text", async () => {
     vi.stubGlobal("fetch", backend(fixture))
-    draw(<ServiceMessages service="smp" />)
-    await open("smp")
+    draw(<Settings service="smp" />)
+    await open("Smp")
     await screen.findByDisplayValue("Welcome")
 
-    fireEvent.click(screen.getByRole("button", { name: "DE" }))
+    fireEvent.mouseDown(screen.getByRole("tab", { name: /DE/ }))
 
     await screen.findByDisplayValue("override-de-text")
     expect(screen.queryByDisplayValue("packaged-de-text")).toBeNull()
@@ -171,11 +174,11 @@ describe("saving a line", () => {
         },
       ),
     )
-    draw(<ServiceMessages service="smp" />)
-    await open("smp")
+    draw(<Settings service="smp" />)
+    await open("Smp")
     const field = await screen.findByDisplayValue("Hello <_sender>")
     fireEvent.change(field, { target: { value: "Hello there" } })
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }))
+    fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
     await screen.findByText(/no longer contains <_sender>/)
     await screen.findByDisplayValue("Hello there")
@@ -207,11 +210,11 @@ describe("saving a line", () => {
         },
       ),
     )
-    draw(<ServiceMessages service="smp" />)
-    await open("smp")
+    draw(<Settings service="smp" />)
+    await open("Smp")
     const field = await screen.findByDisplayValue("Welcome")
     fireEvent.change(field, { target: { value: "Howdy" } })
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }))
+    fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
     await waitFor(() =>
       expect(shown).toHaveBeenCalledWith("One text saved.", { description: message }),
@@ -244,11 +247,11 @@ describe("saving a line", () => {
         },
       ),
     )
-    draw(<ServiceMessages service="discord-bot" />)
-    await open("discord-bot")
+    draw(<Settings service="discord-bot" />)
+    await open("Discord bot")
     const field = await screen.findByDisplayValue("You are in")
     fireEvent.change(field, { target: { value: "Welcome in" } })
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }))
+    fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
     await screen.findByText(/dm.grantd is in the override file and in no bundle/)
   })
@@ -278,12 +281,13 @@ describe("saving a line", () => {
         },
       ),
     )
-    draw(<ServiceMessages service="smp" />)
-    await open("smp")
+    draw(<Settings service="smp" />)
+    await open("Smp")
     await screen.findByDisplayValue("Howdy")
 
     fireEvent.click(screen.getByRole("button", { name: /Reset/ }))
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }))
+    await screen.findByDisplayValue("Welcome")
+    fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
     // Both the reset-pending preview and the saved result show "Welcome" - packaged text, since
     // the override is gone either way - so a display-value match alone cannot tell the two apart.
@@ -292,5 +296,129 @@ describe("saving a line", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: /Reset/ })).toBeNull())
     expect(screen.getByDisplayValue("Welcome")).toBeTruthy()
     expect(screen.queryByText("overridden")).toBeNull()
+  })
+})
+
+describe("the tree of a bundle", () => {
+  it("names its sections after the spec and shows no keys", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        "smp/smp": {
+          ...location({ path: "smp/smp" }),
+          entries: [
+            entry({ key: "grave.decay.warning", name: "Decay warning", section: ["Graves", "Decay"], english: "Soon" }),
+            entry({ key: "welcome", name: "Welcome", english: "Welcome" }),
+          ],
+        },
+      }),
+    )
+    draw(<Settings service="smp" />)
+    await open("Smp")
+
+    await screen.findByRole("button", { name: /Graves.*Decay/ })
+    screen.getByText("Decay warning")
+    expect(screen.queryByText("grave.decay.warning")).toBeNull()
+  })
+})
+
+describe("both languages in one save", () => {
+  it("sends the English and the German change of two texts in one call", async () => {
+    const bodies: unknown[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        {
+          "smp/smp": {
+            ...location({ path: "smp/smp" }),
+            entries: [
+              entry({ key: "a", name: "First", english: "one", german: "eins" }),
+              entry({ key: "b", name: "Second", english: "two", german: "zwei" }),
+            ],
+          },
+        },
+        {
+          "smp/smp": (body) => {
+            bodies.push(body)
+            return { ...location({ path: "smp/smp" }), entries: [], warnings: [] }
+          },
+        },
+      ),
+    )
+    draw(<Settings service="smp" />)
+    await open("Smp")
+
+    fireEvent.change(await screen.findByDisplayValue("one"), { target: { value: "ONE" } })
+    const tabs = screen.getAllByRole("tab", { name: /DE/ })
+    fireEvent.mouseDown(tabs[1])
+    fireEvent.change(await screen.findByDisplayValue("zwei"), { target: { value: "ZWEI" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save 2" }))
+
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toEqual({ changes: { a: { en: "ONE" }, b: { de: "ZWEI" } } })
+  })
+})
+
+describe("placeholders", () => {
+  function withGreeting() {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        "smp/smp": {
+          ...location({ path: "smp/smp" }),
+          entries: [
+            entry({
+              key: "greeting",
+              name: "Greeting",
+              english: "Hello {player}",
+              args: [{ name: "player", component: false }],
+            }),
+          ],
+        },
+      }),
+    )
+  }
+
+  it("refuses to save a placeholder the text does not declare, and says which", async () => {
+    withGreeting()
+    draw(<Settings service="smp" />)
+    await open("Smp")
+
+    fireEvent.change(await screen.findByDisplayValue("Hello {player}"), { target: { value: "Hello {palyer}" } })
+
+    await screen.findByText("Unknown placeholder {palyer}")
+    expect((screen.getByRole("button", { name: "Save 1" }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("inserts a declared placeholder from its badge", async () => {
+    withGreeting()
+    draw(<Settings service="smp" />)
+    await open("Smp")
+    const field = (await screen.findByDisplayValue("Hello {player}")) as HTMLTextAreaElement
+    field.setSelectionRange(0, 0)
+
+    fireEvent.click(screen.getByRole("button", { name: "{player}" }))
+
+    await screen.findByDisplayValue("{player}Hello {player}")
+  })
+})
+
+describe("a jump from the command palette", () => {
+  it("opens the bundle and switches the text to the language of the hit", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        "smp/smp": {
+          ...location({ path: "smp/smp" }),
+          entries: [entry({ key: "welcome", name: "Welcome", english: "Welcome", german: "packaged-de-welcome" })],
+        },
+      }),
+    )
+    draw(<Settings service="smp" />)
+    await screen.findByRole("button", { name: "Smp" })
+
+    setPendingMessageJump("smp", { path: "smp/smp", language: "de", key: "welcome" })
+
+    await screen.findByDisplayValue("packaged-de-welcome")
   })
 })

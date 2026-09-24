@@ -18,7 +18,6 @@ import {
   type GuildList,
   type Host,
   type JournalEntry,
-  type LogSearch,
   type Me,
   type MessageBundle,
   type MessageBundleLocation,
@@ -891,15 +890,6 @@ export function useRemovePlugin(service: string) {
       void client.invalidateQueries({ queryKey: keys.plugins(service) })
       void client.invalidateQueries({ queryKey: ["plugin-search", service] })
     },
-  })
-}
-
-export function useLogSearch(service: string) {
-  return useMutation({
-    mutationFn: (pattern: string) =>
-      api<LogSearch>(
-        `/api/services/${encodeURIComponent(service)}/logs/search?q=${encodeURIComponent(pattern)}`,
-      ),
   })
 }
 

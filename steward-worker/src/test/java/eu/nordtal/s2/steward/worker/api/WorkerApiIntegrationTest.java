@@ -221,8 +221,9 @@ class WorkerApiIntegrationTest {
         final JsonObject one = GSON.fromJson(get("/api/services/" + name), JsonObject.class);
         assertEquals(name, one.get("service").getAsString());
         assertTrue(one.has("digests"));
-        assertTrue(one.get("logLimit").getAsString().contains("50 MB"),
-                "the log window has to say out loud what docker has already thrown away");
+        // The console offers only the steps the worker can fill.
+        final int capacity = one.get("logCapacity").getAsInt();
+        assertTrue(capacity >= 0 && capacity <= WorkerApi.LOG_CAPACITY_MAX, "capacity " + capacity);
     }
 
     @Test
@@ -256,51 +257,6 @@ class WorkerApiIntegrationTest {
         assertTrue(host.get("diskTotalBytes").getAsLong() > 0);
         assertTrue(host.get("containerLimits").getAsString().contains("share of the whole host"),
                 "a percentage without that sentence is a number that means something else");
-    }
-
-    @Test
-    @DisplayName("the log search reads what docker still has, and says when it stopped early")
-    void searchReadsWhatDockerStillHas() throws Exception {
-        final String name = aRunningService();
-
-        // "e" is in every log line anybody has ever written, which is what makes it a fair probe:
-        // the point here is the plumbing and the truncation flag, not the matching.
-        final JsonObject found = GSON.fromJson(
-                get("/api/services/" + name + "/logs/search?q=e&limit=5"), JsonObject.class);
-
-        assertTrue(found.has("lines"), found.toString());
-        assertTrue(found.get("limit").getAsInt() == 5);
-        // What it must never do is stop at the limit silently, which is a search that lies by
-        // omission - and equally never claim it stopped when it had already found everything, which
-        // sends the reader off narrowing a search that was complete. The log of whatever happens to
-        // be running is not a fixture, so the exact-limit case is LogSearchTest's; what holds here
-        // is the pair of shapes that are wrong either way.
-        final int lines = found.getAsJsonArray("lines").size();
-        final boolean truncated = found.get("truncated").getAsBoolean();
-        assertTrue(lines <= 5, "asked for five lines and got " + lines);
-        assertTrue(!truncated || lines == 5,
-                "called itself truncated after returning " + lines + " of five");
-    }
-
-    @Test
-    @DisplayName("a limit of nothing is refused, rather than answered with an empty search")
-    void aLimitOfNothingIsNotASearch() throws Exception {
-        final String name = aRunningService();
-
-        // Zero lines, always "found nothing", never truncated: an answer indistinguishable from a
-        // term that genuinely does not appear.
-        assertEquals(400, raw("/api/services/" + name + "/logs/search?q=e&limit=0", true).statusCode());
-        assertEquals(400, raw("/api/services/" + name + "/logs/search?q=e&limit=-1", true).statusCode());
-    }
-
-    @Test
-    @DisplayName("a search for nothing is refused rather than answered with everything")
-    void anEmptySearchIsRefused() throws Exception {
-        final JsonArray services = serviceRows();
-        assumeTrue(!services.isEmpty(), "nothing running - skipping");
-        final String name = services.get(0).getAsJsonObject().get("service").getAsString();
-
-        assertEquals(400, raw("/api/services/" + name + "/logs/search?q=", true).statusCode());
     }
 
     @Test

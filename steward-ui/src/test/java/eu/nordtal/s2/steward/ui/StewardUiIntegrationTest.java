@@ -149,9 +149,6 @@ class StewardUiIntegrationTest {
     private static final java.util.concurrent.atomic.AtomicInteger workerConnections =
             new java.util.concurrent.atomic.AtomicInteger();
 
-    /** The query string the stand-in worker last saw on a log search - {@code null} for none. */
-    private static final java.util.concurrent.atomic.AtomicReference<String> searchQuery =
-            new java.util.concurrent.atomic.AtomicReference<>("not called");
 
     private static Javalin fakeWorker;
     private static Javalin fakeDeployer;
@@ -243,10 +240,6 @@ class StewardUiIntegrationTest {
             cfg.routes.get("/api/config", configApi::list);
             cfg.routes.get("/api/config/<file>", configApi::one);
             cfg.routes.put("/api/config/<file>", configApi::save);
-            cfg.routes.get("/api/services/{name}/logs/search", ctx -> {
-                searchQuery.set(ctx.queryString());
-                ctx.json(List.of());
-            });
             // A log that never ends, which is what a running container's is. Everything about the
             // follow that matters happens in the middle of one: a session ending, a tab closing.
             cfg.routes.sse("/api/services/{name}/logs", client -> {
@@ -254,6 +247,7 @@ class StewardUiIntegrationTest {
                 workerFollowers.add(client);
                 client.onClose(() -> workerFollowers.remove(client));
                 Thread.ofVirtual().start(() -> {
+                    client.sendEvent("run", "Earlier run, 22 Sep 19:44");
                     client.sendEvent("line", "[12:00:00 INFO]: still running");
                     while (workerFollowers.contains(client)) {
                         try {
@@ -962,19 +956,13 @@ class StewardUiIntegrationTest {
     }
 
     @Test
-    @DisplayName("a search with no parameters is forwarded as no parameters, not as `?null`")
-    void anEmptyQueryIsNotForwardedAsTheWordNull() throws Exception {
-        searchQuery.set("not called");
-
-        assertEquals(200, get("/api/services/smp/logs/search").statusCode());
-
+    @DisplayName("a follow with no parameters is forwarded as no parameters, not as `?null`")
+    void anEmptyQueryIsNotForwardedAsTheWordNull() {
         // "?null" reaches the worker as a parameter named null with no value, which its own
-        // parameter parsing then has to survive - and a search for nothing arrives looking like a
-        // search for something.
-        assertNull(searchQuery.get(), "the worker saw a query string where there was none");
-
-        get("/api/services/smp/logs/search?q=timeout&limit=5");
-        assertEquals("q=timeout&limit=5", searchQuery.get());
+        // parameter parsing then has to survive.
+        assertEquals("", StewardUi.forwardedQuery(null));
+        assertEquals("", StewardUi.forwardedQuery(" "));
+        assertEquals("?tail=1000", StewardUi.forwardedQuery("tail=1000"));
     }
 
     @Test
@@ -2146,6 +2134,27 @@ class StewardUiIntegrationTest {
     // -------------------------------------------------------------------------------------------
     // The log follow, which is the one thing in this interface that outlives its own request
     // -------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("an earlier run reaches the browser as a run, not as one more line")
+    void theRunEventKeepsItsName() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        holdTheKey(browser, authenticator);
+        // Over a socket, closed and then waited out: a follow still running when this class stops
+        // its server spins on a recycled request and floods every class after it with warnings
+        // until the heap is gone - measured, the one time this test left it behind.
+        final int whileFollowing;
+        try (java.net.Socket tab = openTheLogOverASocket(browser)) {
+            final BufferedReader lines = new BufferedReader(
+                    new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
+            assertTrue(waitForALineSaying(lines, "event: run"), "the run event lost its name");
+            assertTrue(waitForALineSaying(lines, "Earlier run, 22 Sep 19:44"));
+            assertTrue(waitForALineSaying(lines, "event: line"));
+            whileFollowing = workerConnections.get();
+        }
+        assertTrue(theFollowsConnectionClosed(whileFollowing), "the follow outlived its socket");
+    }
 
     @Test
     @DisplayName("a follow ends when the session does, instead of running on in a signed-out tab")

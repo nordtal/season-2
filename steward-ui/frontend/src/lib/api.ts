@@ -361,7 +361,11 @@ export type Service = {
   digests?: string[]
   /** Only on the single-service endpoint: one of the four with a plugins folder (steward/140). */
   hasPlugins?: boolean
-  logLimit?: string
+  /** Lines the console can fill, Docker plus the archived runs, capped at 10000. */
+  logCapacity?: number
+  /** What the service's volume takes on disk; absent for a service without one. */
+  diskBytes?: number
+  diskMeasuredAt?: string
 }
 
 /**
@@ -610,7 +614,6 @@ export type Season = {
   smpStart?: string
 }
 
-export type LogSearch = { lines: string[]; limit: number; truncated: boolean }
 
 /**
  * One person the bot knows.

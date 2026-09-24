@@ -62,6 +62,11 @@ const NO_WAITING_SHAPE = new Map<string, string>([
     "useConsole is a mutation. The log is a stream, not a query, and says" +
       " \"Waiting for the log\" in its own window until the first line arrives.",
   ],
+  [
+    "app/designs/sidebar-parts.tsx",
+    "The proposed sidebars' shared list. Like app/app-sidebar.tsx, every label comes from" +
+      " navigation.ts and the one fetched thing is the health dot, which draws its own skeleton.",
+  ],
   ["app/hold-key.tsx", "steward/120: useHoldKey is a mutation. Nothing here is read."],
   ["app/security-key.tsx", "steward/120: useRegisterKey is a mutation. Nothing here is read."],
   [

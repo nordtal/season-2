@@ -103,7 +103,7 @@ const DRIFT_WORDS: Record<string, string> = {
  * The word for each of the four is in the tooltip on the line, not here: `aria-label` is what a
  * screen reader reads, and a sighted reader gets the same sentence by pointing at the line.
  *
- * Exported for `table.tsx`: below 768px the picture becomes a row per service (steward/121), and a
+ * Exported for `table.tsx`: below 640px the picture becomes a row per service (steward/121), and a
  * row carries the same four facts a card does. A second mark drawn from a second `switch` is the
  * kind of copy that stays right for exactly as long as nobody edits either one.
  */

@@ -29,8 +29,8 @@ import { QueryState } from "@/components/steward/query-state"
  * even though it is nearly impossible on a running host: a picture of ten boxes drawn from an empty
  * list is ten boxes saying nothing, which looks like a stack that is fine.
  *
- * <h2>Below 768px it is a table, and the line is the app's own (steward/121)</h2>
- * `useIsMobile` - the same 768px that decides whether a dialog is a dialog or a bottom sheet, and
+ * <h2>Below 640px it is a table, and the line is the app's own (steward/121)</h2>
+ * `useIsMobile` - the same 640px that decides whether a dialog is a dialog or a bottom sheet, and
  * whether the command palette prints its right-hand column - is what picks between the drawing and
  * {@link NetworkTable}. It is deliberately **not** a measured container width, which is what the
  * old `wide`/`narrow` switch used: that measurement is 0 in jsdom, so the branch it controlled was

@@ -48,7 +48,7 @@ import {
  * line plus a rename.
  *
  * <h2>The breakpoint is the sidebar's</h2>
- * `useIsMobile` is 768px, and it is already what decides whether the navigation is a column or a
+ * `useIsMobile` is 640px, and it is already what decides whether the navigation is a column or a
  * sheet. A second breakpoint for dialogs would allow a state in which the navigation thinks it is
  * on a phone and a dialog does not.
  *

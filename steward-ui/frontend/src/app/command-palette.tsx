@@ -368,7 +368,7 @@ function HitDetail({ service, text }: { service: string; text: string | null | u
   const flat = (text ?? "").replace(/\s+/g, " ").trim()
   const short = flat.length > 40 ? `${flat.slice(0, 39)}…` : flat
   return (
-    <CommandShortcut className="max-w-[45%] truncate text-xs tracking-normal text-muted-foreground max-md:hidden">
+    <CommandShortcut className="max-w-[45%] truncate text-xs tracking-normal text-muted-foreground max-sm:hidden">
       {service}
       {short ? ` ${short}` : null}
     </CommandShortcut>

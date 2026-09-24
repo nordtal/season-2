@@ -62,8 +62,9 @@ import type { Arrangement } from "./place"
 export const PLAN: Arrangement = {
   // 372px, measured rather than chosen: at a 1024px viewport the start page's two columns and the
   // sidebar are all present at once, and the panel holding this picture is exactly that wide there
-  // (2026-09-20) - the narrowest it gets anywhere above the 768px line, below which the panel draws
-  // the table instead and this arrangement is not used at all.
+  // (2026-09-20), and the table takes over below the 640px line. Since that line moved down from
+  // 768px (2026-09-24) there is one narrower place: at 640px with the column open the panel is
+  // about 368px, so the picture is scaled by 0.99 there - the safety net below, not a new size.
   //
   // It is a floor and not a design size. What sets it is the 32px corridor between the two group
   // frames, which `discord-bot`'s foot runs up; go much below this and the line has single-figure

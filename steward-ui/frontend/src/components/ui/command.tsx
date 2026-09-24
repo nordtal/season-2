@@ -79,7 +79,7 @@ function CommandDialog({
         // and vaul moves it above the on-screen keyboard once the input takes focus, so a second
         // opinion about vertical position here would fight it.
         className={cn(
-          "overflow-hidden rounded-xl! p-0 md:top-1/3 md:translate-y-0",
+          "overflow-hidden rounded-xl! p-0 sm:top-1/3 sm:translate-y-0",
           className
         )}
         showCloseButton={showCloseButton}
@@ -204,11 +204,11 @@ function CommandShortcut({
         // steward/105: a relative ceiling, so a long trailing note cannot squeeze the white label it
         // sits beside out of the row. The label shrinks first because it carries `flex-1`.
         //
-        // steward/127: GONE below 768px, not smaller and not fainter. On a phone this column is a
+        // steward/127: GONE below 640px, not smaller and not fainter. On a phone this column is a
         // path, and a path is the thing that shortens the name in order to be cut off itself - two
-        // truncated strings where one whole one would have fitted. 768px is the app's own line
+        // truncated strings where one whole one would have fitted. 640px is the app's own line
         // between narrow and wide, the same one `useIsMobile` and every dialog switch on.
-        "ml-auto hidden max-w-[45%] truncate text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground md:block",
+        "ml-auto hidden max-w-[45%] truncate text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground sm:block",
         className
       )}
       {...props}

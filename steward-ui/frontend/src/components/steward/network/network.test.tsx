@@ -336,7 +336,7 @@ describe("the view collapses a group's edges into one drawn line each (Till, 202
 })
 
 /**
- * The phone's half of steward/121: below 768px the drawing is a list of rows.
+ * The phone's half of steward/121: below 640px the drawing is a list of rows.
  *
  * `NetworkTable` is rendered directly rather than through `NetworkPanel` with a narrowed window,
  * and that is the honest way round: `useIsMobile` reads `window.innerWidth` and a `matchMedia` that

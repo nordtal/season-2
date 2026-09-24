@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { removalSentence } from "@/components/steward/plugins"
-import type { ServicePlugin } from "@/lib/api"
+import { groupPlugins, missing, pluginStatus, removalSentence, versionOf } from "@/components/steward/plugins"
+import type { AvailableChange, ServicePlugin } from "@/lib/api"
 
 /**
  * season-2-ops/129: removing a plugin deletes its data folder too, and the confirmation has to
@@ -48,5 +48,69 @@ describe("what the confirmation promises before a plugin is removed", () => {
 
     expect(sentence).not.toMatch(/plugins\/\S+\//)
     expect(sentence).toContain("not installed yet")
+  })
+})
+
+describe("reading the version out of a jar's name", () => {
+  it("is what follows the last dash of the stem", () => {
+    expect(versionOf("packetevents-spigot-2.14.0.jar")).toBe("2.14.0")
+    expect(versionOf("Chunky-Bukkit-1.5.3.jar")).toBe("1.5.3")
+    expect(versionOf("nodash.jar")).toBeUndefined()
+    expect(versionOf(undefined)).toBeUndefined()
+  })
+})
+
+describe("what the update check says on a row", () => {
+  const change = (over: Partial<AvailableChange>): AvailableChange => ({
+    service: "smp",
+    artifact: "chunky",
+    status: "UP_TO_DATE",
+    work: false,
+    failure: false,
+    installed: "Chunky-Bukkit-1.5.3.jar",
+    ...over,
+  })
+
+  it("matches by service and installed file, not by name", () => {
+    expect(pluginStatus("smp", plugin(), [change({ service: "limbo", status: "OUTDATED" })])).toBeUndefined()
+    expect(pluginStatus("smp", plugin(), [change({})])).toEqual({ tone: "idle", text: "up to date" })
+  })
+
+  it("names both versions of an update", () => {
+    const outdated = change({ status: "OUTDATED", fileName: "Chunky-Bukkit-1.5.4.jar" })
+    expect(pluginStatus("smp", plugin(), [outdated])).toEqual({ tone: "warn", text: "1.5.3 → 1.5.4" })
+  })
+
+  it("says there is no build for this Minecraft version", () => {
+    expect(pluginStatus("smp", plugin(), [change({ status: "UNSUPPORTED" })], "26.2")?.text).toBe("no 26.2 build")
+  })
+
+  it("says nothing when the check could not tell, or has not answered", () => {
+    expect(pluginStatus("smp", plugin(), [change({ status: "UNRESOLVED" })])).toBeUndefined()
+    expect(pluginStatus("smp", plugin(), undefined)).toBeUndefined()
+  })
+})
+
+describe("the three lists", () => {
+  it("keeps the order Nordtal, Preinstalled, Added and leaves an empty one out", () => {
+    const groups = groupPlugins([
+      plugin({ name: "b", group: "added" }),
+      plugin({ name: "smp", group: "nordtal" }),
+      plugin({ name: "A", group: "added" }),
+    ])
+    expect(groups.map(([group, rows]) => [group, rows.map((it) => it.name)])).toEqual([
+      ["nordtal", ["smp"]],
+      ["added", ["A", "b"]],
+    ])
+  })
+
+  it("adds what the network should give but the disk lacks, pre-booked", () => {
+    const absent = missing("smp", [
+      { service: "smp", artifact: "coreprotect", status: "MISSING", work: true, failure: false, version: "24.1" },
+      { service: "limbo", artifact: "other", status: "MISSING", work: true, failure: false },
+    ])
+    expect(absent).toEqual([
+      { name: "coreprotect", running: false, removable: false, version: "24.1", group: "preinstalled" },
+    ])
   })
 })

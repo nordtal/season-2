@@ -539,8 +539,16 @@ export type Available = {
  * running: installing writes the row and the jar arrives with the next update run.
  */
 export type ServicePlugin = {
-  /** The title for an added plugin, the jar's filename prefix for one the network gives. */
+  /**
+   * The title for an added plugin and for any jar Modrinth published; the jar's filename prefix
+   * for the rest.
+   */
   name: string
+  /**
+   * Which of the three lists it belongs in. `nordtal` is a jar this repository builds,
+   * `preinstalled` one the network gives from elsewhere, `added` one somebody installed here.
+   */
+  group?: "nordtal" | "preinstalled" | "added"
   running: boolean
   removable: boolean
   filePrefix?: string

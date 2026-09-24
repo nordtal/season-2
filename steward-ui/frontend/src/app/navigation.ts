@@ -3,7 +3,6 @@ import {
   CalendarIcon,
   CreditCardIcon,
   HardDrivesIcon,
-  KeyIcon,
   PlayIcon,
   PulseIcon,
   SlidersHorizontalIcon,
@@ -179,11 +178,11 @@ export const NAVIGATION: NavGroup[] = [
       },
       {
         id: "access",
-        label: "Access",
+        label: "Users",
         to: "/access",
         note: "Who may join the server, and why they may.",
-        icon: KeyIcon,
-        keywords: ["access", "whitelist", "roles"],
+        icon: UsersIcon,
+        keywords: ["access", "whitelist", "roles", "accounts", "players", "discord", "link"],
       },
       {
         id: "payments",
@@ -192,14 +191,6 @@ export const NAVIGATION: NavGroup[] = [
         note: "Incoming bunq payments and the tier that follows from them.",
         icon: CreditCardIcon,
         keywords: ["bunq", "contribution", "money", "payments"],
-      },
-      {
-        id: "accounts",
-        label: "Accounts",
-        to: "/accounts",
-        note: "One person's Minecraft, Discord and Steward identity in one place.",
-        icon: UsersIcon,
-        keywords: ["accounts", "players", "discord", "link"],
       },
       {
         id: "journal",

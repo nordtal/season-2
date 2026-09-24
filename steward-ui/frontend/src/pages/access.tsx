@@ -5,7 +5,6 @@ import {
   HourglassIcon,
   LinkBreakIcon,
   MagnifyingGlassIcon,
-  ShieldCheckIcon,
   ShieldSlashIcon,
   UserPlusIcon,
   WarningCircleIcon,
@@ -23,7 +22,6 @@ import {
   useGrantAccess,
   useGrants,
   useJournal,
-  useMe,
   usePayments,
   usePeople,
   useRevokeAccess,
@@ -81,14 +79,20 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
- * The four pages of the access half (concept §10a.7): who may join, what they paid, which accounts
- * are one person, and what an admin did about it.
+ * The three pages of the access half (concept §10a.7): who may join, what they paid, and what an
+ * admin did about it.
  *
  * They are one file because they are one chain, read left to right: **request → tab → paid →
- * access → linked**. Payments is the first three links, Access the fourth, Accounts the fifth,
- * and Journal is the record of every hand that reached into any of them. Splitting them into four
- * files would put the vocabulary that has to agree - what "active" means, what a revoked period
- * looks like - in four places.
+ * access**. Payments is the first three links, Users the fourth, and Journal is the record of
+ * every hand that reached into either of them. Splitting them into separate files would put the
+ * vocabulary that has to agree - what "active" means, what a revoked period looks like - in
+ * several places.
+ *
+ * There is no separate accounts page (2026-09-24): its roster table was the same `usePeople()`
+ * list Users already draws, with fewer columns and no actions, and its "signing in to this
+ * interface" card was about the signed-in admin's own session, not about anybody in the roster -
+ * exactly the kind of content that had just been moved out of a dedicated `/settings` page and
+ * into the profile popover. It never followed that decision, so it is gone rather than fixed.
  *
  * **Nothing here is computed that the database does not answer.** Where a number would be a guess
  * the page says so in a sentence instead of printing it: the amount of a paid request is what the
@@ -425,7 +429,7 @@ export function AccessPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Access"
+        title="Users"
         actions={<GrantDialog />}
       />
 
@@ -1696,240 +1700,10 @@ export function PaymentsPage() {
   )
 }
 
-// --- 3. /accounts -----------------------------------------------------------------------------------
-
-/**
- * The identities: one Discord account, at most one Minecraft account, and the session you are
- * reading this in.
- *
- * There is no third, Steward-owned identity - and the card at the top says so rather than leaving
- * the reader to assume one exists. §10a wants a security key after Discord; this alpha does not
- * have one, `/api/me` says so in its own words, and those words are printed here verbatim.
- */
-export function AccountsPage() {
-  const people = usePeople()
-  const avatarBase = useAvatarBaseUrl()
-  const [needle, setNeedle] = useState("")
-  const [onlyLinked, setOnlyLinked] = useState(false)
-  const now = Date.now()
-
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Accounts"
-      />
-
-      <AuthenticationCard />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Links</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex w-full min-w-0 flex-1 items-center gap-2 sm:min-w-64">
-              <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <Input
-                value={needle}
-                onChange={(event) => setNeedle(event.target.value)}
-                placeholder="Filter by Discord id or UUID…"
-                aria-label="Filter by Discord id or UUID"
-                autoComplete="off"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch id="only-linked" checked={onlyLinked} onCheckedChange={setOnlyLinked} />
-              <Label htmlFor="only-linked">linked only</Label>
-            </div>
-          </div>
-
-          <QueryState
-            query={people}
-            empty={{
-              title: "Nobody yet",
-              note: "The bot has not seen a single Discord account yet - or it is not running.",
-            }}
-            isEmpty={(list: Person[]) => list.length === 0}
-          >
-            {(list) => {
-              if (list === undefined) {
-                return (
-                  <>
-                    <IdentityTable>
-                      {WAITING_PEOPLE.map((index) => (
-                        <WaitingIdentityRow key={index} />
-                      ))}
-                    </IdentityTable>
-                    <SkeletonText className="w-56 text-xs" />
-                  </>
-                )
-              }
-              const trimmed = needle.trim().toLowerCase()
-              // Truthiness rather than `!== null`, on purpose: Javalin's Gson mapper drops nulls,
-              // so `minecraftUuid` arrives ABSENT for an unlinked person even though `api.ts`
-              // types it `string | null`. `!== null` would let every unlinked account through the
-              // "linked only" filter, and the filter would look broken rather than wrong.
-              const rows = list.filter(
-                (person) =>
-                  (!onlyLinked || Boolean(person.minecraftUuid)) &&
-                  (trimmed === "" ||
-                    person.discordId.toLowerCase().includes(trimmed) ||
-                    (person.minecraftUuid ?? "").toLowerCase().includes(trimmed)),
-              )
-              if (rows.length === 0) {
-                return (
-                  <Empty
-                    title="No account matches"
-                    note="None of the loaded accounts contains this string."
-                  />
-                )
-              }
-              return (
-                <>
-                  <IdentityTable>
-                      {rows.map((person) => (
-                        <TableRow key={person.discordId}>
-                          <TableCell data-label="Person" className="font-medium">
-                            <PersonByIdentifier
-                              discordId={person.discordId}
-                              mcUuid={person.minecraftUuid}
-                              people={people.data}
-                              avatarBaseUrl={avatarBase.data}
-                            />
-                          </TableCell>
-                          <TableCell data-label="Linked" className="text-muted-foreground tnum">
-                            {person.linked ? dateTime(person.linked) : "–"}
-                          </TableCell>
-                          <TableCell data-label="Guild">
-                            <MemberBadge state={person.memberState} />
-                          </TableCell>
-                          <TableCell data-label="Access">
-                            <AccessBadge person={person} now={now} />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </IdentityTable>
-                  <p className="text-xs text-muted-foreground">
-                    {count(rows.length)} of {count(list.length)} loaded accounts. An account with
-                    no link cannot reach the server, not even with paid access: the proxy knows only
-                    Minecraft UUIDs.
-                  </p>
-                </>
-              )
-            }}
-          </QueryState>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-/**
- * The identities table's frame, for the same reason {@link PeopleTable} is one: four column widths
- * that have to be identical whether the roster is there or not (steward/120).
- */
-function IdentityTable({ children }: { children: ReactNode }) {
-  return (
-    <Table className="steward-table">
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[20rem]">Person</TableHead>
-          <TableHead className="w-[13rem]">Linked</TableHead>
-          <TableHead className="w-[8rem]">Guild</TableHead>
-          <TableHead>Access</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>{children}</TableBody>
-    </Table>
-  )
-}
-
-/** One identity before there is one. */
-function WaitingIdentityRow() {
-  return (
-    <TableRow>
-      <TableCell data-label="Person" className="font-medium">
-        <div className="flex items-center gap-2">
-          <Skeleton className="size-6 shrink-0 rounded-full" />
-          <SkeletonText width="long" className="max-w-[10rem]" />
-        </div>
-      </TableCell>
-      <TableCell data-label="Linked">
-        <SkeletonText width="long" />
-      </TableCell>
-      <TableCell data-label="Guild">
-        <Skeleton className="h-5 w-16 rounded-full" />
-      </TableCell>
-      <TableCell data-label="Access">
-        <Skeleton className="h-5 w-28 rounded-full" />
-      </TableCell>
-    </TableRow>
-  )
-}
-
-/**
- * What this interface accepts as proof of who you are - written down where somebody reads about
- * identities, because a gap here reads as "there is more, you just cannot see it".
- */
-function AuthenticationCard() {
-  const me = useMe()
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          <ShieldCheckIcon className="size-4 text-muted-foreground" aria-hidden />
-          Signing in to this interface
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          {/*
-            THE BADGE FOLLOWS THE ANSWER, not the release notes. `keys` is what /api/me says this
-            account has; a badge hard-coded to "not built" is what the last one was, and it stayed
-            wrong for exactly as long as nobody re-read this file.
-          */}
-          {(me.data?.keys?.length ?? 0) > 0 ? (
-            <StatusBadge tone="ok" tipContent="A key was registered and is required to be here at all.">
-              Security key: registered
-            </StatusBadge>
-          ) : (
-            <StatusBadge tone="warn" tipContent="§10a asks for a security key after Discord.">
-              Security key: none on this account
-            </StatusBadge>
-          )}
-          {me.data?.name ? (
-            <span className="text-sm text-muted-foreground">
-              signed in as <span className="text-foreground">{me.data.name}</span>
-            </span>
-          ) : null}
-        </div>
-        <QueryState query={me}>
-          {(data) => (
-            // The backend's own sentence, verbatim and in English: this is the API's answer and
-            // not a claim this page makes on its behalf. The box is the same box either way - it
-            // is two lines of monospace, and two lines is what it reserves while it waits.
-            <pre className="overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
-              {data ? (
-                `/api/me\nwebauthn: ${data.webauthn}`
-              ) : (
-                <span className="flex flex-col gap-1">
-                  <SkeletonText width="short" />
-                  <SkeletonText width="medium" />
-                </span>
-              )}
-            </pre>
-          )}
-        </QueryState>
-      </CardContent>
-    </Card>
-  )
-}
-
 /** Ten rows of nothing while the record is read; the query hands out at most two hundred. */
 const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-// --- 4. /journal ----------------------------------------------------------------------------------
+// --- 3. /journal ----------------------------------------------------------------------------------
 
 /**
  * The audit log.

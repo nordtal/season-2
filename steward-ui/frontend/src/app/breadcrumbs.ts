@@ -18,9 +18,8 @@ const SECTION_LABELS: Record<string, string> = {
   backups: "Backups",
   restore: "Restore",
   season: "Season",
-  access: "Access",
+  access: "Users",
   payments: "Payments",
-  accounts: "Accounts",
   journal: "Journal",
 }
 

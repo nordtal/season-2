@@ -50,7 +50,6 @@ const PATHS = [
   "/season",
   "/access",
   "/payments",
-  "/accounts",
   "/journal",
 ]
 

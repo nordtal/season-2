@@ -1,8 +1,10 @@
 package eu.nordtal.s2.steward.worker.plan;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Which server runs which jars. A mirror of {@code compose.yml}, and it says so out loud.
@@ -197,6 +199,41 @@ public final class Topology {
      */
     public static final List<String> SEASON_JARS =
             List.of(PROXY, LIMBO, HUNGER_GAMES, SMP, DISCORD_BOT, STEWARD_WORKER);
+
+    /**
+     * Every plugin Nordtal publishes itself, in the order the plugins tab lists them: the
+     * name-tag fork first, then the season's own jars. Keyed by the jar's filename prefix, which
+     * for the season jars is the artefact id and for the fork is its repository name.
+     */
+    public static final Map<String, String> NORDTAL_PLUGINS = orderedMap(
+            "papermc-display-tags", "Display Tags",
+            SMP, "SMP",
+            PROXY, "Proxy",
+            LIMBO, "Limbo",
+            HUNGER_GAMES, "Hunger Games",
+            DISCORD_BOT, "Discord Bot",
+            STEWARD_WORKER, "Steward Worker");
+
+    /** Whether a jar with this filename prefix is one Nordtal publishes. */
+    public static boolean isNordtal(final @Nullable String prefix) {
+        return prefix != null && NORDTAL_PLUGINS.containsKey(prefix);
+    }
+
+    /** The filename prefix a fixed artefact's jar carries, where that is known up front. */
+    public static @Nullable String nordtalPrefixOf(final @NotNull String artifact) {
+        if (DISPLAY_TAGS.equals(artifact)) {
+            return "papermc-display-tags";
+        }
+        return NORDTAL_PLUGINS.containsKey(artifact) ? artifact : null;
+    }
+
+    private static Map<String, String> orderedMap(final String... pairs) {
+        final Map<String, String> map = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < pairs.length; i += 2) {
+            map.put(pairs[i], pairs[i + 1]);
+        }
+        return java.util.Collections.unmodifiableMap(map);
+    }
 
     /**
      * The two artefacts that are a whole container each.

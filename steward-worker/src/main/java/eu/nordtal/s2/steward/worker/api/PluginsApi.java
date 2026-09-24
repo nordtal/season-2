@@ -47,11 +47,11 @@ import java.util.Optional;
  * which lists it under {@code unclaimed}. Whether a preinstalled jar came from Modrinth is told by
  * its hash ({@link JarIdentity}), which is what gives it a name, a picture and a link.</p>
  *
- * <h2>Pre-booked is a row with no jar</h2>
+ * <h2>A row with no jar is not installed</h2>
  * Installing is asking, not doing (owner, 2026-09-19): the row is written and the jar arrives with
- * the next update run. So a row whose {@code file_prefix} matches nothing on disk is drawn as
- * pre-booked, and the interface must show that difference - a list that claimed the plugin was
- * running would be describing a server that does not have it.
+ * the next update run that can fetch it. So a row whose {@code file_prefix} matches nothing on
+ * disk is drawn as not installed, and so is a plugin the network gives that is not on the disk -
+ * a list that claimed the plugin was running would be describing a server that does not have it.
  *
  * <h2>Removing deletes the folder too, which is why the answer names it</h2>
  * Till chose that against the objection that {@code plugins/&lt;name&gt;/} is the only hand-edited
@@ -81,6 +81,7 @@ public final class PluginsApi {
     private final @Nullable Path volumesRoot;
     private final String gameVersion;
     private final JarIdentity identity;
+    private final Map<String, String> fixedProjects;
 
     /**
      * @param volumesRoot where the services' volumes are mounted in this container, or {@code null}
@@ -91,6 +92,17 @@ public final class PluginsApi {
      */
     public PluginsApi(final @NotNull PluginDirectory plugins, final @NotNull Modrinth modrinth,
                       final @Nullable Path volumesRoot, final @NotNull String gameVersion) {
+        this(plugins, modrinth, volumesRoot, gameVersion, Map.of());
+    }
+
+    /**
+     * @param fixedProjects the Modrinth project id of each plugin the network gives from Modrinth,
+     *                      keyed by artefact id - what names and draws one that is not on the disk
+     */
+    public PluginsApi(final @NotNull PluginDirectory plugins, final @NotNull Modrinth modrinth,
+                      final @Nullable Path volumesRoot, final @NotNull String gameVersion,
+                      final @NotNull Map<String, String> fixedProjects) {
+        this.fixedProjects = Map.copyOf(fixedProjects);
         this.plugins = Objects.requireNonNull(plugins, "plugins");
         this.modrinth = Objects.requireNonNull(modrinth, "modrinth");
         this.volumesRoot = volumesRoot;
@@ -130,11 +142,42 @@ public final class PluginsApi {
                 described.put("iconUrl", icon(project.iconUrl()));
                 described.put("pageUrl", project.pageUrl());
             }
+            if (row == null && isNordtal(jar)) {
+                described.put("name", Topology.NORDTAL_PLUGINS.get(prefix));
+                described.put("rank", rankOf(prefix));
+            }
             described.put("group", row != null ? "added" : isNordtal(jar) ? "nordtal" : "preinstalled");
             rows.add(described);
         }
 
-        // Every row nothing on disk answered for. These are the pre-booked ones - and a row whose
+        // The plugins the network gives that are not on the disk: named and drawn like the ones
+        // that are, and marked as not running. No install action - the next update run is what
+        // puts them there, if it can.
+        final List<String> absent = absentFixed(service, installed.plugins(), published, fixedProjects);
+        final Map<String, Modrinth.Project> titles = identity.projects(absent.stream()
+                .map(fixedProjects::get).filter(Objects::nonNull).toList());
+        for (final String artifact : absent) {
+            final Map<String, Object> described = new LinkedHashMap<>();
+            final String nordtal = Topology.nordtalPrefixOf(artifact);
+            described.put("name", nordtal != null ? Topology.NORDTAL_PLUGINS.get(nordtal) : artifact);
+            described.put("running", false);
+            described.put("removable", false);
+            described.put("artifact", artifact);
+            final Modrinth.Project project = titles.get(fixedProjects.getOrDefault(artifact, ""));
+            if (project != null) {
+                described.put("name", project.title());
+                described.put("projectId", project.projectId());
+                described.put("iconUrl", icon(project.iconUrl()));
+                described.put("pageUrl", project.pageUrl());
+            }
+            if (nordtal != null) {
+                described.put("rank", rankOf(nordtal));
+            }
+            described.put("group", nordtal != null ? "nordtal" : "preinstalled");
+            rows.add(described);
+        }
+
+        // Every row nothing on disk answered for. These are not installed yet - and a row whose
         // jar was deleted underneath it lands here too, which is the right reading: the next run
         // installs it again, because the row is the wish and the wish is still there.
         for (final ManagedPlugin plugin : added) {
@@ -200,9 +243,46 @@ public final class PluginsApi {
                 .findFirst().orElse(null);
     }
 
-    /** One of the season's own jars, whose file name is its artefact id - {@code smp-0.9.5.jar}. */
+    /** A jar Nordtal publishes: a season jar ({@code smp-0.9.5.jar}) or the name-tag fork. */
     private static boolean isNordtal(final Installation.Jar jar) {
-        return jar.prefix() != null && Topology.SEASON_JARS.contains(jar.prefix());
+        return Topology.isNordtal(jar.prefix());
+    }
+
+    private static int rankOf(final String prefix) {
+        return List.copyOf(Topology.NORDTAL_PLUGINS.keySet()).indexOf(prefix);
+    }
+
+    /**
+     * The service's fixed plugins that are not on the disk, in topology order.
+     *
+     * <p>A Nordtal jar is there when its filename prefix is. A Modrinth one is there when a jar was
+     * identified as that project, or - for when Modrinth could not be asked - when a jar's prefix
+     * starts with the artefact id ({@code CoreProtect-CE}, {@code voicechat-bukkit}). A fixed
+     * plugin that is neither, the platform itself for one, is not listed at all.</p>
+     */
+    static @NotNull List<String> absentFixed(final @NotNull Topology.Service service,
+                                             final @NotNull List<Installation.Jar> jars,
+                                             final @NotNull Map<String, Modrinth.Project> identified,
+                                             final @NotNull Map<String, String> fixedProjects) {
+        final List<String> absent = new ArrayList<>();
+        for (final String artifact : service.plugins()) {
+            final String nordtal = Topology.nordtalPrefixOf(artifact);
+            final String project = fixedProjects.get(artifact);
+            final boolean present;
+            if (nordtal != null) {
+                present = jars.stream().anyMatch(jar -> nordtal.equals(jar.prefix()));
+            } else if (project != null) {
+                present = identified.values().stream().anyMatch(found -> project.equals(found.projectId()))
+                        || jars.stream().anyMatch(jar -> jar.prefix() != null
+                        && jar.prefix().toLowerCase(java.util.Locale.ROOT).startsWith(artifact));
+            } else {
+                continue;
+            }
+            if (!present) {
+                absent.add(artifact);
+            }
+        }
+        return absent;
     }
 
     private static String jarName(final @Nullable Installation.Jar jar) {

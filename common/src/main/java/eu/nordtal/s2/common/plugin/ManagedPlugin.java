@@ -11,7 +11,7 @@ import java.time.Instant;
  * <p><b>A row here is a wish, not an observation.</b> What is actually installed is the jars in the
  * volume, and {@code Installation} reads those off the disk on every run. This record says only
  * that somebody asked for the plugin, which is why the interface has to draw <em>running</em> and
- * <em>pre-booked</em> differently: a row exists the moment the button is pressed, and the jar
+ * <em>not installed</em> differently: a row exists the moment the button is pressed, and the jar
  * arrives with the next update run.</p>
  *
  * @param service    the compose service name this plugin was added to

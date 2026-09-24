@@ -87,9 +87,25 @@ final class JarIdentity {
             project.ifPresent(id -> projectOfJar.put(jar.fileName(), id));
         }
 
+        final Map<String, Modrinth.Project> byId = projects(projectOfJar.values());
+        final Map<String, Modrinth.Project> answer = new LinkedHashMap<>();
+        projectOfJar.forEach((fileName, id) -> {
+            final Modrinth.Project project = byId.get(id);
+            if (project != null) {
+                answer.put(fileName, project);
+            }
+        });
+        return answer;
+    }
+
+    /**
+     * Name and icon of each of these Modrinth projects, keyed by id, from the same day-long cache.
+     * Never throws: an id Modrinth could not be asked about is simply missing from the answer.
+     */
+    @NotNull Map<String, Modrinth.Project> projects(final @NotNull java.util.Collection<String> ids) {
         final Instant now = clock.get();
         final Set<String> stale = new LinkedHashSet<>();
-        for (final String id : projectOfJar.values()) {
+        for (final String id : ids) {
             final Kept kept = projects.get(id);
             if (kept == null || kept.fetched().plus(PROJECT_TTL).isBefore(now)) {
                 stale.add(id);
@@ -105,14 +121,13 @@ final class JarIdentity {
                 log.warn("Could not read {} Modrinth project(s): {}", stale.size(), unreachable.getMessage());
             }
         }
-
         final Map<String, Modrinth.Project> answer = new LinkedHashMap<>();
-        projectOfJar.forEach((fileName, id) -> {
+        for (final String id : ids) {
             final Kept kept = projects.get(id);
             if (kept != null) {
-                answer.put(fileName, kept.project());
+                answer.put(id, kept.project());
             }
-        });
+        }
         return answer;
     }
 

@@ -819,7 +819,7 @@ export function useConsole(service: string) {
  * The plugins on one Minecraft server (season-2-ops/129).
  *
  * Refetched on a slow interval rather than on focus alone: the interesting transition is
- * pre-booked turning into running, and that happens when an update run finishes, which is minutes
+ * not installed turning into running, and that happens when an update run finishes, which is minutes
  * after somebody stopped looking at this page.
  */
 export function usePlugins(service: string) {

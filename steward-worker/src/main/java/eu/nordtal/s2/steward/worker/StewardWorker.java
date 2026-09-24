@@ -518,7 +518,13 @@ public final class StewardWorker {
                                                 Duration.ofSeconds(config.httpTimeoutSeconds()),
                                                 config.githubToken())),
                                 Path.of(config.volumesRoot()),
-                                eu.nordtal.s2.common.Platform.MINECRAFT),
+                                eu.nordtal.s2.common.Platform.MINECRAFT,
+                                java.util.Map.of(
+                                        eu.nordtal.s2.steward.worker.plan.Topology.PACKETEVENTS, config.packetEventsProject(),
+                                        eu.nordtal.s2.steward.worker.plan.Topology.CHUNKY, config.chunkyProject(),
+                                        eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT, config.voiceChatProject(),
+                                        eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT_PROXY, config.voiceChatProject(),
+                                        eu.nordtal.s2.steward.worker.plan.Topology.CORE_PROTECT, config.coreProtectProject())),
                         // season-2-community/09: the bot's inbox, so that saving one of its
                         // messages can ask it to re-read the file instead of quietly waiting for
                         // the next restart of the container. Same pool once more - a reload writes

@@ -20,7 +20,7 @@ const PLUGINS = {
   gameVersion: "26.2",
   mounted: true,
   plugins: [
-    { name: "smp", running: true, removable: false, fileName: "smp-0.9.4.jar", group: "nordtal" },
+    { name: "SMP", running: true, removable: false, fileName: "smp-0.9.4.jar", group: "nordtal", rank: 1 },
     {
       name: "packetevents",
       running: true,
@@ -39,7 +39,17 @@ const PLUGINS = {
       pageUrl: "https://modrinth.com/plugin/chunky",
       group: "preinstalled",
     },
-    { name: "papermc-display-tags", running: true, removable: false, fileName: "papermc-display-tags-2.2.0.jar", group: "preinstalled" },
+    { name: "Display Tags", running: true, removable: false, fileName: "papermc-display-tags-2.2.0.jar", group: "nordtal", rank: 0 },
+    {
+      name: "CoreProtect",
+      running: false,
+      removable: false,
+      artifact: "coreprotect",
+      projectId: "Lu3KuzdV",
+      iconUrl: "https://cdn.modrinth.com/data/Lu3KuzdV/icon.png",
+      pageUrl: "https://modrinth.com/plugin/coreprotect",
+      group: "preinstalled",
+    },
     {
       name: "JourneyMap",
       running: true,
@@ -107,11 +117,13 @@ describe("ServicePlugins", () => {
     const headings = screen.getAllByRole("heading").map((it) => it.textContent)
     expect(headings).toEqual(["Nordtal", "Preinstalled", "Added"])
 
-    const preinstalled = screen.getByRole("heading", { name: "Preinstalled" }).parentElement!
-    const names = within(preinstalled)
-      .getAllByRole("listitem")
-      .map((it) => it.querySelector(".font-medium")?.textContent)
-    expect(names).toEqual(["Chunky", "coreprotect", "packetevents", "papermc-display-tags"])
+    const namesIn = (heading: string) =>
+      within(screen.getByRole("heading", { name: heading }).parentElement!)
+        .getAllByRole("listitem")
+        .map((it) => it.querySelector(".font-medium")?.textContent)
+    // The name-tag fork is Nordtal's own and leads that list; the rest is alphabetical.
+    expect(namesIn("Nordtal")).toEqual(["Display Tags", "SMP"])
+    expect(namesIn("Preinstalled")).toEqual(["Chunky", "CoreProtect", "packetevents"])
   })
 
   it("puts the update check's answer on the row it belongs to", async () => {
@@ -120,10 +132,25 @@ describe("ServicePlugins", () => {
 
     expect(await screen.findByText("2.13.0 → 2.14.0")).toBeTruthy()
     expect(screen.getAllByText("up to date")).toHaveLength(1)
-    // Not on disk yet, and the next run brings it: the same badge as an added plugin waiting.
-    const coreprotect = screen.getByText("coreprotect").closest("li")!
-    expect(within(coreprotect).getByText("pre-booked")).toBeTruthy()
-    expect(within(coreprotect).getByText("24.1")).toBeTruthy()
+    // Not on the disk: said as exactly that, with the picture and name Modrinth gives it.
+    const coreprotect = screen.getByText("CoreProtect").closest("li")!
+    expect(within(coreprotect).getByText("Not installed")).toBeTruthy()
+    expect(coreprotect.querySelector("img")).toBeTruthy()
+    expect(screen.queryByText(/pre-booked/i)).toBeNull()
+  })
+
+  it("says there is no build when nothing resolves for a plugin that is not installed", async () => {
+    const unsupported = {
+      ...AVAILABLE,
+      changes: AVAILABLE.changes.map((change) =>
+        change.artifact === "coreprotect" ? { ...change, status: "UNSUPPORTED", work: false } : change,
+      ),
+    }
+    vi.stubGlobal("fetch", backend(() => json(200, unsupported)))
+    draw()
+
+    const coreprotect = (await screen.findByText("CoreProtect")).closest("li")!
+    expect(within(coreprotect).getByText("No 26.2 build")).toBeTruthy()
   })
 
   it("offers removal only for what somebody added, and Modrinth only for Modrinth plugins", async () => {
@@ -136,6 +163,7 @@ describe("ServicePlugins", () => {
     ])
     expect(screen.getAllByRole("link").map((it) => it.getAttribute("aria-label"))).toEqual([
       "Chunky on Modrinth",
+      "CoreProtect on Modrinth",
       "packetevents on Modrinth",
     ])
   })

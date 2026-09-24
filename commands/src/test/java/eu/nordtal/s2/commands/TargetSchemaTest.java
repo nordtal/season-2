@@ -97,10 +97,10 @@ class TargetSchemaTest {
         final String de = bundle("messages/commands/de.properties");
 
         for (final Target target : Target.values()) {
-            assertTrue(en.contains(target.messageKey() + "="),
-                    target.messageKey() + " is not in the English bundle");
-            assertTrue(de.contains(target.messageKey() + "="),
-                    target.messageKey() + " is not in the German bundle");
+            assertTrue(en.contains(target.message().key() + "="),
+                    target.message().key() + " is not in the English bundle");
+            assertTrue(de.contains(target.message().key() + "="),
+                    target.message().key() + " is not in the German bundle");
         }
     }
 

@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 /**
  * What the winner of the start event carries into the season.
  *
@@ -135,7 +137,8 @@ public final class HeadStart implements Listener {
         // Two lines, because items() drops any material this server does not know - the other
         // wording would claim spoils that were never handed over.
         player.sendMessage(MessageRenderer.of(messages).format(locale, items.isEmpty()
-                ? "smp.headstart.granted-aura-only" : "smp.headstart.granted", "aura", aura));
+                ? MESSAGES.smp().headstart().grantedAuraOnly(aura)
+                : MESSAGES.smp().headstart().granted(aura)));
         sounds.play(player, Feedback.BIG_SUCCESS);
         // The prize is that the number is visible, so everybody is redrawn rather than only the
         // winner.

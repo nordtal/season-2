@@ -8,7 +8,8 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
 import java.util.List;
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /access reload} - the bot's own wording.
@@ -29,17 +30,17 @@ public final class ReloadBotMessages implements NordtalCommand<AccessEffects> {
     public void run(final NordtalUser user, final Values values, final AccessEffects effects) {
         effects.async(() -> {
             if (!effects.reloadMessages()) {
-                user.reply("access.messages.reload-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.access().messages().reloadFailed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             final List<String> unknown = effects.unknownOverrideKeys();
             if (unknown.isEmpty()) {
-                user.reply("access.messages.reloaded", Map.of(), Feedback.SMALL_SUCCESS, Tone.GOOD);
+                user.reply(MESSAGES.access().messages().reloaded(), Feedback.SMALL_SUCCESS, Tone.GOOD);
             } else {
-                user.reply("access.messages.reloaded-with-unknown",
+                user.reply(MESSAGES.access().messages().reloadedWithUnknown(String.join(", ", unknown)),
                         // The reload worked; some override keys name nothing. WARN rather than
                         // BAD, because the bot is now running the new file either way.
-                        Map.of("keys", String.join(", ", unknown)), Feedback.REFUSED, Tone.WARN);
+                        Feedback.REFUSED, Tone.WARN);
             }
         });
     }

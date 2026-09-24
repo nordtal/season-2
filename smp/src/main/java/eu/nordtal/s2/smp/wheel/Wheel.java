@@ -1,6 +1,7 @@
 package eu.nordtal.s2.smp.wheel;
 
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -22,6 +23,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Random;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The wheel of fortune in the tavern: one free spin a day, plus whatever contributing has earned.
@@ -69,7 +72,8 @@ public final class Wheel {
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = locales.of(player.getUniqueId());
         if (discordId.isEmpty()) {
-            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.error.no-account-link"));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.smp().error().noAccountLink()));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -91,10 +95,10 @@ public final class Wheel {
                 // either language, and the zero case does not want the second clause at all - it
                 // would read "no spins left, and you have 0 waiting", which says one thing twice.
                 final int extras = spins.extras();
-                final String key = extras == 0 ? "smp.wheel.none"
-                        : extras == 1 ? "smp.wheel.none.one" : "smp.wheel.none.many";
-                tell(player, MessageRenderer.of(messages).format(locale, key,
-                        "extras", extras), Feedback.REFUSED);
+                final MessageRef none = extras == 0 ? MESSAGES.smp().wheel().none()
+                        : extras == 1 ? MESSAGES.smp().wheel().noneSection().one()
+                        : MESSAGES.smp().wheel().noneSection().many(extras);
+                tell(player, MessageRenderer.of(messages).format(locale, none), Feedback.REFUSED);
                 return;
             }
             // How to undo exactly the row this spin changed, in case nothing can be handed over.
@@ -121,9 +125,10 @@ public final class Wheel {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
             final int count = spins.available(LocalDate.now());
-            final String key = count == 0 ? "smp.wheel.available"
-                    : count == 1 ? "smp.wheel.available.one" : "smp.wheel.available.many";
-            tell(player, MessageRenderer.of(messages).format(locale, key, "count", count));
+            final MessageRef available = count == 0 ? MESSAGES.smp().wheel().available()
+                    : count == 1 ? MESSAGES.smp().wheel().availableSection().one()
+                    : MESSAGES.smp().wheel().availableSection().many(count);
+            tell(player, MessageRenderer.of(messages).format(locale, available));
         });
     }
 
@@ -144,7 +149,7 @@ public final class Wheel {
             // would each see a message telling them so. LOSS rather than REFUSED because nothing
             // said no to them - what happened is that the wheel broke, and they get another go.
             refund.run();
-            tell(player, MessageRenderer.of(messages).get(locale, "smp.wheel.broken-prize"),
+            tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().wheel().brokenPrize()),
                     Feedback.LOSS);
             return;
         }
@@ -217,8 +222,8 @@ public final class Wheel {
         // is the kind of thing that is remembered for a season.
         player.getInventory().addItem(stack).values()
                 .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
-        player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.wheel.won",
-                "amount", count, "item", material.translationKey()));
+        player.sendMessage(MessageRenderer.of(messages).format(locale,
+                MESSAGES.smp().wheel().won(count, material.translationKey())));
     }
 
     /**

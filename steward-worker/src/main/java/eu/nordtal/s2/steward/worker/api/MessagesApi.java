@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import eu.nordtal.s2.steward.worker.configfile.MessageArg;
 import eu.nordtal.s2.steward.worker.configfile.MessageBundle;
 import eu.nordtal.s2.steward.worker.configfile.MessageBundleLocation;
 import eu.nordtal.s2.steward.worker.configfile.MessageBundles;
@@ -126,6 +127,10 @@ public final class MessagesApi {
      * <p><b>A dropped placeholder is a warning, never a refusal</b> - the same rule steward/60 gives
      * a syntax error in the raw editor. The response always carries {@code warnings}, empty when
      * there was nothing to say.</p>
+     *
+     * <p><b>A placeholder the schema does not declare is a refusal</b>, and nothing of the request is
+     * written: the plugin fills the declared arguments and nothing else, so the line would draw its
+     * {@code {name}} literally. The 400 names the key.</p>
      */
     public void save(final @NotNull Context ctx) {
         final MessageBundleLocation location = locate(ctx);
@@ -145,6 +150,7 @@ public final class MessagesApi {
             throw new InternalServerErrorResponse(identityOf(location) + " could not be read: "
                     + e.getMessage());
         }
+        refuseUnknownPlaceholders(before, changes);
         final List<String> warnings = warningsOf(before, language, changes);
 
         try {
@@ -287,6 +293,27 @@ public final class MessagesApi {
         }
     }
 
+    private static void refuseUnknownPlaceholders(final MessageBundle before, final Map<String, String> changes) {
+        final List<String> problems = new ArrayList<>();
+        for (final Map.Entry<String, String> change : changes.entrySet()) {
+            final MessageEntry entry = before.entries().stream()
+                    .filter(candidate -> candidate.key().equals(change.getKey()))
+                    .findFirst().orElse(null);
+            if (entry == null) {
+                continue;
+            }
+            final List<String> unknown = MessageBundles.unknownPlaceholders(entry, change.getValue());
+            if (!unknown.isEmpty()) {
+                problems.add(change.getKey() + " has no placeholder " + String.join(", ", unknown)
+                        + (entry.args().isEmpty() ? "; it takes none."
+                        : "; it takes " + String.join(", ", entry.args().stream().map(MessageArg::token).toList()) + "."));
+            }
+        }
+        if (!problems.isEmpty()) {
+            throw new BadRequestResponse(String.join(" ", problems) + " Nothing was saved.");
+        }
+    }
+
     /**
      * A dropped placeholder for every changed key that had one, checked against the packaged text -
      * the "original" the ticket means, not whatever the override said a moment ago.
@@ -378,6 +405,17 @@ public final class MessagesApi {
         putIfPresent(row, "overrideEnglish", entry.overrideEnglish());
         putIfPresent(row, "overrideGerman", entry.overrideGerman());
         row.put("inBundle", entry.inBundle());
+        putIfPresent(row, "name", entry.name());
+        putIfPresent(row, "description", entry.description());
+        final List<Map<String, Object>> args = new ArrayList<>(entry.args().size());
+        for (final MessageArg arg : entry.args()) {
+            final Map<String, Object> described = new LinkedHashMap<>();
+            described.put("name", arg.name());
+            described.put("component", arg.component());
+            args.add(described);
+        }
+        row.put("args", args);
+        row.put("section", entry.section());
         return row;
     }
 

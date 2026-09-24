@@ -29,6 +29,7 @@ import eu.nordtal.s2.smp.config.MilestonesSpec;
 import eu.nordtal.s2.smp.config.PrestigeSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.config.SoundsSpec;
+import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import eu.nordtal.s2.smp.db.JoinGate;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -842,8 +843,7 @@ public final class SmpPlugin extends JavaPlugin {
         final String phase = eu.nordtal.s2.common.phase.PhaseDirectory.using(pool).currentPhase().name();
         final SeasonState.Active active = season.active();
         final java.util.Optional<String> milestone = active.key() == null ? java.util.Optional.empty()
-                : java.util.Optional.of(messages.hasTranslation(locale, "smp.milestone." + active.key())
-                        ? messages.get(locale, "smp.milestone." + active.key()) : active.key());
+                : java.util.Optional.of(MilestoneNames.of(messages, locale, active.key()));
         return new SmpEffects.Status(phase, milestone, (int) Math.round(active.progress() * 100),
                 online);
     }

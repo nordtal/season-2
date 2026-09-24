@@ -1,15 +1,18 @@
 package eu.nordtal.s2.commands.phase;
 
-import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.PhaseChange;
 
-import java.util.Map;
 import java.util.Optional;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /phase set &lt;phase&gt;} - the one command in the network that can disconnect everybody.
@@ -47,14 +50,13 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
      * adapter parsed first for exactly that reason and the bot's did not.</p>
      */
     @Override
-    public java.util.Optional<java.util.Map.Entry<String, Map<String, ?>>> problem(
+    public java.util.Optional<MessageRef> problem(
             final Values values) {
         final String requested = values.string("phase");
         if (parse(requested).isPresent()) {
             return java.util.Optional.empty();
         }
-        return java.util.Optional.of(java.util.Map.entry("phase.unknown",
-                Map.of("value", requested, "phases", PhaseCommands.names())));
+        return java.util.Optional.of(MESSAGES.phase().unknown(requested, PhaseCommands.names()));
     }
 
     @Override
@@ -62,8 +64,7 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
         final String requested = values.string("phase");
         final Optional<SeasonPhase> target = parse(requested);
         if (target.isEmpty()) {
-            user.reply("phase.unknown",
-                    Map.of("value", requested, "phases", PhaseCommands.names()), Tone.BAD);
+            user.reply(MESSAGES.phase().unknown(requested, PhaseCommands.names()), Tone.BAD);
             return;
         }
 
@@ -76,7 +77,7 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
                 change = effects.phases().switchPhase(target.get(), actor, reason);
             } catch (final RuntimeException failure) {
                 effects.warn("switching the season phase to " + target.get(), failure);
-                user.reply("phase.failed", Map.of(), Tone.BAD);
+                user.reply(MESSAGES.phase().failed(), Tone.BAD);
                 return;
             }
 
@@ -85,11 +86,10 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
             // already knows, and refreshing here is what makes the reply and the log agree.
             effects.afterWrite();
 
-            user.reply(change.unchanged() ? "phase.unchanged" : "phase.changed",
-                    change.unchanged()
-                            ? Map.of("phase", change.current().name())
-                            : Map.of("previous", String.valueOf(change.previous()),
-                                    "current", change.current().name()),
+            user.reply(change.unchanged()
+                            ? MESSAGES.phase().unchanged(change.current().name())
+                            : MESSAGES.phase().changed(String.valueOf(change.previous()),
+                                    change.current().name()),
                     // "already in that phase" is WARN: nothing was written, and an admin who typed
                     // this while the network is misbehaving has to see that at a glance.
                     change.unchanged() ? Tone.WARN : Tone.GOOD);
@@ -114,8 +114,15 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
         return Optional.empty();
     }
 
-    /** The message key describing what a switch to {@code phase} does to everybody online. */
-    public static String consequenceKey(final SeasonPhase phase) {
-        return "phase.consequence." + phase.name();
+    /** What a switch to {@code phase} does to everybody online. */
+    public static MessageRef consequence(final SeasonPhase phase) {
+        final CommandMessages.Phase.Consequence consequence = MESSAGES.phase().consequence();
+        return switch (phase) {
+            case PRE_LAUNCH -> consequence.preLaunch();
+            case PRE_EVENT -> consequence.preEvent();
+            case START_EVENT -> consequence.startEvent();
+            case SMP -> consequence.smp();
+            case MAINTENANCE -> consequence.maintenance();
+        };
     }
 }

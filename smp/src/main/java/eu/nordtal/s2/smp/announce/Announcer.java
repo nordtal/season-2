@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.remote.RequestArguments;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.command.NewCommandRequest;
 import eu.nordtal.s2.common.message.Locales;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -59,42 +60,35 @@ public final class Announcer {
     }
 
     /**
-     * Renders {@code key} in every language and sends one row per language.
+     * Renders {@code message} in every language and sends one row per language.
      *
-     * @param key          a key in this module's bundle, plain text once rendered - a glyph in it
-     *                     would reach Discord as a box, so the announcement keys carry none
-     * @param placeholders what the key's placeholders are filled with; values are escaped
+     * @param message a message from this module's spec, plain text once rendered - a glyph in it
+     *                would reach Discord as a box, so the announcement keys carry none
      */
-    public void announce(final String key, final Map<String, ?> placeholders) {
-        Objects.requireNonNull(placeholders, "placeholders");
-        announce(key, locale -> placeholders);
+    public void announce(final MessageRef message) {
+        Objects.requireNonNull(message, "message");
+        announce(locale -> message);
     }
 
     /**
-     * The same, with placeholders that depend on the language - a milestone's name is one.
+     * The same, with a message whose values depend on the language - a milestone's name is one.
      *
-     * @param key          a key in this module's bundle
-     * @param placeholders what to fill the key with, asked once per language
+     * @param message what to send, asked once per language
      */
-    public void announce(final String key, final java.util.function.Function<Locale, Map<String, ?>> placeholders) {
-        Objects.requireNonNull(key, "key");
-        Objects.requireNonNull(placeholders, "placeholders");
+    public void announce(final java.util.function.Function<Locale, MessageRef> message) {
+        Objects.requireNonNull(message, "message");
         async.execute(() -> {
             for (final String tag : LANGUAGES) {
                 final Locale locale = Locales.parse(tag);
-                // The renderer's varargs form, name and value alternating; a Map handed to it
-                // whole would be read as one nameless parameter.
-                final Object[] pairs = placeholders.apply(locale).entrySet().stream()
-                        .flatMap(entry -> java.util.stream.Stream.of(entry.getKey(), entry.getValue()))
-                        .toArray();
+                final MessageRef filled = message.apply(locale);
                 final String text = PlainTextComponentSerializer.plainText().serialize(
-                        MessageRenderer.of(messages).format(locale, key, pairs));
+                        MessageRenderer.of(messages).format(locale, filled));
                 try {
                     requests.submit(row(tag, text));
                 } catch (final RuntimeException failure) {
                     // One language failing must not cost the other its line, and the ceremony in
                     // game has already happened either way.
-                    warn.accept("could not send the " + tag + " announcement for " + key, failure);
+                    warn.accept("could not send the " + tag + " announcement for " + filled.key(), failure);
                 }
             }
         });

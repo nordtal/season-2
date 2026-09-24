@@ -3,7 +3,6 @@ package eu.nordtal.s2.smp.player;
 import eu.nordtal.displaytags.api.DisplayTagsPlugin;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
 
-import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.hud.TabList;
 import eu.nordtal.s2.common.message.MessageRenderer;
 
@@ -14,6 +13,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.List;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * Draws a player onto the two surfaces that are not chat: the tab list and the nametag above their
@@ -140,8 +141,8 @@ public final class PlayerSurfaces {
      */
     private void sendTabListFrame(final Player player, final Identity identity) {
         player.sendPlayerListHeaderAndFooter(
-                TabList.header(messages, identity.locale()),
-                TabList.footer(messages, identity.locale(),
-                        Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers()));
+                TabList.header(messages, identity.locale(), MESSAGES.tab()::header),
+                messages.format(identity.locale(), MESSAGES.tab().footer(
+                        Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers())));
     }
 }

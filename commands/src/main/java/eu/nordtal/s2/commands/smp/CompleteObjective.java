@@ -7,8 +7,9 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-import java.util.Map;
 import java.util.Optional;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /smp objective complete <key>} - close one objective of the active milestone by hand.
@@ -39,11 +40,11 @@ public final class CompleteObjective implements NordtalCommand<SmpEffects> {
                 active = effects.activeMilestone();
             } catch (final RuntimeException failure) {
                 effects.warn("/smp objective complete could not read the active milestone", failure);
-                user.reply("smp.admin.read-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.smp().admin().readFailed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             if (active.isEmpty()) {
-                user.reply("smp.admin.no-active-milestone", Map.of(), Feedback.REFUSED, Tone.WARN);
+                user.reply(MESSAGES.smp().admin().noActiveMilestone(), Feedback.REFUSED, Tone.WARN);
                 return;
             }
             // Guarded like the read above it. These two are the same kind of call and were the
@@ -52,17 +53,16 @@ public final class CompleteObjective implements NordtalCommand<SmpEffects> {
             // have closed the objective.
             try {
                 if (!effects.hasObjective(active.get(), key)) {
-                    user.reply("smp.admin.no-such-objective", Map.of(), Feedback.REFUSED, Tone.BAD);
+                    user.reply(MESSAGES.smp().admin().noSuchObjective(), Feedback.REFUSED, Tone.BAD);
                     return;
                 }
                 effects.completeObjective(active.get(), key);
             } catch (final RuntimeException failure) {
                 effects.warn("/smp objective complete could not close '" + key + "'", failure);
-                user.reply("smp.admin.read-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.smp().admin().readFailed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
-            user.reply("smp.admin.objective-completed",
-                    Map.of("key", key, "milestone", active.get()), Feedback.BIG_SUCCESS,
+            user.reply(MESSAGES.smp().admin().objectiveCompleted(key, active.get()), Feedback.BIG_SUCCESS,
                     Tone.GOOD);
         });
     }

@@ -21,6 +21,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 /**
  * The post-game ceremony: everyone back to the lobby, an evaluation of the result, the game marked
  * {@code DECIDED}. Switching the season phase stays an explicit admin action elsewhere.
@@ -92,25 +94,26 @@ public final class Ceremony {
         final WinTracker.Outcome outcome = decision.outcome();
         final List<HgMember> allMembers = decision.members();
         final Locale locale = locales.of(player.getUniqueId());
-        player.sendMessage(MessageRenderer.of(messages).get(locale, "hg.ceremony.header"));
+        player.sendMessage(MessageRenderer.of(messages).format(locale, MESSAGES.hg().ceremony().header()));
 
         // Four endings, four sentences: a tiebreak win printed as a plain win would tell the
         // players who watched it something they can see is not what occurred.
         if (outcome.winnerMemberId() != null && outcome.tie()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "hg.win.tie-broken",
-                    "winner", winnerLabel(outcome.winnerMemberId(), allMembers),
-                    "winnerKills", outcome.winnerKills(), "loserKills", outcome.loserKills()));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.hg().win().tieBroken(winnerLabel(outcome.winnerMemberId(), allMembers),
+                            outcome.winnerKills(), outcome.loserKills())));
         } else if (outcome.winnerMemberId() != null) {
             // The one line of the four that carries an icon. The glyph is a parameter because
             // Glyphs is the only place that names a code point.
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "hg.win.player",
-                    "icon", Glyphs.ICON_ANNOUNCE,
-                    "winner", winnerLabel(outcome.winnerMemberId(), allMembers)));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.hg().win().player(Glyphs.ICON_ANNOUNCE, winnerLabel(outcome.winnerMemberId(),
+                            allMembers))));
         } else if (outcome.tie()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "hg.win.no-winner",
-                    "kills", outcome.winnerKills()));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.hg().win().noWinner(outcome.winnerKills())));
         } else {
-            player.sendMessage(MessageRenderer.of(messages).get(locale, "hg.ceremony.no-winner"));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.hg().ceremony().noWinner()));
         }
         sounds.play(player, player.getUniqueId().equals(decision.winnerMcUuid())
                 ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
@@ -118,12 +121,12 @@ public final class Ceremony {
         for (final HgMember member : allMembers) {
             final int kills = decision.kills().getOrDefault(member.id(), 0);
             if (kills > 0) {
-                player.sendMessage(MessageRenderer.of(messages).format(locale, "hg.ceremony.kills",
-                        "player", member.discordId(), "kills", kills));
+                player.sendMessage(MessageRenderer.of(messages).format(locale,
+                        MESSAGES.hg().ceremony().kills(member.discordId(), kills)));
             }
         }
 
-        player.sendMessage(MessageRenderer.of(messages).get(locale, "hg.ceremony.footer"));
+        player.sendMessage(MessageRenderer.of(messages).format(locale, MESSAGES.hg().ceremony().footer()));
     }
 
     private String winnerLabel(final UUID winnerMemberId, final List<HgMember> allMembers) {

@@ -114,13 +114,13 @@ class PrivateMessagesTest {
         roster.remember(ONE, session(ONE, Locale.ENGLISH, false));
         roster.remember(TWO, session(TWO, Locale.GERMAN, false));
 
-        final String sent = flat(commands.line(PrivateMessages.SENT, Locale.ENGLISH,
+        final String sent = flat(commands.line(PrivateMessages.Half.SENT, Locale.ENGLISH,
                 player(TWO, "zwei"), "hello"));
         assertTrue(sent.startsWith("to "), sent);
         assertTrue(sent.contains(Glyphs.flagFor(Locale.GERMAN)),
                 "the flag belongs to the person the line is about, not to the person reading it");
 
-        final String received = flat(commands.line(PrivateMessages.RECEIVED, Locale.GERMAN,
+        final String received = flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.GERMAN,
                 player(ONE, "eins"), "hello"));
         assertTrue(received.startsWith("von "), received);
         assertTrue(received.contains(Glyphs.flagFor(Locale.ENGLISH)), received);
@@ -132,9 +132,9 @@ class PrivateMessagesTest {
         roster.remember(ONE, session(ONE, Locale.ENGLISH, true));
         roster.remember(TWO, session(TWO, Locale.ENGLISH, false));
 
-        assertTrue(flat(commands.line(PrivateMessages.RECEIVED, Locale.ENGLISH,
+        assertTrue(flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.ENGLISH,
                 player(ONE, "eins"), "hi")).contains(Glyphs.TAG_ADMIN));
-        assertFalse(flat(commands.line(PrivateMessages.RECEIVED, Locale.ENGLISH,
+        assertFalse(flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.ENGLISH,
                 player(TWO, "zwei"), "hi")).contains(Glyphs.TAG_ADMIN));
     }
 
@@ -145,7 +145,7 @@ class PrivateMessagesTest {
         // escaped by MessageRenderer, but escaping is a rule somebody has to remember; a component
         // never reaches the parser at all.
         roster.remember(TWO, session(TWO, Locale.ENGLISH, false));
-        final Component line = commands.line(PrivateMessages.SENT, Locale.ENGLISH,
+        final Component line = commands.line(PrivateMessages.Half.SENT, Locale.ENGLISH,
                 player(TWO, "zwei"), "<red>look at me</red>");
 
         assertTrue(flat(line).contains("<red>look at me</red>"),
@@ -195,7 +195,7 @@ class PrivateMessagesTest {
     void theMovedSentencesArrived() {
         // They stood in messages/commands until season-2-ops/155. Messages answers a missing key
         // with the key, so a half-finished move reaches a player as the literal chat.no-partner.
-        for (final String key : List.of(PrivateMessages.SENT, PrivateMessages.RECEIVED,
+        for (final String key : List.of("chat.msg.sent", "chat.msg.received",
                 "chat.no-partner", "chat.msg.self", "chat.failed",
                 "command.describe.msg", "command.describe.whisper", "command.describe.r")) {
             assertTrue(messages.hasTranslation(Locale.ENGLISH, key), key + " is missing in en");

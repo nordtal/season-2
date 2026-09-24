@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands;
 
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Tone;
 
 import java.util.ArrayList;
@@ -108,13 +109,13 @@ public final class FakeUser implements NordtalUser {
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders) {
-        replies.add(new Reply(messageKey, Map.copyOf(placeholders), Tone.NEUTRAL));
+    public void reply(final MessageRef message) {
+        replies.add(new Reply(message.key(), Map.copyOf(message.args()), Tone.NEUTRAL));
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders, final Tone tone) {
-        replies.add(new Reply(messageKey, Map.copyOf(placeholders),
+    public void reply(final MessageRef message, final Tone tone) {
+        replies.add(new Reply(message.key(), Map.copyOf(message.args()),
                 tone == null ? Tone.NEUTRAL : tone));
     }
 
@@ -125,8 +126,8 @@ public final class FakeUser implements NordtalUser {
      * a command asked for, which the marker makes visible in an assertion failure.</p>
      */
     @Override
-    public String phrase(final String messageKey) {
-        return "<" + messageKey + ">";
+    public String phrase(final MessageRef message) {
+        return "<" + message.key() + ">";
     }
 
     @Override

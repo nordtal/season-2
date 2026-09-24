@@ -7,7 +7,8 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /smp reload} - re-read the two reloadable files and the message bundles.
@@ -32,19 +33,18 @@ public final class ReloadSmp implements NordtalCommand<SmpEffects> {
                 refused = effects.reload();
             } catch (final RuntimeException failure) {
                 effects.warn("/smp reload failed", failure);
-                user.reply("smp.admin.reload-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.smp().admin().reloadFailed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             if (!refused.isEmpty()) {
                 // Named, not summarised. The person running this is editing milestones.yml on a
                 // running season, and "you renamed a key that has rows against it" is the only
                 // form of the answer they can act on.
-                user.reply("smp.admin.track-refused",
-                        Map.of("problems", String.join("\n", refused)), Feedback.REFUSED,
+                user.reply(MESSAGES.smp().admin().trackRefused(String.join("\n", refused)), Feedback.REFUSED,
                         Tone.BAD);
                 return;
             }
-            user.reply("smp.admin.reloaded", Map.of(), Feedback.SMALL_SUCCESS, Tone.GOOD);
+            user.reply(MESSAGES.smp().admin().reloaded(), Feedback.SMALL_SUCCESS, Tone.GOOD);
         });
     }
 }

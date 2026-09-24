@@ -28,6 +28,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 /**
  * Schedules the loot refills configured under {@code refill-tiers}: at each tier's delay, every
  * loot point still inside the border is restocked. The chest block itself is part of the hand-built
@@ -144,7 +146,8 @@ public final class LootRefill {
      */
     private void announce() {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "hg.loot.refill"));
+            player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
+                    MESSAGES.hg().loot().refill()));
             sounds.play(player, Feedback.NETWORK_EVENT);
         }
     }

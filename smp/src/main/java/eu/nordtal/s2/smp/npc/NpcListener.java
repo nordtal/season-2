@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 /**
  * Clicking the NPC, and everything that follows from it.
  *
@@ -95,13 +97,13 @@ public final class NpcListener implements Listener {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Optional<String> activeKey = dao.activeMilestoneKey();
             if (activeKey.isEmpty()) {
-                tell(player, MessageRenderer.of(messages).get(locale, "smp.objectives.none"),
+                tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().objectives().none()),
                         Feedback.REFUSED);
                 return;
             }
             final Milestone milestone = track.get().milestone(activeKey.get()).orElse(null);
             if (milestone == null) {
-                tell(player, MessageRenderer.of(messages).get(locale, "smp.objectives.none"),
+                tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().objectives().none()),
                         Feedback.REFUSED);
                 return;
             }
@@ -187,7 +189,8 @@ public final class NpcListener implements Listener {
         final Locale locale = locales.of(player.getUniqueId());
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.error.no-account-link"));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.smp().error().noAccountLink()));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -195,7 +198,8 @@ public final class NpcListener implements Listener {
         final HandIn.Result result =
                 HandIn.sort(gui.offered(), gui.wanted(), gui.stillNeeded());
         if (result.accepted() <= 0) {
-            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.handin.nothing-wanted"));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.smp().handin().nothingWanted()));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -239,7 +243,7 @@ public final class NpcListener implements Listener {
                     }
                     gui.giveBack(player, taken);
                     player.sendMessage(MessageRenderer.of(messages)
-                            .get(locale, "smp.handin.nothing-credited"));
+                            .format(locale, MESSAGES.smp().handin().nothingCredited()));
                     sounds.play(player, Feedback.REFUSED);
                     player.closeInventory();
                     return;
@@ -247,8 +251,8 @@ public final class NpcListener implements Listener {
                 if (!player.isOnline()) {
                     return;
                 }
-                player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.handin.accepted",
-                        "amount", paid));
+                player.sendMessage(MessageRenderer.of(messages).format(locale,
+                        MESSAGES.smp().handin().accepted(paid)));
                 sounds.play(player, Feedback.SMALL_SUCCESS);
                 player.closeInventory();
             });

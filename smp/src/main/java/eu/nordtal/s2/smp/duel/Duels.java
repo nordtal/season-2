@@ -1,9 +1,11 @@
 package eu.nordtal.s2.smp.duel;
 
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -31,6 +33,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * Duels: two 3 x 3 platforms at the spawn, an arena that appears above it, and one short fight.
@@ -179,7 +183,7 @@ public final class Duels {
         if (other == null) {
             waiting.put(type, player.getUniqueId());
             // SELECT: the same meaning a menu click has - the server noticed which one you chose.
-            tell(player, "smp.duel.waiting", Feedback.SELECT);
+            tell(player, MESSAGES.smp().duel().waiting(), Feedback.SELECT);
             return;
         }
         final Player opponent = Bukkit.getPlayer(other);
@@ -239,8 +243,8 @@ public final class Duels {
         if (slot.isEmpty()) {
             queue.add(new Queued(first.getUniqueId(), second.getUniqueId(), type));
             // Silent on purpose: whoever stepped on second heard SELECT in this same tick.
-            tell(first, "smp.duel.queued");
-            tell(second, "smp.duel.queued");
+            tell(first, MESSAGES.smp().duel().queued());
+            tell(second, MESSAGES.smp().duel().queued());
             return;
         }
 
@@ -291,8 +295,8 @@ public final class Duels {
     private void abort(final ActiveDuel duel) {
         byPlayer.remove(duel.first());
         byPlayer.remove(duel.second());
-        restore(duel, duel.first(), "smp.duel.interrupted", null);
-        restore(duel, duel.second(), "smp.duel.interrupted", null);
+        restore(duel, duel.first(), null);
+        restore(duel, duel.second(), null);
         teardown(duel.slot());
         slots.release(duel.slot());
     }
@@ -362,9 +366,9 @@ public final class Duels {
             player.setGameMode(remaining > 0 ? GameMode.ADVENTURE : GameMode.SURVIVAL);
             player.sendMessage(remaining > 0
                     ? MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
-                            "smp.duel.countdown", "seconds", remaining)
-                    : MessageRenderer.of(messages).get(locales.of(player.getUniqueId()),
-                            "smp.duel.go"));
+                            MESSAGES.smp().duel().countdown(remaining))
+                    : MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
+                            MESSAGES.smp().duel().go()));
             // Four evenly spaced ticks, 3-2-1-Go: the last lands on the moment the fight starts.
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         });
@@ -391,15 +395,17 @@ public final class Duels {
         teardown(duel.slot());
         slots.release(duel.slot());
 
-        restore(duel, winnerId, "smp.duel.won", Feedback.BIG_SUCCESS);
-        restore(duel, loserId, "smp.duel.lost", Feedback.LOSS);
+        restore(duel, winnerId, Feedback.BIG_SUCCESS);
+        restore(duel, loserId, Feedback.LOSS);
         book(winnerId, loserId, duel);
         drainQueue();
     }
 
-    private void restore(final ActiveDuel duel, final UUID playerId, final String messageKey,
-                         final Feedback feedback) {
-        // feedback is null for the interrupted case - see stop().
+    /**
+     * @param feedback {@link Feedback#BIG_SUCCESS} for the winner, {@link Feedback#LOSS} for the
+     *                 loser, {@code null} for a duel that was called off - see stop()
+     */
+    private void restore(final ActiveDuel duel, final UUID playerId, final Feedback feedback) {
         final SavedState state = duel.saved().get(playerId);
         final Player player = Bukkit.getPlayer(playerId);
         if (player == null || state == null) {
@@ -425,13 +431,19 @@ public final class Duels {
         }
         final MessageRenderer renderer = MessageRenderer.of(messages);
         final java.util.Locale locale = locales.of(playerId);
-        player.sendMessage(renderer.format(locale, messageKey, "aura", config.duelStake()));
+        final SmpMessages.Smp.Duel lines = MESSAGES.smp().duel();
+        final int stake = config.duelStake();
+        player.sendMessage(renderer.format(locale, feedback == null ? lines.interrupted()
+                : feedback == Feedback.BIG_SUCCESS ? lines.won(stake) : lines.lost(stake)));
         // A title as well as the chat line: the line carries the number and can be scrolled back
         // to, the title is what somebody who has just been hit reads. Nothing is sent for the
         // interrupted case, which is what a null feedback means throughout this class.
         if (feedback != null) {
-            player.showTitle(Title.title(renderer.get(locale, messageKey + ".title"),
-                    renderer.format(locale, messageKey + ".subtitle", "aura", config.duelStake()),
+            final boolean won = feedback == Feedback.BIG_SUCCESS;
+            player.showTitle(Title.title(
+                    renderer.format(locale, won ? lines.wonSection().title() : lines.lostSection().title()),
+                    renderer.format(locale, won ? lines.wonSection().subtitle(stake)
+                            : lines.lostSection().subtitle(stake)),
                     OUTCOME));
         }
         if (feedback != null) {
@@ -537,8 +549,8 @@ public final class Duels {
             byPlayer.remove(duel.first());
             byPlayer.remove(duel.second());
             // No sound: a duel called off because the server is stopping cost nobody anything.
-            restore(duel, duel.first(), "smp.duel.interrupted", null);
-            restore(duel, duel.second(), "smp.duel.interrupted", null);
+            restore(duel, duel.first(), null);
+            restore(duel, duel.second(), null);
             teardown(duel.slot());
             slots.release(duel.slot());
         });
@@ -557,8 +569,8 @@ public final class Duels {
         }
     }
 
-    private void tell(final Player player, final String key) {
-        tell(player, key, null);
+    private void tell(final Player player, final MessageRef message) {
+        tell(player, message, null);
     }
 
     /**
@@ -566,8 +578,8 @@ public final class Duels {
      *
      * <p>{@code null} is ordinary: only the moments that change what the player can do get a sound.
      */
-    private void tell(final Player player, final String key, final Feedback feedback) {
-        player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), key));
+    private void tell(final Player player, final MessageRef message, final Feedback feedback) {
+        player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()), message));
         if (feedback != null) {
             sounds.play(player, feedback);
         }

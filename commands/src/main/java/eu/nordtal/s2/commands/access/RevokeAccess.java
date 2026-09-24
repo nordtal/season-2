@@ -7,9 +7,8 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /access revoke <member>} - every running grant, at once.
@@ -35,12 +34,10 @@ public final class RevokeAccess implements NordtalCommand<AccessEffects> {
                 revoked = effects.revoke(discordId, user);
             } catch (final RuntimeException failure) {
                 effects.warn("/access revoke for " + discordId, failure);
-                user.reply("access.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.access().failed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
-            user.reply(revoked == 0 ? "access.revoked.none"
-                            : revoked == 1 ? "access.revoked.one" : "access.revoked",
-                    Map.of("count", revoked),
+            user.reply(revoked == 0 ? MESSAGES.access().revokedSection().none() : revoked == 1 ? MESSAGES.access().revokedSection().one() : MESSAGES.access().revoked(revoked),
                     revoked == 0 ? Feedback.REFUSED : Feedback.SMALL_SUCCESS,
                     // Nothing to revoke is WARN and not BAD: the command did what it was asked and
                     // found no grant, which is a fact about the account rather than a failure.

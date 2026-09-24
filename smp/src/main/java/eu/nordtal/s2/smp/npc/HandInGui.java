@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 /**
  * The deposit screen: put items in, press confirm, and only then does anything happen.
  *
@@ -45,10 +47,9 @@ public final class HandInGui implements Surface {
         this.inventory = Bukkit.createInventory(this,
                 HandInPanel.ROWS * SlotGeometry.COLUMNS,
                 HandInPanel.title(
-                        MessageRenderer.of(messages).get(locale, "smp.handin.title"),
-                        messages.format(locale, "smp.handin.still-needed",
-                                java.util.Map.of("amount", stillNeeded)),
-                        messages.get(locale, "smp.handin.confirm-button")));
+                        MessageRenderer.of(messages).format(locale, MESSAGES.smp().handin().title()),
+                        messages.format(locale, MESSAGES.smp().handin().stillNeeded(stillNeeded)),
+                        messages.format(locale, MESSAGES.smp().handin().confirmButton())));
 
         // A sample of the first wanted material, so the window says what it wants without a
         // sentence. Not takeable - every click outside the tray is cancelled - and it carries the
@@ -57,9 +58,9 @@ public final class HandInGui implements Surface {
                 describe(messages, locale, item)));
 
         final ItemStack confirm = BlankItem.of(
-                MessageRenderer.of(messages).get(locale, "smp.handin.confirm"),
-                List.of(MessageRenderer.of(messages).format(locale, "smp.handin.needed",
-                        "amount", stillNeeded, "items", String.join(", ", wanted))));
+                MessageRenderer.of(messages).format(locale, MESSAGES.smp().handin().confirm()),
+                List.of(MessageRenderer.of(messages).format(locale,
+                        MESSAGES.smp().handin().needed(stillNeeded, String.join(", ", wanted)))));
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, confirm));
     }
 
@@ -81,11 +82,10 @@ public final class HandInGui implements Surface {
                                final Material material) {
         final ItemStack stack = new ItemStack(material);
         stack.editMeta(meta -> {
-            meta.displayName(MessageRenderer.of(messages).get(locale, "smp.handin.wanted")
+            meta.displayName(MessageRenderer.of(messages).format(locale, MESSAGES.smp().handin().wanted())
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
             meta.lore(List.of(MessageRenderer.of(messages)
-                    .format(locale, "smp.handin.needed", "amount", stillNeeded,
-                            "items", String.join(", ", wanted))
+                    .format(locale, MESSAGES.smp().handin().needed(stillNeeded, String.join(", ", wanted)))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });
         return stack;

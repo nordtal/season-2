@@ -39,6 +39,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+
 /**
  * The buy-access flow: a button, a day selection, a summary, and a payment link.
  *
@@ -153,7 +155,7 @@ public final class PurchaseFlow extends ListenerAdapter {
         final Optional<Tier> tier = tiers.byDays(days);
         if (tier.isEmpty()) {
             // The prices changed between the message being rendered and the click.
-            reply(event, messages.get(locale, "purchase.tier-gone"));
+            reply(event, messages.format(locale, MESSAGES.purchase().tierGone()));
             return;
         }
 
@@ -181,20 +183,21 @@ public final class PurchaseFlow extends ListenerAdapter {
         final List<SelectOption> options = new ArrayList<>();
         for (final Tier tier : tiers.all()) {
             options.add(SelectOption.of(
-                    messages.format(locale, "purchase.option",
-                            "days", tier.days(), "price", Money.format(tier.priceCents())),
+                    messages.format(locale,
+                            MESSAGES.purchase().option(tier.days(), Money.format(tier.priceCents()))),
                     String.valueOf(tier.days())));
         }
 
         final ActionRow row = ActionRow.of(StringSelectMenu.create(Ids.DAYS_SELECT)
-                .setPlaceholder(messages.get(locale, "purchase.choose"))
+                .setPlaceholder(messages.format(locale, MESSAGES.purchase().choose()))
                 .addOptions(options)
                 .build());
 
         if (Ids.CHANGE.equals(event.getComponentId())) {
-            event.editMessage(messages.get(locale, "purchase.choose")).setComponents(row).queue();
+            event.editMessage(messages.format(locale,
+                    MESSAGES.purchase().choose())).setComponents(row).queue();
         } else {
-            event.reply(messages.get(locale, "purchase.choose"))
+            event.reply(messages.format(locale, MESSAGES.purchase().choose()))
                     .setEphemeral(true)
                     .addComponents(row)
                     .queue();
@@ -204,14 +207,14 @@ public final class PurchaseFlow extends ListenerAdapter {
     private void toggleDonation(final ButtonInteractionEvent event, final Locale locale) {
         final Optional<PaymentRequest> open = requests.openOf(event.getUser().getId());
         if (open.isEmpty() || open.get().tab().isPresent()) {
-            reply(event, messages.get(locale, "purchase.gone"));
+            reply(event, messages.format(locale, MESSAGES.purchase().gone()));
             return;
         }
 
         final PaymentRequest request = open.get();
         final Optional<Tier> tier = tiers.byDays(request.days());
         if (tier.isEmpty()) {
-            reply(event, messages.get(locale, "purchase.tier-gone"));
+            reply(event, messages.format(locale, MESSAGES.purchase().tierGone()));
             return;
         }
 
@@ -229,7 +232,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     private void confirm(final ButtonInteractionEvent event, final Locale locale) {
         final Optional<PaymentRequest> open = requests.openOf(event.getUser().getId());
         if (open.isEmpty()) {
-            reply(event, messages.get(locale, "purchase.gone"));
+            reply(event, messages.format(locale, MESSAGES.purchase().gone()));
             return;
         }
 
@@ -253,7 +256,8 @@ public final class PurchaseFlow extends ListenerAdapter {
                     // Registered before the message is drawn, so a tab that arrives in this instant
                     // is picked up by fillIn() rather than falling between the two.
                     waiting.put(request.id(), new Waiting(event.getHook(), locale, Instant.now()));
-                    event.getHook().editOriginal(messages.get(locale, "purchase.link.pending"))
+                    event.getHook().editOriginal(messages.format(locale,
+                            MESSAGES.purchase().linkSection().pending()))
                             .setComponents(List.of())
                             .queue();
                 }
@@ -292,8 +296,8 @@ public final class PurchaseFlow extends ListenerAdapter {
                 } else if (Duration.between(waiter.since(), Instant.now()).compareTo(GIVE_UP) > 0) {
                     // The last thing this message will ever say. It names the reference because
                     // that is the one string an admin needs to find the row by hand.
-                    waiter.hook().editOriginal(messages.format(waiter.locale(), "purchase.link.slow",
-                                    "reference", row.get().reference()))
+                    waiter.hook().editOriginal(messages.format(waiter.locale(),
+                            MESSAGES.purchase().linkSection().slow(row.get().reference())))
                             .setComponents(List.of())
                             .queue();
                     log.warn("Request {} had no tab after {}", row.get().reference(), GIVE_UP);
@@ -312,17 +316,16 @@ public final class PurchaseFlow extends ListenerAdapter {
     private boolean settled(final InteractionHook hook, final Locale locale,
                             final PaymentRequest request) {
         if (request.status() != PaymentRequestStatus.OPEN) {
-            edit(hook, messages.get(locale, "purchase.gone"));
+            edit(hook, messages.format(locale, MESSAGES.purchase().gone()));
             return true;
         }
         if (request.shareUrl() != null) {
-            edit(hook, messages.format(locale, "purchase.link",
-                    "total", Money.format(request.amountCents()),
-                    "url", request.shareUrl())
-                    + "\n" + messages.format(locale, "purchase.link.reference",
-                    "reference", request.reference())
-                    + "\n" + messages.format(locale, "purchase.link.ttl",
-                    "hours", config.payment().requestTtlHours()));
+            edit(hook, messages.format(locale,
+                    MESSAGES.purchase().link(Money.format(request.amountCents()), request.shareUrl()))
+                    + "\n" + messages.format(locale,
+                            MESSAGES.purchase().linkSection().reference(request.reference()))
+                    + "\n" + messages.format(locale,
+                            MESSAGES.purchase().linkSection().ttl(config.payment().requestTtlHours())));
             return true;
         }
         if (request.tabFailed() != null) {
@@ -330,7 +333,7 @@ public final class PurchaseFlow extends ListenerAdapter {
             // text, and the person waiting can do nothing with it except worry.
             admin.alert("bunq refused a payment link for `" + request.reference() + "`: `"
                     + request.tabFailed() + "`");
-            edit(hook, messages.get(locale, "purchase.link.refused"));
+            edit(hook, messages.format(locale, MESSAGES.purchase().linkSection().refused()));
             return true;
         }
         return false;
@@ -344,25 +347,28 @@ public final class PurchaseFlow extends ListenerAdapter {
     private void showSummary(final IDeferrableCallback event, final Locale locale,
                              final PaymentRequest request) {
         final StringBuilder text = new StringBuilder()
-                .append(messages.format(locale, "purchase.summary",
-                        "days", request.days(),
-                        "price", Money.format(request.amountCents() - request.donationCents())));
+                .append(messages.format(locale,
+                        MESSAGES.purchase().summary(request.days(),
+                                Money.format(request.amountCents() - request.donationCents()))));
         if (request.donationRequested()) {
-            text.append('\n').append(messages.format(locale, "purchase.summary.donation",
-                    "donation", Money.format(request.donationCents())));
+            text.append('\n').append(messages.format(locale,
+                    MESSAGES.purchase().summarySection().donation(Money.format(request.donationCents()))));
         }
-        text.append('\n').append(messages.format(locale, "purchase.summary.total",
-                "total", Money.format(request.amountCents())));
+        text.append('\n').append(messages.format(locale,
+                MESSAGES.purchase().summarySection().total(Money.format(request.amountCents()))));
 
         final Button donation = request.donationRequested()
-                ? Button.secondary(Ids.DONATION, messages.get(locale, "purchase.button.donation.remove"))
-                : Button.secondary(Ids.DONATION, messages.format(locale, "purchase.button.donation.add",
-                "amount", Money.format(tiers.donationCents())));
+                ? Button.secondary(Ids.DONATION, messages.format(locale,
+                        MESSAGES.purchase().button().donation().remove()))
+                : Button.secondary(Ids.DONATION, messages.format(locale,
+                        MESSAGES.purchase().button().donation().add(Money.format(tiers.donationCents()))));
 
         event.getHook().editOriginal(text.toString())
                 .setComponents(ActionRow.of(
-                        Button.success(Ids.CONFIRM, messages.get(locale, "purchase.button.confirm")),
-                        Button.secondary(Ids.CHANGE, messages.get(locale, "purchase.button.change")),
+                        Button.success(Ids.CONFIRM, messages.format(locale,
+                                MESSAGES.purchase().button().confirm())),
+                        Button.secondary(Ids.CHANGE, messages.format(locale,
+                                MESSAGES.purchase().button().change())),
                         donation))
                 .queue();
     }
@@ -384,7 +390,7 @@ public final class PurchaseFlow extends ListenerAdapter {
                       final RuntimeException exception) {
         log.error("Purchase failed while {}", what, exception);
         admin.alert("A purchase failed while " + what + ": `" + exception + "`");
-        event.getHook().editOriginal(messages.get(locale, "purchase.failed"))
+        event.getHook().editOriginal(messages.format(locale, MESSAGES.purchase().failed()))
                 .setComponents(List.of())
                 .queue();
     }

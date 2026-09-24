@@ -3,6 +3,7 @@ package eu.nordtal.s2.papercommon.command;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Locales;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
@@ -19,7 +20,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -166,36 +166,34 @@ public final class PaperUser implements NordtalUser {
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders) {
+    public void reply(final MessageRef message) {
         // send(..., null) rather than delegating to an overload: with both a Feedback and a Tone
-        // overload in scope, reply(key, map, null) is ambiguous and does not compile.
-        send(render(messageKey, placeholders), null);
+        // overload in scope, reply(message, null) is ambiguous and does not compile.
+        send(render(message), null);
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders,
-                      final Feedback feedback) {
-        send(render(messageKey, placeholders), feedback);
+    public void reply(final MessageRef message, final Feedback feedback) {
+        send(render(message), feedback);
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders, final Tone tone) {
-        send(Tones.paint(render(messageKey, placeholders), tone, colours.get()), null);
+    public void reply(final MessageRef message, final Tone tone) {
+        send(Tones.paint(render(message), tone, colours.get()), null);
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders,
-                      final Feedback feedback, final Tone tone) {
+    public void reply(final MessageRef message, final Feedback feedback, final Tone tone) {
         // One hop, carrying all three: the line, its colour and its chime. Painting before the hop
         // rather than inside it keeps everything that touches Adventure off the main thread.
-        send(Tones.paint(render(messageKey, placeholders), tone, colours.get()), feedback);
+        send(Tones.paint(render(message), tone, colours.get()), feedback);
     }
 
     @Override
-    public String phrase(final String messageKey) {
+    public String phrase(final MessageRef message) {
         // Plain text: the result is substituted into another message that is itself parsed as
         // MiniMessage, and a component serialised back into that string would arrive as tags.
-        return PlainTextComponentSerializer.plainText().serialize(render(messageKey, Map.of()));
+        return PlainTextComponentSerializer.plainText().serialize(render(message));
     }
 
     @Override
@@ -203,14 +201,8 @@ public final class PaperUser implements NordtalUser {
         send(Component.text(text), null);
     }
 
-    private Component render(final String messageKey, final Map<String, ?> placeholders) {
-        final Object[] flattened = new Object[placeholders.size() * 2];
-        int index = 0;
-        for (final Map.Entry<String, ?> entry : placeholders.entrySet()) {
-            flattened[index++] = entry.getKey();
-            flattened[index++] = String.valueOf(entry.getValue());
-        }
-        return MessageRenderer.of(messages).format(locale, messageKey, flattened);
+    private Component render(final MessageRef message) {
+        return MessageRenderer.of(messages).format(locale, message);
     }
 
     /**

@@ -9,9 +9,8 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.SeasonDates;
 
 import java.time.Instant;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /access grant <member> <days>} - days on top of whatever is already running.
@@ -45,11 +44,10 @@ public final class GrantAccess implements NordtalCommand<AccessEffects> {
                 until = effects.grant(discordId, days, user);
             } catch (final RuntimeException failure) {
                 effects.warn("/access grant " + days + " days to " + discordId, failure);
-                user.reply("access.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.access().failed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
-            user.reply("access.granted",
-                    Map.of("days", days, "until", SeasonDates.format(until)),
+            user.reply(MESSAGES.access().granted(days, SeasonDates.format(until)),
                     Feedback.BIG_SUCCESS, Tone.GOOD);
         });
     }

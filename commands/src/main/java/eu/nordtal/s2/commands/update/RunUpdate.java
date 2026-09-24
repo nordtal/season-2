@@ -9,7 +9,8 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /update now} and {@code /update restart} - the two that take servers away.
@@ -51,11 +52,10 @@ public final class RunUpdate implements NordtalCommand<UpdateEffects> {
                 // row; the worker can still find nothing to do, or refuse the run before any
                 // countdown. update.started already words it conditionally ("if there is
                 // anything"), so only the tone was overclaiming.
-                user.reply("update.started", Map.of(
-                        "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
+                user.reply(MESSAGES.update().started(UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
                         Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
             } catch (final RuntimeException failure) {
-                user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.update().writeFailed(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

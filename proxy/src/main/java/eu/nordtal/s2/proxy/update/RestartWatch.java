@@ -1,11 +1,13 @@
 package eu.nordtal.s2.proxy.update;
 
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import eu.nordtal.s2.proxy.routing.PhaseServers;
 
@@ -22,11 +24,12 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 
 /**
  * Tells every player on the network that it is about to go down, and how long they have.
@@ -358,35 +361,34 @@ public final class RestartWatch {
             // title is the tick's own text, so the middle of the screen counts in one voice - and
             // Countdown drops the tick of this second so the two do not draw over one another.
             case COUNTDOWN -> {
-                each((player, locale) -> player.sendMessage(line(locale, current,
-                        "restart.countdown." + key(current.occasion()),
-                        fateOf(current, player), "seconds", announcement.seconds())));
+                each((player, locale) -> player.sendMessage(line(locale,
+                        countdown(current.occasion(), what(locale, current), announcement.seconds()),
+                        fateOf(current, player))));
                 title(locale -> MessageRenderer.of(messages)
-                        .format(locale, "restart.tick", "seconds", announcement.seconds()));
+                        .format(locale, MESSAGES.restart().tick(announcement.seconds())));
                 if (!saidVoice) {
                     saidVoice = true;
                     each((player, locale) -> {
                         if (losesVoice(current, player)) {
                             player.sendMessage(MessageRenderer.of(messages)
-                                    .get(locale, "restart.voice"));
+                                    .format(locale, MESSAGES.restart().voice()));
                         }
                     });
                 }
             }
             case NOW -> {
-                each((player, locale) -> player.sendMessage(line(locale, current,
-                        "restart.now." + key(current.occasion()), fateOf(current, player))));
+                each((player, locale) -> player.sendMessage(line(locale,
+                        now(current.occasion(), what(locale, current)), fateOf(current, player))));
                 title(locale -> MessageRenderer.of(messages).format(locale,
-                        "restart.now." + key(current.occasion()),
-                        Map.of("what", what(locale, current))));
+                        now(current.occasion(), what(locale, current))));
             }
             // No chat line: the number alone, in the middle of the screen, once a second.
             case TICK -> title(locale -> MessageRenderer.of(messages)
-                    .format(locale, "restart.tick", "seconds", announcement.seconds()));
+                    .format(locale, MESSAGES.restart().tick(announcement.seconds())));
             case CANCELLED -> broadcast(locale -> MessageRenderer.of(messages).format(locale,
-                    "restart.cancelled", Map.of("occasion", occasion(locale, current))));
+                    MESSAGES.restart().cancelled(occasion(locale, current))));
             case FAILED -> broadcast(locale -> MessageRenderer.of(messages).format(locale,
-                    "restart.failed", Map.of("occasion", occasion(locale, current))));
+                    MESSAGES.restart().failed(occasion(locale, current))));
         }
     }
 
@@ -402,15 +404,43 @@ public final class RestartWatch {
      * <p>{@link RunShape.Fate#NOTHING} adds no second half at all. There is nothing to tell
      * somebody whose server is not in the run and who is not going anywhere.</p>
      */
-    private Component line(final Locale locale, final RunShape current, final String key,
-                           final RunShape.Fate fate, final Object... parameters) {
-        final Component head = MessageRenderer.of(messages)
-                .format(locale, key, Map.of("what", what(locale, current)), parameters);
-        if (fate == RunShape.Fate.NOTHING) {
-            return head;
-        }
-        return head.append(Component.space())
-                .append(MessageRenderer.of(messages).get(locale, "restart.fate." + key(fate)));
+    private Component line(final Locale locale, final MessageRef announcement, final RunShape.Fate fate) {
+        final Component head = MessageRenderer.of(messages).format(locale, announcement);
+        final ProxyMessages.Restart.Fate fates = MESSAGES.restart().fate();
+        return switch (fate) {
+            case NOTHING -> head;
+            case RECONNECT -> head.append(Component.space())
+                    .append(MessageRenderer.of(messages).format(locale, fates.reconnect()));
+            case WAITING_ROOM -> head.append(Component.space())
+                    .append(MessageRenderer.of(messages).format(locale, fates.waitingRoom()));
+            case DISCONNECT -> head.append(Component.space())
+                    .append(MessageRenderer.of(messages).format(locale, fates.disconnect()));
+        };
+    }
+
+    /** The warning ahead of a run, by what the run is. */
+    private static MessageRef countdown(final RunShape.Occasion occasion, final Component what,
+                                        final long seconds) {
+        final ProxyMessages.Restart.Countdown lines = MESSAGES.restart().countdown();
+        return switch (occasion) {
+            case UPDATE -> lines.update(what, seconds);
+            case RECREATE -> lines.recreate(what, seconds);
+            case BACKUP -> lines.backup(what, seconds);
+            case DOWN -> lines.down(what, seconds);
+            case MAINTENANCE -> lines.maintenance(seconds);
+        };
+    }
+
+    /** The line when a run starts, by what the run is. */
+    private static MessageRef now(final RunShape.Occasion occasion, final Component what) {
+        final ProxyMessages.Restart.Now lines = MESSAGES.restart().now();
+        return switch (occasion) {
+            case UPDATE -> lines.update(what);
+            case RECREATE -> lines.recreate(what);
+            case BACKUP -> lines.backup(what);
+            case DOWN -> lines.down(what);
+            case MAINTENANCE -> lines.maintenance();
+        };
     }
 
     /**
@@ -442,27 +472,21 @@ public final class RestartWatch {
     private Component what(final Locale locale, final RunShape current) {
         final String only = current.onlyService();
         if (only == null) {
-            return MessageRenderer.of(messages).get(locale, "restart.what.network");
+            return MessageRenderer.of(messages).format(locale, MESSAGES.restart().what().network());
         }
-        // ASKED OF ENGLISH AND NOT OF THIS LOCALE. en.properties is the complete set and every
-        // other language falls back to it, so "does de have its own line for this" is not the
-        // question - it would drop a perfectly good English name in favour of a compose service
-        // name for every key not yet translated.
-        final String key = "restart.what." + only;
-        return messages.hasTranslation(Locale.ENGLISH, key)
-                ? MessageRenderer.of(messages).get(locale, key)
-                : Component.text(only);
+        return Homecoming.serviceName(messages, locale, only);
     }
 
     /** The occasion as a noun, for the two lines that say it is off rather than that it is coming. */
     private Component occasion(final Locale locale, final RunShape current) {
-        return MessageRenderer.of(messages)
-                .get(locale, "restart.occasion." + key(current.occasion()));
-    }
-
-    /** {@code WAITING_ROOM} to {@code waiting-room}: the enum is the key, so the two cannot drift. */
-    private static String key(final Enum<?> value) {
-        return value.name().toLowerCase(Locale.ROOT).replace('_', '-');
+        final ProxyMessages.Restart.Occasion occasions = MESSAGES.restart().occasion();
+        return MessageRenderer.of(messages).format(locale, switch (current.occasion()) {
+            case UPDATE -> occasions.update();
+            case RECREATE -> occasions.recreate();
+            case BACKUP -> occasions.backup();
+            case DOWN -> occasions.down();
+            case MAINTENANCE -> occasions.maintenance();
+        });
     }
 
     /**

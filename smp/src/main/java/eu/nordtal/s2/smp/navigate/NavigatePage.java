@@ -1,12 +1,13 @@
 package eu.nordtal.s2.smp.navigate;
 
-import eu.nordtal.s2.common.menu.MenuFont;
 import eu.nordtal.s2.common.message.Messages;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * What {@code /navigate}'s window shows on one page - decided here, with no Bukkit in sight.
@@ -52,14 +53,14 @@ public final class NavigatePage {
     /**
      * What a destination is called on its row.
      *
-     * <p>A POI's name is the player's own text and is used as typed; the two built-in kinds carry a
-     * message key instead. {@link MenuFont} folds either onto the sheet's alphabet later.</p>
+     * <p>A POI's name is the player's own text and is used as typed; the two built-in kinds are
+     * named by their message instead. {@link MenuFont} folds either onto the sheet's alphabet later.</p>
      */
     public static String label(final NavigationTarget target, final Messages messages,
                                final Locale locale) {
         return target.kind() == NavigationTarget.Kind.POI
                 ? target.label()
-                : messages.get(locale, target.label());
+                : messages.format(locale, target.name());
     }
 
     /**
@@ -76,13 +77,13 @@ public final class NavigatePage {
                                   final double x, final double y, final double z,
                                   final Messages messages, final Locale locale) {
         if (!target.isIn(world)) {
-            return messages.get(locale, "smp.navigate.other-world");
+            return messages.format(locale, MESSAGES.smp().navigate().otherWorld());
         }
         final double dx = target.x() - x;
         final double dy = target.y() - y;
         final double dz = target.z() - z;
-        return messages.format(locale, "smp.navigate.distance",
-                "blocks", Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz)));
+        return messages.format(locale,
+                MESSAGES.smp().navigate().distance(Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz))));
     }
 
     /** Every drawn row of one page, in order. */
@@ -105,7 +106,6 @@ public final class NavigatePage {
     /** The {@code 2/3} between the two page buttons. */
     public static String pageLabel(final int page, final int total, final Messages messages,
                                    final Locale locale) {
-        return messages.format(locale, "smp.navigate.page",
-                "page", page + 1, "pages", pages(total));
+        return messages.format(locale, MESSAGES.smp().navigate().page(page + 1, pages(total)));
     }
 }

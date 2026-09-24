@@ -9,9 +9,10 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.SeasonDates;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /smp access <player>} - why can this person not get in?
@@ -50,29 +51,28 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
                 access = effects.access(player);
             } catch (final RuntimeException failure) {
                 effects.warn("/smp access could not read " + name, failure);
-                user.reply("smp.access.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.smp().access().failed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             if (access.isEmpty() || access.get().discordId() == null) {
                 // An unlinked account should not have got past the proxy at all, so this is worth
                 // saying plainly rather than folding into "no access": it means something else is
                 // already wrong.
-                user.reply("smp.access.unlinked", Map.of("player", name), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.smp().access().unlinked(name), Feedback.REFUSED, Tone.BAD);
                 return;
             }
 
             final SmpEffects.Access state = access.get();
-            user.reply("smp.access.linked", Map.of("player", name, "discord", state.discordId()),
+            user.reply(MESSAGES.smp().access().linked(name, state.discordId()),
                     Tone.NEUTRAL);
 
             if (state.accessActive() && state.validUntil() != null) {
-                user.reply("smp.access.active",
-                        Map.of("until", SeasonDates.format(state.validUntil())), Tone.GOOD);
+                user.reply(MESSAGES.smp().access().active(SeasonDates.format(state.validUntil())), Tone.GOOD);
             } else if (state.validUntil() != null) {
-                user.reply("smp.access.expired",
-                        Map.of("since", SeasonDates.format(state.validUntil())), Tone.WARN);
+                user.reply(
+                        MESSAGES.smp().access().expired(SeasonDates.format(state.validUntil())), Tone.WARN);
             } else {
-                user.reply("smp.access.never", Map.of(), Tone.WARN);
+                user.reply(MESSAGES.smp().access().never(), Tone.WARN);
             }
 
             final Optional<OpenPayment> pending;
@@ -80,7 +80,7 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
                 pending = effects.openPayment(state.discordId());
             } catch (final RuntimeException failure) {
                 effects.warn("/smp access could not read the open payment for " + name, failure);
-                user.reply("smp.access.payment-unknown", Map.of(), Tone.BAD);
+                user.reply(MESSAGES.smp().access().paymentUnknown(), Tone.BAD);
                 return;
             }
 
@@ -89,13 +89,10 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
                             // A request with no bunq tab is somebody who picked a number of days and
                             // never got as far as a payment link, which is a different thing to
                             // chase.
-                            payment.hasTab() ? "smp.access.payment" : "smp.access.payment-unstarted",
-                            Map.of("reference", payment.reference(),
-                                    "days", payment.days(),
-                                    "amount", payment.amount(),
-                                    "since", SeasonDates.format(payment.created())),
+                            payment.hasTab() ? MESSAGES.smp().access().payment(payment.reference(),
+                                    payment.days(), payment.amount(), SeasonDates.format(payment.created())) : MESSAGES.smp().access().paymentUnstarted(payment.reference(), payment.days(), SeasonDates.format(payment.created())),
                             Tone.MUTED),
-                    () -> user.reply("smp.access.no-payment", Map.of(), Tone.MUTED));
+                    () -> user.reply(MESSAGES.smp().access().noPayment(), Tone.MUTED));
         });
     }
 }

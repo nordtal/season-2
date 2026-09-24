@@ -1,5 +1,6 @@
 plugins {
     id("nordtal.paper-plugin")
+    id("nordtal.message-spec")
 }
 
 // Files outside every source set that tests read directly. Without declaring them Gradle cannot
@@ -75,4 +76,8 @@ dependencies {
     // The driver arrives at runtime only; the test builds a PGSimpleDataSource by hand and so has
     // to ask for it by name.
     testImplementation(libs.postgresql.driver)
+}
+
+messageSpec {
+    specClass.set("eu.nordtal.s2.smp.SmpMessages")
 }

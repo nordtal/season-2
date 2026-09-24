@@ -7,7 +7,8 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /smp milestone unlock <key>} - unlock a whole milestone by hand.
@@ -36,10 +37,10 @@ public final class UnlockMilestone implements NordtalCommand<SmpEffects> {
                 effects.unlockMilestone(key);
             } catch (final RuntimeException failure) {
                 effects.warn("/smp milestone unlock " + key + " failed", failure);
-                user.reply("smp.admin.read-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.smp().admin().readFailed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
-            user.reply("smp.admin.milestone-unlocked", Map.of("key", key), Feedback.BIG_SUCCESS,
+            user.reply(MESSAGES.smp().admin().milestoneUnlocked(key), Feedback.BIG_SUCCESS,
                     Tone.GOOD);
         });
     }

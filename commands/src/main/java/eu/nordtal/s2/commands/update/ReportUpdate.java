@@ -8,7 +8,8 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.UpdateKind;
 
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /** {@code /update} - ask what is newer than what the network is running. Changes nothing. */
 public final class ReportUpdate implements NordtalCommand<UpdateEffects> {
@@ -32,9 +33,9 @@ public final class ReportUpdate implements NordtalCommand<UpdateEffects> {
                 // The id is deliberately not in the sentence. It was, and it is a database
                 // primary key being read out to somebody who cannot do anything with it; the one
                 // reader who can is looking at steward-worker's log, where it still is.
-                user.reply("update.asked", Map.of(), Feedback.SMALL_SUCCESS, Tone.GOOD);
+                user.reply(MESSAGES.update().asked(), Feedback.SMALL_SUCCESS, Tone.GOOD);
             } catch (final RuntimeException failure) {
-                user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.update().writeFailed(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

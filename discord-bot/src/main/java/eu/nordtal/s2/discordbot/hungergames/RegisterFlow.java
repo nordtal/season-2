@@ -1,6 +1,8 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.discordbot.AccessMessages;
 
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
@@ -22,6 +24,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
+
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 /**
  * Team registration end to end: the {@link Ids#REGISTER} button opens the team name modal, the
@@ -69,11 +73,13 @@ public final class RegisterFlow extends ListenerAdapter {
         final Locale locale = teams.localeOf(event.getUser().getId());
 
         final TextInput nameInput = TextInput.create(Ids.REGISTER_NAME_INPUT, TextInputStyle.SHORT)
-                .setPlaceholder(messages.get(locale, "register.modal.name-placeholder"))
+                .setPlaceholder(messages.format(locale, MESSAGES.register().modal().namePlaceholder()))
                 .setRequiredRange(NAME_MIN_LENGTH, NAME_MAX_LENGTH)
                 .build();
-        final Modal modal = Modal.create(Ids.REGISTER_MODAL, messages.get(locale, "register.modal.title"))
-                .addComponents(Label.of(messages.get(locale, "register.modal.name-label"), nameInput))
+        final Modal modal = Modal.create(Ids.REGISTER_MODAL, messages.format(locale,
+                MESSAGES.register().modal().title()))
+                .addComponents(Label.of(messages.format(locale,
+                        MESSAGES.register().modal().nameLabel()), nameInput))
                 .build();
 
         event.replyModal(modal).queue();
@@ -94,7 +100,7 @@ public final class RegisterFlow extends ListenerAdapter {
                 register(event, locale, typed.strip());
             } catch (final RuntimeException exception) {
                 log.error("Registering a hunger games team failed", exception);
-                event.getHook().editOriginal(messages.get(locale, "register.failed")).queue();
+                event.getHook().editOriginal(messages.format(locale, MESSAGES.register().failed())).queue();
             }
         });
     }
@@ -104,16 +110,20 @@ public final class RegisterFlow extends ListenerAdapter {
 
         switch (result.status()) {
             case REGISTERED -> event.getHook().editOriginalComponents(List.of())
-                    .setContent(messages.format(locale, "register.success", "name", name))
+                    .setContent(messages.format(locale, MESSAGES.register().success(name)))
                     .setComponents(ActionRow.of(
-                            Button.secondary(Ids.INVITE, messages.get(locale, "register.invite-button"))))
+                            Button.secondary(Ids.INVITE, messages.format(locale,
+                                    MESSAGES.register().inviteButton()))))
                     .queue();
             case INVALID_NAME ->
-                    event.getHook().editOriginal(messages.get(locale, "register.invalid-name")).queue();
+                    event.getHook().editOriginal(messages.format(locale,
+                            MESSAGES.register().invalidName())).queue();
             case NAME_TAKEN ->
-                    event.getHook().editOriginal(messages.get(locale, "register.name-taken")).queue();
+                    event.getHook().editOriginal(messages.format(locale,
+                            MESSAGES.register().nameTaken())).queue();
             case ALREADY_REGISTERED ->
-                    event.getHook().editOriginal(messages.get(locale, "register.already-registered")).queue();
+                    event.getHook().editOriginal(messages.format(locale,
+                            MESSAGES.register().alreadyRegistered())).queue();
         }
     }
 
@@ -122,9 +132,9 @@ public final class RegisterFlow extends ListenerAdapter {
     private void openInvitePicker(final ButtonInteractionEvent event) {
         final Locale locale = teams.localeOf(event.getUser().getId());
         final EntitySelectMenu picker = EntitySelectMenu.create(Ids.INVITE_SELECT, EntitySelectMenu.SelectTarget.USER)
-                .setPlaceholder(messages.get(locale, "register.invite.picker-placeholder"))
+                .setPlaceholder(messages.format(locale, MESSAGES.register().invite().pickerPlaceholder()))
                 .build();
-        event.reply(messages.get(locale, "register.invite.pick"))
+        event.reply(messages.format(locale, MESSAGES.register().invite().pick()))
                 .setEphemeral(true)
                 .addComponents(ActionRow.of(picker))
                 .queue();
@@ -148,43 +158,51 @@ public final class RegisterFlow extends ListenerAdapter {
                 invite(event, locale, partner);
             } catch (final RuntimeException exception) {
                 log.error("Inviting a hunger games partner failed", exception);
-                event.getHook().editOriginal(messages.get(locale, "register.failed")).queue();
+                event.getHook().editOriginal(messages.format(locale, MESSAGES.register().failed())).queue();
             }
         });
     }
 
     private void invite(final EntitySelectInteractionEvent event, final Locale locale, final User partner) {
         if (partner.isBot()) {
-            event.getHook().editOriginal(messages.get(locale, "register.invite.target-unavailable")).queue();
+            event.getHook().editOriginal(messages.format(locale,
+                    MESSAGES.register().invite().targetUnavailable())).queue();
             return;
         }
 
         final InviteResult result = teams.invite(event.getUser().getId(), partner.getId());
         switch (result.status()) {
             case INVITED -> {
-                event.getHook().editOriginal(messages.format(locale, "register.invite.sent",
-                        "partner", partner.getAsMention())).queue();
+                event.getHook().editOriginal(messages.format(locale,
+                        MESSAGES.register().invite().sent(partner.getAsMention()))).queue();
                 dmInvite(partner, result.memberId(), result.teamName());
             }
             case NOT_REGISTERED, NOT_OWNER ->
-                    event.getHook().editOriginal(messages.get(locale, "register.invite.not-owner")).queue();
+                    event.getHook().editOriginal(messages.format(locale,
+                            MESSAGES.register().invite().notOwner())).queue();
             case TEAM_FULL ->
-                    event.getHook().editOriginal(messages.get(locale, "register.invite.team-full")).queue();
+                    event.getHook().editOriginal(messages.format(locale,
+                            MESSAGES.register().invite().teamFull())).queue();
             case INVITE_PENDING ->
-                    event.getHook().editOriginal(messages.get(locale, "register.invite.pending")).queue();
+                    event.getHook().editOriginal(messages.format(locale,
+                            MESSAGES.register().invite().pending())).queue();
             case CANNOT_INVITE_SELF ->
-                    event.getHook().editOriginal(messages.get(locale, "register.invite.cannot-invite-self")).queue();
+                    event.getHook().editOriginal(messages.format(locale,
+                            MESSAGES.register().invite().cannotInviteSelf())).queue();
             case TARGET_UNAVAILABLE ->
-                    event.getHook().editOriginal(messages.get(locale, "register.invite.target-unavailable")).queue();
+                    event.getHook().editOriginal(messages.format(locale,
+                            MESSAGES.register().invite().targetUnavailable())).queue();
         }
     }
 
     private void dmInvite(final User partner, final UUID memberId, final String teamName) {
         final Locale locale = teams.localeOf(partner.getId());
-        final String text = messages.format(locale, "register.invite.dm", "team", teamName);
+        final String text = messages.format(locale, MESSAGES.register().invite().dm(teamName));
         final List<ActionRow> components = List.of(ActionRow.of(
-                Button.success(Ids.INVITE_ACCEPT + memberId, messages.get(locale, "register.invite.accept")),
-                Button.danger(Ids.INVITE_DECLINE + memberId, messages.get(locale, "register.invite.decline"))));
+                Button.success(Ids.INVITE_ACCEPT + memberId, messages.format(locale,
+                        MESSAGES.register().invite().accept())),
+                Button.danger(Ids.INVITE_DECLINE + memberId, messages.format(locale,
+                        MESSAGES.register().invite().decline()))));
 
         jda.openPrivateChannelById(partner.getId()).queue(
                 channel -> channel.sendMessage(text).addComponents(components).queue(
@@ -209,7 +227,7 @@ public final class RegisterFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("Answering a hunger games invite failed", exception);
                 event.getHook().editOriginalComponents(List.of())
-                        .setContent(messages.get(locale, "register.failed")).queue();
+                        .setContent(messages.format(locale, MESSAGES.register().failed())).queue();
             }
         });
     }
@@ -218,20 +236,23 @@ public final class RegisterFlow extends ListenerAdapter {
                         final AnswerResult result) {
         if (result.status() == AnswerResult.Status.NOT_PENDING) {
             event.getHook().editOriginalComponents(List.of())
-                    .setContent(messages.get(locale, "register.invite.no-longer-pending")).queue();
+                    .setContent(messages.format(locale,
+                            MESSAGES.register().invite().noLongerPending())).queue();
             return;
         }
 
-        final String key = accept ? "register.invite.accepted" : "register.invite.declined";
+        final AccessMessages.Register.Invite invite = MESSAGES.register().invite();
+        final MessageRef answer = accept
+                ? invite.accepted(result.teamName()) : invite.declined(result.teamName());
         event.getHook().editOriginalComponents(List.of())
-                .setContent(messages.format(locale, key, "team", result.teamName())).queue();
+                .setContent(messages.format(locale, answer)).queue();
 
         teams.ownerOf(result.teamId()).ifPresent(ownerId -> {
             final Locale ownerLocale = teams.localeOf(ownerId);
-            final String ownerKey = accept ? "register.invite.owner-notified-accepted"
-                    : "register.invite.owner-notified-declined";
-            final String text = messages.format(ownerLocale, ownerKey,
-                    "team", result.teamName(), "player", event.getUser().getAsMention());
+            final String player = event.getUser().getAsMention();
+            final String text = messages.format(ownerLocale, accept
+                    ? invite.ownerNotifiedAccepted(player, result.teamName())
+                    : invite.ownerNotifiedDeclined(player, result.teamName()));
             jda.openPrivateChannelById(ownerId).queue(
                     channel -> channel.sendMessage(text).queue(ok -> { }, failure ->
                             log.info("Could not DM team owner {} about an invite answer ({})",

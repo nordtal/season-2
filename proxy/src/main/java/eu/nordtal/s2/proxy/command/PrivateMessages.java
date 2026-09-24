@@ -15,10 +15,12 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 
 import net.kyori.adventure.text.Component;
@@ -27,12 +29,13 @@ import org.slf4j.Logger;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * The network's own private messages: {@code /msg}, {@code /whisper} and {@code /r}.
@@ -120,7 +123,8 @@ public final class PrivateMessages {
 
     private BrigadierCommand whisper(final String literal) {
         final String usage = "/" + literal + " <" + PLAYER + "> <" + MESSAGE + ">";
-        final String describe = "command.describe." + literal;
+        final ProxyMessages.Command.DescribeMessages describes = ProxyMessages.MESSAGES.command().describe();
+        final MessageRef describe = "msg".equals(literal) ? describes.msg() : describes.whisper();
 
         final RequiredArgumentBuilder<CommandSource, ?> text =
                 BrigadierCommand.requiredArgumentBuilder(MESSAGE, StringArgumentType.greedyString());
@@ -149,7 +153,7 @@ public final class PrivateMessages {
         return new BrigadierCommand(BrigadierCommand.literalArgumentBuilder("r")
                 .then(text)
                 .executes(context -> usage(context, "/r <" + MESSAGE + ">",
-                        "command.describe.r")));
+                        ProxyMessages.MESSAGES.command().describe().r())));
     }
 
     private int runWhisper(final CommandContext<CommandSource> context) {
@@ -161,14 +165,14 @@ public final class PrivateMessages {
         final String text = StringArgumentType.getString(context, MESSAGE);
         final Optional<Player> recipient = proxy.getPlayer(name);
         if (recipient.isEmpty()) {
-            user(sender).reply("command.player-offline", Map.of(), Feedback.REFUSED, Tone.WARN);
+            user(sender).reply(MESSAGES.command().playerOffline(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         // Writing to yourself is refused before anything is delivered (season-2-ingame/24). It also
         // keeps the reply partner from ever being set to the sender - the thing that would make /r
         // answer itself.
         if (recipient.get().getUniqueId().equals(sender.getUniqueId())) {
-            user(sender).reply("chat.msg.self", Map.of(), Feedback.REFUSED, Tone.WARN);
+            user(sender).reply(ProxyMessages.MESSAGES.chat().msg().self(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         deliverSafely(sender, recipient.get(), text, "/" + name);
@@ -186,14 +190,14 @@ public final class PrivateMessages {
             // Two different sentences, because they are two different situations and the player can
             // act on the difference: "nobody has written to you" means type their name, "they have
             // gone" means they were there a moment ago.
-            user(sender).reply("chat.no-partner", Map.of(), Feedback.REFUSED, Tone.WARN);
+            user(sender).reply(ProxyMessages.MESSAGES.chat().noPartner(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         final Optional<Player> recipient = proxy.getPlayer(partner);
         if (recipient.isEmpty()) {
             // The partner is left standing rather than removed: they may come back, and telling
             // somebody "they are not here" twice beats telling them "nobody has written to you".
-            user(sender).reply("command.player-offline", Map.of(), Feedback.REFUSED, Tone.WARN);
+            user(sender).reply(MESSAGES.command().playerOffline(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         deliverSafely(sender, recipient.get(), text, "/r");
@@ -208,39 +212,43 @@ public final class PrivateMessages {
             // NEVER WITH THE TEXT IN IT. A delivery that failed is worth knowing about; what
             // somebody wrote is not ours to keep, and a log file is the one place it would survive.
             logger.warn("{} could not be delivered", what, failure);
-            user(from).reply("chat.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+            user(from).reply(ProxyMessages.MESSAGES.chat().failed(), Feedback.REFUSED, Tone.BAD);
         }
     }
 
     /** Both halves of one message, and the reply partner on both sides. */
     private void deliver(final Player sender, final Player recipient, final String text) {
-        sender.sendMessage(line(SENT, localeOf(sender), recipient, text));
-        recipient.sendMessage(line(RECEIVED, localeOf(recipient), sender, text));
+        sender.sendMessage(line(Half.SENT, localeOf(sender), recipient, text));
+        recipient.sendMessage(line(Half.RECEIVED, localeOf(recipient), sender, text));
         remember(sender.getUniqueId(), recipient.getUniqueId());
     }
 
-    /** The key for the copy the sender keeps. */
-    static final String SENT = "chat.msg.sent";
-
-    /** The key for the copy that arrives. */
-    static final String RECEIVED = "chat.msg.received";
+    /** Which copy of a message a line is. */
+    enum Half {
+        /** The copy the sender keeps. */
+        SENT,
+        /** The copy that arrives. */
+        RECEIVED
+    }
 
     /**
      * One half of a message, drawn.
      *
-     * @param key    {@link #SENT} or {@link #RECEIVED}
+     * @param half   which of the two copies
      * @param reader the language of the side this line is <em>for</em>, which is never necessarily
      *               the language of the side it is <em>about</em> - the flag is the other one's
      * @param about  the other person: their name, their flag and their admin tag
      */
-    Component line(final String key, final Locale reader, final Player about, final String text) {
-        return MessageRenderer.of(messages).format(reader, key,
-                // A COMPONENT and never a substituted string, so the text never reaches the
-                // MiniMessage parser: somebody called <red> cannot colour a line about themselves.
-                Map.of("_message", Component.text(text)),
-                "name", about.getUsername(),
-                "flag", Glyphs.flagFor(localeOf(about)),
-                "admin", adminTag(about));
+    Component line(final Half half, final Locale reader, final Player about, final String text) {
+        final String flag = Glyphs.flagFor(localeOf(about));
+        // A COMPONENT and never a substituted string, so the text never reaches the MiniMessage
+        // parser: somebody called <red> cannot colour a line about themselves.
+        final Component message = Component.text(text);
+        final ProxyMessages.Chat.Msg msg = ProxyMessages.MESSAGES.chat().msg();
+        return MessageRenderer.of(messages).format(reader, switch (half) {
+            case SENT -> msg.sent(flag, about.getUsername(), adminTag(about), message);
+            case RECEIVED -> msg.received(flag, about.getUsername(), adminTag(about), message);
+        });
     }
 
     /**
@@ -278,7 +286,7 @@ public final class PrivateMessages {
             return player;
         }
         new ConsoleUser(messages, context.getSource())
-                .reply("command.not-from-console", Map.of(), Feedback.REFUSED, Tone.BAD);
+                .reply(MESSAGES.command().notFromConsole(), Feedback.REFUSED, Tone.BAD);
         return null;
     }
 
@@ -291,12 +299,12 @@ public final class PrivateMessages {
      * two agree, so the derivation is replaced by a check rather than by trust.</p>
      */
     private int usage(final CommandContext<CommandSource> context, final String usage,
-                      final String describeKey) {
+                      final MessageRef describe) {
         final NordtalUser who = context.getSource() instanceof Player player
                 ? user(player)
                 : new ConsoleUser(messages, context.getSource());
-        who.reply("command.help.usage", Map.of("usage", usage), Feedback.REFUSED, Tone.NEUTRAL);
-        who.reply("command.help.what", Map.of("what", who.phrase(describeKey)), Tone.MUTED);
+        who.reply(MESSAGES.command().help().usage(usage), Feedback.REFUSED, Tone.NEUTRAL);
+        who.reply(MESSAGES.command().help().what(who.phrase(describe)), Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }
 

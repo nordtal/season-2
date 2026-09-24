@@ -25,6 +25,8 @@ import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 /**
  * Wires {@link PlayerLocales} and the disconnected-body mechanism: on quit mid-game a body takes
  * the player's place; on reconnect the body is removed and whatever gear it still has is returned.
@@ -71,9 +73,9 @@ public final class PresenceListener implements Listener {
         for (final Player online : Bukkit.getOnlinePlayers()) {
             final java.util.Locale locale = locales.of(online.getUniqueId());
             online.sendPlayerListHeaderAndFooter(
-                    TabList.header(messages, locale),
-                    TabList.footer(messages, locale,
-                            Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers()));
+                    TabList.header(messages, locale, MESSAGES.tab()::header),
+                    messages.format(locale, MESSAGES.tab().footer(
+                            Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers())));
         }
     }
 

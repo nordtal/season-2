@@ -9,6 +9,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+
 /**
  * How long until the network opens, as a line somebody reads once.
  *
@@ -47,24 +49,22 @@ public final class LaunchCountdown {
             // nothing wraps it, and this value is a plain-text fragment that gets substituted into
             // one - both gate.countdown and the MOTD template. A tag here would survive
             // Placeholders' escaping as literal text instead of colour.
-            return messages.get(locale, "countdown.unknown");
+            return messages.format(locale, MESSAGES.countdown().unknown());
         }
 
         final Duration remaining = Duration.between(now, launch);
         if (remaining.isZero() || remaining.isNegative() || remaining.toMinutes() < 1) {
-            return messages.get(locale, "countdown.imminent");
+            return messages.format(locale, MESSAGES.countdown().imminent());
         }
         if (remaining.toDays() >= 1) {
-            return messages.format(locale, "countdown.days",
-                    "days", remaining.toDays(),
-                    "hours", remaining.toHoursPart());
+            return messages.format(locale,
+                    MESSAGES.countdown().days(remaining.toDays(), remaining.toHoursPart()));
         }
         if (remaining.toHours() >= 1) {
-            return messages.format(locale, "countdown.hours",
-                    "hours", remaining.toHours(),
-                    "minutes", remaining.toMinutesPart());
+            return messages.format(locale,
+                    MESSAGES.countdown().hours(remaining.toHours(), remaining.toMinutesPart()));
         }
-        return messages.format(locale, "countdown.minutes", "minutes", remaining.toMinutes());
+        return messages.format(locale, MESSAGES.countdown().minutes(remaining.toMinutes()));
     }
 
     /**
@@ -81,9 +81,9 @@ public final class LaunchCountdown {
     public static String sentence(final Messages messages, final Locale locale, final Instant launch,
                                   final Instant now) {
         if (launch == null) {
-            return messages.get(locale, "gate.countdown.unknown");
+            return messages.format(locale, MESSAGES.gate().countdownSection().unknown());
         }
-        return messages.format(locale, "gate.countdown", "countdown", render(messages, locale, launch, now));
+        return messages.format(locale, MESSAGES.gate().countdown(render(messages, locale, launch, now)));
     }
 
     /**

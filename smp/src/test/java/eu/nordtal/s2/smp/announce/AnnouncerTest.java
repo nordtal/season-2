@@ -7,13 +7,13 @@ import eu.nordtal.s2.common.command.CommandOutcome;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.command.NewCommandRequest;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.smp.SmpMessages;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -93,8 +93,8 @@ class AnnouncerTest {
         final Announcer announcer = new Announcer(rows, MESSAGES, Runnable::run,
                 (message, failure) -> warnings.add(message));
 
-        announcer.announce("smp.announce.milestone.border",
-                locale -> Map.of("milestone", locale.getLanguage().equals("de") ? "Aufbruch" : "Departure"));
+        announcer.announce(locale -> SmpMessages.MESSAGES.smp().announce().milestoneSection()
+                .border(locale.getLanguage().equals("de") ? "Aufbruch" : "Departure"));
 
         assertEquals(List.of(), warnings);
         assertEquals(Announcer.LANGUAGES.size(), rows.submitted.size());
@@ -119,7 +119,7 @@ class AnnouncerTest {
         rows.refuse = new IllegalStateException("pool exhausted");
         final List<String> warnings = new ArrayList<>();
         new Announcer(rows, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message))
-                .announce("smp.announce.milestone", Map.of("milestone", "Departure"));
+                .announce(SmpMessages.MESSAGES.smp().announce().milestone("Departure"));
         assertEquals(Announcer.LANGUAGES.size(), warnings.size());
         assertTrue(warnings.getFirst().contains("smp.announce.milestone"));
     }

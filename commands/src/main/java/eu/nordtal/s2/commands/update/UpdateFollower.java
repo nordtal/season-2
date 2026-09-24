@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands.update;
 
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
@@ -11,10 +12,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.LongFunction;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * Follows one {@code update_request} row and decides what to tell the person who asked.
@@ -63,27 +65,19 @@ public final class UpdateFollower {
     public static final int MAX_LINES = 40;
 
     /** One thing to say: a message key with placeholders, or a literal line of the report. */
-    public record Say(String key, Map<String, ?> placeholders, String literal, Tone tone) {
+    public record Say(MessageRef message, String literal, Tone tone) {
 
-        public static Say key(final String key, final Map<String, ?> placeholders, final Tone tone) {
-            return new Say(Objects.requireNonNull(key, "key"), Map.copyOf(placeholders), null,
+        public static Say key(final MessageRef message, final Tone tone) {
+            return new Say(Objects.requireNonNull(message, "message"), null,
                     tone == null ? Tone.NEUTRAL : tone);
         }
 
-        public static Say key(final String key, final Map<String, ?> placeholders) {
-            return key(key, placeholders, Tone.NEUTRAL);
-        }
-
-        public static Say key(final String key) {
-            return key(key, Map.of(), Tone.NEUTRAL);
-        }
-
-        public static Say key(final String key, final Tone tone) {
-            return key(key, Map.of(), tone);
+        public static Say key(final MessageRef message) {
+            return key(message, Tone.NEUTRAL);
         }
 
         public static Say literal(final String text) {
-            return new Say(null, Map.of(), Objects.requireNonNull(text, "text"), Tone.NEUTRAL);
+            return new Say(null, Objects.requireNonNull(text, "text"), Tone.NEUTRAL);
         }
 
         /** Sends this line the way the user's surface sends lines. */
@@ -91,7 +85,7 @@ public final class UpdateFollower {
             if (literal != null) {
                 user.replyLiteral(literal);
             } else {
-                user.reply(key, placeholders, tone);
+                user.reply(message, tone);
             }
         }
     }
@@ -179,10 +173,10 @@ public final class UpdateFollower {
         try {
             row = reader.apply(id);
         } catch (final RuntimeException failure) {
-            return new Step(List.of(Say.key("update.failed", Tone.BAD)), true, failure);
+            return new Step(List.of(Say.key(MESSAGES.update().failed(), Tone.BAD)), true, failure);
         }
         if (row.isEmpty()) {
-            return Step.done(List.of(Say.key("update.gone", Tone.WARN)));
+            return Step.done(List.of(Say.key(MESSAGES.update().gone(), Tone.WARN)));
         }
         final UpdateRequest request = row.get();
         if (request.status().isFinished()) {
@@ -191,8 +185,7 @@ public final class UpdateFollower {
         if (now.isAfter(deadline)) {
             // Names the state the row is in, because PENDING here means one specific thing:
             // nothing is listening, and the steward-worker container is not running.
-            return Step.done(List.of(Say.key("update.timeout",
-                    Map.of("status", request.status()), Tone.BAD)));
+            return Step.done(List.of(Say.key(MESSAGES.update().timeout(request.status()), Tone.BAD)));
         }
         return Step.saying(stageChange(request));
     }
@@ -230,7 +223,7 @@ public final class UpdateFollower {
             return says;
         }
         final List<Say> cut = new ArrayList<>(says.subList(0, MAX_LINES));
-        cut.add(Say.key("update.truncated", Map.of("lines", says.size() - MAX_LINES), Tone.MUTED));
+        cut.add(Say.key(MESSAGES.update().truncated(says.size() - MAX_LINES), Tone.MUTED));
         return cut;
     }
 
@@ -241,17 +234,16 @@ public final class UpdateFollower {
 
         for (final UpdateReport.ServiceLine line : report.services()) {
             final Tone tone = toneOf(line.state());
-            says.add(Say.key("update.line." + line.state(),
-                    Map.of("service", line.service()), tone));
+            says.add(Say.key(MESSAGES.update().line(line.state(), line.service()), tone));
             for (final UpdateReport.Change change : line.changes()) {
                 says.add(sayChange(change));
             }
             if (line.detail() != null && !line.detail().isBlank()) {
-                says.add(Say.key("update.detail", Map.of("detail", line.detail()), tone));
+                says.add(Say.key(MESSAGES.update().detail(line.detail()), tone));
             }
         }
         for (final String note : report.notes()) {
-            says.add(Say.key("update.note", Map.of("note", note), toneOf(report.stage())));
+            says.add(Say.key(MESSAGES.update().note(note), toneOf(report.stage())));
         }
         return says;
     }
@@ -265,12 +257,11 @@ public final class UpdateFollower {
     private static List<Say> plain(final UpdateRequest request) {
         final String stored = request.result();
         if (request.status() == UpdateStatus.CANCELLED) {
-            return List.of(Say.key("update.stopped-by",
-                    Map.of("reason", stored == null ? "" : stored), Tone.WARN));
+            return List.of(Say.key(MESSAGES.update().stoppedBy(stored == null ? "" : stored), Tone.WARN));
         }
         final List<Say> says = new ArrayList<>();
         if (request.status() == UpdateStatus.FAILED) {
-            says.add(Say.key("update.failed", Tone.BAD));
+            says.add(Say.key(MESSAGES.update().failed(), Tone.BAD));
         }
         final String text = stored == null ? "(Steward wrote nothing)" : stored;
         for (final String line : text.split("\n", -1)) {
@@ -289,18 +280,20 @@ public final class UpdateFollower {
      */
     private static Say sayChange(final UpdateReport.Change change) {
         return switch (change.state()) {
-            case UNSUPPORTED -> Say.key("update.change.unsupported",
-                    Map.of("artefact", change.artefact()), Tone.MUTED);
+            case UNSUPPORTED -> Say.key(
+                    MESSAGES.update().changeSection().unsupported(change.artefact()), Tone.MUTED);
             case MOVING -> change.from() == null
-                    ? Say.key("update.change.new", Map.of(
-                            "artefact", change.artefact(), "to", change.to()), Tone.MUTED)
-                    : Say.key("update.change", Map.of("artefact", change.artefact(),
-                            "from", change.from(), "to", change.to()), Tone.MUTED);
+                    ? Say.key(
+                            MESSAGES.update().changeSection().newMessage(change.artefact(),
+                                    change.to()), Tone.MUTED)
+                    : Say.key(
+                            MESSAGES.update().change(change.artefact(), change.from(),
+                                    change.to()), Tone.MUTED);
         };
     }
 
     private static Say headline(final UpdateReport.Stage stage) {
-        return Say.key("update.stage." + stage, toneOf(stage));
+        return Say.key(MESSAGES.update().stage(stage), toneOf(stage));
     }
 
     /**

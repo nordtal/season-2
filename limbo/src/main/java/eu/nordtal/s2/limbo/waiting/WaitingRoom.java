@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.limbo.WaitReason;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.limbo.LimboMessages;
 import eu.nordtal.s2.limbo.config.LimboSpec;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
 
@@ -123,9 +124,10 @@ public final class WaitingRoom {
                 ? Title.Times.times(Duration.ofMillis(300), stay, Duration.ofMillis(200))
                 : Title.Times.times(Duration.ZERO, stay, Duration.ZERO);
 
+        final LimboMessages.Limbo.Screen screen = LimboMessages.MESSAGES.limbo().waiting().of(reason);
         player.showTitle(Title.title(
-                MessageRenderer.of(messages).get(locale, reason.titleKey()),
-                MessageRenderer.of(messages).get(locale, reason.subtitleKey()),
+                MessageRenderer.of(messages).format(locale, screen.title()),
+                MessageRenderer.of(messages).format(locale, screen.subtitle()),
                 times));
     }
 

@@ -1,5 +1,6 @@
 plugins {
     id("nordtal.jvm-app")
+    id("nordtal.message-spec")
 }
 
 application.mainClass.set("eu.nordtal.s2.discordbot.AccessBot")
@@ -75,4 +76,8 @@ dependencies {
     // not exercise gen_random_uuid(), the partial unique index or numeric(10,2) rounding.
     testImplementation(libs.testcontainers.postgresql)
     testRuntimeOnly(libs.postgresql.driver)
+}
+
+messageSpec {
+    specClass.set("eu.nordtal.s2.discordbot.AccessMessages")
 }

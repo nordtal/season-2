@@ -1,5 +1,6 @@
 plugins {
     id("nordtal.velocity-plugin")
+    id("nordtal.message-spec")
 }
 
 // BrandColourTest reads NetworkSpec's own source, so Gradle has to see that file as a test input -
@@ -61,4 +62,8 @@ dependencies {
     testImplementation(libs.flyway.core)
     testImplementation(libs.flyway.postgresql)
     testImplementation(libs.testcontainers.postgresql)
+}
+
+messageSpec {
+    specClass.set("eu.nordtal.s2.proxy.ProxyMessages")
 }

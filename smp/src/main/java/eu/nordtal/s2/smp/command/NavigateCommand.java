@@ -5,15 +5,17 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.papercommon.command.PaperUser;
-import eu.nordtal.s2.smp.db.PlaceRow;
 import eu.nordtal.s2.smp.db.PoiRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -32,9 +34,10 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * {@code /navigate} and {@code /poi}.
@@ -131,8 +134,11 @@ public final class NavigateCommand {
             return "/poi " + literal + " <name>";
         }
 
-        String describeKey() {
-            return "command.describe.poi." + literal;
+        MessageRef describe() {
+            return switch (this) {
+                case ADD -> SmpMessages.MESSAGES.command().describe().poi().add();
+                case REMOVE -> SmpMessages.MESSAGES.command().describe().poi().remove();
+            };
         }
     }
 
@@ -148,11 +154,10 @@ public final class NavigateCommand {
      */
     private int poiHelp(final CommandContext<CommandSourceStack> context) {
         final NordtalUser user = user(context);
-        user.reply("command.help.header", Map.of("command", "/poi"), Tone.NEUTRAL);
+        user.reply(CommandMessages.MESSAGES.command().help().header("/poi"), Tone.NEUTRAL);
         for (final Sub sub : Sub.values()) {
-            user.reply("command.help.line",
-                    Map.of("usage", sub.usage(), "what", user.phrase(sub.describeKey())),
-                    Tone.MUTED);
+            user.reply(CommandMessages.MESSAGES.command().help().line(sub.usage(),
+                    user.phrase(sub.describe())), Tone.MUTED);
         }
         return Command.SINGLE_SUCCESS;
     }
@@ -160,9 +165,10 @@ public final class NavigateCommand {
     /** The usage of one subcommand, plus the sentence saying what it is for. */
     private int usage(final CommandContext<CommandSourceStack> context, final Sub sub) {
         final NordtalUser user = user(context);
-        user.reply("command.help.usage", Map.of("usage", sub.usage()), Feedback.REFUSED,
+        user.reply(CommandMessages.MESSAGES.command().help().usage(sub.usage()), Feedback.REFUSED,
                 Tone.NEUTRAL);
-        user.reply("command.help.what", Map.of("what", user.phrase(sub.describeKey())), Tone.MUTED);
+        user.reply(CommandMessages.MESSAGES.command().help().what(user.phrase(sub.describe())),
+                Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -210,14 +216,15 @@ public final class NavigateCommand {
         final String name = StringArgumentType.getString(context, "name").trim();
 
         if (name.isEmpty() || name.length() > MAX_POI_NAME) {
-            tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.bad-name", "max", MAX_POI_NAME),
+            tell(player, MessageRenderer.of(messages).format(locale,
+                    MESSAGES.smp().poi().badName(MAX_POI_NAME)),
                     Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
 
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            tell(player, MessageRenderer.of(messages).get(locale, "smp.error.no-account-link"),
+            tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().error().noAccountLink()),
                     Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
@@ -225,13 +232,14 @@ public final class NavigateCommand {
         final Location at = player.getLocation();
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (dao.allPois().stream().anyMatch(poi -> poi.name().equalsIgnoreCase(name))) {
-                tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.duplicate", "name", name),
+                tell(player, MessageRenderer.of(messages).format(locale,
+                        MESSAGES.smp().poi().duplicate(name)),
                         Feedback.REFUSED);
                 return;
             }
             dao.createPoi(name, at.getWorld().getName(), at.getBlockX(), at.getBlockY(),
                     at.getBlockZ(), discordId.get());
-            tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.added", "name", name),
+            tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().poi().added(name)),
                     Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;
@@ -249,13 +257,13 @@ public final class NavigateCommand {
                     .filter(poi -> poi.name().equalsIgnoreCase(name))
                     .findFirst();
             if (found.isEmpty()) {
-                tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.not-found", "name", name),
+                tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().poi().notFound(name)),
                         Feedback.REFUSED);
                 return;
             }
             final PoiRow poi = found.get();
             if (!admin && !poi.createdBy().equals(discordId.orElse(""))) {
-                tell(player, MessageRenderer.of(messages).get(locale, "smp.poi.not-yours"),
+                tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().poi().notYours()),
                         Feedback.REFUSED);
                 return;
             }
@@ -263,7 +271,7 @@ public final class NavigateCommand {
             Bukkit.getScheduler().runTask(plugin, () -> navigation.clearWorld(poi.world()));
             // The counterpart of smp.poi.added, and it gets the counterpart's sound: a small
             // thing the player asked for that worked.
-            tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.removed", "name", name),
+            tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().poi().removed(name)),
                     Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;

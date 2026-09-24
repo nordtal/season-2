@@ -1,7 +1,9 @@
 package eu.nordtal.s2.proxy.update;
 
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import eu.nordtal.s2.proxy.routing.PhaseServers;
 
@@ -14,11 +16,12 @@ import org.slf4j.Logger;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 
 /**
  * The way back gets a voice - season-2-ops/118, point 3.
@@ -125,8 +128,8 @@ public final class Homecoming {
         }
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "return.waiting-room",
-                    Map.of("what", serviceName(messages, locale, destination))));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    MESSAGES.returnSection().waitingRoom(serviceName(messages, locale, destination))));
         } catch (final RuntimeException failure) {
             logger.warn("Could not tell {} that they are being moved back to '{}'",
                     player.getUsername(), destination, failure);
@@ -159,23 +162,23 @@ public final class Homecoming {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         switch (announcement.kind()) {
             case COUNTDOWN -> {
-                player.sendMessage(renderer.format(locale, "return.countdown",
-                        "seconds", announcement.seconds()));
+                player.sendMessage(renderer.format(locale,
+                        MESSAGES.returnSection().countdown(announcement.seconds())));
                 if (isPlaying(player)) {
-                    subtitle(player, renderer.format(locale, "restart.tick",
-                            "seconds", announcement.seconds()));
+                    subtitle(player, renderer.format(locale,
+                            MESSAGES.restart().tick(announcement.seconds())));
                 }
             }
             case TICK -> {
                 if (isPlaying(player)) {
-                    subtitle(player, renderer.format(locale, "restart.tick",
-                            "seconds", announcement.seconds()));
+                    subtitle(player, renderer.format(locale,
+                            MESSAGES.restart().tick(announcement.seconds())));
                 }
             }
             case NOW -> {
-                player.sendMessage(renderer.get(locale, "return.now"));
+                player.sendMessage(renderer.format(locale, MESSAGES.returnSection().now()));
                 if (isPlaying(player)) {
-                    subtitle(player, renderer.get(locale, "return.now"));
+                    subtitle(player, renderer.format(locale, MESSAGES.returnSection().now()));
                 }
             }
             // Neither can happen on this path: the standby speaks only about a return it has
@@ -222,9 +225,14 @@ public final class Homecoming {
      */
     public static Component serviceName(final Messages messages, final Locale locale,
                                         final String service) {
-        final String key = "restart.what." + service;
-        return messages.hasTranslation(Locale.ENGLISH, key)
-                ? MessageRenderer.of(messages).get(locale, key)
-                : Component.text(service);
+        final ProxyMessages.Restart.What names = MESSAGES.restart().what();
+        final MessageRef name = switch (service) {
+            case "smp" -> names.smp();
+            case "limbo" -> names.limbo();
+            case "hunger-games" -> names.hungerGames();
+            case "proxy" -> names.proxy();
+            default -> null;
+        };
+        return name == null ? Component.text(service) : MessageRenderer.of(messages).format(locale, name);
     }
 }

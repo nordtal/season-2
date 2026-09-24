@@ -20,9 +20,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 /**
  * The lobby's periodic ready-check broadcast, carrying a clickable "I am ready". Ready state is
@@ -88,12 +89,13 @@ public final class Lobby {
             final Locale locale = locales.of(player.getUniqueId());
             // No .color() here: the colour is in the bundle, and one set on the rendered component
             // would win over it, so editing hg.lobby.ready-link would change nothing.
-            final Component link = MessageRenderer.of(messages).get(locale, "hg.lobby.ready-link")
+            final Component link = MessageRenderer.of(messages).format(locale,
+                    MESSAGES.hg().lobby().readyLink())
                     .clickEvent(ClickEvent.runCommand("/hg ready"));
             // A component slot rather than an append: hg.lobby.broadcast ends in "{link}", and
             // Messages leaves an unfilled placeholder standing, so an append prints it literally.
-            final Component message = MessageRenderer.of(messages).format(locale, "hg.lobby.broadcast",
-                    Map.of("_link", link), "ready", readyTeams, "total", totalTeams);
+            final Component message = MessageRenderer.of(messages).format(locale,
+                    MESSAGES.hg().lobby().broadcast(readyTeams, totalTeams, link));
             player.sendMessage(message);
         }
     }

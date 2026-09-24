@@ -40,8 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * "Unknown or incomplete command, see below for error" with a red caret under the offending
  * character, in the server's language.
  *
- * <p>So this walks the two files and asserts that every message key either of them names for a
- * refusal is the same one. It is a text search because there is nothing else it could be: both
+ * <p>So this walks the two files and asserts that every message either of them renders is the
+ * same one. It is a text search because there is nothing else it could be: both
  * handlers are fired by a platform, on a running server, at a player.</p>
  */
 class OneRefusalLineTest {
@@ -54,9 +54,12 @@ class OneRefusalLineTest {
             "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/CommandFilter.java",
             "proxy/src/main/java/eu/nordtal/s2/proxy/command/CommandGate.java");
 
-    /** Any {@code "some.message.key"} handed to a renderer in those files. */
-    private static final Pattern RENDERED_KEY =
-            Pattern.compile("\\.get\\([^,]+,\\s*\"([a-z][a-z0-9.-]*)\"\\)");
+    /**
+     * Any message a refuser renders: a chain of section and key calls on the spec, such as
+     * {@code MESSAGES.command().unknown()}, whose key is the segments in kebab case. None of the
+     * methods on this path carries an {@code @Key}, so the method names are the key.
+     */
+    private static final Pattern RENDERED_KEY = Pattern.compile("MESSAGES((?:\\s*\\.\\s*[a-zA-Z0-9]+\\(\\))+)");
 
     @Test
     @DisplayName("both refusers say exactly one thing, and it is the same thing")
@@ -65,7 +68,7 @@ class OneRefusalLineTest {
         for (final String refuser : REFUSERS) {
             final Matcher matcher = RENDERED_KEY.matcher(read(RepositoryRoot.resolve(refuser)));
             while (matcher.find()) {
-                keys.add(matcher.group(1));
+                keys.add(keyOf(matcher.group(1)));
             }
         }
         assertEquals(Set.of(KEY), keys,
@@ -121,6 +124,18 @@ class OneRefusalLineTest {
                 "a key with this shape is a second way of saying " + KEY + ". If one is genuinely"
                         + " needed, that is a decision to take out loud - the allowlist's wording"
                         + " rests on there being one sentence");
+    }
+
+    /** {@code .command().noSuchThing()} to {@code command.no-such-thing}. */
+    private static String keyOf(final String chain) {
+        final List<String> segments = new ArrayList<>();
+        for (final String call : chain.replaceAll("\\s", "").split("\\(\\)")) {
+            if (!call.isEmpty()) {
+                segments.add(call.substring(1).replaceAll("([a-z0-9])([A-Z])", "$1-$2")
+                        .toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+        return String.join(".", segments);
     }
 
     private static List<Path> bundles() {

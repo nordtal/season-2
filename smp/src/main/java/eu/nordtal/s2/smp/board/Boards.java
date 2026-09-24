@@ -1,12 +1,15 @@
 package eu.nordtal.s2.smp.board;
 
 import eu.nordtal.s2.common.hud.BoardFrame;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
+import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.AuraRow;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
+import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.state.SeasonState;
 
 import net.kyori.adventure.text.Component;
@@ -27,6 +30,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The two boards at the spawn, rendered <b>per player, in their own language</b>.
@@ -188,44 +193,42 @@ public final class Boards {
     // than as literal text. Nothing here composes a component by hand any more.
     private Component objectiveText(final Locale locale, final int width) {
         final MessageRenderer renderer = MessageRenderer.of(messages);
-        final Component title = renderer.get(locale, BoardKind.OBJECTIVE.messageKey());
+        final Component title = renderer.format(locale, MESSAGES.smp().board().objective().title());
         final List<Component> lines = new ArrayList<>();
 
         // One read: the name and the rows under it have to be the same milestone's.
         final SeasonState.Active active = season.active();
         if (active.key() == null) {
-            lines.add(renderer.get(locale, "smp.board.objective.finished"));
+            lines.add(renderer.format(locale, MESSAGES.smp().board().objective().finished()));
             return BoardFrame.render(width, title, lines);
         }
 
-        lines.add(renderer.format(locale, "smp.board.objective.milestone",
-                "milestone", milestoneName(active.key(), locale)));
+        lines.add(renderer.format(locale,
+                MESSAGES.smp().board().objective().milestone(milestoneName(active.key(), locale))));
         for (final ObjectiveRow objective : active.objectives()) {
             lines.add(renderer.format(locale,
-                    objective.completed() ? "smp.board.objective.row-done" : "smp.board.objective.row",
-                    "objective", objectiveName(active.key(), objective.key(), locale),
-                    "bar", ProgressBar.of(objective.ratio(), BAR_WIDTH),
-                    "amount", objective.amount(), "target", objective.target()));
+                    row(objective.key(), objective)));
         }
         return BoardFrame.render(width, title, lines);
     }
 
     private Component auraText(final Locale locale, final int width) {
         final MessageRenderer renderer = MessageRenderer.of(messages);
-        final Component title = renderer.get(locale, BoardKind.AURA.messageKey());
+        final Component title = renderer.format(locale, MESSAGES.smp().board().aura().title());
         final List<Component> lines = new ArrayList<>();
 
         final List<AuraRow> rows = leaderboard;
         if (rows.isEmpty()) {
-            lines.add(renderer.get(locale, "smp.board.aura.empty"));
+            lines.add(renderer.format(locale, MESSAGES.smp().board().aura().empty()));
             return BoardFrame.render(width, title, lines);
         }
 
         int place = 1;
         for (final AuraRow row : rows.subList(0, Math.min(LEADERBOARD_SIZE, rows.size()))) {
             lines.add(renderer.format(locale,
-                    row.aura() > 0 ? "smp.board.aura.row" : "smp.board.aura.row-zero",
-                    "place", place, "player", nameOf(row.mcUuid()), "aura", row.aura()));
+                    row.aura() > 0 ? MESSAGES.smp().board().aura().row(place, nameOf(row.mcUuid()),
+                            row.aura()) : MESSAGES.smp().board().aura().rowZero(place, nameOf(row.mcUuid()),
+                            row.aura())));
             place++;
         }
         return BoardFrame.render(width, title, lines);
@@ -247,12 +250,15 @@ public final class Boards {
     }
 
     private String milestoneName(final String key, final Locale locale) {
-        final String messageKey = "smp.milestone." + key;
-        return messages.hasTranslation(locale, messageKey) ? messages.get(locale, messageKey) : key;
+        return MilestoneNames.of(messages, locale, key);
     }
 
-    private String objectiveName(final String milestone, final String objective, final Locale locale) {
-        final String messageKey = "smp.objective." + milestone + "." + objective;
-        return messages.hasTranslation(locale, messageKey) ? messages.get(locale, messageKey) : objective;
+    private static MessageRef row(final String name, final ObjectiveRow objective) {
+        final String bar = ProgressBar.of(objective.ratio(), BAR_WIDTH);
+        final SmpMessages.Smp.Board.Objective lines = MESSAGES.smp().board().objective();
+        return objective.completed()
+                ? lines.rowDone(name, bar, objective.amount(), objective.target())
+                : lines.row(name, bar, objective.amount(), objective.target());
     }
+
 }

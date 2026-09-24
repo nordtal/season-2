@@ -20,6 +20,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+
 /**
  * The per-plugin disable Velocity does not have: a {@code LoginEvent} handler that refuses
  * <b>everybody</b> because {@code proxy}'s own configuration could not be read.
@@ -55,13 +57,14 @@ public final class MisconfiguredGate {
     public MisconfiguredGate(final Logger logger, final Messages messages) {
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(messages, "messages");
-        this.screen = MessageRenderer.of(messages).get(Locale.ENGLISH, "gate.misconfigured")
+        this.screen = MessageRenderer.of(messages).format(Locale.ENGLISH, MESSAGES.gate().misconfigured())
                 .appendNewline()
-                .append(MessageRenderer.of(messages).get(Locale.GERMAN, "gate.misconfigured")
+                .append(MessageRenderer.of(messages).format(Locale.GERMAN, MESSAGES.gate().misconfigured())
                         .color(NamedTextColor.GRAY)
                         .decorate(TextDecoration.ITALIC));
         // English only: a ping carries no player, so there is no language to pick.
-        this.motd = MiniMessage.miniMessage().deserialize(messages.get(Locale.ENGLISH, "motd.misconfigured"));
+        this.motd = MiniMessage.miniMessage().deserialize(messages.format(Locale.ENGLISH,
+                MESSAGES.motd().misconfigured()));
     }
 
     /**

@@ -71,10 +71,6 @@ class OneMessageFormatTest {
                     "the compose name of a service - `restart.what.<service>` is the sentence and"
                             + " this is what stands in when a service has no line of its own, which"
                             + " is a name rather than language"),
-            Map.entry("proxy/src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java",
-                    "the same fallback, for the same key, asked of the same bundle - the two are"
-                            + " deliberately one answer so that a run is not called two things in"
-                            + " two messages about it"),
             Map.entry("proxy/src/main/java/eu/nordtal/s2/proxy/command/ConsoleUser.java",
                     "the same NordtalUser#replyLiteral, for the proxy console - plus a plain-text"
                             + " serialiser, because a raw <green> in a container log is a thing"

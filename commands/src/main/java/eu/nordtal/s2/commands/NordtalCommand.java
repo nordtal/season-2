@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands;
 
+import eu.nordtal.s2.common.message.MessageRef;
+
 /**
  * A command: its {@link Declaration}, and what it does with an effect the platform supplies.
  *
@@ -46,10 +48,10 @@ public interface NordtalCommand<E> {
      * here, "no milestone is active" does not - the second needs the effects and can change between
      * the question and the answer.</p>
      *
-     * @return a message key naming the problem, with the placeholders to render it - or empty when
+     * @return the message naming the problem - or empty when
      *         the arguments are usable
      */
-    default java.util.Optional<java.util.Map.Entry<String, java.util.Map<String, ?>>> problem(
+    default java.util.Optional<MessageRef> problem(
             final Values values) {
         return java.util.Optional.empty();
     }
@@ -61,7 +63,7 @@ public interface NordtalCommand<E> {
      * has no enum type - both chat adapters type a choice as a plain word and would accept anything
      * typed.</p>
      */
-    default java.util.Optional<java.util.Map.Entry<String, java.util.Map<String, ?>>> check(
+    default java.util.Optional<MessageRef> check(
             final Values values) {
         for (final Argument argument : declaration().arguments()) {
             if (argument.kind() != Argument.Kind.CHOICE) {
@@ -71,10 +73,8 @@ public interface NordtalCommand<E> {
             // Values has already normalised a recognised choice, so this only asks whether it is
             // one at all - through the same match(), so the two cannot disagree.
             if (supplied.isPresent() && argument.match(String.valueOf(supplied.get())).isEmpty()) {
-                return java.util.Optional.of(java.util.Map.entry("command.not-a-choice",
-                        java.util.Map.of("argument", argument.name(),
-                                "typed", String.valueOf(supplied.get()),
-                                "choices", String.join(", ", argument.choices()))));
+                return java.util.Optional.of(CommandMessages.MESSAGES.command().notAChoice(
+                        String.valueOf(supplied.get()), argument.name(), String.join(", ", argument.choices())));
             }
         }
         return problem(values);

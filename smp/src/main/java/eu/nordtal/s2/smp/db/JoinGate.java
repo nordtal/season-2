@@ -18,6 +18,8 @@ import org.slf4j.Logger;
 import java.util.Locale;
 import java.util.UUID;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 /**
  * What happens to a login when PostgreSQL is not there.
  *
@@ -70,7 +72,8 @@ public final class JoinGate implements Listener {
             // English: at this point there is no account link to read a language from, which is
             // itself the thing that is broken.
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
-                    MessageRenderer.of(messages).get(Locale.ENGLISH, "smp.error.database-unreachable"));
+                    MessageRenderer.of(messages).format(Locale.ENGLISH,
+                            MESSAGES.smp().error().databaseUnreachable()));
         }
     }
 

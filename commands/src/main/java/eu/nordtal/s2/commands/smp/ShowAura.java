@@ -7,9 +7,10 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /aura}: where you stand, and the ten highest.
@@ -45,7 +46,7 @@ public final class ShowAura implements NordtalCommand<SmpEffects> {
             // The console, and only the console: this command is declared on GAME alone, so the
             // adapter has already refused one. Kept as a belt: a NordtalUser with no Minecraft
             // account is a shape this module is written to expect everywhere else too.
-            user.reply("smp.aura.nobody", Map.of(), Feedback.REFUSED, Tone.WARN);
+            user.reply(MESSAGES.smp().aura().nobody(), Feedback.REFUSED, Tone.WARN);
             return;
         }
         effects.async(() -> {
@@ -54,26 +55,24 @@ public final class ShowAura implements NordtalCommand<SmpEffects> {
                 standing = effects.auraStanding(self.get());
             } catch (final RuntimeException failure) {
                 effects.warn("/aura failed", failure);
-                user.reply("smp.aura.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.smp().aura().failed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             if (standing.isEmpty()) {
-                user.reply("smp.aura.unlinked", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.smp().aura().unlinked(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             final SmpEffects.AuraStanding shown = standing.get();
-            user.reply("smp.aura.own", Map.of(
-                    "aura", shown.aura(), "rank", shown.rank(), "total", shown.total()), Tone.GOOD);
+            user.reply(MESSAGES.smp().aura().own(shown.aura(), shown.rank(), shown.total()), Tone.GOOD);
             if (shown.top().isEmpty()) {
-                user.reply("smp.aura.empty", Map.of(), Tone.MUTED);
+                user.reply(MESSAGES.smp().aura().empty(), Tone.MUTED);
                 return;
             }
-            user.reply("smp.aura.top", Map.of("count", shown.top().size()), Tone.NEUTRAL);
+            user.reply(MESSAGES.smp().aura().top(shown.top().size()), Tone.NEUTRAL);
             for (final SmpEffects.AuraLine line : shown.top()) {
                 // One key, two tones. A second key with the same words in a different colour is two
                 // strings to translate and one of them eventually says something else.
-                user.reply("smp.aura.line", Map.of(
-                                "place", line.place(), "player", line.player(), "aura", line.aura()),
+                user.reply(MESSAGES.smp().aura().line(line.place(), line.player(), line.aura()),
                         line.you() ? Tone.GOOD : Tone.MUTED);
             }
         });

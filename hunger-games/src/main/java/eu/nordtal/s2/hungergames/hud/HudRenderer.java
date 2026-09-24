@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 /**
  * The three-line HUD: players (alive/dead plus an arrow to the nearest living player), loot
  * (countdown plus a direction), border (shrink status). Three {@link BossBar} instances per player,
@@ -128,9 +130,9 @@ public final class HudRenderer {
                 key -> BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS));
 
         playersBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_ALIVE,
-                withArrow(messages.format(locale, "hg.hud.players",
-                                "alive", wins.aliveCount(),
-                                "dead", wins.deadCount(state.effectiveParticipants())),
+                withArrow(messages.format(locale,
+                        MESSAGES.hg().hud().players(wins.aliveCount(),
+                                wins.deadCount(state.effectiveParticipants()))),
                         nearestPlayerArrow(player))))));
 
         lootBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_LOOT_POINT,
@@ -151,21 +153,22 @@ public final class HudRenderer {
     private String lootLine(final java.util.Locale locale) {
         final Instant nextRefillAt = loot.nextRefillAt();
         if (nextRefillAt == null) {
-            return messages.get(locale, "hg.hud.loot-none");
+            return messages.format(locale, MESSAGES.hg().hud().lootNone());
         }
         final long secondsLeft = Math.max(0, Duration.between(Instant.now(), nextRefillAt).toSeconds());
-        return messages.format(locale, "hg.hud.loot", "time", formatDuration(secondsLeft));
+        return messages.format(locale, MESSAGES.hg().hud().loot(formatDuration(secondsLeft)));
     }
 
     private String borderLine(final java.util.Locale locale) {
         if (!state.isShrinking()) {
-            return messages.get(locale, "hg.hud.border-stable");
+            return messages.format(locale, MESSAGES.hg().hud().borderStable());
         }
         final long secondsLeft = state.shrinkEndsAt() == null
                 ? 0 : Math.max(0, Duration.between(Instant.now(), state.shrinkEndsAt()).toSeconds());
         final double distance = Math.max(0, (border.currentSize() - state.shrinkTarget()) / 2.0);
-        return messages.format(locale, "hg.hud.border-shrinking",
-                "time", formatDuration(secondsLeft), "distance", String.valueOf(Math.round(distance)));
+        return messages.format(locale,
+                MESSAGES.hg().hud().borderShrinking(formatDuration(secondsLeft),
+                        String.valueOf(Math.round(distance))));
     }
 
     private String nearestPlayerArrow(final Player player) {

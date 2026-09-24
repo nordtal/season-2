@@ -8,9 +8,10 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.SeasonDates;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /access status <member>} - access, donor, language, every grant and every purchase.
@@ -35,12 +36,12 @@ public final class ShowStatus implements NordtalCommand<AccessEffects> {
                 status = effects.status(discordId);
             } catch (final RuntimeException failure) {
                 effects.warn("/access status could not read " + discordId, failure);
-                user.reply("access.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.access().failed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             if (status.isEmpty()) {
                 // The id is one Discord no longer has: the row is not wrong, the person is gone.
-                user.reply("access.no-such-member", Map.of("discord", discordId),
+                user.reply(MESSAGES.access().noSuchMember(discordId),
                         Feedback.REFUSED, Tone.BAD);
                 return;
             }
@@ -48,43 +49,36 @@ public final class ShowStatus implements NordtalCommand<AccessEffects> {
             final AccessEffects.Status account = status.get();
             // The tones shape the readout: the header says who, one line carries the news, the
             // rest is detail.
-            user.reply("access.header", Map.of("player", account.name(), "discord", discordId),
+            user.reply(MESSAGES.access().header(account.name(), discordId),
                     Tone.NEUTRAL);
-            user.reply(account.accessUntil().isPresent() ? "access.until" : "access.none",
-                    account.accessUntil()
-                            .map(until -> Map.<String, Object>of("until", SeasonDates.format(until)))
-                            .orElse(Map.of()),
+            user.reply(account.accessUntil()
+                            .map(until -> MESSAGES.access().until(SeasonDates.format(until)))
+                            .orElseGet(MESSAGES.access()::none),
                     account.accessUntil().isPresent() ? Tone.GOOD : Tone.WARN);
-            user.reply("access.donor",
-                    Map.of("donor", user.phrase(account.donor() ? "access.yes" : "access.no")),
+            user.reply(
+                    MESSAGES.access().donor(user.phrase(account.donor() ? MESSAGES.access().yes() : MESSAGES.access().no())),
                     Tone.MUTED);
-            user.reply("access.language", Map.of("language", account.locale().getLanguage()),
+            user.reply(MESSAGES.access().language(account.locale().getLanguage()),
                     Tone.MUTED);
-            user.reply("access.linked", Map.of("account",
-                    account.minecraftAccount().map(UUID::toString)
-                            .orElseGet(() -> user.phrase("access.none-linked"))), Tone.MUTED);
+            user.reply(MESSAGES.access().linked(account.minecraftAccount().map(UUID::toString)
+                            .orElseGet(() -> user.phrase(MESSAGES.access().noneLinked()))), Tone.MUTED);
 
             if (account.grants().isEmpty()) {
-                user.reply("access.grants.none", Map.of(), Tone.MUTED);
+                user.reply(MESSAGES.access().grants().none(), Tone.MUTED);
             } else {
-                user.reply("access.grants.header", Map.of(), Tone.NEUTRAL);
+                user.reply(MESSAGES.access().grants().header(), Tone.NEUTRAL);
                 account.grants().forEach(grant -> user.reply(
-                        grant.revoked() ? "access.grants.revoked" : "access.grants.line",
-                        Map.of("from", SeasonDates.format(grant.validFrom()),
-                                "until", SeasonDates.format(grant.validUntil()),
-                                "source", grant.source()),
+                        grant.revoked() ? MESSAGES.access().grants().revoked(SeasonDates.format(grant.validFrom()), SeasonDates.format(grant.validUntil()), grant.source()) : MESSAGES.access().grants().line(SeasonDates.format(grant.validFrom()), SeasonDates.format(grant.validUntil()), grant.source()),
                         Tone.MUTED));
             }
 
             if (account.purchases().isEmpty()) {
-                user.reply("access.purchases.none", Map.of(), Tone.MUTED);
+                user.reply(MESSAGES.access().purchases().none(), Tone.MUTED);
             } else {
-                user.reply("access.purchases.header", Map.of(), Tone.NEUTRAL);
-                account.purchases().forEach(purchase -> user.reply("access.purchases.line",
-                        Map.of("reference", purchase.reference(),
-                                "days", purchase.days(),
-                                "amount", purchase.amount(),
-                                "status", purchase.status()),
+                user.reply(MESSAGES.access().purchases().header(), Tone.NEUTRAL);
+                account.purchases().forEach(purchase -> user.reply(
+                        MESSAGES.access().purchases().line(purchase.reference(), purchase.days(),
+                                purchase.amount(), purchase.status()),
                         Tone.MUTED));
             }
         });

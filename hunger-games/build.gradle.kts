@@ -1,5 +1,6 @@
 plugins {
     id("nordtal.paper-plugin")
+    id("nordtal.message-spec")
 }
 
 // Tests here read files that are in no source set, or read source rather than bytecode. Without
@@ -45,4 +46,8 @@ dependencies {
     // jcore puts the driver on the runtime classpath only; the test that builds a
     // PGSimpleDataSource by hand needs it at compile time.
     testImplementation(libs.postgresql.driver)
+}
+
+messageSpec {
+    specClass.set("eu.nordtal.s2.hungergames.HungerGamesMessages")
 }

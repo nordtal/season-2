@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+
 /**
  * The bot-maintained messages: a contribution message and a link message per configured language.
  * <p>
@@ -98,9 +100,9 @@ public final class ManagedMessages {
 
         final MessageEmbed embed = contribution ? contributionEmbed(locale) : linkEmbed(locale);
         final List<ActionRow> components = List.of(ActionRow.of(contribution
-                ? Button.primary(Ids.BUY, messages.get(locale, "contribution.button"))
+                ? Button.primary(Ids.BUY, messages.format(locale, MESSAGES.contribution().button()))
                 // Stage C: opens a modal for the code the proxy showed on the login screen.
-                : Button.primary(Ids.LINK, messages.get(locale, "link.button"))));
+                : Button.primary(Ids.LINK, messages.format(locale, MESSAGES.link().button()))));
         final String banner = contribution ? CONTRIBUTION_BANNER : LINK_BANNER;
 
         try {
@@ -149,18 +151,20 @@ public final class ManagedMessages {
     private MessageEmbed contributionEmbed(final Locale locale) {
         final StringBuilder prices = new StringBuilder();
         for (final Tier tier : tiers.all()) {
-            prices.append(messages.format(locale, "contribution.tier-line",
-                    "days", tier.days(), "price", Money.format(tier.priceCents()))).append('\n');
+            prices.append(messages.format(locale,
+                    MESSAGES.contribution().tierLine(tier.days(),
+                            Money.format(tier.priceCents())))).append('\n');
         }
 
         return new EmbedBuilder()
                 .setColor(COLOUR)
-                .setTitle(messages.get(locale, "contribution.title"))
-                .setDescription(messages.get(locale, "contribution.body")
-                        + "\n\n" + messages.format(locale, "contribution.donation",
-                        "amount", Money.format(tiers.donationCents()))
-                        + "\n\n" + messages.get(locale, "contribution.renew"))
-                .addField(messages.get(locale, "contribution.prices"), prices.toString().strip(), false)
+                .setTitle(messages.format(locale, MESSAGES.contribution().title()))
+                .setDescription(messages.format(locale, MESSAGES.contribution().body())
+                        + "\n\n" + messages.format(locale,
+                                MESSAGES.contribution().donation(Money.format(tiers.donationCents())))
+                        + "\n\n" + messages.format(locale, MESSAGES.contribution().renew()))
+                .addField(messages.format(locale,
+                        MESSAGES.contribution().prices()), prices.toString().strip(), false)
                 .setImage("attachment://" + CONTRIBUTION_BANNER)
                 .build();
     }
@@ -168,9 +172,9 @@ public final class ManagedMessages {
     private MessageEmbed linkEmbed(final Locale locale) {
         return new EmbedBuilder()
                 .setColor(COLOUR)
-                .setTitle(messages.get(locale, "link.title"))
-                .setDescription(messages.get(locale, "link.body")
-                        + "\n\n" + messages.get(locale, "link.unlink-hint"))
+                .setTitle(messages.format(locale, MESSAGES.link().title()))
+                .setDescription(messages.format(locale, MESSAGES.link().body())
+                        + "\n\n" + messages.format(locale, MESSAGES.link().unlinkHint()))
                 .setImage("attachment://" + LINK_BANNER)
                 .build();
     }

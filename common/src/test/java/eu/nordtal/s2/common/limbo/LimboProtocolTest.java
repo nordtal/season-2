@@ -113,13 +113,6 @@ class LimboProtocolTest {
                 () -> new LimboProtocol.Message(LimboProtocol.Type.READY, WaitReason.PACK));
     }
 
-    @Test
-    void everyReasonNamesAMessageKeyUnderItsOwnPrefix() {
-        assertEquals("limbo.wait.pack.title", WaitReason.PACK.titleKey());
-        assertEquals("limbo.wait.pack.subtitle", WaitReason.PACK.subtitleKey());
-        assertEquals("limbo.wait.maintenance.title", WaitReason.MAINTENANCE.titleKey());
-    }
-
     private static byte[] raw(final byte... bytes) throws IOException {
         return bytes;
     }

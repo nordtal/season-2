@@ -23,6 +23,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 /**
  * Tracks who is still alive and decides the game:
  * <ul>
@@ -166,7 +168,8 @@ public final class WinTracker {
             return;
         }
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "hg.win.same-team-final-two"));
+            player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
+                    MESSAGES.hg().win().sameTeamFinalTwo()));
             // NETWORK_EVENT: addressed to the whole server about two other people, once per game.
             // The two it is about are the least likely to be reading chat.
             sounds.play(player, Feedback.NETWORK_EVENT);

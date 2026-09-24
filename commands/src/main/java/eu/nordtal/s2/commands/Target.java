@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands;
 
+import eu.nordtal.s2.common.message.MessageRef;
+
 /**
  * Which process runs a command's effect.
  *
@@ -70,17 +72,18 @@ public enum Target {
      * confirm all five exist in both languages, and makes the compiler demand a sixth when a sixth
      * process appears.
      */
-    public String messageKey() {
+    public MessageRef message() {
+        final CommandMessages.Command.Target target = CommandMessages.MESSAGES.command().target();
         return switch (this) {
-            case SMP -> "command.target.SMP";
-            case HUNGER_GAMES -> "command.target.HUNGER_GAMES";
-            case LIMBO -> "command.target.LIMBO";
-            case PROXY -> "command.target.PROXY";
-            case BOT -> "command.target.BOT";
+            case SMP -> target.smp();
+            case HUNGER_GAMES -> target.hungerGames();
+            case LIMBO -> target.limbo();
+            case PROXY -> target.proxy();
+            case BOT -> target.bot();
             // Never rendered: a LOCAL command never becomes a row, so nothing ever waits for a
             // named process. The key exists so that the switch stays total and the bundles stay
             // symmetrical - not because a reader will see it.
-            case LOCAL -> "command.target.LOCAL";
+            case LOCAL -> target.local();
         };
     }
 }

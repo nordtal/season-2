@@ -10,7 +10,8 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 
 import java.util.List;
-import java.util.Map;
+
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /update down <service>} and {@code /update start [service]} - the two halves of one switch
@@ -61,17 +62,16 @@ public final class HoldService implements NordtalCommand<UpdateEffects> {
                 final long id = effects.submit(kind, user, services).id();
                 effects.watch(id, user);
                 if (down) {
-                    user.reply("update.down.asked", Map.of(
-                            "service", services.isEmpty() ? "" : services.getFirst(),
-                            "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
+                    user.reply(
+                            MESSAGES.update().down().asked(services.isEmpty() ? "" : services.getFirst(),
+                                    UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
                             Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
                 } else {
-                    user.reply("update.start.asked", Map.of(
-                            "service", services.isEmpty() ? "" : services.getFirst()),
+                    user.reply(MESSAGES.update().start().asked(),
                             Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
                 }
             } catch (final RuntimeException failure) {
-                user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.update().writeFailed(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

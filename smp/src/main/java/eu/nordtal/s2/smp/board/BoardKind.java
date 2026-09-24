@@ -1,6 +1,5 @@
 package eu.nordtal.s2.smp.board;
 
-import java.util.Locale;
 import java.util.Optional;
 
 /** Which of the two boards at the spawn an anchor is. */
@@ -22,9 +21,5 @@ public enum BoardKind {
             }
         }
         return Optional.empty();
-    }
-
-    public String messageKey() {
-        return "smp.board." + name().toLowerCase(Locale.ROOT) + ".title";
     }
 }

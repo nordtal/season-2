@@ -1,6 +1,7 @@
 package eu.nordtal.s2.papercommon.chat;
 
 import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -20,9 +21,10 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
+
+import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
 
 /**
  * The five lines a player reads all day - said, joined, left, died, earned - written by us on every
@@ -105,9 +107,8 @@ public final class SystemLines implements Listener {
         final Component sender = composition.of(event.getPlayer());
         final MessageRenderer renderer = MessageRenderer.of(messages);
         event.renderer((source, displayName, message, viewer) ->
-                renderer.format(localeOf(viewer), "system.chat.line",
-                        Map.of("_sender", sender, "_message", message),
-                        "separator", Glyphs.SEPARATOR));
+                renderer.format(localeOf(viewer),
+                        MESSAGES.system().chat().line(sender, Glyphs.SEPARATOR, message)));
     }
 
     /**
@@ -133,8 +134,7 @@ public final class SystemLines implements Listener {
      * @param player the player who has just arrived, and whose locale has just landed
      */
     public void announceJoin(final Player player) {
-        broadcast("system.join", Glyphs.ICON_JOIN, Map.of("_player", composition.of(player)),
-                viewer -> true);
+        broadcast(MESSAGES.system().join(Glyphs.ICON_JOIN, composition.of(player)), viewer -> true);
     }
 
     /**
@@ -153,8 +153,7 @@ public final class SystemLines implements Listener {
         final Component who = composition.of(leaving);
         // Not to the person leaving: they are on a disconnect screen, and the line would be the
         // last thing scrolled past on a chat they can no longer read.
-        broadcast("system.leave", Glyphs.ICON_LEAVE, Map.of("_player", who),
-                viewer -> !viewer.equals(leaving));
+        broadcast(MESSAGES.system().leave(Glyphs.ICON_LEAVE, who), viewer -> !viewer.equals(leaving));
     }
 
     @EventHandler
@@ -164,7 +163,7 @@ public final class SystemLines implements Listener {
             return;
         }
         event.deathMessage(null);
-        broadcast("system.death", Glyphs.ICON_DEATH, Map.of("_death", vanilla), viewer -> true);
+        broadcast(MESSAGES.system().death(Glyphs.ICON_DEATH, vanilla), viewer -> true);
     }
 
     @EventHandler
@@ -180,10 +179,8 @@ public final class SystemLines implements Listener {
             return;
         }
         event.message(null);
-        broadcast("system.advancement", Glyphs.ICON_ADVANCEMENT,
-                Map.of("_player", composition.of(event.getPlayer()),
-                        "_advancement", display.title()),
-                viewer -> true);
+        broadcast(MESSAGES.system().advancement(Glyphs.ICON_ADVANCEMENT, composition.of(event.getPlayer()),
+                display.title()), viewer -> true);
     }
 
     /**
@@ -196,30 +193,27 @@ public final class SystemLines implements Listener {
      * (owner, 2026-09-09). The caller supplies the wording; the icon, the per-reader language and
      * the shape stay here, so such a line cannot drift away from the ones beside it.</p>
      *
-     * @param key        a key in the caller's own bundle
-     * @param icon       one of {@link Glyphs}' icons
-     * @param components the component slots the key names
+     * @param message a message from the caller's own spec, its {@code icon} one of {@link Glyphs}'
+     *                icons
      */
-    public void announce(final String key, final String icon,
-                         final Map<String, Component> components) {
-        broadcast(key, icon, components, viewer -> true);
+    public void announce(final MessageRef message) {
+        broadcast(message, viewer -> true);
     }
 
     /**
-     * Renders {@code key} once per reader, in that reader's language.
+     * Renders {@code message} once per reader, in that reader's language.
      *
      * <p>Per reader rather than once: a locale is a cache lookup and these fire a handful of times
      * an hour, which is the opposite end of the scale from the boss bar's four renders a second.
      */
-    private void broadcast(final String key, final String icon,
-                           final Map<String, Component> components, final Predicate<Player> to) {
+    private void broadcast(final MessageRef message, final Predicate<Player> to) {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         for (final Player viewer : Bukkit.getOnlinePlayers()) {
             if (!to.test(viewer)) {
                 continue;
             }
             final Locale locale = locales.of(viewer.getUniqueId());
-            viewer.sendMessage(renderer.format(locale, key, components, "icon", icon));
+            viewer.sendMessage(renderer.format(locale, message));
         }
     }
 

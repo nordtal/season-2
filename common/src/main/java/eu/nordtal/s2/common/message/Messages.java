@@ -477,6 +477,17 @@ public final class Messages {
     }
 
     /**
+     * Renders a message a spec chose, as plain text with its placeholders substituted.
+     *
+     * @param locale  the language wanted; {@code null} means English
+     * @param message the key and its values
+     * @return the formatted message
+     */
+    public String format(final Locale locale, final MessageRef message) {
+        return format(locale, message.key(), message.args());
+    }
+
+    /**
      * @param locale the language
      * @param key    the message key
      * @return whether that language has its own translation for the key - a fallback to English

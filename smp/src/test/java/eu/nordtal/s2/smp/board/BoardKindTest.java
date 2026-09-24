@@ -21,10 +21,4 @@ class BoardKindTest {
         assertTrue(BoardKind.parse("").isEmpty());
         assertTrue(BoardKind.parse(null).isEmpty());
     }
-
-    @Test
-    void everyKindHasAMessageKey() {
-        assertEquals("smp.board.objective.title", BoardKind.OBJECTIVE.messageKey());
-        assertEquals("smp.board.aura.title", BoardKind.AURA.messageKey());
-    }
 }

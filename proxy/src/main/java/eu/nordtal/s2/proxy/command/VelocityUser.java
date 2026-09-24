@@ -3,6 +3,7 @@ package eu.nordtal.s2.proxy.command;
 import com.velocitypowered.api.proxy.Player;
 
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
@@ -14,7 +15,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -82,21 +82,21 @@ public final class VelocityUser implements NordtalUser {
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders) {
-        player.sendMessage(render(messageKey, placeholders));
+    public void reply(final MessageRef message) {
+        player.sendMessage(render(message));
     }
 
     @Override
-    public void reply(final String messageKey, final Map<String, ?> placeholders, final Tone tone) {
-        player.sendMessage(Tones.paint(render(messageKey, placeholders), tone, colours.get()));
+    public void reply(final MessageRef message, final Tone tone) {
+        player.sendMessage(Tones.paint(render(message), tone, colours.get()));
     }
 
     @Override
-    public String phrase(final String messageKey) {
+    public String phrase(final MessageRef message) {
         // Plain text, because the result is substituted into another message that will itself be
         // parsed as MiniMessage - and a component serialised back into that string would arrive as
         // tags rather than as styling.
-        return PlainTextComponentSerializer.plainText().serialize(render(messageKey, Map.of()));
+        return PlainTextComponentSerializer.plainText().serialize(render(message));
     }
 
     @Override
@@ -104,13 +104,7 @@ public final class VelocityUser implements NordtalUser {
         player.sendMessage(Component.text(text));
     }
 
-    private Component render(final String messageKey, final Map<String, ?> placeholders) {
-        final Object[] flattened = new Object[placeholders.size() * 2];
-        int index = 0;
-        for (final Map.Entry<String, ?> entry : placeholders.entrySet()) {
-            flattened[index++] = entry.getKey();
-            flattened[index++] = String.valueOf(entry.getValue());
-        }
-        return MessageRenderer.of(messages).format(locale(), messageKey, flattened);
+    private Component render(final MessageRef message) {
+        return MessageRenderer.of(messages).format(locale(), message);
     }
 }

@@ -27,6 +27,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+
 /**
  * Account linking on the Discord side: the managed link message's button opens a modal for the
  * code, and {@code /unlink} removes the caller's own link.
@@ -76,11 +78,13 @@ public final class LinkFlow extends ListenerAdapter {
         final Locale locale = roles.localeOf(event.getUser().getId());
 
         final TextInput codeInput = TextInput.create(Ids.LINK_CODE_INPUT, TextInputStyle.SHORT)
-                .setPlaceholder(messages.get(locale, "link.modal.code-placeholder"))
+                .setPlaceholder(messages.format(locale, MESSAGES.link().modal().codePlaceholder()))
                 .setRequiredRange(CODE_MIN_LENGTH, CODE_MAX_LENGTH)
                 .build();
-        final Modal modal = Modal.create(Ids.LINK_MODAL, messages.get(locale, "link.modal.title"))
-                .addComponents(Label.of(messages.get(locale, "link.modal.code-label"), codeInput))
+        final Modal modal = Modal.create(Ids.LINK_MODAL, messages.format(locale,
+                MESSAGES.link().modal().title()))
+                .addComponents(Label.of(messages.format(locale,
+                        MESSAGES.link().modal().codeLabel()), codeInput))
                 .build();
 
         event.replyModal(modal).queue();
@@ -105,7 +109,7 @@ public final class LinkFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("Redeeming a link code failed", exception);
                 admin.alert("Redeeming a link code failed: `" + exception + "`");
-                event.getHook().editOriginal(messages.get(locale, "link.failed")).queue();
+                event.getHook().editOriginal(messages.format(locale, MESSAGES.link().failed())).queue();
             }
         });
     }
@@ -117,7 +121,7 @@ public final class LinkFlow extends ListenerAdapter {
         // ask whether its next guess was right, and two workers cannot share the last attempt.
         final int remaining = limit.acquire(discordId);
         if (remaining < 0) {
-            event.getHook().editOriginal(messages.get(locale, "link.too-many")).queue();
+            event.getHook().editOriginal(messages.format(locale, MESSAGES.link().tooMany())).queue();
             return;
         }
 
@@ -133,7 +137,7 @@ public final class LinkFlow extends ListenerAdapter {
                     admin.record("LINK", null, discordId, result.mcUuid(), "redeemed a link code");
                     admin.note(event.getUser().getAsMention() + " linked Minecraft account `"
                             + result.mcUuid() + "`.");
-                    event.getHook().editOriginal(messages.get(locale, "link.success")).queue();
+                    event.getHook().editOriginal(messages.format(locale, MESSAGES.link().success())).queue();
                 }
                 case INVALID_CODE -> {
                     wrongGuess = true;
@@ -143,12 +147,14 @@ public final class LinkFlow extends ListenerAdapter {
                                 + "the maximum number of wrong link codes for this hour and is now"
                                 + " being refused. One person mistyping a code looks like this too.");
                     }
-                    event.getHook().editOriginal(messages.get(locale, "link.invalid-code")).queue();
+                    event.getHook().editOriginal(messages.format(locale,
+                            MESSAGES.link().invalidCode())).queue();
                 }
                 // Not counted: the code was real, the account simply already has one. Charging an
                 // attempt would punish a wrong click with the defence built for a guesser.
                 case ALREADY_LINKED ->
-                        event.getHook().editOriginal(messages.get(locale, "link.already-linked")).queue();
+                        event.getHook().editOriginal(messages.format(locale,
+                                MESSAGES.link().alreadyLinked())).queue();
             }
         } finally {
             if (!wrongGuess) {
@@ -171,14 +177,14 @@ public final class LinkFlow extends ListenerAdapter {
         executor.execute(() -> {
             final Optional<UUID> mcUuid = access.linkedMinecraftAccount(discordId);
             if (!access.unlink(discordId)) {
-                event.getHook().editOriginal(messages.get(locale, "unlink.none")).queue();
+                event.getHook().editOriginal(messages.format(locale, MESSAGES.unlink().none())).queue();
                 return;
             }
 
             admin.record("UNLINK", discordId, discordId, mcUuid.orElse(null), "self-service, no waiting period");
             admin.note(event.getUser().getAsMention() + " unlinked Minecraft account `"
                     + mcUuid.map(UUID::toString).orElse("?") + "`.");
-            event.getHook().editOriginal(messages.get(locale, "unlink.success")).queue();
+            event.getHook().editOriginal(messages.format(locale, MESSAGES.unlink().success())).queue();
         });
     }
 }

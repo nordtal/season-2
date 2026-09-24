@@ -80,6 +80,8 @@ public final class StewardUi {
 
     private static final Logger log = LoggerFactory.getLogger(StewardUi.class);
     private static final Gson GSON = new Gson();
+    /** The Javalin mapper drops nulls; `/api/updates/active` answers "none" as an explicit null. */
+    private static final Gson ACTIVE_JSON = new com.google.gson.GsonBuilder().serializeNulls().create();
 
     /**
      * Where this request's session is parked once it has been read.
@@ -715,7 +717,17 @@ public final class StewardUi {
                 // down in the directory - so one endpoint had its floor somewhere else than all
                 // the others, and nothing said where.
                 ctx.json(data.updates().recent(limit(ctx, 20, 200)).stream()
-                        .map(StewardUi::describe).toList());
+                        .map(this::describe).toList());
+            }, Gate.KEY_HELD);
+
+            // The one open run, or none - what every service page reads to say what the network is
+            // doing and to lock the buttons a second run would be refused on. One row rather than
+            // the whole list, and registered before `/api/updates/{id}` for the same reason as
+            // `available` below. A map because `run` must be present as null, not dropped.
+            cfg.routes.get("/api/updates/active", ctx -> {
+                final Map<String, Object> answer = new java.util.HashMap<>();
+                answer.put("run", data.updates().open().map(this::describe).orElse(null));
+                ctx.contentType("application/json").result(ACTIVE_JSON.toJson(answer));
             }, Gate.KEY_HELD);
 
             // season-2-ops/128: WHAT A RUN WOULD DO, WITHOUT DOING IT. Registered BEFORE
@@ -738,7 +750,7 @@ public final class StewardUi {
             cfg.routes.get("/api/updates/{id}", ctx -> {
                 final long id = Long.parseLong(ctx.pathParam("id"));
                 ctx.json(data.updates().find(id)
-                        .map(StewardUi::describe)
+                        .map(this::describe)
                         .orElseThrow(() -> new NotFoundResponse("no request " + id)));
             }, Gate.KEY_HELD);
 
@@ -1979,13 +1991,19 @@ public final class StewardUi {
         };
     }
 
-    private static Map<String, Object> describe(final UpdateRequest request) {
+    private Map<String, Object> describe(final UpdateRequest request) {
+        return describe(request, data.updates().scopeOf(request.id()));
+    }
+
+    /** @param scope the services the run is for; empty is the whole network, as everywhere else */
+    static Map<String, Object> describe(final UpdateRequest request, final List<String> scope) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("id", request.id());
         row.put("kind", request.kind().name());
         row.put("status", request.status().name());
         row.put("source", request.source().name());
         row.put("requestedBy", request.requestedBy());
+        row.put("scope", scope);
         // steward/95: the same three fields the unified actions feed already carries, and read the
         // same way - see steward-worker's `ActionEntry.of(UpdateRequest)`, which this mirrors
         // rather than a copy the two could drift from independently. It cannot be the same method

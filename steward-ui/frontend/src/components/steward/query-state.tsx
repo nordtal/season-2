@@ -175,6 +175,25 @@ type QueryLike<T> = {
   isPending: boolean
   fetchStatus?: "fetching" | "paused" | "idle"
   refetch?: () => void
+  dataUpdatedAt?: number
+}
+
+/** How long an answer outlives a gateway error before the error is shown instead of it. */
+export const TRANSIENT_GRACE_MS = 60_000
+
+/**
+ * A 502, 503 or 504 over data that is still recent: the answer stays standing.
+ *
+ * Those three are a hop in between that blinked - steward-ui being redeployed, a worker restarting
+ * - and the next poll usually answers. Replacing a page head with a red alert for that, and back,
+ * is noise; a service that is being stopped on purpose must read as stopping, not as failing. After
+ * a minute the data is no longer recent and the failure is what the page says.
+ */
+export function transient(query: QueryLike<unknown>, now = Date.now()): boolean {
+  const error = query.error
+  if (!(error instanceof ApiError) || ![502, 503, 504].includes(error.status)) return false
+  if (query.data === undefined || !query.dataUpdatedAt) return false
+  return now - query.dataUpdatedAt < TRANSIENT_GRACE_MS
 }
 
 export function QueryState<T>(
@@ -210,7 +229,7 @@ export function QueryState<T>(
       />
     )
   }
-  if (query.error) return <Failure error={query.error} onRetry={query.refetch} />
+  if (query.error && !transient(query)) return <Failure error={query.error} onRetry={query.refetch} />
   if (query.isPending || query.data === undefined) {
     return props.rows === undefined ? <>{draw(undefined)}</> : <Loading rows={props.rows} />
   }

@@ -305,6 +305,18 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
+    @DisplayName("the open run is named while it waits, while it runs, and not once it is finished")
+    void theOpenRunIsNamedUntilItFinishes() {
+        assertTrue(updates.open().isEmpty());
+        final UpdateRequest run = updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, "a", Duration.ZERO);
+        assertEquals(run.id(), updates.open().orElseThrow().id());
+        updates.claimNext().orElseThrow();
+        assertEquals(UpdateStatus.RUNNING, updates.open().orElseThrow().status());
+        updates.finish(run.id(), UpdateStatus.DONE, "{}");
+        assertTrue(updates.open().isEmpty());
+    }
+
+    @Test
     @DisplayName("taking down a service that is already held is refused, even with no run open")
     void takingDownAHeldServiceIsRefused() {
         final UpdateRequest down = updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO,

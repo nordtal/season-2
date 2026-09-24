@@ -321,6 +321,18 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> running();
 
     /**
+     * The one run that is open - {@code PENDING} or {@code RUNNING}, counting down or not.
+     *
+     * <p>{@link #submit} refuses a second one while this answers, so there is at most one to name.
+     * An interface reads it to say what the network is doing and to lock what would be refused.</p>
+     *
+     * @return the open request, or empty; empty is also what a directory without it answers
+     */
+    default Optional<UpdateRequest> open() {
+        return Optional.empty();
+    }
+
+    /**
      * Withdraws the countdown that is running.
      *
      * @param reason what to record, naming who cancelled

@@ -4,6 +4,7 @@ import { toast } from "sonner"
 
 import { ApiError } from "@/lib/api"
 import { useDeployer, useDeployerJob, useRecreate } from "@/lib/queries"
+import { useRunLock } from "@/lib/run-lock"
 import { Button } from "@/components/ui/button"
 import {
   ResponsiveDialog,
@@ -228,6 +229,9 @@ export function RecreateButton({
  */
 export function useRecreateGate(service: string): { unavailable: boolean; title: string | undefined } {
   const deployer = useDeployer()
+  // A run that is under way owns the containers until it has finished: recreating one it is about
+  // to stop or start would race it.
+  const lock = useRunLock()
   // Five states, not two (steward/97): `available === false` with a reason steward-deployer gave,
   // `available: true` but `reachable: false`, an error on `/api/deployer` itself (404, network,
   // steward-ui down), the ordinary first load before anything has answered, and finally the one
@@ -245,8 +249,8 @@ export function useRecreateGate(service: string): { unavailable: boolean; title:
   // answering looked exactly like a healthy one, down to the sentence promising the image is
   // already on this host.
   const unreachable = deployer.data?.available === true && deployer.data.reachable === false
-  const unavailable = deployer.data?.available === false || unreachable || deployer.isError
-  const title = deployer.data?.available === false
+  const unavailable = deployer.data?.available === false || unreachable || deployer.isError || lock.locked
+  const title = lock.title ?? (deployer.data?.available === false
     ? deployer.data.reason
     : unreachable
       ? "steward-deployer is configured but not answering."
@@ -254,7 +258,7 @@ export function useRecreateGate(service: string): { unavailable: boolean; title:
         ? "The state of steward-deployer is unknown: /api/deployer did not answer."
         : deployer.data?.available === true
           ? `Recreate the container for ${service} from the image already on this host.`
-          : "The state of steward-deployer is not known yet."
+          : "The state of steward-deployer is not known yet.")
   return { unavailable, title }
 }
 

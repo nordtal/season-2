@@ -1014,6 +1014,24 @@ class StewardUiIntegrationTest {
         settleOpenRuns();
     }
 
+    @Test
+    @DisplayName("the open run is one row with its scope, and an explicit null when there is none")
+    void theActiveRunCarriesItsScope() throws Exception {
+        settleOpenRuns();
+        final JsonObject none = GSON.fromJson(get("/api/updates/active").body(), JsonObject.class);
+        assertTrue(none.has("run") && none.get("run").isJsonNull(), none.toString());
+
+        final HttpResponse<String> asked = post("/api/updates", "{\"kind\":\"DOWN\",\"services\":[\"smp\"]}");
+        assertEquals(202, asked.statusCode(), asked.body());
+        assertEquals("[\"smp\"]", GSON.fromJson(asked.body(), JsonObject.class).get("scope").toString());
+
+        final JsonObject run = GSON.fromJson(get("/api/updates/active").body(), JsonObject.class)
+                .getAsJsonObject("run");
+        assertEquals("DOWN", run.get("kind").getAsString());
+        assertEquals("[\"smp\"]", run.get("scope").toString());
+        settleOpenRuns();
+    }
+
     /** Closes whatever run another test left open, so the one-run rule starts every test clean. */
     private void settleOpenRuns() throws Exception {
         try (var connection = data.dataSource().getConnection();

@@ -9,7 +9,7 @@ import {
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ServicePage, serviceSearch } from "@/pages/service"
+import { ServicePage, offline, serviceSearch } from "@/pages/service"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
@@ -37,9 +37,10 @@ const row = (name: string, over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
-function backend(service: Record<string, unknown>): typeof fetch {
+function backend(service: Record<string, unknown>, active: unknown = { run: null }): typeof fetch {
   return vi.fn(async (url: string) => {
     if (url.startsWith("/api/services/")) return json(200, service)
+    if (url === "/api/updates/active") return json(200, active)
     if (url === "/api/config") {
       return json(200, [
         { service: "smp", name: "config.yml", path: "smp/config.yml", readable: true, writable: true },
@@ -145,6 +146,82 @@ describe("ServicePage - the head and the tabs (steward/140)", () => {
     const icons = [update, down, recreate].map((button) => button.querySelector("svg")?.innerHTML)
     expect(new Set(icons).size).toBe(3)
     expect(screen.queryByText("Put down")).toBeNull()
+  })
+})
+
+const openRun = (over: Record<string, unknown> = {}) => ({
+  id: 41,
+  kind: "DOWN",
+  status: "PENDING",
+  source: "CONSOLE",
+  requestedBy: "till (123456789012345678)",
+  scope: ["smp"],
+  actorDiscordId: "123456789012345678",
+  actorLabel: "",
+  system: false,
+  requested: "2026-09-24T20:00:00Z",
+  notBefore: new Date(Date.now() + 60_000).toISOString(),
+  started: "null",
+  finished: "null",
+  ...over,
+})
+
+describe("ServicePage - a run that is open", () => {
+  it("names it, offers Cancel in its countdown, and locks every action", async () => {
+    vi.stubGlobal("EventSource", SilentEventSource)
+    vi.stubGlobal("fetch", backend(row("limbo"), { run: openRun() }))
+    draw("/services/limbo")
+
+    expect(await screen.findByRole("link", { name: "Take down #41" })).toBeTruthy()
+    expect(screen.getByText("smp")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy()
+    await waitFor(() => {
+      for (const name of ["Update", "Take down", "Recreate"]) {
+        expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true)
+      }
+    })
+  })
+
+  it("shows the stage once the countdown is over, and no Cancel", async () => {
+    vi.stubGlobal("EventSource", SilentEventSource)
+    vi.stubGlobal("fetch", backend(row("smp"), {
+      run: openRun({
+        status: "RUNNING",
+        notBefore: "2026-09-24T20:00:30Z",
+        report: { stage: "STOPPING", services: [], notes: [] },
+      }),
+    }))
+    draw("/services/smp")
+
+    expect(await screen.findByText("Stopping")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull()
+  })
+
+  it("leaves the actions alone when no run is open", async () => {
+    vi.stubGlobal("EventSource", SilentEventSource)
+    vi.stubGlobal("fetch", backend(row("smp")))
+    draw("/services/smp")
+
+    const update = await screen.findByRole("button", { name: "Update" })
+    await waitFor(() => expect(screen.queryByRole("link", { name: /#\d+/ })).toBeNull())
+    expect((update as HTMLButtonElement).disabled).toBe(false)
+  })
+})
+
+describe("offline", () => {
+  const running = openRun({ status: "RUNNING" }) as never
+  it("reads a run taking this service down as going offline", () => {
+    expect(offline(running, "smp", "running")).toBe("going")
+    expect(offline(openRun({ status: "RUNNING", scope: [] }) as never, "limbo", "running")).toBe("going")
+  })
+  it("does not for a run elsewhere, one still counting down, or a Start", () => {
+    expect(offline(running, "limbo", "running")).toBeUndefined()
+    expect(offline(openRun() as never, "smp", "running")).toBeUndefined()
+    expect(offline(openRun({ status: "RUNNING", kind: "START" }) as never, "smp", "running")).toBeUndefined()
+  })
+  it("reads a stopped container as offline", () => {
+    expect(offline(null, "smp", "exited")).toBe("gone")
+    expect(offline(null, "smp", undefined)).toBeUndefined()
   })
 })
 

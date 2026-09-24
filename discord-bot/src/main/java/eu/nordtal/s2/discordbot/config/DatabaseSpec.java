@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
@@ -38,6 +39,7 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
 public interface DatabaseSpec {
 
     @Order(1)
+    @Name("JDBC URL")
     @Key("jdbc-url")
     @Comment({
             "JDBC URL of the PostgreSQL database.",
@@ -49,6 +51,7 @@ public interface DatabaseSpec {
     }
 
     @Order(2)
+    @Name("Username")
     @Key("username")
     @Comment("Database user.")
     @NoExplanationNeeded
@@ -57,6 +60,7 @@ public interface DatabaseSpec {
     }
 
     @Order(3)
+    @Name("Password")
     @Key("password")
     @Comment("Database password. Prefer NORDTAL_DATABASE_PASSWORD in production.")
     @Secret
@@ -66,6 +70,7 @@ public interface DatabaseSpec {
     }
 
     @Order(4)
+    @Name("Connection pool size")
     @Key("maximum-pool-size")
     @Comment({
             "Upper bound of the HikariCP pool.",
@@ -77,6 +82,7 @@ public interface DatabaseSpec {
     }
 
     @Order(5)
+    @Name("Log SQL statements")
     @Key("log-sql")
     @Comment({
             "Logs every rendered statement and its duration at DEBUG.",

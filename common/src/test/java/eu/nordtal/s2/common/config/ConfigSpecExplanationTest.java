@@ -89,6 +89,7 @@ class ConfigSpecExplanationTest {
     private static final Pattern KEY = Pattern.compile("@Key\\(\"([^\"]*)\"\\)");
     private static final Pattern EXPLAIN = Pattern.compile("@Explain\\(");
     private static final Pattern NO_EXPLANATION_NEEDED = Pattern.compile("@NoExplanationNeeded\\b");
+    private static final Pattern NAME = Pattern.compile("@Name\\(\"[^\"]+\"\\)");
 
     @Test
     @DisplayName("the walk still finds every config spec file it found when this test was written")
@@ -118,6 +119,24 @@ class ConfigSpecExplanationTest {
                 "every @ConfigSpec property with @Order needs either @Explain(\"...\") - the short"
                         + " sentence shown next to the setting in the Steward UI - or @NoExplanationNeeded,"
                         + " a deliberate decision that the name and its allowed values already say enough."
+                        + " Listed above by file and setting key.");
+    }
+
+    @Test
+    @DisplayName("every @Order property carries @Name, the name the Steward UI shows instead of the key")
+    void everyOrderedPropertyHasAName() {
+        final Map<String, List<String>> unnamed = new TreeMap<>();
+        for (final Path file : specFiles()) {
+            final String name = RepositoryRoot.relative(file);
+            for (final String block : blocks(read(file))) {
+                if (!NAME.matcher(block).find()) {
+                    unnamed.computeIfAbsent(name, ignored -> new ArrayList<>()).add(settingName(block));
+                }
+            }
+        }
+        assertEquals(Map.of(), unnamed,
+                "every @ConfigSpec property with @Order needs @Name(\"...\") - the Steward UI shows it"
+                        + " instead of the key, units in brackets: \"Poll interval (seconds)\"."
                         + " Listed above by file and setting key.");
     }
 

@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 
 import java.util.List;
 
@@ -36,6 +37,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- worlds
 
     @Order(1)
+    @Name("Nordtal world")
     @Key("world-nordtal")
     @Comment({
             "The permanent build world: the spawn, the tavern, the balloon, the duel platforms.",
@@ -51,6 +53,7 @@ public interface SmpSpec {
     }
 
     @Order(3)
+    @Name("Nether world")
     @Key("world-nether")
     @Comment("The Nether. Fixed border, generated once before its own milestone unlocks.")
     @NoExplanationNeeded
@@ -59,6 +62,7 @@ public interface SmpSpec {
     }
 
     @Order(4)
+    @Name("End world")
     @Key("world-end")
     @Comment("The End. Entered by balloon only - a stronghold's End portal never activates.")
     @NoExplanationNeeded
@@ -67,6 +71,7 @@ public interface SmpSpec {
     }
 
     @Order(6)
+    @Name("Nether border diameter")
     @Key("nether-border-diameter")
     @Comment({
             "Deliberately several times larger than the 1:8 mapping requires - a 4000 overworld",
@@ -80,6 +85,7 @@ public interface SmpSpec {
     }
 
     @Order(7)
+    @Name("End border diameter")
     @Key("end-border-diameter")
     @Comment("The End's fixed border.")
     @NoExplanationNeeded
@@ -88,6 +94,7 @@ public interface SmpSpec {
     }
 
     @Order(8)
+    @Name("Border centre X")
     @Key("border-centre-x")
     @Comment("The Nordtal border's centre.")
     @Explain("Every radius mentioned elsewhere in this file - the balloon's, the spawn regions' - is measured from this point, so moving it shifts all of them at once.")
@@ -96,6 +103,7 @@ public interface SmpSpec {
     }
 
     @Order(9)
+    @Name("Border centre Z")
     @Key("border-centre-z")
     @Comment("See border-centre-x.")
     @Explain("Every radius mentioned elsewhere in this file - the balloon's, the spawn regions' - is measured from this point, so moving it shifts all of them at once.")
@@ -104,6 +112,7 @@ public interface SmpSpec {
     }
 
     @Order(10)
+    @Name("Border expansion speed (blocks per second)")
     @Key("border-expansion-blocks-per-second")
     @Comment({
             "How fast a milestone's border expansion travels - roughly a quarter to a half of",
@@ -119,6 +128,7 @@ public interface SmpSpec {
     // ------------------------------------------------- world generation plumbing
 
     @Order(14)
+    @Name("Required datapacks")
     @Key("required-datapacks")
     @Comment({
             "The world-generation datapacks that MUST be installed and enabled, checked at enable.",
@@ -146,6 +156,7 @@ public interface SmpSpec {
     }
 
     @Order(15)
+    @Name("Pregeneration pattern")
     @Key("pregeneration-pattern")
     @Comment({
             "The order Chunky walks the chunks in. 'concentric' works outwards from the centre, so",
@@ -162,6 +173,7 @@ public interface SmpSpec {
     }
 
     @Order(16)
+    @Name("Pregenerate on start")
     @Key("pregeneration-on-start")
     @Comment({
             "Whether this plugin starts a pre-generation as soon as it enables. True is the",
@@ -183,6 +195,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- the balloons
 
     @Order(19)
+    @Name("Balloons")
     @Key("balloons")
     @Comment({
             "Where the balloons stand. Stepping into one of these boxes opens the travel GUI; the",
@@ -212,29 +225,30 @@ public interface SmpSpec {
     @ConfigSpec
     interface BalloonSpec {
 
-        @Order(1) @Key("world")
+        @Order(1) @Name("World") @Key("world")
         @Comment("Which world this balloon stands in.")
         @NoExplanationNeeded
         default String world() {
             return "nordtal";
         }
 
-        @Order(2) @Key("min-x") @NoExplanationNeeded default int minX() { return 0; }
+        @Order(2) @Name("Min X") @Key("min-x") @NoExplanationNeeded default int minX() { return 0; }
 
-        @Order(3) @Key("min-y") @NoExplanationNeeded default int minY() { return 0; }
+        @Order(3) @Name("Min Y") @Key("min-y") @NoExplanationNeeded default int minY() { return 0; }
 
-        @Order(4) @Key("min-z") @NoExplanationNeeded default int minZ() { return 0; }
+        @Order(4) @Name("Min Z") @Key("min-z") @NoExplanationNeeded default int minZ() { return 0; }
 
-        @Order(5) @Key("max-x") @NoExplanationNeeded default int maxX() { return 0; }
+        @Order(5) @Name("Max X") @Key("max-x") @NoExplanationNeeded default int maxX() { return 0; }
 
-        @Order(6) @Key("max-y") @NoExplanationNeeded default int maxY() { return 0; }
+        @Order(6) @Name("Max Y") @Key("max-y") @NoExplanationNeeded default int maxY() { return 0; }
 
-        @Order(7) @Key("max-z") @NoExplanationNeeded default int maxZ() { return 0; }
+        @Order(7) @Name("Max Z") @Key("max-z") @NoExplanationNeeded default int maxZ() { return 0; }
     }
 
     // ---------------------------------------------------------------- the boards
 
     @Order(20)
+    @Name("Boards")
     @Key("boards")
     @Comment({
             "The two boards at the spawn: the current milestone at a glance, and the aura",
@@ -259,27 +273,27 @@ public interface SmpSpec {
     @ConfigSpec
     interface BoardSpec {
 
-        @Order(1) @Key("kind")
+        @Order(1) @Name("Kind") @Key("kind")
         @Comment("OBJECTIVE or AURA.")
         @NoExplanationNeeded
         default String kind() {
             return "OBJECTIVE";
         }
 
-        @Order(2) @Key("world") @NoExplanationNeeded default String world() { return "nordtal"; }
+        @Order(2) @Name("World") @Key("world") @NoExplanationNeeded default String world() { return "nordtal"; }
 
-        @Order(3) @Key("x") @NoExplanationNeeded default double x() { return 0.0; }
+        @Order(3) @Name("X") @Key("x") @NoExplanationNeeded default double x() { return 0.0; }
 
-        @Order(4) @Key("y") @NoExplanationNeeded default double y() { return 70.0; }
+        @Order(4) @Name("Y") @Key("y") @NoExplanationNeeded default double y() { return 70.0; }
 
-        @Order(5) @Key("z") @NoExplanationNeeded default double z() { return 0.0; }
+        @Order(5) @Name("Z") @Key("z") @NoExplanationNeeded default double z() { return 0.0; }
 
-        @Order(6) @Key("yaw")
+        @Order(6) @Name("Yaw") @Key("yaw")
         @Comment("Which way the board faces, in degrees. 0 is south, 90 west, 180 north, 270 east.")
         @NoExplanationNeeded
         default float yaw() { return 0.0f; }
 
-        @Order(7) @Key("width")
+        @Order(7) @Name("Width") @Key("width")
         @Comment({
                 "How wide the frame is drawn, in pixels of the board's own text - 32 to 240.",
                 "",
@@ -296,6 +310,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- the duel platforms
 
     @Order(21)
+    @Name("Duel platforms")
     @Key("duel-platforms")
     @Comment({
             "The two 3x3 platforms at the spawn. Two players standing on the same one at the same",
@@ -317,29 +332,30 @@ public interface SmpSpec {
     @ConfigSpec
     interface DuelPlatformSpec {
 
-        @Order(1) @Key("type")
+        @Order(1) @Name("Type") @Key("type")
         @Comment("SWORD or BOW.")
         @NoExplanationNeeded
         default String type() {
             return "SWORD";
         }
 
-        @Order(2) @Key("world") @NoExplanationNeeded default String world() { return "nordtal"; }
+        @Order(2) @Name("World") @Key("world") @NoExplanationNeeded default String world() { return "nordtal"; }
 
-        @Order(3) @Key("min-x") @NoExplanationNeeded default int minX() { return 0; }
+        @Order(3) @Name("Min X") @Key("min-x") @NoExplanationNeeded default int minX() { return 0; }
 
-        @Order(4) @Key("min-y") @NoExplanationNeeded default int minY() { return 0; }
+        @Order(4) @Name("Min Y") @Key("min-y") @NoExplanationNeeded default int minY() { return 0; }
 
-        @Order(5) @Key("min-z") @NoExplanationNeeded default int minZ() { return 0; }
+        @Order(5) @Name("Min Z") @Key("min-z") @NoExplanationNeeded default int minZ() { return 0; }
 
-        @Order(6) @Key("max-x") @NoExplanationNeeded default int maxX() { return 0; }
+        @Order(6) @Name("Max X") @Key("max-x") @NoExplanationNeeded default int maxX() { return 0; }
 
-        @Order(7) @Key("max-y") @NoExplanationNeeded default int maxY() { return 0; }
+        @Order(7) @Name("Max Y") @Key("max-y") @NoExplanationNeeded default int maxY() { return 0; }
 
-        @Order(8) @Key("max-z") @NoExplanationNeeded default int maxZ() { return 0; }
+        @Order(8) @Name("Max Z") @Key("max-z") @NoExplanationNeeded default int maxZ() { return 0; }
     }
 
     @Order(22)
+    @Name("Duel arena base Y")
     @Key("duel-arena-base-y")
     @Comment({
             "The height of the lowest arena. Further concurrent duels stack above it.",
@@ -354,6 +370,7 @@ public interface SmpSpec {
     }
 
     @Order(23)
+    @Name("Duel arena spacing")
     @Key("duel-arena-spacing")
     @Comment("Vertical distance between stacked arenas. Has to exceed the arena's own height.")
     @Explain("Must exceed the arena's own height, or stacked arenas overlap.")
@@ -362,6 +379,7 @@ public interface SmpSpec {
     }
 
     @Order(24)
+    @Name("Duel arena radius")
     @Key("duel-arena-radius")
     @Comment({
             "Half the arena's floor, in blocks - a radius of 7 is a 15x15 floor. Big enough that a",
@@ -375,6 +393,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- the wheel of fortune
 
     @Order(25)
+    @Name("Wheel regions")
     @Key("wheel-regions")
     @Comment({
             "Where the wheel of fortune stands in the tavern. Right-clicking inside one of these",
@@ -398,6 +417,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- the spawn NPC
 
     @Order(26)
+    @Name("NPC")
     @Key("npc")
     @Comment({
             "The figure in the tavern. Click it to open the objective list and hand items in.",
@@ -421,25 +441,25 @@ public interface SmpSpec {
     @ConfigSpec
     interface NpcSpec {
 
-        @Order(1) @Key("world") @NoExplanationNeeded default String world() { return "nordtal"; }
+        @Order(1) @Name("World") @Key("world") @NoExplanationNeeded default String world() { return "nordtal"; }
 
-        @Order(2) @Key("x") @NoExplanationNeeded default double x() { return 106.5; }
+        @Order(2) @Name("X") @Key("x") @NoExplanationNeeded default double x() { return 106.5; }
 
-        @Order(3) @Key("y") @NoExplanationNeeded default double y() { return 68.0; }
+        @Order(3) @Name("Y") @Key("y") @NoExplanationNeeded default double y() { return 68.0; }
 
-        @Order(4) @Key("z") @NoExplanationNeeded default double z() { return 92.5; }
+        @Order(4) @Name("Z") @Key("z") @NoExplanationNeeded default double z() { return 92.5; }
 
-        @Order(5) @Key("yaw")
+        @Order(5) @Name("Yaw") @Key("yaw")
         @Comment("Which way it faces, in degrees. 0 is south, 90 west, 180 north, 270 east.")
         @NoExplanationNeeded
         default float yaw() { return 180.0f; }
 
-        @Order(6) @Key("skin-name")
+        @Order(6) @Name("Skin name") @Key("skin-name")
         @Comment("A Minecraft account name whose skin to wear, or empty for the default.")
         @NoExplanationNeeded
         default String skinName() { return ""; }
 
-        @Order(7) @Key("name")
+        @Order(7) @Name("Name") @Key("name")
         @Comment("The label above it. Empty for none.")
         @NoExplanationNeeded
         default String name() { return "Nordtal"; }
@@ -448,6 +468,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- spawn protection
 
     @Order(27)
+    @Name("Spawn regions")
     @Key("spawn-regions")
     @Comment({
             "The protected zones: no building, no breaking, no interaction with blocks you do not",
@@ -471,29 +492,30 @@ public interface SmpSpec {
     @ConfigSpec
     interface SpawnRegionSpec {
 
-        @Order(1) @Key("world")
+        @Order(1) @Name("World") @Key("world")
         @Comment("Which world the box is in.")
         @NoExplanationNeeded
         default String world() {
             return "";
         }
 
-        @Order(2) @Key("min-x") @NoExplanationNeeded default int minX() { return 0; }
+        @Order(2) @Name("Min X") @Key("min-x") @NoExplanationNeeded default int minX() { return 0; }
 
-        @Order(3) @Key("min-y") @NoExplanationNeeded default int minY() { return -64; }
+        @Order(3) @Name("Min Y") @Key("min-y") @NoExplanationNeeded default int minY() { return -64; }
 
-        @Order(4) @Key("min-z") @NoExplanationNeeded default int minZ() { return 0; }
+        @Order(4) @Name("Min Z") @Key("min-z") @NoExplanationNeeded default int minZ() { return 0; }
 
-        @Order(5) @Key("max-x") @NoExplanationNeeded default int maxX() { return 0; }
+        @Order(5) @Name("Max X") @Key("max-x") @NoExplanationNeeded default int maxX() { return 0; }
 
-        @Order(6) @Key("max-y") @NoExplanationNeeded default int maxY() { return 320; }
+        @Order(6) @Name("Max Y") @Key("max-y") @NoExplanationNeeded default int maxY() { return 320; }
 
-        @Order(7) @Key("max-z") @NoExplanationNeeded default int maxZ() { return 0; }
+        @Order(7) @Name("Max Z") @Key("max-z") @NoExplanationNeeded default int maxZ() { return 0; }
     }
 
     // ---------------------------------------------------------------- aura
 
     @Order(28)
+    @Name("Death penalty")
     @Key("death-penalty")
     @Comment({
             "What an ordinary death costs, as a POSITIVE number that is subtracted at the point of",
@@ -510,6 +532,7 @@ public interface SmpSpec {
     }
 
     @Order(29)
+    @Name("Death penalty (listed causes)")
     @Key("death-penalty-listed")
     @Comment("What one of the causes below costs instead. Also a positive number.")
     @NoExplanationNeeded
@@ -518,6 +541,7 @@ public interface SmpSpec {
     }
 
     @Order(30)
+    @Name("Listed death causes")
     @Key("death-causes-listed")
     @Comment({
             "The 'embarrassing' deaths, PROPOSED as a default. Damage-type keys, matched",
@@ -541,6 +565,7 @@ public interface SmpSpec {
     }
 
     @Order(31)
+    @Name("Duel stake")
     @Key("duel-stake")
     @Comment({
             "What a duel moves. The winner takes exactly what the loser pays, so a duel never",
@@ -553,6 +578,7 @@ public interface SmpSpec {
     }
 
     @Order(32)
+    @Name("Concurrent duel limit")
     @Key("concurrent-duel-limit")
     @Comment("How many arenas may be stacked above the spawn at once. Beyond it, players queue.")
     @NoExplanationNeeded
@@ -561,6 +587,7 @@ public interface SmpSpec {
     }
 
     @Order(33)
+    @Name("Advancement awards")
     @Key("advancement-awards")
     @Comment({
             "The advancements that pay aura, once each per player. The loader refuses anything",
@@ -581,14 +608,14 @@ public interface SmpSpec {
     @ConfigSpec
     interface AdvancementAwardSpec {
 
-        @Order(1) @Key("advancement")
+        @Order(1) @Name("Advancement") @Key("advancement")
         @Comment("The advancement key, e.g. minecraft:story/mine_diamond.")
         @NoExplanationNeeded
         default String advancement() {
             return "";
         }
 
-        @Order(2) @Key("aura")
+        @Order(2) @Name("Aura") @Key("aura")
         @Comment("2 to 10. Anything outside that band stops the load.")
         @NoExplanationNeeded
         default int aura() {
@@ -599,6 +626,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- the hunger games winner
 
     @Order(35)
+    @Name("Hunger Games winner aura")
     @Key("hg-winner-aura")
     @Comment({
             "The head start the start event's winner carries into the season, paid on their FIRST",
@@ -616,6 +644,7 @@ public interface SmpSpec {
     }
 
     @Order(36)
+    @Name("Hunger Games winner items")
     @Key("hg-winner-items")
     @Comment({
             "One or two special items for the winner, also PROPOSED rather than decided. Bukkit",
@@ -633,6 +662,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- the wheel
 
     @Order(37)
+    @Name("Wheel extra spin chances (percent)")
     @Key("wheel-extra-spin-percents")
     @Comment({
             "The contribution shares that earn extra spins when an objective completes: one spin at",
@@ -645,6 +675,7 @@ public interface SmpSpec {
     }
 
     @Order(38)
+    @Name("Wheel prizes")
     @Key("wheel-prizes")
     @Comment({
             "The wheel's pool and its weights, PROPOSED. Weights are relative and need not sum to",
@@ -669,21 +700,21 @@ public interface SmpSpec {
     @ConfigSpec
     interface WheelPrizeSpec {
 
-        @Order(1) @Key("item")
+        @Order(1) @Name("Item") @Key("item")
         @Comment("A Bukkit material name.")
         @NoExplanationNeeded
         default String item() {
             return "";
         }
 
-        @Order(2) @Key("amount")
+        @Order(2) @Name("Amount") @Key("amount")
         @Comment("How many.")
         @NoExplanationNeeded
         default int amount() {
             return 1;
         }
 
-        @Order(3) @Key("weight")
+        @Order(3) @Name("Weight") @Key("weight")
         @Comment("Relative weight. Ignored for the winner's head start, which is not drawn.")
         @NoExplanationNeeded
         default int weight() {
@@ -694,6 +725,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- duels
 
     @Order(39)
+    @Name("Duel loadout: sword")
     @Key("duel-loadout-sword")
     @Comment({
             "What both players are given inside a sword duel, PROPOSED. Identical for both, from",
@@ -710,6 +742,7 @@ public interface SmpSpec {
     }
 
     @Order(40)
+    @Name("Duel loadout: bow")
     @Key("duel-loadout-bow")
     @Comment({
             "The bow duel's loadout. Also PROPOSED.",
@@ -741,6 +774,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- admin propagation
 
     @Order(41)
+    @Name("Admin poll interval (seconds)")
     @Key("admin-poll-interval-seconds")
     @Comment({
             "How often this server re-reads who is an admin, in seconds.",
@@ -760,6 +794,7 @@ public interface SmpSpec {
     }
 
     @Order(42)
+    @Name("Listen for admin changes")
     @Key("admin-listen-enabled")
     @Comment({
             "Whether to also open a dedicated LISTEN nordtal_admin connection.",
@@ -777,6 +812,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- where the balloon lands
 
     @Order(43)
+    @Name("Balloon spawn points")
     @Key("balloon-spawn-points")
     @Comment({
             "Where the balloon PUTS A PLAYER DOWN, one point per world it flies to.",
@@ -809,14 +845,14 @@ public interface SmpSpec {
     @ConfigSpec
     interface BalloonSpawnPointsSpec {
 
-        @Order(1) @Key("nordtal")
+        @Order(1) @Name("Nordtal") @Key("nordtal")
         @Comment("Where the balloon lands in the permanent build world.")
         @NoExplanationNeeded
         default SpawnPointSpec nordtal() {
             return DefaultSmp.BALLOON_SPAWN_POINT_NORDTAL;
         }
 
-        @Order(3) @Key("nether")
+        @Order(3) @Name("Nether") @Key("nether")
         @Comment({
                 "Where it lands in the Nether. The one point with a known way to be wrong: a Y",
                 "chosen without looking is inside the roof or inside solid rock."
@@ -826,7 +862,7 @@ public interface SmpSpec {
             return DefaultSmp.BALLOON_SPAWN_POINT_NETHER;
         }
 
-        @Order(4) @Key("end")
+        @Order(4) @Name("End") @Key("end")
         @Comment({
                 "Where it lands in the End. The balloon is the only way in, so this is the only",
                 "arrival point players ever see there."
@@ -847,18 +883,18 @@ public interface SmpSpec {
     @ConfigSpec
     interface SpawnPointSpec {
 
-        @Order(1) @Key("x") @NoExplanationNeeded default double x() { return 0.5; }
+        @Order(1) @Name("X") @Key("x") @NoExplanationNeeded default double x() { return 0.5; }
 
-        @Order(2) @Key("y") @NoExplanationNeeded default double y() { return 64.0; }
+        @Order(2) @Name("Y") @Key("y") @NoExplanationNeeded default double y() { return 64.0; }
 
-        @Order(3) @Key("z") @NoExplanationNeeded default double z() { return 0.5; }
+        @Order(3) @Name("Z") @Key("z") @NoExplanationNeeded default double z() { return 0.5; }
 
-        @Order(4) @Key("yaw")
+        @Order(4) @Name("Yaw") @Key("yaw")
         @Comment("Which way they face on arrival, in degrees. 0 is south, 90 west, 180 north, 270 east.")
         @NoExplanationNeeded
         default float yaw() { return 0.0f; }
 
-        @Order(5) @Key("pitch")
+        @Order(5) @Name("Pitch") @Key("pitch")
         @Comment("Up or down, in degrees. 0 is level, negative looks up, 90 looks at their feet.")
         @NoExplanationNeeded
         default float pitch() { return 0.0f; }
@@ -867,6 +903,7 @@ public interface SmpSpec {
     // ---------------------------------------------------------------- the first join
 
     @Order(44)
+    @Name("First join spawn")
     @Key("first-join-spawn")
     @Comment({
             "Where a player is put down on their VERY FIRST JOIN of the season, and nowhere else.",
@@ -898,6 +935,7 @@ public interface SmpSpec {
     }
 
     @Order(45)
+    @Name("Grave max age (hours)")
     @Key("grave-max-age-hours")
     @Comment({
             "How long a grave stands before it decays, in hours. Till's decision, 2026-09-15:",
@@ -925,23 +963,23 @@ public interface SmpSpec {
     @ConfigSpec
     interface FirstJoinSpawnSpec {
 
-        @Order(1) @Key("world")
+        @Order(1) @Name("World") @Key("world")
         @Comment("Which world. Normally the same name as `world-nordtal` at the top of this file.")
         @Explain("Normally the same name as world-nordtal above - a second place that world name is written down, so a rename there has to be repeated here.")
         default String world() { return "nordtal"; }
 
-        @Order(2) @Key("x") @NoExplanationNeeded default double x() { return 0.5; }
+        @Order(2) @Name("X") @Key("x") @NoExplanationNeeded default double x() { return 0.5; }
 
-        @Order(3) @Key("y") @NoExplanationNeeded default double y() { return 64.0; }
+        @Order(3) @Name("Y") @Key("y") @NoExplanationNeeded default double y() { return 64.0; }
 
-        @Order(4) @Key("z") @NoExplanationNeeded default double z() { return 0.5; }
+        @Order(4) @Name("Z") @Key("z") @NoExplanationNeeded default double z() { return 0.5; }
 
-        @Order(5) @Key("yaw")
+        @Order(5) @Name("Yaw") @Key("yaw")
         @Comment("Which way they face on arrival, in degrees. 0 is south, 90 west, 180 north, 270 east.")
         @NoExplanationNeeded
         default float yaw() { return 0.0f; }
 
-        @Order(6) @Key("pitch")
+        @Order(6) @Name("Pitch") @Key("pitch")
         @Comment("Up or down, in degrees. 0 is level, negative looks up, 90 looks at their feet.")
         @NoExplanationNeeded
         default float pitch() { return 0.0f; }

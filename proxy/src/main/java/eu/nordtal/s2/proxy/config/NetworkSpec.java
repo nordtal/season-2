@@ -7,6 +7,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code config/network.yml} - what the server browser shows, and how many players the network
@@ -45,6 +46,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 public interface NetworkSpec {
 
     @Order(1)
+    @Name("Max players")
     @Key("max-players")
     @Comment({
             "How many players may be on the network at once. THE ONLY NUMBER THAT DECIDES.",
@@ -73,6 +75,7 @@ public interface NetworkSpec {
     // second number left to cross. A network.yml still carrying the key loses the line on load.
 
     @Order(2)
+    @Name("Snapshot refresh (seconds)")
     @Key("snapshot-refresh-seconds")
     @Comment({
             "How often the numbers behind the MOTD placeholders are re-read from the database.",
@@ -90,6 +93,7 @@ public interface NetworkSpec {
     }
 
     @Order(3)
+    @Name("Command allowlist")
     @Key("command-allowlist")
     @Comment({
             "Every command a player who is NOT an admin may type, anywhere on the network.",
@@ -137,6 +141,7 @@ public interface NetworkSpec {
     }
 
     @Order(4)
+    @Name("Public address")
     @Key("public-address")
     @Comment({
             "How a client reaches this network from outside - host and port, the way somebody",
@@ -158,6 +163,7 @@ public interface NetworkSpec {
     }
 
     @Order(5)
+    @Name("Standby port")
     @Key("standby-port")
     @Comment({
             "The port the standby proxy is published on, on the same host as public-address.",
@@ -177,6 +183,7 @@ public interface NetworkSpec {
     }
 
     @Order(6)
+    @Name("Standby")
     @Key("standby")
     @Comment({
             "Whether THIS process is the standby proxy. False everywhere except in one place.",
@@ -202,6 +209,7 @@ public interface NetworkSpec {
     }
 
     @Order(7)
+    @Name("MOTD")
     @Key("motd")
     @Comment({
             "What the server browser shows, per season phase. MiniMessage, so <gradient>,",
@@ -243,6 +251,7 @@ public interface NetworkSpec {
         String NORDTAL_BLUE = "<#4a63d8><bold>nordtal.eu</bold></#4a63d8>";
 
         @Order(1)
+        @Name("Pre-launch")
         @Key("pre-launch")
         @Comment({
                 "Before the network has ever opened. Nobody but an admin gets in, and this is what",
@@ -260,6 +269,7 @@ public interface NetworkSpec {
         }
 
         @Order(2)
+        @Name("Pre-event")
         @Key("pre-event")
         @Comment({
                 "The network is open, the lobby stands and teams register for the hunger games.",
@@ -273,6 +283,7 @@ public interface NetworkSpec {
         }
 
         @Order(3)
+        @Name("Event start")
         @Key("start-event")
         @Comment({
                 "The hunger games themselves, countdown to winner. {hg-alive} is what is left of",
@@ -286,6 +297,7 @@ public interface NetworkSpec {
         }
 
         @Order(4)
+        @Name("SMP")
         @Key("smp")
         @Comment({
                 "The season proper.",
@@ -309,6 +321,7 @@ public interface NetworkSpec {
         }
 
         @Order(5)
+        @Name("Maintenance")
         @Key("maintenance")
         @Comment({
                 "Planned work. Players are still let onto the proxy and held in limbo, so this is",

@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
@@ -31,6 +32,7 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
 public interface UiSpec {
 
     @Order(1)
+    @Name("Port")
     @Key("port")
     @Comment({
             "The port inside the container. Caddy is in front of it and terminates TLS; nothing",
@@ -42,6 +44,7 @@ public interface UiSpec {
     }
 
     @Order(2)
+    @Name("Public URL")
     @Key("public-url")
     @Comment({
             "Where a browser reaches this interface, with scheme and no trailing slash.",
@@ -67,12 +70,14 @@ public interface UiSpec {
     }
 
     @Order(3)
+    @Name("Worker")
     @Key("worker")
     @Comment("Where steward-worker's internal API is, and the secret it expects.")
     @NoExplanationNeeded
     WorkerSpec worker();
 
     @Order(4)
+    @Name("Discord")
     @Key("discord")
     @Comment({
             "The Discord application this interface signs people in with, and the guild it reads",
@@ -93,6 +98,7 @@ public interface UiSpec {
     DiscordSpec discord();
 
     @Order(5)
+    @Name("Session length (days)")
     @Key("session-days")
     @Comment({
             "How long a signed-in session lives before the browser has to sign in again.",
@@ -121,6 +127,7 @@ public interface UiSpec {
     }
 
     @Order(6)
+    @Name("Alerts")
     @Key("alerts")
     @Comment({
             "When the traffic light on the start page turns yellow or red (concept 10c).",
@@ -133,6 +140,7 @@ public interface UiSpec {
     AlertSpec alerts();
 
     @Order(7)
+    @Name("Avatars")
     @Key("avatars")
     @Comment({
             "Where a Minecraft head image comes from (steward/45).",
@@ -145,6 +153,7 @@ public interface UiSpec {
     AvatarSpec avatars();
 
     @Order(8)
+    @Name("Deployer")
     @Key("deployer")
     @Comment({
             "Where steward-deployer's internal API is, and the secret it expects.",
@@ -162,6 +171,7 @@ public interface UiSpec {
     DeployerSpec deployer();
 
     @Order(9)
+    @Name("Passkeys")
     @Key("webauthn")
     @Comment({
             "The second factor (§10a): which domain a registered security key belongs to.",
@@ -175,6 +185,7 @@ public interface UiSpec {
     WebAuthnSpec webauthn();
 
     @Order(10)
+    @Name("Web push")
     @Key("web-push")
     @Comment({
             "Web Push (concept §10c / steward/98): the traffic light reaching a phone's lock",
@@ -203,6 +214,7 @@ public interface UiSpec {
     interface WebAuthnSpec {
 
         @Order(1)
+        @Name("Relying party ID")
         @Key("relying-party-id")
         @Comment({
                 "The domain a key is bound to. THE ONE DECISION HERE THAT CANNOT BE TAKEN BACK.",
@@ -235,6 +247,7 @@ public interface UiSpec {
     interface DeployerSpec {
 
         @Order(1)
+        @Name("Base URL")
         @Key("base-url")
         @Comment("The compose service name and the API port - no TLS, it never leaves the network.")
         @NoExplanationNeeded
@@ -243,6 +256,7 @@ public interface UiSpec {
         }
 
         @Order(2)
+        @Name("Token")
         @Key("token")
         @Comment({
                 "The shared secret, the same one steward-deployer is given as",
@@ -268,6 +282,7 @@ public interface UiSpec {
     interface WebPushSpec {
 
         @Order(1)
+        @Name("Public key")
         @Key("public-key")
         @Comment({
                 "The public half, X509-encoded and base64 - `VapidKeys.x509PublicKey`. Not a",
@@ -280,6 +295,7 @@ public interface UiSpec {
         }
 
         @Order(2)
+        @Name("Private key")
         @Key("private-key")
         @Comment({
                 "The private half, PKCS8-encoded and base64 - `VapidKeys.pkcs8PrivateKey`. This",
@@ -298,6 +314,7 @@ public interface UiSpec {
         }
 
         @Order(3)
+        @Name("Subject")
         @Key("subject")
         @Comment({
                 "Who a push service may contact about this VAPID identity, if it ever needs to -",
@@ -320,6 +337,7 @@ public interface UiSpec {
     interface AlertSpec {
 
         @Order(1)
+        @Name("Disk usage (percent)")
         @Key("disk-percent")
         @Comment({
                 "How full the disk may get before the start page says so. Measured on this host on",
@@ -332,6 +350,7 @@ public interface UiSpec {
         }
 
         @Order(2)
+        @Name("Memory usage (percent)")
         @Key("memory-percent")
         @Comment({
                 "The same for memory. No container in this stack sets a limit, so this is the share",
@@ -344,6 +363,7 @@ public interface UiSpec {
         }
 
         @Order(3)
+        @Name("Backup age (hours)")
         @Key("backup-age-hours")
         @Comment({
                 "How old the newest finished backup may be before the traffic light turns RED.",
@@ -370,6 +390,7 @@ public interface UiSpec {
     interface AvatarSpec {
 
         @Order(1)
+        @Name("Minecraft head base URL")
         @Key("minecraft-head-base-url")
         @Comment({
                 "Till's choice, 2026-09-19: api.mineatar.io. mc-heads.net stood here from",
@@ -402,6 +423,7 @@ public interface UiSpec {
     interface WorkerSpec {
 
         @Order(1)
+        @Name("Base URL")
         @Key("base-url")
         @Comment("The compose service name and the API port - no TLS, it never leaves the network.")
         @NoExplanationNeeded
@@ -410,6 +432,7 @@ public interface UiSpec {
         }
 
         @Order(2)
+        @Name("Token")
         @Key("token")
         @Comment({
                 "The shared secret, the same one steward-worker is given. Empty means this",
@@ -428,6 +451,7 @@ public interface UiSpec {
     interface DiscordSpec {
 
         @Order(1)
+        @Name("Client ID")
         @Key("client-id")
         @Comment("The application's id. Public - it is in the URL a browser is sent to.")
         @NoExplanationNeeded
@@ -436,6 +460,7 @@ public interface UiSpec {
         }
 
         @Order(2)
+        @Name("Client secret")
         @Key("client-secret")
         @Comment({
                 "From the environment, never from this file. Empty means nobody can sign in and",
@@ -447,6 +472,7 @@ public interface UiSpec {
         }
 
         @Order(3)
+        @Name("Guild ID")
         @Key("guild-id")
         @Comment({
                 "The guild whose roles are read. This is a SECOND copy of what the bot's",
@@ -460,6 +486,7 @@ public interface UiSpec {
         }
 
         @Order(4)
+        @Name("Bot token")
         @Key("bot-token")
         @Comment({
                 "The Discord bot's token, and it is here for ONE thing: asking Discord what the",
@@ -479,6 +506,7 @@ public interface UiSpec {
         }
 
         @Order(5)
+        @Name("Admin role")
         @Key("admin-role")
         @Comment({
                 "The role id that may sign in. Everybody else is refused after Discord has",

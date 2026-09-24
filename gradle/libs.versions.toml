@@ -34,7 +34,7 @@ velocity = "4.2.0"
 # falls back to `@Comment`, joined with '\n', whenever `@Explain` is absent; `@Explain` still always
 # wins once a setting has one. Writing the short `@Explain` sentences for all 302 settings is
 # steward/62, file by file, and is unaffected by this bump.
-jcore = "4.2.1"
+jcore = "4.3.0"
 # Our own Paper plugin, via JitPack. `smp` takes it compileOnly and NEVER shades it - the api
 # module is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to
 # be installed on the SMP server.

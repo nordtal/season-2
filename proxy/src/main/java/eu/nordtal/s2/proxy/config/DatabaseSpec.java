@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code config/database.yml} - the proxy's own connection to the access database.
@@ -41,6 +42,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 public interface DatabaseSpec {
 
     @Order(1)
+    @Name("JDBC URL")
     @Key("jdbc-url")
     @Comment("JDBC URL of the PostgreSQL database that holds the access schema.")
     @Explain("The full JDBC connection string, including the database name.")
@@ -49,6 +51,7 @@ public interface DatabaseSpec {
     }
 
     @Order(2)
+    @Name("Username")
     @Key("username")
     @Comment("Database user. Read-mostly: the login path only ever reads, links and issues codes.")
     @NoExplanationNeeded
@@ -57,6 +60,7 @@ public interface DatabaseSpec {
     }
 
     @Order(3)
+    @Name("Password")
     @Key("password")
     @Comment("Database password. Prefer NORDTAL_PROXY_DATABASE_PASSWORD in production.")
     @NoExplanationNeeded
@@ -65,6 +69,7 @@ public interface DatabaseSpec {
     }
 
     @Order(4)
+    @Name("Connection pool size")
     @Key("maximum-pool-size")
     @Comment({
             "Upper bound of the HikariCP pool.",
@@ -76,6 +81,7 @@ public interface DatabaseSpec {
     }
 
     @Order(5)
+    @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
     @Comment({
             "Bounds both connection acquisition and the query itself. A login attempt must not",

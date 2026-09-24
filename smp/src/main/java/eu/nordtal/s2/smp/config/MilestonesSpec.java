@@ -5,6 +5,7 @@ import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 
 import java.util.List;
 
@@ -73,6 +74,7 @@ import java.util.List;
 public interface MilestonesSpec {
 
     @Order(1)
+    @Name("Milestones")
     @Key("milestones")
     @Comment({
             "The track, in order. The order in this file IS the order of the season - there is no",
@@ -103,6 +105,7 @@ public interface MilestonesSpec {
     interface MilestoneEntry {
 
         @Order(1)
+        @Name("ID")
         @Key("key")
         @Comment("Identity, and the primary key in smp_milestone. Renaming one orphans its progress.")
         @Explain("Identity, and the primary key in smp_milestone. Renaming one with progress is refused on reload.")
@@ -111,6 +114,7 @@ public interface MilestonesSpec {
         }
 
         @Order(2)
+        @Name("Unlocks")
         @Key("unlocks")
         @Comment("BORDER, NETHER, END or NOTHING.")
         @Explain("BORDER, NETHER, END or NOTHING.")
@@ -119,6 +123,7 @@ public interface MilestonesSpec {
         }
 
         @Order(3)
+        @Name("Border diameter")
         @Key("border-diameter")
         @Comment("The Nordtal border this milestone sets, as a DIAMETER. Read only when unlocks is BORDER.")
         @Explain("The border diameter this milestone sets; read only when unlocks is BORDER.")
@@ -127,6 +132,7 @@ public interface MilestonesSpec {
         }
 
         @Order(4)
+        @Name("Objective pot")
         @Key("objective-pot")
         @Comment({
                 "The aura pot of EACH objective below, not of the milestone as a whole.",
@@ -142,6 +148,7 @@ public interface MilestonesSpec {
         }
 
         @Order(5)
+        @Name("Unlocked by admin")
         @Key("admin-unlocked")
         @Comment("Opened by an admin rather than by objectives. True for `departure` alone.")
         @Explain("Opened by an admin rather than by objectives; true only for the opening milestone.")
@@ -150,6 +157,7 @@ public interface MilestonesSpec {
         }
 
         @Order(6)
+        @Name("Objectives")
         @Key("objectives")
         @Comment({
                 "All of them must be finished before the milestone unlocks. Exactly ONE of them",
@@ -172,6 +180,7 @@ public interface MilestonesSpec {
     interface ObjectiveEntry {
 
         @Order(1)
+        @Name("ID")
         @Key("key")
         @Comment("Unique within its milestone, and what smp_objective.key stores. Never rename one with progress.")
         @Explain("Unique within its milestone. Never rename one with progress.")
@@ -180,6 +189,7 @@ public interface MilestonesSpec {
         }
 
         @Order(2)
+        @Name("Type")
         @Key("type")
         @Comment({
                 "HAND_IN     items delivered at the spawn NPC; a share is what that player handed in.",
@@ -195,6 +205,7 @@ public interface MilestonesSpec {
         }
 
         @Order(3)
+        @Name("Role")
         @Key("role")
         @Comment({
                 "What this objective is FOR: gathering, mining, combat, production, exploration,",
@@ -208,6 +219,7 @@ public interface MilestonesSpec {
         }
 
         @Order(4)
+        @Name("Target")
         @Key("target")
         @Comment({
                 "What has to be reached. For ADVANCEMENT it is a count of DISTINCT PLAYERS, and it",
@@ -224,6 +236,7 @@ public interface MilestonesSpec {
         }
 
         @Order(5)
+        @Name("Items")
         @Key("items")
         @Comment({
                 "HAND_IN only. Any of these counts, which is how 'logs, any kind' and 'bulk",
@@ -236,6 +249,7 @@ public interface MilestonesSpec {
         }
 
         @Order(6)
+        @Name("Statistic")
         @Key("statistic")
         @Comment("STATISTIC only. A Bukkit statistic name, e.g. MINE_BLOCK, KILL_ENTITY, CRAFT_ITEM.")
         @Explain("STATISTIC only - a Bukkit statistic name, e.g. MINE_BLOCK.")
@@ -244,6 +258,7 @@ public interface MilestonesSpec {
         }
 
         @Order(7)
+        @Name("Subjects")
         @Key("subjects")
         @Comment({
                 "STATISTIC only, and summed. The materials or entity types the statistic is counted",
@@ -257,6 +272,7 @@ public interface MilestonesSpec {
         }
 
         @Order(8)
+        @Name("Advancement")
         @Key("advancement")
         @Comment("ADVANCEMENT only. The advancement key, e.g. minecraft:story/mine_diamond.")
         @Explain("ADVANCEMENT only - the advancement key, e.g. minecraft:story/mine_diamond.")

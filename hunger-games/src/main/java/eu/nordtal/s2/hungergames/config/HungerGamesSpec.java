@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
 
 import java.util.List;
@@ -54,6 +55,7 @@ public interface HungerGamesSpec {
             eu.nordtal.s2.commands.hungergames.HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS;
 
     @Order(1)
+    @Name("Countdown (seconds)")
     @Key("countdown-seconds")
     @Comment("How long players are frozen on their spawn towers before release.")
     @Explain("How long players are frozen on their spawn towers before release.")
@@ -62,6 +64,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(2)
+    @Name("Soft minimum of players")
     @Key("soft-minimum-participants")
     @Comment({
             "Below this many effective (post-demotion) participants, /hg start asks for",
@@ -76,6 +79,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(3)
+    @Name("Border start diameter")
     @Key("border-start-diameter")
     @Comment("The world border's diameter at the start of the game, in blocks.")
     @NoExplanationNeeded
@@ -84,6 +88,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(4)
+    @Name("Border end diameter")
     @Key("border-end-diameter")
     @Comment("The floor the border shrinks to and never passes, in blocks.")
     @NoExplanationNeeded
@@ -92,6 +97,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(5)
+    @Name("Border wall speed (blocks per second)")
     @Key("border-wall-speed-blocks-per-second")
     @Comment({
             "How fast the border moves once a death-triggered shrink starts, in blocks of",
@@ -108,6 +114,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(6)
+    @Name("Border quiet period (seconds)")
     @Key("border-quiet-period-seconds")
     @Comment({
             "How long the game can go with no death before the passive shrink kicks in.",
@@ -122,6 +129,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(7)
+    @Name("Border passive shrink (blocks per hour)")
     @Key("border-passive-shrink-blocks-per-hour")
     @Comment({
             "How fast the border shrinks during a passive (quiet-period) shrink, in diameter-",
@@ -138,6 +146,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(8)
+    @Name("PvP protection (seconds)")
     @Key("pvp-protection-seconds")
     @Comment("How long after release everyone is protected from everyone.")
     @NoExplanationNeeded
@@ -146,6 +155,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(9)
+    @Name("Spawn tower radius")
     @Key("spawn-tower-radius")
     @Comment("Distance from world spawn each spawn tower is placed at, in blocks.")
     @NoExplanationNeeded
@@ -154,6 +164,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(10)
+    @Name("Spawn tower height")
     @Key("spawn-tower-height")
     @Comment("How far above the world's spawn Y level the tower platforms sit, in blocks.")
     @NoExplanationNeeded
@@ -162,6 +173,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(11)
+    @Name("World name")
     @Key("world-name")
     @Comment({
             "The Bukkit world name the event runs in. Not a snowflake - a world folder name, so it",
@@ -173,12 +185,14 @@ public interface HungerGamesSpec {
     }
 
     @Order(12)
+    @Name("Lobby")
     @Key("lobby")
     @Comment("The lobby box: its teleport point, the rules/map image grid, and the ready broadcast.")
     @Explain("The lobby box: teleport point, map/rules image grid, and the periodic ready broadcast.")
     LobbySpec lobby();
 
     @Order(13)
+    @Name("Loot points")
     @Key("loot-points")
     @Comment({
             "Five loot points: the spawn plus four staggered locations. World data, not secrets,",
@@ -199,6 +213,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(14)
+    @Name("Refill tiers")
     @Key("refill-tiers")
     @Comment({
             "The loot refill schedule: how long after the start each tier's restock happens, and",
@@ -219,6 +234,7 @@ public interface HungerGamesSpec {
     // ---------------------------------------------------------------- admin propagation
 
     @Order(15)
+    @Name("Admin poll interval (seconds)")
     @Key("admin-poll-interval-seconds")
     @Comment({
             "How often this server re-reads who is an admin, in seconds.",
@@ -237,6 +253,7 @@ public interface HungerGamesSpec {
     }
 
     @Order(16)
+    @Name("Listen for admin changes")
     @Key("admin-listen-enabled")
     @Comment({
             "Whether to also open a dedicated LISTEN nordtal_admin connection.",
@@ -259,6 +276,7 @@ public interface HungerGamesSpec {
     interface LobbySpec {
 
         @Order(1)
+        @Name("X")
         @Key("x")
         @Comment("Lobby teleport point, world coordinates.")
         @NoExplanationNeeded
@@ -267,6 +285,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(2)
+        @Name("Y")
         @Key("y")
         @Comment("Lobby teleport point, world coordinates.")
         @NoExplanationNeeded
@@ -275,6 +294,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(3)
+        @Name("Z")
         @Key("z")
         @Comment("Lobby teleport point, world coordinates.")
         @NoExplanationNeeded
@@ -283,6 +303,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(4)
+        @Name("Broadcast interval (seconds)")
         @Key("broadcast-interval-seconds")
         @Comment("How often the ready-check broadcast with its clickable ready button repeats.")
         @Explain("How often the ready-check broadcast, with its clickable ready button, repeats.")
@@ -291,6 +312,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(5)
+        @Name("Map grid columns")
         @Key("map-grid-columns")
         @Comment({
                 "How many Minecraft maps wide the sliced lobby image grid is. The image is sliced",
@@ -303,6 +325,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(6)
+        @Name("Map grid rows")
         @Key("map-grid-rows")
         @Comment("How many Minecraft maps tall the sliced lobby image grid is.")
         @NoExplanationNeeded
@@ -311,6 +334,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(7)
+        @Name("Map frame origin X")
         @Key("map-frame-origin-x")
         @Comment({
                 "World coordinates of the top-left item frame's block position in the map grid.",
@@ -324,6 +348,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(8)
+        @Name("Map frame origin Y")
         @Key("map-frame-origin-y")
         @Comment("World coordinates of the top-left item frame's block position in the map grid.")
         @Explain("The top-left item frame's position - frames must already exist in the hand-built lobby; this plugin sets their map, it does not place them.")
@@ -332,6 +357,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(9)
+        @Name("Map frame origin Z")
         @Key("map-frame-origin-z")
         @Comment("World coordinates of the top-left item frame's block position in the map grid.")
         @Explain("The top-left item frame's position - frames must already exist in the hand-built lobby; this plugin sets their map, it does not place them.")
@@ -345,6 +371,7 @@ public interface HungerGamesSpec {
     interface LootPointSpec {
 
         @Order(1)
+        @Name("Label")
         @Key("label")
         @Comment("A short identifying label, shown in refill announcements. Must be unique.")
         @Explain("Shown in refill announcements. Must be unique across all five loot points.")
@@ -353,6 +380,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(2)
+        @Name("X")
         @Key("x")
         @Comment("World coordinates.")
         @NoExplanationNeeded
@@ -361,6 +389,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(3)
+        @Name("Y")
         @Key("y")
         @Comment("World coordinates.")
         @NoExplanationNeeded
@@ -369,6 +398,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(4)
+        @Name("Z")
         @Key("z")
         @Comment("World coordinates.")
         @NoExplanationNeeded
@@ -382,6 +412,7 @@ public interface HungerGamesSpec {
     interface RefillTierSpec {
 
         @Order(1)
+        @Name("Delay (minutes)")
         @Key("delay-minutes")
         @Comment("Minutes after the game's release (end of countdown) this refill happens.")
         @Explain("Minutes after release this refill happens; changing it on an existing entry retires that tier rather than rescheduling it.")
@@ -390,6 +421,7 @@ public interface HungerGamesSpec {
         }
 
         @Order(2)
+        @Name("Items")
         @Key("items")
         @Comment({
                 "The item pool for this refill, as a list of Bukkit material names. Every loot",

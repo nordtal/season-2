@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code sounds.yml} - what each feedback category sounds like on the event server. Its own file,
@@ -55,57 +56,57 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 })
 public interface SoundsSpec {
 
-    @Order(1) @Key("small-success")
+    @Order(1) @Name("Small success") @Key("small-success")
     @Comment("Something small went right: a kill, or your team marked ready.")
     @Explain("Something small went right: a kill, or your team marked ready.")
     default SoundSpec smallSuccess() { return DefaultSounds.SMALL_SUCCESS; }
 
-    @Order(2) @Key("big-success")
+    @Order(2) @Name("Big success") @Key("big-success")
     @Comment("You won the game. Heard by exactly one player, once per event.")
     @Explain("You won the game. Heard by exactly one player, once per event.")
     default SoundSpec bigSuccess() { return DefaultSounds.BIG_SUCCESS; }
 
-    @Order(3) @Key("refused")
+    @Order(3) @Name("Refused") @Key("refused")
     @Comment("The server said no: not an admin, no game, too few participants, not registered.")
     @Explain("The server said no: not an admin, no game, too few participants, or not registered.")
     default SoundSpec refused() { return DefaultSounds.REFUSED; }
 
-    @Order(4) @Key("loss")
+    @Order(4) @Name("Loss") @Key("loss")
     @Comment("You were eliminated. The one sound in this file every player expects to hear.")
     @Explain("You were eliminated.")
     default SoundSpec loss() { return DefaultSounds.LOSS; }
 
-    @Order(5) @Key("surface-open")
+    @Order(5) @Name("Surface open") @Key("surface-open")
     @Comment("Never played here - this server has no menus. Kept so the vocabulary stays whole.")
     @Explain("Never played on this server - kept only so every feedback category stays answered.")
     default SoundSpec surfaceOpen() { return DefaultSounds.SURFACE_OPEN; }
 
-    @Order(6) @Key("surface-close")
+    @Order(6) @Name("Surface close") @Key("surface-close")
     @Comment("Never played here, for the same reason as surface-open.")
     @Explain("Never played on this server - kept only so every feedback category stays answered.")
     default SoundSpec surfaceClose() { return DefaultSounds.SURFACE_CLOSE; }
 
-    @Order(7) @Key("select")
+    @Order(7) @Name("Select") @Key("select")
     @Comment("Never played here - nothing on this server is picked out of a list.")
     @Explain("Never played on this server - kept only so every feedback category stays answered.")
     default SoundSpec select() { return DefaultSounds.SELECT; }
 
-    @Order(8) @Key("travel")
+    @Order(8) @Name("Travel") @Key("travel")
     @Comment("Going somewhere: being placed on your spawn tower when the game starts.")
     @Explain("Being placed on your spawn tower when the game starts.")
     default SoundSpec travel() { return DefaultSounds.TRAVEL; }
 
-    @Order(9) @Key("countdown-tick")
+    @Order(9) @Name("Countdown tick") @Key("countdown-tick")
     @Comment("A clock running out: the lobby countdown, the release, and every border shrink.")
     @Explain("A clock running out: the lobby countdown, the release, or a border shrink.")
     default SoundSpec countdownTick() { return DefaultSounds.COUNTDOWN_TICK; }
 
-    @Order(10) @Key("network-event")
+    @Order(10) @Name("Network event") @Key("network-event")
     @Comment("Everybody hears it: a loot refill, the same-team warning, somebody else winning.")
     @Explain("Heard by everyone: a loot refill, the same-team warning, or somebody else winning.")
     default SoundSpec networkEvent() { return DefaultSounds.NETWORK_EVENT; }
 
-    @Order(11) @Key("staging")
+    @Order(11) @Name("Staging") @Key("staging")
     @Comment({
             "A staged moment - today only the season's opening on a player's first join.",
             "",
@@ -115,7 +116,7 @@ public interface SoundsSpec {
     @Explain("A staged moment - today only the season's opening on a player's first join. Ships empty until the resource pack has the sound.")
     default SoundSpec staging() { return DefaultSounds.STAGING; }
 
-    @Order(12) @Key("reclaimed")
+    @Order(12) @Name("Reclaimed") @Key("reclaimed")
     @Comment("Never played here - this server has no graves. Kept so the vocabulary stays whole.")
     @Explain("Never played on this server - kept only so every feedback category stays answered.")
     default SoundSpec reclaimed() { return DefaultSounds.RECLAIMED; }
@@ -126,15 +127,15 @@ public interface SoundsSpec {
 
         // No @Comment: this interface is written out ten times over, and the header above already
         // says what a key is and what an empty one does.
-        @Order(1) @Key("key")
+        @Order(1) @Name("Sound") @Key("key")
         @NoExplanationNeeded
         default String key() { return ""; }
 
-        @Order(2) @Key("volume")
+        @Order(2) @Name("Volume") @Key("volume")
         @NoExplanationNeeded
         default float volume() { return 1.0f; }
 
-        @Order(3) @Key("pitch")
+        @Order(3) @Name("Pitch") @Key("pitch")
         @NoExplanationNeeded
         default float pitch() { return 1.0f; }
     }

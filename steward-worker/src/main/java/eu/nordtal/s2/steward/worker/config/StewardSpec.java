@@ -8,6 +8,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 import java.util.List;
@@ -59,6 +60,7 @@ import java.util.List;
 public interface StewardSpec {
 
     @Order(1)
+    @Name("Season repository")
     @Key("season-repo")
     @Comment({
             "The GitHub repository the five season 2 jars and the resource pack come from,",
@@ -75,6 +77,7 @@ public interface StewardSpec {
     }
 
     @Order(2)
+    @Name("Display tags repository")
     @Key("display-tags-repo")
     @Comment({
             "Our fork of the Text Display nametag plugin. Required on the SMP server:",
@@ -87,6 +90,7 @@ public interface StewardSpec {
     }
 
     @Order(3)
+    @Name("PacketEvents project")
     @Key("packetevents-project")
     @Comment({
             "The Modrinth project id of PacketEvents - the packet library DisplayTags is built",
@@ -102,6 +106,7 @@ public interface StewardSpec {
     }
 
     @Order(4)
+    @Name("Chunky project")
     @Key("chunky-project")
     @Comment({
             "The Modrinth project id of Chunky, the chunk pre-generator ('chunky').",
@@ -124,6 +129,7 @@ public interface StewardSpec {
     // has ever exercised is worse than none.
 
     @Order(5)
+    @Name("Simple Voice Chat project")
     @Key("voicechat-project")
     @Comment({
             "The Modrinth project id of Simple Voice Chat ('simple-voice-chat').",
@@ -151,6 +157,7 @@ public interface StewardSpec {
     }
 
     @Order(6)
+    @Name("CoreProtect project")
     @Key("coreprotect-project")
     @Comment({
             "The Modrinth project id of CoreProtect ('coreprotect'), the block logger, on smp.",
@@ -171,6 +178,7 @@ public interface StewardSpec {
     }
 
     @Order(7)
+    @Name("Volumes root")
     @Key("volumes-root")
     @Comment({
             "Where the four Minecraft volumes are mounted inside this container - one",
@@ -190,6 +198,7 @@ public interface StewardSpec {
     }
 
     @Order(8)
+    @Name("GitHub token")
     @Key("github-token")
     @Comment({
             "Optional. A token raises GitHub's unauthenticated rate limit of 60 requests per",
@@ -205,6 +214,7 @@ public interface StewardSpec {
     }
 
     @Order(9)
+    @Name("HTTP timeout (seconds)")
     @Key("http-timeout-seconds")
     @Comment({
             "How long any single API call may take before the run gives up.",
@@ -218,6 +228,7 @@ public interface StewardSpec {
     }
 
     @Order(10)
+    @Name("Download timeout (seconds)")
     @Key("download-timeout-seconds")
     @Comment({
             "How long a single jar may take to download during `steward-worker apply`.",
@@ -232,6 +243,7 @@ public interface StewardSpec {
     }
 
     @Order(11)
+    @Name("Poll interval (seconds)")
     @Key("poll-interval-seconds")
     @Comment({
             "How often `steward-worker serve` looks in update_request for work it was not told about.",
@@ -253,6 +265,7 @@ public interface StewardSpec {
     }
 
     @Order(12)
+    @Name("Bootstrap")
     @Key("bootstrap")
     @Comment({
             "Whether `steward-worker serve` installs what is MISSING before it reports itself ready.",
@@ -280,6 +293,7 @@ public interface StewardSpec {
     }
 
     @Order(13)
+    @Name("bunq")
     @Key("bunq")
     @Comment({
             "The bank. This container is the only one in the network that holds a bunq credential",
@@ -293,6 +307,7 @@ public interface StewardSpec {
     BunqSpec bunq();
 
     @Order(15)
+    @Name("Docker")
     @Key("docker")
     @Comment({
             "The daemon this service reads: container state, health, image drift, logs, the",
@@ -310,6 +325,7 @@ public interface StewardSpec {
     DockerSpec docker();
 
     @Order(14)
+    @Name("Backup")
     @Key("backup")
     @Comment({
             "The nightly volume backup: which volumes are saved and which services are stopped",
@@ -324,6 +340,7 @@ public interface StewardSpec {
     BackupSpec backup();
 
     @Order(17)
+    @Name("Deployer")
     @Key("deployer")
     @Comment({
             "steward-deployer, the one process in this deployment allowed to create a container",
@@ -343,6 +360,7 @@ public interface StewardSpec {
     DeployerSpec deployer();
 
     @Order(16)
+    @Name("API")
     @Key("api")
     @Comment({
             "The internal API steward-ui reads this container through.",
@@ -375,6 +393,7 @@ public interface StewardSpec {
     interface BunqSpec {
 
         @Order(1)
+        @Name("API key")
         @Key("api-key")
         @Comment({
                 "bunq API key. Set NORDTAL_STEWARD_BUNQ_API_KEY instead of filling this in.",
@@ -392,6 +411,7 @@ public interface StewardSpec {
         }
 
         @Order(2)
+        @Name("Account ID")
         @Key("account-id")
         @Comment({
                 "The bunq monetary account id that is polled and billed.",
@@ -408,6 +428,7 @@ public interface StewardSpec {
         // reintroduce it without a sandbox key.
 
         @Order(3)
+        @Name("Context path")
         @Key("context-path")
         @Comment({
                 "Where the bunq API context file is kept. It holds credentials and lives in a",
@@ -425,6 +446,7 @@ public interface StewardSpec {
         }
 
         @Order(4)
+        @Name("Poll interval (seconds)")
         @Key("poll-interval-seconds")
         @Comment({
                 "How often bunq is asked about open tabs and recent payments.",
@@ -440,6 +462,7 @@ public interface StewardSpec {
         }
 
         @Order(5)
+        @Name("Watermark")
         @Key("watermark")
         @Comment({
                 "Payments created before this instant are ignored, completely and forever.",
@@ -464,6 +487,7 @@ public interface StewardSpec {
         }
 
         @Order(6)
+        @Name("Recent payment count")
         @Key("recent-payment-count")
         @Comment({
                 "How many recent payments the fallback reference scan looks at per poll.",
@@ -481,6 +505,7 @@ public interface StewardSpec {
     interface DockerSpec {
 
         @Order(1)
+        @Name("Socket")
         @Key("socket")
         @Comment({
                 "The unix socket of the Docker daemon, as this container sees it.",
@@ -495,6 +520,7 @@ public interface StewardSpec {
         }
 
         @Order(2)
+        @Name("Compose project")
         @Key("project")
         @Comment({
                 "The compose project name. Containers are <project>-<service>-1, and this is what",
@@ -510,6 +536,7 @@ public interface StewardSpec {
         }
 
         @Order(3)
+        @Name("Metrics")
         @Key("metrics")
         @Comment({
                 "Whether the 30-second sampler runs (§10c). Eleven series, ~32 000 rows a day,",
@@ -530,6 +557,7 @@ public interface StewardSpec {
     interface ApiSpec {
 
         @Order(1)
+        @Name("Port")
         @Key("port")
         @Comment({
                 "The port inside the container. It is published to nothing: compose puts this",
@@ -542,6 +570,7 @@ public interface StewardSpec {
         }
 
         @Order(2)
+        @Name("Token")
         @Key("token")
         @Comment({
                 "The shared secret steward-ui sends as X-Steward-Token. Empty means the API does",
@@ -558,6 +587,7 @@ public interface StewardSpec {
         }
 
         @Order(3)
+        @Name("Configs root")
         @Key("configs-root")
         @Comment({
                 "Where every service's configuration is mounted in THIS container, one directory",
@@ -587,6 +617,7 @@ public interface StewardSpec {
     interface DeployerSpec {
 
         @Order(1)
+        @Name("URL")
         @Key("url")
         @Comment({
                 "Where steward-deployer's HTTP API answers, from inside this container.",
@@ -601,6 +632,7 @@ public interface StewardSpec {
         }
 
         @Order(2)
+        @Name("Token")
         @Key("token")
         @Comment({
                 "The shared secret this container sends as X-Steward-Token when it asks",
@@ -623,6 +655,7 @@ public interface StewardSpec {
         }
 
         @Order(3)
+        @Name("Timeout (seconds)")
         @Key("timeout-seconds")
         @Comment({
                 "How long one recreate may take - steward-deployer pulling a new image plus",
@@ -645,6 +678,7 @@ public interface StewardSpec {
     interface BackupSpec {
 
         @Order(1)
+        @Name("Volumes")
         @Key("volumes")
         @Comment({
                 "The Docker volumes to snapshot, by their REAL names - what `docker volume ls`",
@@ -699,6 +733,7 @@ public interface StewardSpec {
         }
 
         @Order(2)
+        @Name("Services to stop")
         @Key("stop-services")
         @Comment({
                 "Which compose services are stopped while the snapshot is taken, by their compose",
@@ -735,6 +770,7 @@ public interface StewardSpec {
         }
 
         @Order(3)
+        @Name("Sources root")
         @Key("sources-root")
         @Comment({
                 "Where the volumes being saved are mounted, read-only, one directory per volume",
@@ -754,6 +790,7 @@ public interface StewardSpec {
         }
 
         @Order(4)
+        @Name("Output root")
         @Key("output-root")
         @Comment({
                 "Where the archives and the database dump are written. Its own volume, and NOT one",
@@ -769,6 +806,7 @@ public interface StewardSpec {
         }
 
         @Order(5)
+        @Name("Retention")
         @Key("retention")
         @Comment({
                 "How long a backup is kept here. Till chose the staggered schedule on 2026-09-18",
@@ -788,6 +826,7 @@ public interface StewardSpec {
         RetentionSpec retention();
 
         @Order(6)
+        @Name("Database service")
         @Key("database-service")
         @Comment({
                 "The compose service running PostgreSQL. pg_dump is executed INSIDE it, which is",
@@ -804,6 +843,7 @@ public interface StewardSpec {
         }
 
         @Order(7)
+        @Name("Time of day")
         @Key("at")
         @Comment({
                 "Local time of day the nightly backup is asked for, HH:mm. Empty means none.",
@@ -833,6 +873,7 @@ public interface StewardSpec {
         }
 
         @Order(8)
+        @Name("Days")
         @Key("days")
         @Comment({
                 "Which weekdays the nightly backup runs on. Full names or the three-letter forms,",
@@ -858,6 +899,7 @@ public interface StewardSpec {
         }
 
         @Order(9)
+        @Name("Patience (minutes)")
         @Key("patience-minutes")
         @Comment({
                 "How long one volume's snapshot may take before the run gives up on it and starts",
@@ -880,6 +922,7 @@ public interface StewardSpec {
         }
 
         @Order(10)
+        @Name("Remote")
         @Key("remote")
         @Comment({
                 "WHERE A COPY GOES THAT IS NOT ON THIS DISK. Empty endpoint means there is none,",
@@ -919,6 +962,7 @@ public interface StewardSpec {
         interface RetentionSpec {
 
             @Order(1)
+            @Name("Daily")
             @Key("daily")
             @Comment({
                     "How many of the most recent DAYS are kept in full. Fourteen is what the flat",
@@ -934,6 +978,7 @@ public interface StewardSpec {
             }
 
             @Order(2)
+            @Name("Weekly")
             @Key("weekly")
             @Comment({
                     "How many ISO weeks keep their newest surviving backup, counted from this week",
@@ -948,6 +993,7 @@ public interface StewardSpec {
             }
 
             @Order(3)
+            @Name("Monthly")
             @Key("monthly")
             @Comment({
                     "How many calendar months keep their newest surviving backup, counted the same",
@@ -962,6 +1008,7 @@ public interface StewardSpec {
             }
 
             @Order(4)
+            @Name("Collapse after (days)")
             @Key("collapse-after-days")
             @Comment({
                     "How long several runs of ONE day are all kept before only the LAST of that day",
@@ -982,6 +1029,7 @@ public interface StewardSpec {
         interface RemoteSpec {
 
             @Order(1)
+            @Name("Endpoint")
             @Key("endpoint")
             @Comment({
                     "The S3 endpoint, with scheme - https://<region>.your-objectstorage.com for a",
@@ -994,6 +1042,7 @@ public interface StewardSpec {
             }
 
             @Order(2)
+            @Name("Bucket")
             @Key("bucket")
             @Comment("The bucket the archives are written into.")
             @Explain("The bucket the archives are written into.")
@@ -1002,6 +1051,7 @@ public interface StewardSpec {
             }
 
             @Order(3)
+            @Name("Prefix")
             @Key("prefix")
             @Comment({
                     "A path inside the bucket, so one bucket can hold more than one deployment.",
@@ -1013,6 +1063,7 @@ public interface StewardSpec {
             }
 
             @Order(4)
+            @Name("Access key")
             @Key("access-key")
             @Secret
             @Comment("The access key id. Sent to a browser as \"set\" or \"not set\", never as itself.")
@@ -1022,6 +1073,7 @@ public interface StewardSpec {
             }
 
             @Order(5)
+            @Name("Secret key")
             @Key("secret-key")
             @Secret
             @Comment("The secret access key. Sent to a browser as \"set\" or \"not set\", never as itself.")

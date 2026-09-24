@@ -922,6 +922,12 @@ public interface CommandMessages {
         @Name("Write failed")
         MessageRef writeFailed();
 
+        @Name("Busy")
+        MessageRef busy();
+
+        @Name("Already down")
+        MessageRef alreadyDown(@Arg("services") Object services);
+
         @Name("Truncated")
         MessageRef truncated(@Arg("lines") Object lines);
 

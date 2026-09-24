@@ -968,6 +968,7 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("asking for a backup writes a row, and the row is what comes back")
     void askingIsARow() throws Exception {
+        settleOpenRuns();
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         final HttpResponse<String> asked = http.send(HttpRequest.newBuilder(
                         URI.create("http://127.0.0.1:" + UI_PORT + "/api/updates"))
@@ -996,6 +997,31 @@ class StewardUiIntegrationTest {
         assertTrue(recent.size() >= 1);
         assertEquals(row.get("id").getAsLong(),
                 recent.get(0).getAsJsonObject().get("id").getAsLong());
+    }
+
+    @Test
+    @DisplayName("a second press while a run is open is a 409 that names the run in the way")
+    void aSecondPressIsRefused() throws Exception {
+        settleOpenRuns();
+        final HttpResponse<String> first = post("/api/updates", "{\"kind\":\"DOWN\",\"services\":[\"smp\"]}");
+        assertEquals(202, first.statusCode(), first.body());
+        final long id = GSON.fromJson(first.body(), JsonObject.class).get("id").getAsLong();
+
+        final HttpResponse<String> second = post("/api/updates", "{\"kind\":\"DOWN\",\"services\":[\"smp\"]}");
+
+        assertEquals(409, second.statusCode(), second.body());
+        assertTrue(second.body().contains("Run #" + id + " is still pending"), second.body());
+        settleOpenRuns();
+    }
+
+    /** Closes whatever run another test left open, so the one-run rule starts every test clean. */
+    private void settleOpenRuns() throws Exception {
+        try (var connection = data.dataSource().getConnection();
+             var settle = connection.prepareStatement("UPDATE update_request SET status = 'DONE', "
+                     + "started = coalesce(started, now()), finished = now() "
+                     + "WHERE status IN ('PENDING', 'RUNNING')")) {
+            settle.executeUpdate();
+        }
     }
 
     @Test
@@ -1127,7 +1153,7 @@ class StewardUiIntegrationTest {
         assertEquals("smp", document.get("service").getAsString());
         assertEquals("nordtal-smp/config.yml", document.get("name").getAsString());
         final JsonObject motd = document.getAsJsonArray("entries").get(0).getAsJsonObject();
-        assertEquals("Motd", motd.get("label").getAsString());
+        assertEquals("MOTD", motd.get("label").getAsString());
         assertEquals("Nordtal\nSeason 2", motd.get("value").getAsString());
         assertTrue(motd.get("editable").getAsBoolean(), "a block scalar is editable");
     }
@@ -1933,7 +1959,9 @@ class StewardUiIntegrationTest {
         final HttpClient browser = browser();
         signIn(browser);
         holdTheKey(browser, authenticator);
+        settleOpenRuns();
         assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}").statusCode());
+        settleOpenRuns();
 
         heldLongAgo(browser);
 
@@ -1955,6 +1983,7 @@ class StewardUiIntegrationTest {
         // two" as the server sees it.
         holdTheKey(browser, authenticator);
         assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}").statusCode());
+        settleOpenRuns();
     }
 
     @Test

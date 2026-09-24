@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 
@@ -50,6 +51,8 @@ public final class RunBackup implements NordtalCommand<UpdateEffects> {
                 // command was taken, not that the network is about to go down.
                 user.reply(MESSAGES.backup().started(UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
                         Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
+            } catch (final RunRefused refused) {
+                user.reply(Refusals.of(refused), Feedback.REFUSED, Tone.BAD);
             } catch (final RuntimeException failure) {
                 user.reply(MESSAGES.update().writeFailed(), Feedback.REFUSED, Tone.BAD);
             }

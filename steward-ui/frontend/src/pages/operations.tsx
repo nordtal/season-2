@@ -442,7 +442,7 @@ export function AskButton({
           toast.success(`${RUN_KIND[kind]} entered as run #${run.id}`)
         },
         onError: (error) => {
-          toast.error(`${RUN_KIND[kind]} was not entered`, { description: String(error) })
+          toast.error(`${RUN_KIND[kind]} was not entered`, { description: error.message })
         },
       },
     )

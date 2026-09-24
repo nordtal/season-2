@@ -20,6 +20,8 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     }
 
     final List<Submitted> submitted = new ArrayList<>();
+    /** When set, every submit is refused with it, the way the real directory refuses a second run. */
+    eu.nordtal.s2.common.update.RunRefused refusing;
     private long nextId = 1L;
 
     @Override
@@ -38,6 +40,9 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
                                 final String requestedBy, final Duration delay,
                                 final List<String> services) {
+        if (refusing != null) {
+            throw refusing;
+        }
         submitted.add(new Submitted(kind, source, requestedBy, delay, List.copyOf(services)));
         final Instant now = Instant.now();
         return new UpdateRequest(nextId++, kind, UpdateStatus.PENDING, source, requestedBy, now,

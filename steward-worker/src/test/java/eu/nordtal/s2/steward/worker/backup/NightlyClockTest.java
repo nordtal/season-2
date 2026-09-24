@@ -170,6 +170,37 @@ class NightlyClockTest {
                 "a config file written before backup.days existed has to keep running nightly");
     }
 
+    @Test
+    @DisplayName("a backup refused because another run is open is asked for again, not lost")
+    void aBusyNetworkIsAskedAgain() {
+        final ZonedDateTime due = ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN);
+        final NightlyClock clock = NightlyClock.from(busy(), "04:45", BERLIN).orElseThrow();
+
+        assertEquals(NightlyClock.RETRY, clock.fire(due, due), "another run is open: ask again soon");
+        assertEquals(NightlyClock.RETRY, clock.fire(due, due.plusMinutes(90)));
+
+        final ZonedDateTime tooLate = due.plus(NightlyClock.PATIENCE);
+        assertEquals(clock.untilNext(tooLate), clock.fire(due, tooLate),
+                "past its patience it waits for tomorrow rather than running into the morning");
+    }
+
+    /** Every submit is refused, as the directory refuses one while another run is open. */
+    private static UpdateDirectory busy() {
+        final eu.nordtal.s2.common.update.UpdateRequest open = new eu.nordtal.s2.common.update.UpdateRequest(
+                9L, eu.nordtal.s2.common.update.UpdateKind.UPDATE, eu.nordtal.s2.common.update.UpdateStatus.RUNNING,
+                eu.nordtal.s2.common.update.UpdateSource.DISCORD, "a", java.time.Instant.now(),
+                java.time.Instant.now(), null, null, null);
+        return (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(
+                UpdateDirectory.class.getClassLoader(),
+                new Class<?>[]{UpdateDirectory.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("submit")) {
+                        throw eu.nordtal.s2.common.update.RunRefused.runOpen(open);
+                    }
+                    throw new AssertionError("the clock asked the database: " + method.getName());
+                });
+    }
+
     /** Nothing here ever submits, so the directory is a proxy that refuses every call. */
     private static UpdateDirectory noDirectory() {
         return (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(

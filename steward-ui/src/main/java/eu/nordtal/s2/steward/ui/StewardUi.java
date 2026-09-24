@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessSource;
 import eu.nordtal.s2.common.roster.Person;
+import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
@@ -768,8 +769,14 @@ public final class StewardUi {
                 // staying awake.
                 final Duration delay = ask.delaySeconds == null || ask.delaySeconds <= 0
                         ? Duration.ZERO : Duration.ofSeconds(ask.delaySeconds);
-                final var written = data.updates().submit(kind, UpdateSource.CONSOLE,
-                        who.name() + " (" + who.id() + ")", delay, ask.services);
+                final UpdateRequest written;
+                try {
+                    written = data.updates().submit(kind, UpdateSource.CONSOLE,
+                            who.name() + " (" + who.id() + ")", delay, ask.services);
+                } catch (final RunRefused refused) {
+                    // One run in the whole network, decided in :common where every source submits.
+                    throw new ConflictResponse(refusal(refused));
+                }
                 log.info("{} asked for {} as request {}{}", who.name(), kind, written.id(),
                         ask.services == null || ask.services.isEmpty() ? ""
                                 : " for " + String.join(", ", ask.services));
@@ -1962,6 +1969,16 @@ public final class StewardUi {
      * as such and its text kept: an old row written before the format existed is not a failure,
      * and neither is one from a newer version than this jar.</p>
      */
+    /** One sentence for a refused run: which run is in the way, or which service is already down. */
+    static String refusal(final RunRefused refused) {
+        return switch (refused.reason()) {
+            case RUN_OPEN -> "Run #" + refused.open().id() + " is still "
+                    + refused.open().status().name().toLowerCase(java.util.Locale.ROOT);
+            case ALREADY_HELD -> String.join(", ", refused.services())
+                    + (refused.services().size() == 1 ? " is" : " are") + " already down";
+        };
+    }
+
     private static Map<String, Object> describe(final UpdateRequest request) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("id", request.id());

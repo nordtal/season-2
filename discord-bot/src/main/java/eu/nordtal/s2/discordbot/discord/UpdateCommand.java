@@ -3,6 +3,8 @@ package eu.nordtal.s2.discordbot.discord;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.commands.update.Refusals;
+import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
@@ -168,6 +170,9 @@ public final class UpdateCommand extends ListenerAdapter {
                 plain(hook, say(locale, MESSAGES.update().waiting().check()));
             }
             watch(hook, locale, request, Instant.now().plus(PATIENCE));
+        } catch (final RunRefused refused) {
+            // One run in the whole network; the directory decides it for every source.
+            plain(hook, say(locale, Refusals.of(refused)));
         } catch (final RuntimeException failure) {
             fail(hook, locale, "writing the " + kind + " request", failure);
         }

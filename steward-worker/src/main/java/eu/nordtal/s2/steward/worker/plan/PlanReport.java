@@ -62,6 +62,11 @@ public final class PlanReport {
                 // is listed so that an artefact waiting on somebody else's release schedule stays
                 // named instead of quietly not existing.
                 work.get(change.service()).add(UpdateReport.Change.unsupported(change.artifact()));
+            } else if (change.status() == Change.Status.NOT_IN_RELEASE) {
+                // Not work and not a failure: our own release answered, carries nothing for this
+                // jar, and the one installed stays. Said out loud so a module missing from a
+                // release is noticed without taking the service's other updates down with it.
+                notes.add(change.service() + ": " + reason(change) + "; " + change.installed() + " stays");
             } else if (change.status().isFailure()) {
                 // One unreadable row makes the whole service untrustworthy: "nothing to do" and
                 // "I could not look" are the same picture, and only one of them is safe to act on.
@@ -74,7 +79,21 @@ public final class PlanReport {
             final String service = entry.getKey();
             final List<UpdateReport.Change> changes = entry.getValue();
             final String why = trouble.get(service);
-            if (why != null) {
+            if (why != null && plan.blocker(service) != null) {
+                // The run skips a service it could not trust, so nothing on its line may read as
+                // moving: a MOVING row is what the countdown, the stop and the evacuation count.
+                // What would have moved is named in the detail instead.
+                final List<String> held = changes.stream()
+                        .filter(row -> row.state() == UpdateReport.Change.State.MOVING)
+                        .map(row -> row.artefact() + " " + row.from() + " -> " + row.to())
+                        .toList();
+                report = report.with(new UpdateReport.ServiceLine(service,
+                        UpdateReport.State.FAILED,
+                        changes.stream().filter(row -> row.state() != UpdateReport.Change.State.MOVING).toList(),
+                        held.isEmpty() ? why : why + "; held back: " + String.join(", ", held)));
+            } else if (why != null) {
+                // A server jar that could not be checked: the build in .server/ stays and the
+                // plugins beside it still move, so the line keeps its MOVING rows.
                 report = report.with(new UpdateReport.ServiceLine(service,
                         UpdateReport.State.FAILED, changes, why));
             } else {

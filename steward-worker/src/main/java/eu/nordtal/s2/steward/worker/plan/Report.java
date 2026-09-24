@@ -200,6 +200,8 @@ public final class Report {
             case MOUNT_MISSING -> "unknown";
             // Lower case: nothing here needs a person, it is somebody else's release schedule.
             case UNSUPPORTED -> "no build yet";
+            // Upper case: the release is ours, and a release without one of its jars is a mistake.
+            case NOT_IN_RELEASE -> "NOT RELEASED";
         };
     }
 
@@ -213,6 +215,7 @@ public final class Report {
             case MOUNT_MISSING -> "(newest is " + identity(null, wanted) + ")";
             // The note carries the sentence; the column would only repeat half of it.
             case UNSUPPORTED -> "";
+            case NOT_IN_RELEASE -> change.installed() + " stays";
         };
     }
 

@@ -59,6 +59,24 @@ class ApplierTest {
     }
 
     @Test
+    @DisplayName("a season jar the release does not carry stays, and the plugins beside it still move")
+    void aJarNotInTheReleaseDoesNotHoldBackTheService() throws IOException {
+        install("smp", "plugins/smp-0.9.5.jar");
+        install("smp", "plugins/packetevents-spigot-2.13.0.jar");
+
+        final ApplyResult result = apply(new Fake(), plan(
+                new Change("smp", "smp", Change.Status.NOT_IN_RELEASE, "smp-0.9.5.jar", null,
+                        "release v0.9.5 carries no smp-<version>.jar"),
+                outdated("smp", "packetevents", "packetevents-spigot-2.13.0.jar",
+                        "packetevents-spigot-2.14.0.jar")));
+
+        assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.9.5.jar")));
+        assertTrue(Files.exists(volumes.resolve("smp/plugins/packetevents-spigot-2.14.0.jar")));
+        assertEquals(ApplyResult.Status.DONE, outcome(result, "smp", "packetevents").status());
+        assertEquals(ApplyResult.Status.UNCHANGED, outcome(result, "smp", "smp").status());
+    }
+
+    @Test
     @DisplayName("a server jar goes into the entrypoint's cache, not into plugins")
     void serverJarsGoToTheServerCache() throws IOException {
         install("limbo", ".server/paper-26.2-119.jar");

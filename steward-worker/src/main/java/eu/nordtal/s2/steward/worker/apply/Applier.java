@@ -92,12 +92,7 @@ public final class Applier {
                                                     final List<Change> changes) {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
 
-        final Change blocked = changes.stream()
-                .filter(change -> change.status().isFailure())
-                .filter(change -> !isServerJar(change.artifact()))
-                .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
-                .findFirst()
-                .orElse(null);
+        final Change blocked = UpdatePlan.blocker(changes);
         if (blocked != null) {
             final String why = blocked.artifact() + " could not be checked"
                     + (blocked.note() == null ? "" : " (" + blocked.note() + ")")

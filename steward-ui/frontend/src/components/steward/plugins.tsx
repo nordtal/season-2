@@ -214,6 +214,7 @@ export function pluginStatus(
     case "UP_TO_DATE":
       return { tone: "idle", text: "up to date" }
     case "OUTDATED": {
+      if (change.held) return { tone: "idle", text: "held back" }
       const from = plugin.version ?? versionOf(plugin.fileName)
       const to = versionOf(change.fileName) ?? change.version
       return { tone: "warn", text: from && to ? `${from} → ${to}` : "update available" }

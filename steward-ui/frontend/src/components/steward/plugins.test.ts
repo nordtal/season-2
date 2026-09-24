@@ -81,6 +81,11 @@ describe("what the update check says on a row", () => {
     expect(pluginStatus("smp", plugin(), [outdated])).toEqual({ tone: "warn", text: "1.5.3 → 1.5.4" })
   })
 
+  it("shows no update that a run would not install", () => {
+    const held = change({ status: "OUTDATED", work: true, held: true, fileName: "Chunky-Bukkit-1.5.4.jar" })
+    expect(pluginStatus("smp", plugin(), [held])).toEqual({ tone: "idle", text: "held back" })
+  })
+
   it("says there is no build for this Minecraft version", () => {
     expect(pluginStatus("smp", plugin(), [change({ status: "UNSUPPORTED" })], "26.2")?.text).toBe("no 26.2 build")
   })

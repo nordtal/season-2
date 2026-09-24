@@ -8,11 +8,11 @@ import {
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 
 import type {
-  BundleReloadOutcome,
   MessageBundle,
   MessageBundleLocation,
   MessageEntry,
 } from "@/lib/api"
+import { announceSave } from "@/lib/announce-save"
 import { useMessageBundle, useMessageBundles, useSaveMessageBundle } from "@/lib/queries"
 import {
   onPendingMessageJump,
@@ -209,10 +209,9 @@ function BundleForm({
   const [language, setLanguage] = useState<Language>(() => jump?.language ?? "en")
   const [draft, setDraft] = useState<Draft>({})
   const [warnings, setWarnings] = useState<string[]>([])
-  // What the last save became: whether the service is now saying the new text, and which keys in
-  // the override file no bundle declares (season-2-community/09). `null` until something has been
-  // saved in this card - the state before this ticket, when a save said nothing about either.
-  const [reload, setReload] = useState<BundleReloadOutcome | null>(null)
+  // Keys the override file declares that no bundle has - a typo that would otherwise change nothing
+  // and say nothing. Only the bot reports them.
+  const [unknown, setUnknown] = useState<string[]>([])
   // Which key to scroll to and ring, `null` the rest of the time - the message-tool equivalent of
   // `configuration.tsx`'s `highlight` state, cleared by `MessageRow` itself once it has made its
   // point (steward/58's fourth requirement, extended to bundles by steward/87).
@@ -249,13 +248,18 @@ function BundleForm({
   const count = Object.keys(changes).length
 
   function submit() {
+    const label = count === 1 ? "One text saved." : `${count} texts saved.`
+    const body = Object.fromEntries(
+      Object.entries(changes).map(([key, value]) => [key, { [language]: value }]),
+    )
     save.mutate(
-      { language, changes },
+      { changes: body },
       {
         onSuccess: (saved) => {
           setDraft({})
           setWarnings(saved.warnings)
-          setReload(saved.reload ?? null)
+          setUnknown(saved.reload?.unknown ?? [])
+          announceSave(label, saved.reload, path)
         },
       },
     )
@@ -298,23 +302,18 @@ function BundleForm({
 
       {save.error ? <Failure error={save.error} /> : null}
 
-      {reload || warnings.length > 0 ? (
+      {unknown.length > 0 || warnings.length > 0 ? (
         <Alert>
-          <AlertTitle>
-            {reload && reload.status !== "APPLIED" ? "Saved. In force after a restart." : "Saved."}
-          </AlertTitle>
+          <AlertTitle>Saved with warnings.</AlertTitle>
           <AlertDescription>
-            {reload ? <p>{reload.message}</p> : null}
-            {warnings.length > 0 || (reload?.unknown.length ?? 0) > 0 ? (
-              <ul className="list-disc pl-4">
-                {reload?.unknown.map((key) => (
-                  <li key={key}>{key} is in the override file and in no bundle</li>
-                ))}
-                {warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            ) : null}
+            <ul className="list-disc pl-4">
+              {unknown.map((key) => (
+                <li key={key}>{key} is in the override file and in no bundle</li>
+              ))}
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
           </AlertDescription>
         </Alert>
       ) : null}

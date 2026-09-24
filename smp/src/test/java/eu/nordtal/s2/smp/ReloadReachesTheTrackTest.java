@@ -55,6 +55,22 @@ class ReloadReachesTheTrackTest {
     }
 
     @Test
+    @DisplayName("the reload re-reads the message bundles too")
+    void theReloadReachesTheMessages() throws IOException {
+        // steward-worker sends `smp reload` after a message bundle is saved and reports it as
+        // applied; without these two lines that report would be true of nothing.
+        final String source = read(PLUGIN);
+        final int start = source.indexOf("List<String> reloadTrack(");
+        final int end = source.indexOf("return trackProblems;", start);
+        assertTrue(start > 0 && end > start, "the reload method moved; point this test at it");
+        final String reload = source.substring(start, end);
+        assertTrue(reload.contains("messages.reload();"),
+                "/smp reload no longer re-reads this plugin's messages, so a saved text stays unused");
+        assertTrue(reload.contains("sharedMessages.reload();"),
+                "/smp reload no longer re-reads the shared messages the command inbox answers with");
+    }
+
+    @Test
     @DisplayName("a reload finishes what its new targets already reach, in that order")
     void aLoweredTargetTakesEffectAtOnce() throws IOException {
         // The whole point of the escape hatch is an objective nobody can add to any more, so

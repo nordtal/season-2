@@ -379,8 +379,8 @@ public final class WorkerApi implements AutoCloseable {
 
     /**
      * @param accessInbox the bot's request inbox (season-2-community/08), or {@code null} in a
-     *                    deployment with no database - {@code POST /api/messages-reload/<bundle>}
-     *                    then answers that a restart is needed, which is what is true there
+     *                    deployment with no database - saving the bot's messages then answers
+     *                    that a restart is needed, which is what is true there
      */
     public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
                      final @NotNull Console console, final @NotNull HostMetrics host,
@@ -411,7 +411,7 @@ public final class WorkerApi implements AutoCloseable {
         this.configs = new ConfigApi(configs, console::send);
         // A message bundle is not a config file - see MessagesApi's own javadoc for why it is kept
         // apart rather than folded into ConfigApi (steward/48).
-        this.messages = new MessagesApi(configs, volumesRoot, accessInbox);
+        this.messages = new MessagesApi(configs, volumesRoot, accessInbox, console::send);
         // The unified "latest actions" feed (steward/82) - see ActionsApi's own javadoc for why one
         // query over two tables and not a merge on the frontend's side.
         this.actions = new ActionsApi(updates, audit);
@@ -571,14 +571,6 @@ public final class WorkerApi implements AutoCloseable {
             config.routes.get("/api/messages/<bundle>", messages::one);
             config.routes.put("/api/messages/<bundle>", messages::save);
 
-            // Applying a saved bundle, which the bot alone can do for itself
-            // (season-2-community/09). A route beside the save rather than a step inside it, the
-            // same shape `/api/config-raw/<file>` has above and for the same reason: saving and
-            // applying fail apart from each other, so they have to be reportable apart from each
-            // other. `messages-reload` and not `messages/<bundle>/reload` because a bundle's name
-            // carries a slash of its own - `smp/smp` - and a path parameter that swallows slashes
-            // followed by a literal segment is a riddle nobody should have to solve twice.
-            config.routes.post("/api/messages-reload/<bundle>", messages::reload);
 
             config.routes.get("/api/host", ctx -> ctx.json(hostNumbers()));
 

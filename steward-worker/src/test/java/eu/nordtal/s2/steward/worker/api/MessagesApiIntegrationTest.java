@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.access.AccessRequestKind;
 import eu.nordtal.s2.common.access.AccessRequestSource;
 import eu.nordtal.s2.common.access.AccessRequestStatus;
 import eu.nordtal.s2.common.access.AccessRequests;
+import eu.nordtal.s2.steward.worker.docker.DockerException;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import io.javalin.Javalin;
@@ -60,16 +61,23 @@ class MessagesApiIntegrationTest {
     private HttpClient http;
     private int port;
     private final Inbox inbox = new Inbox();
+    /** Every console line sent, as {@code service: command}; {@link #consoleDown} makes it throw. */
+    private final List<String> console = new ArrayList<>();
+    private boolean consoleDown;
 
     @BeforeEach
     void start() {
-        final MessagesApi messages = new MessagesApi(configs, volumes, inbox);
+        final MessagesApi messages = new MessagesApi(configs, volumes, inbox, (service, command) -> {
+            if (consoleDown) {
+                throw new DockerException("no running container for " + service);
+            }
+            console.add(service + ": " + command);
+        });
         app = Javalin.create(config -> {
             config.jsonMapper(new JavalinGson(new Gson(), true));
             config.routes.get("/api/messages", messages::list);
             config.routes.get("/api/messages/<bundle>", messages::one);
             config.routes.put("/api/messages/<bundle>", messages::save);
-            config.routes.post("/api/messages-reload/<bundle>", messages::reload);
         }).start(0);
         port = app.port();
         http = HttpClient.newHttpClient();
@@ -119,7 +127,7 @@ class MessagesApiIntegrationTest {
         Files.createDirectories(configs.resolve("smp/smp/messages"));
 
         final JsonObject saved = GSON.fromJson(put("/api/messages/smp/smp",
-                "{\"language\":\"en\",\"changes\":{\"greeting\":\"Hello there\"}}"), JsonObject.class);
+                "{\"changes\":{\"greeting\":{\"en\":\"Hello there\"}}}"), JsonObject.class);
 
         assertTrue(saved.getAsJsonArray("warnings").get(0).getAsString().contains("<_sender>"),
                 saved.toString());
@@ -139,7 +147,7 @@ class MessagesApiIntegrationTest {
         Files.createDirectories(configs.resolve("smp/smp/messages"));
 
         final HttpResponse<String> refused = send("PUT", "/api/messages/smp/smp",
-                "{\"language\":\"en\",\"changes\":{\"greeting\":\"Hello {name}\"}}");
+                "{\"changes\":{\"greeting\":{\"en\":\"Hello {name}\"}}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("greeting") && refused.body().contains("{name}"), refused.body());
@@ -157,10 +165,10 @@ class MessagesApiIntegrationTest {
         writeJar(configs.resolve("smp/smp-0.9.1.jar"), java.util.Map.of(
                 "messages/smp/en.properties", "welcome=Welcome\n"));
         Files.createDirectories(configs.resolve("smp/smp/messages"));
-        put("/api/messages/smp/smp", "{\"language\":\"en\",\"changes\":{\"welcome\":\"Howdy\"}}");
+        put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}");
 
         final JsonObject afterReset = GSON.fromJson(put("/api/messages/smp/smp",
-                "{\"language\":\"en\",\"changes\":{\"welcome\":null}}"), JsonObject.class);
+                "{\"changes\":{\"welcome\":{\"en\":null}}}"), JsonObject.class);
 
         assertFalse(entry(afterReset, "welcome").has("overrideEnglish"), afterReset.toString());
         assertTrue(afterReset.getAsJsonArray("warnings").isEmpty());
@@ -186,8 +194,7 @@ class MessagesApiIntegrationTest {
         botBundle();
         inbox.answer = request -> settled(request, AccessRequestStatus.DONE, "{\"unknown\":\"\"}");
 
-        final JsonObject quiet = GSON.fromJson(post("/api/messages-reload/discord-bot"),
-                JsonObject.class);
+        final JsonObject quiet = saveBot();
         assertEquals("APPLIED", quiet.get("status").getAsString(), quiet.toString());
         assertTrue(quiet.getAsJsonArray("unknown").isEmpty(), quiet.toString());
         assertEquals(AccessRequestKind.RELOAD_MESSAGES, inbox.asked.get(0).kind());
@@ -195,8 +202,7 @@ class MessagesApiIntegrationTest {
 
         inbox.answer = request -> settled(request, AccessRequestStatus.DONE,
                 "{\"unknown\":\"dm.grantd,dm.revokd\"}");
-        final JsonObject typos = GSON.fromJson(post("/api/messages-reload/discord-bot"),
-                JsonObject.class);
+        final JsonObject typos = saveBot();
         assertEquals("APPLIED", typos.get("status").getAsString(), typos.toString());
         assertTrue(typos.get("message").getAsString().contains("dm.grantd"), typos.toString());
         assertEquals(List.of("dm.grantd", "dm.revokd"),
@@ -211,8 +217,7 @@ class MessagesApiIntegrationTest {
         inbox.answer = request -> settled(request, AccessRequestStatus.FAILED,
                 "{\"error\":\"de.properties is not readable\"}");
 
-        final JsonObject answer = GSON.fromJson(post("/api/messages-reload/discord-bot"),
-                JsonObject.class);
+        final JsonObject answer = saveBot();
         assertEquals("NO_ANSWER", answer.get("status").getAsString(), answer.toString());
     }
 
@@ -226,25 +231,63 @@ class MessagesApiIntegrationTest {
     void aBotThatNeverAnswersIsSaidToNeedARestart() throws Exception {
         botBundle();
         // The default: the row is written and nobody ever claims it.
-        final JsonObject answer = GSON.fromJson(post("/api/messages-reload/discord-bot"),
-                JsonObject.class);
+        final JsonObject answer = saveBot();
         assertEquals("NO_ANSWER", answer.get("status").getAsString(), answer.toString());
         assertEquals(1, inbox.asked.size(), "the row is still written - a bot that comes back"
                 + " inside its patience carries it out, which is the point of a row over a call");
     }
 
     @Test
-    @DisplayName("a bundle of a service with no console says so instead of waiting for nobody")
-    void aMinecraftBundleIsNotReloadedThisWay() throws Exception {
+    @DisplayName("both languages are saved in one call")
+    void bothLanguagesInOneCall() throws Exception {
+        smpBundle();
+
+        final JsonObject saved = GSON.fromJson(put("/api/messages/smp/smp",
+                "{\"changes\":{\"welcome\":{\"en\":\"Howdy\",\"de\":\"Servus\"}}}"), JsonObject.class);
+
+        assertEquals("Howdy", entry(saved, "welcome").get("overrideEnglish").getAsString(), saved.toString());
+        assertEquals("Servus", entry(saved, "welcome").get("overrideGerman").getAsString(), saved.toString());
+    }
+
+    @Test
+    @DisplayName("saving a Minecraft bundle sends that plugin's reload to its console")
+    void savingAMinecraftBundleReloadsIt() throws Exception {
+        smpBundle();
+
+        final JsonObject saved = GSON.fromJson(put("/api/messages/smp/smp",
+                "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}"), JsonObject.class);
+
+        final JsonObject reload = saved.getAsJsonObject("reload");
+        assertEquals("APPLIED", reload.get("status").getAsString(), saved.toString());
+        assertEquals(List.of("smp: smp reload"), console);
+        assertTrue(inbox.asked.isEmpty(), "no row belongs on the inbox for a service with a console");
+    }
+
+    @Test
+    @DisplayName("a Minecraft service that is down means saved, in force once it runs again")
+    void aStoppedMinecraftServiceIsNoAnswer() throws Exception {
+        smpBundle();
+        consoleDown = true;
+
+        final JsonObject saved = GSON.fromJson(put("/api/messages/smp/smp",
+                "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}"), JsonObject.class);
+
+        assertEquals("NO_ANSWER", saved.getAsJsonObject("reload").get("status").getAsString(), saved.toString());
+        assertEquals("Howdy", entry(saved, "welcome").get("overrideEnglish").getAsString(),
+                "a service that did not answer must not undo the save");
+    }
+
+    private void smpBundle() throws IOException {
         writeJar(configs.resolve("smp/smp-0.9.1.jar"), java.util.Map.of(
                 "messages/smp/en.properties", "welcome=Welcome\n"));
         Files.createDirectories(configs.resolve("smp/smp/messages"));
+    }
 
-        final JsonObject answer = GSON.fromJson(post("/api/messages-reload/smp/smp"),
-                JsonObject.class);
-        assertEquals("RESTART_REQUIRED", answer.get("status").getAsString(), answer.toString());
-        assertTrue(inbox.asked.isEmpty(), "no row belongs on the inbox for a service that has a"
-                + " console of its own: " + inbox.asked);
+    /** Saves one line of the bot's bundle and answers what came back under {@code reload}. */
+    private JsonObject saveBot() throws Exception {
+        return GSON.fromJson(put("/api/messages/discord-bot",
+                "{\"changes\":{\"dm.granted\":{\"en\":\"You are in now\"}}}"), JsonObject.class)
+                .getAsJsonObject("reload");
     }
 
     /** A bundle for the one service this route can actually reach. */
@@ -355,15 +398,6 @@ class MessagesApiIntegrationTest {
                 .header("Content-Type", "application/json")
                 .method(method, HttpRequest.BodyPublishers.ofString(body))
                 .build(), HttpResponse.BodyHandlers.ofString());
-    }
-
-    private String post(final String path) throws Exception {
-        final HttpResponse<String> response = http.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + port + path))
-                .POST(HttpRequest.BodyPublishers.noBody())
-                .build(), HttpResponse.BodyHandlers.ofString());
-        assertEquals(200, response.statusCode(), path + " answered " + response.body());
-        return response.body();
     }
 
     private HttpResponse<String> raw(final String path, final String body) throws Exception {

@@ -97,6 +97,12 @@ public final class MessageBundles {
      */
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{[A-Za-z0-9_.-]+}|<_[A-Za-z0-9_-]+>");
 
+    /**
+     * The directory a module's saved translations live in, beside its config. It makes a message
+     * bundle here, and it keeps {@link ConfigFiles#discover} from listing the same files as configs.
+     */
+    static final String DIRECTORY = "messages";
+
     private MessageBundles() {
     }
 
@@ -126,7 +132,7 @@ public final class MessageBundles {
         try (Stream<Path> walk = Files.walk(configsRoot)) {
             return walk.filter(Files::isDirectory)
                     .filter(path -> !Files.isSymbolicLink(path))
-                    .filter(path -> "messages".equals(path.getFileName().toString()))
+                    .filter(path -> DIRECTORY.equals(path.getFileName().toString()))
                     .map(path -> locationOf(configsRoot, volumesRoot, path))
                     .filter(location -> location != null)
                     .sorted(java.util.Comparator.comparing(MessageBundleLocation::service)

@@ -80,10 +80,19 @@ export function EnvironmentOverriddenBadge() {
  * this - format detection, highlighting, the save itself and its warnings all live there so this
  * function stays just the hand-off steward/56 left it as.
  */
-export function RawConfigView({ file, document }: { file: string; document: RawConfigDocument }) {
+export function RawConfigView({
+  file,
+  document,
+  origin,
+}: {
+  file: string
+  document: RawConfigDocument
+  origin?: "nordtal" | "third-party"
+}) {
   return (
     <RawConfigEditor
       file={file}
+      origin={origin}
       // The worker sends `revision` on every raw document too, since steward/60 gave this shape a
       // save path of its own (`ConfigApi#rawDocument`). `RawConfigDocument` itself is left alone,
       // the same way `ParsedConfigDocument` is above: other work lands in this file the same

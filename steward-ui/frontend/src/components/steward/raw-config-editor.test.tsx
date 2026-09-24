@@ -136,7 +136,8 @@ describe("RawConfigEditor", () => {
 
     const save = screen.getByRole("button", { name: /Save/ }) as HTMLButtonElement
     expect(save.disabled).toBe(true)
-    screen.getByText("Nothing changed.")
+    // The disabled Save already says there is nothing to save.
+    expect(screen.queryByText("Nothing changed.")).toBeNull()
   })
 
   it("enables Save once the text changes, and Discard puts the original text back", () => {
@@ -188,10 +189,30 @@ describe("RawConfigEditor", () => {
       />,
     )
 
-    screen.getByText("This file is mounted read-only.")
     const editor = screen.getByLabelText("Raw content of README.txt") as HTMLTextAreaElement
     expect(editor.readOnly).toBe(true)
     expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
     expect(screen.queryByRole("button", { name: /Discard/ })).toBeNull()
+  })
+
+  it("says nothing above a third-party file - the text is all there is to it", () => {
+    const { container } = draw(
+      <RawConfigEditor
+        file="smp/bStats/config.txt"
+        origin="third-party"
+        document={document({ name: "bStats/config.txt", reason: "not YAML" })}
+      />,
+    )
+    expect(container.querySelector("[role=alert]")).toBeNull()
+    expect(screen.queryByText(/Steward could not read/)).toBeNull()
+  })
+
+  it("gives a Nordtal file one line, with the parser's reason behind it", () => {
+    const { container } = draw(
+      <RawConfigEditor file="smp/smp/config.yml" origin="nordtal" document={document({ reason: "line 3: bad indent" })} />,
+    )
+    expect(container.querySelector("[role=alert]")).toBeNull()
+    screen.getByText("Shown as text, it did not parse.")
+    expect(container.querySelector("details")?.textContent).toContain("line 3: bad indent")
   })
 })

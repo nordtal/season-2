@@ -750,6 +750,10 @@ export type ConfigLocation = {
   path: string
   readable: boolean
   writable: boolean
+  /** Who wrote the file, by the plugins tab's Nordtal set. */
+  origin?: "nordtal" | "third-party"
+  /** The plugin whose data folder holds it - Nordtal's by the plugins tab's name, any other by its folder. */
+  plugin?: string | null
 }
 
 /**

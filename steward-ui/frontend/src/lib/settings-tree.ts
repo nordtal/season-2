@@ -1,6 +1,7 @@
 import type { ConfigEntry, MessageEntry } from "@/lib/api"
 import { entryHaystack } from "@/lib/settings-search"
 import { colourValue } from "@/components/steward/config-controls"
+import { sentenceOf } from "@/lib/words"
 import { colourRuns } from "@/components/steward/colour-control"
 import { pairedBlocks, pairedPaths, type PairedBlocks } from "@/components/steward/paired-blocks"
 
@@ -32,12 +33,9 @@ export type TreeBranch<L> = {
 
 export type TreeNode<L> = TreeLeaf<L> | TreeBranch<L>
 
-/** `farm-world` reads "Farm world" - the fallback for a section nothing named. */
+/** `farm-world` reads "Farm world", `serverUuid` "Server UUID" - the fallback for a section nothing named. */
 export function humanise(segment: string): string {
-  const words = segment.split(/[-_.\s]+/).filter(Boolean)
-  if (words.length === 0) return segment
-  const joined = words.map((word) => word.toLowerCase()).join(" ")
-  return joined.charAt(0).toUpperCase() + joined.slice(1)
+  return sentenceOf(segment.split(/[-_.\s]+/)) || segment
 }
 
 class Builder<L> {

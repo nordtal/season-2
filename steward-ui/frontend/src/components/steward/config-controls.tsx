@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { fileTitle } from "@/lib/words"
 
 /**
  * The single-key rendering `configuration.tsx` and `repeatable-cards.tsx` (steward/57) both need.
@@ -24,8 +25,8 @@ import { Textarea } from "@/components/ui/textarea"
 /**
  * The plain-text file name Till asked for, instead of `nordtal-smp/config.yml` verbatim
  * (steward/56) - mechanical, the same way `Labels.of` on the backend turns a YAML key into a
- * label: strip the extension, split on the characters a path uses to separate words, lower-case
- * them, capitalise the first letter of the result. The path is no longer shown under it
+ * label: strip the extension, split on the characters a path uses to separate words and on a
+ * change of case, drop a word that repeats the one before it, and write it in Capital Case. The path is no longer shown under it
  * (season-2-ops/130): the words of the path are already in the name this builds, and a second
  * monospace line made every row in the list two lines tall. Where the path itself is what matters -
  * an error about a file that could not be parsed - it is named there, not in the browsing list.
@@ -36,11 +37,7 @@ import { Textarea } from "@/components/ui/textarea"
  * box back would be a cycle for no reason.
  */
 export function humanFileName(name: string): string {
-  const withoutExtension = name.replace(/\.[a-z0-9]+$/i, "")
-  const words = withoutExtension.split(/[-_./]+/).filter(Boolean)
-  if (words.length === 0) return name
-  const joined = words.map((word) => word.toLowerCase()).join(" ")
-  return joined.charAt(0).toUpperCase() + joined.slice(1)
+  return fileTitle(name)
 }
 
 /** The short text under a label - the schema's own words, or the mechanical comment block. */

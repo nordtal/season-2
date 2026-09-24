@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { ConfigEntry, MessageEntry } from "@/lib/api"
+import { humanFileName } from "@/components/steward/config-controls"
 import {
   ancestorsOf,
   configTree,
@@ -45,7 +46,26 @@ describe("humanise", () => {
   it("turns a key segment into a sentence-case name", () => {
     expect(humanise("farm-world")).toBe("Farm world")
     expect(humanise("discord-bot")).toBe("Discord bot")
-    expect(humanise("smp")).toBe("Smp")
+    expect(humanise("smp")).toBe("SMP")
+  })
+
+  it("splits camelCase and keeps a known acronym upper-case", () => {
+    expect(humanise("logFailedRequests")).toBe("Log failed requests")
+    expect(humanise("serverUuid")).toBe("Server UUID")
+    expect(humanise("backgroundProfiler")).toBe("Background profiler")
+    expect(humanise("HTTPServer")).toBe("HTTP server")
+    expect(humanise("base-url")).toBe("Base URL")
+    expect(humanise("identity")).toBe("Identity")
+    expect(humanise("ENABLED")).toBe("Enabled")
+    expect(humanise("discordSRV")).toBe("Discord SRV")
+  })
+})
+
+describe("humanFileName", () => {
+  it("reads a file name by the same word rule", () => {
+    expect(humanFileName("bStats/config.yml")).toBe("bStats Config")
+    expect(humanFileName("spark/config.json")).toBe("Spark Config")
+    expect(humanFileName("discordSRV/config.yml")).toBe("Discord SRV Config")
   })
 })
 

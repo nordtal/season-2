@@ -6,7 +6,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router"
-import { cleanup, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ServicePage, serviceSearch } from "@/pages/service"
@@ -145,6 +145,53 @@ describe("ServicePage - the head and the tabs (steward/140)", () => {
     const icons = [update, down, recreate].map((button) => button.querySelector("svg")?.innerHTML)
     expect(new Set(icons).size).toBe(3)
     expect(screen.queryByText("Put down")).toBeNull()
+  })
+})
+
+/** A desktop-wide `matchMedia`: every `min-width` query matches, every `max-width` one does not. */
+function wideScreen() {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query.includes("min-width"),
+    media: query,
+    onchange: null,
+    addEventListener() {},
+    removeEventListener() {},
+    addListener() {},
+    removeListener() {},
+    dispatchEvent: () => false,
+  }))
+}
+
+describe("ServicePage - leaving Settings on a wide screen", () => {
+  it("opens Console from Settings, although Settings shows its first file by itself", async () => {
+    wideScreen()
+    vi.stubGlobal("EventSource", SilentEventSource)
+    vi.stubGlobal("fetch", backend(row("smp", { hasPlugins: true })))
+    const router = draw("/services/smp?tab=settings")
+
+    await screen.findByRole("button", { name: /config/i })
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: "settings" }))
+
+    const console = screen.getByRole("tab", { name: /console/i })
+    fireEvent.mouseDown(console)
+    fireEvent.click(console)
+    await waitFor(() => expect(router.state.location.search).toEqual({}))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(router.state.location.search).toEqual({})
+    expect(screen.getByRole("tab", { name: /console/i }).getAttribute("aria-selected")).toBe("true")
+  })
+
+  it("leaves Settings for another service", async () => {
+    wideScreen()
+    vi.stubGlobal("EventSource", SilentEventSource)
+    vi.stubGlobal("fetch", backend(row("smp", { hasPlugins: true })))
+    const router = draw("/services/smp?tab=settings")
+
+    await screen.findByRole("button", { name: /config/i })
+    await router.navigate({ to: "/services/$name", params: { name: "proxy" }, search: {} })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(router.state.location.pathname).toBe("/services/proxy")
+    expect(router.state.location.search).toEqual({})
   })
 })
 

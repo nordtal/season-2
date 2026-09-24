@@ -118,7 +118,11 @@ export function ServiceSettings({
     [service, configs.data, bundles.data],
   )
   const loading = configs.isPending || bundles.isPending
-  const selected = files.find((item) => item.id === file)
+  // On a wide screen the content column is never empty: without a chosen file it shows the first
+  // one. That is derived, not written into the URL - a write from here would still run in the
+  // render that leaves the tab and put it straight back.
+  const shown = file ?? (wide ? files.find((item) => item.readable)?.id : undefined)
+  const selected = files.find((item) => item.id === shown)
 
   // A jump from the command palette, whether it arrived with the navigation or while this page was
   // already open. Each one gets a new number, so the same hit twice lands twice.
@@ -145,13 +149,6 @@ export function ServiceSettings({
     }
   }, [service])
 
-  // On a wide screen the content column is never empty.
-  useEffect(() => {
-    if (!wide || file !== undefined || loading) return
-    const first = files.find((item) => item.readable)
-    if (first) report.current(first.id, true)
-  }, [wide, file, loading, files])
-
   const failure = configs.error ?? bundles.error
 
   return (
@@ -170,7 +167,7 @@ export function ServiceSettings({
                 <FileRow
                   key={item.id}
                   item={item}
-                  selected={item.id === file}
+                  selected={item.id === shown}
                   dirty={dirty.includes(item.id)}
                   onSelect={() => onFile(item.id)}
                 />

@@ -44,7 +44,6 @@ import {
   useRefreshAvailable,
   useRun,
   useRuns,
-  useSchedule,
   useServices,
 } from "@/lib/queries"
 import { PageHeader } from "@/components/steward/page-header"
@@ -353,104 +352,48 @@ const SOURCE_LABEL: Record<string, string> = {
 
 type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
 
-/**
- * How long before the worker's own backup "tonight" lands.
- *
- * Before that clock rather than on top of it: update and backup take the same lock, so two runs at
- * the same minute are one run waiting for the other with the network already down. Forty-five
- * minutes is the gap the default configuration has (04:00 against `backup.at` 04:45) and is far
- * more than a run of either kind takes.
- */
-export const MINUTES_BEFORE_BACKUP = 45
-
-/** The hour "tonight" means when there is no nightly backup to stay out of the way of. */
-const NIGHT_HOUR = 4
-
-/**
- * When "tonight" is.
- *
- * THIS USED TO BE 04:00 IN THE BROWSER'S TIME ZONE, and the dialog said it was "shortly before the
- * worker's own backup clock" - a promise it could not keep. The worker's clock runs in the
- * container's zone (compose sets `TZ`), so an admin an hour east of the host scheduled 03:00 there,
- * and one two hours west scheduled 06:00: after the backup, which is exactly the collision the
- * offer exists to avoid. So the moment is derived from what the worker says its next backup is.
- *
- * Exported and pure because this frontend has no test runner: this is the part with arithmetic in
- * it, and it can at least be read as one function rather than found inside a component.
- */
-export function tonight(nextBackupAt: string | null | undefined, now = new Date()): Date {
-  const backup = nextBackupAt ? new Date(nextBackupAt) : null
-  if (!backup || Number.isNaN(backup.getTime())) {
-    // No nightly backup at all, so there is nothing to stay out of the way of and no zone to
-    // borrow. Four o'clock here, and the dialog says that is what it is.
-    const target = new Date(now)
-    target.setHours(NIGHT_HOUR, 0, 0, 0)
-    if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1)
-    return target
-  }
-  let target = backup.getTime() - MINUTES_BEFORE_BACKUP * 60_000
-  // Less than three quarters of an hour to the backup: tonight's slot has gone, take tomorrow's
-  // rather than asking for a moment in the past, which the worker would run immediately.
-  //
-  // A WHILE AND NOT AN IF. One day forward only rescues a schedule less than about 23 hours stale,
-  // and this one can be older than that: `useSchedule` has an hour of staleTime, no refetch
-  // interval, and main.tsx turns refetchOnWindowFocus off for every query - so a dashboard left
-  // open over a weekend still holds Friday's `nextBackupAt`. What came back then was a moment in
-  // the past, which lands in `not_before` on the update_request row, which the worker takes as
-  // "now": smp and the network stop while somebody is standing in the world. That is precisely
-  // the collision this function exists to avoid.
-  const day = 24 * 60 * 60 * 1000
-  while (target <= now.getTime()) target += day
-  return new Date(target)
-}
-
 const ASKS: Record<
   Kind,
   { title: string; what: string; warning?: string; icon: typeof ArrowsClockwiseIcon }
 > = {
   UPDATE: {
-    title: "Enter an update",
-    what:
-      "Queries every source for the newest version, stops the services where something changes, swaps their jars and starts them again. If nothing is new, nothing is stopped - the run then ends at \"Nothing to do\".",
-    // steward/140: its own symbol, not Recreate's. The two sit side by side on a service page,
-    // and a button that looks like another one is a risk on a phone.
+    title: "Update",
+    what: "Stops what changes, swaps its jars and starts it again.",
+    // Its own symbol, not Recreate's: the two sit side by side on a service page, and a button
+    // that looks like another one is a risk on a phone.
     icon: ArrowCircleUpIcon,
   },
   BACKUP: {
-    title: "Enter a backup",
-    what:
-      "Takes the database dump first (nothing is stopped for that), then stops smp, proxy and the bot, packs every volume and starts everything again.",
-    warning: "While the packing runs, the network cannot be reached.",
+    title: "Back up",
+    what: "Dumps the database, then packs every volume.",
+    warning: "The network is offline while it packs.",
     icon: ArchiveIcon,
   },
   RESTART: {
-    title: "Enter a restart",
-    what: "Stops the services of the network and starts them again. Nothing is swapped.",
-    warning: "A restart throws every player off the SMP.",
+    title: "Restart",
+    what: "Stops the network and starts it again.",
+    warning: "Every player is thrown off.",
     icon: ArrowCounterClockwiseIcon,
   },
   DOWN: {
     title: "Take down",
-    what: "Counts down, stops the service and leaves it stopped. No update and no restart starts it again.",
+    what: "Counts down and leaves it stopped.",
     warning: "It stays down until somebody presses Start.",
     icon: PowerIcon,
   },
   START: {
     title: "Start",
-    what:
-      "Takes the hold off and starts it again - every service that is being held, when none is" +
-      " named. No countdown.",
+    what: "Takes the hold off and starts it again.",
     icon: PlayIcon,
   },
 }
 
 /**
- * One button, one confirmation, two timings.
+ * One button, one confirmation: Now or Cancel.
  *
- * The dialog is not a formality: all three of these stop servers, and the middle one is the only
- * page in this interface that can empty the SMP. So it names what will happen before it happens,
- * and it offers "tonight" beside "now" - which costs one number in the request body and is
- * the difference between an operator waiting up and an operator going to bed.
+ * The dialog is not a formality - all of these stop servers - so it names what will happen in at
+ * most two short lines before it happens. A run for later is the backend's `not_before`, which
+ * carries the countdown; this page no longer offers one.
  */
 export function AskButton({
   kind,
@@ -487,34 +430,16 @@ export function AskButton({
   trigger?: boolean
 }) {
   const ask = useAskForRun()
-  const schedule = useSchedule()
   const spec = ASKS[kind]
   const Icon = spec.icon
-  const night = tonight(schedule.data?.nextBackupAt)
   const scoped = services !== undefined && services.length > 0
 
-  /**
-   * The delay, read at the click and not at the render.
-   *
-   * `night` above is a label and may be minutes or hours old by the time anybody presses anything -
-   * a dialog opened at 03:50 for a 04:00 slot held about 600 seconds, and pressing it at 04:05 sent
-   * those same 600 seconds, which put the run at 04:15: after the backup it was supposed to stay
-   * out of the way of. The number that leaves this page is computed from the clock at the moment
-   * the operator commits to it.
-   */
-  const delayNow = () =>
-    Math.max(1, Math.round((tonight(schedule.data?.nextBackupAt).getTime() - Date.now()) / 1000))
-
-  const submit = (delaySeconds?: number) => {
+  const submit = () => {
     ask.mutate(
-      { kind, delaySeconds, services },
+      { kind, services },
       {
         onSuccess: (run) => {
-          toast.success(`${RUN_KIND[kind]} entered as run #${run.id}`, {
-            description: delaySeconds
-              ? `steward-worker picks the row up no earlier than ${dateTime(run.notBefore)}.`
-              : "steward-worker picks the row up on its next pass.",
-          })
+          toast.success(`${RUN_KIND[kind]} entered as run #${run.id}`)
         },
         onError: (error) => {
           toast.error(`${RUN_KIND[kind]} was not entered`, { description: String(error) })
@@ -548,73 +473,18 @@ export function AskButton({
           <ResponsiveAlertDialogDescription>{spec.what}</ResponsiveAlertDialogDescription>
         </ResponsiveAlertDialogHeader>
 
-        {/*
-          WHAT THIS DIALOG USED TO ALSO SAY, and what is still true (2026-09-14): the button only
-          writes a row into `update_request`; steward-worker picks it up once its moment has come
-          and runs a countdown every player sees before each stop. That is the mechanism explaining
-          itself to somebody who has already decided, so it is not on screen.
-
-          It also used to say there was no way back, which stopped being true on 2026-09-20
-          (steward/131): the row this writes carries a Cancel beside its status in the Runs card for
-          as long as `not_before` is still ahead - the countdown and the run entered for tonight
-          alike. Not named here either, for the same reason: it is next to the row, where it counts.
-        */}
-        <div className="flex flex-col gap-3 text-sm">
-          {/*
-            season-2-ops/127: said out loud, because a scoped run is the one thing on this page
-            that does less than its title suggests - and because the other half of the promise is
-            that it does everything else the same way.
-          */}
-          {scoped ? (
-            <p className="text-muted-foreground">
-              Only {services.join(", ")} - nothing else is stopped or touched. Everything else is
-              the usual procedure: the countdown, the wait in limbo, the health check and the same
-              report.
-            </p>
-          ) : null}
-          {spec.warning ? (
-            <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
-              <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-              {spec.warning}
-            </p>
-          ) : null}
-          <p className="text-muted-foreground">
-            "Tonight" means <span className="text-foreground tnum">{dateTime(night)}</span>
-            {schedule.data?.nextBackupAt ? (
-              <>
-                {" "}
-                - {MINUTES_BEFORE_BACKUP} minutes before the worker's own backup clock (
-                {schedule.data.backupAt} {schedule.data.zone}), so the two do not fight over the
-                same lock.
-              </>
-            ) : schedule.data === undefined ? (
-              // Not `isPending`: this is prose rather than a layout, and "nothing has answered"
-              // covers the failed read too - the sentence below claims the worker has no clock,
-              // which is a thing only an answer may say.
-              <> - the worker's backup clock is being read right now.</>
-            ) : (
-              <>
-                {" "}
-                - {NIGHT_HOUR}:00 in this browser's time zone. The worker has no nightly backup
-                entered (<code className="text-xs">backup.at</code> is empty), so there is no second
-                clock to avoid.
-              </>
-            )}
+        {spec.warning ? (
+          <p className="flex items-start gap-2 text-sm text-warning">
+            <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+            {spec.warning}
           </p>
-        </div>
+        ) : null}
 
         <ResponsiveAlertDialogFooter>
           <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
           <ResponsiveAlertDialogAction
-            variant="outline"
-            disabled={schedule.isPending}
-            onClick={() => submit(delayNow())}
-          >
-            Tonight
-          </ResponsiveAlertDialogAction>
-          <ResponsiveAlertDialogAction
             variant={kind === "RESTART" || kind === "DOWN" ? "destructive" : "default"}
-            onClick={() => submit()}
+            onClick={submit}
           >
             Now
           </ResponsiveAlertDialogAction>

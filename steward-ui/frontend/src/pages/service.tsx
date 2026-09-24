@@ -211,6 +211,19 @@ function ServiceActions({
   const HoldIcon = hold === "START" ? PlayIcon : PowerIcon
   const holdLabel = hold === "START" ? "Start" : "Take down"
 
+  // All three arrive together: until the row is here each one is a button-sized shape, hidden
+  // below sm exactly like the button it stands for.
+  if (service === undefined) {
+    return (
+      <div className="flex items-center gap-2" aria-hidden>
+        <Skeleton data-testid="action-skeleton" className="h-7 w-7 sm:w-[4.5rem]" />
+        <Skeleton data-testid="action-skeleton" className="h-7 w-[6.25rem] max-sm:hidden" />
+        {recreatable ? <Skeleton data-testid="action-skeleton" className="h-7 w-[5.5rem] max-sm:hidden" /> : null}
+        <Skeleton data-testid="action-skeleton" className="size-7 sm:hidden" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center gap-2">
       {/* season-2-ops/127: a run for this service alone, offered on every page - a run with

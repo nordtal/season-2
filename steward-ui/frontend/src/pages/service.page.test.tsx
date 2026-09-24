@@ -162,6 +162,28 @@ function wideScreen() {
   }))
 }
 
+describe("ServicePage - the actions arrive together", () => {
+  it("draws no action button until the service is known, and a skeleton in each place", async () => {
+    vi.stubGlobal("EventSource", SilentEventSource)
+    let answer: (response: Response) => void = () => {}
+    const pending = new Promise<Response>((resolve) => (answer = resolve))
+    const served = backend(row("smp", { hasPlugins: true }))
+    vi.stubGlobal("fetch", vi.fn((url: string) => (url.startsWith("/api/services/") ? pending : served(url))))
+    draw("/services/smp")
+
+    const slots = await screen.findAllByTestId("action-skeleton")
+    expect(slots.length).toBeGreaterThanOrEqual(3)
+    expect(screen.queryByRole("button", { name: "Update" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Recreate" })).toBeNull()
+
+    answer(json(200, row("smp", { hasPlugins: true })))
+    expect(await screen.findByRole("button", { name: "Update" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Take down" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Recreate" })).toBeTruthy()
+    expect(screen.queryAllByTestId("action-skeleton")).toHaveLength(0)
+  })
+})
+
 describe("ServicePage - leaving Settings on a wide screen", () => {
   it("opens Console from Settings, although Settings shows its first file by itself", async () => {
     wideScreen()

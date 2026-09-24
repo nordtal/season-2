@@ -57,6 +57,11 @@ const NO_WAITING_SHAPE = new Map<string, string>([
     "steward/120: every label comes from navigation.ts. The one fetched thing is the health dot," +
       " and HealthDot in components/steward/status.tsx draws its own skeleton for it.",
   ],
+  [
+    "components/steward/console.tsx",
+    "useConsole is a mutation. The log is a stream, not a query, and says" +
+      " \"Waiting for the log\" in its own window until the first line arrives.",
+  ],
   ["app/hold-key.tsx", "steward/120: useHoldKey is a mutation. Nothing here is read."],
   ["app/security-key.tsx", "steward/120: useRegisterKey is a mutation. Nothing here is read."],
   [

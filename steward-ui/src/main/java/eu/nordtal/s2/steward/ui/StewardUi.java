@@ -592,9 +592,6 @@ public final class StewardUi {
             cfg.routes.get("/api/services", ctx -> passThrough(ctx, "/api/services"), Gate.KEY_HELD);
             cfg.routes.get("/api/services/{name}", ctx ->
                     passThrough(ctx, "/api/services/" + ctx.pathParam("name")), Gate.KEY_HELD);
-            cfg.routes.get("/api/services/{name}/logs/search", ctx -> passThrough(ctx,
-                    "/api/services/" + ctx.pathParam("name") + "/logs/search"
-                            + forwardedQuery(ctx.queryString())), Gate.KEY_HELD);
             cfg.routes.post("/api/services/{name}/console", ctx -> {
                 final String answer = worker.post(
                         "/api/services/" + ctx.pathParam("name") + "/console", ctx.body());
@@ -2241,6 +2238,8 @@ public final class StewardUi {
                      new InputStreamReader(stream, StandardCharsets.UTF_8))) {
             upstream.hold(stream);
             String line;
+            String event = "line";
+            long checked = System.nanoTime() - SESSION_RECHECK_NANOS;
             while ((line = reader.readLine()) != null) {
                 // The tab is gone. Javalin does not throw on a terminated client - it logs "Cannot
                 // send data" and returns - so without this the proxy reads the worker's stream to
@@ -2252,17 +2251,31 @@ public final class StewardUi {
                 // AUTHORISATION IS NOT A THING THAT HAPPENED ONCE. The check at the top of the
                 // route is made when the connection opens; a follow outlives it by hours, and a
                 // logout or an expiry in between used to change nothing at all - the logs kept
-                // arriving in a tab whose session no longer existed. Re-read per line, which is as
-                // often as there is anything to withhold.
-                if (!stillSignedIn(client)) {
-                    client.sendEvent("gone", "this session ended - sign in again to keep watching");
-                    return;
+                // arriving in a tab whose session no longer existed. Re-read while lines flow, at
+                // most once a second: one round trip per line held a backlog of a thousand lines
+                // to 250 a second (measured 2026-09-24), and a logout that lands within a second
+                // still withholds everything after it.
+                final long now = System.nanoTime();
+                if (now - checked >= SESSION_RECHECK_NANOS) {
+                    if (!stillSignedIn(client)) {
+                        client.sendEvent("gone", "this session ended - sign in again to keep watching");
+                        return;
+                    }
+                    checked = now;
                 }
                 // The worker speaks SSE too, so this is re-emitting its events rather than
                 // inventing a second format. `data:` lines are the payload; everything else is
                 // framing that this end produces itself.
-                if (line.startsWith("data:")) {
-                    client.sendEvent("line", line.substring(5).stripLeading());
+                // The event name travels too: `run` is the grey line above an earlier run and
+                // `end` says nothing older is left. Only names this end knows are passed on;
+                // anything else is a line, as everything was before.
+                if (line.startsWith("event:")) {
+                    final String named = line.substring(6).strip();
+                    event = FORWARDED_EVENTS.contains(named) ? named : "line";
+                } else if (line.startsWith("data:")) {
+                    client.sendEvent(event, line.substring(5).stripLeading());
+                } else if (line.isEmpty()) {
+                    event = "line";
                 }
             }
         } catch (IOException | InternalClient.Failure e) {
@@ -2303,8 +2316,14 @@ public final class StewardUi {
         }
     }
 
-    /** A forwarded query string: {@code "?q=..."}, or nothing at all when there was none. */
-    private static String forwardedQuery(final String query) {
+    /** How often a running follow asks the database whether its session still exists. */
+    private static final long SESSION_RECHECK_NANOS = TimeUnit.SECONDS.toNanos(1);
+
+    /** The worker's log events the browser is handed under their own name. */
+    private static final java.util.Set<String> FORWARDED_EVENTS = java.util.Set.of("line", "run", "end");
+
+    /** A forwarded query string: {@code "?tail=..."}, or nothing at all when there was none. */
+    static String forwardedQuery(final String query) {
         // `"?" + null` is the string "?null", which the worker then parses as a parameter named
         // null - so a search with no parameters arrived as a search for something.
         return query == null || query.isBlank() ? "" : "?" + query;

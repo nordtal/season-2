@@ -1,26 +1,23 @@
 import {
-  ArrowClockwiseIcon,
   ArrowsClockwiseIcon,
   DotsThreeIcon,
   PlugIcon,
+  PlayIcon,
   PowerIcon,
   TerminalWindowIcon,
   WrenchIcon,
-  ArrowLineDownIcon,
-  CaretRightIcon,
-  MagnifyingGlassIcon,
-  PaperPlaneTiltIcon,
-  PauseIcon,
-  PlayIcon,
-  TrashIcon,
 } from "@phosphor-icons/react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { toast } from "sonner"
 
-import { LOCALE, bytes, clock, count, percent, since } from "@/lib/format"
-import { useConfigs, useConsole, useLogSearch, useMessageBundles, useService } from "@/lib/queries"
-import { useLogStream, LIMIT } from "@/lib/use-log-stream"
+import { bytes, percent, relative, since } from "@/lib/format"
+import {
+  useConfigs,
+  useMessageBundles,
+  useMetrics,
+  useService,
+} from "@/lib/queries"
+import { ServiceConsole } from "@/components/steward/console"
 import { ServiceConfiguration } from "@/components/steward/configuration"
 import { ServiceMessages } from "@/components/steward/messages"
 import { ServicePlugins } from "@/components/steward/plugins"
@@ -29,8 +26,9 @@ import { Stat } from "@/components/steward/stat"
 import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
 import { ServiceOnlineLine } from "@/components/steward/online"
 import { AskButton } from "@/pages/operations"
-import { DriftBadge, ServiceState, StatusBadge } from "@/components/steward/status"
-import { Empty, Failure, QueryState, Skeleton } from "@/components/steward/query-state"
+import { DriftBadge, ServiceState } from "@/components/steward/status"
+import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { Sparkline } from "@/components/steward/sparkline"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -38,9 +36,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 /** What `/services/$name` keeps in its URL (steward/140). Console is the default and never written. */
@@ -167,8 +162,12 @@ export function ServicePage() {
         <TabsContent value="console" className="flex flex-col gap-6">
           {/* The "unknown service" case is a 404 from the worker and arrives as a failure, which
               says the same thing with the name of the service in it. */}
-          <QueryState query={service}>{(data) => <ServiceHead service={data} />}</QueryState>
-          <LogPanel name={name} hasConsole={service.data?.hasConsole ?? false} />
+          <QueryState query={service}>{(data) => <ServiceHead service={data} name={name} />}</QueryState>
+          <ServiceConsole
+            name={name}
+            hasConsole={service.data?.hasConsole ?? false}
+            capacity={service.data?.logCapacity}
+          />
         </TabsContent>
 
         <TabsContent value="settings" className="flex flex-col gap-6">
@@ -280,355 +279,63 @@ function ServiceActions({
  */
 export function ServiceHead({
   service,
+  name,
 }: {
   /** Absent while `/api/services/{name}` is out. Every field below then draws its own shape. */
   service?: NonNullable<ReturnType<typeof useService>["data"]>
+  name: string
 }) {
+  // The same six hours the start page draws, per service since the sampler already writes one
+  // series per container.
+  const cpu = useMetrics(name, "cpu_percent", 6)
+  const memory = useMetrics(name, "memory_bytes", 6)
   return (
-    <Card>
-      <CardContent className="flex flex-wrap items-start gap-x-6 gap-y-4">
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-medium font-heading text-muted-foreground">
-            State
-          </span>
-          <div className="flex items-center gap-2">
-            {/* The hold is part of the state badge since steward/134, rather than a second badge
-                beside it: a service put down on purpose is not "exited" in red plus an explanation,
-                it is one reading, and it is now the same reading the sidebar and the network view
-                draw for it. Since and by moved into that badge's title with it. */}
-            {service ? (
-              <ServiceState state={service.state} health={service.health} hold={service.hold} />
-            ) : (
-              <Skeleton className="h-5 w-20 rounded-full" />
-            )}
-            {service ? <DriftBadge drift={service.drift} image={service.image} digests={service.digests} /> : null}
-          </div>
-        <Stat
-          label="Uptime"
-          value={service ? (service.startedAt ? since(service.startedAt) : "–") : undefined}
-        />
+    <section className="grid grid-cols-2 gap-x-4 gap-y-5 lg:flex lg:items-start lg:gap-x-10">
+      <div className="col-span-2 flex flex-col gap-2">
+        <span className="text-xs font-medium font-heading text-muted-foreground">State</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The hold is part of the state badge, rather than a second badge
+              beside it: a service put down on purpose is not "exited" in red plus an explanation,
+              it is one reading, and it is now the same reading the sidebar and the network view
+              draw for it. Since and by moved into that badge's title with it. */}
+          {service ? (
+            <ServiceState state={service.state} health={service.health} hold={service.hold} />
+          ) : (
+            <Skeleton className="h-5 w-20 rounded-full" />
+          )}
+          {service ? <DriftBadge drift={service.drift} image={service.image} /> : null}
         </div>
-
-
-        <Separator orientation="vertical" className="hidden h-auto sm:block" />
-        <Stat
-          label="RAM"
-          value={service ? bytes(service.memoryBytes) : undefined}
-          hint="share of the host - no limit"
-        />
+        <span className="text-2xl font-semibold tabular-nums">
+          {service ? (
+            service.startedAt ? since(service.startedAt) : "–"
+          ) : (
+            <SkeletonText width="short" className="h-[1lh]" />
+          )}
+        </span>
+      </div>
+      <div className="flex min-w-0 flex-col gap-1.5 lg:w-40">
         <Stat label="CPU" value={service ? percent(service.cpuPercent) : undefined} />
-        {/*
-          steward/86, Till on 2026-09-18: the start page had the numbers and this page did not.
-          Only the four services that carry one get the field at all - `players === undefined` means
-          nobody has said, and a `0` in its place would be a claim the row does not make.
-        */}
-        {/* Not drawn while waiting either, and that is the lesser of two jumps: six of the ten
-            services never carry a count, so a Players field on every page would arrive and then
-            leave again on most of them. */}
-        {service?.players === undefined ? null : (
-          <Stat label="Players" value={count(service.players)} />
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-// --- the log window -----------------------------------------------------------------------------
-
-/**
- * Two searches, and the difference between them is the whole point of the switch.
- *
- * *Window* filters what this browser already holds - instant, and blind to anything that scrolled
- * past before the page was opened. *History* asks steward-worker to grep what Docker still has on
- * disk: up to 50 MB per container, measured on this host, and **nothing older**, because nothing
- * older exists anywhere. Recreating the container starts that buffer again.
- */
-function LogPanel({ name, hasConsole }: { name: string; hasConsole: boolean }) {
-  const stream = useLogStream(name)
-  const [filter, setFilter] = useState("")
-  const [follow, setFollow] = useState(true)
-  const search = useLogSearch(name)
-  const [pattern, setPattern] = useState("")
-
-  const shown = useMemo(() => {
-    if (!filter.trim()) return stream.lines
-    const needle = filter.toLowerCase()
-    return stream.lines.filter((line) => line.text.toLowerCase().includes(needle))
-  }, [stream.lines, filter])
-
-  // The window scrolls itself, rather than a sentinel element asking the page to scroll it into
-  // view. `scrollIntoView` walks up every scrolling ancestor, and the shell's scroll area is one of
-  // them - so on a phone, where the log's own box is most of the screen, opening a service scrolled
-  // the page down past its own heading and the Recreate button, every time a line arrived.
-  const box = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!follow || stream.paused) return
-    const pane = box.current
-    if (pane) pane.scrollTop = pane.scrollHeight
-  }, [shown.length, follow, stream.paused])
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Log</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <Tabs defaultValue="window">
-          <div className="flex flex-wrap items-center gap-2">
-            <TabsList>
-              <TabsTrigger value="window">Window</TabsTrigger>
-              <TabsTrigger value="history">History</TabsTrigger>
-            </TabsList>
-
-            {/*
-              Three switches and a state, and on a phone there is room for the symbols only - so the
-              words are hidden rather than the buttons, and every one carries its name for anything
-              that is not a pair of eyes. "Free" was the old label for the second one and nobody
-              knew what it meant; not following is "Manual".
-            */}
-            <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-              <StreamState stream={stream} />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => stream.setPaused(!stream.paused)}
-                aria-label={stream.paused ? "Resume the stream" : "Pause the stream"}
-                title={stream.paused ? "Resume the stream" : "Pause the stream"}
-              >
-                {stream.paused ? <PlayIcon aria-hidden /> : <PauseIcon aria-hidden />}
-                <span className="max-sm:hidden">{stream.paused ? "Resume" : "Pause"}</span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setFollow((value) => !value)}
-                aria-pressed={follow}
-                aria-label={follow ? "Following the newest line" : "Scrolling by hand"}
-                title={follow ? "Following the newest line" : "Scrolling by hand"}
-              >
-                <ArrowLineDownIcon aria-hidden />
-                <span className="max-sm:hidden">{follow ? "Following" : "Manual"}</span>
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={stream.clear}
-                aria-label="Clear the window"
-                title="Clear the window"
-              >
-                <TrashIcon aria-hidden />
-                <span className="max-sm:hidden">Clear</span>
-              </Button>
-            </div>
-          </div>
-
-          <TabsContent value="window" className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <Input
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                placeholder="Filter the window…"
-                aria-label="Filter the window"
-              />
-              <span className="shrink-0 text-xs text-muted-foreground tnum">
-                {shown.length} / {stream.lines.length}
-              </span>
-            </div>
-            <LogWindow lines={shown} box={box} />
-            <p className="text-xs text-muted-foreground">
-              The window holds {LIMIT.toLocaleString(LOCALE)} lines.
-              {stream.dropped > 0
-                ? ` ${stream.dropped.toLocaleString(LOCALE)} older ones have dropped out.`
-                : ""}
-            </p>
-          </TabsContent>
-
-          <TabsContent value="history" className="flex flex-col gap-3">
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (pattern.trim()) search.mutate(pattern.trim())
-              }}
-            >
-              <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <Input
-                value={pattern}
-                onChange={(event) => setPattern(event.target.value)}
-                placeholder="Search what Docker has in stock…"
-                aria-label="Search the history"
-              />
-              <Button type="submit" size="sm" disabled={!pattern.trim() || search.isPending}>
-                {search.isPending ? "Searching…" : "Search"}
-              </Button>
-            </form>
-
-            {search.error ? (
-              <Failure error={search.error} />
-            ) : search.data === undefined ? (
-              <Empty
-                title="Not searched yet"
-                note="This search reads what Docker has on the disk - it takes a moment and loads the daemon, which is why it only runs on a button press."
-              />
-            ) : search.data.lines.length === 0 ? (
-              <Empty title="Nothing found" note={`"${pattern}" does not appear in the store.`} />
-            ) : (
-              <>
-                <LogWindow lines={search.data.lines.map((text, index) => ({ seq: index, text, at: 0 }))} />
-                {search.data.truncated ? (
-                  <p className="text-xs text-warning">
-                    Cut off at {search.data.limit} hits - there are more.
-                  </p>
-                ) : null}
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
-
-        {hasConsole ? <ConsoleLine name={name} /> : null}
-      </CardContent>
-    </Card>
-  )
-}
-
-function StreamState({ stream }: { stream: ReturnType<typeof useLogStream> }) {
-  if (stream.state === "open") {
-    return (
-      <StatusBadge tone="ok" tipContent="The log stream is up.">
-        connected
-      </StatusBadge>
-    )
-  }
-  if (stream.state === "connecting") {
-    return <StatusBadge tone="idle">connecting…</StatusBadge>
-  }
-  return (
-    <span className="flex items-center gap-2">
-      <StatusBadge tone="down" tipContent={stream.error ?? undefined}>
-        disconnected
-      </StatusBadge>
-      <Button type="button" variant="outline" size="sm" onClick={stream.reconnect}>
-        <ArrowClockwiseIcon aria-hidden />
-        Reconnect
-      </Button>
-    </span>
-  )
-}
-
-/**
- * The window itself.
- *
- * Not a table and not a virtualised list: 5 000 monospaced lines is what a browser draws without
- * help, and a virtualiser here would be a dependency and a scroll-position bug in exchange for
- * nothing measurable.
- */
-function LogWindow({
-  lines,
-  box,
-}: {
-  lines: Array<{ seq: number; text: string; at: number }>
-  box?: React.RefObject<HTMLDivElement | null>
-}) {
-  if (lines.length === 0) {
-    return (
-      <div className="flex h-72 items-center justify-center rounded-md border border-border bg-[#0a0a0a] text-sm text-muted-foreground sm:h-96">
-        No lines yet.
+        <Sparkline points={cpu.data?.points} />
       </div>
-    )
-  }
-  return (
-    <div
-      ref={box}
-      className="h-72 overflow-auto rounded-md border border-border bg-[#0a0a0a] p-2 font-mono text-[0.6875rem] leading-5 sm:h-96 sm:p-3 sm:text-xs"
-    >
-      {lines.map((line) => (
-        <div key={line.seq} className="flex gap-3 whitespace-pre-wrap">
-          {line.at ? (
-            <span className="shrink-0 text-muted-foreground select-none">{clock(new Date(line.at))}</span>
-          ) : null}
-          <span className="min-w-0 break-all">{line.text}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// --- the console, which is the bottom edge of the log ------------------------------------------
-
-/**
- * One line into the server console, directly under the window its answer comes back in.
- *
- * The up arrow does what a shell's does. The history is not persisted, deliberately: a command
- * history that survives a reload is a command history the next person at this browser can read.
- */
-function ConsoleLine({ name }: { name: string }) {
-  const send = useConsole(name)
-  const [command, setCommand] = useState("")
-  const [history, setHistory] = useState<string[]>([])
-  const [cursor, setCursor] = useState(-1)
-
-  return (
-    <form
-      id="console"
-      className="flex flex-col gap-1.5 border-t border-border pt-3"
-      onSubmit={(event) => {
-        event.preventDefault()
-        const line = command.trim()
-        if (!line) return
-        send.mutate(line, {
-          onSuccess: () => {
-            toast.success(`"${line}" sent`, { description: "The answer appears in the window above." })
-            setHistory((previous) => [line, ...previous].slice(0, 20))
-            setCursor(-1)
-            setCommand("")
-          },
-          onError: (error) => {
-            toast.error("The line was not sent", { description: String(error) })
-          },
-        })
-      }}
-    >
-      <div className="flex items-center gap-2">
-        <CaretRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <Input
-          id="console-command"
-          value={command}
-          onChange={(event) => setCommand(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowUp" && history.length > 0) {
-              event.preventDefault()
-              const next = Math.min(cursor + 1, history.length - 1)
-              setCursor(next)
-              setCommand(history[next])
-            } else if (event.key === "ArrowDown" && cursor >= 0) {
-              event.preventDefault()
-              const next = cursor - 1
-              setCursor(next)
-              setCommand(next < 0 ? "" : history[next])
-            }
-          }}
-          placeholder="e.g. list"
-          aria-label="Send a line to the server console"
-          className="font-mono"
-          autoComplete="off"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
+      <div className="flex min-w-0 flex-col gap-1.5 lg:w-40">
+        <Stat label="RAM" value={service ? bytes(service.memoryBytes) : undefined} />
+        <Sparkline points={memory.data?.points} />
+      </div>
+      {/* Only the four services with a volume here have a number; the rest get no field, because
+          0 bytes would be a claim. A measurement older than two minutes says how old it is. */}
+      {service?.diskBytes === undefined ? null : (
+        <Stat
+          label="Disk"
+          value={bytes(service.diskBytes)}
+          hint={diskAge(service.diskMeasuredAt)}
         />
-        <Button
-          type="submit"
-          size="icon"
-          disabled={!command.trim() || send.isPending}
-          aria-label="Send"
-          title="Send"
-        >
-          <PaperPlaneTiltIcon aria-hidden />
-        </Button>
-      </div>
-    </form>
+      )}
+    </section>
   )
+}
+
+function diskAge(measuredAt: string | undefined, now = Date.now()): string | undefined {
+  if (!measuredAt) return undefined
+  const at = new Date(measuredAt).getTime()
+  return Number.isFinite(at) && now - at > 2 * 60 * 1000 ? relative(measuredAt, now) : undefined
 }

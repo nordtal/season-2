@@ -1,24 +1,17 @@
 import type React from "react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ServiceHead } from "@/pages/service"
 
-/**
- * steward/86, Till's review on 2026-09-18: the start page shows every player count correctly, and
- * the page of each Minecraft service shows none.
- *
- * The rule the start page already follows holds here too: **absent is not zero.** Only four
- * services carry a count at all, and one of those four carries none while proxy has not
- * written recently enough for the worker to trust the row - printing `0` there would turn "nobody
- * has said" into "nobody is on".
- */
 const service = (over: Record<string, unknown> = {}) =>
   ({
     service: "smp",
     containerId: "abc123",
     image: "ghcr.io/nordtal/minecraft:latest",
+    digests: ["ghcr.io/nordtal/minecraft@sha256:b0d5cefd9e4a"],
     state: "running",
     status: "Up 3 hours (healthy)",
     hasConsole: true,
@@ -27,32 +20,66 @@ const service = (over: Record<string, unknown> = {}) =>
     ...over,
   }) as never
 
-/** The head draws tooltips, and Radix wants its provider above them. */
+/** The head draws tooltips and reads two metric series. */
 function draw(node: React.ReactNode) {
-  return render(<TooltipProvider>{node}</TooltipProvider>)
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <TooltipProvider>{node}</TooltipProvider>
+    </QueryClientProvider>,
+  )
 }
 
-afterEach(cleanup)
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(JSON.stringify({ points: [] }), { status: 200 })),
+  )
+})
 
-describe("ServiceHead - the player count on a Minecraft service's own page (steward/86)", () => {
-  it("shows the count the row carries", () => {
-    draw(<ServiceHead service={service({ players: 3 })} />)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
-    expect(screen.queryByText("Players")).not.toBeNull()
-    expect(screen.queryByText("3")).not.toBeNull()
+/**
+ * One flat row - State with the uptime under it, CPU, RAM, Disk. The image line, its
+ * digest, the Console badge, Docker's own status sentence and the RAM hint are gone; the player count
+ * moved into the online line under the page heading.
+ */
+describe("ServiceHead - the number row", () => {
+  it("draws State, CPU and RAM and nothing of what was dropped", () => {
+    draw(<ServiceHead name="smp" service={service({ players: 3, cpuPercent: 12, memoryBytes: 2.9e9 })} />)
+
+    for (const label of ["State", "CPU", "RAM"]) expect(screen.queryByText(label)).not.toBeNull()
+    for (const gone of ["Players", "Image", "Console", "Uptime", "Up 3 hours (healthy)"]) {
+      expect(screen.queryByText(gone)).toBeNull()
+    }
+    expect(screen.queryByText(/ghcr\.io/)).toBeNull()
+    expect(screen.queryByText(/share of the host/)).toBeNull()
   })
 
-  it("shows the field at all when the count is a real zero", () => {
-    draw(<ServiceHead service={service({ players: 0 })} />)
+  it("draws Disk when the worker measured one, and says how old an old one is", () => {
+    const old = new Date(Date.now() - 4 * 60 * 1000).toISOString()
+    draw(<ServiceHead name="smp" service={service({ diskBytes: 564e6, diskMeasuredAt: old })} />)
 
-    expect(screen.queryByText("Players")).not.toBeNull()
-    expect(screen.queryByText("0")).not.toBeNull()
+    expect(screen.queryByText("Disk")).not.toBeNull()
+    expect(screen.queryByText(/^564(\.0)? MB$/)).not.toBeNull()
+    expect(screen.queryByText(/4 min/)).not.toBeNull()
   })
 
-  it("leaves the field out entirely for a service that carries no count", () => {
-    draw(<ServiceHead service={service()} />)
+  it("says nothing about the age of a fresh measurement", () => {
+    const fresh = new Date(Date.now() - 30 * 1000).toISOString()
+    draw(<ServiceHead name="smp" service={service({ diskBytes: 564e6, diskMeasuredAt: fresh })} />)
 
-    expect(screen.queryByText("Players")).toBeNull()
+    expect(screen.queryByText(/^564(\.0)? MB$/)).not.toBeNull()
+    expect(screen.queryByText(/ago/)).toBeNull()
+  })
+
+  it("leaves Disk out for a service without a volume, rather than showing zero", () => {
+    draw(<ServiceHead name="postgres" service={service({ service: "postgres" })} />)
+
+    expect(screen.queryByText("Disk")).toBeNull()
   })
 })
 
@@ -66,6 +93,7 @@ describe("ServiceHead - a service somebody is holding down (season-2-ops/125)", 
   it("says so when the row carries a hold", () => {
     draw(
       <ServiceHead
+        name="smp"
         service={service({
           state: "exited",
           status: "Exited (143) 4 minutes ago",
@@ -81,7 +109,7 @@ describe("ServiceHead - a service somebody is holding down (season-2-ops/125)", 
   })
 
   it("says nothing of the sort about a service that merely stopped", () => {
-    draw(<ServiceHead service={service({ state: "exited", status: "Exited (1) 4 minutes ago" })} />)
+    draw(<ServiceHead name="smp" service={service({ state: "exited", status: "Exited (1) 4 minutes ago" })} />)
 
     expect(screen.queryByText("held down")).toBeNull()
     expect(screen.queryByText("exited")).not.toBeNull()

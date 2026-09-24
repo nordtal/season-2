@@ -135,8 +135,8 @@ class HeartbeatLeavesTheTimerTest {
         assertTrue(from > 0, "the log follow route is gone or its path changed. If it moved, this"
                 + " test moves with it - a check that cannot find its subject stops running and"
                 + " says nothing about it");
-        final int to = source.indexOf("config.routes.get(\"/api/services/{name}/logs/search\"");
-        assertTrue(to > from, "the log search route is gone or has moved above the follow; this"
+        final int to = source.indexOf("config.routes.post(\"/api/services/{name}/console\"");
+        assertTrue(to > from, "the console route is gone or has moved above the follow; this"
                 + " test brackets the follow route and needs both ends");
         return source.substring(from, to);
     }

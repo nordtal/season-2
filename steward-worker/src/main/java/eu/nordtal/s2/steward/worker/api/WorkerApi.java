@@ -172,6 +172,9 @@ public final class WorkerApi implements AutoCloseable {
      * rather than implying it was made just now.</p>
      */
     private static final Duration DRIFT_TTL = Duration.ofMinutes(1);
+    /** The console's steps are 1000, 5000 and 10000 lines; counting past the top one buys nothing. */
+    static final int LOG_CAPACITY_MAX = 10_000;
+    private static final Duration LOG_CAPACITY_TTL = Duration.ofMinutes(5);
 
     /**
      * One comparison and the moment it was made, as one value.
@@ -242,6 +245,12 @@ public final class WorkerApi implements AutoCloseable {
     private final ConfigApi configs;
     private final MessagesApi messages;
     private final ActionsApi actions;
+    /** The Disk field of one service's page; never part of the service table. */
+    private final DiskUsage disk;
+    /** The runs before the container, out of the server's own rotated logs. */
+    private final LogArchive archive;
+    /** How many lines the console can fill per service, Docker plus archive, capped at the top step. */
+    private final Map<String, Refreshed<Integer>> logCapacity = new ConcurrentHashMap<>();
 
     /**
      * The player counts, or {@code null} on a deployment that has no database to read them from.
@@ -406,6 +415,11 @@ public final class WorkerApi implements AutoCloseable {
         // The unified "latest actions" feed (steward/82) - see ActionsApi's own javadoc for why one
         // query over two tables and not a merge on the frontend's side.
         this.actions = new ActionsApi(updates, audit);
+        // Its own virtual thread per refresh, not driftRefresh: a du queued behind a registry
+        // comparison over the internet would age the number for no reason of its own.
+        this.disk = new DiskUsage(volumesRoot,
+                runnable -> Thread.ofVirtual().name("disk-usage").start(runnable));
+        this.archive = new LogArchive(volumesRoot);
         // Here rather than at the field, because it reads `ops`, which is a constructor argument.
         this.drift = new Refreshed<>(() -> new Drift(ops.images(), Instant.now()), DRIFT_TTL,
                 driftRefresh, Instant::now);
@@ -491,6 +505,7 @@ public final class WorkerApi implements AutoCloseable {
                 try {
                 followers.submit(() -> {
                     try {
+                        backlog(client, containerId, name, tail, multiplexed);
                         LogFrames.read(stream.body(), multiplexed, line -> {
                             // Asking before writing, rather than letting the write fail. Javalin
                             // does not throw on a terminated client - it logs "Cannot send data"
@@ -517,34 +532,6 @@ public final class WorkerApi implements AutoCloseable {
                     heartbeat.cancel(false);
                     goneOnShutdown(client, stream, name);
                 }
-            });
-
-            // The second half of §10a's log search: what the browser has is filtered in the
-            // browser, and this searches what Docker still holds - up to 50 MB per container,
-            // measured on this host, and nothing older, because nothing older exists anywhere.
-            config.routes.get("/api/services/{name}/logs/search", ctx -> {
-                final String name = ctx.pathParam("name");
-                final String pattern = ctx.queryParam("q");
-                if (pattern == null || pattern.isBlank()) {
-                    throw new BadRequestResponse("q is what to search for");
-                }
-                final String containerId = containerOf(name).orElseThrow(
-                        () -> new NotFoundResponse("no running container for " + name));
-                final boolean multiplexed = !docker.inspect(containerId).tty();
-                final String since = ctx.queryParam("since");
-                final int limit = ctx.queryParamAsClass("limit", Integer.class).getOrDefault(500);
-                if (limit <= 0) {
-                    throw new BadRequestResponse("limit is how many matching lines to return at"
-                            + " most, so it is at least 1; " + limit + " returns nothing and calls"
-                            + " it a search that found nothing");
-                }
-
-                final Search search = new Search(pattern, limit);
-                try (DockerSocket.Stream stream = docker.logs(containerId, false, "all", since)) {
-                    LogFrames.read(stream.body(), multiplexed, search);
-                }
-                ctx.json(Map.of("lines", search.lines(), "limit", limit,
-                        "truncated", search.truncated()));
             });
 
             // One line into one server's console. The answer is NOT in the response: `mc` hands the
@@ -940,8 +927,14 @@ public final class WorkerApi implements AutoCloseable {
                     final Map<String, Object> row = describe(container, drift, online(), holds);
                     row.put("digests", docker.repoDigests(container.imageId()));
                     row.put("hasPlugins", Topology.hasPlugins(name));
-                    row.put("logLimit", "docker keeps up to 50 MB per container (5 x 10 MB) and "
-                            + "nothing older; recreating the container starts that again");
+                    disk.of(name).ifPresent(measured -> {
+                        row.put("diskBytes", measured.bytes().getAsLong());
+                        row.put("diskMeasuredAt", measured.at().toString());
+                    });
+                    row.put("logCapacity", logCapacity.computeIfAbsent(name, key -> new Refreshed<>(
+                            () -> capacity(key), LOG_CAPACITY_TTL,
+                            runnable -> Thread.ofVirtual().name("log-capacity").start(runnable),
+                            Instant::now)).get());
                     return row;
                 });
     }
@@ -1164,6 +1157,72 @@ public final class WorkerApi implements AutoCloseable {
         }
     }
 
+    /**
+     * What the console shows below the live lines when Docker alone cannot fill the window
+     *: the earlier runs out of the volume, oldest first so that the browser's
+     * arrival order stays the log's order, and an {@code end} event first of all when nothing older
+     * is left anywhere. The follow that comes after starts with the same {@code tail}, so the two
+     * meet where Docker's own log begins.
+     */
+    private void backlog(final SseClient client, final String containerId, final String name,
+                         final String tail, final boolean multiplexed) {
+        final int wanted;
+        try {
+            wanted = Integer.parseInt(tail);
+        } catch (NumberFormatException all) {
+            return;
+        }
+        final List<String> docker = this.docker.recentLines(containerId, wanted, multiplexed);
+        if (docker.size() >= wanted) {
+            return;
+        }
+        final LogArchive.Backlog earlier = archive.before(name, oldest(docker),
+                wanted - docker.size());
+        if (earlier.exhausted()) {
+            client.sendEvent("end", "Nothing older.");
+        }
+        for (final LogArchive.Run run : earlier.runs()) {
+            client.sendEvent("run", run.label());
+            for (final String line : run.lines()) {
+                if (client.terminated()) {
+                    throw new Gone();
+                }
+                client.sendEvent("line", line);
+            }
+        }
+    }
+
+    /** The timestamp Docker put in front of the first line, or now when there is none. */
+    static Instant oldest(final List<String> dockerLines) {
+        if (!dockerLines.isEmpty()) {
+            final String first = dockerLines.getFirst();
+            final int space = first.indexOf(' ');
+            if (space > 0) {
+                try {
+                    return Instant.parse(first.substring(0, space));
+                } catch (java.time.format.DateTimeParseException notStamped) {
+                    // falls through to now
+                }
+            }
+        }
+        return Instant.now();
+    }
+
+    /** Lines the console can offer: Docker's, then the archive's, up to the highest step. */
+    private int capacity(final String service) {
+        final String containerId = containerOf(service).orElse(null);
+        if (containerId == null) {
+            return 0;
+        }
+        final boolean multiplexed = !docker.inspect(containerId).tty();
+        final List<String> lines = docker.recentLines(containerId, LOG_CAPACITY_MAX, multiplexed);
+        if (lines.size() >= LOG_CAPACITY_MAX) {
+            return LOG_CAPACITY_MAX;
+        }
+        return lines.size() + archive.before(service, oldest(lines),
+                LOG_CAPACITY_MAX - lines.size()).lineCount();
+    }
+
     private Optional<String> containerOf(final String service) {
         return docker.containers(project).stream()
                 .filter(container -> service.equals(container.service()) && container.isRunning())
@@ -1292,53 +1351,6 @@ public final class WorkerApi implements AutoCloseable {
     /** The body of a console POST. */
     private static final class ConsoleLine {
         private String command;
-    }
-
-    /**
-     * One log search: the matching lines up to the limit, and whether the limit hid any.
-     *
-     * <p><b>Exactly the limit is not truncation, and saying it is costs the reader the search.</b>
-     * The rule used to be {@code found.size() >= limit}: a search for a word that appears five
-     * times, asked for five lines, answered all five and then said it had stopped early. The
-     * honest reading of that is "there is more, narrow it down" - so an admin looking for the
-     * stack trace that matters narrows a search that was already complete, and the line they were
-     * looking for is now excluded by the term they added. This counts every match and only calls
-     * the answer truncated when one of them was left out.</p>
-     *
-     * <p>Counting past the limit is free here: the stream is read to the end either way, because
-     * the frames come from one socket that has to be drained before it can be closed.</p>
-     */
-    static final class Search implements java.util.function.Consumer<String> {
-
-        private final String needle;
-        private final int limit;
-        private final List<String> lines = new ArrayList<>();
-        private int matched;
-
-        Search(final String pattern, final int limit) {
-            this.needle = pattern.toLowerCase(java.util.Locale.ROOT);
-            this.limit = limit;
-        }
-
-        @Override
-        public void accept(final String line) {
-            if (!line.toLowerCase(java.util.Locale.ROOT).contains(needle)) {
-                return;
-            }
-            matched++;
-            if (lines.size() < limit) {
-                lines.add(line);
-            }
-        }
-
-        List<String> lines() {
-            return List.copyOf(lines);
-        }
-
-        /** True only when a matching line was left out, never merely because the list is full. */
-        boolean truncated() {
-            return matched > limit;
-        }
     }
 
     /**

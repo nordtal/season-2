@@ -200,9 +200,9 @@ class ConfigFilesReadTest {
         final ConfigDocument document = ConfigFiles.read(fixture);
 
         assertEquals("Port", entry(document, "port").label());
-        assertEquals("Public url", entry(document, "public-url").label());
+        assertEquals("Public URL", entry(document, "public-url").label());
         assertEquals("Stop services", entry(document, "stop-services").label());
-        assertEquals("Base url", entry(document, "worker.base-url").label());
+        assertEquals("Base URL", entry(document, "worker.base-url").label());
         assertEquals("Max retries", entry(document, "worker.limits.max-retries").label());
         assertEquals("Stop services", Labels.of("stop_services"));
         assertEquals("Session days", Labels.of("session-days"));

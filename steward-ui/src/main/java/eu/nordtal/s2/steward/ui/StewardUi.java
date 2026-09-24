@@ -856,13 +856,6 @@ public final class StewardUi {
                     ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"),
                             ctx.body()), Gate.KEY_FRESH);
 
-            // Applying what the save above wrote (season-2-community/09). KEY_FRESH like the save,
-            // because it is the second half of the same act and a gate that let the apply through
-            // on a key the save was refused for would be a gate with a hole beside it.
-            cfg.routes.post("/api/messages-reload/<bundle>",
-                    ctx -> forwardWorker(ctx, workerPath("/api/messages-reload", ctx, "bundle"),
-                            "", 200), Gate.KEY_FRESH);
-
             // The names behind the ids, so the editor above can offer a list instead of a field.
             // Never a failure: an unreachable Discord is `available: false` and a typed id.
             cfg.routes.get("/api/discord/roles", guild::roles, Gate.KEY_HELD);

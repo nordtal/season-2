@@ -1061,10 +1061,7 @@ export type MessageBundle = MessageBundleLocation & {
 export type MessageSaveResult = MessageBundle & {
   warnings: string[]
   /**
-   * What became of asking the bot to re-read what was just saved (season-2-community/09).
-   *
-   * Absent when the save was not followed by a reload at all - a bundle that is mounted read-only
-   * never gets that far. `unknown` is the keys the override file declares that the bundle has never
+   * What became of asking the owning service to re-read what was just saved. `unknown` is the keys the override file declares that the bundle has never
    * heard of; a typo there does nothing at all and says nothing at all, which is the only way a
    * message can be edited and still not change.
    */
@@ -1079,17 +1076,18 @@ export type MessageSaveResult = MessageBundle & {
  * `announceSave` already knows how to draw them. `NO_ANSWER` covers both a bot that never answered
  * and a bot that answered it could not re-read the file - both mean the row was written and the
  * text is not in force, and the `message` says which. `RESTART_REQUIRED` means nothing was asked of
- * anybody, which is what a bundle belonging to a Minecraft service gets: those are re-read through
- * `ConfigApi`'s own console table, and this route deliberately holds no second copy of it.
+ * anybody. A Minecraft service is asked through its console, the bot through its inbox.
  */
 export type BundleReloadOutcome = ConfigReloadOutcome & {
   unknown: string[]
 }
 
-/** What a PUT to `/api/messages/<path>` sends. `null` resets that key rather than filling it. */
+/**
+ * What a PUT to `/api/messages/<path>` sends: both languages of a key in one call. `null` resets
+ * that language of that key rather than filling it.
+ */
 export type MessageChanges = {
-  language: "en" | "de"
-  changes: Record<string, string | null>
+  changes: Record<string, { en?: string | null; de?: string | null }>
 }
 
 /**

@@ -46,12 +46,9 @@ public final class MessagesApi {
     private static final Logger log = LoggerFactory.getLogger(MessagesApi.class);
 
     /**
-     * The one bundle that can be re-read without restarting anything (season-2-community/09).
-     *
-     * <p>Not a table, and deliberately not the start of one. {@code ConfigApi} maps a file to a
-     * console command and sends it through tmux; that is the right mechanism for a Minecraft server
-     * and it stays where it is. The bot has no console - it is not a Minecraft server - so its
-     * reload rides the inbox it already listens on.</p>
+     * The one bundle whose reload does not go through a console: the bot is not a Minecraft server,
+     * so it is asked through the inbox it already listens on. Every other bundle is in
+     * {@code ConfigApi}'s table.
      */
     private static final String RELOADABLE_SERVICE = "discord-bot";
 
@@ -83,21 +80,26 @@ public final class MessagesApi {
     private final Path configsRoot;
     private final Path volumesRoot;
     private final AccessRequests inbox;
+    private final ConfigApi.ConsoleLine console;
 
     public MessagesApi(final @NotNull Path configsRoot, final @Nullable Path volumesRoot) {
-        this(configsRoot, volumesRoot, null);
+        this(configsRoot, volumesRoot, null, (service, command) -> {
+            throw new IllegalArgumentException(service + " has no console here");
+        });
     }
 
     /**
      * @param inbox the access inbox the bot listens on, or {@code null} in a deployment with no
      *              database - {@link #reload} then answers that a restart is needed, which is what
      *              is actually true there
+     * @param console the Minecraft services' consoles, which a saved bundle's reload goes through
      */
     public MessagesApi(final @NotNull Path configsRoot, final @Nullable Path volumesRoot,
-                       final @Nullable AccessRequests inbox) {
+                       final @Nullable AccessRequests inbox, final @NotNull ConfigApi.ConsoleLine console) {
         this.configsRoot = configsRoot;
         this.volumesRoot = volumesRoot;
         this.inbox = inbox;
+        this.console = console;
     }
 
     /** {@code GET /api/messages} - every bundle found, without opening a single jar. */
@@ -118,9 +120,9 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code PUT /api/messages/<bundle>} - apply changes to one language's override file.
+     * {@code PUT /api/messages/<bundle>} - apply changes to both languages' override files at once.
      *
-     * <p>The body is {@code {"language": "en"|"de", "changes": {"key": "new text", "other": null}}}.
+     * <p>The body is {@code {"changes": {"key": {"en": "new text", "de": null}}}}.
      * A {@code null} value resets that key - it is removed from the override rather than filled with
      * the packaged text, so the line goes back to following the jar (steward/48).</p>
      *
@@ -138,9 +140,7 @@ public final class MessagesApi {
             throw new ForbiddenResponse(identityOf(location) + " is mounted read-only in this"
                     + " container, so this interface cannot save a change to it.");
         }
-        final JsonObject body = bodyOf(ctx.body());
-        final String language = languageOf(body);
-        final Map<String, String> changes = changesOf(body);
+        final Map<String, Map<String, String>> byLanguage = changesOf(bodyOf(ctx.body()));
 
         final MessageBundle before;
         try {
@@ -150,11 +150,16 @@ public final class MessagesApi {
             throw new InternalServerErrorResponse(identityOf(location) + " could not be read: "
                     + e.getMessage());
         }
-        refuseUnknownPlaceholders(before, changes);
-        final List<String> warnings = warningsOf(before, language, changes);
+        final List<String> warnings = new ArrayList<>();
+        for (final Map<String, String> changes : byLanguage.values()) {
+            refuseUnknownPlaceholders(before, changes);
+        }
+        byLanguage.forEach((language, changes) -> warnings.addAll(warningsOf(before, language, changes)));
 
         try {
-            MessageBundles.write(location, language, changes);
+            for (final Map.Entry<String, Map<String, String>> language : byLanguage.entrySet()) {
+                MessageBundles.write(location, language.getKey(), language.getValue());
+            }
         } catch (final IllegalArgumentException e) {
             throw new BadRequestResponse(e.getMessage());
         } catch (final IOException e) {
@@ -166,6 +171,7 @@ public final class MessagesApi {
         try {
             final Map<String, Object> answer = document(location, MessageBundles.read(location));
             answer.put("warnings", warnings);
+            answer.put("reload", reload(location));
             ctx.json(answer);
         } catch (final IOException e) {
             log.error("{} could not be read back after saving", location.jar(), e);
@@ -175,63 +181,49 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code POST /api/messages-reload/<bundle>} - ask the bot to re-read what was just saved.
+     * Asks the service that owns a just-saved bundle to re-read it, answered under {@code reload}
+     * in the save's own response.
      *
-     * <p>Its own route rather than a step inside {@link #save} for the same reason
-     * {@code /api/config-raw/<file>} is its own: saving and applying fail separately and have to be
-     * reportable separately. A save that landed and a reload that did not is the third answer this
-     * whole ticket exists for - <b>saved, in force after a restart</b> - and folding the two
-     * together would turn it into a failed save, which it is not.</p>
+     * <p>In the vocabulary {@code ConfigApi#reload} already gave a config file - {@code APPLIED},
+     * {@code NO_ANSWER} or {@code RESTART_REQUIRED} plus a {@code message} - and a Minecraft bundle
+     * goes through that same table and that same console. The bot has no console, so its bundle
+     * rides the inbox it already listens on.</p>
      *
-     * <p><b>It answers in the vocabulary steward/59 already gave a config reload</b>
-     * ({@code ConfigApi#reload}, {@code ConfigReloadOutcome} on the other side of the wire): a
-     * {@code status} of {@code APPLIED}, {@code NO_ANSWER} or {@code RESTART_REQUIRED} and a
-     * {@code message} to read. Two mechanisms that mean the same thing to the person looking at the
-     * page have no business being two vocabularies as well - the interface already knows how to
-     * draw these three, and a fourth word would only have been a fourth toast to write.</p>
-     *
-     * <p>One field is added and it is the reason this exists: {@code unknown}, the keys the override
-     * file declares that the bundle has never heard of. That is what {@code /access reload} prints
-     * today, and a typo there does nothing at all and says nothing at all - the only way a message
-     * can be edited and still not change.</p>
+     * <p>One field is added: {@code unknown}, the keys the override file declares that the bundle
+     * has never heard of. Only the bot reports it; a typo there does nothing at all and says
+     * nothing at all otherwise.</p>
      */
-    public void reload(final @NotNull Context ctx) {
-        final MessageBundleLocation location = locate(ctx);
+    private Map<String, Object> reload(final MessageBundleLocation location) {
         if (!RELOADABLE_SERVICE.equals(location.service())) {
-            // Not a failure and not a warning: nothing was asked of anybody. `ConfigApi`'s table
-            // is what reaches a Minecraft service, and this route deliberately does not grow a
-            // second copy of it (season-2-community/09).
-            ctx.json(outcome("RESTART_REQUIRED", "Nothing was sent: only " + RELOADABLE_SERVICE
-                    + " can be asked to re-read its messages from here.", List.of()));
-            return;
+            final Map<String, Object> answer = ConfigApi.reload(console, identityOf(location),
+                    location.service(), identityOf(location), identityOf(location));
+            answer.put("unknown", List.of());
+            return answer;
         }
         if (inbox == null) {
-            ctx.json(outcome("RESTART_REQUIRED", "Nothing was sent: this deployment has no database"
-                    + " to ask the bot through.", List.of()));
-            return;
+            return outcome("RESTART_REQUIRED", "Nothing was sent: this deployment has no database"
+                    + " to ask the bot through.", List.of());
         }
         final AccessRequest asked = inbox.submit(new AccessRequests.NewAccessRequest(
                 AccessRequestKind.RELOAD_MESSAGES, identityOf(location), null,
                 AccessRequestSource.STEWARD, ASKED_BY), ANSWER_WITHIN);
         final AccessRequest settled = waitFor(asked.id());
         if (settled == null || settled.status() == AccessRequestStatus.EXPIRED) {
-            ctx.json(outcome("NO_ANSWER", "The bot did not answer, so the text that was saved takes"
-                    + " effect the next time it starts.", List.of()));
-            return;
+            return outcome("NO_ANSWER", "The bot did not answer, so the text that was saved takes"
+                    + " effect the next time it starts.", List.of());
         }
         if (settled.status() != AccessRequestStatus.DONE) {
             log.warn("{} was saved but the bot could not re-read it: {}", identityOf(location),
                     settled.result());
-            ctx.json(outcome("NO_ANSWER", "The bot could not re-read its messages, so the running"
+            return outcome("NO_ANSWER", "The bot could not re-read its messages, so the running"
                     + " ones are unchanged and the saved text takes effect the next time it"
-                    + " starts.", List.of()));
-            return;
+                    + " starts.", List.of());
         }
         final List<String> unknown = unknownIn(settled.result());
-        ctx.json(outcome("APPLIED", unknown.isEmpty()
+        return outcome("APPLIED", unknown.isEmpty()
                 ? "The bot re-read its messages."
                 : "The bot re-read its messages. It has no key called "
-                        + String.join(", ", unknown) + ".", unknown));
+                        + String.join(", ", unknown) + ".", unknown);
     }
 
     private static Map<String, Object> outcome(final String status, final String message,
@@ -433,34 +425,42 @@ public final class MessagesApi {
         try {
             return JsonParser.parseString(body == null ? "" : body).getAsJsonObject();
         } catch (final JsonSyntaxException | IllegalStateException | IllegalArgumentException e) {
-            throw new BadRequestResponse("The body has to be a JSON object with `language` and"
-                    + " `changes` fields.");
+            throw new BadRequestResponse("The body has to be a JSON object with a `changes` field.");
         }
     }
 
-    private static String languageOf(final JsonObject body) {
-        final JsonElement language = body.get("language");
-        final String value = language == null || !language.isJsonPrimitive() ? "" : language.getAsString();
-        if (!"en".equals(value) && !"de".equals(value)) {
-            throw new BadRequestResponse("`language` has to be \"en\" or \"de\", not " + value);
-        }
-        return value;
-    }
-
-    private static Map<String, String> changesOf(final JsonObject body) {
+    /**
+     * {@code {"changes": {"key": {"en": "text", "de": null}}}} split by language, English first -
+     * {@code null} resets that language of that key.
+     */
+    private static Map<String, Map<String, String>> changesOf(final JsonObject body) {
         final JsonElement changes = body.get("changes");
         if (changes == null || !changes.isJsonObject()) {
-            throw new BadRequestResponse("`changes` has to be an object of key to new text (or"
-                    + " null, to reset that key).");
+            throw new BadRequestResponse("`changes` has to be an object of key to {\"en\": text,"
+                    + " \"de\": text}, where null resets that language.");
         }
-        final Map<String, String> answer = new LinkedHashMap<>();
+        final Map<String, Map<String, String>> byLanguage = new LinkedHashMap<>();
+        byLanguage.put("en", new LinkedHashMap<>());
+        byLanguage.put("de", new LinkedHashMap<>());
         for (final Map.Entry<String, JsonElement> change : changes.getAsJsonObject().entrySet()) {
-            final JsonElement value = change.getValue();
-            answer.put(change.getKey(), value == null || value.isJsonNull() ? null : value.getAsString());
+            if (!change.getValue().isJsonObject()) {
+                throw new BadRequestResponse(change.getKey() + " has to be an object of language to"
+                        + " text, like {\"en\": \"...\"}.");
+            }
+            for (final Map.Entry<String, JsonElement> text : change.getValue().getAsJsonObject().entrySet()) {
+                final Map<String, String> into = byLanguage.get(text.getKey());
+                if (into == null) {
+                    throw new BadRequestResponse("A language has to be \"en\" or \"de\", not "
+                            + text.getKey() + ".");
+                }
+                final JsonElement value = text.getValue();
+                into.put(change.getKey(), value == null || value.isJsonNull() ? null : value.getAsString());
+            }
         }
-        if (answer.isEmpty()) {
+        byLanguage.values().removeIf(Map::isEmpty);
+        if (byLanguage.isEmpty()) {
             throw new BadRequestResponse("`changes` is empty - there is nothing to save.");
         }
-        return answer;
+        return byLanguage;
     }
 }

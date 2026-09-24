@@ -22,7 +22,6 @@ import {
   type MessageBundle,
   type MessageBundleLocation,
   type MessageChanges,
-  type BundleReloadOutcome,
   type MessageSaveResult,
   type Metrics,
   type Payment,
@@ -1082,46 +1081,18 @@ export function useMessageBundle(path: string, enabled = true) {
  * warnings, and both replace this bundle's cache entry directly rather than triggering a refetch.
  */
 /**
- * Save a bundle, then ask the service it belongs to to pick the change up
- * (season-2-community/09).
- *
- * Two calls behind one mutation, and in that order on purpose: the save is the part that must not
- * be lost, and the reload is a question about a running process that may not be running. A reload
- * that throws is therefore not a failed save - it is answered as `NO_ANSWER`, which is the true
- * sentence ("it is written down; it is not in force yet") and the one the page could not say at
- * all until this ticket.
+ * Save a bundle. The answer carries `reload`: the save itself asks the service it belongs to to
+ * re-read the bundle, the same way a config save does.
  */
 export function useSaveMessageBundle(path: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: async (body: MessageChanges): Promise<MessageSaveResult> => {
-      const saved = await api<MessageSaveResult>(`/api/messages/${encodePath(path)}`, {
-        method: "PUT",
-        body,
-      })
-      return { ...saved, reload: await askToReload(path) }
-    },
+    mutationFn: (body: MessageChanges) =>
+      api<MessageSaveResult>(`/api/messages/${encodePath(path)}`, { method: "PUT", body }),
     onSuccess: (document) => {
       client.setQueryData(keys.messageBundle(path), document)
     },
   })
-}
-
-async function askToReload(path: string): Promise<BundleReloadOutcome> {
-  try {
-    return await api<BundleReloadOutcome>(`/api/messages-reload/${encodePath(path)}`, {
-      method: "POST",
-      body: {},
-    })
-  } catch {
-    return {
-      status: "NO_ANSWER",
-      message:
-        "The change is saved. Asking the service to re-read it did not get through, so it takes" +
-        " effect the next time that service starts.",
-      unknown: [],
-    }
-  }
 }
 
 // --- settings search (steward/58) -----------------------------------------------------------

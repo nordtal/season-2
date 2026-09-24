@@ -98,7 +98,13 @@ public final class ConfigApi {
             "smp/smp/sounds.yml", "smp reload",
             "smp/smp/colours.yml", "smp reload",
             "smp/smp/prestige.yml", "smp reload",
-            "hunger-games/hunger-games/sounds.yml", "hg reload");
+            "hunger-games/hunger-games/sounds.yml", "hg reload",
+            // Message bundles, by MessagesApi's identity. Each of these commands re-reads the
+            // plugin's own bundle and the shared one, and touches nothing else a player would feel.
+            "smp/smp", "smp reload",
+            "hunger-games/hunger-games", "hg reload",
+            "limbo/limbo", "limbo reload",
+            "proxy/proxy", "network reload");
 
     private final Path root;
     private final ConsoleLine console;
@@ -366,26 +372,36 @@ public final class ConfigApi {
     // Package-private for the same reason: ConfigApiReloadTest drives the three outcomes with a
     // fake ConsoleLine, never a real Docker socket.
     Map<String, Object> reload(final ConfigLocation location) {
+        return reload(console, identityOf(location), location.service(), location.name(),
+                location.file().toString());
+    }
+
+    /**
+     * The same three outcomes for anything {@link #RELOAD_COMMAND} names by {@code identity} - a
+     * config file here, a message bundle in {@link MessagesApi}.
+     */
+    static Map<String, Object> reload(final ConsoleLine console, final String identity,
+                                      final String service, final String name, final String file) {
         final Map<String, Object> answer = new LinkedHashMap<>();
-        final String command = RELOAD_COMMAND.get(identityOf(location));
+        final String command = RELOAD_COMMAND.get(identity);
         if (command == null) {
             answer.put("status", "RESTART_REQUIRED");
-            answer.put("message", "Saved. Nothing reloads " + location.name() + " live; "
-                    + (location.service().isEmpty() ? "it" : location.service())
+            answer.put("message", "Saved. Nothing reloads " + name + " live; "
+                    + (service.isEmpty() ? "it" : service)
                     + " only reads it again at its next restart, which stays a click of its own.");
             return answer;
         }
         try {
-            console.send(location.service(), command);
+            console.send(service, command);
             answer.put("status", "APPLIED");
             answer.put("message", "Saved, and \"" + command + "\" was sent to "
-                    + location.service() + "'s console to pick it up. Its reply, if the change was"
+                    + service + "'s console to pick it up. Its reply, if the change was"
                     + " refused, appears in that service's own log.");
         } catch (final DockerException e) {
             log.warn("{} was saved but {} could not be reached to reload it: {}",
-                    location.file(), location.service(), e.getMessage());
+                    file, service, e.getMessage());
             answer.put("status", "NO_ANSWER");
-            answer.put("message", "Saved, but " + location.service() + " did not answer: "
+            answer.put("message", "Saved, but " + service + " did not answer: "
                     + e.getMessage() + ". The change is on disk and takes effect once that service"
                     + " is running again.");
         } catch (final IllegalArgumentException e) {
@@ -394,7 +410,7 @@ public final class ConfigApi {
             // this map being updated to match should read as "needs a restart", not crash the save
             // that already succeeded.
             log.warn("{} names a reload command for {}, which refused it: {}",
-                    location.file(), location.service(), e.getMessage());
+                    file, service, e.getMessage());
             answer.put("status", "RESTART_REQUIRED");
             answer.put("message", "Saved. " + e.getMessage());
         }

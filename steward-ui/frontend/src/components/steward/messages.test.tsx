@@ -1,10 +1,15 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { toast } from "sonner"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ServiceMessages } from "@/components/steward/messages"
 import type { MessageBundleLocation, MessageEntry } from "@/lib/api"
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), warning: vi.fn(), info: vi.fn(), error: vi.fn() },
+}))
 
 /**
  * `ServiceMessages` is the card steward/48 asks for - a service's message bundles, drawn beside
@@ -41,18 +46,10 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
   }
 }
 
-/**
- * One `/api/messages/<path>` answer per fixture bundle, one canned PUT answer per path, and one
- * canned reload answer per path.
- *
- * A path with no entry in `reloads` answers nothing at all - the POST throws, which is what a
- * steward-ui that cannot reach the worker does, and the card is expected to read that as "saved,
- * not in force" rather than as a failed save (season-2-community/09).
- */
+/** One `/api/messages/<path>` answer per fixture bundle and one canned PUT answer per path. */
 function backend(
   bundles: Record<string, unknown>,
   puts: Record<string, (body: unknown) => unknown> = {},
-  reloads: Record<string, unknown> = {},
 ) {
   const listing = Object.values(bundles).map((bundle) => {
     const { service, module, path, writable } = bundle as MessageBundleLocation
@@ -60,13 +57,6 @@ function backend(
   })
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/messages") return json(listing)
-    if (init?.method === "POST") {
-      const found = Object.entries(reloads).find(
-        ([path]) => url === `/api/messages-reload/${path}`,
-      )
-      if (found) return json(found[1])
-      throw new Error(`no reload answer for ${url}`)
-    }
     if (init?.method === "PUT") {
       const found = Object.entries(puts).find(([path]) => url === `/api/messages/${path}`)
       if (found) return json(found[1](JSON.parse(String(init.body))))
@@ -92,6 +82,7 @@ async function open(label: string) {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.clearAllMocks()
 })
 
 describe("the bundle row", () => {
@@ -190,56 +181,41 @@ describe("saving a line", () => {
     await screen.findByDisplayValue("Hello there")
   })
 
-  /**
-   * The three answers season-2-community/09 asks the card to be able to give. The third is the one
-   * that was missing: a saved bot message took effect at the next restart of the container, and
-   * nothing on the page said so - so the reader was left to assume it was already in force.
-   */
+  /** The save's own answer says whether the text is in force; the toast says which of three. */
   it.each([
-    [
-      "in force",
-      { status: "APPLIED", message: "The bot re-read its messages.", unknown: [] },
-      "Saved.",
-    ],
-    [
-      "in force after a restart",
-      {
-        status: "NO_ANSWER",
-        message: "The bot did not answer, so the text that was saved takes effect the next time"
-          + " it starts.",
-        unknown: [],
-      },
-      "Saved. In force after a restart.",
-    ],
-  ])("says a saved line is %s", async (_what, reload, title) => {
+    ["in force", "APPLIED", toast.success],
+    ["not answered", "NO_ANSWER", toast.warning],
+    ["in force after a restart", "RESTART_REQUIRED", toast.info],
+  ] as const)("says a saved line is %s", async (_what, status, shown) => {
+    const message = `the service said ${status}`
     vi.stubGlobal(
       "fetch",
       backend(
         {
-          "discord-bot": {
-            ...location({ path: "discord-bot", service: "discord-bot", module: "" }),
-            entries: [entry({ key: "dm.granted", english: "You are in" })],
+          "smp/smp": {
+            ...location({ path: "smp/smp" }),
+            entries: [entry({ key: "welcome", english: "Welcome" })],
           },
         },
         {
-          "discord-bot": () => ({
-            ...location({ path: "discord-bot", service: "discord-bot", module: "" }),
-            entries: [
-              entry({ key: "dm.granted", english: "You are in", overrideEnglish: "Welcome in" }),
-            ],
+          "smp/smp": () => ({
+            ...location({ path: "smp/smp" }),
+            entries: [entry({ key: "welcome", english: "Welcome", overrideEnglish: "Howdy" })],
             warnings: [],
+            reload: { status, message, unknown: [] },
           }),
         },
-        { "discord-bot": reload },
       ),
     )
-    draw(<ServiceMessages service="discord-bot" />)
-    await open("discord-bot")
-    const field = await screen.findByDisplayValue("You are in")
-    fireEvent.change(field, { target: { value: "Welcome in" } })
+    draw(<ServiceMessages service="smp" />)
+    await open("smp")
+    const field = await screen.findByDisplayValue("Welcome")
+    fireEvent.change(field, { target: { value: "Howdy" } })
     fireEvent.click(screen.getByRole("button", { name: /Save/ }))
 
-    await screen.findByText(title)
+    await waitFor(() =>
+      expect(shown).toHaveBeenCalledWith("One text saved.", { description: message }),
+    )
   })
 
   it("names a key the override file has and the bundle does not", async () => {
@@ -259,14 +235,12 @@ describe("saving a line", () => {
               entry({ key: "dm.granted", english: "You are in", overrideEnglish: "Welcome in" }),
             ],
             warnings: [],
+            reload: {
+              status: "APPLIED",
+              message: "The bot re-read its messages. It has no key called dm.grantd.",
+              unknown: ["dm.grantd"],
+            },
           }),
-        },
-        {
-          "discord-bot": {
-            status: "APPLIED",
-            message: "The bot re-read its messages. It has no key called dm.grantd.",
-            unknown: ["dm.grantd"],
-          },
         },
       ),
     )
@@ -294,7 +268,7 @@ describe("saving a line", () => {
         {
           "smp/smp": (body) => {
             const changes = (body as { changes: Record<string, unknown> }).changes
-            expect(changes).toEqual({ welcome: null })
+            expect(changes).toEqual({ welcome: { en: null } })
             return {
               ...location({ path: "smp/smp" }),
               entries: [entry({ key: "welcome", english: "Welcome" })],

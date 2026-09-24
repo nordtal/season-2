@@ -60,7 +60,18 @@ public record Change(@Nullable String service,
          * publisher ships a build for this version, the next run installs it and no code changes.
          * An artefact quietly dropped from the plan is one somebody has to remember.
          */
-        UNSUPPORTED;
+        UNSUPPORTED,
+        /**
+         * Our own release answered and carries no file for this jar, and a jar of it is installed.
+         * {@link #installed()} names that jar, and it stays where it is.
+         *
+         * <p>Not a failure: the source was asked and said so, and the jars beside it on the same
+         * server were compiled against the Minecraft version, not against this jar. Counting it as
+         * {@link #UNRESOLVED} held back every third-party plugin on the SMP for as long as a release
+         * shipped without an smp jar - while the run still stopped the server and called it done.
+         * With nothing installed it stays {@link #UNRESOLVED}: then there is nothing to keep.</p>
+         */
+        NOT_IN_RELEASE;
 
         /** Whether a run would move a file for this row. */
         public boolean isWork() {

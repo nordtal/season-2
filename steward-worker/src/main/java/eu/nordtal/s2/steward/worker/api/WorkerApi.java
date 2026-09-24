@@ -1005,6 +1005,11 @@ public final class WorkerApi implements AutoCloseable {
             row.put("status", change.status().name());
             row.put("work", change.status().isWork());
             row.put("failure", change.status().isFailure());
+            // Work a run would not do: another row of the same service could not be checked, and
+            // the applier leaves that whole service alone. Sent so the page shows an update only
+            // where a run would install it.
+            row.put("held", change.status().isWork() && change.service() != null
+                    && plan.blocker(change.service()) != null);
             if (change.installed() != null) {
                 row.put("installed", change.installed());
             }

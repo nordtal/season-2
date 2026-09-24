@@ -487,6 +487,79 @@ class ResolverTest {
     }
 
     @Test
+    @DisplayName("a release without the smp jar leaves the installed one alone and moves the plugins beside it")
+    void aSeasonJarMissingFromTheReleaseKeepsWhatIsInstalled() throws IOException {
+        installCurrentEverything();
+        replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
+        http.answering("/repos/nordtal/season-2/releases",
+                FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "steward-worker-0.1.0.jar"));
+
+        final UpdatePlan plan = resolve();
+        final Change smp = changeFor(plan, "smp", "smp");
+
+        // The release answered; it simply has no file for this jar. That is not "could not look",
+        // and treating it as such held back every third-party plugin on the SMP.
+        assertEquals(Change.Status.NOT_IN_RELEASE, smp.status(), Report.render(plan));
+        assertEquals("smp-0.1.0.jar", smp.installed());
+        assertFalse(smp.status().isFailure(), Report.render(plan));
+        assertFalse(smp.status().isWork(), Report.render(plan));
+        assertEquals(Change.Status.OUTDATED, changeFor(plan, "smp", "packetevents").status());
+
+        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(plan);
+        assertEquals(eu.nordtal.s2.common.update.UpdateReport.State.PLANNED,
+                report.line("smp").state(), report.render());
+        assertTrue(report.notes().stream().anyMatch(note -> note.contains("smp-0.1.0.jar stays")),
+                "the missing jar is a warning in the report: " + report.render());
+    }
+
+    @Test
+    @DisplayName("a release without the smp jar and nothing else new is nothing to do")
+    void aSeasonJarMissingFromTheReleaseIsNoWorkOnItsOwn() throws IOException {
+        installCurrentEverything();
+        http.answering("/repos/nordtal/season-2/releases",
+                FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "steward-worker-0.1.0.jar"));
+
+        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
+
+        assertFalse(report.line("smp").isMoving(), report.render());
+        assertEquals(eu.nordtal.s2.common.update.UpdateReport.State.UNCHANGED,
+                report.line("smp").state(), report.render());
+    }
+
+    @Test
+    @DisplayName("a service held back by a real failure is not moving, so nobody is counted down for it")
+    void aHeldBackServiceIsNotMoving() throws IOException {
+        installCurrentEverything();
+        replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
+        http.failing("/project/Lu3KuzdV/version", new HttpException(
+                URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
+
+        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
+
+        // Applier skips the whole SMP over the outage, so stopping it would be an outage of our own
+        // for nothing. The line stays FAILED and says what it held back.
+        assertEquals(eu.nordtal.s2.common.update.UpdateReport.State.FAILED,
+                report.line("smp").state(), report.render());
+        assertFalse(report.line("smp").isMoving(), report.render());
+        assertTrue(report.line("smp").detail().contains("packetevents"), report.render());
+    }
+
+    @Test
+    @DisplayName("a server jar that could not be checked holds nothing back, so the plugins still move")
+    void anUncheckedServerJarLeavesThePluginsMoving() throws IOException {
+        installCurrentEverything();
+        replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
+        http.failing("/projects/paper/versions/26.2/builds", new HttpException(
+                URI.create("https://fill.papermc.io/v3/projects/paper/versions/26.2/builds"), 503, "down"));
+
+        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
+
+        // The applier installs the plugins beside a paper row it could not check, so the line has
+        // to say it moves: that is what stops the server before its jars are written.
+        assertTrue(report.line("smp").isMoving(), report.render());
+    }
+
+    @Test
     @DisplayName("the worker installs its own jar, which takes effect on the next start and not before")
     void theWorkerResolvesItsOwnJar() throws IOException {
         installCurrentEverything();

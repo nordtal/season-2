@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -35,6 +36,30 @@ public record UpdatePlan(@NotNull Instant resolvedAt,
                          @NotNull List<String> notes) {
 
     public record Unclaimed(@NotNull String service, @NotNull String fileName) {
+    }
+
+    /**
+     * The row that makes a run leave {@code service} alone entirely, or {@code null} when a run
+     * would apply its work.
+     *
+     * <p>A failure on anything but the server jar or the pack: one unreadable plugin makes the
+     * whole set untrustworthy, while a server jar that could not be checked leaves the build in
+     * {@code .server/} running and the plugins free to move. The applier acts on this, and the
+     * report and the plugin list draw it, so all three agree on what a run would install.</p>
+     */
+    public @Nullable Change blocker(final @NotNull String service) {
+        return blocker(changes.stream().filter(change -> service.equals(change.service())).toList());
+    }
+
+    /** {@link #blocker(String)} for one service's rows. */
+    public static @Nullable Change blocker(final @NotNull Collection<Change> serviceChanges) {
+        return serviceChanges.stream()
+                .filter(change -> change.status().isFailure())
+                .filter(change -> !Topology.PAPER.equals(change.artifact()))
+                .filter(change -> !Topology.VELOCITY.equals(change.artifact()))
+                .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
+                .findFirst()
+                .orElse(null);
     }
 
     /** Whether a run would move anything at all. */

@@ -77,8 +77,11 @@ public final class Resolver {
         // untrustworthy.
         final Map<String, String> unsupported = new HashMap<>();
         final List<String> notes = new ArrayList<>();
+        // The season jars our own release answered for and carries no file of. Their reason is in
+        // `failures` like any other; this says the reason is an answer and not an outage.
+        final Set<String> unreleased = new HashSet<>();
 
-        final GitHubReleases.Release season = resolveSeason(newest, failures);
+        final GitHubReleases.Release season = resolveSeason(newest, failures, unreleased);
         resolveDisplayTags(newest, failures);
         resolveModrinth(newest, failures, unsupported, Topology.PACKETEVENTS, config.packetEventsProject(), "paper");
         resolveModrinth(newest, failures, unsupported, Topology.CHUNKY, config.chunkyProject(), "paper");
@@ -116,7 +119,7 @@ public final class Resolver {
 
             for (final String artifact : artifacts) {
                 changes.add(compare(service.name(), artifact, installed, newest, failures,
-                        unsupported, claimed));
+                        unsupported, unreleased, claimed));
             }
 
             if (installed.mounted()) {
@@ -129,7 +132,7 @@ public final class Resolver {
         }
 
         for (final String artifact : Topology.STANDALONE_JARS) {
-            changes.add(resolveStandalone(root, artifact, newest, failures));
+            changes.add(resolveStandalone(root, artifact, newest, failures, unreleased));
         }
         changes.add(resolvePack(root, newest, failures));
 
@@ -194,7 +197,8 @@ public final class Resolver {
     // ---------------------------------------------------------------- sources
 
     private @Nullable GitHubReleases.Release resolveSeason(final Map<String, RemoteFile> newest,
-                                                           final Map<String, String> failures) {
+                                                           final Map<String, String> failures,
+                                                           final Set<String> unreleased) {
         final GitHubReleases.Release release;
         try {
             release = github.latest(config.seasonRepo());
@@ -221,6 +225,7 @@ public final class Resolver {
         for (final String artifact : Topology.SEASON_JARS) {
             if (!newest.containsKey(artifact)) {
                 failures.put(artifact, "release " + release.tag() + " carries no " + artifact + "-<version>.jar");
+                unreleased.add(artifact);
             }
         }
 
@@ -349,7 +354,8 @@ public final class Resolver {
 
     private Change compare(final String service, final String artifact, final Installation installed,
                            final Map<String, RemoteFile> newest, final Map<String, String> failures,
-                           final Map<String, String> unsupported, final Set<String> claimed) {
+                           final Map<String, String> unsupported, final Set<String> unreleased,
+                           final Set<String> claimed) {
         final RemoteFile wanted = newest.get(artifact);
         if (wanted == null) {
             final String none = unsupported.get(artifact);
@@ -358,8 +364,15 @@ public final class Resolver {
                 // UpdatePlan#unclaimed, which is louder than comparing against a file that is absent.
                 return Change.unsupported(service, artifact, none);
             }
-            return Change.unresolved(service, artifact,
-                    failures.getOrDefault(artifact, "no source answered for this artefact"));
+            final String why = failures.getOrDefault(artifact, "no source answered for this artefact");
+            final Installation.Jar kept = unreleased.contains(artifact) && installed.mounted()
+                    ? installed.withPrefix(artifact)
+                    : null;
+            if (kept != null) {
+                claimed.add(artifact);
+                return new Change(service, artifact, Change.Status.NOT_IN_RELEASE, kept.fileName(), null, why);
+            }
+            return Change.unresolved(service, artifact, why);
         }
 
         final String prefix = JarName.prefixOf(wanted.fileName());
@@ -392,21 +405,23 @@ public final class Resolver {
      */
     private Change resolveStandalone(final Path root, final String artifact,
                                      final Map<String, RemoteFile> newest,
-                                     final Map<String, String> failures) {
+                                     final Map<String, String> failures,
+                                     final Set<String> unreleased) {
+        final Installation installed = scanFlat(artifact, root.resolve(artifact));
         final RemoteFile wanted = newest.get(artifact);
         if (wanted == null) {
-            return Change.unresolved(artifact, artifact,
-                    failures.getOrDefault(artifact, "no source answered for this artefact"));
+            // compare() keeps an installed jar the release did not carry, and fails the rest.
+            return compare(artifact, artifact, installed, newest, failures, Map.of(), unreleased,
+                    new HashSet<>());
         }
-
-        final Installation installed = scanFlat(artifact, root.resolve(artifact));
         if (!installed.mounted()) {
             return new Change(artifact, artifact, Change.Status.MOUNT_MISSING, null, wanted,
                     installed.directory() + " is not mounted in this container");
         }
         // No unsupported map: these two come from our own release, which either carries their jar
         // or does not.
-        return compare(artifact, artifact, installed, newest, failures, Map.of(), new HashSet<>());
+        return compare(artifact, artifact, installed, newest, failures, Map.of(), unreleased,
+                new HashSet<>());
     }
 
     private Change resolvePack(final Path root, final Map<String, RemoteFile> newest,

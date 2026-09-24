@@ -507,6 +507,8 @@ export type AvailableChange = {
   status: string
   work: boolean
   failure: boolean
+  /** Work a run would not do, because another row of the same service could not be checked. */
+  held?: boolean
   installed?: string
   /** The version as its publisher states it - for reading, never for comparing. */
   version?: string

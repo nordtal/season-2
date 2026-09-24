@@ -98,9 +98,11 @@ public record Installation(@NotNull String service,
     /** The installed jar whose prefix matches {@code fileName}'s, or {@code null}. */
     public @Nullable Jar matching(final @NotNull String fileName) {
         final String prefix = JarName.prefixOf(fileName);
-        if (prefix == null) {
-            return null;
-        }
+        return prefix == null ? null : withPrefix(prefix);
+    }
+
+    /** The installed jar whose filename prefix is {@code prefix}, or {@code null}. */
+    public @Nullable Jar withPrefix(final @NotNull String prefix) {
         for (final Jar jar : plugins) {
             if (prefix.equals(jar.prefix())) {
                 return jar;

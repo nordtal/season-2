@@ -1,4 +1,4 @@
-import { PlusIcon, TrashIcon, WarningIcon } from "@phosphor-icons/react"
+import { WarningIcon } from "@phosphor-icons/react"
 
 import type {
   ConfigChanges,
@@ -9,7 +9,7 @@ import type {
   RawConfigDocument,
 } from "@/lib/api"
 import { languageName } from "@/lib/language-names"
-import { ScalarControl } from "@/components/steward/config-controls"
+import { ListControl, ScalarControl } from "@/components/steward/config-controls"
 import { RawConfigEditor } from "@/components/steward/raw-config-editor"
 import {
   type SectionValues,
@@ -17,8 +17,6 @@ import {
   sectionsFromEntry,
 } from "@/components/steward/repeatable-cards"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 
@@ -158,7 +156,7 @@ function sectionTitleFor(
 ): ((section: SectionValues, index: number) => string) | undefined {
   if (entry.path !== "languages") return undefined
   return (section, index) => {
-    const tag = section.tag?.trim()
+    const tag = typeof section.tag === "string" ? section.tag.trim() : ""
     return tag ? languageName(tag) : `Entry ${index + 1}`
   }
 }
@@ -222,68 +220,3 @@ export function Control({
   )
 }
 
-/**
- * A list, one row per entry.
- *
- * The whole list is sent on save rather than a single added entry: two browsers sending "add one"
- * both succeed and the result is neither of the two lists anybody was looking at. Sending the list
- * is only half of it - the two saves would still have overwritten each other, one silently - and
- * the other half is the `revision` every save carries, which makes the second one a 409.
- */
-function ListControl({
-  id,
-  items,
-  disabled,
-  onChange,
-}: {
-  id: string
-  items: string[]
-  disabled: boolean
-  onChange: (items: string[]) => void
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Empty list.</p>
-      ) : (
-        items.map((item, index) => (
-          <div key={index} className="flex items-center gap-2">
-            <Input
-              id={index === 0 ? id : undefined}
-              disabled={disabled}
-              value={item}
-              spellCheck={false}
-              className="font-mono text-sm"
-              aria-label={`Entry ${index + 1}`}
-              onChange={(event) =>
-                onChange(items.map((old, at) => (at === index ? event.target.value : old)))
-              }
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={disabled}
-              aria-label={`Remove entry ${index + 1}`}
-              onClick={() => onChange(items.filter((_, at) => at !== index))}
-            >
-              <TrashIcon aria-hidden />
-            </Button>
-          </div>
-        ))
-      )}
-      <div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          onClick={() => onChange([...items, ""])}
-        >
-          <PlusIcon aria-hidden />
-          Add entry
-        </Button>
-      </div>
-    </div>
-  )
-}

@@ -479,3 +479,102 @@ describe("RepeatableCards - an incomplete card", () => {
     expect(screen.queryByText(/incomplete/i)).toBeNull()
   })
 })
+
+describe("RepeatableCards - sections inside sections", () => {
+  // The track in `smp/milestones.yml`: milestones, each with a list of objectives, each objective
+  // with a list of items. The template goes as deep as the schema does.
+  const OBJECTIVE: ConfigEntry[] = [
+    field({ key: "key", label: "ID" }),
+    field({ key: "target", label: "Target", type: "INTEGER" }),
+    field({ key: "items", label: "Items", kind: "LIST" }),
+  ]
+  const MILESTONE: ConfigEntry[] = [
+    field({ key: "key", label: "ID" }),
+    field({ key: "objectives", label: "Objectives", kind: "SECTIONS", template: OBJECTIVE }),
+  ]
+
+  function track(): ConfigEntry {
+    return sectionsEntry(
+      [
+        [
+          field({ key: "key", value: "foothold" }),
+          field({
+            key: "objectives",
+            kind: "SECTIONS",
+            template: OBJECTIVE,
+            sections: [
+              [
+                field({ key: "key", value: "logs" }),
+                field({ key: "target", value: "64" }),
+                field({ key: "items", kind: "LIST", items: ["OAK_LOG", "SPRUCE_LOG"] }),
+              ],
+            ],
+          }),
+        ],
+        [field({ key: "key", value: "waiting" }), field({ key: "objectives", kind: "SECTIONS", template: OBJECTIVE, sections: [] })],
+      ],
+      MILESTONE,
+    )
+  }
+
+  it("reads lists and nested sections as lists, not as text", () => {
+    expect(sectionsFromEntry(track())).toEqual([
+      { key: "foothold", objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "SPRUCE_LOG"] }] },
+      { key: "waiting", objectives: [] },
+    ])
+  })
+
+  it("gives a new entry an empty list where the template holds one", () => {
+    expect(blankSection(MILESTONE)).toEqual({ key: "", objectives: [] })
+    expect(blankSection(OBJECTIVE)).toEqual({ key: "", target: "", items: [] })
+  })
+
+  it("titles every card with its key, at every level", () => {
+    const entry = track()
+    render(
+      <RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false}
+        roles={undefined} channels={undefined} onChange={() => {}} />,
+    )
+    expect(screen.getByText("foothold")).toBeTruthy()
+    expect(screen.getByText("waiting")).toBeTruthy()
+    expect(screen.getByText("logs")).toBeTruthy()
+    expect(screen.getByDisplayValue("SPRUCE_LOG")).toBeTruthy()
+  })
+
+  it("edits an item of an objective as part of the whole track", () => {
+    const entry = track()
+    const onChange = vi.fn()
+    render(
+      <RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false}
+        roles={undefined} channels={undefined} onChange={onChange} />,
+    )
+    fireEvent.change(screen.getByDisplayValue("SPRUCE_LOG"), { target: { value: "BIRCH_LOG" } })
+    expect(onChange).toHaveBeenCalledWith([
+      { key: "foothold", objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "BIRCH_LOG"] }] },
+      { key: "waiting", objectives: [] },
+    ])
+  })
+
+  it("adds an objective to the one milestone it was added to", () => {
+    const entry = track()
+    const onChange = vi.fn()
+    render(
+      <RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false}
+        roles={undefined} channels={undefined} onChange={onChange} />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Add to waiting" }))
+    expect(onChange).toHaveBeenCalledWith([
+      { key: "foothold", objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "SPRUCE_LOG"] }] },
+      { key: "waiting", objectives: [{ key: "", target: "", items: [] }] },
+    ])
+  })
+
+  it("draws no card inside a card", () => {
+    const entry = track()
+    const { container } = render(
+      <RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false}
+        roles={undefined} channels={undefined} onChange={() => {}} />,
+    )
+    expect(container.querySelectorAll('[data-slot="card"] [data-slot="card"]').length).toBe(0)
+  })
+})

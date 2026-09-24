@@ -561,7 +561,7 @@ public final class ConfigApi {
         return content.getAsString();
     }
 
-    private static Map<String, ConfigChange> changesOf(final JsonObject asked) {
+    static Map<String, ConfigChange> changesOf(final JsonObject asked) {
         final JsonElement changes = asked.get("changes");
         if (changes == null || !changes.isJsonObject()) {
             throw new BadRequestResponse("`changes` has to be an object of setting to new value.");
@@ -598,20 +598,40 @@ public final class ConfigApi {
      * a mix is reported rather than silently coerced, since {@link ConfigFiles} has no way to tell
      * whether a stray scalar there was meant as a whole new entry or a mistake.
      */
-    private static List<Map<String, String>> sectionsOf(final String path, final JsonArray array) {
-        final List<Map<String, String>> sections = new ArrayList<>(array.size());
+    private static List<Map<String, Object>> sectionsOf(final String path, final JsonArray array) {
+        final List<Map<String, Object>> sections = new ArrayList<>(array.size());
         for (final JsonElement item : array) {
             if (!item.isJsonObject()) {
                 throw new BadRequestResponse(path + ": every entry of a list of sections has to be"
                         + " an object of field to new value, not " + item);
             }
-            final Map<String, String> fields = new LinkedHashMap<>();
+            final Map<String, Object> fields = new LinkedHashMap<>();
             for (final Map.Entry<String, JsonElement> field : item.getAsJsonObject().entrySet()) {
-                fields.put(field.getKey(), textOf(path + "." + field.getKey(), field.getValue()));
+                fields.put(field.getKey(), fieldOf(path + "." + field.getKey(), field.getValue()));
             }
             sections.add(fields);
         }
         return sections;
+    }
+
+    /**
+     * One field of a section: text, a list of values, or - one level further down, the objectives
+     * of a milestone - a list of sections again. An empty array is left to {@link ConfigFiles},
+     * which knows from the file which of the two lists it is.
+     */
+    private static Object fieldOf(final String path, final JsonElement value) {
+        if (!value.isJsonArray()) {
+            return textOf(path, value);
+        }
+        final JsonArray array = value.getAsJsonArray();
+        if (!array.isEmpty() && array.get(0).isJsonObject()) {
+            return sectionsOf(path, array);
+        }
+        final List<String> items = new ArrayList<>(array.size());
+        for (final JsonElement item : array) {
+            items.add(textOf(path, item));
+        }
+        return items;
     }
 
     /**

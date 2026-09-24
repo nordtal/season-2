@@ -1,6 +1,5 @@
 import { CommandPalette } from "@/app/command-palette"
-import { ChosenFrame } from "@/app/designs/chosen-frame"
-import { initialNav } from "@/app/designs/sidebar-variant"
+import { AppFrame } from "@/app/frames"
 import { HoldKeyPage } from "@/app/hold-key"
 import { SecurityKeyPage } from "@/app/security-key"
 import { sidebarDefaultOpen } from "@/app/sidebar-state"
@@ -19,13 +18,11 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 export { breadcrumbsFor } from "@/app/breadcrumbs"
 
 /**
- * The shell: a fixed viewport, one scrolling column, and a sidebar that is a column on a desktop
- * and a sheet on a phone.
+ * The shell: a fixed viewport, one scrolling column, and a navigation that is a column on a
+ * desktop and a dock at the bottom of a phone - both in `app/frames.tsx`.
  *
  * **There is no header any more** (steward/89, Till 2026-09-17). It is gone in both states, with
- * its border, and what it carried is now an island at the top left and the account picture level
- * with it. `app/frames.tsx` holds the frame Till chose out of the nine that were built for that
- * comparison; `the-header-is-gone.test.ts` is what keeps the header from growing back.
+ * its border; `the-header-is-gone.test.ts` is what keeps it from growing back.
  *
  * The document itself does not scroll. An operator watching a log window and a service table at
  * the same time should not lose their place to do it, so only the content column moves.
@@ -95,13 +92,9 @@ function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
         // skipping that job is what makes a collapsed sidebar spring open again on every reload.
         // The phone's sheet is a different piece of state (`openMobile`) and is untouched by it,
         // which is what lets one sidebar be both things.
-        //
-        // A frame on the sidebar comparison page says which state it starts in (`?nav=`), and that
-        // wins over the cookie for as long as the comparison exists.
-        defaultOpen={initialNav() ? initialNav() === "open" : sidebarDefaultOpen(document.cookie)}
-        style={{ "--sidebar-width": "13rem" } as React.CSSProperties}
+        defaultOpen={sidebarDefaultOpen(document.cookie)}
       >
-        <ChosenFrame me={me} />
+        <AppFrame me={me} />
         {/*
           Bottom right on a desktop, bottom centre on a phone - a thumb is in the middle, and a
           corner toast on a narrow screen covers whatever control is in that corner. One Toaster

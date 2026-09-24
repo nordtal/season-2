@@ -6,7 +6,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router"
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { AppFrame } from "@/app/frames"
@@ -15,7 +15,7 @@ import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The frame of steward/89, actually drawn.
+ * The frame, actually drawn - both of its shapes.
  *
  * `shell.test.tsx` says in its own closing note that the signed-in branch is not reachable in a
  * test, because it needs a router with a route tree and a memory history. That note is why this
@@ -24,11 +24,9 @@ import { TooltipProvider } from "@/components/ui/tooltip"
  * **There is no header element in the document.** Till's order, and the first thing anybody would
  * put back.
  *
- * It was nine shells until 2026-09-17 and is one now; what the eight others tried is in the ticket.
- *
- * What it does not prove is what a phone looks like: jsdom has no layout, so an island drawn 80px
- * off the right edge has the same box here as one that fits. That is measured in a browser, and
- * `fits-on-a-phone.test.ts` says where.
+ * What it does not prove is what either shape looks like: jsdom has no layout, so a head spaced
+ * unevenly from the list below it has the same boxes here as one that is not. That is looked at in
+ * a browser, at 390 and at 1440 pixels.
  */
 const ME: Me = {
   signedIn: true,
@@ -54,7 +52,6 @@ const PATHS = [
   "/payments",
   "/accounts",
   "/journal",
-  "/settings",
 ]
 
 function drawAt(path: string, { open = true }: { open?: boolean } = {}) {
@@ -103,7 +100,16 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe("the frame", () => {
+/** The phone's shape is chosen by the window's width on the first render, so the width is set first. */
+function asPhone() {
+  Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 390 })
+}
+
+afterEach(() => {
+  Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1024 })
+})
+
+describe("the frame on a desktop", () => {
   it("draws the page it was asked for, with no header anywhere", async () => {
     drawAt("/services/smp")
 
@@ -121,19 +127,21 @@ describe("the frame", () => {
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
     const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
     expect(island.textContent).toContain("Steward")
-    expect(island.textContent).toContain("smp")
+    expect(island.querySelector("[data-trail]")?.textContent).toContain("smp")
+    expect(island.querySelector("[data-trail]")?.getAttribute("aria-hidden")).not.toBe("true")
+    expect(screen.getByRole("complementary", { hidden: true }).getAttribute("aria-hidden")).toBe("true")
   })
 
-  it("takes the path back out of the island while the navigation is open", async () => {
-    // Till's third correction of 2026-09-17. The question this asks of the island rather than of
-    // the document is deliberate: "smp" is also a row in the navigation that is now standing
-    // open, so a document-wide search would pass no matter what the head does.
+  it("folds the path away while the navigation is open, and keeps the mark", async () => {
+    // Asked of the trail rather than of the document: "smp" is also a row in the navigation that
+    // is now standing open, so a document-wide search would pass no matter what the island does.
     drawAt("/services/smp", { open: true })
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
     const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
     expect(island.textContent).toContain("Steward")
-    expect(island.textContent).not.toContain("smp")
+    expect(island.querySelector("[data-trail]")?.getAttribute("aria-hidden")).toBe("true")
+    expect(screen.getByRole("link", { name: /smp/ }).getAttribute("aria-current")).toBe("page")
   })
 
   it("has the account within reach of the island, and opens the settings from it", async () => {
@@ -161,5 +169,44 @@ describe("the frame", () => {
         screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded"),
       ).toBe("false"),
     )
+  })
+})
+
+describe("the frame on a phone", () => {
+  it("draws a dock with the page's name, search and account, and the list folded", async () => {
+    asPhone()
+    drawAt("/services/smp")
+
+    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
+    const toggle = screen.getByRole("button", { name: "Navigation" })
+    // The cookie says open; the phone's navigation has its own state and starts closed.
+    expect(toggle.getAttribute("aria-expanded")).toBe("false")
+    const dock = toggle.parentElement!
+    expect(dock.textContent).toContain("smp")
+    expect(within(dock).getByRole("button", { name: "Search pages" })).toBeTruthy()
+    expect(within(dock).getByRole("button", { name: /Account/ })).toBeTruthy()
+    expect(screen.queryByRole("navigation", { name: "Pages" })).toBeNull()
+  })
+
+  it("opens the list inside the dock and closes it again when a place is tapped", async () => {
+    asPhone()
+    drawAt("/services/smp")
+    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Navigation" }))
+    const list = await screen.findByRole("navigation", { name: "Pages" })
+    fireEvent.click(within(list).getByRole("link", { name: /limbo/ }))
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("false"),
+    )
+  })
+
+  it("names Operations' overview by its group, not as a second Overview", async () => {
+    asPhone()
+    drawAt("/operations")
+
+    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
+    expect(screen.getByRole("button", { name: "Navigation" }).parentElement!.textContent).toContain("Operations")
   })
 })

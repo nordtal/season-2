@@ -22,7 +22,6 @@ const SECTION_LABELS: Record<string, string> = {
   payments: "Payments",
   accounts: "Accounts",
   journal: "Journal",
-  settings: "Settings",
 }
 
 /**

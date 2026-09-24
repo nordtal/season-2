@@ -6,9 +6,6 @@ import {
   createRouter,
 } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { readFileSync } from "node:fs"
-import path from "node:path"
-import { fileURLToPath } from "node:url"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 
 import { NotificationsDialog, useNotificationActions } from "@/app/notifications"
@@ -24,8 +21,6 @@ import { NotificationsDialog, useNotificationActions } from "@/app/notifications
  *   first device or the default type;
  * - **the browser holding the dialog is named as such** in a list where two entries can otherwise
  *   read identically ("Linux, Chrome" twice is the normal case, not the odd one);
- * - **nothing about notifications is left on `/settings`**, which is the whole of what "moves
- *   there" means and the one part a rendering test cannot ask.
  *
  * `@/lib/push` is mocked rather than a fake `navigator.serviceWorker` built: `push.test.ts` already
  * holds that boundary against a fake service worker, and a second copy of it here would be testing
@@ -471,35 +466,5 @@ describe("this browser's own switch, which used to be the settings page's", () =
 
     expect(screen.getByText("This browser cannot receive push notifications.")).toBeTruthy()
     expect(screen.queryByRole("switch")).toBeNull()
-  })
-})
-
-/**
- * The half of "moves there" that a rendering test cannot ask.
- *
- * Till's review is about one switch being somewhere nobody looked. Leaving a copy of it on the page
- * it came from would be the same mistake with an extra step, and the failure is invisible: both
- * pages work, and the one that is wrong is whichever was not used last.
- */
-describe("nothing of it stayed on /settings", () => {
-  const settings = readFileSync(
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../pages/settings.tsx"),
-    "utf8",
-  )
-  /** Comments blanked: the page says in prose where the switch went, and that is not a switch. */
-  const code = settings
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/^\s*\/\/.*$/gm, " ")
-
-  it("reads the page it is about, so an empty result means something", () => {
-    expect(code).toContain("SettingsPage")
-    expect(code).toContain("Thresholds")
-  })
-
-  it("has no web-push control left in it", () => {
-    expect(code).not.toContain("WebPush")
-    expect(code).not.toContain("web-push")
-    expect(code).not.toContain("useSubscribeWebPush")
-    expect(code).not.toContain("pushSupported")
   })
 })

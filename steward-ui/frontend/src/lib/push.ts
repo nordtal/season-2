@@ -7,7 +7,7 @@
  * inside the call stack of a genuine tap - a mount, a timer or an `await` on something unrelated
  * first can spend that "user activation" before the browser ever sees the request. That is why
  * {@link subscribeToPush} takes the public key as a plain argument rather than fetching it itself:
- * the caller (the settings page's button) reads it out of a query that already resolved before the
+ * the caller (the notifications dialog's switch) reads it out of a query that already resolved before the
  * button was drawn, so the only `await` between the tap and `subscribe()` is the browser's own,
  * already-registered service worker becoming ready.
  */

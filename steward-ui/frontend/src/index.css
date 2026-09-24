@@ -110,21 +110,11 @@
   --blur-clearance: 0px;
 
   /*
-   * WHERE THE ISLAND SITS, AND HOW MUCH ROOM IT NEEDS (steward/89).
-   *
-   * Two places have to agree on one number and used to each carry their own copy of the
-   * arithmetic: the island itself, which is fixed to the top left, and everything that must not
-   * end up underneath it - the scrolling column and the head of the sidebar. They drifted, which
-   * is the whole reason the head of the expanded sidebar was too tall for the island standing in
-   * it: 4.5rem was written for a finger and left 16px of nothing on a machine with a mouse.
-   *
-   * The clearance is the island's own box, worked out rather than guessed: the top offset, plus
-   * the control it is built around, plus its 4px of padding twice, plus 8px of air under it. It
-   * therefore follows `--control-min-height` - which asks about the input device and not the
-   * width of the window, and that is the honest question here too.
+   * WHERE THE ISLAND SITS on a desktop: below the notch and the blurred band where there is one.
+   * The column's list and the content keep clear of it by this and `--control-min-height`, which
+   * asks about the input device rather than the width of the window - the honest question here.
    */
   --island-top: calc(env(safe-area-inset-top) + var(--blur-clearance) + 0.75rem);
-  --island-clearance: calc(var(--island-top) + var(--control-min-height) + 1rem);
 
   /*
    * THE BAR THAT TRAVELS ACROSS A SKELETON (steward/120).

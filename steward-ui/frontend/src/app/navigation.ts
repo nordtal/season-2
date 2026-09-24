@@ -2,7 +2,6 @@ import {
   BookOpenTextIcon,
   CalendarIcon,
   CreditCardIcon,
-  GearIcon,
   HardDrivesIcon,
   KeyIcon,
   PlayIcon,
@@ -209,25 +208,6 @@ export const NAVIGATION: NavGroup[] = [
         note: "Every change, who triggered it and what it did.",
         icon: BookOpenTextIcon,
         keywords: ["audit", "history", "trail", "log"],
-      },
-      {
-        id: "settings",
-        label: "Settings",
-        to: "/settings",
-        // steward/66, 2026-09-16: neither notifications nor integrations exist on that page, and
-        // neither ever did - it was wishful text from the design phase. The page has "Signed in"
-        // with its security keys, and "Thresholds of the light". Concept 10c does want the light
-        // to speak through Discord and Web Push one day (steward/06), which is exactly why this
-        // note must not say so yet: a menu entry that announces something is a disappointment with
-        // a lead time.
-        note: "Steward itself: who is signed in, their keys, and when the light turns.",
-        icon: GearIcon,
-        // `notifications` stays as a keyword although the page has none - and since steward/98 it
-        // is no longer "none anywhere": the switches are in the dialog behind the round picture,
-        // which is not a route and therefore cannot be an entry here. Landing on this page is
-        // still the closest a search can get, because the numbers the notifications fire on are
-        // exactly what stands here.
-        keywords: ["settings", "account", "notifications"],
       },
     ],
   },

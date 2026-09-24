@@ -34,7 +34,7 @@ import { Label } from "@/components/ui/label"
 /**
  * The keys registered on this account: add, rename, remove.
  *
- * **This is `pages/settings.tsx`'s section, moved rather than rewritten** (steward/89). The
+ * **This is the old settings page's section, moved rather than rewritten** (steward/89). The
  * mutations, the wording and the question before a removal are the ones that were already there.
  * Three things changed, and all three are ordered:
  *
@@ -346,23 +346,6 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
           </ResponsiveAlertDialogFooter>
         </ResponsiveAlertDialogContent>
       </ResponsiveAlertDialog>
-    </>
-  )
-}
-
-/**
- * List and questions in one piece, for a page rather than a popover.
- *
- * `pages/settings.tsx` uses this. That page keeps its security keys until Till has picked a shell
- * and the thresholds have a home (steward/50) - two copies of one list is the cost of not deleting
- * a page before the decision that replaces it, and they are the same component, not two.
- */
-export function SecurityKeys({ me }: { me?: Me }) {
-  const state = useSecurityKeyActions(me)
-  return (
-    <>
-      <SecurityKeyList state={state} />
-      <SecurityKeyDialogs state={state} />
     </>
   )
 }

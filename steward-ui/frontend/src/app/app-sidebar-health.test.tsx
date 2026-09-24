@@ -9,7 +9,7 @@ import {
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { AppSidebar } from "@/app/app-sidebar"
+import { NavList } from "@/app/app-sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -57,7 +57,7 @@ function draw(fetchImpl: ReturnType<typeof vi.fn>) {
   const root = createRootRoute()
   const nothing = () => null
   const routeTree = root.addChildren([
-    createRoute({ getParentRoute: () => root, path: "/", component: AppSidebar }),
+    createRoute({ getParentRoute: () => root, path: "/", component: () => <NavList marker="text" /> }),
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/operations", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/operations/plan", component: nothing }),
@@ -69,7 +69,6 @@ function draw(fetchImpl: ReturnType<typeof vi.fn>) {
     createRoute({ getParentRoute: () => root, path: "/payments", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/accounts", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/journal", component: nothing }),
-    createRoute({ getParentRoute: () => root, path: "/settings", component: nothing }),
   ])
   const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ["/"] }) })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -95,7 +94,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe("AppSidebar - the health dot on a service row (steward/83)", () => {
+describe("NavList - the health dot on a service row (steward/83)", () => {
   it("marks the one unhealthy service and draws nothing on the healthy ones", async () => {
     const fetchImpl = vi.fn(async (url: string) => {
       if (url === "/api/services") {

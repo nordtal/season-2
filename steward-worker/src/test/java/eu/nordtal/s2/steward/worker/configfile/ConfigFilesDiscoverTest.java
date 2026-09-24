@@ -112,6 +112,22 @@ class ConfigFilesDiscoverTest {
     }
 
     @Test
+    @DisplayName("saved translations are a message bundle, not a config file")
+    void aMessagesDirectoryBelongsToTheTranslationsAndNotToTheConfigs() throws IOException {
+        // The same directory MessageBundles.discover turns into a bundle. Listing it here as well
+        // offered every translation twice, once as text nobody should edit by hand.
+        write("smp/config.yml");
+        Files.createDirectories(root.resolve("smp/messages"));
+        Files.writeString(root.resolve("smp/messages/de_DE.properties"), "a=b\n");
+        Files.writeString(root.resolve("smp/messages/README.md"), "overrides\n");
+        Files.createDirectories(root.resolve("smp/messagesx"));
+        Files.writeString(root.resolve("smp/messagesx/config.yml"), "a: 1\n");
+
+        assertEquals(List.of("config.yml", "messagesx/config.yml"),
+                ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());
+    }
+
+    @Test
     @DisplayName("a tmp directory is scratch, and a file merely called tmpl is not")
     void scratchDirectoriesAreNotWalkedButASimilarNameIs() throws IOException {
         // spark keeps profiler dumps and an about.txt under `spark/tmp`. Excluded by whole path

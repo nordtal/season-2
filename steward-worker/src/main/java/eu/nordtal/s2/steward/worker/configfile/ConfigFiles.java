@@ -1574,6 +1574,9 @@ public final class ConfigFiles {
      * between 49 files and 39, and the six {@code .bak} among them are the reason the rule exists
      * at all.</p>
      *
+     * <p>Anything under a {@code messages} directory is left out as well: those are the saved
+     * translations {@link MessageBundles} already shows as a bundle, not configuration.</p>
+     *
      * @param root the mount point
      * @return every text file beneath it, by service then name. <b>Empty if the root does not
      *         exist</b>: an unmounted volume is a normal state the page has to be able to report,
@@ -1616,7 +1619,8 @@ public final class ConfigFiles {
     }
 
     /**
-     * Whether no directory between {@code root} and {@code path} is a scratch directory.
+     * Whether no directory between {@code root} and {@code path} is a scratch directory, or holds
+     * saved translations - those are a {@link MessageBundles} bundle, not a config file.
      *
      * <p>Compared segment by segment rather than with {@code contains}, so {@code smp/tmp/about.txt}
      * is excluded and {@code smp/tmpl/config.yml} is not.</p>
@@ -1629,7 +1633,8 @@ public final class ConfigFiles {
      */
     private static boolean isUnderNoScratchDirectory(final Path root, final Path path) {
         for (final Path segment : root.relativize(path)) {
-            if (segment.toString().equals(SCRATCH_DIRECTORY)) {
+            if (segment.toString().equals(SCRATCH_DIRECTORY)
+                    || segment.toString().equals(MessageBundles.DIRECTORY)) {
                 return false;
             }
         }

@@ -208,11 +208,19 @@ public record ConfigEntry(
      * secret and is caught anyway. That is the right direction to be wrong in: a value wrongly
      * hidden behind a password field costs a click, a value wrongly printed costs a rotation.</p>
      *
+     * <p>The one exception is a key called just {@code key}: that is the ID of an entry - a
+     * milestone, an objective, a sound - and hiding it blanks the title of every card that shows
+     * one. A credential names what it opens ({@code api-key}); a schema's {@code @Secret} still
+     * wins over this.</p>
+     *
      * @param key the leaf key
      * @return whether the key contains {@code secret}, {@code token}, {@code password} or {@code key}
      */
     public static boolean isSecretKey(final @NotNull String key) {
         final String lower = key.toLowerCase(java.util.Locale.ROOT);
+        if (lower.equals("key")) {
+            return false;
+        }
         return lower.contains("secret")
                 || lower.contains("token")
                 || lower.contains("password")

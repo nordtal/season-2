@@ -9,6 +9,7 @@ import eu.nordtal.jcore.config.spec.SpecProperty;
 import eu.nordtal.jcore.config.spec.annotation.AllowedValues;
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
@@ -211,7 +212,7 @@ public final class SchemaWriter {
                 : comment != null ? String.join("\n", comment.value()) : "";
         final boolean skipExplanation = noExplanationNeeded != null;
         final boolean secret = getter.isAnnotationPresent(Secret.class);
-        final String label = SettingLabels.of(property.key());
+        final String label = labelOf(property);
         final Class<?> type = property.type();
         final Protected protectedAnnotation = getter.getAnnotation(Protected.class);
 
@@ -234,6 +235,27 @@ public final class SchemaWriter {
         refuseProtectedOutsideAListOfSettings(protectedAnnotation, property.key());
         return new SchemaNode(SettingKind.SCALAR, label, explanation, skipExplanation, secret,
                 scalarTypeOf(type), choicesOf(getter, type), Map.of(), null);
+    }
+
+    /**
+     * The name a setting or section is shown under: the getter's {@link Name @Name}, else, for a
+     * section, the {@code @Name} on the nested spec interface, else the name {@link SettingLabels}
+     * derives from the key. A list of sections does not take the interface's name: that names one
+     * entry, not the list.
+     */
+    static @NotNull String labelOf(final @NotNull SpecProperty property) {
+        final Name own = property.getter().getAnnotation(Name.class);
+        if (own != null) {
+            return own.value();
+        }
+        final Class<?> type = property.type();
+        if (Specs.isConfigSpec(type)) {
+            final Name section = type.getAnnotation(Name.class);
+            if (section != null) {
+                return section.value();
+            }
+        }
+        return SettingLabels.of(property.key());
     }
 
     /**

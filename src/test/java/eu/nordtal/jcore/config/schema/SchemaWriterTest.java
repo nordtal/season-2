@@ -7,6 +7,7 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
@@ -208,6 +209,59 @@ class SchemaWriterTest {
     @DisplayName("the root's label stays empty - a header is prose, and a label is a name")
     void theRootKeepsNoLabel() {
         assertEquals("", SchemaWriter.build(TestSpecs.Payments.class).label());
+    }
+
+    @Test
+    @DisplayName("@Name on a getter is the label, and a section falls back to the @Name on its interface")
+    void nameIsTheLabel() {
+        final SchemaNode schema = SchemaWriter.build(Named.class);
+
+        assertAll(
+                () -> assertEquals("API key", schema.children().get("apiKey").label()),
+                () -> assertEquals(SettingLabels.of("timeoutSeconds"), schema.children().get("timeoutSeconds").label(),
+                        "without @Name the key still gives the label"),
+                () -> assertEquals("Payouts", schema.children().get("payouts").label()),
+                () -> assertEquals("Retry after", schema.children().get("payouts").children().get("retry").label()),
+                () -> assertEquals("Queues", schema.children().get("queues").label(),
+                        "a list of sections is not named after one of its entries"),
+                () -> assertEquals("Own name", schema.children().get("renamed").label(),
+                        "the getter's @Name beats the interface's"));
+    }
+
+    @ConfigSpec
+    public interface Named {
+
+        @Name("API key")
+        default String apiKey() {
+            return "";
+        }
+
+        default int timeoutSeconds() {
+            return 5;
+        }
+
+        default Section payouts() {
+            return null;
+        }
+
+        default List<Section> queues() {
+            return List.of();
+        }
+
+        @Name("Own name")
+        default Section renamed() {
+            return null;
+        }
+    }
+
+    @ConfigSpec
+    @Name("Payouts")
+    public interface Section {
+
+        @Name("Retry after")
+        default int retry() {
+            return 3;
+        }
     }
 
     @Test

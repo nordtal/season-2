@@ -214,6 +214,17 @@ public final class Topology {
             DISCORD_BOT, "Discord Bot",
             STEWARD_WORKER, "Steward Worker");
 
+    /**
+     * The data folder each Nordtal plugin keeps its config in, with the same name the plugins tab
+     * shows. A season plugin's folder is its module name; the fork's is its plugin name.
+     */
+    public static final Map<String, String> NORDTAL_DATA_FOLDERS = orderedMap(
+            "DisplayTags", "Display Tags",
+            SMP, "SMP",
+            PROXY, "Proxy",
+            LIMBO, "Limbo",
+            HUNGER_GAMES, "Hunger Games");
+
     /** Whether a jar with this filename prefix is one Nordtal publishes. */
     public static boolean isNordtal(final @Nullable String prefix) {
         return prefix != null && NORDTAL_PLUGINS.containsKey(prefix);

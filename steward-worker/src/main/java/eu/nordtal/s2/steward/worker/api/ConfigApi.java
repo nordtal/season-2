@@ -13,6 +13,7 @@ import eu.nordtal.s2.steward.worker.configfile.ConfigLocation;
 import eu.nordtal.s2.steward.worker.configfile.RawSyntax;
 import eu.nordtal.s2.steward.worker.configfile.StaleConfigException;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
+import eu.nordtal.s2.steward.worker.plan.Topology;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
@@ -289,7 +290,7 @@ public final class ConfigApi {
     // What goes over the wire
     // ---------------------------------------------------------------------------------------
 
-    private static Map<String, Object> describe(final ConfigLocation location) {
+    static Map<String, Object> describe(final ConfigLocation location) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("service", location.service());
         row.put("name", location.name());
@@ -300,6 +301,14 @@ public final class ConfigApi {
         // ordinary greyed-out row and said what was wrong only when somebody tapped it.
         row.put("readable", location.readable());
         row.put("writable", location.writable());
+        // Who wrote the file, by the same Nordtal set the plugins tab uses. A file straight in the
+        // service's volume is the service's own; one in a plugin's data folder belongs to that
+        // plugin, and only Nordtal's plugins have a name worth replacing the folder with.
+        final int slash = location.name().indexOf('/');
+        final String folder = slash < 0 ? null : location.name().substring(0, slash);
+        final String nordtal = folder == null ? null : Topology.NORDTAL_DATA_FOLDERS.get(folder);
+        row.put("origin", folder == null || nordtal != null ? "nordtal" : "third-party");
+        row.put("plugin", nordtal != null ? nordtal : folder);
         return row;
     }
 

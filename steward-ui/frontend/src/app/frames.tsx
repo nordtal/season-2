@@ -111,7 +111,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
 
       {/* The island. Fixed, never moves; only its surface and the path come and go. */}
       <div
-        className={`fixed top-(--island-top) left-(--gutter) z-50 flex max-w-[calc(100vw-2*var(--gutter)-7rem)] items-center rounded-xl border p-1 transition-[background-color,border-color,box-shadow] ${MOTION} ${
+        className={`fixed top-(--island-top) left-(--gutter) z-50 gap-2 flex max-w-[calc(100vw-2*var(--gutter)-7rem)] items-center rounded-xl border p-1 transition-[background-color,border-color,box-shadow] ${MOTION} ${
           shown ? "border-transparent bg-transparent shadow-none" : "border-border bg-card shadow-sm"
         }`}
       >

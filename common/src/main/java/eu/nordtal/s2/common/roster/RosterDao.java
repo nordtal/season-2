@@ -47,7 +47,9 @@ interface RosterDao {
                    usr.discord_avatar_url_updated,
                    link.mc_name,
                    link.mc_name_updated,
-                   playtime.seconds AS playtime_seconds
+                   playtime.seconds AS playtime_seconds,
+                   usr.admin_granted_by,
+                   usr.admin_granted_at
             FROM discord_user usr
                      LEFT JOIN account_link link ON link.discord_id = usr.discord_id
                      -- steward/119. A third LEFT JOIN and not a fourth query: play time is one row

@@ -1108,6 +1108,29 @@ export function useUnlink() {
   })
 }
 
+/** Makes a member of the guild an admin below the one signed in. Decided here, not by the bot. */
+export function useGrantAdmin() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (discordId: string) =>
+      api<{ outcome: string }>("/api/admins/grant", { method: "POST", body: { discordId } }),
+    onSettled: () => client.invalidateQueries({ queryKey: keys.people }),
+  })
+}
+
+/** Takes admin from somebody below the one signed in, and from everybody below them. */
+export function useRevokeAdmin() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (discordId: string) =>
+      api<{ outcome: string; removed: string[] }>("/api/admins/revoke", {
+        method: "POST",
+        body: { discordId },
+      }),
+    onSettled: () => client.invalidateQueries({ queryKey: keys.people }),
+  })
+}
+
 /**
  * Books a payment by hand. `outcome` is the bot's own word: `BOOKED`, `NOT_OPEN` (somebody or
  * bunq got there first - `was` says what it is now) or `UNKNOWN` (no such reference).

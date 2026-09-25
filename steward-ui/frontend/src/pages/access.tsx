@@ -1,6 +1,8 @@
 import {
   ArrowSquareOutIcon,
   ClockCounterClockwiseIcon,
+  CrownCrossIcon,
+  CrownIcon,
   HandCoinsIcon,
   HourglassIcon,
   LinkBreakIcon,
@@ -14,15 +16,19 @@ import type { ReactNode } from "react"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { adminsBelow } from "@/lib/admin-tree"
 import type { Grant, JournalEntry, Payment, Person } from "@/lib/api"
 import { count, date, dateTime, euros, playtime, relative, splitPlaytime } from "@/lib/format"
 import {
   useGrantAccess,
+  useGrantAdmin,
   useGrants,
   useJournal,
   usePayments,
+  useMe,
   usePeople,
   useRevokeAccess,
+  useRevokeAdmin,
   useSetPlaytime,
   useSettle,
   useUnlink,
@@ -349,6 +355,7 @@ function WaitingPersonRow() {
  */
 export function AccessPage() {
   const people = usePeople()
+  const me = useMe()
   const [needle, setNeedle] = useState("")
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
   const [page, setPage] = useState(0)
@@ -365,6 +372,10 @@ export function AccessPage() {
   const [granting, setGranting] = useState<Person | null>(null)
   // Not `playtime`: that name is the formatter this page draws the column with.
   const [playtimeFor, setPlaytimeFor] = useState<Person | null>(null)
+  const [makingAdmin, setMakingAdmin] = useState<Person | null>(null)
+  const [unmakingAdmin, setUnmakingAdmin] = useState<Person | null>(null)
+  // Which admins the signed-in one may revoke: their own branch, and nobody else's.
+  const below = adminsBelow(people.data ?? [], me.data?.id)
   // One clock for the whole render, so that two badges in one row cannot disagree about "now".
   const now = Date.now()
 
@@ -531,7 +542,7 @@ export function AccessPage() {
                               {person.admin ? (
                                 <StatusBadge
                                   tone="idle"
-                                  tipContent="Mirrors the Discord admin role. If the role goes, this mark goes with it."
+                                  tipContent={grantedByText(person, list)}
                                 >
                                   Admin
                                 </StatusBadge>
@@ -559,6 +570,10 @@ export function AccessPage() {
                                 onPlaytime: () => setPlaytimeFor(person),
                                 onRevoke: () => setRevoking(person),
                                 onUnlink: () => setUnlinking(person),
+                                onMakeAdmin: () => setMakingAdmin(person),
+                                onRevokeAdmin: below.has(person.discordId)
+                                  ? () => setUnmakingAdmin(person)
+                                  : undefined,
                               })}
                             />
                           </TableCell>
@@ -635,6 +650,23 @@ export function AccessPage() {
         />
       ) : null}
 
+      {makingAdmin ? (
+        <MakeAdminDialog
+          person={makingAdmin}
+          open
+          onOpenChange={(open) => (open ? null : setMakingAdmin(null))}
+        />
+      ) : null}
+
+      {unmakingAdmin ? (
+        <RevokeAdminDialog
+          person={unmakingAdmin}
+          branch={adminsBelow(people.data ?? [], unmakingAdmin.discordId).size}
+          open
+          onOpenChange={(open) => (open ? null : setUnmakingAdmin(null))}
+        />
+      ) : null}
+
       {granting ? (
         <GrantDialog
           person={granting}
@@ -692,6 +724,9 @@ function rowActions(
     onPlaytime: () => void
     onRevoke: () => void
     onUnlink: () => void
+    onMakeAdmin: () => void
+    /** Absent unless this admin is below the signed-in one - the only ones they may revoke. */
+    onRevokeAdmin?: () => void
   },
 ): RowAction[] {
   const actions: RowAction[] = []
@@ -764,7 +799,44 @@ function rowActions(
     })
   }
 
+  if (!person.admin && person.memberState === "MEMBER") {
+    actions.push({
+      key: "make-admin",
+      node: (
+        <Button type="button" variant="ghost" size="sm" onClick={on.onMakeAdmin}>
+          <CrownIcon aria-hidden />
+          Make admin
+        </Button>
+      ),
+    })
+  }
+
+  if (person.admin && on.onRevokeAdmin) {
+    actions.push({
+      key: "revoke-admin",
+      node: (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-destructive"
+          onClick={on.onRevokeAdmin}
+        >
+          <CrownCrossIcon aria-hidden />
+          Revoke admin
+        </Button>
+      ),
+    })
+  }
+
   return actions
+}
+
+/** The admin badge's tooltip: who granted this one, by the name the roster knows them by. */
+function grantedByText(person: Person, people: readonly Person[]): string {
+  if (!person.adminGrantedBy) return "Root admin"
+  const granter = people.find((other) => other.discordId === person.adminGrantedBy)
+  return `Granted by ${granter ? personName(granter) : person.adminGrantedBy}`
 }
 
 /*
@@ -1118,6 +1190,111 @@ function UnlinkDialog({
             }}
           >
             Unlink
+          </ResponsiveAlertDialogAction>
+        </ResponsiveAlertDialogFooter>
+      </ResponsiveAlertDialogContent>
+    </ResponsiveAlertDialog>
+  )
+}
+
+/** Makes a member an admin below the signed-in one. The Discord admin role follows. */
+function MakeAdminDialog({
+  person,
+  open,
+  onOpenChange,
+}: {
+  person: Person
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const grant = useGrantAdmin()
+  return (
+    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveAlertDialogContent>
+        <ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogTitle>Make {personName(person)} an admin?</ResponsiveAlertDialogTitle>
+          <ResponsiveAlertDialogDescription>
+            Below you. Only you and the admins above you can revoke it.
+          </ResponsiveAlertDialogDescription>
+        </ResponsiveAlertDialogHeader>
+        <ResponsiveAlertDialogFooter>
+          <ResponsiveAlertDialogCancel disabled={grant.isPending}>Cancel</ResponsiveAlertDialogCancel>
+          <ResponsiveAlertDialogAction
+            disabled={grant.isPending}
+            onClick={() => {
+              grant.mutate(person.discordId, {
+                onSuccess: () => {
+                  toast.success(
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      Admin
+                      <Entity id={person.discordId} kind="discord" interactive={false} />
+                    </span>,
+                  )
+                },
+                onError: (error) => {
+                  toast.error("Nobody was made an admin", { description: String(error) })
+                },
+              })
+            }}
+          >
+            Make admin
+          </ResponsiveAlertDialogAction>
+        </ResponsiveAlertDialogFooter>
+      </ResponsiveAlertDialogContent>
+    </ResponsiveAlertDialog>
+  )
+}
+
+/** Takes admin from somebody below the signed-in one, and from their whole branch. */
+function RevokeAdminDialog({
+  person,
+  branch,
+  open,
+  onOpenChange,
+}: {
+  person: Person
+  /** How many admins sit below this one and go with them. */
+  branch: number
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const revoke = useRevokeAdmin()
+  return (
+    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveAlertDialogContent>
+        <ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogTitle>Revoke admin from {personName(person)}?</ResponsiveAlertDialogTitle>
+          <ResponsiveAlertDialogDescription>
+            {branch === 0
+              ? "Their open sessions end."
+              : `${count(branch)} ${branch === 1 ? "admin" : "admins"} below them lose it too. Every open session of theirs ends.`}
+          </ResponsiveAlertDialogDescription>
+        </ResponsiveAlertDialogHeader>
+        <ResponsiveAlertDialogFooter>
+          <ResponsiveAlertDialogCancel disabled={revoke.isPending}>Cancel</ResponsiveAlertDialogCancel>
+          <ResponsiveAlertDialogAction
+            variant="destructive"
+            disabled={revoke.isPending}
+            onClick={() => {
+              revoke.mutate(person.discordId, {
+                onSuccess: (result) => {
+                  toast.success(
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      No longer admin
+                      <Entity id={person.discordId} kind="discord" interactive={false} />
+                    </span>,
+                    result.removed.length > 1
+                      ? { description: `${count(result.removed.length - 1)} below them as well.` }
+                      : undefined,
+                  )
+                },
+                onError: (error) => {
+                  toast.error("Nothing was revoked", { description: String(error) })
+                },
+              })
+            }}
+          >
+            Revoke admin
           </ResponsiveAlertDialogAction>
         </ResponsiveAlertDialogFooter>
       </ResponsiveAlertDialogContent>

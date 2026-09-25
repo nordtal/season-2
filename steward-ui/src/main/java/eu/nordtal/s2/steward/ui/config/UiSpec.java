@@ -504,22 +504,5 @@ public interface UiSpec {
         default String botToken() {
             return "";
         }
-
-        @Order(5)
-        @Name("Admin role")
-        @Key("admin-role")
-        @Comment({
-                "The role id that may sign in. Everybody else is refused after Discord has",
-                "confirmed who they are - which is the right order: the refusal can then name the",
-                "person and the role they are missing, instead of being an anonymous no.",
-                "",
-                "Empty means NOBODY may sign in. It is not a default that lets everyone in: an",
-                "interface that can stop a server and read a token is not a thing to open by",
-                "forgetting a value."
-        })
-        @Explain("Empty means NOBODY may sign in - deliberately not a default that lets everyone in, since this interface can stop a server and read a token.")
-        default String adminRole() {
-            return "";
-        }
     }
 }

@@ -1036,7 +1036,6 @@ services:
       # A SECOND COPY of what the bot's access.yml says, deliberately: two processes, two volumes,
       # no shared file. Written from the same .env variables so they start out agreeing.
       NORDTAL_STEWARD_UI_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
-      NORDTAL_STEWARD_UI_DISCORD_ADMIN_ROLE: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/nordtal.sh asks for it}
       # THE BOT'S TOKEN, READ-ONLY AND FOR ONE THING: asking Discord what the guild's roles and
       # channels are CALLED, so the configuration editor offers a list to pick from instead of a
       # field to transcribe an eighteen-digit id into. Steward never sends a message with it, never

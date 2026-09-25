@@ -83,6 +83,9 @@ function manyMatches(): Record<string, unknown>[] {
   )
 }
 
+/** Who is signed in, in every test here: the root of the admin tree below. */
+const ME = "500000000000000000"
+
 function backend(over: {
   people?: () => Record<string, unknown>[]
   payments?: () => Record<string, unknown>[]
@@ -116,6 +119,10 @@ function backend(over: {
         over.answer?.(kind) ?? { id, kind, status: "DONE", result: {} },
       )
     }
+    if (url.startsWith("/api/admins/") && init?.method === "POST") {
+      return json(200, { outcome: url.endsWith("/grant") ? "GRANTED" : "REVOKED", removed: [] })
+    }
+    if (url === "/api/me") return json(200, { signedIn: true, id: ME, webauthn: "READY" })
     if (url === "/api/people") return json(200, over.people ? over.people() : PEOPLE)
     if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])
     if (url.startsWith("/api/journal")) return json(200, over.journal ? over.journal() : [])
@@ -144,6 +151,17 @@ function draw(node: ReactNode) {
       </TooltipProvider>
     </QueryClientProvider>,
   )
+}
+
+/**
+ * Clicks one of a row's actions. Three or more of them sit behind the row's popover, so that is
+ * opened first when there is one - the same two taps a person makes.
+ */
+async function clickRowAction(name: RegExp) {
+  const trigger = await screen.findByRole("button", { name: /^Actions for/ })
+  fireEvent.click(trigger)
+  const popover = (await screen.findByRole("dialog")) as HTMLElement
+  fireEvent.click(within(popover).getByRole("button", { name }))
 }
 
 afterEach(() => {
@@ -364,7 +382,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
     )
     draw(<AccessPage />)
 
-    fireEvent.click(await screen.findByRole("button", { name: /play ?time/i }))
+    await clickRowAction(/play ?time/i)
     fireEvent.change(await screen.findByLabelText(/days/i), { target: { value: "1" } })
     fireEvent.change(screen.getByLabelText(/hours/i), { target: { value: "6" } })
     fireEvent.change(screen.getByLabelText(/minutes/i), { target: { value: "30" } })
@@ -391,7 +409,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
     )
     draw(<AccessPage />)
 
-    fireEvent.click(await screen.findByRole("button", { name: /play ?time/i }))
+    await clickRowAction(/play ?time/i)
     fireEvent.change(await screen.findByLabelText(/days/i), { target: { value: "" } })
     fireEvent.change(screen.getByLabelText(/hours/i), { target: { value: "50" } })
     fireEvent.change(screen.getByLabelText(/minutes/i), { target: { value: "" } })
@@ -413,7 +431,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
     vi.stubGlobal("fetch", fetcher)
     draw(<AccessPage />)
 
-    fireEvent.click(await screen.findByRole("button", { name: /play ?time/i }))
+    await clickRowAction(/play ?time/i)
     const hours = await screen.findByLabelText(/hours/i)
     fireEvent.change(hours, { target: { value: "12" } })
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
@@ -881,5 +899,80 @@ describe("PaymentsPage - the column budget fits the card at 1440px", () => {
       `declared column widths summed to ${total}rem against a 72rem (1152px) card - ` +
         `steward/114 measured the unfixed table at 95rem`,
     ).toBeLessThan(72)
+  })
+})
+
+/**
+ * Admins are granted and revoked on this page. The badge says who granted whom; "Make admin" is
+ * offered on a member of the guild who is none yet, and "Revoke admin" only on an admin strictly
+ * below the one signed in - the server refuses every other revocation, so the button is not drawn.
+ */
+describe("AccessPage - the admin tree", () => {
+  const TREE = [
+    person({ discordId: ME, discordUsername: "me", admin: true, adminGrantedBy: null }),
+    person({ discordId: "510000000000000001", discordUsername: "mine", admin: true, adminGrantedBy: ME }),
+    person({
+      discordId: "510000000000000002",
+      discordUsername: "theirs",
+      admin: true,
+      adminGrantedBy: "510000000000000001",
+    }),
+    person({ discordId: "510000000000000003", discordUsername: "plain" }),
+    person({ discordId: "510000000000000004", discordUsername: "gone", memberState: "LEFT" }),
+  ]
+
+  async function actionsOf(name: string): Promise<string[]> {
+    const row = (await screen.findByText(name)).closest("tr") as HTMLElement
+    const trigger = within(row).queryByRole("button", { name: /^Actions for/ })
+    const scope = trigger
+      ? (fireEvent.click(trigger), (await screen.findByRole("dialog")) as HTMLElement)
+      : row
+    return within(scope)
+      .queryAllByRole("button")
+      .map((button) => (button.textContent ?? "").trim())
+      .filter((label) => label !== "")
+  }
+
+  it("offers Make admin on a member who is none, and never on somebody who left", async () => {
+    vi.stubGlobal("fetch", backend({ people: () => TREE }))
+    draw(<AccessPage />)
+    expect(await actionsOf("plain")).toContain("Make admin")
+    cleanup()
+    draw(<AccessPage />)
+    expect(await actionsOf("gone")).not.toContain("Make admin")
+  })
+
+  it("offers Revoke admin below the one signed in, the whole way down", async () => {
+    vi.stubGlobal("fetch", backend({ people: () => TREE }))
+    draw(<AccessPage />)
+    await waitFor(async () => expect(await actionsOf("theirs")).toContain("Revoke admin"))
+  })
+
+  it("never offers Revoke admin on the one signed in", async () => {
+    vi.stubGlobal("fetch", backend({ people: () => TREE }))
+    draw(<AccessPage />)
+    await screen.findByText("mine")
+    expect(await actionsOf("me")).not.toContain("Revoke admin")
+  })
+
+  it("sends the row's own Discord id to the grant", async () => {
+    const fetched = backend({ people: () => TREE })
+    vi.stubGlobal("fetch", fetched)
+    draw(<AccessPage />)
+
+    const row = (await screen.findByText("plain")).closest("tr") as HTMLElement
+    const trigger = within(row).queryByRole("button", { name: /^Actions for/ })
+    const scope = trigger ? (fireEvent.click(trigger), await screen.findByRole("dialog")) : row
+    fireEvent.click(within(scope as HTMLElement).getByRole("button", { name: /make admin/i }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Make admin" }))
+
+    await waitFor(() => {
+      expect(fetched.mock.calls.find(([url]) => url === "/api/admins/grant")).toBeTruthy()
+    })
+    const call = fetched.mock.calls.find(([url]) => url === "/api/admins/grant")!
+    expect(JSON.parse(String((call[1] as RequestInit).body))).toEqual({
+      discordId: "510000000000000003",
+    })
   })
 })

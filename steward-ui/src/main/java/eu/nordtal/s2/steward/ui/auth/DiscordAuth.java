@@ -135,11 +135,6 @@ public final class DiscordAuth {
         if (config.guildId().isBlank()) {
             return Optional.of("discord.guild-id");
         }
-        if (config.adminRole().isBlank()) {
-            // Not a default that lets everybody in. An interface that can stop a server is not a
-            // thing to open by forgetting a value.
-            return Optional.of("discord.admin-role");
-        }
         return Optional.empty();
     }
 
@@ -176,7 +171,10 @@ public final class DiscordAuth {
     }
 
     /**
-     * Exchanges the code and decides whether this person may in.
+     * Exchanges the code and says who this is, refusing anybody who is not in the guild.
+     *
+     * <p>Whether they may in is not decided here: that is the admin tree in the database, which
+     * the caller asks next. Discord's roles are carried along and decide nothing.</p>
      *
      * @return the account, or a refusal that says why in words an admin can act on
      */
@@ -218,11 +216,7 @@ public final class DiscordAuth {
                 ? member.get("nick").getAsString()
                 : user.get("username").getAsString();
 
-        if (!roles.contains(config.adminRole())) {
-            log.info("refused {} ({}): not in the admin role", name, id);
-            return Outcome.refused(name + " is in the guild but does not have the admin role");
-        }
-        log.info("signed in {} ({})", name, id);
+        log.info("Discord confirmed {} ({})", name, id);
         return Outcome.signedIn(new Account(id, name, List.copyOf(roles)));
     }
 

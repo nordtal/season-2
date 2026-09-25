@@ -385,17 +385,15 @@ public interface AccessSpec {
         @Name("Admin role")
         @Key("admin")
         @Comment({
-                "Who is an admin. Read-only for the bot, exactly like the language roles on the",
-                "'languages' entries below: it is mirrored into discord_user.admin and every other",
-                "process reads the flag from there - the proxy on the login path, the plugins at",
-                "join. An admin is appointed in Discord and is an admin everywhere; there is no",
-                "second list.",
+                "The role every admin carries in Discord. Who is an admin is decided in",
+                "Steward, on the Users page, and stored in discord_user.admin; the bot keeps this",
+                "role in step with it - adds it to every admin and takes it from everybody else,",
+                "a role handed out by hand included. It never works the other way round.",
                 "",
-                "The mirror is live, not a grant: losing the role clears the flag on the next",
-                "role event or reconcile. This is what /phase set and the MAINTENANCE phase are",
-                "authorised by, so it is not a cosmetic id."
+                "The bot's own role has to sit above this one in the guild's role list, or",
+                "Discord refuses both the add and the removal."
         })
-        @Explain("Read-only for the bot: mirrors Discord's role live, and is what /phase set and maintenance mode are authorised by.")
+        @Explain("Follows the admins decided in Steward - the bot adds and removes it, and never reads it as a permission.")
         default String admin() {
             return "";
         }

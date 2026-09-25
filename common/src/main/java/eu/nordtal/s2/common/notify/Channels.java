@@ -29,7 +29,8 @@ public final class Channels {
     /**
      * Somebody's {@code discord_user.admin} flag was written. Payload: the Discord id.
      *
-     * <p>Matches {@code pg_notify('nordtal_admin', discord_id)} in {@code AccessDao#setAdmin}.
+     * <p>Matches {@code pg_notify('nordtal_admin', discord_id)} in {@code JdbiAdminTree}, for a grant,
+     * a revocation and a branch dropped on leaving the guild.
      * The payload is <b>not</b> trusted as state by anything: every listener re-reads the whole set,
      * which is what makes a lost notification cost latency rather than correctness.</p>
      */

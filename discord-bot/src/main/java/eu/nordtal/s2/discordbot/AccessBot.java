@@ -13,6 +13,7 @@ import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.discordbot.discord.AccessInbox;
 import eu.nordtal.s2.discordbot.discord.AdminLog;
+import eu.nordtal.s2.discordbot.discord.AdminRole;
 import eu.nordtal.s2.discordbot.discord.GuildState;
 import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
 import eu.nordtal.s2.discordbot.access.discord.RedemptionLimit;
@@ -32,6 +33,7 @@ import eu.nordtal.s2.discordbot.hungergames.RegisterFlow;
 import eu.nordtal.s2.discordbot.hungergames.RegisterMessages;
 import eu.nordtal.s2.discordbot.hungergames.Teams;
 import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.access.AdminTree;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.network.SnapshotDirectory;
@@ -205,7 +207,12 @@ public class AccessBot implements AutoCloseable {
             // only the process that reads bunq can be asked.
             final PaymentProcessor processor = new PaymentProcessor(languages, requests,
                     tiers, access, roles, admin, messages, jda, seasonStart);
-            final GuildState guildState = new GuildState(jda, accessConfig, languages, access, database.jdbi());
+            // Admins are a grant tree decided in Steward. The bot drops a branch when its admin
+            // leaves the guild, and keeps the Discord admin role in step - it never grants.
+            final AdminTree adminTree = AdminTree.using(database.dataSource());
+            final GuildState guildState =
+                    new GuildState(jda, accessConfig, languages, access, adminTree, database.jdbi());
+            final AdminRole adminRole = new AdminRole(jda, accessConfig, adminTree, admin);
             final Teams teams = new Teams(database.jdbi());
 
             // Built before the listener list because the command effects below hand it the watch.
@@ -274,6 +281,7 @@ public class AccessBot implements AutoCloseable {
             new RegisterMessages(jda, languages, messages, database.jdbi()).publishAll();
             guildState.reconcile();
             roles.reconcile();
+            adminRole.reconcile();
 
             // The sidebar status channels, if any language configured one. After the guild state
             // reconcile, so the first tick renames against a settled picture.
@@ -299,7 +307,7 @@ public class AccessBot implements AutoCloseable {
             // grant typed in Discord are the same four things.
             this.accessListener = listenForAccess(databaseConfig,
                     new AccessInbox(eu.nordtal.s2.common.access.AccessRequests.on(
-                            database.dataSource()), inboxEffects, log));
+                            database.dataSource()), inboxEffects, log), adminRole);
 
             // The readiness marker sits last on purpose: nothing above writes one, so a marker on
             // disk means this bot got all the way through its constructor. It shares the timer
@@ -405,7 +413,10 @@ public class AccessBot implements AutoCloseable {
     /**
      * Starts the {@code nordtal_access} listener (season-2-community/08).
      *
-     * <p>One refresh, handed to {@code worker} rather than run on the listener thread: carrying a
+     * <p>It carries {@code nordtal_admin} as well, for the admin role: every wake re-reads both,
+     * which is what one connection for several channels means.</p>
+     *
+     * <p>Each refresh is handed to {@code worker} rather than run on the listener thread: carrying a
      * grant out calls Discord four times, and a listener thread inside a REST call is a listener
      * that is not listening.</p>
      *
@@ -415,7 +426,8 @@ public class AccessBot implements AutoCloseable {
      * was lost, not for the ordinary one.</p>
      */
     private NotificationListener listenForAccess(final DatabaseSpec databaseConfig,
-                                                 final AccessInbox accessInbox) {
+                                                 final AccessInbox accessInbox,
+                                                 final AdminRole adminRole) {
         final NotificationListener listener = new NotificationListener(
                 PostgresNotifications.connector(
                         databaseConfig.jdbcUrl(),
@@ -423,10 +435,12 @@ public class AccessBot implements AutoCloseable {
                         databaseConfig.password(),
                         LISTENER_SOCKET_TIMEOUT_SECONDS,
                         "access-bot-access-listener",
-                        List.of(Channels.ACCESS)),
+                        List.of(Channels.ACCESS, Channels.ADMIN)),
                 "access-bot-access-listener",
                 List.of(new NotificationListener.Refresh("access requests",
-                        () -> worker.execute(guarded("access inbox", accessInbox::drain)))),
+                                () -> worker.execute(guarded("access inbox", accessInbox::drain))),
+                        new NotificationListener.Refresh("admin role",
+                                () -> worker.execute(guarded("admin role", adminRole::reconcile)))),
                 log,
                 ACCESS_POLL);
         listener.start();

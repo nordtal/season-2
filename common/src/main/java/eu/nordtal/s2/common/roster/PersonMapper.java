@@ -45,7 +45,9 @@ public final class PersonMapper implements RowMapper<Person> {
                 instant(rs, "mc_name_updated"),
                 // getObject, not getLong: the latter answers 0 for SQL NULL, and zero is a play
                 // time somebody could actually have.
-                rs.getObject("playtime_seconds", Long.class));
+                rs.getObject("playtime_seconds", Long.class),
+                rs.getString("admin_granted_by"),
+                instant(rs, "admin_granted_at"));
     }
 
     /** The one conversion every mapper in this package uses; see the class comment. */

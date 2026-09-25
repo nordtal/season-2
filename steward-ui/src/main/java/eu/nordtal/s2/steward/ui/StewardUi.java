@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.Gson;
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.access.AdminTree;
 import eu.nordtal.s2.common.roster.Person;
 import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateKind;
@@ -198,6 +199,9 @@ public final class StewardUi {
     /** Announcements written by hand, over the same rows as {@link #commands}. */
     private final Announcements announcements;
     private final AccessApi access;
+    /** Who may sign in, and who stays signed in. Null only in a test without a database. */
+    private final AdminTree admins;
+    private final AdminApi adminApi;
 
     /** The one service allowed to create a container, asked for exactly one thing (10a.4). */
     private final DeployerApi deployments;
@@ -253,6 +257,9 @@ public final class StewardUi {
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
         this.announcements = new Announcements(data == null ? null : data.dataSource(), commands);
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
+        this.admins = data == null ? null : AdminTree.using(data.dataSource());
+        this.adminApi = data == null ? null
+                : new AdminApi(admins, data.audit(), ctx -> account(ctx).orElseThrow());
         this.deployments = new DeployerApi(deployer, data, ctx -> account(ctx).orElseThrow(),
                 !config.deployer().token().isBlank());
         this.pushSubscriptions = data == null ? null : new PushSubscriptions(data.dataSource());
@@ -899,6 +906,11 @@ public final class StewardUi {
             cfg.routes.post("/api/people/{id}/playtime", access::playtime, Gate.KEY_FRESH);
             cfg.routes.get("/api/access/requests/{id}", access::outcome, Gate.KEY_HELD);
 
+            // Admin is a tree decided here and nowhere else - AdminApi writes it directly, and the
+            // bot only makes the Discord role follow.
+            cfg.routes.post("/api/admins/grant", ctx -> adminApi.grant(ctx), Gate.KEY_FRESH);
+            cfg.routes.post("/api/admins/revoke", ctx -> adminApi.revoke(ctx), Gate.KEY_FRESH);
+
             // --- the season ------------------------------------------------------------------
             //
             // PhaseDirectory writes its own audit_log row inside the statement that performs the
@@ -1147,6 +1159,16 @@ public final class StewardUi {
             ctx.status(403).json(Map.of("error", outcome.refusal()));
             return;
         }
+        // Discord has said who this is and that they are in the guild. Whether they may in is the
+        // admin tree's answer - with the one bootstrap there is: into a tree with nobody in it, the
+        // first sign-in walks in as its root. Deliberately a race; see AdminTree.
+        final String signingIn = outcome.account().id();
+        if (admins == null || !(admins.isAdmin(signingIn) || claimRoot(outcome.account()))) {
+            log.info("refused {} ({}): not an admin", outcome.account().name(), signingIn);
+            ctx.status(403).json(Map.of("error",
+                    outcome.account().name() + " is in the guild but is not an admin"));
+            return;
+        }
         // A NEW ROW WITH A NEW ID, and the one the sign-in started in is dropped. The row that
         // held the OAuth state is not promoted into a signed-in session, because its id was in
         // this browser before anybody proved who they were - which is session fixation, and the
@@ -1156,6 +1178,18 @@ public final class StewardUi {
         sessions.end(started);
         setSessionCookie(ctx, id);
         ctx.redirect("/");
+    }
+
+    /** The bootstrap: true when this sign-in just became the root of an empty admin tree. */
+    private boolean claimRoot(final DiscordAuth.Account who) {
+        if (!admins.claimRootIfNobody(who.id())) {
+            return false;
+        }
+        log.warn("{} ({}) signed in while nobody was an admin and is now the root of the admin tree",
+                who.name(), who.id());
+        data.audit().record("ADMIN_ROOT", who.id(), who.id(), null,
+                "first sign-in while nobody was an admin");
+        return true;
     }
 
     // --- the second factor -------------------------------------------------------------------
@@ -1888,7 +1922,16 @@ public final class StewardUi {
         if (parked.isPresent()) {
             return parked;
         }
-        final Optional<Sessions.Session> found = sessions.find(ctx.cookie(Sessions.COOKIE));
+        Optional<Sessions.Session> found = sessions.find(ctx.cookie(Sessions.COOKIE));
+        // Admin is re-read on every request, not taken from the sign-in: a revocation - or a
+        // departure from the guild, which drops the branch - ends every session of that account
+        // at its next request rather than when the cookie runs out.
+        if (found.isPresent() && found.get().signedIn() && admins != null
+                && !admins.isAdmin(found.get().discordId())) {
+            final int ended = sessions.endAllOf(found.get().discordId());
+            log.info("ended {} session(s) of {}: no longer an admin", ended, found.get().discordId());
+            found = Optional.empty();
+        }
         found.ifPresent(session -> ctx.attribute(PARKED, session));
         return found;
     }

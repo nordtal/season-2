@@ -134,32 +134,6 @@ interface AccessDao {
     Optional<DiscordProfile> discordProfile(@Bind("discordId") String discordId);
 
     /**
-     * Mirrors the Discord admin role. Unlike {@code donor} this is written in both directions:
-     * losing the role loses the flag, because it is a permission and not an acknowledgement.
-     *
-     * <p>It notifies on {@code nordtal_admin} so a revocation reaches connected sessions without
-     * waiting for a reconnect. {@code pg_notify} rides inside the statement so a notification is
-     * only emitted for a write that committed, and the payload is never trusted as state: the
-     * listener re-reads {@link #adminDiscordIds()} in full.
-     *
-     * @return how many rows were notified about - always 1, and read by nothing
-     */
-    @SqlQuery("""
-            WITH upserted AS (
-                INSERT INTO discord_user (discord_id, admin, updated)
-                VALUES (:discordId, :admin, now())
-                ON CONFLICT (discord_id)
-                    DO UPDATE SET admin = EXCLUDED.admin, updated = now()
-                RETURNING discord_id
-            ),
-                 notified AS (
-                     SELECT pg_notify('nordtal_admin', discord_id) FROM upserted
-                 )
-            SELECT count(*) FROM notified
-            """)
-    int setAdmin(@Bind("discordId") String discordId, @Bind("admin") boolean admin);
-
-    /**
      * Every Discord account that currently holds the admin flag. One query for the whole set rather
      * than one per connected player, which makes a roster refresh idempotent and safe on a timer.
      */

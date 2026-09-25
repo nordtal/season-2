@@ -165,18 +165,6 @@ public interface AccessDirectory extends AutoCloseable {
     void setPlaytimeSeconds(String discordId, long seconds);
 
     /**
-     * Mirrors the Discord admin role into the database. An admin is appointed in Discord and is an
-     * admin everywhere; there is no second list.
-     *
-     * <p>Unlike {@link #setDonor(String, boolean)} this is set <b>and cleared</b>: it is a
-     * permission, so losing the Discord role has to lose it.
-     *
-     * @param discordId the Discord snowflake
-     * @param admin     whether that account currently holds the Discord admin role
-     */
-    void setAdmin(String discordId, boolean admin);
-
-    /**
      * Writes all three Discord-observed fields at once - the global username and the <b>guild</b>
      * nickname and avatar. Called from discord-bot's reconcile pass and its member-join handler,
      * which already visit one member at a time; there is deliberately no separate loop for this

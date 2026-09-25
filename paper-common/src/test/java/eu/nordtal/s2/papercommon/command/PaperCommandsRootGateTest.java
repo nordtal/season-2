@@ -1,5 +1,9 @@
 package eu.nordtal.s2.papercommon.command;
 
+import eu.nordtal.s2.commands.Declaration;
+import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.commands.Surface;
+import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.smp.SmpCommands;
@@ -12,6 +16,7 @@ import eu.nordtal.s2.common.message.ToneColours;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -57,16 +62,63 @@ class PaperCommandsRootGateTest {
     }
 
     @Test
-    @DisplayName("/smp, a root with an open command under it, stays open - /smp status is anybody's")
+    @DisplayName("/smp, a root with an open subtree hung under it, stays open - /smp status is anybody's")
     void aRootWithSomethingOpenStaysOpen() {
+        // /smp status is native Brigadier in the smp plugin, hung under the declared root with
+        // extraOpen. Every declaration under /smp is the console's, so without the extra the root
+        // is closed - see the case below - and with it the root has to stay in a player's tree.
+        final PaperCommands commands = adapter();
+        for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
+            commands.local(command, silent(SmpEffects.class));
+        }
+        commands.extraOpen("smp", Commands.literal("status"));
+        final LiteralCommandNode<CommandSourceStack> smp = root(commands.build(), "smp");
+
+        assertTrue(smp.getRequirement().test(source(player())),
+                "gating this root would hide /smp status from the players it is for");
+    }
+
+    @Test
+    @DisplayName("an open declaration under an admin root keeps the root and its own node open")
+    void anOpenDeclarationIsNotGatedByItsRoot() {
+        // No declaration in the catalogue is a player's since 2026-09-25, so the case is made up:
+        // the adapter still has to build the shape right if one ever comes back.
+        final PaperCommands commands = adapter();
+        for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
+            commands.local(command, silent(SmpEffects.class));
+        }
+        final Declaration open = new Declaration(List.of("smp", "open"), Target.SMP,
+                java.util.Set.of(Surface.GAME, Surface.CONSOLE), false, false, List.of());
+        commands.local(new NordtalCommand<SmpEffects>() {
+            @Override
+            public Declaration declaration() {
+                return open;
+            }
+
+            @Override
+            public void run(final NordtalUser user, final Values values, final SmpEffects effects) {
+            }
+        }, silent(SmpEffects.class));
+        final LiteralCommandNode<CommandSourceStack> smp = root(commands.build(), "smp");
+
+        assertTrue(smp.getRequirement().test(source(player())), "the root was gated");
+        assertTrue(smp.getChild("open").getRequirement().test(source(player())),
+                "the open node was gated");
+        assertFalse(smp.getChild("reload").getRequirement().test(source(player())),
+                "and the admin node next to it was not");
+    }
+
+    @Test
+    @DisplayName("/smp with nothing open under it is closed to a player")
+    void aRootWithNothingOpenIsClosed() {
         final PaperCommands commands = adapter();
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
         }
         final LiteralCommandNode<CommandSourceStack> smp = root(commands.build(), "smp");
 
-        assertTrue(smp.getRequirement().test(source(player())),
-                "gating this root would hide /smp status from the players it was declared for");
+        assertFalse(smp.getRequirement().test(source(player())),
+                "every /smp declaration is the console's, so a player must not have the root");
     }
 
     private PaperCommands adapter() {

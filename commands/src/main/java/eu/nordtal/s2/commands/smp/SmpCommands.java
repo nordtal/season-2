@@ -25,6 +25,11 @@ import java.util.Set;
  * {@code update_request}, and is not folded in: it is answered by a container that is not a command
  * target and its report is text that must not be rendered twice.
  *
+ * <p>{@code /aura} and {@code /smp status} left on 2026-09-25, the same way the proxy's player
+ * commands did: they are what a player types, on one server, with no argument that ever travels
+ * through a row, so they are plain Paper Brigadier in the {@code smp} plugin. What is left here is
+ * the admin's.</p>
+ *
  * <h2>Which two ask first</h2>
  * {@code objective complete} and {@code milestone unlock}. {@code aura} does not, because applying
  * the negative is an exact undo, and {@code reload} does not, because re-reading a file changes
@@ -38,19 +43,6 @@ public final class SmpCommands {
 
     private SmpCommands() {
     }
-
-    /**
-     * {@code /smp status} alone - the one {@code /smp} command that is not an admin's, so it keeps
-     * the surfaces an admin command lost on 2026-09-15 (ops/18).
-     *
-     * <p><b>Discord is no longer among them</b> (season-2-community/10). It was the last
-     * declaration in the whole catalogue carrying {@link Surface#DISCORD}, and it held up 611 lines
-     * of adapter - JDA registration, a permission check and a translation of arguments into slash
-     * options - for one read-only command that Steward answers twice over, as a service page and
-     * through {@code POST /api/services/{name}/console}. The enum value itself outlives this
-     * ticket; it falls with season-2-ops/157.</p>
-     */
-    private static final Set<Surface> EVERYWHERE = Set.of(Surface.GAME, Surface.CONSOLE);
 
     /**
      * {@code reload}, {@code aura} and {@code access}: console only, 2026-09-15 (ops/18).
@@ -76,13 +68,6 @@ public final class SmpCommands {
     /** {@code /smp reload} - the sounds, the milestone track and the message bundles. */
     public static final Declaration RELOAD = new Declaration(
             List.of("smp", "reload"), Target.SMP, CONSOLE_ONLY, true, false, List.of());
-
-    /**
-     * {@code /smp status} - the one {@code /smp} command that is not an admin's: the phase, the
-     * active milestone with its progress, and who is on. Read-only, from Discord as a row.
-     */
-    public static final Declaration STATUS = new Declaration(
-            List.of("smp", "status"), Target.SMP, EVERYWHERE, false, false, List.of());
 
     /** {@code /smp objective complete <key>} - closes one objective, paying out what was collected. */
     public static final Declaration COMPLETE_OBJECTIVE = new Declaration(
@@ -111,27 +96,10 @@ public final class SmpCommands {
             List.of("smp", "access"), Target.SMP, CONSOLE_ONLY, true, false,
             List.of(Argument.player("player")));
 
-    /**
-     * {@code /aura} - your own standing and the ten highest, for any player.
-     *
-     * <h2>Why it is a root of its own rather than {@code /smp aura}</h2>
-     * Because {@code /smp aura} is already an admin correction with two arguments, and the two are
-     * not the same command wearing different clothes: one reads, one writes, and one of them is
-     * typed by everybody. Brigadier could not express both anyway - {@code /smp aura} takes a player
-     * name where this would take nothing, so the second would be unreachable behind the first.
-     *
-     * <h2>It is on the SMP even though it is typed everywhere</h2>
-     * The numbers are in {@code smp_player}, which is the SMP's. Typed on {@code limbo} or on the
-     * hunger games it becomes a request row like every other travelling command; typed on the SMP it
-     * runs where it stands.
-     */
-    public static final Declaration OWN_AURA = new Declaration(
-            List.of("aura"), Target.SMP, java.util.Set.of(Surface.GAME), false, false, List.of());
-
     /** Every {@code /smp} command, for an adapter to register and for the catalogue. */
     public static List<NordtalCommand<SmpEffects>> all() {
         return List.of(new ReloadSmp(), new CompleteObjective(), new UnlockMilestone(),
-                new ChangeAura(), new ShowAccess(), new ShowStatus(), new ShowAura());
+                new ChangeAura(), new ShowAccess());
     }
 
     /** Every {@code /smp} declaration. */

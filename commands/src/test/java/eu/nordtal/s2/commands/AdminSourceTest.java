@@ -94,8 +94,7 @@ class AdminSourceTest {
     @DisplayName("a subtree is gated only when everything runnable below it is admin-only")
     void anOpenCommandIsNotGatedByItsRoot() throws IOException {
         // Brigadier's requires gates a whole subtree, and both adapters put one on every child of
-        // a root. /smp status is declared open - CatalogueTest names it and announce as the only
-        // two - and a player who typed it got "Incorrect argument for command" with a red caret,
+        // a root. /smp status was declared open until 2026-09-25, and a player who typed it got "Incorrect argument for command" with a red caret,
         // because the node had been hidden from their tree (finding 117, seen on the local stack).
         //
         // steward/106, 2026-09-17: the literal asked for here used to be
@@ -121,10 +120,11 @@ class AdminSourceTest {
                             + " carries - steward/106: a command off Surface.GAME is not registered"
                             + " for a player at all");
         }
-        assertTrue(Catalogue.all().stream().anyMatch(declaration -> !declaration.adminOnly()
-                        && declaration.path().size() > 1),
-                "nothing in the catalogue is open under a root any more, which makes the check"
-                        + " above unfalsifiable - say so here rather than deleting it");
+        // Nothing in the catalogue is open under a root any more: /aura and /smp status, the last
+        // two, became native Brigadier in the smp plugin on 2026-09-25. The check above can
+        // therefore not be falsified from the catalogue, and is held instead by a made-up open
+        // declaration in PaperCommandsRootGateTest (paper-common) and VelocityCommandsRootGateTest
+        // (proxy), which build a real tree with one.
     }
 
     private static String read(final String relative) throws IOException {

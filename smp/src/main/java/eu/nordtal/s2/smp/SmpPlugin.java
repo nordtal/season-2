@@ -171,7 +171,7 @@ public final class SmpPlugin extends JavaPlugin {
      * inbox's uses {@code Runnable::run}, because the inbox settles a request row when the command
      * returns. {@code CommandInbox#register} refuses the wrong one at startup.</p>
      */
-    private SmpEffects chatEffects;
+    private BukkitSmpEffects chatEffects;
     private Outbox outbox;
     private ScheduledExecutorService commandWaiter;
     private SmpDao dao;
@@ -834,12 +834,12 @@ public final class SmpPlugin extends JavaPlugin {
      * What {@code /smp status} says, in the asker's language. Off the main thread: the phase is a
      * read of {@code season_phase}, and the effects only ever call this from their executor.
      */
-    private SmpEffects.Status status(final java.util.Locale locale) {
+    private eu.nordtal.s2.smp.command.Standing.Status status(final java.util.Locale locale) {
         final String phase = eu.nordtal.s2.common.phase.PhaseDirectory.using(pool).currentPhase().name();
         final SeasonState.Active active = season.active();
         final java.util.Optional<String> milestone = active.key() == null ? java.util.Optional.empty()
                 : java.util.Optional.of(MilestoneNames.of(messages, locale, active.key()));
-        return new SmpEffects.Status(phase, milestone, (int) Math.round(active.progress() * 100),
+        return new eu.nordtal.s2.smp.command.Standing.Status(phase, milestone, (int) Math.round(active.progress() * 100),
                 online);
     }
 

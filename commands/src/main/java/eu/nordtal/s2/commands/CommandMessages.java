@@ -102,9 +102,6 @@ public interface CommandMessages {
         @Name("Command help")
         interface DescribeMessages {
 
-            @Name("Aura")
-            MessageRef aura();
-
             @Name("Announce")
             MessageRef announce();
 
@@ -139,9 +136,6 @@ public interface CommandMessages {
 
                 @Name("Access")
                 MessageRef access();
-
-                @Name("Status")
-                MessageRef status();
 
                 Objective objective();
 
@@ -376,33 +370,6 @@ public interface CommandMessages {
     @Name("SMP")
     interface Smp {
 
-        Aura aura();
-
-        @Name("Aura")
-        interface Aura {
-
-            @Name("Own")
-            MessageRef own(@Arg("aura") Object aura, @Arg("rank") Object rank, @Arg("total") Object total);
-
-            @Name("Top")
-            MessageRef top(@Arg("count") Object count);
-
-            @Name("Line")
-            MessageRef line(@Arg("place") Object place, @Arg("player") PlayerContext player, @Arg("aura") Object aura);
-
-            @Name("Empty")
-            MessageRef empty();
-
-            @Name("Unlinked")
-            MessageRef unlinked();
-
-            @Name("Nobody")
-            MessageRef nobody();
-
-            @Name("Failed")
-            MessageRef failed();
-        }
-
         Access access();
 
         @Name("Access")
@@ -479,37 +446,6 @@ public interface CommandMessages {
 
             @Name("Read failed")
             MessageRef readFailed();
-        }
-
-        Status status();
-
-        @Name("Status")
-        interface Status {
-
-            @Name("Milestone")
-            MessageRef milestone(@Arg("milestone") MilestoneContext milestone, @Arg("percent") Object percent);
-
-            @Name("Finished")
-            MessageRef finished();
-
-            @Name("Online")
-            MessageRef online(@Arg("online") Object online);
-
-            @Name("Failed")
-            MessageRef failed();
-
-            @Key("online")
-            Online onlineSection();
-
-            @Name("Online")
-            interface Online {
-
-                @Name("None")
-                MessageRef none();
-
-                @Name("One")
-                MessageRef one();
-            }
         }
     }
 

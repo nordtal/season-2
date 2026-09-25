@@ -13,6 +13,7 @@ import com.mojang.brigadier.tree.CommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -102,6 +103,8 @@ class AdminCommandsAreGoneFromTheGameTest {
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
         }
+        // What the smp plugin hangs there: /smp status is native Brigadier since 2026-09-25.
+        commands.extraOpen("smp", Commands.literal("status"));
         final LiteralCommandNode<CommandSourceStack> smp = root(commands.build(), "smp");
         final Predicate<CommandSourceStack> reload = child(smp, "reload").getRequirement();
         final Predicate<CommandSourceStack> status = child(smp, "status").getRequirement();
@@ -111,7 +114,7 @@ class AdminCommandsAreGoneFromTheGameTest {
         assertTrue(reload.test(source(sender(ConsoleCommandSender.class))),
                 "the console keeps it");
         assertTrue(status.test(source(player())),
-                "/smp status is the one /smp command that kept Surface.GAME - cutting it would be"
+                "/smp status is the one /smp command a player may type - cutting it would be"
                         + " this change reaching past what it was asked to do");
         assertTrue(smp.getRequirement().test(source(player())),
                 "and the root stays open, because /smp status hangs off it");

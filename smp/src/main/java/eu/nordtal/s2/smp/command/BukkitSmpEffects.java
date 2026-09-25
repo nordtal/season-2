@@ -40,7 +40,7 @@ import java.util.concurrent.Executor;
  * <em>on</em> the main thread, so it hopped back and waited. That inversion went with the farm
  * world (season-2-ingame/30); the rule it proved is why the decision still lives here.
  */
-public final class BukkitSmpEffects implements SmpEffects {
+public final class BukkitSmpEffects implements SmpEffects, Standing {
 
     private final Plugin plugin;
     private final Executor executor;

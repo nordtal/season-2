@@ -63,38 +63,14 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("status and /aura stay as they were; the five admin commands are console (and web) only")
-    void adminSixAreConsoleOnly() {
+    @DisplayName("every /smp declaration is an admin's, and on the console (and web) only")
+    void everyDeclarationIsConsoleOnly() {
         // ops/18, 2026-09-15: "alles Admin nur noch Konsole und Web" took Surface.GAME and
-        // Surface.DISCORD off every admin command. /smp status is not an admin's - three read-only
-        // lines about the season (2026-09-06, poliert stage 8) - and keeps every surface it always
-        // had. /aura (SmpCommands#OWN_AURA) is the second player command this module serves and is
-        // likewise untouched: it is about whoever typed it, so Discord and console were never on
-        // its surface set in the first place.
+        // Surface.DISCORD off every admin command. The two a player types - /aura and /smp status -
+        // are not declarations any more: they are native Brigadier in the smp plugin.
         for (final Declaration declaration : SmpCommands.declarations()) {
-            final boolean forPlayers =
-                    declaration == SmpCommands.STATUS || declaration == SmpCommands.OWN_AURA;
-            assertEquals(!forPlayers, declaration.adminOnly(),
-                    declaration.name() + " has the wrong admin flag");
-
-            if (declaration == SmpCommands.OWN_AURA) {
-                assertEquals(Set.of(Surface.GAME), declaration.surfaces(),
-                        "/aura is about whoever typed it, and two of the three surfaces have no"
-                                + " Minecraft account to be about");
-                continue;
-            }
-            if (declaration == SmpCommands.STATUS) {
-                // Discord left on 2026-09-20 (season-2-community/10). It was the last declaration
-                // in the catalogue carrying that surface, and it alone kept 611 lines of JDA
-                // adapter alive for one read-only command that Steward answers twice over.
-                assertEquals(Set.of(Surface.GAME, Surface.CONSOLE), declaration.surfaces(),
-                        declaration.name() + " is the one /smp command a player may run, so it"
-                                + " keeps the two surfaces a person can type on");
-                continue;
-            }
-
-            // Every other /smp declaration is one of the six admin commands: console must never be
-            // lost, and game/Discord must both be gone.
+            assertTrue(declaration.adminOnly(), declaration.name() + " is not admin-only");
+            // Console must never be lost, and game/Discord must both be gone.
             assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
                     declaration.name() + " lost the console, which must never happen");
             assertFalse(declaration.surfaces().contains(Surface.GAME),
@@ -102,144 +78,6 @@ class SmpCommandsTest {
             assertFalse(declaration.surfaces().contains(Surface.DISCORD),
                     declaration.name() + " is still reachable from Discord");
         }
-    }
-
-    // ------------------------------------------------------------------ /aura
-
-    @Test
-    @DisplayName("/aura says where you stand and then the board, in that order")
-    void auraIsYourOwnLineThenTheBoard() {
-        // Your own line first, deliberately: the question somebody types /aura to answer is "where
-        // am I", and a list of ten with the answer somewhere inside it is not that.
-        final FakeSmp smp = new FakeSmp();
-        smp.standing = new SmpEffects.AuraStanding(120, 3, 37, List.of(
-                new SmpEffects.AuraLine(1, "Anna", 400, false),
-                new SmpEffects.AuraLine(2, "Bert", 200, false),
-                new SmpEffects.AuraLine(3, "tester", 120, true)));
-        final FakeUser user = FakeUser.inGame();
-
-        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
-
-        assertEquals(List.of("smp.aura.own", "smp.aura.top",
-                        "smp.aura.line", "smp.aura.line", "smp.aura.line"), user.keys());
-        assertEquals(120, user.replies.getFirst().of("aura"));
-        assertEquals(3, user.replies.getFirst().of("rank"));
-        assertEquals(37, user.replies.getFirst().of("total"));
-        assertEquals(3, user.replies.get(1).of("count"));
-    }
-
-    @Test
-    @DisplayName("your own line on the board is coloured differently from the rest")
-    void yourOwnLineIsMarked() {
-        // One key, two tones. A second key with the same words in another colour is two strings to
-        // translate, and one of them eventually says something else.
-        final FakeSmp smp = new FakeSmp();
-        smp.standing = new SmpEffects.AuraStanding(120, 2, 2, List.of(
-                new SmpEffects.AuraLine(1, "Anna", 400, false),
-                new SmpEffects.AuraLine(2, "tester", 120, true)));
-        final FakeUser user = FakeUser.inGame();
-
-        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
-
-        assertEquals(eu.nordtal.s2.common.message.Tone.MUTED, user.replies.get(2).tone());
-        assertEquals(eu.nordtal.s2.common.message.Tone.GOOD, user.replies.get(3).tone());
-    }
-
-    @Test
-    @DisplayName("an empty board says so instead of printing a heading over nothing")
-    void anEmptyBoardIsNamed() {
-        final FakeSmp smp = new FakeSmp();
-        smp.standing = new SmpEffects.AuraStanding(0, 1, 0, List.of());
-        final FakeUser user = FakeUser.inGame();
-
-        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
-
-        assertEquals(List.of("smp.aura.own", "smp.aura.empty"), user.keys());
-    }
-
-    @Test
-    @DisplayName("an account with no Discord link is told, not shown a zero")
-    void anUnlinkedAccountIsNamed() {
-        // The login gate makes this impossible, and this layer must not assume it: the gate is
-        // another process's rule. Showing "0 aura, number 1 of 0" instead would be a wrong answer
-        // rather than a refusal.
-        final FakeSmp smp = new FakeSmp();
-        smp.standing = null;
-        final FakeUser user = FakeUser.inGame();
-
-        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
-
-        assertEquals(List.of("smp.aura.unlinked"), user.keys());
-    }
-
-    @Test
-    @DisplayName("a database that does not answer says so and prints no board")
-    void aFailedReadIsNamed() {
-        final FakeSmp smp = new FakeSmp();
-        smp.failure = new IllegalStateException("no answer");
-        final FakeUser user = FakeUser.inGame();
-
-        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
-
-        assertEquals(List.of("smp.aura.failed"), user.keys());
-    }
-
-    @Test
-    @DisplayName("somebody with no Minecraft account is refused rather than asked about")
-    void theConsoleHasNoAura() {
-        // Declared on GAME alone, so an adapter refuses the console first. This is the belt: a
-        // NordtalUser with no Minecraft account is a shape every command here is written for.
-        final FakeSmp smp = new FakeSmp();
-        final FakeUser user = FakeUser.console();
-
-        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
-
-        assertEquals(List.of("smp.aura.nobody"), user.keys());
-    }
-
-    // ------------------------------------------------------------------ status
-
-    @Test
-    @DisplayName("/smp status answers the phase, the milestone with its progress, and who is on")
-    void statusIsThreeLines() {
-        final FakeSmp smp = new FakeSmp();
-        final FakeUser user = FakeUser.inDiscord();
-        new ShowStatus().run(user, Values.none(SmpCommands.STATUS), smp);
-        assertEquals(List.of("phase.current", "smp.status.milestone", "smp.status.online"),
-                user.keys());
-        assertEquals(new MilestoneContext("Aufbruch"), user.replies.get(1).placeholders().get("milestone"));
-        assertEquals(42, user.replies.get(1).placeholders().get("percent"));
-        assertEquals(3, user.replies.get(2).placeholders().get("online"));
-    }
-
-    @Test
-    @DisplayName("the third line is a sentence, and it picks a key rather than a bracketed plural")
-    void statusCountsPeopleInSentences() {
-        // Three keys and not "{online} player(s)". BundleContinuationTest refuses the bracketed
-        // shape in a bundle, so a plural that is not selected here cannot be written down anywhere
-        // - which is the point: the selection is the only place the rule can live.
-        for (final int[] counts : new int[][]{{0, 0}, {1, 1}, {2, 2}, {57, 2}}) {
-            final FakeSmp smp = new FakeSmp();
-            smp.status = new SmpEffects.Status("SMP", java.util.Optional.of("Aufbruch"), 42,
-                    counts[0]);
-            final FakeUser user = FakeUser.inDiscord();
-            new ShowStatus().run(user, Values.none(SmpCommands.STATUS), smp);
-
-            final String expected = List.of("smp.status.online.none", "smp.status.online.one",
-                    "smp.status.online").get(counts[1]);
-            assertEquals(expected, user.keys().get(2),
-                    counts[0] + " online should read as " + expected);
-        }
-    }
-
-    @Test
-    @DisplayName("a finished season says so instead of naming a milestone")
-    void statusAfterTheLastMilestone() {
-        final FakeSmp smp = new FakeSmp();
-        smp.status = new SmpEffects.Status("SMP", java.util.Optional.empty(), 0, 12);
-        final FakeUser user = FakeUser.inGame();
-        new ShowStatus().run(user, Values.none(SmpCommands.STATUS), smp);
-        assertEquals(List.of("phase.current", "smp.status.finished", "smp.status.online"), user.keys());
     }
 
     // ------------------------------------------------------------------ reload

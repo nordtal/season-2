@@ -104,14 +104,6 @@ final class FakeSmp implements SmpEffects {
         return Optional.ofNullable(access);
     }
 
-    Status status = new Status("SMP", Optional.of("Aufbruch"), 42, 3);
-
-    @Override
-    public Status status(final java.util.Locale locale) {
-        throwIfAsked();
-        return status;
-    }
-
     @Override
     public Optional<OpenPayment> openPayment(final String discordId) {
         if (paymentFailure != null) {
@@ -119,15 +111,6 @@ final class FakeSmp implements SmpEffects {
         }
         throwIfAsked();
         return Optional.ofNullable(payment);
-    }
-
-    /** What {@code /aura} gets back. {@code null} stands for "this account has no Discord link". */
-    AuraStanding standing;
-
-    @Override
-    public Optional<AuraStanding> auraStanding(final UUID player) {
-        throwIfAsked();
-        return Optional.ofNullable(standing);
     }
 
     static OpenPayment payment(final boolean hasTab) {

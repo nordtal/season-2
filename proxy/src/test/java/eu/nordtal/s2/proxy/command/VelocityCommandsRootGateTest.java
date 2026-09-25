@@ -1,6 +1,11 @@
 package eu.nordtal.s2.proxy.command;
 
+import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
+import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.commands.Surface;
+import eu.nordtal.s2.commands.Target;
+import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.commands.update.UpdateCommands;
@@ -20,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -56,13 +62,25 @@ class VelocityCommandsRootGateTest {
     @Test
     @DisplayName("a root with an open command under it stays open - the tree shape, tried on /smp")
     void aRootWithSomethingOpenStaysOpen() {
-        // /smp is not the proxy.s to serve; it is the one declared root with a command any player
-        // may run (/smp status), which is what this case needs. /phase is entirely admin-only
-        // since finding 102 and is therefore gated as a whole - correctly.
+        // No declaration in the catalogue is a player's any more: the last two, /aura and
+        // /smp status, became native Brigadier in the smp plugin on 2026-09-25. The shape is still
+        // the adapter's to get right, so the open command here is one made up for the case.
         final VelocityCommands commands = adapter();
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
         }
+        final Declaration open = new Declaration(List.of("smp", "open"), Target.SMP,
+                Set.of(Surface.GAME, Surface.CONSOLE), false, false, List.of());
+        commands.local(new NordtalCommand<SmpEffects>() {
+            @Override
+            public Declaration declaration() {
+                return open;
+            }
+
+            @Override
+            public void run(final NordtalUser user, final Values values, final SmpEffects effects) {
+            }
+        }, silent(SmpEffects.class));
         assertTrue(root(commands.build(), "smp").getNode().getRequirement().test(player()));
     }
 

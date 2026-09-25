@@ -3,10 +3,12 @@ package eu.nordtal.s2.limbo;
 import eu.nordtal.s2.common.limbo.WaitReason;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.spec.Arg;
+import eu.nordtal.s2.common.message.spec.Display;
 import eu.nordtal.s2.common.message.spec.Key;
 import eu.nordtal.s2.common.message.spec.MessageSpec;
 import eu.nordtal.s2.common.message.spec.MessageSpecs;
 import eu.nordtal.s2.common.message.spec.Name;
+import eu.nordtal.s2.common.message.spec.Shown;
 
 /**
  * Every message of the limbo bundle, one method per key. The bundle is the whole interface of the
@@ -27,6 +29,7 @@ public interface LimboMessages {
         Wait waiting();
 
         @Name("Screens")
+        @Shown(Display.TITLE)
         interface Wait {
 
             @Name("Resource pack")
@@ -66,6 +69,7 @@ public interface LimboMessages {
             MessageRef title();
 
             @Name("Subtitle")
+            @Shown(Display.SUBTITLE)
             MessageRef subtitle();
         }
     }
@@ -73,6 +77,7 @@ public interface LimboMessages {
     Tab tab();
 
     @Name("Tab list")
+    @Shown(Display.TAB_LIST)
     interface Tab {
 
         @Name("Header")

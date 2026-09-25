@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.hud.BossBarLine;
 import eu.nordtal.s2.common.hud.BossBarLine.Pill;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.navigate.NavigationTarget;
@@ -196,7 +197,7 @@ public final class SmpHud {
         return List.of(
                 Pill.of(dimension, worldName(player, locale)),
                 Pill.of(messages.format(locale,
-                        MESSAGES.smp().hud().milestone(milestoneName(active.key(), locale), percent))));
+                        MESSAGES.smp().hud().milestone(new MilestoneContext(milestoneName(active.key(), locale)), percent))));
     }
 
     /** The target's pill, led by the arrow to it, then the distance's. */

@@ -1,16 +1,24 @@
 package eu.nordtal.s2.discordbot;
 
 import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.common.message.context.DiscordMemberContext;
+import eu.nordtal.s2.common.message.context.TeamContext;
 import eu.nordtal.s2.common.message.spec.Arg;
+import eu.nordtal.s2.common.message.spec.Display;
+import eu.nordtal.s2.common.message.spec.Format;
 import eu.nordtal.s2.common.message.spec.Key;
 import eu.nordtal.s2.common.message.spec.MessageSpec;
 import eu.nordtal.s2.common.message.spec.MessageSpecs;
 import eu.nordtal.s2.common.message.spec.Name;
+import eu.nordtal.s2.common.message.spec.Shown;
+import eu.nordtal.s2.common.message.spec.TextFormat;
 
 /**
  * Every message of the access bundle, one method per key.
  */
 @MessageSpec("access")
+@Shown(Display.DISCORD_MESSAGE)
+@Format(TextFormat.DISCORD_MARKDOWN)
 public interface AccessMessages {
 
     /** The messages; stateless, so one instance serves every caller. */
@@ -22,9 +30,11 @@ public interface AccessMessages {
     interface Contribution {
 
         @Name("Title")
+        @Shown(Display.DISCORD_EMBED)
         MessageRef title();
 
         @Name("Body")
+        @Shown(Display.DISCORD_EMBED)
         MessageRef body();
 
         @Name("Prices")
@@ -40,6 +50,7 @@ public interface AccessMessages {
         MessageRef renew();
 
         @Name("Button")
+        @Shown(Display.DISCORD_BUTTON)
         MessageRef button();
     }
 
@@ -49,15 +60,18 @@ public interface AccessMessages {
     interface Link {
 
         @Name("Title")
+        @Shown(Display.DISCORD_EMBED)
         MessageRef title();
 
         @Name("Body")
+        @Shown(Display.DISCORD_EMBED)
         MessageRef body();
 
         @Name("Unlink hint")
         MessageRef unlinkHint();
 
         @Name("Button")
+        @Shown(Display.DISCORD_BUTTON)
         MessageRef button();
 
         @Name("Success")
@@ -78,6 +92,7 @@ public interface AccessMessages {
         Modal modal();
 
         @Name("Modal")
+        @Shown(Display.DISCORD_MODAL)
         interface Modal {
 
             @Name("Title")
@@ -109,9 +124,11 @@ public interface AccessMessages {
     interface Purchase {
 
         @Name("Choose")
+        @Shown(Display.DISCORD_SELECT)
         MessageRef choose();
 
         @Name("Option")
+        @Shown(Display.DISCORD_SELECT)
         MessageRef option(@Arg("days") Object days, @Arg("price") Object price);
 
         @Name("Summary")
@@ -145,6 +162,7 @@ public interface AccessMessages {
         Button button();
 
         @Name("Button")
+        @Shown(Display.DISCORD_BUTTON)
         interface Button {
 
             @Name("Confirm")
@@ -231,7 +249,7 @@ public interface AccessMessages {
     interface Public {
 
         @Name("Donation")
-        MessageRef donation(@Arg("user") Object user, @Arg("amount") Object amount);
+        MessageRef donation(@Arg("user") DiscordMemberContext user, @Arg("amount") Object amount);
     }
 
     Register register();
@@ -240,12 +258,15 @@ public interface AccessMessages {
     interface Register {
 
         @Name("Title")
+        @Shown(Display.DISCORD_EMBED)
         MessageRef title();
 
         @Name("Body")
+        @Shown(Display.DISCORD_EMBED)
         MessageRef body();
 
         @Name("Button")
+        @Shown(Display.DISCORD_BUTTON)
         MessageRef button();
 
         @Name("Success")
@@ -264,11 +285,13 @@ public interface AccessMessages {
         MessageRef failed();
 
         @Name("Invite button")
+        @Shown(Display.DISCORD_BUTTON)
         MessageRef inviteButton();
 
         Modal modal();
 
         @Name("Modal")
+        @Shown(Display.DISCORD_MODAL)
         interface Modal {
 
             @Name("Title")
@@ -287,13 +310,15 @@ public interface AccessMessages {
         interface Invite {
 
             @Name("Picker placeholder")
+            @Shown(Display.DISCORD_SELECT)
             MessageRef pickerPlaceholder();
 
             @Name("Pick")
+            @Shown(Display.DISCORD_SELECT)
             MessageRef pick();
 
             @Name("Sent")
-            MessageRef sent(@Arg("partner") Object partner);
+            MessageRef sent(@Arg("partner") DiscordMemberContext partner);
 
             @Name("Not owner")
             MessageRef notOwner();
@@ -311,34 +336,38 @@ public interface AccessMessages {
             MessageRef targetUnavailable();
 
             @Name("Direct message")
-            MessageRef dm(@Arg("team") Object team);
+            MessageRef dm(@Arg("team") TeamContext team);
 
             @Name("Accept")
+            @Shown(Display.DISCORD_BUTTON)
             MessageRef accept();
 
             @Name("Decline")
+            @Shown(Display.DISCORD_BUTTON)
             MessageRef decline();
 
             @Name("Accepted")
-            MessageRef accepted(@Arg("team") Object team);
+            MessageRef accepted(@Arg("team") TeamContext team);
 
             @Name("Declined")
-            MessageRef declined(@Arg("team") Object team);
+            MessageRef declined(@Arg("team") TeamContext team);
 
             @Name("No longer pending")
             MessageRef noLongerPending();
 
             @Name("Owner notified accepted")
-            MessageRef ownerNotifiedAccepted(@Arg("player") Object player, @Arg("team") Object team);
+            MessageRef ownerNotifiedAccepted(@Arg("player") DiscordMemberContext player, @Arg("team") TeamContext team);
 
             @Name("Owner notified declined")
-            MessageRef ownerNotifiedDeclined(@Arg("player") Object player, @Arg("team") Object team);
+            MessageRef ownerNotifiedDeclined(@Arg("player") DiscordMemberContext player, @Arg("team") TeamContext team);
         }
     }
 
     Status status();
 
     @Name("Status")
+    @Shown(Display.DISCORD_CHANNEL)
+    @Format(TextFormat.PLAIN)
     interface Status {
 
         @Name("Pre event")

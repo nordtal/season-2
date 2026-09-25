@@ -404,10 +404,16 @@ public final class MessagesApi {
             final Map<String, Object> described = new LinkedHashMap<>();
             described.put("name", arg.name());
             described.put("component", arg.component());
+            if (arg.type() != null) {
+                described.put("type", arg.type());
+                described.put("global", arg.global());
+            }
             args.add(described);
         }
         row.put("args", args);
         row.put("section", entry.section());
+        putIfPresent(row, "format", entry.format());
+        putIfPresent(row, "shown", entry.shown());
         return row;
     }
 

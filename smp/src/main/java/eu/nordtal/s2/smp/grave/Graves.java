@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.common.phase.SeasonDates;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.ExpiredGrave;
@@ -568,7 +569,7 @@ public final class Graves implements InventoryHolder {
             }
             meta.displayName(renderer.format(locale,
                             name == null ? MESSAGES.smp().grave().ownerUnknown()
-                                    : MESSAGES.smp().grave().owner(name))
+                                    : MESSAGES.smp().grave().owner(new PlayerContext(name)))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
             final String date = GRAVE_DATE.format(row.created().atZone(SeasonDates.ZONE));
             meta.lore(List.of(renderer.format(locale,

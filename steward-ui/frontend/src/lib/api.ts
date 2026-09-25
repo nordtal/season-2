@@ -1059,12 +1059,25 @@ export type MessageEntry = {
   args: MessageArg[]
   /** The names of the sections around the key, outermost first. */
   section: (string | null)[]
+  /** How the text is written: `MINIMESSAGE`, `DISCORD_MARKDOWN` or `PLAIN`. */
+  format?: string
+  /** Where the text is shown, e.g. `CHAT`, `TITLE`, `DISCORD_EMBED`. */
+  shown?: string
 }
 
+/**
+ * One placeholder. A role's property is dotted (`winner.name`) and carries its context `type`
+ * (`player`); a `global` one (`server.name`, `season.number`) every message may use.
+ */
 export type MessageArg = {
   name: string
   component: boolean
+  type?: string
+  global?: boolean
 }
+
+/** `GET /api/message-examples`: an example value per context type and property, from real data. */
+export type MessageExamples = Record<string, Record<string, string>>
 
 export type MessageBundle = MessageBundleLocation & {
   entries: MessageEntry[]

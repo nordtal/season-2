@@ -1,5 +1,7 @@
 package eu.nordtal.s2.common.message.spec;
 
+import eu.nordtal.s2.common.message.context.Contexts;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -15,10 +17,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TreeMap;
 
 /**
  * What a {@link MessageSpec} says about its bundle, as data: every key with its name, its
- * placeholders and the names of the sections it sits in.
+ * placeholders, the names of the sections it sits in, how it is written and where it is shown - plus
+ * the properties of every context type a role names, and the roles every message has.
  *
  * <p>Written into the jar as {@code messages/<bundle>/schema.json} at build time (see
  * {@link #main(String[])}), which is where steward-worker reads it from, next to the texts it already
@@ -33,10 +37,16 @@ public final class MessageSchema {
     }
 
     /**
-     * @param name      the placeholder
+     * @param name      the placeholder, or for a context the role
      * @param component whether it is filled by a Component, written {@code <name>} in the text
+     * @param context   the context type of a role, {@code null} for a single value
      */
-    public record Arg(String name, boolean component) {
+    public record Arg(String name, boolean component, String context) {
+
+        /** A free value, no context. */
+        public Arg(final String name, final boolean component) {
+            this(name, component, null);
+        }
     }
 
     /**
@@ -45,8 +55,11 @@ public final class MessageSchema {
      * @param description a sentence for a hard case, or {@code null}
      * @param args        the placeholders, in parameter order
      * @param section     the names of the sections around it, outermost first
+     * @param format      how it is written
+     * @param shown       where it is shown
      */
-    public record Entry(String key, String name, String description, List<Arg> args, List<String> section) {
+    public record Entry(String key, String name, String description, List<Arg> args, List<String> section,
+                        TextFormat format, Display shown) {
     }
 
     /** @return the bundle a spec describes */
@@ -61,7 +74,8 @@ public final class MessageSchema {
     /** @return every key the spec declares, in the order of its English file */
     public static List<Entry> entries(final Class<?> spec) {
         final List<Entry> entries = new ArrayList<>();
-        walk(spec, "", List.of(), entries, 0);
+        final MessageSpec annotation = spec.getAnnotation(MessageSpec.class);
+        walk(spec, "", List.of(), entries, 0, annotation.format(), annotation.shown());
         final Map<String, Integer> order = new LinkedHashMap<>();
         for (final String key : fileOrder(spec)) {
             order.putIfAbsent(key, order.size());
@@ -72,7 +86,8 @@ public final class MessageSchema {
     }
 
     private static void walk(final Class<?> type, final String prefix, final List<String> section,
-                             final List<Entry> into, final int depth) {
+                             final List<Entry> into, final int depth, final TextFormat format,
+                             final Display shown) {
         if (depth > 16) {
             throw new IllegalStateException(type.getName() + " nests sections more than 16 deep - a cycle?");
         }
@@ -80,7 +95,10 @@ public final class MessageSchema {
             if (MessageSpecs.isSection(method)) {
                 final List<String> inner = new ArrayList<>(section);
                 inner.add(sectionName(method));
-                walk(method.getReturnType(), prefix + MessageSpecs.segment(method) + ".", inner, into, depth + 1);
+                final Class<?> inside = method.getReturnType();
+                walk(inside, prefix + MessageSpecs.segment(method) + ".", inner, into, depth + 1,
+                        nearest(method.getAnnotation(Format.class), inside.getAnnotation(Format.class), format),
+                        nearest(method.getAnnotation(Shown.class), inside.getAnnotation(Shown.class), shown));
             } else if (MessageSpecs.isKey(method)) {
                 final Name name = method.getAnnotation(Name.class);
                 final Describe describe = method.getAnnotation(Describe.class);
@@ -89,10 +107,51 @@ public final class MessageSchema {
                     final eu.nordtal.s2.common.message.spec.Arg arg =
                             parameter.getAnnotation(eu.nordtal.s2.common.message.spec.Arg.class);
                     args.add(new Arg(arg == null ? null : arg.value(),
-                            COMPONENT.equals(parameter.getType().getName())));
+                            COMPONENT.equals(parameter.getType().getName()),
+                            Contexts.isContext(parameter.getType()) ? Contexts.type(parameter.getType()) : null));
                 }
+                final Format ownFormat = method.getAnnotation(Format.class);
+                final Shown ownShown = method.getAnnotation(Shown.class);
                 into.add(new Entry(prefix + MessageSpecs.segment(method), name == null ? null : name.value(),
-                        describe == null ? null : describe.value(), List.copyOf(args), List.copyOf(section)));
+                        describe == null ? null : describe.value(), List.copyOf(args), List.copyOf(section),
+                        ownFormat == null ? format : ownFormat.value(),
+                        ownShown == null ? shown : ownShown.value()));
+            }
+        }
+    }
+
+    private static TextFormat nearest(final Format method, final Format type, final TextFormat outer) {
+        return method != null ? method.value() : type != null ? type.value() : outer;
+    }
+
+    private static Display nearest(final Shown method, final Shown type, final Display outer) {
+        return method != null ? method.value() : type != null ? type.value() : outer;
+    }
+
+    /**
+     * The context types a spec's messages name, plus those of the global roles: key to record.
+     * Read from the spec's parameters, so a type nothing uses is not written.
+     */
+    static Map<String, Class<?>> contextTypes(final Class<?> spec) {
+        final Map<String, Class<?>> types = new TreeMap<>();
+        collect(spec, types, 0);
+        Contexts.GLOBALS.values().forEach(type -> types.put(Contexts.type(type), type));
+        return types;
+    }
+
+    private static void collect(final Class<?> type, final Map<String, Class<?>> into, final int depth) {
+        if (depth > 16) {
+            return;
+        }
+        for (final Method method : type.getMethods()) {
+            if (MessageSpecs.isSection(method)) {
+                collect(method.getReturnType(), into, depth + 1);
+            } else if (MessageSpecs.isKey(method)) {
+                for (final Class<?> parameter : method.getParameterTypes()) {
+                    if (Contexts.isContext(parameter)) {
+                        into.put(Contexts.type(parameter), parameter);
+                    }
+                }
             }
         }
     }
@@ -172,11 +231,17 @@ public final class MessageSchema {
             if (entry.description() != null) {
                 out.append(", \"description\": ").append(quote(entry.description()));
             }
+            out.append(", \"format\": ").append(quote(entry.format().name()))
+                    .append(", \"shown\": ").append(quote(entry.shown().name()));
             out.append(", \"args\": [");
             for (int a = 0; a < entry.args().size(); a++) {
                 final Arg arg = entry.args().get(a);
                 out.append(a == 0 ? "" : ", ").append("{\"name\": ").append(quote(arg.name()))
-                        .append(", \"component\": ").append(arg.component()).append('}');
+                        .append(", \"component\": ").append(arg.component());
+                if (arg.context() != null) {
+                    out.append(", \"context\": ").append(quote(arg.context()));
+                }
+                out.append('}');
             }
             out.append("], \"section\": [");
             for (int s = 0; s < entry.section().size(); s++) {
@@ -184,7 +249,25 @@ public final class MessageSchema {
             }
             out.append("]}");
         }
-        return out.append("\n  ]\n}\n").toString();
+        out.append("\n  ],\n  \"contexts\": {");
+        boolean first = true;
+        for (final Map.Entry<String, Class<?>> type : contextTypes(spec).entrySet()) {
+            out.append(first ? "\n" : ",\n").append("    ").append(quote(type.getKey())).append(": {\"name\": ")
+                    .append(quote(Contexts.name(type.getValue()))).append(", \"properties\": [");
+            final List<String> properties = Contexts.properties(type.getValue());
+            for (int p = 0; p < properties.size(); p++) {
+                out.append(p == 0 ? "" : ", ").append(quote(properties.get(p)));
+            }
+            out.append("]}");
+            first = false;
+        }
+        out.append("\n  },\n  \"globals\": [");
+        for (int g = 0; g < Contexts.GLOBAL_ROLES.size(); g++) {
+            final String role = Contexts.GLOBAL_ROLES.get(g);
+            out.append(g == 0 ? "" : ", ").append("{\"name\": ").append(quote(role)).append(", \"context\": ")
+                    .append(quote(Contexts.type(Contexts.GLOBALS.get(role)))).append('}');
+        }
+        return out.append("]\n}\n").toString();
     }
 
     private static String quote(final String value) {

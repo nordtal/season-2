@@ -1,11 +1,14 @@
 package eu.nordtal.s2.proxy;
 
 import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.common.message.spec.Arg;
+import eu.nordtal.s2.common.message.spec.Display;
 import eu.nordtal.s2.common.message.spec.Key;
 import eu.nordtal.s2.common.message.spec.MessageSpec;
 import eu.nordtal.s2.common.message.spec.MessageSpecs;
 import eu.nordtal.s2.common.message.spec.Name;
+import eu.nordtal.s2.common.message.spec.Shown;
 import net.kyori.adventure.text.Component;
 
 /**
@@ -20,6 +23,7 @@ public interface ProxyMessages {
     Gate gate();
 
     @Name("Gate")
+    @Shown(Display.KICK_SCREEN)
     interface Gate {
 
         @Name("Not linked")
@@ -126,6 +130,7 @@ public interface ProxyMessages {
     Pack pack();
 
     @Name("Pack")
+    @Shown(Display.KICK_SCREEN)
     interface Pack {
 
         @Name("Prompt")
@@ -301,6 +306,7 @@ public interface ProxyMessages {
     Motd motd();
 
     @Name("Server list text")
+    @Shown(Display.SERVER_LIST)
     interface Motd {
 
         @Name("Misconfigured")
@@ -324,10 +330,10 @@ public interface ProxyMessages {
         interface Msg {
 
             @Name("Sent")
-            MessageRef sent(@Arg("flag") Object flag, @Arg("name") Object name, @Arg("admin") Object admin, @Arg("_message") Component message);
+            MessageRef sent(@Arg("flag") Object flag, @Arg("partner") PlayerContext partner, @Arg("admin") Object admin, @Arg("_message") Component message);
 
             @Name("Received")
-            MessageRef received(@Arg("flag") Object flag, @Arg("name") Object name, @Arg("admin") Object admin, @Arg("_message") Component message);
+            MessageRef received(@Arg("flag") Object flag, @Arg("partner") PlayerContext partner, @Arg("admin") Object admin, @Arg("_message") Component message);
 
             @Name("Self")
             MessageRef self();

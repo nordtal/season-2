@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.context.TeamContext;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.border.BorderMath;
@@ -151,7 +152,7 @@ public final class HungerGamesManager {
                 // Deliberately silent: the tower teleport in the same tick already played TRAVEL,
                 // and two sounds a tick apart are one noise.
                 online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
-                        MESSAGES.hg().team().demoted(participant.teamName())));
+                        MESSAGES.hg().team().demoted(new TeamContext(participant.teamName()))));
             }
         }
     }

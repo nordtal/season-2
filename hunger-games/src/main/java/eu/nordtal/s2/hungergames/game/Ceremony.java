@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 
@@ -122,15 +123,15 @@ public final class Ceremony {
             final int kills = decision.kills().getOrDefault(member.id(), 0);
             if (kills > 0) {
                 player.sendMessage(MessageRenderer.of(messages).format(locale,
-                        MESSAGES.hg().ceremony().kills(member.discordId(), kills)));
+                        MESSAGES.hg().ceremony().kills(new PlayerContext(member.discordId()), kills)));
             }
         }
 
         player.sendMessage(MessageRenderer.of(messages).format(locale, MESSAGES.hg().ceremony().footer()));
     }
 
-    private String winnerLabel(final UUID winnerMemberId, final List<HgMember> allMembers) {
-        return allMembers.stream().filter(member -> member.id().equals(winnerMemberId))
-                .map(HgMember::discordId).findFirst().orElse(winnerMemberId.toString());
+    private PlayerContext winnerLabel(final UUID winnerMemberId, final List<HgMember> allMembers) {
+        return new PlayerContext(allMembers.stream().filter(member -> member.id().equals(winnerMemberId))
+                .map(HgMember::discordId).findFirst().orElse(winnerMemberId.toString()));
     }
 }

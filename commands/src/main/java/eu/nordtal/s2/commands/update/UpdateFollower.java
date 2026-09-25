@@ -3,6 +3,7 @@ package eu.nordtal.s2.commands.update;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.context.ServiceContext;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
@@ -234,7 +235,7 @@ public final class UpdateFollower {
 
         for (final UpdateReport.ServiceLine line : report.services()) {
             final Tone tone = toneOf(line.state());
-            says.add(Say.key(MESSAGES.update().line(line.state(), line.service()), tone));
+            says.add(Say.key(MESSAGES.update().line(line.state(), new ServiceContext(line.service())), tone));
             for (final UpdateReport.Change change : line.changes()) {
                 says.add(sayChange(change));
             }

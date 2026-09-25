@@ -167,6 +167,8 @@ public final class ProxyPlugin {
 
     @Subscribe
     public void onProxyInitialize(final ProxyInitializeEvent event) {
+        // {server.name} in every message.
+        eu.nordtal.s2.common.message.context.Contexts.server("proxy");
         logger.info("proxy enabled, {} backends registered", proxy.getAllServers().size());
 
         try {

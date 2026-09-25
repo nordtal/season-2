@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.context.TeamContext;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,7 +43,7 @@ public final class ReadyStatus implements NordtalCommand<HungerGamesEffects> {
             // The tone is the whole point of this list: the admin is looking for who is NOT ready
             // yet, and reading a word at the end of forty identically shaped lines is what the
             // colour saves them from.
-            teams.forEach(team -> user.reply(MESSAGES.hg().readyStatus().line(team.team(),
+            teams.forEach(team -> user.reply(MESSAGES.hg().readyStatus().line(new TeamContext(team.team()),
                             // A nested message, resolved in the reader's own language: this is what
                             // NordtalUser#phrase exists for.
                             user.phrase(team.ready() ? MESSAGES.hg().readyStatus().ready()

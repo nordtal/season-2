@@ -5,6 +5,8 @@ import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.common.message.context.MilestoneContext;
+import eu.nordtal.s2.common.message.context.PlayerContext;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -205,7 +207,7 @@ class SmpCommandsTest {
         new ShowStatus().run(user, Values.none(SmpCommands.STATUS), smp);
         assertEquals(List.of("phase.current", "smp.status.milestone", "smp.status.online"),
                 user.keys());
-        assertEquals("Aufbruch", user.replies.get(1).placeholders().get("milestone"));
+        assertEquals(new MilestoneContext("Aufbruch"), user.replies.get(1).placeholders().get("milestone"));
         assertEquals(42, user.replies.get(1).placeholders().get("percent"));
         assertEquals(3, user.replies.get(2).placeholders().get("online"));
     }
@@ -300,7 +302,7 @@ class SmpCommandsTest {
 
         assertEquals("smp.admin.objective-completed", user.only().key());
         assertEquals("netherite", user.only().of("key"));
-        assertEquals("the-nether", user.only().of("milestone"));
+        assertEquals(new MilestoneContext("the-nether"), user.only().of("milestone"));
         assertEquals(List.of("complete the-nether/netherite"), smp.did);
     }
 
@@ -329,7 +331,7 @@ class SmpCommandsTest {
         final FakeUser user = run(new ChangeAura(), Map.of("player", SOMEBODY, "delta", -25));
 
         assertEquals("smp.admin.target-unlinked", user.only().key());
-        assertEquals("Steve", user.only().of("player"));
+        assertEquals(new PlayerContext("Steve"), user.only().of("player"));
         assertEquals(List.of(), smp.did);
     }
 
@@ -345,7 +347,7 @@ class SmpCommandsTest {
 
         assertEquals(List.of("aura 100000000000000009 -25 by tester"), smp.did);
         assertEquals("smp.admin.aura-changed", user.only().key());
-        assertEquals("Steve", user.only().of("player"));
+        assertEquals(new PlayerContext("Steve"), user.only().of("player"));
         assertEquals(-25, user.only().of("delta"));
     }
 
@@ -354,7 +356,7 @@ class SmpCommandsTest {
     void anUnknownNameStillProducesASentence() {
         // Reachable now that the command can arrive from Discord about somebody who is not here.
         final FakeUser user = run(new ChangeAura(), Map.of("player", SOMEBODY, "delta", 1));
-        assertEquals(SOMEBODY.toString(), user.only().of("player"));
+        assertEquals(new PlayerContext(SOMEBODY.toString()), user.only().of("player"));
     }
 
     // ------------------------------------------------------------------ access

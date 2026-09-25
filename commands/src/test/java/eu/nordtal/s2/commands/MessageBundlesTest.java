@@ -159,7 +159,7 @@ class MessageBundlesTest {
     @Test
     @DisplayName("a service's chat line ends with the same word its Discord field uses")
     void theTwoStateLabelsStayOneLabel() throws IOException {
-        // update.line.* is "{service}: stopped" for chat; update.state.* is "stopped" alone, for a
+        // update.line.* is "{service.name}: stopped" for chat; update.state.* is "stopped" alone, for a
         // Discord field that already carries the service as its heading. Two families for one word
         // drift unless the build holds them together.
         for (final String language : List.of("en", "de")) {
@@ -170,7 +170,7 @@ class MessageBundlesTest {
                 assertTrue(line.endsWith(label),
                         language + ": update.line." + state + " (\"" + line + "\") does not end"
                                 + " with update.state." + state + " (\"" + label + "\")");
-                assertEquals("{service}: " + label, line,
+                assertEquals("{service.name}: " + label, line,
                         language + ": a chat line is the service, a colon and the same label");
             }
         }

@@ -4,6 +4,7 @@ import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.context.ServiceContext;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -67,7 +68,7 @@ class ConsoleUserTest {
     @DisplayName("a reply substitutes its placeholders instead of printing the braces")
     void placeholdersAreSubstituted() {
         final Spy spy = new Spy();
-        new ConsoleUser(MESSAGES, spy).reply(UPDATE.line().unchanged("limbo"));
+        new ConsoleUser(MESSAGES, spy).reply(UPDATE.line().unchanged(new ServiceContext("limbo")));
         assertEquals(List.of("limbo: unchanged"), spy.lines);
     }
 
@@ -92,7 +93,7 @@ class ConsoleUserTest {
         final Spy spy = new Spy();
         final ConsoleUser console = new ConsoleUser(MESSAGES, spy);
         console.reply(UPDATE.asked(), Feedback.SMALL_SUCCESS, Tone.GOOD);
-        console.reply(UPDATE.line().unchanged("smp"), Tone.GOOD);
+        console.reply(UPDATE.line().unchanged(new ServiceContext("smp")), Tone.GOOD);
         assertEquals(List.of("Asking Steward what is new.", "smp: unchanged"), spy.lines);
     }
 }

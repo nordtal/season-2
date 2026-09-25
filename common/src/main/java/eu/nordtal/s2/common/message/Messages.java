@@ -1,5 +1,7 @@
 package eu.nordtal.s2.common.message;
 
+import eu.nordtal.s2.common.message.context.Contexts;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -477,14 +479,15 @@ public final class Messages {
     }
 
     /**
-     * Renders a message a spec chose, as plain text with its placeholders substituted.
+     * Renders a message a spec chose, as plain text with its placeholders substituted - a context's
+     * as <code>{role.property}</code>, and the global roles' in every message.
      *
      * @param locale  the language wanted; {@code null} means English
      * @param message the key and its values
      * @return the formatted message
      */
     public String format(final Locale locale, final MessageRef message) {
-        return format(locale, message.key(), message.args());
+        return format(locale, message.key(), Contexts.flatten(message.args()));
     }
 
     /**

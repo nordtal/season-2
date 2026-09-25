@@ -16,7 +16,7 @@ export function tokenOf(arg: MessageArg): string {
 }
 
 /** The worker's `DECLARABLE`: what a spec could declare, so what a typo in one looks like. */
-const DECLARABLE = /\{[A-Za-z0-9_-]+\}|<_[A-Za-z0-9_-]+>/g
+const DECLARABLE = /\{[A-Za-z0-9_.-]+\}|<_[A-Za-z0-9_-]+>/g
 
 /**
  * The placeholders in `text` that the key's spec does not declare, in the order they appear - the

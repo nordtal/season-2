@@ -10,6 +10,7 @@ import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.steward.ui.data.Data;
+import eu.nordtal.s2.steward.ui.data.ExampleValues;
 import eu.nordtal.s2.steward.ui.auth.Credentials;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Gate;
@@ -224,6 +225,7 @@ public final class StewardUi {
      */
     private final PushSubscriptions pushSubscriptions;
     private final PushPreferences pushPreferences;
+    private final ExampleValues exampleValues;
     private final com.interaso.webpush.VapidKeys vapidKeys;
     private final AlertWatch alertWatch;
 
@@ -293,6 +295,7 @@ public final class StewardUi {
                 !config.deployer().token().isBlank());
         this.pushSubscriptions = data == null ? null : new PushSubscriptions(data.dataSource());
         this.pushPreferences = data == null ? null : new PushPreferences(data.dataSource());
+        this.exampleValues = data == null ? null : new ExampleValues(data.dataSource());
         this.vapidKeys = vapidKeysOf(config.webPush());
         // THE SAME THREE NUMBERS /api/settings ALREADY ANSWERS, and the same three the start page's
         // tile compares against - handed to the watch rather than re-read anywhere, so that a lock
@@ -874,6 +877,9 @@ public final class StewardUi {
             cfg.routes.put("/api/messages/<bundle>",
                     ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"),
                             ctx.body()), Gate.KEY_FRESH);
+            // What an editor fills each placeholder type with. Answered here, not by the worker:
+            // the best example player is the admin asking, and only this side knows who that is.
+            cfg.routes.get("/api/message-examples", this::messageExamples, Gate.KEY_HELD);
 
             // The names behind the ids, so the editor above can offer a list instead of a field.
             // Never a failure: an unreachable Discord is `available: false` and a typed id.
@@ -1760,6 +1766,12 @@ public final class StewardUi {
      * dialog gets {@link AlertType}'s own defaults rather than an empty object the browser would
      * have to know the defaults to fill in. See {@code V30} on why no row is written for it.</p>
      */
+    /** {@code GET /api/message-examples} - one example value per placeholder type and property. */
+    private void messageExamples(final Context ctx) {
+        final Sessions.Session who = requireSession(ctx);
+        ctx.json(exampleValues.of(who.discordId(), who.displayName()));
+    }
+
     private void webPushPreferences(final Context ctx) {
         final Sessions.Session who = requireSession(ctx);
         final Map<String, Boolean> answer = new LinkedHashMap<>();

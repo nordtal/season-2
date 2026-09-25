@@ -1,6 +1,11 @@
 package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.common.message.context.DiscordMemberContext;
+import eu.nordtal.s2.common.message.context.MilestoneContext;
+import eu.nordtal.s2.common.message.context.PlayerContext;
+import eu.nordtal.s2.common.message.context.ServiceContext;
+import eu.nordtal.s2.common.message.context.TeamContext;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.message.spec.Arg;
@@ -45,7 +50,7 @@ public interface CommandMessages {
         MessageRef accountUnreachable();
 
         @Name("Player unlinked")
-        MessageRef playerUnlinked(@Arg("player") Object player);
+        MessageRef playerUnlinked(@Arg("player") PlayerContext player);
 
         Confirm confirm();
 
@@ -383,7 +388,7 @@ public interface CommandMessages {
             MessageRef top(@Arg("count") Object count);
 
             @Name("Line")
-            MessageRef line(@Arg("place") Object place, @Arg("player") Object player, @Arg("aura") Object aura);
+            MessageRef line(@Arg("place") Object place, @Arg("player") PlayerContext player, @Arg("aura") Object aura);
 
             @Name("Empty")
             MessageRef empty();
@@ -413,7 +418,7 @@ public interface CommandMessages {
             MessageRef failed();
 
             @Name("Linked")
-            MessageRef linked(@Arg("player") Object player, @Arg("discord") Object discord);
+            MessageRef linked(@Arg("player") PlayerContext player, @Arg("discord") DiscordMemberContext discord);
 
             @Name("Never")
             MessageRef never();
@@ -431,7 +436,7 @@ public interface CommandMessages {
             MessageRef paymentUnstarted(@Arg("reference") Object reference, @Arg("days") Object days, @Arg("since") Object since);
 
             @Name("Unlinked")
-            MessageRef unlinked(@Arg("player") Object player);
+            MessageRef unlinked(@Arg("player") PlayerContext player);
         }
 
         Admin admin();
@@ -440,10 +445,10 @@ public interface CommandMessages {
         interface Admin {
 
             @Name("Aura changed")
-            MessageRef auraChanged(@Arg("player") Object player, @Arg("delta") Object delta);
+            MessageRef auraChanged(@Arg("player") PlayerContext player, @Arg("delta") Object delta);
 
             @Name("Aura unknown")
-            MessageRef auraUnknown(@Arg("player") Object player, @Arg("delta") Object delta);
+            MessageRef auraUnknown(@Arg("player") PlayerContext player, @Arg("delta") Object delta);
 
             @Name("Milestone unlocked")
             MessageRef milestoneUnlocked(@Arg("key") Object key);
@@ -464,10 +469,10 @@ public interface CommandMessages {
             MessageRef trackRefused(@Arg("problems") Object problems);
 
             @Name("Target unlinked")
-            MessageRef targetUnlinked(@Arg("player") Object player);
+            MessageRef targetUnlinked(@Arg("player") PlayerContext player);
 
             @Name("Objective completed")
-            MessageRef objectiveCompleted(@Arg("key") Object key, @Arg("milestone") Object milestone);
+            MessageRef objectiveCompleted(@Arg("key") Object key, @Arg("milestone") MilestoneContext milestone);
 
             @Name("Reload failed")
             MessageRef reloadFailed();
@@ -482,7 +487,7 @@ public interface CommandMessages {
         interface Status {
 
             @Name("Milestone")
-            MessageRef milestone(@Arg("milestone") Object milestone, @Arg("percent") Object percent);
+            MessageRef milestone(@Arg("milestone") MilestoneContext milestone, @Arg("percent") Object percent);
 
             @Name("Finished")
             MessageRef finished();
@@ -690,7 +695,7 @@ public interface CommandMessages {
             MessageRef header();
 
             @Name("Line")
-            MessageRef line(@Arg("team") Object team, @Arg("status") Object status);
+            MessageRef line(@Arg("team") TeamContext team, @Arg("status") Object status);
 
             @Name("Not ready")
             MessageRef notReady();
@@ -766,7 +771,7 @@ public interface CommandMessages {
     interface Access {
 
         @Name("Header")
-        MessageRef header(@Arg("player") Object player, @Arg("discord") Object discord);
+        MessageRef header(@Arg("player") PlayerContext player, @Arg("discord") DiscordMemberContext discord);
 
         @Name("Until")
         MessageRef until(@Arg("until") Object until);
@@ -796,7 +801,7 @@ public interface CommandMessages {
         MessageRef notLinked();
 
         @Name("No such member")
-        MessageRef noSuchMember(@Arg("discord") Object discord);
+        MessageRef noSuchMember(@Arg("discord") DiscordMemberContext discord);
 
         @Name("Failed")
         MessageRef failed();
@@ -808,7 +813,7 @@ public interface CommandMessages {
         MessageRef revoked(@Arg("count") Object count);
 
         @Name("Unlinked")
-        MessageRef unlinked(@Arg("member") Object member);
+        MessageRef unlinked(@Arg("member") DiscordMemberContext member);
 
         Grants grants();
 
@@ -961,7 +966,7 @@ public interface CommandMessages {
         interface Down {
 
             @Name("Asked")
-            MessageRef asked(@Arg("service") Object service, @Arg("seconds") Object seconds);
+            MessageRef asked(@Arg("service") ServiceContext service, @Arg("seconds") Object seconds);
         }
 
         Start start();
@@ -1006,7 +1011,7 @@ public interface CommandMessages {
         }
 
         /** A service's state with its name, for chat. */
-        default MessageRef line(final UpdateReport.State state, final Object service) {
+        default MessageRef line(final UpdateReport.State state, final ServiceContext service) {
             return switch (state) {
                 case UNCHANGED -> line().unchanged(service);
                 case PLANNED -> line().planned(service);
@@ -1131,35 +1136,35 @@ public interface CommandMessages {
 
             @Name("Unchanged")
             @Key("UNCHANGED")
-            MessageRef unchanged(@Arg("service") Object service);
+            MessageRef unchanged(@Arg("service") ServiceContext service);
 
             @Name("Planned")
             @Key("PLANNED")
-            MessageRef planned(@Arg("service") Object service);
+            MessageRef planned(@Arg("service") ServiceContext service);
 
             @Name("Stopped")
             @Key("STOPPED")
-            MessageRef stopped(@Arg("service") Object service);
+            MessageRef stopped(@Arg("service") ServiceContext service);
 
             @Name("Installed")
             @Key("INSTALLED")
-            MessageRef installed(@Arg("service") Object service);
+            MessageRef installed(@Arg("service") ServiceContext service);
 
             @Name("Saved")
             @Key("SAVED")
-            MessageRef saved(@Arg("service") Object service);
+            MessageRef saved(@Arg("service") ServiceContext service);
 
             @Name("Starting")
             @Key("STARTING")
-            MessageRef starting(@Arg("service") Object service);
+            MessageRef starting(@Arg("service") ServiceContext service);
 
             @Name("Healthy")
             @Key("HEALTHY")
-            MessageRef healthy(@Arg("service") Object service);
+            MessageRef healthy(@Arg("service") ServiceContext service);
 
             @Name("Failed")
             @Key("FAILED")
-            MessageRef failed(@Arg("service") Object service);
+            MessageRef failed(@Arg("service") ServiceContext service);
         }
 
         @Key("change")

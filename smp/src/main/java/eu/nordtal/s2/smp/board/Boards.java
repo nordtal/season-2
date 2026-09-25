@@ -200,6 +200,10 @@ public final class Boards {
 
         // One read: the name and the rows under it have to be the same milestone's.
         final SeasonState.Active active = season.active();
+        if (active.unread()) {
+            // Before the first refresh. The title alone, rather than "finished" for a second.
+            return BoardFrame.render(width, title, lines);
+        }
         if (active.key() == null) {
             lines.add(renderer.format(locale, MESSAGES.smp().board().objective().finished()));
             return BoardFrame.render(width, title, lines);

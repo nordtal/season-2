@@ -28,7 +28,7 @@ public final class SeasonState {
     private volatile Set<Unlock> unlocked = Collections.unmodifiableSet(EnumSet.noneOf(Unlock.class));
     private volatile int borderDiameter;
     private volatile List<String> completedKeys = List.of();
-    private volatile Active active = Active.NONE;
+    private volatile Active active = Active.UNREAD;
 
     /**
      * The milestone being worked on and how far its objectives have got, <b>as one value</b>.
@@ -44,11 +44,26 @@ public final class SeasonState {
      */
     public record Active(String key, List<ObjectiveRow> objectives) {
 
-        /** No milestone: before the first refresh, and after the last milestone is done. */
+        /** No milestone, because the last one is done. */
         public static final Active NONE = new Active(null, List.of());
+
+        /**
+         * Not read yet: what the state holds between enable and the first refresh.
+         *
+         * <p>It looks exactly like {@link #NONE} - no key, no objectives - and was {@code NONE}
+         * until 2026-09-25, which made a {@code /smp status} typed in the first second after a
+         * restart announce that every milestone was finished. Told apart by identity, through
+         * {@link #unread()}, so a refresh that genuinely finds nothing is never mistaken for it.</p>
+         */
+        public static final Active UNREAD = new Active(null, List.of());
 
         public Active {
             objectives = List.copyOf(objectives);
+        }
+
+        /** Whether this is {@link #UNREAD}: nothing is known yet, finished or otherwise. */
+        public boolean unread() {
+            return this == UNREAD;
         }
 
         /**

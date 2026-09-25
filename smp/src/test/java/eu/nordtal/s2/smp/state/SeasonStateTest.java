@@ -35,6 +35,17 @@ class SeasonStateTest {
     }
 
     @Test
+    void aFreshStateIsUnreadAndNotFinished() {
+        // Both have no key and no objectives. Only the first may be announced as "finished".
+        final SeasonState state = new SeasonState();
+        assertTrue(state.active().unread());
+
+        state.refreshActive(null, List.of());
+        assertFalse(state.active().unread(), "a refresh that finds nothing active means the track is done");
+        assertFalse(SeasonState.Active.NONE.unread());
+    }
+
+    @Test
     void nothingIsUnlockedOnAnEmptySeason() {
         final SeasonState state = new SeasonState();
         state.refresh(List.of(), TRACK);

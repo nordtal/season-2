@@ -839,7 +839,7 @@ public final class SmpPlugin extends JavaPlugin {
         final SeasonState.Active active = season.active();
         final java.util.Optional<String> milestone = active.key() == null ? java.util.Optional.empty()
                 : java.util.Optional.of(MilestoneNames.of(messages, locale, active.key()));
-        return new eu.nordtal.s2.smp.command.Standing.Status(phase, milestone, (int) Math.round(active.progress() * 100),
+        return new eu.nordtal.s2.smp.command.Standing.Status(phase, !active.unread(), milestone, (int) Math.round(active.progress() * 100),
                 online);
     }
 

@@ -113,7 +113,7 @@ class PlayerCommandsTest {
     @DisplayName("the third line is a sentence, and it picks a key rather than a bracketed plural")
     void statusCountsPeopleInSentences() {
         for (final int[] counts : new int[][]{{0, 0}, {1, 1}, {2, 2}, {57, 2}}) {
-            standing.status = new Standing.Status("SMP", Optional.of("Aufbruch"), 42, counts[0]);
+            standing.status = new Standing.Status("SMP", true, Optional.of("Aufbruch"), 42, counts[0]);
             user.replies.clear();
             commands.showStatus(user);
 
@@ -126,9 +126,17 @@ class PlayerCommandsTest {
     @Test
     @DisplayName("a finished season says so instead of naming a milestone")
     void statusAfterTheLastMilestone() {
-        standing.status = new Standing.Status("SMP", Optional.empty(), 0, 12);
+        standing.status = new Standing.Status("SMP", true, Optional.empty(), 0, 12);
         commands.showStatus(user);
         assertEquals(List.of("phase.current", "smp.status.finished", "smp.status.online"), user.keys());
+    }
+
+    @Test
+    @DisplayName("a status asked before the first season refresh does not claim the season is finished")
+    void statusBeforeTheFirstRefresh() {
+        standing.status = new Standing.Status("SMP", false, Optional.empty(), 0, 0);
+        commands.showStatus(user);
+        assertEquals(List.of("phase.current", "smp.status.unread", "smp.status.online.none"), user.keys());
     }
 
     @Test
@@ -156,10 +164,12 @@ class PlayerCommandsTest {
         standing.aura = null;
         commands.showAura(user, SELF);
         for (final int online : new int[]{0, 1, 2}) {
-            standing.status = new Standing.Status("SMP", Optional.of("x"), 1, online);
+            standing.status = new Standing.Status("SMP", true, Optional.of("x"), 1, online);
             commands.showStatus(user);
         }
-        standing.status = new Standing.Status("SMP", Optional.empty(), 0, 0);
+        standing.status = new Standing.Status("SMP", true, Optional.empty(), 0, 0);
+        commands.showStatus(user);
+        standing.status = new Standing.Status("SMP", false, Optional.empty(), 0, 0);
         commands.showStatus(user);
         standing.failure = new IllegalStateException("no answer");
         commands.showAura(user, SELF);
@@ -177,7 +187,7 @@ class PlayerCommandsTest {
     private static final class FakeStanding implements Standing {
 
         Standing.AuraStanding aura;
-        Standing.Status status = new Standing.Status("SMP", Optional.of("Aufbruch"), 42, 3);
+        Standing.Status status = new Standing.Status("SMP", true, Optional.of("Aufbruch"), 42, 3);
         RuntimeException failure;
         UUID asked;
 

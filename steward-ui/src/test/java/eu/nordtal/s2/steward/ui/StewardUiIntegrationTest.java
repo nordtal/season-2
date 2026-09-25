@@ -86,16 +86,10 @@ class StewardUiIntegrationTest {
     private static final int DISCORD_PORT = 18093;
     private static final Gson GSON = new Gson();
 
-    /** The one role that may sign in, as an id, because that is what Discord sends back. */
-    private static final String ADMIN_ROLE = "4711";
     private static final String GUILD = "1234";
     private static final String WORKER_TOKEN = "worker-token";
 
     private static final AtomicBoolean workerBroken = new AtomicBoolean(false);
-
-    /** What the stand-in Discord says this person's roles are. A test turns the admin one off. */
-    private static final java.util.concurrent.atomic.AtomicReference<List<String>> memberRoles =
-            new java.util.concurrent.atomic.AtomicReference<>(List.of(ADMIN_ROLE, "9999"));
 
     /**
      * Who the stand-in Discord says is signing in - changeable, because the default is the shape
@@ -330,7 +324,7 @@ class StewardUiIntegrationTest {
                     ctx.status(404).json(Map.of("message", "Unknown Guild"));
                     return;
                 }
-                ctx.json(Map.of("nick", memberNick.get(), "roles", memberRoles.get()));
+                ctx.json(Map.of("nick", memberNick.get(), "roles", List.of("9999")));
             });
         }).start(DISCORD_PORT);
 
@@ -384,10 +378,6 @@ class StewardUiIntegrationTest {
                         return GUILD;
                     }
 
-                    @Override
-                    public String adminRole() {
-                        return ADMIN_ROLE;
-                    }
                 };
             }
 
@@ -661,42 +651,35 @@ class StewardUiIntegrationTest {
     @DisplayName("steward/91: /api/me carries the Discord avatar of the same person row "
             + "/api/people would print, and never fails without one")
     void whoAmICarriesTheDiscordAvatar() throws Exception {
-        // No `discord_user` row for "1" exists anywhere else in this class - every other test in
-        // here signs in as "1" and none of them ever mirrors a Discord profile onto it. So this is
-        // the fallback case FIRST, exactly as every other test already exercises it without
-        // knowing: signed in, no person row, and the answer must not carry the field at all.
-        final JsonObject withoutARow = GSON.fromJson(get("/api/me").body(), JsonObject.class);
-        assertFalse(withoutARow.has("discordAvatarUrl"), withoutARow.toString());
+        // "1" has a `discord_user` row - signing in claimed the root of the admin tree and wrote
+        // one - but nothing in this class ever mirrors a Discord profile onto it. So this is the
+        // fallback case FIRST, exactly as every other test already exercises it without knowing:
+        // a row that was never mirrored a picture, and the answer must not carry the field at all.
+        final JsonObject withoutAPicture = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+        assertFalse(withoutAPicture.has("discordAvatarUrl"), withoutAPicture.toString());
 
         try (var connection = data.dataSource().getConnection();
-             var insert = connection.prepareStatement(
-                     "INSERT INTO discord_user (discord_id, discord_avatar_url) VALUES ('1', ?)")) {
-            insert.setString(1, "https://cdn.discordapp.com/avatars/1/a.png");
-            insert.executeUpdate();
+             var mirror = connection.prepareStatement(
+                     "UPDATE discord_user SET discord_avatar_url = ? WHERE discord_id = '1'")) {
+            mirror.setString(1, "https://cdn.discordapp.com/avatars/1/a.png");
+            assertEquals(1, mirror.executeUpdate(), "the root has no row to mirror onto");
         }
         try {
-            final JsonObject withARow = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+            final JsonObject withAPicture = GSON.fromJson(get("/api/me").body(), JsonObject.class);
             assertEquals("https://cdn.discordapp.com/avatars/1/a.png",
-                    withARow.get("discordAvatarUrl").getAsString(), withARow.toString());
-
-            // A row that exists but was never mirrored a picture is the same fallback as no row -
-            // NULL, not empty text, is what the schema writes for that (V21).
+                    withAPicture.get("discordAvatarUrl").getAsString(), withAPicture.toString());
+        } finally {
+            // Every other test in this class signs in as "1" and expects the fallback state, so
+            // the picture this test wrote must not outlive it. The row must: it is the root.
             try (var connection = data.dataSource().getConnection();
                  var clearIt = connection.prepareStatement(
                          "UPDATE discord_user SET discord_avatar_url = NULL WHERE discord_id = '1'")) {
                 clearIt.executeUpdate();
             }
-            final JsonObject withANullColumn = GSON.fromJson(get("/api/me").body(), JsonObject.class);
-            assertFalse(withANullColumn.has("discordAvatarUrl"), withANullColumn.toString());
-        } finally {
-            // Every other test in this class signs in as "1" and expects the fallback state, so
-            // the row this test wrote must not outlive it.
-            try (var connection = data.dataSource().getConnection();
-                 var delete = connection.prepareStatement(
-                         "DELETE FROM discord_user WHERE discord_id = '1'")) {
-                delete.executeUpdate();
-            }
         }
+        // NULL, not empty text, is what the schema writes for a row without a picture (V21).
+        final JsonObject cleared = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+        assertFalse(cleared.has("discordAvatarUrl"), cleared.toString());
     }
 
     @Test
@@ -824,9 +807,12 @@ class StewardUiIntegrationTest {
     }
 
     @Test
-    @DisplayName("in the guild but without the role is a refusal that names the person")
-    void withoutTheAdminRoleNobodyGetsIn() throws Exception {
-        memberRoles.set(List.of("9999"));
+    @DisplayName("in the guild but not an admin is a refusal that names the person")
+    void withoutAGrantNobodyGetsIn() throws Exception {
+        // Not signIn(): that helper makes the account an admin first, and this one must not be.
+        // The root exists already, so the sign-in cannot claim it either - which is the case.
+        memberId.set("880000000000000001");
+        memberNick.set("Stranger");
         try {
             final HttpClient browser = browser();
             final String state = stateFrom(get(browser, "/auth/login"));
@@ -835,12 +821,106 @@ class StewardUiIntegrationTest {
                     get(browser, "/auth/callback?code=the-code&state=" + state);
 
             assertEquals(403, refused.statusCode(), refused.body());
-            assertTrue(refused.body().contains("Till"), refused.body());
+            assertTrue(refused.body().contains("Stranger"), refused.body());
             assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
                     .get("signedIn").getAsBoolean());
+            assertEquals(0, count("SELECT count(*) FROM discord_user"
+                    + " WHERE discord_id = '880000000000000001' AND admin"),
+                    "a refused sign-in made somebody an admin");
         } finally {
-            memberRoles.set(List.of(ADMIN_ROLE, "9999"));
+            memberId.set("1");
+            memberNick.set("Till");
         }
+    }
+
+    @Test
+    @DisplayName("an admin grants below themselves, three an hour, and revokes the branch")
+    void grantingAndRevokingAdmin() throws Exception {
+        holdTheKey(http, authenticator);
+        for (final String id : List.of("881000000000000001", "881000000000000002",
+                "881000000000000003", "881000000000000004")) {
+            try (var connection = data.dataSource().getConnection();
+                 var member = connection.prepareStatement(
+                         "INSERT INTO discord_user (discord_id, member_state) VALUES (?, 'MEMBER')")) {
+                member.setString(1, id);
+                member.executeUpdate();
+            }
+        }
+        try {
+            assertEquals(409, post("/api/admins/grant", "{\"discordId\":\"881999999999999999\"}")
+                    .statusCode(), "somebody the bot never saw in the guild was made an admin");
+            assertEquals(400, post("/api/admins/grant", "{\"discordId\":\"not a snowflake\"}")
+                    .statusCode());
+
+            final HttpResponse<String> granted =
+                    post("/api/admins/grant", "{\"discordId\":\"881000000000000001\"}");
+            assertEquals(200, granted.statusCode(), granted.body());
+            assertEquals("1", actorOf("GRANT_ADMIN"));
+            assertEquals(409, post("/api/admins/grant", "{\"discordId\":\"881000000000000001\"}")
+                    .statusCode(), "granted twice");
+
+            assertEquals(200, post("/api/admins/grant", "{\"discordId\":\"881000000000000002\"}")
+                    .statusCode());
+            assertEquals(200, post("/api/admins/grant", "{\"discordId\":\"881000000000000003\"}")
+                    .statusCode());
+            final HttpResponse<String> fourth =
+                    post("/api/admins/grant", "{\"discordId\":\"881000000000000004\"}");
+            assertEquals(429, fourth.statusCode(), "the fourth grant in an hour went through");
+
+            // One of them granted below the first, so revoking the first takes both.
+            try (var connection = data.dataSource().getConnection();
+                 var below = connection.prepareStatement("UPDATE discord_user"
+                         + " SET admin_granted_by = '881000000000000001'"
+                         + " WHERE discord_id = '881000000000000002'")) {
+                below.executeUpdate();
+            }
+            assertEquals(409, post("/api/admins/revoke", "{\"discordId\":\"1\"}").statusCode(),
+                    "the root revoked itself");
+            final HttpResponse<String> revoked =
+                    post("/api/admins/revoke", "{\"discordId\":\"881000000000000001\"}");
+            assertEquals(200, revoked.statusCode(), revoked.body());
+            assertEquals(List.of("881000000000000001", "881000000000000002"),
+                    GSON.fromJson(revoked.body(), JsonObject.class).getAsJsonArray("removed")
+                            .asList().stream().map(com.google.gson.JsonElement::getAsString).toList());
+            assertEquals("1", actorOf("REVOKE_ADMIN"));
+            assertEquals(403, post("/api/admins/revoke", "{\"discordId\":\"881000000000000001\"}")
+                    .statusCode(), "revoked somebody who is no admin any more");
+            assertEquals(200, post("/api/admins/revoke", "{\"discordId\":\"881000000000000003\"}")
+                    .statusCode());
+        } finally {
+            try (var connection = data.dataSource().getConnection();
+                 var cleanUp = connection.createStatement()) {
+                cleanUp.executeUpdate("TRUNCATE admin_grant");
+                cleanUp.executeUpdate("UPDATE discord_user SET admin = false, admin_granted_by = NULL,"
+                        + " admin_granted_at = NULL WHERE discord_id LIKE '881%'");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("a revoked admin's open session ends on its next request")
+    void revokingEndsTheSession() throws Exception {
+        memberId.set("882000000000000001");
+        memberNick.set("Revoked");
+        final HttpClient theirs = browser();
+        try {
+            signIn(theirs);
+            assertTrue(GSON.fromJson(get(theirs, "/api/me").body(), JsonObject.class)
+                    .get("signedIn").getAsBoolean());
+        } finally {
+            memberId.set("1");
+            memberNick.set("Till");
+        }
+
+        holdTheKey(http, authenticator);
+        final HttpResponse<String> revoked =
+                post("/api/admins/revoke", "{\"discordId\":\"882000000000000001\"}");
+        assertEquals(200, revoked.statusCode(), revoked.body());
+
+        assertFalse(GSON.fromJson(get(theirs, "/api/me").body(), JsonObject.class)
+                .get("signedIn").getAsBoolean(), "the session outlived the admin it belonged to");
+        assertEquals(0, count("SELECT count(*) FROM steward_session s"
+                + " WHERE s.discord_id = '882000000000000001'"), "the session row is still there");
     }
 
     @Test
@@ -2623,8 +2703,18 @@ class StewardUiIntegrationTest {
         return HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
     }
 
-    /** The whole sign-in, driven the way a browser drives it. Nothing here is stood in for. */
+    /**
+     * The whole sign-in, driven the way a browser drives it. Nothing here is stood in for.
+     *
+     * <p>Only an admin gets in, and the first sign-in of the class - {@code "1"}, in
+     * {@link #start()} - claims the root of the empty tree. Any other account a test signs in as
+     * is made an admin below it first, by SQL rather than {@link AdminTree#grant}: the grant is
+     * limited to three an hour, and this class signs in more accounts than that.</p>
+     */
     private static void signIn(final HttpClient browser) throws Exception {
+        if (!"1".equals(memberId.get())) {
+            admitBelowRoot(memberId.get());
+        }
         final String state = stateFrom(get(browser, "/auth/login"));
 
         final HttpResponse<String> callback =
@@ -2632,6 +2722,22 @@ class StewardUiIntegrationTest {
 
         assertEquals(302, callback.statusCode(), callback.body());
         assertEquals("/", callback.headers().firstValue("Location").orElseThrow());
+    }
+
+    /** Makes this account an admin granted by the root, {@code "1"}, whatever it was before. */
+    private static void admitBelowRoot(final String discordId) throws Exception {
+        try (var connection = data.dataSource().getConnection();
+             var admit = connection.prepareStatement("""
+                     INSERT INTO discord_user (discord_id, member_state, admin, admin_granted_by,
+                                               admin_granted_at, updated)
+                     VALUES (?, 'MEMBER', true, '1', now(), now())
+                     ON CONFLICT (discord_id) DO UPDATE
+                         SET member_state = 'MEMBER', admin = true, admin_granted_by = '1',
+                             admin_granted_at = now(), updated = now()
+                     """)) {
+            admit.setString(1, discordId);
+            admit.executeUpdate();
+        }
     }
 
     /** The one-time value the interface minted into the URL it sent the browser to. */

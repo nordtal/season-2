@@ -138,7 +138,7 @@ class RosterDirectoryIntegrationTest {
     @Test
     void theLinkAndTheFlagsRideAlongOnTheSameRow() {
         person(ALICE);
-        execute("UPDATE discord_user SET donor = true, admin = true, locale = 'de', "
+        execute("UPDATE discord_user SET donor = true, admin = true, admin_granted_at = now(), locale = 'de', "
                 + "member_state = 'BANNED' WHERE discord_id = '" + ALICE + "'");
         execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('"
                 + ALICE + "', '" + ALICE_MC + "')");

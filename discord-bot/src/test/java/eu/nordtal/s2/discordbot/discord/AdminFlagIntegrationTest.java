@@ -3,6 +3,7 @@ package eu.nordtal.s2.discordbot.discord;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.access.AdminTree;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,8 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * The admin flag end to end inside this module: what {@link GuildState} writes through
- * {@code AccessDirectory#setAdmin} is what {@link AdminFlagDao} reads back, and what
+ * The admin flag end to end inside this module: what the admin tree writes through
+ * {@code AdminTree} is what {@link AdminFlagDao} reads back, and what
  * {@code PhaseCommand} then authorises on.
  * <p>
  * Against a real PostgreSQL running the real migration, because everything that can be wrong here
@@ -36,9 +37,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * repo is on the JUnit 6 BOM. It skips itself when no Docker daemon is reachable.
  * </p>
  * <p>
- * What this <b>cannot</b> prove: that the Discord role is mirrored correctly. Whether a
- * {@code GuildMemberRoleRemove} really arrives, and whether the reconcile sees the member cache it
- * expects, needs a real guild.
+ * What this <b>cannot</b> prove: that the Discord role follows the flag. Whether the role
+ * reconcile is allowed to add and remove it, and whether a {@code GuildMemberRemove} really
+ * arrives, needs a real guild.
  * </p>
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -51,6 +52,7 @@ class AdminFlagIntegrationTest {
     private static Database database;
 
     private AccessDirectory access;
+    private AdminTree tree;
     private AdminFlagDao dao;
 
     @BeforeAll
@@ -84,8 +86,9 @@ class AdminFlagIntegrationTest {
         assumeTrue(database != null);
         database.jdbi().useHandle(handle -> handle.execute(
                 "TRUNCATE access_grant, payment_request, expiry_notice, payment_notice, "
-                        + "account_link, link_code, audit_log, discord_user CASCADE"));
+                        + "account_link, link_code, audit_log, admin_grant, discord_user CASCADE"));
         access = AccessDirectory.using(database.dataSource());
+        tree = AdminTree.using(database.dataSource());
         dao = database.jdbi().onDemand(AdminFlagDao.class);
     }
 
@@ -109,21 +112,21 @@ class AdminFlagIntegrationTest {
     }
 
     @Test
-    @DisplayName("the mirror creates the row when the admin role arrives before anything else")
-    void mirroringTheRoleCreatesTheRow() {
+    @DisplayName("the root's row is created by the claim when nothing else wrote it")
+    void claimingTheRootCreatesTheRow() {
         // An admin who has never bought anything and never linked an account still has to be able
         // to use /phase set.
-        access.setAdmin(USER, true);
+        tree.claimRootIfNobody(USER);
 
         assertEquals(Optional.of(true), dao.isAdmin(USER));
         assertTrue(AdminFlagDao.admits(dao.isAdmin(USER)));
     }
 
     @Test
-    @DisplayName("losing the role clears the flag - it is a projection, not a grant")
-    void losingTheRoleClearsTheFlag() {
-        access.setAdmin(USER, true);
-        access.setAdmin(USER, false);
+    @DisplayName("leaving the guild clears the flag")
+    void leavingClearsTheFlag() {
+        tree.claimRootIfNobody(USER);
+        tree.dropWithBranch(USER);
 
         assertEquals(Optional.of(false), dao.isAdmin(USER));
         assertFalse(AdminFlagDao.admits(dao.isAdmin(USER)),
@@ -133,7 +136,7 @@ class AdminFlagIntegrationTest {
     @Test
     @DisplayName("the flag is per account and does not leak to anybody else")
     void theFlagIsPerAccount() {
-        access.setAdmin(USER, true);
+        tree.claimRootIfNobody(USER);
         access.ensureUser(STRANGER);
 
         assertTrue(AdminFlagDao.admits(dao.isAdmin(USER)));

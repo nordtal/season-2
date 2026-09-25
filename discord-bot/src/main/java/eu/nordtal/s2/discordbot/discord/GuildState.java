@@ -5,6 +5,7 @@ import eu.nordtal.s2.discordbot.access.discord.ReconcileDao;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.access.AdminTree;
 import eu.nordtal.s2.common.access.MemberState;
 
 import lombok.extern.slf4j.Slf4j;
@@ -28,14 +29,16 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Keeps {@code discord_user.member_state}, {@code locale} and {@code admin} current. The proxy
- * decides whether a login is allowed and cannot ask Discord anything, so these are projections the
- * bot maintains: from gateway events while it runs, and from one reconcile at startup.
+ * Keeps {@code discord_user.member_state} and {@code locale} current. The proxy decides whether a
+ * login is allowed and cannot ask Discord anything, so these are projections the bot maintains:
+ * from gateway events while it runs, and from one reconcile at startup.
  *
- * <p>Language and admin are both mirrored from Discord roles the bot never assigns. They differ in
- * one way: losing the admin role clears the flag, while no language role leaves the stored value
- * alone. "No language" has a safe answer (English) and "no longer an admin" does not - a stale
- * {@code true} would let somebody through {@code MAINTENANCE} and switch the season phase.</p>
+ * <p>Language is mirrored from Discord roles the bot never assigns. <b>Admin is not</b>: it is a
+ * grant tree decided in Steward, and the admin role follows it, not the other way round - see
+ * {@link AdminRole}. What this class still does about admin is the one exit from the tree that is
+ * not a revocation: leaving or being banned from the guild drops that admin and their whole branch,
+ * because a stale {@code true} would let somebody through {@code MAINTENANCE} and switch the
+ * season phase.</p>
  *
  * <p>Leaving the guild removes the account link. Nothing is lost with it: play time, aura and
  * grants hang off {@code discord_user}, so re-linking the same account restores them. A ban is a
@@ -51,7 +54,7 @@ import java.util.Set;
  * <p>Since steward/44 it also mirrors a name and a face: the global username and the <b>guild</b>
  * nickname and avatar, written wherever this class already visits a member - the join event and the
  * reconcile pass - never in a loop of its own. Leaving or being banned clears the guild-scoped half
- * of that (nickname, avatar) the same way it already clears {@code admin}; the username is left as
+ * of that (nickname, avatar) the same way it drops {@code admin}; the username is left as
  * last observed, because it is not guild-scoped and merely goes stale rather than becoming wrong.
  * See {@link eu.nordtal.s2.common.access.DiscordProfile}.</p>
  */
@@ -62,14 +65,16 @@ public final class GuildState extends ListenerAdapter {
     private final AccessSpec config;
     private final Languages languages;
     private final AccessDirectory access;
+    private final AdminTree admins;
     private final ReconcileDao dao;
 
     public GuildState(final JDA jda, final AccessSpec config, final Languages languages,
-                      final AccessDirectory access, final Jdbi jdbi) {
+                      final AccessDirectory access, final AdminTree admins, final Jdbi jdbi) {
         this.jda = jda;
         this.config = config;
         this.languages = languages;
         this.access = access;
+        this.admins = admins;
         this.dao = jdbi.onDemand(ReconcileDao.class);
     }
 
@@ -82,7 +87,6 @@ public final class GuildState extends ListenerAdapter {
         }
         access.setMemberState(event.getMember().getId(), MemberState.MEMBER);
         mirrorLocale(event.getMember());
-        mirrorAdmin(event.getMember());
         mirrorProfile(event.getMember());
     }
 
@@ -95,9 +99,9 @@ public final class GuildState extends ListenerAdapter {
         // the order is not guaranteed, which is why the startup reconcile re-derives both from the
         // ban list rather than trusting the sequence.
         access.setMemberState(event.getUser().getId(), MemberState.LEFT);
-        // Somebody who is not in the guild cannot be holding a role in it. The flag would otherwise
-        // survive a removal and let an ex-member switch the season phase from the proxy.
-        access.setAdmin(event.getUser().getId(), false);
+        // Somebody who is not in the guild is not an admin, and neither is anybody they granted.
+        // The flag would otherwise survive a removal and let an ex-member switch the season phase.
+        dropAdmin(event.getUser().getId());
         // Nor a guild nickname or a guild avatar - both are scoped to a guild this account is not in
         // any more. The global username is left as it was last observed; see clearGuildProfile.
         access.clearGuildProfile(event.getUser().getId());
@@ -115,6 +119,7 @@ public final class GuildState extends ListenerAdapter {
             return;
         }
         access.setMemberState(event.getUser().getId(), MemberState.BANNED);
+        dropAdmin(event.getUser().getId());
         access.clearGuildProfile(event.getUser().getId());
     }
 
@@ -136,9 +141,6 @@ public final class GuildState extends ListenerAdapter {
         if (touchesLanguage(event.getRoles())) {
             mirrorLocale(event.getMember());
         }
-        if (touchesAdmin(event.getRoles())) {
-            mirrorAdmin(event.getMember());
-        }
     }
 
     @Override
@@ -149,9 +151,6 @@ public final class GuildState extends ListenerAdapter {
         if (touchesLanguage(event.getRoles())) {
             mirrorLocale(event.getMember());
         }
-        if (touchesAdmin(event.getRoles())) {
-            mirrorAdmin(event.getMember());
-        }
     }
 
     // ---------------------------------------------------------------- startup
@@ -161,8 +160,8 @@ public final class GuildState extends ListenerAdapter {
      * the guild is a {@code MEMBER}, everybody on the ban list is {@code BANNED}, and everybody we
      * know about who is in neither has {@code LEFT}. The last is the one no event could deliver.
      *
-     * <p>The last two passes also clear the admin flag, which is why it is mirrored here and not
-     * only on role events: a role taken away while the bot was down produces no event.</p>
+     * <p>The last two passes also drop admins, with their branches: leaving while the bot was down
+     * produces no event. The third does so only on a complete picture, like the unlink.</p>
      *
      * <p>The third pass deletes the account link only when the picture is complete - see
      * {@link #memberCacheLooksComplete(int, int)}. That is the one place where being wrong is not
@@ -188,7 +187,6 @@ public final class GuildState extends ListenerAdapter {
             }
             access.setMemberState(member.getId(), MemberState.MEMBER);
             mirrorLocale(member);
-            mirrorAdmin(member);
             mirrorProfile(member);
             seen.add(member.getId());
         }
@@ -197,7 +195,7 @@ public final class GuildState extends ListenerAdapter {
         try {
             guild.retrieveBanList().stream().forEach(ban -> {
                 access.setMemberState(ban.getUser().getId(), MemberState.BANNED);
-                access.setAdmin(ban.getUser().getId(), false);
+                dropAdmin(ban.getUser().getId());
                 access.clearGuildProfile(ban.getUser().getId());
                 seen.add(ban.getUser().getId());
             });
@@ -216,11 +214,15 @@ public final class GuildState extends ListenerAdapter {
         for (final String discordId : dao.allUsers()) {
             if (!seen.contains(discordId)) {
                 access.setMemberState(discordId, MemberState.LEFT);
-                access.setAdmin(discordId, false);
                 access.clearGuildProfile(discordId);
                 left++;
-                if (mayUnlink && access.unlink(discordId)) {
-                    unlinked++;
+                // Dropping an admin is as final as deleting a link - the branch is not granted back
+                // by the next pass - so it waits for the same complete picture.
+                if (mayUnlink) {
+                    dropAdmin(discordId);
+                    if (access.unlink(discordId)) {
+                        unlinked++;
+                    }
                 }
             }
         }
@@ -228,7 +230,7 @@ public final class GuildState extends ListenerAdapter {
         log.info("Reconciled guild state: {} member(s), {} known account(s) no longer present,"
                 + " {} link(s) removed", seen.size(), left, unlinked);
         if (!mayUnlink && left > 0) {
-            log.warn("Account links were left in place for those {} account(s): the member cache"
+            log.warn("Account links and admin grants were left in place for those {} account(s): the member cache"
                     + " holds {} of {} member(s) and the ban list {} read. Deleting on an"
                     + " incomplete picture would unlink the whole guild; the next reconcile that"
                     + " sees everything will do it.",
@@ -261,10 +263,6 @@ public final class GuildState extends ListenerAdapter {
         return changed.stream().anyMatch(role -> languages.isLanguageRole(role.getId()));
     }
 
-    private boolean touchesAdmin(final List<Role> changed) {
-        return changed.stream().anyMatch(role -> role.getId().equals(config.roles().admin()));
-    }
-
     /**
      * Writes the member's language. No language role at all is {@link Optional#empty()} and nothing
      * is written: the column defaults to English, and overwriting a real choice because onboarding
@@ -275,15 +273,13 @@ public final class GuildState extends ListenerAdapter {
                 .ifPresent(language -> access.setLocale(member.getId(), language.locale()));
     }
 
-    /**
-     * Writes whether the member holds the admin role right now, {@code false} included - unlike
-     * {@link #mirrorLocale(Member)}, which never writes an absence. The flag authorises
-     * {@code /phase set} and admission during {@code MAINTENANCE}, so a value that is only ever
-     * raised would keep every admin who has ever been one.
-     */
-    private void mirrorAdmin(final Member member) {
-        access.setAdmin(member.getId(), member.getRoles().stream()
-                .anyMatch(role -> role.getId().equals(config.roles().admin())));
+    /** Drops an admin who left or was banned, with everybody they granted. */
+    private void dropAdmin(final String discordId) {
+        final java.util.Set<String> dropped = admins.dropWithBranch(discordId);
+        if (!dropped.isEmpty()) {
+            log.info("{} is no longer in the guild; {} admin(s) dropped with them: {}",
+                    discordId, dropped.size(), dropped);
+        }
     }
 
     /**

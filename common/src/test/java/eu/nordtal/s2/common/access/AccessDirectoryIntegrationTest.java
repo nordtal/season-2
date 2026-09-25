@@ -89,7 +89,7 @@ class AccessDirectoryIntegrationTest {
         // TRUNCATE ... CASCADE rather than dropping the schema: it keeps the migration applied
         // once per class while every test still starts from an empty database.
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
-                + "player_playtime, discord_user CASCADE");
+                + "player_playtime, admin_grant, discord_user CASCADE");
 
         // season_phase is NOT truncated - it is a singleton the migration seeds, and the login
         // query reads it in the same round trip. SMP is the baseline because it is the one phase in
@@ -432,7 +432,7 @@ class AccessDirectoryIntegrationTest {
     void aBannedMemberIsRefusedInEveryPhaseEvenWithAccessAndTheAdminFlag() {
         directory.link(DISCORD_ID, MC_UUID);
         directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
-        directory.setAdmin(DISCORD_ID, true);
+        setAdmin(DISCORD_ID, true);
         directory.setMemberState(DISCORD_ID, MemberState.BANNED);
 
         for (final SeasonPhase each : SeasonPhase.values()) {
@@ -459,14 +459,14 @@ class AccessDirectoryIntegrationTest {
         directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
         assertTrue(directory.accessState(MC_UUID).mayJoin(), "buying access changes nothing here");
 
-        directory.setAdmin(DISCORD_ID, true);
+        setAdmin(DISCORD_ID, true);
         assertTrue(directory.accessState(MC_UUID).mayJoin(), "and neither does the admin flag");
     }
 
     @Test
     void anAdminWithoutAccessGetsIntoMaintenanceAndIntoTheSmp() {
         directory.link(DISCORD_ID, MC_UUID);
-        directory.setAdmin(DISCORD_ID, true);
+        setAdmin(DISCORD_ID, true);
 
         phase(SeasonPhase.MAINTENANCE);
         assertTrue(directory.accessState(MC_UUID).mayJoin(),
@@ -479,7 +479,7 @@ class AccessDirectoryIntegrationTest {
         phase(SeasonPhase.SMP);
         assertTrue(directory.accessState(MC_UUID).mayJoin(),
                 "the admin flag is an access period since 2026-09-05");
-        directory.setAdmin(DISCORD_ID, false);
+        setAdmin(DISCORD_ID, false);
         assertFalse(directory.accessState(MC_UUID).mayJoin(),
                 "and losing the role loses the pass, with nothing bought underneath it");
     }
@@ -573,7 +573,7 @@ class AccessDirectoryIntegrationTest {
     @Test
     void theAdminFlagRidesAlongOnTheQueryTheLoginPathAlreadyMakes() {
         directory.link(DISCORD_ID, MC_UUID);
-        directory.setAdmin(DISCORD_ID, true);
+        setAdmin(DISCORD_ID, true);
 
         final AccessState state = directory.accessState(MC_UUID);
 
@@ -587,21 +587,14 @@ class AccessDirectoryIntegrationTest {
     @Test
     void theAdminFlagIsClearedAgainUnlikeDonor() {
         directory.link(DISCORD_ID, MC_UUID);
-        directory.setAdmin(DISCORD_ID, true);
+        setAdmin(DISCORD_ID, true);
         directory.setDonor(DISCORD_ID, true);
 
-        directory.setAdmin(DISCORD_ID, false);
+        setAdmin(DISCORD_ID, false);
 
         final AccessState state = directory.accessState(MC_UUID);
         assertFalse(state.admin(), "losing the Discord role has to lose the permission");
         assertTrue(state.donor(), "the donor flag is permanent, and clearing admin must not touch it");
-    }
-
-    @Test
-    void settingTheAdminFlagCreatesTheUserRowIfItIsNotThereYet() {
-        directory.setAdmin("400000000000000001", true);
-
-        assertEquals(1, count("SELECT count(*) FROM discord_user WHERE discord_id = '400000000000000001' AND admin"));
     }
 
     // ---------------------------------------------------------------- the profile cache (steward/44)
@@ -937,6 +930,23 @@ class AccessDirectoryIntegrationTest {
         }
     }
 
+    /**
+     * Makes an account an admin the one way there is since {@code V34}: the first becomes the root,
+     * every later one is granted by it. Clearing drops the account's branch.
+     */
+    private void setAdmin(final String discordId, final boolean admin) {
+        final AdminTree tree = AdminTree.using(dataSource);
+        if (!admin) {
+            tree.dropWithBranch(discordId);
+            return;
+        }
+        if (tree.claimRootIfNobody(discordId)) {
+            return;
+        }
+        directory.setMemberState(discordId, MemberState.MEMBER);
+        assertEquals(AdminTree.Grant.GRANTED, tree.grant(tree.admins().getFirst().discordId(), discordId));
+    }
+
     private static void execute(final String sql) {
         try {
             executeChecked(sql);
@@ -990,7 +1000,7 @@ class AccessDirectoryIntegrationTest {
                 statement.execute("LISTEN nordtal_admin");
             }
 
-            directory.setAdmin(DISCORD_ID, true);
+            setAdmin(DISCORD_ID, true);
 
             final org.postgresql.PGNotification[] arrived = listening
                     .unwrap(org.postgresql.PGConnection.class)
@@ -1008,14 +1018,14 @@ class AccessDirectoryIntegrationTest {
     @Test
     @DisplayName("M9: a revocation notifies as loudly as a grant")
     void losingTheFlagNotifiesToo() throws Exception {
-        directory.setAdmin(DISCORD_ID, true);
+        setAdmin(DISCORD_ID, true);
 
         try (Connection listening = dataSource.getConnection()) {
             try (Statement statement = listening.createStatement()) {
                 statement.execute("LISTEN nordtal_admin");
             }
 
-            directory.setAdmin(DISCORD_ID, false);
+            setAdmin(DISCORD_ID, false);
 
             final org.postgresql.PGNotification[] arrived = listening
                     .unwrap(org.postgresql.PGConnection.class)
@@ -1032,16 +1042,16 @@ class AccessDirectoryIntegrationTest {
     void theAdminSetIsReadableInOneQuery() {
         assertTrue(directory.admins().isEmpty());
 
-        directory.setAdmin(DISCORD_ID, true);
-        directory.setAdmin("100000000000000002", true);
-        directory.setAdmin("100000000000000003", false);
+        setAdmin(DISCORD_ID, true);
+        setAdmin("100000000000000002", true);
+        setAdmin("100000000000000003", false);
 
         assertEquals(java.util.Set.of(DISCORD_ID, "100000000000000002"), directory.admins(),
                 "one query for the whole set is what makes the refresh idempotent - a lost"
                         + " notification then costs latency rather than correctness");
 
-        directory.setAdmin(DISCORD_ID, false);
-        assertEquals(java.util.Set.of("100000000000000002"), directory.admins());
+        setAdmin("100000000000000002", false);
+        assertEquals(java.util.Set.of(DISCORD_ID), directory.admins());
     }
 
     @Test
@@ -1052,7 +1062,7 @@ class AccessDirectoryIntegrationTest {
         // connects them - so this is a second query rather than a mapping of admins().
         assertTrue(directory.adminMinecraftAccounts().isEmpty());
 
-        directory.setAdmin(DISCORD_ID, true);
+        setAdmin(DISCORD_ID, true);
         assertTrue(directory.adminMinecraftAccounts().isEmpty(),
                 "an admin with no account link cannot be online anywhere, so nothing on a backend"
                         + " should be told about them");
@@ -1062,7 +1072,7 @@ class AccessDirectoryIntegrationTest {
 
         // The direction that actually matters: this is what removes operator from somebody who is
         // online right now, without waiting for them to disconnect.
-        directory.setAdmin(DISCORD_ID, false);
+        setAdmin(DISCORD_ID, false);
         assertTrue(directory.adminMinecraftAccounts().isEmpty(),
                 "a revoked admin has to leave this set immediately - AdminWatch hands it straight to"
                         + " AdminOperators#refresh, and whoever is not in it loses operator");

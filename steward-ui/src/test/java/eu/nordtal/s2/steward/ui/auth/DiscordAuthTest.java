@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * What the sign-in page is able to say about a deployment nobody can sign in to.
  *
  * <p>This is the half of {@link DiscordAuth} that never reaches Discord, and it is the half an
- * operator meets first: a fresh deployment has none of these four values, and the difference
+ * operator meets first: a fresh deployment has none of these three values, and the difference
  * between "you are not an admin" and "this container was never given a client id" is the
  * difference between an evening of guessing and a one-line fix. The flow itself is exercised
  * end to end in {@code StewardUiIntegrationTest}, against a stand-in Discord.</p>
@@ -38,21 +38,9 @@ class DiscordAuthTest {
                 .startsWith("discord.client-secret"));
         assertEquals("discord.guild-id", missingFrom(new Values()
                 .withClientId("an-application").withClientSecret("shh")));
-        assertEquals("discord.admin-role", missingFrom(new Values()
-                .withClientId("an-application").withClientSecret("shh").withGuildId("1234")));
-    }
-
-    @Test
-    @DisplayName("an empty admin role is nobody, never everybody")
-    void anEmptyRoleDoesNotOpenTheDoor() {
-        // The one default that would be catastrophic to get the other way round: an interface that
-        // can stop a server and read a token, opened by forgetting a value.
-        final Values all = new Values().withClientId("an-application").withClientSecret("shh")
-                .withGuildId("1234");
-
-        assertEquals("discord.admin-role", missingFrom(all));
-        assertTrue(new DiscordAuth(all.withAdminRole("4711"), "https://steward.example")
-                .whatIsMissing().isEmpty());
+        // No admin role: who may in is the admin tree in the database, not a Discord role.
+        assertTrue(new DiscordAuth(new Values().withClientId("an-application").withClientSecret("shh")
+                .withGuildId("1234"), "https://steward.example").whatIsMissing().isEmpty());
     }
 
     @Test
@@ -135,13 +123,12 @@ class DiscordAuthTest {
         return new DiscordAuth(values, "https://steward.example").whatIsMissing().orElseThrow();
     }
 
-    /** The four values, each empty until a test fills it in. */
+    /** The three values, each empty until a test fills it in. */
     private static final class Values implements UiSpec.DiscordSpec {
 
         private String clientId = "";
         private String clientSecret = "";
         private String guildId = "";
-        private String adminRole = "";
 
         Values withClientId(final String value) {
             clientId = value;
@@ -158,11 +145,6 @@ class DiscordAuthTest {
             return this;
         }
 
-        Values withAdminRole(final String value) {
-            adminRole = value;
-            return this;
-        }
-
         @Override
         public String clientId() {
             return clientId;
@@ -176,11 +158,6 @@ class DiscordAuthTest {
         @Override
         public String guildId() {
             return guildId;
-        }
-
-        @Override
-        public String adminRole() {
-            return adminRole;
         }
     }
 

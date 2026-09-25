@@ -30,7 +30,7 @@ import java.util.UUID;
  *                      {@code BANNED}. Text rather than the {@code MemberState} enum, because an
  *                      unknown value written by hand must be shown, not throw on the way out
  * @param donor         the permanent donor flag
- * @param admin         whether the Discord admin role is mirrored onto this account right now
+ * @param admin         whether this account is an admin right now, in the admin tree
  * @param locale        the IETF language tag, {@code en} or {@code de} today
  * @param updated       when the row last changed - what {@link RosterDirectory#people(int)} orders by
  * @param minecraftUuid the linked Minecraft account, {@code null} when there is no
@@ -57,6 +57,9 @@ import java.util.UUID;
  *                                   is no row, i.e. when this account has never been online. The
  *                                   prestige tier is derived from this number and stored nowhere,
  *                                   which is why a list of people prints it at all (steward/119)
+ * @param adminGrantedBy            the admin who granted this one, {@code null} for the root and
+ *                                   for everybody who is not an admin
+ * @param adminGrantedAt            when this account became an admin, {@code null} unless it is one
  */
 public record Person(
         String discordId,
@@ -77,5 +80,7 @@ public record Person(
         Instant discordAvatarUrlUpdated,
         String mcName,
         Instant mcNameUpdated,
-        Long playtimeSeconds) {
+        Long playtimeSeconds,
+        String adminGrantedBy,
+        Instant adminGrantedAt) {
 }

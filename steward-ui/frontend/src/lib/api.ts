@@ -660,6 +660,9 @@ export type Person = {
   memberState: string
   donor: boolean
   admin: boolean
+  /** Who granted this admin; absent for the root and for everybody who is no admin. */
+  adminGrantedBy?: string | null
+  adminGrantedAt?: string | null
   locale: string
   updated: string
   minecraftUuid?: string

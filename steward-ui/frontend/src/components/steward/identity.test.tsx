@@ -3,10 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
   IDENTIFIER_PATTERN,
-  MinecraftFace,
   PersonIdentity,
   minecraftHeadUrl,
-  personLabel,
 } from "@/components/steward/identity"
 
 /**
@@ -223,9 +221,9 @@ describe("PersonIdentity - nothing half-written, and no mark nobody can see", ()
   })
 })
 
-describe("MinecraftFace - no asterisk, no tooltip", () => {
+describe("PersonIdentity, Minecraft face - no asterisk, no tooltip", () => {
   it("draws the name alone", () => {
-    render(<MinecraftFace mcUuid={MC_UUID} mcName="AliceMC" />)
+    render(<PersonIdentity face="minecraft" mcUuid={MC_UUID} mcName="AliceMC" />)
 
     expect(screen.getByText("AliceMC")).toBeTruthy()
     expect(document.body.textContent).not.toContain("*")
@@ -293,46 +291,20 @@ describe("minecraftHeadUrl", () => {
   })
 })
 
-describe("MinecraftFace - the name and the head, never the uuid", () => {
+describe("PersonIdentity, Minecraft face - the name and the head, never the uuid", () => {
   it("shows the name without ever drawing the uuid", () => {
-    render(<MinecraftFace mcUuid={MC_UUID} mcName="AliceMC" />)
+    render(<PersonIdentity face="minecraft" mcUuid={MC_UUID} mcName="AliceMC" />)
 
     expect(screen.getByText("AliceMC")).toBeTruthy()
     expect(document.body.textContent).not.toContain(MC_UUID)
   })
 
   it("says a name has not been observed yet, rather than showing nothing", () => {
-    render(<MinecraftFace mcUuid={MC_UUID} />)
+    render(<PersonIdentity face="minecraft" mcUuid={MC_UUID} />)
 
     // Shortened from "no name observed yet" on 2026-09-17 (steward/103): the long form was drawn
     // as `no name observed ye` at 390px. It now truncates properly as well, but a fallback label
     // that has to truncate to fit is a label chosen too long.
     expect(screen.getByText(/no name yet/i)).toBeTruthy()
-  })
-})
-
-describe("personLabel - the one name for the places a component cannot go", () => {
-  /**
-   * steward/124: a toast title and a `<SelectItem>` label are strings, so they cannot hold the
-   * identity component - but they must not print a snowflake either. One order of preference,
-   * here, rather than one per page.
-   */
-  it("prefers the display name", () => {
-    expect(
-      personLabel({ discordDisplayName: "Ally", discordUsername: "alice", discordId: DISCORD_ID }),
-    ).toBe("Ally")
-  })
-
-  it("falls back to the username, then the Minecraft name", () => {
-    expect(personLabel({ discordUsername: "alice", discordId: DISCORD_ID })).toBe("alice")
-    expect(personLabel({ mcName: "AliceMC", discordId: DISCORD_ID })).toBe("AliceMC")
-  })
-
-  it("falls back to the id LAST, because a nameless row must still be identifiable", () => {
-    expect(personLabel({ discordId: DISCORD_ID })).toBe(DISCORD_ID)
-  })
-
-  it("answers an empty string rather than the word undefined when there is nothing at all", () => {
-    expect(personLabel({})).toBe("")
   })
 })

@@ -49,6 +49,7 @@ import {
 import { useRunLock } from "@/lib/run-lock"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
+import { Actor } from "@/components/steward/entity"
 import {
   AvailableBadge,
   DriftBadge,
@@ -842,12 +843,16 @@ function RunsCard() {
                     </TableCell>
                     <TableCell data-label="Requested by" className="truncate text-muted-foreground">
                       {run ? (
-                        <>
-                          {run.requestedBy}
-                          <span className="ml-1 text-xs">
-                            ({SOURCE_LABEL[run.source] ?? run.source})
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <Actor
+                            system={run.system}
+                            discordId={run.actorDiscordId}
+                            label={run.actorLabel}
+                          />
+                          <span className="shrink-0 text-xs">
+                            {SOURCE_LABEL[run.source] ?? run.source}
                           </span>
-                        </>
+                        </span>
                       ) : (
                         <SkeletonText width="long" />
                       )}
@@ -1183,7 +1188,11 @@ export function OperationsPlanPage() {
                   hint={
                     <span className="flex flex-col gap-0.5">
                       <span>{RUN_KIND[planned!.kind] ?? planned!.kind}</span>
-                      <span>{planned!.requestedBy}</span>
+                      <Actor
+                        system={planned!.system}
+                        discordId={planned!.actorDiscordId}
+                        label={planned!.actorLabel}
+                      />
                     </span>
                   }
                 />
@@ -1303,7 +1312,11 @@ function RunDetail({ run }: { run?: Run }) {
 
           <Stat
             label="Requested by"
-            value={run?.requestedBy}
+            value={
+              run ? (
+                <Actor system={run.system} discordId={run.actorDiscordId} label={run.actorLabel} />
+              ) : undefined
+            }
             hint={run ? dateTime(run.requested) : undefined}
           />
           <Stat
@@ -1711,7 +1724,11 @@ export function OperationsBackupPage() {
                         answer && match ? (
                           <span className="flex flex-col gap-0.5">
                             <span>{RUN_KIND[match.kind] ?? match.kind}</span>
-                            <span>{match.requestedBy}</span>
+                            <Actor
+                              system={match.system}
+                              discordId={match.actorDiscordId}
+                              label={match.actorLabel}
+                            />
                           </span>
                         ) : undefined
                       }

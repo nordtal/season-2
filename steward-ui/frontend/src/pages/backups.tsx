@@ -8,17 +8,15 @@ import { ApiError } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
 import { bytes, count, dateTime, duration, parseInstant, relative } from "@/lib/format"
 import {
-  useAvatarBaseUrl,
   useBackups,
   useConfig,
   useConfigs,
-  usePeople,
   useRuns,
   useSaveConfig,
   useSchedule,
 } from "@/lib/queries"
 import { ScalarControl } from "@/components/steward/config-controls"
-import { PersonIdentity } from "@/components/steward/identity"
+import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
@@ -67,7 +65,7 @@ import {
  *   <li>The whole run row is a link, not only the number - see {@link Runs}.</li>
  *   <li>"Volumes" is "Archives", and counts files rather than drawing a fraction nobody without
  *       the run's own report line could interpret - see {@link Runs}.</li>
- *   <li>"Requested by" is "Initiated by" and goes through {@link PersonIdentity}, the one place a
+ *   <li>"Requested by" is "Initiated by" and goes through {@link Actor}, the one place a
  *       Discord id is allowed to be resolved to a person - see {@link Runs} and
  *       {@link StewardUi.ActorFields} on the backend, which reads `requested_by` apart the same
  *       way the unified actions feed already does.</li>
@@ -263,7 +261,7 @@ function ran(run: Run): string {
  * (`onClick` on the row plus a `Link` kept on the number itself for keyboard and middle-click);
  * "Volumes" is "Archives" and counts the files a run actually wrote rather than drawing a fraction
  * that needed the run's own report line to make sense of; and "Requested by" is "Initiated by",
- * drawn through {@link PersonIdentity} so a raw Discord id is never the thing on screen - see
+ * drawn through {@link Actor} so a raw Discord id is never the thing on screen - see
  * `StewardUi.ActorFields` for where `requestedBy` is read apart into the id, the plain label or
  * the flag that says this was Steward's own nightly clock.
  */
@@ -273,8 +271,6 @@ const WAITING_BACKUP_RUNS = Array.from({ length: 4 }, () => undefined)
 function Runs() {
   const navigate = useNavigate()
   const runs = useRuns(40)
-  const people = usePeople()
-  const avatarBaseUrl = useAvatarBaseUrl()
   const rows = backupRuns(runs.data).slice(0, 8)
 
   return (
@@ -302,9 +298,6 @@ function Runs() {
           <TableBody>
             {(answer ? rows : WAITING_BACKUP_RUNS).map((run, index) => {
               const archives = run ? saved(run) : undefined
-              const known = run?.actorDiscordId
-                ? people.data?.find((person) => person.discordId === run.actorDiscordId)
-                : undefined
               return (
                 <TableRow
                   key={run?.id ?? index}
@@ -351,20 +344,12 @@ function Runs() {
                   <TableCell data-label="Initiated by" className="text-muted-foreground">
                     {!run ? (
                       <SkeletonText width="medium" />
-                    ) : run.system ? (
-                      <PersonIdentity system />
-                    ) : run.actorDiscordId ? (
-                      <PersonIdentity
-                        discordId={run.actorDiscordId}
-                        discordUsername={known?.discordUsername}
-                        discordDisplayName={known?.discordDisplayName}
-                        discordAvatarUrl={known?.discordAvatarUrl}
-                        mcUuid={known?.minecraftUuid}
-                        mcName={known?.mcName}
-                        avatarBaseUrl={avatarBaseUrl.data}
-                      />
                     ) : (
-                      <span className="truncate">{run.actorLabel || run.source}</span>
+                      <Actor
+                        system={run.system}
+                        discordId={run.actorDiscordId}
+                        label={run.actorLabel || run.source}
+                      />
                     )}
                   </TableCell>
                 </TableRow>

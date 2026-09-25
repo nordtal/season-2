@@ -253,28 +253,57 @@ describe("accountOptions - the picker names people, not snowflakes (steward/124)
    * The options live inside a Radix `Select`, which does not open under jsdom - so the labelling
    * rule is held on the function that builds them rather than on the popup.
    */
-  it("labels each option with the name and never with the id alone", () => {
-    const options = accountOptions([
-      {
-        discordId: "214906139328839681",
-        discordDisplayName: "Ally",
-        minecraftUuid: "11111111-2222-3333-4444-555555555555",
-      },
-      { discordId: "300000000000000002", discordUsername: "bob" },
-    ] as never)
+  const PEOPLE = [
+    {
+      discordId: "214906139328839681",
+      discordDisplayName: "Ally",
+      minecraftUuid: "11111111-2222-3333-4444-555555555555",
+    },
+    { discordId: "300000000000000002", discordUsername: "bob" },
+    { discordId: "999999999999999999" },
+  ]
 
-    expect(options.map((option) => option.label)).toEqual(["Ally (linked)", "bob (not linked)"])
+  function drawOptions() {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/people") return json(200, PEOPLE)
+        if (url === "/api/settings") return json(200, { minecraftHeadBaseUrl: "" })
+        throw new Error(`the options asked for ${url}, which this test did not expect`)
+      }),
+    )
+    const options = accountOptions(PEOPLE as never)
+    draw(
+      <ul>
+        {options.map((option) => (
+          <li key={option.value}>{option.label}</li>
+        ))}
+      </ul>,
+    )
+    return options
+  }
+
+  it("labels each option with the person and never with the id", async () => {
+    const options = drawOptions()
+
+    expect(await screen.findByText("Ally")).toBeTruthy()
+    expect(screen.getByText("bob")).toBeTruthy()
+    expect(screen.getByText("linked")).toBeTruthy()
+    expect(screen.getAllByText("not linked")).toHaveLength(2)
+    expect(document.body.textContent).not.toMatch(/\d{17,20}/)
     // The id is still what gets submitted - it is just not what a human reads while picking.
     expect(options.map((option) => option.value)).toEqual([
       "214906139328839681",
       "300000000000000002",
+      "999999999999999999",
     ])
   })
 
-  it("falls back to the id for somebody with no name at all, rather than an empty row", () => {
-    expect(accountOptions([{ discordId: "999999999999999999" }] as never)[0].label).toBe(
-      "999999999999999999 (not linked)",
-    )
+  it("says so for somebody with no name at all, rather than printing the id", async () => {
+    drawOptions()
+
+    expect(await screen.findByText("no Discord name on record")).toBeTruthy()
+    expect(document.body.textContent).not.toContain("999999999999999999")
   })
 
   it("answers an empty list while the roster is still loading", () => {

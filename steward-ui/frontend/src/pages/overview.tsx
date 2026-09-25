@@ -6,11 +6,9 @@ import { bytes, count, percent, relative } from "@/lib/format"
 import { summarise } from "@/lib/health"
 import {
   useActions,
-  useAvatarBaseUrl,
   useBackups,
   useHost,
   useMetrics,
-  usePeople,
   useServices,
   useSettings,
 } from "@/lib/queries"
@@ -343,7 +341,7 @@ function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: n
  * Fed by steward-worker's own {@code /api/actions} rather than by sorting {@link useJournal}'s
  * `audit_log` rows together with a second call for `update_request` here - see that endpoint's own
  * javadoc for why a merge belongs in one query and not on this page. Every actor is drawn through
- * {@link ActionRow} and {@code PersonIdentity}, never as the raw text the old, journal-only version
+ * {@link ActionRow} and {@code Entity}, never as the raw text the old, journal-only version
  * of this panel used to print: `entry.actor` was an unadorned Discord snowflake, which is exactly
  * the leak steward/45's rule exists to close and which the old static check could not see, because
  * nothing here was named `discordId`.
@@ -357,8 +355,6 @@ const WAITING_ACTIONS = [undefined, undefined, undefined, undefined]
 
 function ActionsPanel() {
   const actions = useActions(5)
-  const people = usePeople()
-  const avatarBase = useAvatarBaseUrl()
   const now = Date.now()
 
   return (
@@ -382,8 +378,6 @@ function ActionsPanel() {
                 // invented. Position is stable because the list is never reordered client-side.
                 key={index}
                 action={action}
-                people={people.data}
-                avatarBaseUrl={avatarBase.data}
                 now={now}
               />
             ))}

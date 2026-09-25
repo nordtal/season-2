@@ -74,7 +74,22 @@ function draw(node: ReactNode) {
 }
 
 async function open(label: string) {
-  fireEvent.click(await screen.findByText(label))
+  fireEvent.click((await screen.findAllByText(label))[0])
+}
+
+/** A screen as wide as the two-column layout, where a key opens inline instead of in a sheet. */
+function wide() {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query.includes("64rem"),
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }))
+}
+
+/** A key is a row until it is opened; its field only exists once it is. */
+async function openKey(name: string) {
+  fireEvent.click(await screen.findByRole("button", { name }))
 }
 
 /** The tab as the service page draws it, with `?file=` kept in state instead of the URL. */
@@ -135,6 +150,7 @@ describe("the en/de toggle", () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Settings service="smp" />)
     await open("SMP Translations")
+    await openKey("Welcome")
 
     await screen.findByDisplayValue("Welcome")
   })
@@ -143,6 +159,7 @@ describe("the en/de toggle", () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Settings service="smp" />)
     await open("SMP Translations")
+    await openKey("Welcome")
     await screen.findByDisplayValue("Welcome")
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: /DE/ }))
@@ -176,6 +193,7 @@ describe("saving a line", () => {
     )
     draw(<Settings service="smp" />)
     await open("SMP Translations")
+    await openKey("Greeting")
     const field = await screen.findByDisplayValue("Hello <_sender>")
     fireEvent.change(field, { target: { value: "Hello there" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
@@ -212,6 +230,7 @@ describe("saving a line", () => {
     )
     draw(<Settings service="smp" />)
     await open("SMP Translations")
+    await openKey("Welcome")
     const field = await screen.findByDisplayValue("Welcome")
     fireEvent.change(field, { target: { value: "Howdy" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
@@ -249,6 +268,7 @@ describe("saving a line", () => {
     )
     draw(<Settings service="discord-bot" />)
     await open("Discord Bot Translations")
+    await openKey("Granted")
     const field = await screen.findByDisplayValue("You are in")
     fireEvent.change(field, { target: { value: "Welcome in" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
@@ -283,6 +303,7 @@ describe("saving a line", () => {
     )
     draw(<Settings service="smp" />)
     await open("SMP Translations")
+    await openKey("Welcome")
     await screen.findByDisplayValue("Howdy")
 
     fireEvent.click(screen.getByRole("button", { name: /Reset/ }))
@@ -316,9 +337,65 @@ describe("the tree of a bundle", () => {
     draw(<Settings service="smp" />)
     await open("SMP Translations")
 
-    await screen.findByRole("button", { name: /Graves.*Decay/ })
+    const branch = await screen.findByRole("button", { name: /Graves.*Decay/ })
+    expect(branch.getAttribute("aria-expanded")).toBe("false")
+    expect(screen.queryByText("Decay warning")).toBeNull()
+
+    fireEvent.click(branch)
     screen.getByText("Decay warning")
     expect(screen.queryByText("grave.decay.warning")).toBeNull()
+  })
+})
+
+describe("one key open at a time", () => {
+  function twoKeys() {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        "smp/smp": {
+          ...location({ path: "smp/smp" }),
+          entries: [
+            entry({
+              key: "a",
+              name: "First",
+              english: "<gray>Hello <white>{player}</white></gray>",
+              args: [{ name: "player", component: false }],
+            }),
+            entry({ key: "b", name: "Second", english: "two" }),
+          ],
+        },
+      }),
+    )
+  }
+
+  it("draws each key as its name and a rendered line, with no field until it is opened", async () => {
+    twoKeys()
+    draw(<Settings service="smp" />)
+    await open("SMP Translations")
+
+    const row = await screen.findByRole("button", { name: "First" })
+    expect(row.textContent).toContain("Hello")
+    expect(row.textContent).toContain("player")
+    expect(row.textContent).not.toContain("<gray>")
+    expect(screen.queryByRole("textbox")).toBeNull()
+  })
+
+  it("closes the open key when another is opened, and keeps its draft", async () => {
+    wide()
+    twoKeys()
+    draw(<Settings service="smp" />)
+    await open("SMP Translations")
+
+    await openKey("First")
+    fireEvent.change(await screen.findByDisplayValue("<gray>Hello <white>{player}</white></gray>"), {
+      target: { value: "Hi {player}" },
+    })
+    await openKey("Second")
+
+    await screen.findByDisplayValue("two")
+    expect(screen.queryByDisplayValue("Hi {player}")).toBeNull()
+    expect(screen.getAllByRole("textbox")).toHaveLength(1)
+    screen.getByRole("button", { name: "Save 1" })
   })
 })
 
@@ -348,9 +425,11 @@ describe("both languages in one save", () => {
     draw(<Settings service="smp" />)
     await open("SMP Translations")
 
+    await openKey("First")
     fireEvent.change(await screen.findByDisplayValue("one"), { target: { value: "ONE" } })
-    const tabs = screen.getAllByRole("tab", { name: /DE/ })
-    fireEvent.mouseDown(tabs[1])
+    fireEvent.click(screen.getByRole("button", { name: "Done" }))
+    await openKey("Second")
+    fireEvent.mouseDown(screen.getByRole("tab", { name: /DE/ }))
     fireEvent.change(await screen.findByDisplayValue("zwei"), { target: { value: "ZWEI" } })
     fireEvent.click(screen.getByRole("button", { name: "Save 2" }))
 
@@ -383,6 +462,7 @@ describe("placeholders", () => {
     withGreeting()
     draw(<Settings service="smp" />)
     await open("SMP Translations")
+    await openKey("Greeting")
 
     fireEvent.change(await screen.findByDisplayValue("Hello {player}"), { target: { value: "Hello {palyer}" } })
 
@@ -394,6 +474,7 @@ describe("placeholders", () => {
     withGreeting()
     draw(<Settings service="smp" />)
     await open("SMP Translations")
+    await openKey("Greeting")
     const field = (await screen.findByDisplayValue("Hello {player}")) as HTMLTextAreaElement
     field.setSelectionRange(0, 0)
 

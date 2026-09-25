@@ -86,6 +86,15 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
+import {
+  ResponsiveDialog,
+  ResponsiveDialogClose,
+  ResponsiveDialogContent,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog"
+import { MessagePreview } from "@/components/steward/message-preview"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 /**
@@ -343,6 +352,8 @@ function TreeView<L>({
   renderLeaf,
   save,
   above,
+  collapsed,
+  list,
 }: {
   file: string
   nodes: TreeNode<L>[]
@@ -354,6 +365,10 @@ function TreeView<L>({
   renderLeaf: (leaf: TreeLeaf<L>, highlight: Highlight | null) => ReactNode
   save: ReactNode
   above?: ReactNode
+  /** Every branch starts closed, whatever the file's size. */
+  collapsed?: boolean
+  /** Leaves are full-width rows under each other rather than a grid of fields. */
+  list?: boolean
 }) {
   const [query, setQuery] = useState("")
   const [highlight, setHighlight] = useState<Highlight | null>(null)
@@ -371,7 +386,7 @@ function TreeView<L>({
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
-  const closedByDefault = useMemo(() => leafCount(nodes) > 12, [nodes])
+  const closedByDefault = useMemo(() => collapsed === true || leafCount(nodes) > 12, [nodes, collapsed])
 
   const shown = useMemo(
     () => (query.trim() ? filterTree(nodes, (leaf) => matches(leaf.value, query)) : nodes),
@@ -422,6 +437,7 @@ function TreeView<L>({
           draftIds={draftIds}
           highlight={highlight}
           renderLeaf={renderLeaf}
+          list={list}
         />
       )}
       <div className="pointer-events-none sticky bottom-4 mt-2 flex items-center justify-end gap-2">
@@ -450,6 +466,7 @@ function NodeList<L>({
   draftIds,
   highlight,
   renderLeaf,
+  list,
 }: {
   nodes: TreeNode<L>[]
   isOpen: (id: string) => boolean
@@ -457,6 +474,7 @@ function NodeList<L>({
   draftIds: Set<string>
   highlight: Highlight | null
   renderLeaf: (leaf: TreeLeaf<L>, highlight: Highlight | null) => ReactNode
+  list?: boolean
 }) {
   // Neighbouring leaves share one grid; a branch interrupts it.
   const groups: Array<TreeLeaf<L>[] | TreeBranch<L>> = []
@@ -477,10 +495,12 @@ function NodeList<L>({
           return (
             <div
               key={`leaves-${group[0].id}`}
-              className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2"
+              className={cn(
+                list ? "flex flex-col" : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2",
+              )}
             >
               {group.map((leaf) => (
-                <div key={leaf.id} className={cn("min-w-0", leaf.wide && "col-span-full")}>
+                <div key={leaf.id} className={cn("min-w-0", !list && leaf.wide && "col-span-full")}>
                   {renderLeaf(leaf, highlight && leaf.ids.includes(highlight.id) ? highlight : null)}
                 </div>
               ))}
@@ -525,6 +545,7 @@ function NodeList<L>({
                   draftIds={draftIds}
                   highlight={highlight}
                   renderLeaf={renderLeaf}
+                  list={list}
                 />
               </div>
             ) : null}
@@ -799,6 +820,8 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
   const [warnings, setWarnings] = useState<string[]>([])
   const nodes = useMemo(() => messageTree(bundle.entries), [bundle.entries])
   const byKey = useMemo(() => new Map(bundle.entries.map((entry) => [entry.key, entry])), [bundle.entries])
+  // One key open at a time: opening another closes this one, and its draft stays where it is.
+  const [openKey, setOpenKey] = useState<string | null>(null)
 
   const draftIds = useMemo(() => new Set(Object.keys(draft)), [draft])
   const count = Object.values(draft).reduce((sum, languages) => sum + Object.keys(languages).length, 0)
@@ -835,6 +858,13 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
     )
   }
 
+  const saveButton = (className?: string) =>
+    count > 0 && bundle.writable ? (
+      <Button type="button" className={className} disabled={save.isPending || blocked} onClick={submit}>
+        {save.isPending ? "Saving…" : `Save ${count}`}
+      </Button>
+    ) : null
+
   return (
     <TreeView<MessageEntry>
       file={file}
@@ -855,23 +885,108 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
           ) : null}
         </>
       }
+      collapsed
+      list
       renderLeaf={(leaf, highlight) => (
-        <MessageField
+        <MessageRow
           entry={leaf.value}
+          open={openKey === leaf.value.key}
+          onOpen={(open) => setOpenKey(open ? leaf.value.key : null)}
           writable={bundle.writable}
           draft={draft[leaf.value.key]}
           highlight={highlight}
           onChange={(language, value) => set(leaf.value.key, language, value)}
+          save={saveButton()}
         />
       )}
-      save={
-        count > 0 && bundle.writable ? (
-          <Button type="button" className="pointer-events-auto" disabled={save.isPending || blocked} onClick={submit}>
-            {save.isPending ? "Saving…" : `Save ${count}`}
-          </Button>
-        ) : null
-      }
+      save={saveButton("pointer-events-auto")}
     />
+  )
+}
+
+/**
+ * One key in the tree: its name and its text rendered on one line, and - once opened - its field.
+ * On a wide screen the field opens inline under the row, where the tree already is; below that it
+ * opens as a sheet, because a field typed into under a row half a screen down is where a phone's
+ * keyboard lands.
+ */
+function MessageRow({
+  entry,
+  open,
+  onOpen,
+  writable,
+  draft,
+  highlight,
+  onChange,
+  save,
+}: Parameters<typeof MessageField>[0] & {
+  open: boolean
+  onOpen: (open: boolean) => void
+  /** The file's save button, repeated in the sheet: the page's own is behind it. */
+  save: ReactNode
+}) {
+  const wide = useWide()
+  const name = messageName(entry)
+  const english = draft?.en === undefined ? (overrideOf(entry, "en") ?? packagedOf(entry, "en")) : draft.en === null ? packagedOf(entry, "en") : draft.en
+  const text = english || (draft?.de ?? overrideOf(entry, "de") ?? packagedOf(entry, "de") ?? "")
+
+  // A jump from the command palette lands on a key by opening it.
+  useEffect(() => {
+    if (highlight) onOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlight?.seq])
+
+  const field = (
+    <MessageField entry={entry} writable={writable} draft={draft} highlight={highlight} onChange={onChange} bare />
+  )
+  return (
+    <div className="min-w-0">
+      <button
+        type="button"
+        aria-label={name}
+        aria-expanded={open}
+        onClick={() => onOpen(!open)}
+        className={cn(
+          "flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/50",
+          open && wide && "bg-accent/50",
+        )}
+      >
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-sm">{name}</span>
+          <MessagePreview text={text} args={entry.args} className="text-xs text-muted-foreground" />
+        </span>
+        {!entry.inBundle ? (
+          <Badge variant="outline" className="shrink-0 text-muted-foreground">
+            not in bundle
+          </Badge>
+        ) : null}
+        {draft !== undefined ? <DraftDot /> : null}
+        <CaretRightIcon
+          aria-hidden
+          className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && wide && "rotate-90")}
+        />
+      </button>
+      {wide ? (
+        open ? <div className="px-2 pt-1 pb-3">{field}</div> : null
+      ) : (
+        <ResponsiveDialog open={open} onOpenChange={onOpen}>
+          <ResponsiveDialogContent>
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{name}</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
+            {field}
+            <ResponsiveDialogFooter>
+              {save}
+              <ResponsiveDialogClose asChild>
+                <Button type="button" variant="outline">
+                  Done
+                </Button>
+              </ResponsiveDialogClose>
+            </ResponsiveDialogFooter>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
+      )}
+    </div>
   )
 }
 
@@ -881,6 +996,7 @@ function MessageField({
   draft,
   highlight,
   onChange,
+  bare,
 }: {
   entry: MessageEntry
   writable: boolean
@@ -888,6 +1004,8 @@ function MessageField({
   highlight: Highlight | null
   /** `undefined` drops this language's draft, `null` asks for the packaged text back. */
   onChange: (language: Language, value: string | null | undefined) => void
+  /** Without its own name above it: the row or the sheet it sits in already says it. */
+  bare?: boolean
 }) {
   const [language, setLanguage] = useState<Language>("en")
   const ref = useLanding(highlight)
@@ -926,17 +1044,19 @@ function MessageField({
       ref={ref}
       className={cn("flex min-w-0 scroll-mt-4 flex-col gap-1.5 rounded-md transition-colors duration-300", highlight && LIT)}
     >
-      <div className="flex min-h-6 items-center gap-2">
-        <Label htmlFor={id} className="min-w-0 text-sm font-normal">
-          {messageName(entry)}
-        </Label>
-        {!entry.inBundle ? (
-          <Badge variant="outline" className="shrink-0 text-muted-foreground">
-            not in bundle
-          </Badge>
-        ) : null}
-        {draft !== undefined ? <DraftDot /> : null}
-      </div>
+      {bare ? null : (
+        <div className="flex min-h-6 items-center gap-2">
+          <Label htmlFor={id} className="min-w-0 text-sm font-normal">
+            {messageName(entry)}
+          </Label>
+          {!entry.inBundle ? (
+            <Badge variant="outline" className="shrink-0 text-muted-foreground">
+              not in bundle
+            </Badge>
+          ) : null}
+          {draft !== undefined ? <DraftDot /> : null}
+        </div>
+      )}
       <InputGroup className={cn(unknown.length > 0 && "border-destructive")}>
         <InputGroupTextarea
           ref={input}

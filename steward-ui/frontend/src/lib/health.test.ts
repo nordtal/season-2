@@ -135,7 +135,7 @@ describe("summarise - a stack with nothing wrong", () => {
 
     expect(level).toBe("warn")
     expect(triggers[0].text).toBe("There is no service at all - Docker returned an empty list.")
-    expect(triggers[0].to).toBe("/operations")
+    expect(triggers[0].to).toBe("/operations/updates")
     expect(triggers[0].subject).toBe("services")
   })
 
@@ -335,7 +335,7 @@ describe("summarise - image drift", () => {
     expect(level).toBe("warn")
     expect(triggers).toHaveLength(1)
     expect(triggers[0].text).toBe("smp is running an older image than the registry has.")
-    expect(triggers[0].to).toBe("/operations")
+    expect(triggers[0].to).toBe("/operations/updates")
   })
 
   it("counts them and lists them when more than one is behind", () => {
@@ -422,7 +422,7 @@ describe("summarise - the backup", () => {
 
     expect(level).toBe("down")
     expect(triggers[0].text).toBe("There is not a single backup.")
-    expect(triggers[0].to).toBe("/operations")
+    expect(triggers[0].to).toBe("/operations/backups")
     expect(triggers[0].subject).toBe("backups")
   })
 
@@ -512,7 +512,7 @@ describe("summarise - the database dump, which is not a volume archive", () => {
 
     expect(level).toBe("down")
     expect(triggers[0].text).toContain("database")
-    expect(triggers[0].to).toBe("/operations")
+    expect(triggers[0].to).toBe("/operations/backups")
     expect(triggers[0].subject).toBe("database dump")
   })
 

@@ -104,7 +104,7 @@ export function summarise(input: {
       level: "warn",
       text: "There is no service at all - Docker returned an empty list.",
       subject: "services",
-      to: "/operations",
+      to: "/operations/updates",
     })
   }
 
@@ -163,7 +163,7 @@ export function summarise(input: {
           : `${outdated.length} services are running an older image than the registry has: ` +
             outdated.map((service) => service.service).join(", ") + ".",
       subject: outdated.map((service) => service.service).join(", "),
-      to: "/operations",
+      to: "/operations/updates",
     })
   }
 
@@ -186,7 +186,7 @@ export function summarise(input: {
       level: "warn",
       text: `The images were not compared: ${input.table.drift.message ?? "the registry did not answer"}.`,
       subject: "registry",
-      to: "/operations",
+      to: "/operations/updates",
     })
   }
 
@@ -255,7 +255,7 @@ function tooOld(
         level: "down",
         text: `The newest ${what} is from ${relative(newest.modified, now)} - older than the permitted ${thresholds.backupAgeHours} hours.`,
         subject,
-        to: "/operations",
+        to: "/operations/backups",
       },
     ]
   }
@@ -281,7 +281,7 @@ function backupTriggers(
             ? "There is no finished backup - only started ones (.partial)."
             : "There is not a single backup.",
         subject: "backups",
-        to: "/operations",
+        to: "/operations/backups",
       },
     ]
   }
@@ -320,7 +320,7 @@ function backupTriggers(
         "There is no database dump - only volume archives. The worlds and configurations are" +
         " saved, the accesses and payments are not.",
       subject: "database dump",
-      to: "/operations",
+      to: "/operations/backups",
     })
   }
   if (volumes.size === 0) {
@@ -328,7 +328,7 @@ function backupTriggers(
       level: "down",
       text: "There is no volume archive - only a database dump.",
       subject: "backups",
-      to: "/operations",
+      to: "/operations/backups",
     })
   }
 

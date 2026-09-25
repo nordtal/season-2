@@ -9,7 +9,7 @@ import {
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { OperationsPlanPage } from "@/pages/operations"
+import { UpdatesPage } from "@/pages/updates"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import type { Available, AvailableChange } from "@/lib/api"
 
@@ -67,6 +67,7 @@ function backend(plan: Available, fresh?: Available): { fetch: typeof fetch; ask
     if (url === "/api/updates/available?refresh") return json(200, fresh ?? plan)
     if (url === "/api/updates/available") return json(200, plan)
     if (url.startsWith("/api/updates")) return json(200, [])
+    if (url === "/api/config") return json(200, [])
     if (url === "/api/services") {
       return json(200, {
         services: [],
@@ -88,13 +89,13 @@ function draw() {
   const root = createRootRoute()
   const nothing = () => null
   const routeTree = root.addChildren([
-    createRoute({ getParentRoute: () => root, path: "/operations/plan", component: OperationsPlanPage }),
-    createRoute({ getParentRoute: () => root, path: "/operations/runs/$id", component: nothing }),
+    createRoute({ getParentRoute: () => root, path: "/operations/updates", component: UpdatesPage }),
+    createRoute({ getParentRoute: () => root, path: "/operations/updates/$id", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: nothing }),
   ])
   const router = createRouter({
     routeTree,
-    history: createMemoryHistory({ initialEntries: ["/operations/plan"] }),
+    history: createMemoryHistory({ initialEntries: ["/operations/updates"] }),
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
@@ -248,7 +249,7 @@ describe("the available card", () => {
     expect(screen.queryByText(/no stable release/)).toBeNull()
   })
 
-  it("says how old the reading is, in the header and in one line", async () => {
+  it("says how old the reading is", async () => {
     vi.stubGlobal(
       "fetch",
       backend(
@@ -260,7 +261,7 @@ describe("the available card", () => {
     )
     draw()
 
-    expect(await screen.findByText(/Last checked 4 hours ago/)).toBeTruthy()
+    expect(await screen.findByText("4 hours ago")).toBeTruthy()
   })
 
   it("asks the sources again when the button is pressed, and redraws from that answer", async () => {
@@ -279,7 +280,7 @@ describe("the available card", () => {
     draw()
 
     await screen.findByText("1.5.4")
-    fireEvent.click(screen.getByRole("button", { name: "Ask the sources again" }))
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }))
 
     expect(await screen.findByText("1.6.0")).toBeTruthy()
     expect(wired.asked()).toContain("/api/updates/available?refresh")

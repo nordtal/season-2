@@ -210,4 +210,42 @@ class NightlyClockTest {
                     throw new AssertionError("the clock asked the database: " + method.getName());
                 });
     }
+
+    @Test
+    @DisplayName("the update clock asks for an UPDATE, as the clock rather than as a person")
+    void theUpdateClockAsksForAnUpdate() {
+        final List<Object[]> submitted = new java.util.ArrayList<>();
+        final UpdateDirectory recording = (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(
+                UpdateDirectory.class.getClassLoader(),
+                new Class<?>[]{UpdateDirectory.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("submit")) {
+                        submitted.add(args);
+                        return new eu.nordtal.s2.common.update.UpdateRequest(
+                                12L, (eu.nordtal.s2.common.update.UpdateKind) args[0],
+                                eu.nordtal.s2.common.update.UpdateStatus.PENDING,
+                                (eu.nordtal.s2.common.update.UpdateSource) args[1], (String) args[2],
+                                java.time.Instant.now(), java.time.Instant.now(), null, null, null);
+                    }
+                    throw new AssertionError("the clock asked the database: " + method.getName());
+                });
+        final NightlyClock clock = NightlyClock.from(recording, NightlyClock.Job.UPDATE, "03:30",
+                List.of("SUN"), BERLIN).orElseThrow();
+        final ZonedDateTime sunday = ZonedDateTime.of(2026, 9, 27, 3, 30, 0, 0, BERLIN);
+
+        final Duration next = clock.fire(sunday, sunday);
+
+        assertEquals(1, submitted.size());
+        assertEquals(eu.nordtal.s2.common.update.UpdateKind.UPDATE, submitted.get(0)[0]);
+        assertTrue(((String) submitted.get(0)[2]).startsWith("steward-worker"),
+                "the interface reads a steward-worker row as the clock: " + submitted.get(0)[2]);
+        assertEquals(Duration.ofDays(7), next, "Sunday only: the next one is a week away");
+    }
+
+    @Test
+    @DisplayName("an empty update.at is no update clock at all, which is the default")
+    void noUpdateTimeIsNoClock() {
+        assertTrue(NightlyClock.from(noDirectory(), NightlyClock.Job.UPDATE, "",
+                List.of("MONDAY"), BERLIN).isEmpty());
+    }
 }

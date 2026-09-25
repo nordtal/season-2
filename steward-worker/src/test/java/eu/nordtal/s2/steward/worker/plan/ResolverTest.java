@@ -687,6 +687,11 @@ class ResolverTest {
             }
 
             @Override
+            public UpdateSpec update() {
+                return new UpdateSpec() { };
+            }
+
+            @Override
             public BackupSpec backup() {
                 // Defaults throughout: this test is not about a backup, and BackupSpec's own
                 // defaults are the production ones.

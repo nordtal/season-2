@@ -463,7 +463,7 @@ public final class StewardUi {
             });
             // A client-side router owns every path that is not an API call or a file, so an
             // unknown path is index.html rather than a 404 - which is what makes a reload of
-            // /operations/runs/27 land on the page it names instead of on nothing.
+            // /operations/updates/27 land on the page it names instead of on nothing.
             //
             // It carries no Gate and cannot: `SinglePageHandler` has no roles field (checked
             // against javalin 7.2.3). `gateOf` answers for it, and for the static files, by the

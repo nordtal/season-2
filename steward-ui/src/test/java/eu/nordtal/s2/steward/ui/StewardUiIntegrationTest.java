@@ -536,7 +536,7 @@ class StewardUiIntegrationTest {
 
         // And the deep path a reload lands on, which takes the SPA fallback rather than the file
         // handler. Same requirement, different mechanism inside Javalin - measured, not assumed.
-        final HttpResponse<String> deep = get(stranger, "/operations/runs/27");
+        final HttpResponse<String> deep = get(stranger, "/operations/updates/27");
         assertEquals(200, deep.statusCode(),
                 "reloading a deep link must land on the page it names: " + deep.body());
 

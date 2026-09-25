@@ -87,14 +87,25 @@ public final class WorkerApi implements AutoCloseable {
     private final String token;
 
     /**
-     * What {@code backup.at} says, and in which zone, so the interface can offer "tonight".
+     * What {@code backup.at} and {@code update.at} say, and in which zone, so the interface can
+     * offer "tonight" and show when either clock fires next.
      *
-     * @param at   {@code HH:mm} in this container's own time zone, or blank for no nightly backup
-     * @param zone this container's zone - compose sets {@code TZ}, and it is not the browser's
+     * @param at       {@code HH:mm} in this container's own time zone, or blank for no nightly backup
+     * @param updateAt the same for the scheduled update, blank - the default - for none
+     * @param zone     this container's zone - compose sets {@code TZ}, and it is not the browser's
      */
-    public record Nightly(@NotNull String at, @NotNull List<String> days, @NotNull ZoneId zone) { }
+    public record Nightly(@NotNull String at, @NotNull List<String> days, @NotNull String updateAt,
+                          @NotNull List<String> updateDays, @NotNull ZoneId zone) {
 
-    private final Nightly nightly;
+        /** No scheduled update, which is what a config without the {@code update} section says. */
+        public Nightly(final @NotNull String at, final @NotNull List<String> days,
+                       final @NotNull ZoneId zone) {
+            this(at, days, "", List.of(), zone);
+        }
+    }
+
+    /** Asked on every request, because a save of steward.yml changes it without a restart. */
+    private final Supplier<Nightly> nightly;
 
     /**
      * The plugin list, the Modrinth search, and the two buttons (season-2-ops/129).
@@ -394,6 +405,30 @@ public final class WorkerApi implements AutoCloseable {
                      final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins,
                      final @org.jetbrains.annotations.Nullable
                              eu.nordtal.s2.common.access.AccessRequests accessInbox) {
+        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates,
+                audit, () -> nightly, online, resolve, managedPlugins, accessInbox, () -> { });
+    }
+
+    /**
+     * @param nightly   the schedule as it stands right now - a supplier, because it changes when
+     *                  steward.yml is saved
+     * @param reReadOwn what a save of this worker's own {@code steward.yml} runs once the file is
+     *                  written: re-read it and re-arm the clocks. It may throw; the save has
+     *                  already happened, and the answer then says the change waits for a restart.
+     */
+    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
+                     final @NotNull Console console, final @NotNull HostMetrics host,
+                     final @NotNull String project, final @NotNull Path backups,
+                     final @NotNull String token, final @NotNull Path configs,
+                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
+                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
+                     final @NotNull Supplier<Nightly> nightly,
+                     final @org.jetbrains.annotations.Nullable ServicesApi online,
+                     final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
+                     final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins,
+                     final @org.jetbrains.annotations.Nullable
+                             eu.nordtal.s2.common.access.AccessRequests accessInbox,
+                     final @NotNull Runnable reReadOwn) {
         this.managedPlugins = managedPlugins;
         this.players = online;
         this.updates = updates;
@@ -408,7 +443,8 @@ public final class WorkerApi implements AutoCloseable {
         // The configuration editor's whole back end. It lives here and not in steward-ui because
         // every file it touches is 0600 root:root and steward-ui is the one service that is not
         // root - see ApiSpec#configsRoot for the measurement that moved it.
-        this.configs = new ConfigApi(configs, console::send);
+        this.configs = new ConfigApi(configs, console::send,
+                java.util.Map.of(ConfigApi.OWN_CONFIG, reReadOwn));
         // A message bundle is not a config file - see MessagesApi's own javadoc for why it is kept
         // apart rather than folded into ConfigApi (steward/48).
         this.messages = new MessagesApi(configs, volumesRoot, accessInbox, console::send);
@@ -933,6 +969,7 @@ public final class WorkerApi implements AutoCloseable {
 
     /** {@code backup.at}, {@code backup.days}, the zone they are read in, and the next moment. */
     private Map<String, Object> schedule() {
+        final Nightly nightly = this.nightly.get();
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("backupAt", nightly.at().isBlank() ? null : nightly.at());
         // The weekdays as the file says them, not as the clock understood them: this is the
@@ -944,6 +981,15 @@ public final class WorkerApi implements AutoCloseable {
                         ZonedDateTime.now(nightly.zone()))
                 .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                 .orElse(null));
+        // The optional update clock, read exactly the same way. A blank update.at is no schedule,
+        // and then there is no next moment either.
+        answer.put("updateAt", nightly.updateAt().isBlank() ? null : nightly.updateAt());
+        answer.put("updateDays", nightly.updateDays());
+        answer.put("nextUpdateAt", nightly.updateAt().isBlank() ? null
+                : NightlyClock.next(NightlyClock.Job.UPDATE, nightly.updateAt(), nightly.updateDays(),
+                                nightly.zone(), ZonedDateTime.now(nightly.zone()))
+                        .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                        .orElse(null));
         return answer;
     }
 

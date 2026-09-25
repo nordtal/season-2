@@ -411,6 +411,10 @@ export type Schedule = {
   backupAt: string | null
   zone: string
   nextBackupAt: string | null
+  /** The optional update clock: null `updateAt` is no schedule, which is the default. */
+  updateAt?: string | null
+  updateDays?: string[]
+  nextUpdateAt?: string | null
 }
 
 export type Backup = {

@@ -88,6 +88,11 @@ const FLAT_BARS_ALLOWED = new Map<string, string>([
     "steward/120: destination and schedule are forms whose field set comes from the worker's own" +
       " config document. A form cannot draw fields it does not know the names of yet.",
   ],
+  [
+    "pages/updates.tsx",
+    "The update schedule is the same kind of form as the backup one: its fields come from the" +
+      " worker's own config document.",
+  ],
 ])
 
 function sourceFiles(directory: string): string[] {

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker;
 
+import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.online.OnlineDirectory;
@@ -14,7 +15,7 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.api.WorkerApi;
 import eu.nordtal.s2.steward.worker.backup.Backups;
-import eu.nordtal.s2.steward.worker.backup.NightlyClock;
+import eu.nordtal.s2.steward.worker.backup.Schedules;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.backup.TarSnapshots;
 import eu.nordtal.s2.steward.worker.bunq.BunqGateway;
@@ -331,7 +332,11 @@ public final class StewardWorker {
     // ---------------------------------------------------------------- the one that stays
 
     private static int serve(final Path configDirectory) {
-        final StewardSpec config = stewardConfig(configDirectory);
+        // The handle, not only its value: saving this file in Steward re-reads it through the
+        // handle and re-arms the two clocks (see Schedules), and `config` below is the live
+        // instance that reload updates in place.
+        final ConfigHandle<StewardSpec> handle = stewardHandle(configDirectory);
+        final StewardSpec config = handle == null ? null : handle.get();
         final DatabaseSpec databaseConfig = databaseConfig(configDirectory);
         if (config == null || databaseConfig == null) {
             return 1;
@@ -489,13 +494,14 @@ public final class StewardWorker {
                 // readiness marker for the same reason the sampler is: nothing in the stack waits
                 // for this API, and a container that would not come up because a web layer failed
                 // would take four Minecraft servers with it.
-                try (WorkerApi api = new WorkerApi(docker, dockerOps,
+                try (Schedules schedules = new Schedules(updates, config, ZoneId.systemDefault());
+                     WorkerApi api = new WorkerApi(docker, dockerOps,
                         new Console(docker, config.docker().project()), new HostMetrics(),
                         config.docker().project(), Path.of(config.backup().outputRoot()),
                         config.api().token(), Path.of(config.api().configsRoot()),
                         Path.of(config.volumesRoot()), updates, audit,
-                        new WorkerApi.Nightly(config.backup().at(), config.backup().days(),
-                                ZoneId.systemDefault()),
+                        () -> new WorkerApi.Nightly(config.backup().at(), config.backup().days(),
+                                config.update().at(), config.update().days(), ZoneId.systemDefault()),
                         // The player counts proxy writes (steward/86) and, since
                         // steward/111, the player list next to them. Same pool again - two small
                         // reads per service table, and no second connection for either.
@@ -529,7 +535,17 @@ public final class StewardWorker {
                         // messages can ask it to re-read the file instead of quietly waiting for
                         // the next restart of the container. Same pool once more - a reload writes
                         // one row and reads it back a few times.
-                        eu.nordtal.s2.common.access.AccessRequests.on(database.dataSource()))) {
+                        eu.nordtal.s2.common.access.AccessRequests.on(database.dataSource()),
+                        // A save of this worker's own steward.yml: read it again and re-arm the
+                        // clocks, so a schedule changed in Steward does not wait for a restart.
+                        () -> {
+                            try {
+                                handle.reload();
+                            } catch (final ConfigException broken) {
+                                throw new IllegalStateException(broken.getMessage(), broken);
+                            }
+                            schedules.arm();
+                        })) {
                     if (config.api().token().isBlank()) {
                         log.warn("api.token is empty, so the internal API is not listening and"
                                 + " steward-ui cannot read this container. Updates and backups are"
@@ -541,17 +557,10 @@ public final class StewardWorker {
                         api.start(config.api().port());
                     }
 
-                // §9a: the nightly backup is asked for here now, not by `smp`. It writes a row
-                // and nothing else - see NightlyClock for why that keeps the protection that
-                // mattered.
-                try (NightlyClock nightly = NightlyClock.from(updates, config.backup().at(),
-                        config.backup().days(), ZoneId.systemDefault()).orElse(null)) {
-                    if (nightly != null) {
-                        nightly.start();
-                    } else {
-                        log.info("backup.at is empty, so there is no nightly backup. Nothing else"
-                                + " is affected, and nothing will say so at 04:45 either.");
-                    }
+                // §9a: the nightly backup is asked for here now, not by `smp`, and the optional
+                // scheduled update beside it. Each writes a row and nothing else - see
+                // NightlyClock for why that keeps the protection that mattered.
+                schedules.arm();
 
                 // §10d / steward/109: THE BANK. This container is the only one in the network that
                 // holds a bunq credential and the only one that calls bunq; the bot asks for a
@@ -576,7 +585,6 @@ public final class StewardWorker {
                     // grace period instead of putting its pool down.
                     Runtime.getRuntime().addShutdownHook(new Thread(server::close, "steward-worker-shutdown"));
                     server.serve();
-                }
                 }
                 }
                 }
@@ -778,8 +786,13 @@ public final class StewardWorker {
     }
 
     private static StewardSpec stewardConfig(final Path configDirectory) {
+        final ConfigHandle<StewardSpec> handle = stewardHandle(configDirectory);
+        return handle == null ? null : handle.get();
+    }
+
+    private static ConfigHandle<StewardSpec> stewardHandle(final Path configDirectory) {
         try {
-            return Configs.steward(configDirectory, LoggerFactory.getLogger(Configs.class)).get();
+            return Configs.steward(configDirectory, LoggerFactory.getLogger(Configs.class));
         } catch (final ConfigException broken) {
             // Named file, named setting, no stack trace: this is the one error an operator is
             // expected to fix, and a 40-line trace above the sentence is how it gets missed.

@@ -42,11 +42,10 @@ const ME: Me = {
 /** Every address the navigation links to, with nothing behind it - this is about the shell. */
 const PATHS = [
   "/services/$name",
-  "/operations",
-  "/operations/plan",
-  "/operations/runs/$id",
+  "/operations/updates",
+  "/operations/updates/$id",
+  "/operations/backups",
   "/operations/backups/$id",
-  "/operations/restore",
   "/season",
   "/access",
   "/payments",
@@ -222,11 +221,11 @@ describe("the frame on a phone", () => {
     )
   })
 
-  it("names Operations' overview by its group, not as a second Overview", async () => {
+  it("names the Updates page, not a second Overview", async () => {
     asPhone()
-    drawAt("/operations")
+    drawAt("/operations/updates")
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
-    expect(screen.getByRole("button", { name: "Navigation" }).parentElement!.textContent).toContain("Operations")
+    expect(screen.getByRole("button", { name: "Navigation" }).parentElement!.textContent).toContain("Updates")
   })
 })

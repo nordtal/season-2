@@ -62,7 +62,7 @@ class AlertLevelTest {
 
         assertEquals(AlertLevel.Level.DOWN, reading.level());
         assertEquals("backups", reading.subject());
-        assertEquals("/operations", reading.path());
+        assertEquals("/operations/backups", reading.path());
     }
 
     @Test
@@ -111,7 +111,7 @@ class AlertLevelTest {
 
         assertEquals(AlertLevel.Level.WARN, reading.level());
         assertEquals("smp", reading.subject());
-        assertEquals("/operations", reading.path());
+        assertEquals("/operations/updates", reading.path());
     }
 
     @Test

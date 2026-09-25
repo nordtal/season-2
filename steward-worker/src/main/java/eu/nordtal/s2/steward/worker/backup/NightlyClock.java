@@ -59,22 +59,46 @@ public final class NightlyClock implements AutoCloseable {
      * meant for the nightly row. */
     private static final UpdateSource SOURCE = UpdateSource.CONSOLE;
 
-    private static final String REQUESTED_BY = "steward-worker (nightly)";
+    /**
+     * What a clock asks for. The backup was the only one until the update schedule joined it; the
+     * two differ in the row they write and the words they log, and in nothing else.
+     *
+     * <p>Both {@code requestedBy} values begin with {@code steward-worker}, which is what the
+     * interface reads as "the clock, not a person".</p>
+     */
+    public enum Job {
+        BACKUP(UpdateKind.BACKUP, "backup", "steward-worker (nightly)", "the nightly backup"),
+        UPDATE(UpdateKind.UPDATE, "update", "steward-worker (schedule)", "the scheduled update");
+
+        private final UpdateKind kind;
+        private final String key;
+        private final String requestedBy;
+        private final String noun;
+
+        Job(final UpdateKind kind, final String key, final String requestedBy, final String noun) {
+            this.kind = kind;
+            this.key = key;
+            this.requestedBy = requestedBy;
+            this.noun = noun;
+        }
+    }
 
     private final UpdateDirectory directory;
+    private final Job job;
     private final LocalTime at;
     private final Set<DayOfWeek> days;
     private final ZoneId zone;
-    private final ScheduledExecutorService clock = Executors.newSingleThreadScheduledExecutor(
-            runnable -> {
-                final Thread thread = new Thread(runnable, "nightly-backup");
-                thread.setDaemon(true);
-                return thread;
-            });
+    private final ScheduledExecutorService clock;
 
-    private NightlyClock(final UpdateDirectory directory, final LocalTime at,
+    private NightlyClock(final UpdateDirectory directory, final Job job, final LocalTime at,
                          final Set<DayOfWeek> days, final ZoneId zone) {
         this.directory = directory;
+        this.job = job;
+        this.clock = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            final Thread thread = new Thread(runnable, "clock-" + job.key);
+            thread.setDaemon(true);
+            return thread;
+        });
         this.at = at;
         this.days = days;
         this.zone = zone;
@@ -102,20 +126,31 @@ public final class NightlyClock implements AutoCloseable {
     public static Optional<NightlyClock> from(final @NotNull UpdateDirectory directory,
                                               final String at, final List<String> days,
                                               final @NotNull ZoneId zone) {
+        return from(directory, Job.BACKUP, at, days, zone);
+    }
+
+    /**
+     * Reads {@code <job>.at} and {@code <job>.days} - {@code backup.*} or {@code update.*}.
+     *
+     * @return empty when it is switched off, unreadable, or asked for no weekday at all
+     */
+    public static Optional<NightlyClock> from(final @NotNull UpdateDirectory directory,
+                                              final @NotNull Job job, final String at,
+                                              final List<String> days, final @NotNull ZoneId zone) {
         if (at == null || at.isBlank()) {
             return Optional.empty();
         }
-        final LocalTime parsed = hour(at);
+        final LocalTime parsed = hour(job, at);
         if (parsed == null) {
             return Optional.empty();
         }
-        final Set<DayOfWeek> weekdays = weekdays(days);
+        final Set<DayOfWeek> weekdays = weekdays(job, days);
         if (weekdays.isEmpty()) {
-            log.warn("backup.days lists no weekday this service can read, so there will be no"
-                    + " nightly backup. Nothing else is affected.");
+            log.warn("{}.days lists no weekday this service can read, so {} never runs."
+                    + " Nothing else is affected.", job.key, job.noun);
             return Optional.empty();
         }
-        return Optional.of(new NightlyClock(directory, parsed, weekdays, zone));
+        return Optional.of(new NightlyClock(directory, job, parsed, weekdays, zone));
     }
 
     /**
@@ -127,7 +162,7 @@ public final class NightlyClock implements AutoCloseable {
      * neither is logged and dropped rather than emptying the whole schedule, which is the same
      * decision {@code hour()} makes one field up.</p>
      */
-    private static Set<DayOfWeek> weekdays(final List<String> days) {
+    private static Set<DayOfWeek> weekdays(final Job job, final List<String> days) {
         if (days == null) {
             return EnumSet.allOf(DayOfWeek.class);
         }
@@ -145,8 +180,8 @@ public final class NightlyClock implements AutoCloseable {
                 }
             }
             if (found == null) {
-                log.error("backup.days has \"{}\" in it, which is not a weekday. It is ignored;"
-                        + " the rest of the list still schedules.", day);
+                log.error("{}.days has \"{}\" in it, which is not a weekday. It is ignored;"
+                        + " the rest of the list still schedules.", job.key, day);
                 continue;
             }
             chosen.add(found);
@@ -177,25 +212,33 @@ public final class NightlyClock implements AutoCloseable {
     public static Optional<ZonedDateTime> next(final String at, final List<String> days,
                                                final @NotNull ZoneId zone,
                                                final @NotNull ZonedDateTime now) {
-        final LocalTime parsed = hour(at);
+        return next(Job.BACKUP, at, days, zone, now);
+    }
+
+    /** The same answer for either clock - {@code job} only decides which key a log line names. */
+    public static Optional<ZonedDateTime> next(final @NotNull Job job, final String at,
+                                               final List<String> days,
+                                               final @NotNull ZoneId zone,
+                                               final @NotNull ZonedDateTime now) {
+        final LocalTime parsed = hour(job, at);
         if (parsed == null) {
             return Optional.empty();
         }
-        final Set<DayOfWeek> weekdays = weekdays(days);
+        final Set<DayOfWeek> weekdays = weekdays(job, days);
         return weekdays.isEmpty() ? Optional.empty()
                 : Optional.of(nextAt(parsed, weekdays, now.withZoneSameInstant(zone)));
     }
 
     /** {@code HH:mm}, or null for blank and for anything that is not a time - both are logged. */
-    private static LocalTime hour(final String at) {
+    private static LocalTime hour(final Job job, final String at) {
         if (at == null || at.isBlank()) {
             return null;
         }
         try {
             return LocalTime.parse(at.strip(), HH_MM);
         } catch (DateTimeParseException e) {
-            log.error("backup.at is \"{}\", which is not HH:mm. There will be no nightly backup"
-                    + " until it is. Nothing else is affected.", at);
+            log.error("{}.at is \"{}\", which is not HH:mm. {} does not run until it is."
+                    + " Nothing else is affected.", job.key, at, job.noun);
             return null;
         }
     }
@@ -222,8 +265,8 @@ public final class NightlyClock implements AutoCloseable {
 
     public void start() {
         final Duration until = untilNext(ZonedDateTime.now(zone));
-        log.info("the nightly backup is asked for at {} {} on {} - next in {}h{}m",
-                at, zone, days.size() == 7 ? "every day" : days, until.toHours(),
+        log.info("{} is asked for at {} {} on {} - next in {}h{}m",
+                job.noun, at, zone, days.size() == 7 ? "every day" : days, until.toHours(),
                 until.toMinutesPart());
         arm(until);
     }
@@ -263,21 +306,21 @@ public final class NightlyClock implements AutoCloseable {
      */
     Duration fire(final @NotNull ZonedDateTime due, final @NotNull ZonedDateTime now) {
         try {
-            final long id = directory.submit(UpdateKind.BACKUP, SOURCE, REQUESTED_BY,
+            final long id = directory.submit(job.kind, SOURCE, job.requestedBy,
                     Duration.ZERO).id();
-            log.info("asked for the nightly backup as request {}", id);
+            log.info("asked for {} as request {}", job.noun, id);
         } catch (final RunRefused refused) {
             if (refused.reason() == RunRefused.Reason.RUN_OPEN
                     && now.plus(RETRY).isBefore(due.plus(PATIENCE))) {
-                log.info("the nightly backup waits: {}. Asking again in {} minutes.",
-                        refused.getMessage(), RETRY.toMinutes());
+                log.info("{} waits: {}. Asking again in {} minutes.",
+                        job.noun, refused.getMessage(), RETRY.toMinutes());
                 return RETRY;
             }
-            log.warn("the nightly backup was not asked for tonight - {}. Tomorrow is tried again.",
-                    refused.getMessage());
+            log.warn("{} was not asked for this time - {}. The next scheduled day is tried again.",
+                    job.noun, refused.getMessage());
         } catch (RuntimeException e) {
-            log.warn("the nightly backup could not be asked for - nothing was saved tonight."
-                    + " The clock carries on; tomorrow is tried again.", e);
+            log.warn("{} could not be asked for this time. The clock carries on; the next"
+                    + " scheduled day is tried again.", job.noun, e);
         }
         return untilNext(now);
     }

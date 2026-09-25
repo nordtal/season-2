@@ -995,6 +995,10 @@ export function useSaveConfig(file: string) {
       // than from what it hoped was written. A value the backend quoted or refused to canonicalise
       // is then visible immediately instead of on the next reload.
       client.setQueryData(keys.config(file), document)
+      // The worker re-reads its own steward.yml on a save and re-arms both clocks, so the next
+      // backup and the next update may have moved. Any file could be that one; asking again is
+      // one small request.
+      client.invalidateQueries({ queryKey: keys.schedule })
     },
     onError: (failure) => {
       // 409 is the other browser having been faster. Nothing was written, and the copy in this

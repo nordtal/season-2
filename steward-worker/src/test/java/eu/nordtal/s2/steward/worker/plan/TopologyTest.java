@@ -1002,6 +1002,11 @@ class TopologyTest {
             }
 
             @Override
+            public UpdateSpec update() {
+                return new UpdateSpec() { };
+            }
+
+            @Override
             public BackupSpec backup() {
                 return new BackupSpec() {
                     // backup.remote is a section without a default, exactly as backup itself is - so an
@@ -1143,6 +1148,11 @@ class TopologyTest {
                                 // Defaults: this test is not about the daemon.
                                 return new DockerSpec() {
                                 };
+                            }
+
+                            @Override
+                            public UpdateSpec update() {
+                                return new UpdateSpec() { };
                             }
 
                             @Override

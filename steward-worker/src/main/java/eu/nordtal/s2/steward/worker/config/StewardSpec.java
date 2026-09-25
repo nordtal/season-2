@@ -339,6 +339,22 @@ public interface StewardSpec {
     @Explain("steward-worker does not schedule this itself - the nightly row is written by smp's own daily clock, so a season with smp down gets no nightly backup and nothing else notices.")
     BackupSpec backup();
 
+    @Order(18)
+    @Name("Update schedule")
+    @Key("update")
+    @Comment({
+            "An optional clock that asks for a whole-network UPDATE on the days and at the time",
+            "below. Off by default: with update.at empty an update only ever starts when an admin",
+            "asks for one, which is what every deployment before this key did.",
+            "",
+            "Like backup.at it writes a request row and nothing else. The run it asks for is the",
+            "same one the Update button asks for, countdown, cancel and one-run-at-a-time included.",
+            "",
+            "Saving this file through Steward re-arms both clocks at once; no restart is needed."
+    })
+    @Explain("Off unless update.at is set. When set, a whole-network update is asked for on the chosen days, with the same countdown a manual one gets.")
+    UpdateSpec update();
+
     @Order(17)
     @Name("Deployer")
     @Key("deployer")
@@ -1081,6 +1097,36 @@ public interface StewardSpec {
             default String secretKey() {
                 return "";
             }
+        }
+    }
+
+    /** When a whole-network {@code UPDATE} is asked for without anybody pressing the button. */
+    @ConfigSpec
+    interface UpdateSpec {
+
+        @Order(1)
+        @Name("At")
+        @Key("at")
+        @Comment({
+                "HH:mm in this container's time zone, or empty for no scheduled update at all.",
+                "Empty is the default: nothing updates on a schedule unless somebody chose that."
+        })
+        @Explain("Empty means no scheduled update. An admin can always start one by hand.")
+        default String at() {
+            return "";
+        }
+
+        @Order(2)
+        @Name("Days")
+        @Key("days")
+        @Comment({
+                "Which weekdays the scheduled update runs on, read exactly like backup.days.",
+                "Nothing happens on any of them while update.at is empty."
+        })
+        @Explain("Which weekdays the scheduled update runs on. Ignored while update.at is empty.")
+        default List<String> days() {
+            return List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY",
+                    "SUNDAY");
         }
     }
 }

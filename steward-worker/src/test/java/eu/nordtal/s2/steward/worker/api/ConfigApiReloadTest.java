@@ -171,4 +171,34 @@ class ConfigApiReloadTest {
 
         assertEquals(Boolean.FALSE, document.get("restartRequired"));
     }
+
+    @Test
+    @DisplayName("this worker's own steward.yml is read again by this process, not by a console")
+    void theWorkersOwnFileReReadsItself() {
+        final RecordingConsole console = new RecordingConsole();
+        final int[] reread = {0};
+        final ConfigApi api = new ConfigApi(Path.of("/tmp"), console,
+                Map.of(ConfigApi.OWN_CONFIG, () -> reread[0]++));
+
+        final Map<String, Object> outcome = api.reload(location("steward-worker", "steward.yml"));
+
+        assertEquals("APPLIED", outcome.get("status"));
+        assertEquals(1, reread[0], "the schedule has to be re-read on the save itself");
+        assertTrue(console.calls.isEmpty(), "steward-worker has no console line to send");
+    }
+
+    @Test
+    @DisplayName("a re-read that fails leaves the save standing and says a restart picks it up")
+    void aFailedReReadIsReportedNotThrown() {
+        final ConfigApi api = new ConfigApi(Path.of("/tmp"), new RecordingConsole(),
+                Map.of(ConfigApi.OWN_CONFIG, () -> {
+                    throw new IllegalStateException("backup.patience-minutes must be positive");
+                }));
+
+        final Map<String, Object> outcome = api.reload(location("steward-worker", "steward.yml"));
+
+        assertEquals("RESTART_REQUIRED", outcome.get("status"));
+        assertTrue(String.valueOf(outcome.get("message")).contains("patience-minutes"),
+                String.valueOf(outcome.get("message")));
+    }
 }

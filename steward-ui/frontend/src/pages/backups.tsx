@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import { ClockIcon, CloudIcon, DownloadIcon } from "@phosphor-icons/react"
+import { ArrowCounterClockwiseIcon, ClockIcon, CloudIcon, DownloadIcon } from "@phosphor-icons/react"
 import { toast } from "sonner"
 
 import type { Backup, ConfigChanges, ConfigEntry, ParsedConfigDocument, Run } from "@/lib/api"
@@ -25,6 +25,14 @@ import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { AskButton, CopyButton } from "@/pages/operations"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -96,9 +104,11 @@ export function BackupsPage() {
       <PageHeader
         title="Backups"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <DestinationDialog />
             <ScheduleDialog />
+            <RestoreDialog />
+            <AskButton kind="BACKUP" variant="default" label="Back up now" size="sm" />
           </div>
         }
       />
@@ -120,7 +130,7 @@ export function BackupsPage() {
  * have. A deployment whose worker config is missing or unreadable gets no form rather than a form
  * that cannot save.
  */
-function useWorkerConfig() {
+export function useWorkerConfig() {
   const configs = useConfigs()
   const file = configs.data?.find(
     (location) =>
@@ -132,7 +142,7 @@ function useWorkerConfig() {
 }
 
 /** One key of that file, by its dotted path - `undefined` when the file has no such key. */
-function entryAt(document: ParsedConfigDocument | undefined, path: string): ConfigEntry | undefined {
+export function entryAt(document: ParsedConfigDocument | undefined, path: string): ConfigEntry | undefined {
   return document?.entries.find((entry) => entry.path === path)
 }
 
@@ -143,7 +153,7 @@ function entryAt(document: ParsedConfigDocument | undefined, path: string): Conf
  * `keys` has to be a stable reference (a module-level constant, as both callers below pass): a new
  * array literal every render would invalidate the memo on every render and defeat the point of it.
  */
-function useConfigDraft(document: ParsedConfigDocument | undefined, keys: readonly string[]) {
+export function useConfigDraft(document: ParsedConfigDocument | undefined, keys: readonly string[]) {
   const [draft, setDraft] = useState<Record<string, string>>({})
 
   // The answer to a save IS the file as it now reads, so a write empties the form's own state and
@@ -171,7 +181,7 @@ function useConfigDraft(document: ParsedConfigDocument | undefined, keys: readon
 }
 
 /** The value of one of this draft's entries as it would be saved right now - typed, or the file's. */
-function draftValue(entries: ConfigEntry[], draft: Record<string, string>, path: string): string {
+export function draftValue(entries: ConfigEntry[], draft: Record<string, string>, path: string): string {
   const typed = draft[path]
   if (typed !== undefined) return typed
   return entries.find((entry) => entry.path === path)?.value ?? ""
@@ -505,10 +515,57 @@ const DAYS_KEY = "backup.days"
  * (`NightlyClock.weekdays`). Anything that matches no day is dropped here exactly as it is
  * dropped there, so what the badges show is what the schedule does.
  */
-function chosenDays(items: string[] | undefined): string[] {
+export function chosenDays(items: string[] | undefined): string[] {
   if (items === undefined) return []
   const stems = new Set(items.map((item) => item.trim().slice(0, 3).toUpperCase()))
   return WEEKDAYS.filter((day) => stems.has(day.value.slice(0, 3))).map((day) => day.value)
+}
+
+/**
+ * The seven days as toggles, in week order whatever order they were clicked in. Shared by the
+ * backup and the update schedule, which are separate keys with the same shape.
+ */
+export function DayPicker({
+  days,
+  disabled,
+  onChange,
+}: {
+  days: string[]
+  disabled: boolean
+  onChange: (days: string[]) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {WEEKDAYS.map((day) => {
+        const on = days.includes(day.value)
+        return (
+          <Badge
+            key={day.value}
+            asChild
+            variant={on ? "default" : "outline"}
+            className={disabled ? undefined : "cursor-pointer"}
+          >
+            <button
+              type="button"
+              aria-pressed={on}
+              disabled={disabled}
+              onClick={() =>
+                onChange(
+                  on
+                    ? days.filter((chosen) => chosen !== day.value)
+                    : WEEKDAYS.filter(
+                        (candidate) => candidate.value === day.value || days.includes(candidate.value),
+                      ).map((candidate) => candidate.value),
+                )
+              }
+            >
+              {day.label}
+            </button>
+          </Badge>
+        )
+      })}
+    </div>
+  )
 }
 
 /** A whole number out of a draft, falling back to `otherwise` when it does not parse as one. */
@@ -606,37 +663,11 @@ function ScheduleDialog() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>Days</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {WEEKDAYS.map((day) => {
-                  const on = days.includes(day.value)
-                  return (
-                    <Badge
-                      key={day.value}
-                      asChild
-                      variant={on ? "default" : "outline"}
-                      className={daysEntry && document.writable ? "cursor-pointer" : undefined}
-                    >
-                      <button
-                        type="button"
-                        aria-pressed={on}
-                        disabled={!daysEntry || !document.writable || save.isPending}
-                        onClick={() =>
-                          setPickedDays(
-                            on
-                              ? days.filter((chosen) => chosen !== day.value)
-                              : WEEKDAYS.filter(
-                                  (candidate) =>
-                                    candidate.value === day.value || days.includes(candidate.value),
-                                ).map((candidate) => candidate.value),
-                          )
-                        }
-                      >
-                        {day.label}
-                      </button>
-                    </Badge>
-                  )
-                })}
-              </div>
+              <DayPicker
+                days={days}
+                disabled={!daysEntry || !document.writable || save.isPending}
+                onChange={setPickedDays}
+              />
               {!daysEntry ? (
                 <p className="text-xs text-muted-foreground">
                   This worker's config has no backup.days yet. A worker that has started since the
@@ -691,6 +722,82 @@ function ScheduleDialog() {
                 <span className="text-sm text-muted-foreground tnum">{allChanged} changed</span>
               ) : null}
             </div>
+          </div>
+        )}
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  )
+}
+
+// --- the way back ---------------------------------------------------------------------------------
+
+/**
+ * Restores nothing - it builds the command, and a person runs it on the host (concept §10a).
+ *
+ * A restore is needed exactly when the stack is broken, and `steward-ui` is part of the stack it
+ * would be restoring: a button here would work in every situation except the one it exists for.
+ * Only finished archives are offered - `restore.sh` will not take a `.partial`.
+ */
+function RestoreDialog() {
+  const backups = useBackups()
+  const [chosen, setChosen] = useState<string>("")
+  const restorable = useMemo(
+    () => (backups.data ?? []).filter((backup) => !backup.partial),
+    [backups.data],
+  )
+  const command = `sudo bash deploy/restore.sh ${chosen || "<archive>"}`
+
+  return (
+    <ResponsiveDialog>
+      <ResponsiveDialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <ArrowCounterClockwiseIcon />
+          Restore
+        </Button>
+      </ResponsiveDialogTrigger>
+      <ResponsiveDialogContent>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Restore</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>Run on the host. Steward does not run it.</ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
+
+        {backups.isPending || backups.error ? (
+          <QueryState query={backups} rows={2}>{() => null}</QueryState>
+        ) : restorable.length === 0 ? (
+          <Empty
+            title="No archive to restore"
+            note={
+              (backups.data ?? []).length > 0
+                ? "Every file still carries the .partial suffix."
+                : "The backup directory is empty."
+            }
+          />
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="restore-archive">Archive</Label>
+              <Select value={chosen} onValueChange={setChosen}>
+                <SelectTrigger id="restore-archive" className="w-full">
+                  <SelectValue placeholder="Choose an archive…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {restorable.map((backup) => (
+                    <SelectItem key={backup.name} value={backup.name}>
+                      {backup.name} ({bytes(backup.bytes)}, {relative(backup.modified)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-[#0a0a0a] px-3 py-2 font-mono text-xs whitespace-pre">
+                {command}
+              </code>
+              <CopyButton text={command} disabled={!chosen} />
+            </div>
+            <p className="text-xs text-warning">
+              A volume is overwritten, not added to - everything made since the backup is gone.
+            </p>
           </div>
         )}
       </ResponsiveDialogContent>

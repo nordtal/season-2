@@ -224,7 +224,7 @@ function draw() {
   const nothing = () => null
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/", component: BackupsPage }),
-    createRoute({ getParentRoute: () => root, path: "/operations/runs/$id", component: nothing }),
+    createRoute({ getParentRoute: () => root, path: "/operations/updates/$id", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/operations/backups/$id", component: nothing }),
   ])
   const history = createMemoryHistory({ initialEntries: ["/"] })
@@ -552,5 +552,35 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     drawDetail("999")
 
     expect(await screen.findByText("No such run")).toBeTruthy()
+  })
+})
+
+describe("BackupsPage - what moved here from Operations", () => {
+  it("offers a backup by hand", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+
+    expect(await screen.findByRole("button", { name: /back up now/i })).toBeTruthy()
+  })
+
+  it("builds the restore command and runs nothing itself", async () => {
+    const fetchMock = backend({})
+    vi.stubGlobal("fetch", fetchMock)
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Restore" }))
+    expect(await screen.findByText("sudo bash deploy/restore.sh <archive>")).toBeTruthy()
+    // Nothing chosen, nothing to copy.
+    expect((screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement).disabled).toBe(true)
+    const posted = fetchMock.mock.calls.filter((call) => (call[1] as RequestInit | undefined)?.method === "POST")
+    expect(posted).toEqual([])
+  })
+
+  it("offers no archive that is still being written", async () => {
+    vi.stubGlobal("fetch", backend({ backups: [backup({ partial: true, name: "x.tar.zst.partial" })] }))
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Restore" }))
+    expect(await screen.findByText("Every file still carries the .partial suffix.")).toBeTruthy()
   })
 })

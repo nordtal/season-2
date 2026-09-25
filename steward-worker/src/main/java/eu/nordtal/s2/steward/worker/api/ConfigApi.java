@@ -107,12 +107,27 @@ public final class ConfigApi {
             "limbo/limbo", "limbo reload",
             "proxy/proxy", "network reload");
 
+    /** This worker's own file, by the identity {@link #locate} matches against. */
+    public static final String OWN_CONFIG = "steward-worker/steward.yml";
+
     private final Path root;
     private final ConsoleLine console;
+    /**
+     * Files this process reads itself, by identity, with what re-reads them. There is no console
+     * to send a reload line to for these - the reader is this process - so a save runs the hook
+     * directly. Today that is only {@link #OWN_CONFIG}, whose schedules re-arm on it.
+     */
+    private final Map<String, Runnable> ownReloads;
 
     public ConfigApi(final @NotNull Path root, final @NotNull ConsoleLine console) {
+        this(root, console, Map.of());
+    }
+
+    public ConfigApi(final @NotNull Path root, final @NotNull ConsoleLine console,
+                     final @NotNull Map<String, Runnable> ownReloads) {
         this.root = root;
         this.console = console;
+        this.ownReloads = Map.copyOf(ownReloads);
     }
 
     /** {@code GET /api/config} - every file under the mount, without reading any of them. */
@@ -229,6 +244,11 @@ public final class ConfigApi {
                 .orElse(List.of());
         try {
             final String newRevision = ConfigFiles.writeRaw(location.file(), content, revision);
+            // A raw save of a file this process reads itself changes the schedule just as much.
+            final Runnable own = ownReloads.get(identityOf(location));
+            if (own != null) {
+                reReadOwn(own, location);
+            }
             final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
             answer.put("raw", true);
             answer.put("revision", newRevision);
@@ -381,8 +401,34 @@ public final class ConfigApi {
     // Package-private for the same reason: ConfigApiReloadTest drives the three outcomes with a
     // fake ConsoleLine, never a real Docker socket.
     Map<String, Object> reload(final ConfigLocation location) {
+        final Runnable own = ownReloads.get(identityOf(location));
+        if (own != null) {
+            return reReadOwn(own, location);
+        }
         return reload(console, identityOf(location), location.service(), location.name(),
                 location.file().toString());
+    }
+
+    /**
+     * A file this process reads itself, read again. The save has already happened by the time
+     * this runs, so a failure here is reported rather than thrown: the change is on disk and a
+     * restart will pick it up.
+     */
+    private static Map<String, Object> reReadOwn(final Runnable own, final ConfigLocation location) {
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        try {
+            own.run();
+            answer.put("status", "APPLIED");
+            answer.put("message", "Saved, and " + location.service() + " read " + location.name()
+                    + " again. The backup and update schedules apply at once; most other settings"
+                    + " in it are still read only at a restart.");
+        } catch (final RuntimeException e) {
+            log.warn("{} was saved but could not be read again: {}", location.file(), e.getMessage());
+            answer.put("status", "RESTART_REQUIRED");
+            answer.put("message", "Saved, but " + location.service() + " could not read it again: "
+                    + e.getMessage() + ". The change takes effect at its next restart.");
+        }
+        return answer;
     }
 
     /**

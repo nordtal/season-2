@@ -51,7 +51,7 @@ final class AlertLevel {
      *
      * <p>This is the half of the per-type switch that can only be decided here: which branch fired
      * is knowable in this method and nowhere else. Parsing it back out of {@link Trigger#subject} on
-     * the other side of the wire - "backups" means a backup, "/operations" means drift - would be
+     * the other side of the wire - "backups" means a backup, "/operations/updates" means drift - would be
      * reading prose as an enum, and the prose is written for a lock screen.</p>
      */
     enum Kind {
@@ -169,7 +169,7 @@ final class AlertLevel {
         // that answers nothing is the one sentence worth sending on its own.
         if (services.isEmpty()) {
             return new Reading(
-                    List.of(new Trigger(Kind.SERVICE, Level.WARN, "services", "/operations")),
+                    List.of(new Trigger(Kind.SERVICE, Level.WARN, "services", "/operations/updates")),
                     diskPercent(host), memoryPercent(host), backupAgeHours(archives, now));
         }
 
@@ -199,11 +199,11 @@ final class AlertLevel {
             }
         }
         if (!dump && !volume) {
-            triggers.add(new Trigger(Kind.BACKUP, Level.DOWN, "backups", "/operations"));
+            triggers.add(new Trigger(Kind.BACKUP, Level.DOWN, "backups", "/operations/backups"));
         } else if (!dump) {
-            triggers.add(new Trigger(Kind.BACKUP, Level.DOWN, "database dump", "/operations"));
+            triggers.add(new Trigger(Kind.BACKUP, Level.DOWN, "database dump", "/operations/backups"));
         } else if (!volume) {
-            triggers.add(new Trigger(Kind.BACKUP, Level.DOWN, "backups", "/operations"));
+            triggers.add(new Trigger(Kind.BACKUP, Level.DOWN, "backups", "/operations/backups"));
         }
 
         // 3 - image drift, presence only. Yellow: nothing is broken, but this is the failure that
@@ -215,11 +215,11 @@ final class AlertLevel {
             }
         }
         if (!outdated.isEmpty()) {
-            triggers.add(new Trigger(Kind.DRIFT, Level.WARN, String.join(", ", outdated), "/operations"));
+            triggers.add(new Trigger(Kind.DRIFT, Level.WARN, String.join(", ", outdated), "/operations/updates"));
         }
         final Object drift = serviceTable.get("drift");
         if (drift instanceof Map<?, ?> about && Boolean.FALSE.equals(about.get("reached"))) {
-            triggers.add(new Trigger(Kind.DRIFT, Level.WARN, "registry", "/operations"));
+            triggers.add(new Trigger(Kind.DRIFT, Level.WARN, "registry", "/operations/updates"));
         }
 
         return new Reading(triggers, diskPercent(host), memoryPercent(host),

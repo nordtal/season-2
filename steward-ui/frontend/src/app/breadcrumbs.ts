@@ -13,10 +13,8 @@ export type Crumb = { label: string; href: string }
 const SECTION_LABELS: Record<string, string> = {
   services: "Services",
   operations: "Operations",
-  plan: "Plan",
-  runs: "Run",
+  updates: "Updates",
   backups: "Backups",
-  restore: "Restore",
   season: "Season",
   access: "Users",
   payments: "Payments",

@@ -4,6 +4,13 @@
 @import "@fontsource-variable/dm-sans";
 @import "@fontsource-variable/jetbrains-mono";
 
+/* Monocraft (OFL-1.1) stands in for the Minecraft font, which cannot be shipped. */
+@font-face {
+  font-family: "Monocraft";
+  src: url("/fonts/Monocraft.ttf") format("truetype");
+  font-display: swap;
+}
+
 /*
  * Nordtal Steward - the theme.
  *

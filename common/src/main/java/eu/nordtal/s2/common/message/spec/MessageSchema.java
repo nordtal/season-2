@@ -75,7 +75,9 @@ public final class MessageSchema {
     public static List<Entry> entries(final Class<?> spec) {
         final List<Entry> entries = new ArrayList<>();
         final MessageSpec annotation = spec.getAnnotation(MessageSpec.class);
-        walk(spec, "", List.of(), entries, 0, annotation.format(), annotation.shown());
+        walk(spec, "", List.of(), entries, 0,
+                nearest(null, spec.getAnnotation(Format.class), annotation.format()),
+                nearest(null, spec.getAnnotation(Shown.class), annotation.shown()));
         final Map<String, Integer> order = new LinkedHashMap<>();
         for (final String key : fileOrder(spec)) {
             order.putIfAbsent(key, order.size());

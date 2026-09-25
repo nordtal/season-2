@@ -1079,6 +1079,18 @@ export type MessageArg = {
 /** `GET /api/message-examples`: an example value per context type and property, from real data. */
 export type MessageExamples = Record<string, Record<string, string>>
 
+/**
+ * One named glyph of the resource pack, as `/glyphs/manifest.json` lists it: its texture sits next
+ * to the manifest, `height` and `ascent` are in the pack's own pixels.
+ */
+export type GlyphInfo = {
+  name: string
+  codePoint: number
+  height: number
+  ascent: number
+  image: string
+}
+
 export type MessageBundle = MessageBundleLocation & {
   entries: MessageEntry[]
 }

@@ -23,6 +23,8 @@ import {
   type MessageBundleLocation,
   type MessageChanges,
   type MessageSaveResult,
+  type MessageExamples,
+  type GlyphInfo,
   type Metrics,
   type Payment,
   type Person,
@@ -99,6 +101,8 @@ export const keys = {
   guildChannels: ["guild-channels"] as const,
   messageBundles: ["message-bundles"] as const,
   messageBundle: (path: string) => ["message-bundle", path] as const,
+  messageExamples: ["message-examples"] as const,
+  glyphs: ["glyphs"] as const,
   webPushPublicKey: ["web-push-public-key"] as const,
   webPushSubscription: ["web-push-subscription"] as const,
   webPushDevices: ["web-push-devices"] as const,
@@ -1108,6 +1112,28 @@ export function useSaveMessageBundle(path: string) {
     onSuccess: (document) => {
       client.setQueryData(keys.messageBundle(path), document)
     },
+  })
+}
+
+/** An example value per placeholder type and property, read from real data by the server. */
+export function useMessageExamples() {
+  return useQuery({
+    queryKey: keys.messageExamples,
+    queryFn: () => api<MessageExamples>("/api/message-examples"),
+    staleTime: 5 * 60 * SECOND,
+  })
+}
+
+/** The resource pack's named glyphs; static files next to the page, so no API call and no session. */
+export function useGlyphs() {
+  return useQuery({
+    queryKey: keys.glyphs,
+    queryFn: async () => {
+      const response = await fetch("/glyphs/manifest.json")
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
+      return (await response.json()) as GlyphInfo[]
+    },
+    staleTime: Infinity,
   })
 }
 

@@ -1065,12 +1065,110 @@ class StewardUiIntegrationTest {
      * is nine seasons more than anybody will ever buy.</p>
      */
     @Test
-    @DisplayName("a grant longer than a decade is refused rather than handed to postgres")
+    @DisplayName("a grant longer than a season is refused with a sentence, not handed on")
     void anAbsurdGrantIsRefused() throws Exception {
         final HttpResponse<String> refused = post("/api/access/grant",
                 "{\"discordId\":\"1\",\"days\":2147483647}");
-
         assertEquals(400, refused.statusCode(), refused.body());
+
+        // 3650 was the old ceiling: a decade of free access, one keystroke away from 365.
+        final HttpResponse<String> decade = post("/api/access/grant",
+                "{\"discordId\":\"1\",\"days\":3650}");
+        assertEquals(400, decade.statusCode(), decade.body());
+        assertTrue(decade.body().contains("between 1 and 365 days"), decade.body());
+    }
+
+    /**
+     * A grant from here is a row the bot carries out, not a write to the access tables.
+     *
+     * <p>Writing the tables directly skipped the role, the direct message and the admin note - the
+     * three things only the bot can do - and nobody granted access from a browser was ever told.
+     * So every one of the five writes has to leave an {@code access_request} row signed by the
+     * admin, answer 202 with its id, and write no journal line of its own: the bot journals what it
+     * carries out.</p>
+     */
+    @Test
+    @DisplayName("grant, revoke, unlink, settle and play time each ask the bot and journal nothing")
+    void accessChangesAskTheBot() throws Exception {
+        final long journalBefore = count("select count(*) from audit_log");
+        final String[][] asks = {
+                {"/api/access/grant", "{\"discordId\":\"700000000000000007\",\"days\":30}", "GRANT",
+                        "700000000000000007", "30"},
+                {"/api/access/revoke", "{\"discordId\":\"700000000000000007\"}", "REVOKE",
+                        "700000000000000007", null},
+                {"/api/access/unlink", "{\"discordId\":\"700000000000000007\"}", "UNLINK",
+                        "700000000000000007", null},
+                {"/api/access/settle", "{\"reference\":\"AB12CD\"}", "SETTLE", "AB12CD", null},
+                {"/api/people/700000000000000007/playtime", "{\"seconds\":3600}", "SET_PLAYTIME",
+                        "700000000000000007", "3600"},
+        };
+        for (final String[] ask : asks) {
+            final HttpResponse<String> asked = post(ask[0], ask[1]);
+            assertEquals(202, asked.statusCode(), ask[0] + ": " + asked.body());
+            final JsonObject answer = GSON.fromJson(asked.body(), JsonObject.class);
+            final long id = answer.get("id").getAsLong();
+
+            try (var connection = data.dataSource().getConnection();
+                 var statement = connection.prepareStatement("select kind, subject, argument,"
+                         + " source, requested_by from access_request where id = ?")) {
+                statement.setLong(1, id);
+                try (var row = statement.executeQuery()) {
+                    assertTrue(row.next(), ask[0] + " wrote no access_request row");
+                    assertEquals(ask[2], row.getString("kind"));
+                    assertEquals(ask[3], row.getString("subject"));
+                    assertEquals(ask[4], row.getString("argument"));
+                    assertEquals("STEWARD", row.getString("source"));
+                    // The admin's Discord id, which is what the bot re-reads and journals.
+                    assertEquals("1", row.getString("requested_by"));
+                }
+            }
+
+            final JsonObject polled = GSON.fromJson(
+                    get("/api/access/requests/" + id).body(), JsonObject.class);
+            assertEquals(ask[2], polled.get("kind").getAsString());
+            assertEquals("PENDING", polled.get("status").getAsString());
+        }
+        assertEquals(journalBefore, count("select count(*) from audit_log"),
+                "steward-ui journalled an access change the bot will journal itself");
+
+        try (var connection = data.dataSource().getConnection();
+             var statement = connection.createStatement()) {
+            statement.execute("delete from access_request where subject in"
+                    + " ('700000000000000007', 'AB12CD')");
+        }
+    }
+
+    @Test
+    @DisplayName("the bot's answer comes back as an object, and an unknown request is a 404")
+    void theBotsAnswerIsRead() throws Exception {
+        final long id = GSON.fromJson(post("/api/access/revoke",
+                "{\"discordId\":\"700000000000000008\"}").body(), JsonObject.class)
+                .get("id").getAsLong();
+        // Standing in for the bot: claim everything waiting, then answer this one.
+        while (data.accessRequests().claim().isPresent()) {
+            // drained
+        }
+        data.accessRequests().finish(id, true, "{\"revoked\":\"2\"}");
+
+        final JsonObject polled = GSON.fromJson(
+                get("/api/access/requests/" + id).body(), JsonObject.class);
+        assertEquals("DONE", polled.get("status").getAsString());
+        assertEquals("2", polled.getAsJsonObject("result").get("revoked").getAsString());
+
+        assertEquals(404, get("/api/access/requests/999999999").statusCode());
+        try (var connection = data.dataSource().getConnection();
+             var statement = connection.createStatement()) {
+            statement.execute("delete from access_request where subject = '700000000000000008'");
+        }
+    }
+
+    private static long count(final String sql) throws Exception {
+        try (var connection = data.dataSource().getConnection();
+             var statement = connection.createStatement();
+             var row = statement.executeQuery(sql)) {
+            row.next();
+            return row.getLong(1);
+        }
     }
 
     /**
@@ -1597,14 +1695,18 @@ class StewardUiIntegrationTest {
             journalledBy(snowflake, "RECREATE", longName);
 
             // 3. and 4. Giving access and taking it away - the two things this interface does that
-            //    somebody's money is attached to.
-            assertEquals(201, post(browser, "/api/access/grant",
+            //    somebody's money is attached to. The bot journals those now; what this side
+            //    writes is the request, and the request has to carry the whole id.
+            assertEquals(202, post(browser, "/api/access/grant",
                     "{\"discordId\":\"555000000000000001\",\"days\":30}").statusCode());
-            journalledBy(snowflake, "GRANT_ACCESS", longName);
-
-            assertEquals(200, post(browser, "/api/access/revoke",
+            assertEquals(202, post(browser, "/api/access/revoke",
                     "{\"discordId\":\"555000000000000001\"}").statusCode());
-            journalledBy(snowflake, "REVOKE_ACCESS", longName);
+            assertEquals(2, count("select count(*) from access_request where subject ="
+                    + " '555000000000000001' and requested_by = '" + snowflake + "'"));
+            try (var connection = data.dataSource().getConnection();
+                 var statement = connection.createStatement()) {
+                statement.execute("delete from access_request where subject = '555000000000000001'");
+            }
 
             // 5. The two season dates, and the phase. These never threw: PhaseDao casts the actor
             //    to varchar(32) explicitly, and an explicit cast in PostgreSQL TRUNCATES. So the

@@ -976,6 +976,19 @@ export type CommandArgument = {
 }
 
 /**
+ * One `access_request` row, as `GET /api/access/requests/{id}` answers it. The bot writes `result`
+ * as a flat object of strings - `until` for a grant, `revoked` for a revoke, `unlinked` for an
+ * unlink, `outcome`/`days`/`until`/`was` for a settle, `seconds` for a play time, `error` when it
+ * failed.
+ */
+export type AccessRequestRun = {
+  id: string
+  kind: string
+  status: "PENDING" | "RUNNING" | "DONE" | "FAILED" | "EXPIRED"
+  result?: Record<string, string | undefined>
+}
+
+/**
  * What became of a request.
  *
  * PENDING and RUNNING both mean keep waiting and mean different things when the wait runs out: a

@@ -70,16 +70,6 @@ public final class UpdateCommand extends ListenerAdapter {
      */
     private static final Duration PATIENCE = Duration.ofMinutes(12);
 
-    /** Discord's embed description limit, minus the code fence this puts around the report. */
-    private static final int DESCRIPTION_BUDGET = 4000;
-
-    /**
-     * Discord's limit on everything in one embed added together. The per-part caps are not enough:
-     * the parts can each be legal and the whole still refused, and JDA then throws from
-     * {@code build()} on exactly the runs that have the most to say.
-     */
-    private static final int EMBED_BUDGET = 6000;
-
     private final UpdateDirectory updates;
     private final AdminLog admin;
     private final AdminFlagDao dao;
@@ -189,13 +179,10 @@ public final class UpdateCommand extends ListenerAdapter {
     private void announceCountdown(final InteractionHook hook, final Locale locale,
                                    final String userId, final UpdateRequest request) {
         final long seconds = UpdateDirectory.UPDATE_COUNTDOWN.toSeconds();
-        final String what = request.kind() == UpdateKind.RESTART ? "a restart" : "an update";
+        final String what = request.kind() == UpdateKind.RESTART ? "restart" : "update";
 
-        admin.note("<@" + userId + "> started " + what + ". If Steward finds anything to do,"
-                + " every player online sees a " + seconds + "-second countdown, and the servers"
-                + " involved are stopped, "
-                + (request.kind() == UpdateKind.RESTART ? "" : "updated ") + "and started again"
-                + " after it.");
+        // Data, like the embeds: who, what, and the one number that matters to anybody online.
+        admin.note("<@" + userId + "> → **" + what + "**, " + seconds + " s countdown if there is work");
 
         hook.editOriginal(new MessageEditBuilder()
                         .setContent(say(locale, MESSAGES.update().countdown().started(seconds)))
@@ -221,7 +208,7 @@ public final class UpdateCommand extends ListenerAdapter {
                 // log is what somebody reads weeks later to work out what happened.
                 final String what = cancelled.get().kind() == UpdateKind.UPDATE
                         ? "update" : "restart";
-                admin.note(user.getAsMention() + " stopped the " + what + " before it happened.");
+                admin.note(user.getAsMention() + " → **" + what + " cancelled**");
                 plain(hook, say(locale, MESSAGES.update().cancelled()));
             } else {
                 plain(hook, say(locale, MESSAGES.update().tooLate()));
@@ -353,13 +340,14 @@ public final class UpdateCommand extends ListenerAdapter {
         final String result = request.result();
         final Optional<UpdateReport> report = UpdateReports.parse(result);
         if (report.isEmpty()) {
-            return List.of(new net.dv8tion.jda.api.EmbedBuilder()
-                    .setTitle(title(request, locale))
-                    .setDescription("```\n" + truncate(result == null
-                            ? "(Steward wrote nothing)" : result) + "\n```")
-                    .setColor(colour(failed))
-                    .setTimestamp(request.finished() == null ? Instant.now() : request.finished())
-                    .build());
+            // A row from before the report became structured. Drawn as its text, not as a code
+            // block: nobody copies it anywhere.
+            final Card card = Card.of(title(request, locale), failed ? Card.Accent.BAD : Card.Accent.NEUTRAL)
+                    .timestamp(request.finished() == null ? Instant.now() : request.finished());
+            if (result != null && !result.isBlank()) {
+                card.lead(Card.escape(result));
+            }
+            return List.of(card.build());
         }
         return List.of(fields(report.get(), request, messages, locale));
     }
@@ -368,100 +356,82 @@ public final class UpdateCommand extends ListenerAdapter {
     // on the whole embed, and every guard here is arithmetic best measured rather than reasoned.
     static MessageEmbed fields(final UpdateReport report, final UpdateRequest request,
                                final Messages messages, final Locale locale) {
-        return fields(report, request, messages, locale, null);
+        return fields(report, request, messages, locale, false);
     }
 
     /**
-     * @param footer who asked and from where, or {@code null}. Only the admin channel's feed sets
-     *               one, and it is subtracted from the budget rather than added on top, because
-     *               Discord's 6 000 counts a footer like everything else
+     * One run, drawn as data: the stage as the title, the outcome as the colour, one line per
+     * service under one heading, and what went wrong under another.
+     *
+     * <p>One line per service in one block, not one field per service: a run with ten services and
+     * three artefacts each is the case Discord's 25 fields and 6000 characters were hit by, and
+     * {@link Card#block} counts what does not fit rather than cutting it off.</p>
+     *
+     * @param context whether to say who asked, and from where. Only the admin channel's feed does:
+     *                the asker's own embed is theirs, and knows
      */
     static MessageEmbed fields(final UpdateReport report, final UpdateRequest request,
-                               final Messages messages, final Locale locale, final String footer) {
-        final String headline = messages.format(locale, MESSAGES.update().stage(report.stage()));
-        final net.dv8tion.jda.api.EmbedBuilder embed = new net.dv8tion.jda.api.EmbedBuilder()
-                .setTitle(headline)
-                .setColor(colour(report.stage() == UpdateReport.Stage.FAILED))
-                .setTimestamp(request.finished() == null ? Instant.now() : request.finished());
-        if (footer != null) {
-            embed.setFooter(footer);
+                               final Messages messages, final Locale locale, final boolean context) {
+        final Card card = Card.of(messages.format(locale, MESSAGES.update().stage(report.stage())),
+                        accent(report.stage()))
+                .timestamp(request.finished() == null ? Instant.now() : request.finished());
+        final java.util.function.IntFunction<String> more =
+                count -> Card.italic(messages.format(locale, MESSAGES.update().embed().more(count)));
+
+        if (context) {
+            card.field(messages.format(locale, MESSAGES.update().embed().run()),
+                            request.kind().name().toLowerCase(Locale.ROOT))
+                    .field(messages.format(locale, MESSAGES.update().embed().by()),
+                            request.requestedBy() == null ? "console" : Card.escape(request.requestedBy()))
+                    .field(messages.format(locale, MESSAGES.update().embed().from()),
+                            request.source().name().toLowerCase(Locale.ROOT));
+        }
+        if (request.finished() != null && request.requested() != null) {
+            card.field(messages.format(locale, MESSAGES.update().embed().duration()),
+                    Card.duration(Duration.between(request.requested(), request.finished())));
         }
 
-        // The service lines get the budget first and the notes get what is left: a run with long
-        // notes is usually a failed one, and "which server did not come back" matters more.
-        int budget = EMBED_BUDGET - headline.length() - (footer == null ? 0 : footer.length());
-        final java.util.List<String[]> drawn = new java.util.ArrayList<>();
+        // The services get the budget first and the notes what is left: a run with long notes is
+        // usually a failed one, and "which server did not come back" matters more.
+        final java.util.List<String> lines = new java.util.ArrayList<>();
+        final java.util.List<String> notes = new java.util.ArrayList<>();
         for (final UpdateReport.ServiceLine line : report.services()) {
-            // Discord caps an embed at 25 fields. Today's service count cannot reach it; the guard
-            // is here so the day a fifth backend is added is not the day to find out.
-            if (drawn.size() >= 24) {
-                break;
-            }
-            final String value = body(line, messages, locale);
-            final int cost = line.service().length() + value.length();
-            if (cost > budget) {
-                break;
-            }
-            budget -= cost;
-            drawn.add(new String[] {line.service(), value});
-        }
-
-        if (!report.notes().isEmpty() && budget > 0) {
-            final String notes = String.join("\n", report.notes());
-            // Subtracted, not just bounded: the description consumes up to the whole remaining
-            // budget, and the overflow field below must not measure itself against space it took.
-            final String description = truncate(notes, Math.min(DESCRIPTION_BUDGET, budget));
-            embed.setDescription(description);
-            budget -= description.length();
-        }
-        // Inline, so three or four servers sit side by side rather than as a column of headings.
-        drawn.forEach(field -> embed.addField(field[0], field[1], true));
-        if (drawn.size() < report.services().size()) {
-            final int left = report.services().size() - drawn.size();
-            // Measured, not estimated: a flat reservation here is the same overflow bug it guards
-            // against, one line further down.
-            final String overflow = "and " + left + " more - Steward's log has all of it";
-            if ("...".length() + overflow.length() <= budget) {
-                embed.addField("...", overflow, false);
+            lines.add(line(line, messages, locale));
+            if (line.detail() != null && !line.detail().isBlank()) {
+                notes.add(Card.bold(line.service()) + " " + Card.escape(line.detail()));
             }
         }
-        return embed.build();
+        report.notes().forEach(note -> notes.add(Card.escape(note)));
+        card.block(messages.format(locale, MESSAGES.update().embed().services()), lines, more);
+        card.block(messages.format(locale, MESSAGES.update().embed().notes()), notes, more);
+        return card.build();
     }
 
     /**
-     * One service's field: what state it is in, and what is moving under it. The labels come from
-     * the same bundle chat uses, but from {@code update.state.*} rather than {@code update.line.*},
-     * because the field heading already carries the service name.
+     * {@code ✔ smp running  smp 0.9.3 → 0.9.4}: the marker so a run reads at a glance, the service
+     * in bold because it is what a reader scans for, the state in italic because the marker has
+     * already said it, and every artefact that moves as a transition.
      */
-    private static String body(final UpdateReport.ServiceLine line, final Messages messages,
+    private static String line(final UpdateReport.ServiceLine line, final Messages messages,
                                final Locale locale) {
         final StringBuilder text = new StringBuilder(marker(line.state())).append(' ')
-                .append(messages.format(locale, MESSAGES.update().state(line.state())));
+                .append(Card.bold(line.service())).append(' ')
+                .append(Card.italic(messages.format(locale, MESSAGES.update().state(line.state()))));
         for (final UpdateReport.Change change : line.changes()) {
-            text.append('\n').append(switch (change.state()) {
+            text.append("  ").append(Card.escape(change.artefact())).append(' ').append(switch (change.state()) {
                 // An artefact whose publisher has no build for this Minecraft version. Not a
                 // failure: no server is stopped for it and nothing beside it is held back.
-                case UNSUPPORTED -> messages.format(locale,
-                        MESSAGES.update().changeSection().unsupported(change.artefact()));
-                case MOVING -> change.from() == null
-                        ? messages.format(locale,
-                                MESSAGES.update().changeSection().newMessage(change.artefact(), change.to()))
-                        : messages.format(locale,
-                                MESSAGES.update().change(change.artefact(), change.from(), change.to()));
+                case UNSUPPORTED -> Card.italic(messages.format(locale, MESSAGES.update().embed().noBuild()));
+                case MOVING -> change.from() == null ? Card.bold(change.to()) : Card.arrow(change.from(), change.to());
             });
         }
-        if (line.detail() != null && !line.detail().isBlank()) {
-            text.append('\n').append(messages.format(locale, MESSAGES.update().detail(line.detail())));
-        }
-        // Discord's per-field limit. A failure message carrying a cause chain is the one thing
-        // here that can reach it.
-        return text.length() > 1000 ? text.substring(0, 997) + "..." : text.toString();
+        return text.toString();
     }
 
     /**
-     * One character in front of a state, so a run can be read at a glance. Deliberately not colour:
-     * an embed has one colour for all of it, and the interesting case is three services fine and
-     * the fourth not.
+     * One character in front of a state, so a run can be read at a glance. The embed's colour is
+     * the run's outcome; this is each service's, because the interesting case is three services
+     * fine and the fourth not.
      */
     private static String marker(final UpdateReport.State state) {
         return switch (state) {
@@ -474,21 +444,16 @@ public final class UpdateCommand extends ListenerAdapter {
         };
     }
 
-    /** Red for a failure, grey otherwise - "an update is available" is neither good nor bad news. */
-    private static Color colour(final boolean failed) {
-        return failed ? new Color(0xC0, 0x39, 0x2B) : new Color(0x99, 0xAA, 0xB5);
-    }
-
-    private static String truncate(final String text) {
-        return truncate(text, DESCRIPTION_BUDGET);
-    }
-
-    private static String truncate(final String text, final int budget) {
-        final String tail = "\n... truncated; Steward's log has all of it";
-        if (text.length() <= budget) {
-            return text;
-        }
-        return budget <= tail.length() ? "" : text.substring(0, budget - tail.length()) + tail;
+    /**
+     * Red for a failure, green for a run that did what it was asked, grey for everything still
+     * moving or with nothing to say - "an update is available" is neither good nor bad news.
+     */
+    private static Card.Accent accent(final UpdateReport.Stage stage) {
+        return switch (stage) {
+            case FAILED -> Card.Accent.BAD;
+            case DONE -> Card.Accent.GOOD;
+            default -> Card.Accent.NEUTRAL;
+        };
     }
 
     /**

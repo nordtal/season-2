@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -77,33 +78,49 @@ class EmbedBudgetTest {
     }
 
     @Test
-    @DisplayName("an ordinary run is drawn in full, not truncated into uselessness")
+    @DisplayName("an ordinary run is drawn in full, one line per service under one heading")
     void theNormalCaseKeepsEveryService() {
         final MessageEmbed embed = UpdateCommand.fields(report(4, 60, 2, 80), request(),
                 messages, Locale.GERMAN);
 
         assertTrue(embed.getLength() <= LIMIT);
-        assertTrue(embed.getFields().size() == 4,
-                "four services and a short note is the everyday run; guarding the limit must not"
-                        + " cost it a single field");
+        final MessageEmbed.Field services = embed.getFields().stream()
+                .filter(field -> "Dienste".equals(field.getName())).findFirst().orElseThrow();
+        for (int i = 0; i < 4; i++) {
+            assertTrue(services.getValue().contains("**service-" + i + "**"),
+                    "four services and a short note is the everyday run; guarding the limit must"
+                            + " not cost it a single line");
+        }
+        assertTrue(services.getValue().contains("0.6.0 → **0.7.0**"), "a change is a transition");
+        assertFalse(services.getValue().contains("weitere"), "nothing was summarised away");
     }
 
-    /** A report with {@code services} lines of roughly {@code each} characters, plus notes. */
     @Test
-    @DisplayName("the admin channel's footer is inside the limit too, in both languages")
-    void theFooterIsInsideTheBudget() {
-        // UpdateFeed draws with a footer; every other caller passes null, so the arithmetic that
-        // subtracts the footer before the fields are drawn had no case at all. `requested_by` is
-        // varchar(32) in the schema, so 64 is twice the worst a row can hold.
-        final String footer = "UPDATE, asked for by " + "T".repeat(64) + " from GAME";
+    @DisplayName("a run too big for one embed counts what it leaves out, and never draws a code block")
+    void theWorstCaseSummarises() {
+        final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request(),
+                messages, Locale.ENGLISH, true);
+
+        assertTrue(embed.getFields().size() <= 25);
+        final String all = embed.getFields().stream().map(MessageEmbed.Field::getValue)
+                .reduce("", String::concat) + embed.getDescription();
+        assertTrue(all.matches("(?s).*\\+\\d+ more.*"), "what did not fit is counted: " + all.length());
+        assertFalse(all.contains("```"), "a code block is for something to copy");
+    }
+
+    @Test
+    @DisplayName("the admin channel's context fields are inside the limit too, in both languages")
+    void theContextIsInsideTheBudget() {
+        // Only UpdateFeed draws with context, so without this case the fields it adds before the
+        // services are measured by nothing.
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request(),
-                    messages, locale, footer);
+            final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), longAsker(),
+                    messages, locale, true);
 
             assertTrue(embed.getLength() <= LIMIT,
-                    locale + ": the embed is " + embed.getLength() + " characters with a footer,"
-                            + " above " + LIMIT + " - Discord refuses the whole message, so the"
-                            + " admin channel would show nothing at all about a run in flight");
+                    locale + ": the embed is " + embed.getLength() + " characters with the context"
+                            + " fields, above " + LIMIT + " - Discord refuses the whole message, so"
+                            + " the admin channel would show nothing at all about a run in flight");
         }
     }
 
@@ -122,6 +139,12 @@ class EmbedBudgetTest {
             report = report.withNote("n".repeat(noteLength));
         }
         return report;
+    }
+
+    /** {@code requested_by} is varchar(32); 64 is twice the worst a row can hold. */
+    private static UpdateRequest longAsker() {
+        return new UpdateRequest(1L, UpdateKind.UPDATE, UpdateStatus.RUNNING, UpdateSource.GAME,
+                "T".repeat(64), Instant.now(), Instant.now(), Instant.now(), null, null);
     }
 
     private static UpdateRequest request() {

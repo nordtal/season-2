@@ -33,20 +33,28 @@ public interface AccessMessages {
         @Shown(Display.DISCORD_EMBED)
         MessageRef title();
 
-        @Name("Body")
-        @Shown(Display.DISCORD_EMBED)
-        MessageRef body();
-
         @Name("Prices")
+        @Shown(Display.DISCORD_EMBED)
         MessageRef prices();
 
         @Name("Tier line")
+        @Shown(Display.DISCORD_EMBED)
         MessageRef tierLine(@Arg("days") Object days, @Arg("price") Object price);
 
+        @Name("Donation heading")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef donationHeading();
+
         @Name("Donation")
+        @Shown(Display.DISCORD_EMBED)
         MessageRef donation(@Arg("amount") Object amount);
 
+        @Name("Renew heading")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef renewHeading();
+
         @Name("Renew")
+        @Shown(Display.DISCORD_EMBED)
         MessageRef renew();
 
         @Name("Button")
@@ -63,12 +71,21 @@ public interface AccessMessages {
         @Shown(Display.DISCORD_EMBED)
         MessageRef title();
 
-        @Name("Body")
+        @Name("Steps heading")
         @Shown(Display.DISCORD_EMBED)
-        MessageRef body();
+        MessageRef stepsHeading();
 
-        @Name("Unlink hint")
-        MessageRef unlinkHint();
+        @Name("Steps")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef steps(@Arg("button") Object button);
+
+        @Name("Switch heading")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef switchHeading();
+
+        @Name("Switch")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef switchAccount();
 
         @Name("Button")
         @Shown(Display.DISCORD_BUTTON)
@@ -261,9 +278,29 @@ public interface AccessMessages {
         @Shown(Display.DISCORD_EMBED)
         MessageRef title();
 
-        @Name("Body")
+        @Name("Team heading")
         @Shown(Display.DISCORD_EMBED)
-        MessageRef body();
+        MessageRef teamHeading();
+
+        @Name("Team")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef team();
+
+        @Name("Name heading")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef nameHeading();
+
+        @Name("Name")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef name();
+
+        @Name("Partner heading")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef partnerHeading();
+
+        @Name("Partner")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef partner();
 
         @Name("Button")
         @Shown(Display.DISCORD_BUTTON)

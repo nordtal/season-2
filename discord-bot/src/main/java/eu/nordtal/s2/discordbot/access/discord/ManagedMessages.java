@@ -12,7 +12,7 @@ import eu.nordtal.s2.discordbot.access.payment.Tiers;
 import eu.nordtal.s2.common.message.Messages;
 
 import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.EmbedBuilder;
+import eu.nordtal.s2.discordbot.discord.Card;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -23,6 +23,7 @@ import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.jdbi.v3.core.Jdbi;
 
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -50,9 +51,6 @@ import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
  */
 @Slf4j
 public final class ManagedMessages {
-
-    /** nordtal blue, the same value season 1's embeds used. */
-    private static final int COLOUR = 0x3459_74;
 
     private static final String CONTRIBUTION_BANNER = "contribution.png";
     private static final String LINK_BANNER = "link.png";
@@ -149,33 +147,28 @@ public final class ManagedMessages {
     // ---------------------------------------------------------------- embeds
 
     private MessageEmbed contributionEmbed(final Locale locale) {
-        final StringBuilder prices = new StringBuilder();
+        final List<String> prices = new ArrayList<>();
         for (final Tier tier : tiers.all()) {
-            prices.append(messages.format(locale,
-                    MESSAGES.contribution().tierLine(tier.days(),
-                            Money.format(tier.priceCents())))).append('\n');
+            prices.add(messages.format(locale,
+                    MESSAGES.contribution().tierLine(tier.days(), Money.format(tier.priceCents()))));
         }
-
-        return new EmbedBuilder()
-                .setColor(COLOUR)
-                .setTitle(messages.format(locale, MESSAGES.contribution().title()))
-                .setDescription(messages.format(locale, MESSAGES.contribution().body())
-                        + "\n\n" + messages.format(locale,
-                                MESSAGES.contribution().donation(Money.format(tiers.donationCents())))
-                        + "\n\n" + messages.format(locale, MESSAGES.contribution().renew()))
-                .addField(messages.format(locale,
-                        MESSAGES.contribution().prices()), prices.toString().strip(), false)
-                .setImage("attachment://" + CONTRIBUTION_BANNER)
+        return Card.of(messages.format(locale, MESSAGES.contribution().title()), Card.Accent.NORDTAL)
+                .block(messages.format(locale, MESSAGES.contribution().prices()), prices, count -> "+" + count)
+                .field(messages.format(locale, MESSAGES.contribution().donationHeading()),
+                        messages.format(locale, MESSAGES.contribution().donation(Money.format(tiers.donationCents()))))
+                .field(messages.format(locale, MESSAGES.contribution().renewHeading()),
+                        messages.format(locale, MESSAGES.contribution().renew()))
+                .image("attachment://" + CONTRIBUTION_BANNER)
                 .build();
     }
 
     private MessageEmbed linkEmbed(final Locale locale) {
-        return new EmbedBuilder()
-                .setColor(COLOUR)
-                .setTitle(messages.format(locale, MESSAGES.link().title()))
-                .setDescription(messages.format(locale, MESSAGES.link().body())
-                        + "\n\n" + messages.format(locale, MESSAGES.link().unlinkHint()))
-                .setImage("attachment://" + LINK_BANNER)
+        return Card.of(messages.format(locale, MESSAGES.link().title()), Card.Accent.NORDTAL)
+                .wide(messages.format(locale, MESSAGES.link().stepsHeading()),
+                        messages.format(locale, MESSAGES.link().steps(messages.format(locale, MESSAGES.link().button()))))
+                .field(messages.format(locale, MESSAGES.link().switchHeading()),
+                        messages.format(locale, MESSAGES.link().switchAccount()))
+                .image("attachment://" + LINK_BANNER)
                 .build();
     }
 

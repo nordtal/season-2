@@ -914,6 +914,40 @@ public interface CommandMessages {
             MessageRef asked();
         }
 
+        Embed embed();
+
+        /**
+         * The headings of a run drawn in Discord. One word each: the value under a heading is the
+         * data, and a heading that explains it is a sentence in a box.
+         */
+        @Name("Embed")
+        interface Embed {
+
+            @Name("Services")
+            MessageRef services();
+
+            @Name("Notes")
+            MessageRef notes();
+
+            @Name("Duration")
+            MessageRef duration();
+
+            @Name("Run")
+            MessageRef run();
+
+            @Name("By")
+            MessageRef by();
+
+            @Name("From")
+            MessageRef from();
+
+            @Name("No build")
+            MessageRef noBuild();
+
+            @Name("More")
+            MessageRef more(@Arg("count") Object count);
+        }
+
         /** The headline for a stage. */
         default MessageRef stage(final UpdateReport.Stage stage) {
             return switch (stage) {

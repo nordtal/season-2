@@ -70,7 +70,7 @@ final class Alerts {
         if (!byType.containsKey(AlertType.BACKUP) && reading.backupAgeHours() != null
                 && reading.backupAgeHours() > thresholds.backupAgeHours()) {
             byType.put(AlertType.BACKUP, List.of(new AlertReading.Trigger(
-                    AlertType.BACKUP.key(), "down", "backups", "/operations")));
+                    AlertType.BACKUP.key(), "down", "backups", "/operations/backups")));
         }
 
         // Disk and memory. `/` and not `/operations`: the host numbers are on the start page, which

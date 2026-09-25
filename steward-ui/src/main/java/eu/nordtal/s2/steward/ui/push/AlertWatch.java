@@ -194,10 +194,10 @@ public final class AlertWatch {
     private static Alerts.Alert sample(final AlertType type) {
         return switch (type) {
             case SERVICE -> new Alerts.Alert(type, "down", "smp", "/services/smp");
-            case BACKUP -> new Alerts.Alert(type, "down", "backups", "/operations");
+            case BACKUP -> new Alerts.Alert(type, "down", "backups", "/operations/backups");
             case DISK -> new Alerts.Alert(type, "warn", "disk", "/");
             case MEMORY -> new Alerts.Alert(type, "warn", "memory", "/");
-            case DRIFT -> new Alerts.Alert(type, "warn", "registry", "/operations");
+            case DRIFT -> new Alerts.Alert(type, "warn", "registry", "/operations/updates");
         };
     }
 

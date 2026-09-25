@@ -1,13 +1,9 @@
-import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
+import { createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router"
 
 import { NotFoundPage } from "@/app/not-found"
 import { Shell } from "@/app/shell"
-import {
-  OperationsRunPage,
-  OperationsPage,
-  OperationsPlanPage,
-  OperationsRestorePage,
-} from "@/pages/operations"
+import { UpdateRunPage } from "@/pages/operations"
+import { UpdatesPage } from "@/pages/updates"
 import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
 import { ServicePage, serviceSearch } from "@/pages/service"
 import { SeasonPage } from "@/pages/season"
@@ -41,12 +37,27 @@ const routes = [
     component: ServicePage,
     validateSearch: serviceSearch,
   }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/operations", component: OperationsPage }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/operations/plan", component: OperationsPlanPage }),
+  // Operations is two pages, Updates and Backups. The two old addresses a link or a push
+  // notification may still carry are sent on rather than answered with a 404.
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/operations",
+    beforeLoad: () => {
+      throw redirect({ to: "/operations/updates" })
+    },
+  }),
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/operations/runs/$id",
-    component: OperationsRunPage,
+    beforeLoad: ({ params }) => {
+      throw redirect({ to: "/operations/updates/$id", params: { id: params.id } })
+    },
+  }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/operations/updates", component: UpdatesPage }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/operations/updates/$id",
+    component: UpdateRunPage,
   }),
   // The list page steward/95 added, and the parent the report page's own breadcrumb had been
   // pointing at since there were breadcrumbs: `/operations/backups/<name>` draws a "Backups" crumb
@@ -56,20 +67,12 @@ const routes = [
     path: "/operations/backups",
     component: BackupsPage,
   }),
-  // steward/95's second round: this used to be one archive file's own page, keyed by filename
-  // (`operations.tsx`'s OperationsBackupPage, left in place but unreferenced - see the ticket for
-  // why it was not deleted). A run writes several archives, not one, and "a backup" everywhere
-  // else on the Backups page already means the run - so the id here is a run id now, and the page
-  // lists that run's own archives, each one downloadable.
+  // The id is a run id: a run writes several archives, and "a backup" on the Backups page means
+  // the run. The page lists that run's own archives, each one downloadable.
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/operations/backups/$id",
     component: BackupRunDetailPage,
-  }),
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/operations/restore",
-    component: OperationsRestorePage,
   }),
   // There is no `/configuration` route any more (2026-09-14). Every file belongs to exactly one
   // service, so it is a card on that service's page - see `components/steward/configuration.tsx`.

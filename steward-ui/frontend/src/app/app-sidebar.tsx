@@ -93,14 +93,14 @@ export function resolveHref(to: string, params?: Record<string, string>) {
 /**
  * Which single entry a path lights up.
  *
- * <p>Two entries can match one path - {@code /operations/plan} matches both "Overview"
- * ({@code /operations}) and "Plan" - and the sidebar then showed two selected rows with no way to
+ * <p>Two entries can match one path - {@code /services/limbo} matches every service entry by its
+ * fixed part {@code /services} - and the sidebar then showed several selected rows with no way to
  * tell which page you were on. The rule is the longest match wins, decided across the whole
  * navigation, which is why this cannot be a predicate on one entry.</p>
  *
  * <p>A parameterised route is matched by its fixed part, not by the link it happens to point at:
- * "Run" links to {@code /operations/runs/latest} and must still be the selected row while you are
- * reading run 27. A per-service entry carries a real name in its parameters, and that longer
+ * "Backups" links to {@code /operations/backups} and must still be the selected row while you are
+ * reading backup run 27. A per-service entry carries a real name in its parameters, and that longer
  * match is what keeps the right service selected rather than all of them.</p>
  */
 export function activeEntryId(
@@ -123,7 +123,7 @@ export function activeEntryId(
   return best
 }
 
-/** Everything before a route's first parameter: `/operations/runs/$id` is `/operations/runs`. */
+/** Everything before a route's first parameter: `/operations/updates/$id` is `/operations/updates`. */
 function fixedPart(to: string) {
   const parameter = to.indexOf("/$")
   return parameter === -1 ? to : to.slice(0, parameter)

@@ -20,11 +20,11 @@ describe("breadcrumbsFor", () => {
   })
 
   it("names the sections it knows and builds each href cumulatively", () => {
-    expect(breadcrumbsFor("/operations/runs/27")).toEqual([
+    expect(breadcrumbsFor("/operations/updates/27")).toEqual([
       { label: "Overview", href: "/" },
       { label: "Operations", href: "/operations" },
-      { label: "Run", href: "/operations/runs" },
-      { label: "27", href: "/operations/runs/27" },
+      { label: "Updates", href: "/operations/updates" },
+      { label: "27", href: "/operations/updates/27" },
     ])
   })
 

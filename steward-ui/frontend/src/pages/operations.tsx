@@ -6,9 +6,6 @@ import {
   ArrowsClockwiseIcon,
   CheckIcon,
   CopyIcon,
-  DatabaseIcon,
-  DownloadIcon,
-  FileTextIcon,
   PlayIcon,
   ProhibitInsetIcon,
   ShieldWarningIcon,
@@ -16,53 +13,35 @@ import {
   WarningIcon,
   XCircleIcon,
 } from "@phosphor-icons/react"
-import { useMemo, useState } from "react"
-import { cn } from "cn"
+import { useState } from "react"
 import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
-import type { AvailableChange, Backup, ReportChange, ReportLine, Run, ServiceTable } from "@/lib/api"
-import { archived } from "@/lib/backup-name"
-import { versionJump } from "@/lib/version-jump"
+import type { ReportChange, ReportLine, Run } from "@/lib/api"
 import {
-  LOCALE,
-  bytes,
   count,
   dateTime,
   duration,
-  load,
   parseInstant,
   relative,
-  since,
 } from "@/lib/format"
 import {
   useAskForRun,
-  useAvailable,
   useCancelRun,
-  useBackups,
-  useHost,
-  useRefreshAvailable,
   useRun,
-  useRuns,
-  useServices,
 } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { Actor } from "@/components/steward/entity"
 import {
-  AvailableBadge,
-  DriftBadge,
   RUN_KIND,
   RunStatus,
   StatusBadge,
-  held,
   type Tone,
 } from "@/components/steward/status"
-import { RecreateButton } from "@/components/steward/recreate"
 import {
   Empty,
-  Failure,
   Loading,
   QueryState,
   Skeleton,
@@ -82,19 +61,10 @@ import {
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import {
   Table,
@@ -106,7 +76,7 @@ import {
 } from "@/components/ui/table"
 
 /**
- * Operations - the five pages about runs, images, backups and the way back (concept §10a).
+ * The vocabulary of a run, shared by Updates, Backups and a service's own page (concept §10a).
  *
  * **A run is a row in `update_request`, never a call to a container.** Every button here writes one
  * and stops; the worker claims it once `not_before` has passed. That is what makes a run
@@ -208,7 +178,7 @@ function Change({ change }: { change: ReportChange }) {
     )
   }
   return (
-    // `flex-wrap`: MEASURED 2026-09-14 at 390px on /operations/runs/latest. A jar name, the old
+    // `flex-wrap`: MEASURED 2026-09-14 at 390px on a run's own page. A jar name, the old
     // version, an arrow and the new one is 180px of unbreakable content more than the card has,
     // and a flex row with nowhere to break puts the last two off the right edge of the phone.
     <span className="flex flex-wrap items-center gap-1.5">
@@ -267,7 +237,7 @@ function isMoving(change: ReportChange): boolean {
 }
 
 /** How long a run took - or, while it is still going, how long it has been going. */
-function runSeconds(run: Run): number | null {
+export function runSeconds(run: Run): number | null {
   const started = parseInstant(run.started)
   if (started == null) return null
   const finished = parseInstant(run.finished)
@@ -315,7 +285,7 @@ const CANCELLABLE_KINDS = new Set(["RESTART", "UPDATE", "BACKUP", "DOWN"])
  * Used to be one line joined with a middle dot; Till, 2026-09-16, ruled that separator out of the
  * UI entirely, so each fact now gets its own line instead of a shared one (steward/84).
  */
-function summaryOf(run: Run): string[] {
+export function summaryOf(run: Run): string[] {
   if (run.resultText) return ["report unreadable"]
   const report = run.report
   if (!report) return [run.status === "PENDING" ? "nothing written yet" : "–"]
@@ -498,228 +468,6 @@ export function AskButton({
   )
 }
 
-function AskBar() {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <AskButton kind="UPDATE" variant="default" />
-      <AskButton kind="BACKUP" />
-      <AskButton kind="RESTART" />
-      <StartHeldButton />
-    </div>
-  )
-}
-
-/** Every service that is stopped and meant to be, by name. */
-export function heldServices(table?: ServiceTable): string[] {
-  return (table?.services ?? []).filter(held).map((service) => service.service)
-}
-
-/**
- * One way back up for everything that was put down (steward/134).
- *
- * `/update start` without an argument exists for the case Till named when he built it: after a
- * restart, not knowing any more which services you held. In Steward the only way back was the
- * service page of each one in turn, which is the same errand done N times.
- *
- * **It sends no scope**, which is the whole point and not a shortcut: the worker lifts every hold
- * in `service_hold`, including one on a service this browser's table does not know about because
- * its answer is a minute old. A list assembled here would be a second opinion about what is held.
- *
- * **Below two holds it does not draw.** For a single one the service's own page is the shorter way
- * and carries the since and the by with it; a button that is always there is one nobody reads.
- */
-function StartHeldButton() {
-  const services = useServices()
-  const names = heldServices(services.data)
-  if (names.length < 2) return null
-  return <AskButton kind="START" label={`Start held (${names.length})`} />
-}
-
-// --- the drift table, shared by /operations and /operations/plan ---------------------------------------
-
-/**
- * Whatever wants attention first: OUTDATED, then UNKNOWN, then LOCAL, then UP_TO_DATE, then by
- * name. LOCAL sorts ahead of UP_TO_DATE deliberately - it is not an alarm, but it is worth noticing
- * before a screenful of ordinary rows (steward/75).
- */
-const DRIFT_RANK: Record<string, number> = { OUTDATED: 0, LOCAL: 2, UP_TO_DATE: 3 }
-
-/** Ten absent services, because this stack has ten. */
-const WAITING_SERVICES = Array.from({ length: 10 }, () => undefined)
-
-function DriftCard() {
-  const services = useServices()
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Images</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <QueryState
-          query={services}
-          empty={{
-            title: "No container in the project",
-            note: "steward-worker answered, but no container carries the compose project label.",
-          }}
-          isEmpty={(table: ServiceTable) => table.services.length === 0}
-        >
-          {(table) => {
-            const rows = table
-              ? [...table.services].sort(
-                  (left, right) =>
-                    (DRIFT_RANK[left.drift] ?? 1) - (DRIFT_RANK[right.drift] ?? 1) ||
-                    left.service.localeCompare(right.service, LOCALE),
-                )
-              : // Ten, because the stack has ten services. The number is a fact about this
-                // deployment and belongs beside the table that draws it, not in a shared constant
-                // that would then be wrong for the next list (steward/120).
-                WAITING_SERVICES
-            return (
-              <>
-                {table ? (
-                  <p className="text-xs text-muted-foreground">
-                    {table.drift.checkedAt
-                      ? `Registry last queried ${relative(table.drift.checkedAt)} (${dateTime(table.drift.checkedAt)}) - that is the age of this comparison, not of the row beside it.`
-                      : "The registry has not been queried yet; no row below is a comparison."}
-                  </p>
-                ) : (
-                  <SkeletonText className="text-xs" width="long" />
-                )}
-                {table?.drift.reached === false ? (
-                  <p className="flex items-start gap-2 text-xs text-warning">
-                    <WarningIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                    The registry could not be reached
-                    {table.drift.reason ? ` (${table.drift.reason})` : ""}.
-                    {table.drift.message ? ` ${table.drift.message}` : ""}
-                  </p>
-                ) : null}
-
-                <Table className="steward-table">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[14rem]">Service</TableHead>
-                      <TableHead>Image</TableHead>
-                      <TableHead className="w-[8rem]">Compared</TableHead>
-                      <TableHead className="w-[10rem] text-right">Container</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((service, index) => (
-                      <TableRow key={service?.service ?? index}>
-                        <TableCell data-label="Service" className="font-medium">
-                          {service ? (
-                            <Link
-                              to="/services/$name"
-                              params={{ name: service.service }}
-                              className="underline-offset-4 hover:text-primary hover:underline"
-                            >
-                              {service.service}
-                            </Link>
-                          ) : (
-                            <SkeletonText width="medium" />
-                          )}
-                        </TableCell>
-                        <TableCell data-label="Image" className="text-muted-foreground">
-                          {service ? (
-                            <code className="text-xs">{service.image}</code>
-                          ) : (
-                            <SkeletonText className="text-xs" width="long" />
-                          )}
-                        </TableCell>
-                        <TableCell data-label="Compared">
-                          {service ? <DriftBadge drift={service.drift} image={service.image}/> : <Skeleton className="h-5 w-16 rounded-full" />}
-                        </TableCell>
-                        <TableCell data-label="Container" className="text-right">
-                          {service ? <RecreateButton service={service.service} /> : null}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {table && table.drift.unverifiable.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Unchecked: {table.drift.unverifiable.join(", ")} - either the registry did not
-                    answer, or this container's exact image is no longer on file locally (its tag
-                    was rebuilt without recreating it). A build performed on this host and never
-                    published is its own row above, marked "local build", not listed here: that is
-                    a known answer, not an unanswered question.
-                  </p>
-                ) : null}
-              </>
-            )
-          }}
-        </QueryState>
-      </CardContent>
-    </Card>
-  )
-}
-
-// --- 1. /operations ---------------------------------------------------------------------------------
-
-/**
- * The overview: runs, images and backups on one page.
- *
- * Three questions, in this order: what happened last, is anything behind, and is there a backup I
- * could actually use. The third one comes last on screen and first in consequence - it is what
- * decides whether acting on the other two is safe.
- */
-export function OperationsPage() {
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Operations"
-        actions={<AskBar />}
-      />
-
-      <RunsCard />
-      <HostCard />
-      <DriftCard />
-    </div>
-  )
-}
-
-/**
- * The one number the front page dropped: `load1` (steward/80).
- *
- * Till asked what the CPU tile's "Load" figure meant and, once told it is the host's one-minute
- * load average and not a clock speed, decided it should not be on the front page at all - but the
- * number itself is not abolished, only moved to where there is room for the sentence that explains
- * it (steward/65 argued against dropping a number without a destination, and this is that
- * destination).
- */
-function HostCard() {
-  const host = useHost()
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Host</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <QueryState query={host}>
-          {(data) => (
-            <Stat
-              label="Load"
-              value={data ? load(data.load1) : undefined}
-              // No cpu count, no hint - "across - cores" is a half sentence (steward/123).
-              hint={
-                data?.cpus == null
-                  ? undefined
-                  : `1-minute average across ${count(data.cpus)} cores`
-              }
-            />
-          )}
-        </QueryState>
-      </CardContent>
-    </Card>
-  )
-}
-
-/** Eight absent runs: shorter than the twenty asked for, and taller than the card ever needs. */
-const WAITING_RUNS = Array.from({ length: 8 }, () => undefined)
-
 /**
  * Taking a run back, on the row it belongs to (steward/131).
  *
@@ -763,510 +511,41 @@ export function CancelButton({ run }: { run: Run }) {
   )
 }
 
-function RunsCard() {
-  const runs = useRuns(20)
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Runs</CardTitle>
-        <CardAction>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/operations/backups">
-                <ArchiveIcon aria-hidden />
-                Backups
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/operations/plan">
-                <FileTextIcon aria-hidden />
-                View the plan
-              </Link>
-            </Button>
-          </div>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        <QueryState
-          query={runs}
-          empty={{
-            title: "No run yet",
-            note: "There is no row in update_request - not from this interface, not from Discord, not from the worker's clock.",
-          }}
-          isEmpty={(rows: Run[]) => rows.length === 0}
-        >
-          {(rows) => (
-            <Table className="steward-table">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[5rem]">Run</TableHead>
-                  <TableHead className="w-[7rem]">Kind</TableHead>
-                  <TableHead className="w-[9rem]">Status</TableHead>
-                  <TableHead className="w-[14rem]">Requested by</TableHead>
-                  <TableHead className="w-[10rem]">When</TableHead>
-                  <TableHead className="w-[7rem] text-right">Duration</TableHead>
-                  <TableHead>Result</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(rows ?? WAITING_RUNS).map((run, index) => (
-                  <TableRow key={run?.id ?? index}>
-                    <TableCell data-label="Run" className="font-medium tnum">
-                      {run ? (
-                        <Link
-                          to="/operations/runs/$id"
-                          params={{ id: String(run.id) }}
-                          className="underline-offset-4 hover:text-primary hover:underline"
-                        >
-                          #{run.id}
-                        </Link>
-                      ) : (
-                        <SkeletonText width="short" />
-                      )}
-                    </TableCell>
-                    <TableCell data-label="Kind">
-                      {run ? (RUN_KIND[run.kind] ?? run.kind) : <SkeletonText width="medium" />}
-                    </TableCell>
-                    <TableCell data-label="Status">
-                      {run ? (
-                        <div className="flex items-center gap-1.5">
-                          <RunStatus status={run.status} />
-                          {run.report && ENDINGS.has(run.report.stage) === false ? (
-                            <StageBadge stage={run.report.stage} />
-                          ) : null}
-                          {cancellable(run) ? <CancelButton run={run} /> : null}
-                        </div>
-                      ) : (
-                        <Skeleton className="h-5 w-20 rounded-full" />
-                      )}
-                    </TableCell>
-                    <TableCell data-label="Requested by" className="truncate text-muted-foreground">
-                      {run ? (
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <Actor
-                            system={run.system}
-                            discordId={run.actorDiscordId}
-                            label={run.actorLabel}
-                          />
-                          <span className="shrink-0 text-xs">
-                            {SOURCE_LABEL[run.source] ?? run.source}
-                          </span>
-                        </span>
-                      ) : (
-                        <SkeletonText width="long" />
-                      )}
-                    </TableCell>
-                    <TableCell data-label="When"
-                      className="text-muted-foreground"
-                      title={run ? dateTime(run.requested) : undefined}
-                    >
-                      {run ? relative(run.requested) : <SkeletonText width="medium" />}
-                    </TableCell>
-                    <TableCell data-label="Duration" className="text-right tnum text-muted-foreground">
-                      {run ? duration(runSeconds(run)) : <SkeletonText width="short" className="ml-auto" />}
-                    </TableCell>
-                    <TableCell data-label="Result">
-                      {!run ? (
-                        <SkeletonText width="long" />
-                      ) : run.report?.stage === "NOTHING_TO_DO" ? (
-                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                          <ProhibitInsetIcon className="size-3.5 shrink-0" aria-hidden />
-                          nothing to do
-                        </span>
-                      ) : (
-                        <div className="flex flex-col gap-0.5">
-                          {summaryOf(run).map((part, index) => (
-                            <span key={index} className="truncate">
-                              {part}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </QueryState>
-      </CardContent>
-    </Card>
-  )
-}
+// --- /operations/updates/$id ---------------------------------------------------------------------
 
 /**
- * What a run would do, resolved on demand and never run (season-2-ops/128).
- *
- * <h2>The order is the point</h2>
- * A row that could not be asked sorts first, above the ones that merely have work in them. "the
- * source did not answer" and "nothing has changed" produce the same silence, and this page exists
- * to break that tie - `hasFailures` is drawn as a line of its own above the table for the same
- * reason, because a reader who scans a column of green ticks will not notice one grey badge in it.
- *
- * <h2>Why the age is in the header</h2>
- * The worker holds a reading for six hours and refreshes it behind whoever opened the page, so what
- * is drawn here is regularly the previous answer. Saying when it was taken is the difference
- * between a cache and a claim, and the refresh button next to it is the only way to shorten the
- * six hours from here (season-2-ops/142).
- */
-const AVAILABLE_RANK: Record<string, number> = {
-  UNRESOLVED: 0,
-  MOUNT_MISSING: 0,
-  OUTDATED: 1,
-  MISSING: 2,
-  UNSUPPORTED: 4,
-  UP_TO_DATE: 5,
-}
-
-/** Six absent rows - about what a resolve of this stack answers with. */
-const WAITING_CHANGES = Array.from({ length: 6 }, () => undefined)
-
-/**
- * The rows this card draws: work, failures, and the artefacts with no build for this platform.
- *
- * Sorted by the same rank as before, so a failure is read before an ordinary update.
- */
-function worthShowing(changes: AvailableChange[]): AvailableChange[] {
-  return changes
-    .filter((change) => change.work || change.failure || change.status === "UNSUPPORTED")
-    .sort(
-      (left, right) =>
-        (AVAILABLE_RANK[left.status] ?? 3) - (AVAILABLE_RANK[right.status] ?? 3) ||
-        (left.service ?? "").localeCompare(right.service ?? "", LOCALE) ||
-        left.artifact.localeCompare(right.artifact, LOCALE),
-    )
-}
-
-/**
- * One row's change, in as few characters as it can honestly be said.
- *
- * `1.5.3 → 1.6.0` when the two filenames come apart into a pair, and the filename in a monospace
- * face when they do not - drawn as a filename so it reads as the stopgap it is. Nothing installed
- * is `nothing → 1.6.0`, which is what a fresh volume looks like and is worth saying rather than
- * leaving blank.
- *
- * **An artefact with no pair at all gets a dash, not its note.** The one that has none on this
- * network is CoreProtect, and its note is a hundred-word paragraph about stable releases and
- * platforms - true, useful, and not something a table cell can hold. It is on the dash as a title,
- * and the badge beside it already carries the short version.
- */
-function Jump({ change }: { change: AvailableChange }) {
-  const jump = versionJump(change.installed, change.fileName, change.version)
-  if (jump) return <Pair from={jump.from} to={jump.to} exact={jump.exact} />
-
-  const wanted = change.version ?? change.fileName
-  if (wanted && !change.installed) {
-    return <Pair from="nothing" to={wanted} exact={change.version !== undefined} />
-  }
-  return (
-    <span className="text-xs" title={change.note}>
-      {change.installed ?? "–"}
-    </span>
-  )
-}
-
-/** The jump itself: two versions and an arrow, or two filenames when that is all there is. */
-function Pair({ from, to, exact }: { from: string; to: string; exact: boolean }) {
-  const face = exact ? "tnum" : "font-mono break-all"
-  return (
-    <span className="flex flex-wrap items-baseline gap-1 text-xs">
-      <span className={face}>{from}</span>
-      <ArrowRightIcon aria-hidden className="size-3 shrink-0 self-center text-muted-foreground" />
-      <span className={cn(face, "text-foreground")}>{to}</span>
-    </span>
-  )
-}
-
-/**
- * What a run would install, and nothing else (season-2-ops/142).
- *
- * <h2>Only the rows with something in them</h2>
- * This card used to list every artefact the resolve touched, thirty-odd lines of "up to date" with
- * the one interesting row somewhere inside. The owner asked on 2026-09-20 for only the services
- * that have an update to show at all. So the filter is {@code change.work}, which is the worker's
- * own opinion of what a run would act on, plus the two kinds of row that are not work and still
- * have to be read:
- *
- * <ul>
- *   <li><b>A failure</b> - a source that could not be asked. Hiding it would turn "this list is
- *       incomplete" into "there is nothing to do", which is the one confusion the whole resolve
- *       exists to prevent.</li>
- *   <li><b>{@code UNSUPPORTED}</b> - CoreProtect has no build for 26.2. That is the ticket's own
- *       named exception, and it earns its place for the same reason: it is the answer to "why is
- *       this plugin not on the list", asked once a month, and a row that disappears when it is
- *       nothing to worry about cannot answer it.</li>
- * </ul>
- *
- * <h2>The jump, not the bookkeeping</h2>
- * One column instead of two, `1.5.3 → 1.6.0`, derived by {@link versionJump} from the two
- * filenames rather than parsed out of either - see that file for why a guess is refused.
- */
-function AvailableCard() {
-  const available = useAvailable()
-  const refresh = useRefreshAvailable()
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-sm font-medium">Available</CardTitle>
-        <div className="flex items-center gap-2">
-          {available.data ? (
-            <span className="text-xs text-muted-foreground" title={dateTime(available.data.checkedAt)}>
-              Last checked {relative(available.data.checkedAt)}
-            </span>
-          ) : (
-            <SkeletonText className="w-32 text-xs" />
-          )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            // The cache holds six hours and this is the only way to shorten it. Disabled while it
-            // runs rather than hidden: the wait is the point, and a button that vanishes mid-press
-            // looks like it failed.
-            aria-label="Ask the sources again"
-            title="Ask the sources again. This takes a moment - it really asks them."
-            disabled={refresh.isPending}
-            onClick={() => refresh.mutate()}
-          >
-            <ArrowsClockwiseIcon aria-hidden className={refresh.isPending ? "animate-spin" : undefined} />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {refresh.error ? <Failure error={refresh.error} /> : null}
-        <QueryState
-          query={available}
-          empty={{
-            title: "Nothing to install",
-            note: "Every source answered and everything the network runs is what the source says is newest.",
-          }}
-          isEmpty={(plan) => worthShowing(plan.changes).length === 0}
-        >
-          {(plan) => {
-            const rows = plan ? worthShowing(plan.changes) : WAITING_CHANGES
-            return (
-              <>
-                {plan?.hasFailures ? (
-                  <p className="flex items-start gap-2 text-xs text-destructive">
-                    <WarningIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                    A source could not be asked, so this list is incomplete. Read it as "unknown",
-                    not as "nothing to do".
-                  </p>
-                ) : null}
-
-                <Table className="steward-table">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[10rem]">Service</TableHead>
-                      <TableHead>Plugin</TableHead>
-                      <TableHead className="w-[16rem]">Change</TableHead>
-                      <TableHead className="w-[9rem] text-right">State</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((change, index) => (
-                      <TableRow key={change ? `${change.service ?? "-"}/${change.artifact}` : index}>
-                        <TableCell data-label="Service" className="font-medium">
-                          {!change ? (
-                            <SkeletonText width="medium" />
-                          ) : change.service ? (
-                            <Link
-                              to="/services/$name"
-                              params={{ name: change.service }}
-                              className="underline-offset-4 hover:text-primary hover:underline"
-                            >
-                              {change.service}
-                            </Link>
-                          ) : (
-                            <span className="text-muted-foreground">resource pack</span>
-                          )}
-                        </TableCell>
-                        <TableCell data-label="Plugin">
-                          {change ? change.artifact : <SkeletonText width="long" />}
-                        </TableCell>
-                        <TableCell data-label="Change" className="text-muted-foreground">
-                          {change ? <Jump change={change} /> : <SkeletonText width="long" />}
-                        </TableCell>
-                        <TableCell data-label="State" className="text-right">
-                          {change ? (
-                            <AvailableBadge status={change.status} />
-                          ) : (
-                            <Skeleton className="ml-auto h-5 w-20 rounded-full" />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {plan && plan.unclaimed.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Claimed by nothing:{" "}
-                    {plan.unclaimed.map((one) => `${one.service}/${one.fileName}`).join(", ")} -
-                    installed by hand, or the same plugin under a name its publisher has changed. A
-                    run never touches these.
-                  </p>
-                ) : null}
-                {plan ? <Notes notes={plan.notes} /> : null}
-              </>
-            )
-          }}
-        </QueryState>
-      </CardContent>
-    </Card>
-  )
-}
-
-// --- 2. /operations/plan ----------------------------------------------------------------------------
-
-/**
- * What a run would change - now asked directly, rather than inferred from a run that is happening.
- *
- * **There is a dry run now, and it is the first card** (season-2-ops/128).
- * `GET /api/updates/available` asks Modrinth, GitHub and the Fill API what is newest and compares
- * it with the jars in the volumes - the same `Runs#resolve` a run begins with, which writes
- * nothing. No row in `update_request`, no container touched. Starting one is still a button, and
- * still a row.
- *
- * This page used to say in as many words that there was no dry run and that an invented preview
- * would be a lie. That was true of an invented one. This one is not invented: it is the worker's
- * own resolve, read without acting on it.
- *
- * The two older sources are kept below it, because they answer different questions: "Last resolved"
- * is a run that is happening right now, and the image comparison is about containers rather than
- * jars - neither is replaced by knowing what is newest. A run stands in `RESOLVING` or `PLANNED`
- * for seconds only, so "no resolved run" never meant there was nothing to do; now the card above it
- * says what there is.
- */
-export function OperationsPlanPage() {
-  const runs = useRuns(20)
-  const planned = (runs.data ?? []).find(
-    (run) => run.report?.stage === "PLANNED" || run.report?.stage === "RESOLVING",
-  )
-
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Plan"
-        actions={<AskButton kind="UPDATE" variant="default" />}
-      />
-
-      <AvailableCard />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Last resolved</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <QueryState
-            query={runs}
-            isEmpty={() => planned === undefined}
-            empty={{
-              title: "No run is in the plan right now",
-              note: `Among the last 20 rows there is none whose report still stands at "Resolving" or "Planned". What an update would do can therefore only be read here from the image comparison below.`,
-            }}
-            // `rows`: this card is a run's own report, and there is no report to lay out until it
-            // is known whether there is a run at all - the empty state is the usual answer.
-            rows={4}
-          >
-            {() => (
-            <>
-              <div className="flex flex-wrap items-center gap-4">
-                <Stat
-                  label="Run"
-                  value={
-                    <Link
-                      to="/operations/runs/$id"
-                      params={{ id: String(planned!.id) }}
-                      className="underline-offset-4 hover:text-primary hover:underline"
-                    >
-                      #{planned!.id}
-                    </Link>
-                  }
-                  hint={
-                    <span className="flex flex-col gap-0.5">
-                      <span>{RUN_KIND[planned!.kind] ?? planned!.kind}</span>
-                      <Actor
-                        system={planned!.system}
-                        discordId={planned!.actorDiscordId}
-                        label={planned!.actorLabel}
-                      />
-                    </span>
-                  }
-                />
-                <Stat
-                  label="Stage"
-                  value={<StageBadge stage={planned!.report!.stage} />}
-                  hint={`resolved ${relative(planned!.requested)}`}
-                />
-              </div>
-              <ReportLines lines={planned!.report!.services} />
-              <Notes notes={planned!.report!.notes} />
-            </>
-          )}
-          </QueryState>
-        </CardContent>
-      </Card>
-
-      <DriftCard />
-    </div>
-  )
-}
-
-// --- 3. /operations/runs/$id ------------------------------------------------------------------------
-
-/**
- * One run, drawn rather than dumped.
+ * One run, drawn rather than dumped - every kind but BACKUP, which has its own page under Backups.
  *
  * `useRun` polls every two seconds while the run is unfinished and stops by itself, so the report
  * grows on screen without a socket or an interval of this page's own.
- *
- * `$id` may also be the word `latest`, because the sidebar links there. It is resolved through
- * `useRuns(1)` before any run is asked for - without that, `GET /api/updates/latest` would die on
- * the backend's `Long.parseLong`.
  */
-export function OperationsRunPage() {
-  const { id } = useParams({ from: "/operations/runs/$id" })
-  const wantsNewest = id === "latest"
-  const newest = useRuns(1, wantsNewest)
-  const resolved = wantsNewest ? (newest.data?.[0]?.id?.toString() ?? "") : id
-  const numeric = /^\d+$/.test(resolved)
-  const run = useRun(resolved, numeric)
+export function UpdateRunPage() {
+  const { id } = useParams({ from: "/operations/updates/$id" })
+  const numeric = /^\d+$/.test(id)
+  const run = useRun(id, numeric)
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={numeric ? `Run #${resolved}` : "Run"}
+        title={numeric ? `Run #${id}` : "Run"}
         actions={
           <Button asChild variant="outline">
-            <Link to="/operations">
+            <Link to="/operations/updates">
               <ArrowRightIcon aria-hidden />
-              All runs
+              All updates
             </Link>
           </Button>
         }
       />
 
-      {/* `rows`: this is the lookup that turns the word "latest" into a number, and until it
-          answers there is not even a run to draw the shape of. */}
-      {wantsNewest && (newest.isPending || newest.error) ? (
-        <QueryState query={newest} rows={4}>{() => null}</QueryState>
-      ) : wantsNewest && !numeric ? (
-        <Empty
-          title="No run yet"
-          note={`There is no row in update_request for "latest" to point at.`}
-        />
-      ) : !numeric ? (
+      {!numeric ? (
         <Empty
           title="Not a run number"
-          note={`"${id}" is neither a number nor the word "latest". A run is addressed by the number of its row.`}
+          note={`"${id}" is not a number. A run is addressed by the number of its row.`}
         />
       ) : (
-        // "Unknown run" was an empty state here; the worker answers a missing row with a 404, which
-        // arrives as a failure with the number in it, and an answered query with no body is not a
-        // state this route can produce.
+        // The worker answers a missing row with a 404, which arrives as a failure with the number
+        // in it, and an answered query with no body is not a state this route can produce.
         <QueryState query={run}>{(data) => <RunDetail run={data} />}</QueryState>
       )}
     </div>
@@ -1545,7 +824,7 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
 }
 
 /** What the report has to say that hangs on no service: the pack, the migration, the reason. */
-function Notes({ notes }: { notes: string[] }) {
+export function Notes({ notes }: { notes: string[] }) {
   if (notes.length === 0) return null
   return (
     <div className="flex flex-col gap-1.5">
@@ -1563,317 +842,6 @@ function Notes({ notes }: { notes: string[] }) {
   )
 }
 
-// --- 4. /operations/backups/$id -------------------------------------------------------------------
-
-function ArchiveKind({ name }: { name: string }) {
-  const what = archived(name)
-  if (what.kind === "database") {
-    return (
-      <span className="flex items-center gap-1.5">
-        <DatabaseIcon className="size-3.5 shrink-0" aria-hidden />
-        Database
-      </span>
-    )
-  }
-  if (what.kind === "volume") {
-    return (
-      <span className="flex items-center gap-1.5">
-        <ArchiveIcon className="size-3.5 shrink-0" aria-hidden />
-        <span className="truncate">{what.subject}</span>
-      </span>
-    )
-  }
-  return <span className="text-muted-foreground">unknown</span>
-}
-
-/**
- * One backup.
- *
- * **The run beside it is inferred, not recorded.** No report carries the file name: a backup
- * run's line carries the volume name and a sentence like "saved 512.9 MiB in 4s". So this page
- * looks for a run that was running when the file was written and has a line for exactly that
- * volume - and says on screen that this is what it did. A confident "belongs to run #23" would be
- * wrong on the day two runs sit close together.
- */
-export function OperationsBackupPage() {
-  const { id } = useParams({ from: "/operations/backups/$id" })
-  const backups = useBackups()
-  const wantsNewest = id === "latest"
-
-  const backup = useMemo(() => {
-    const all = backups.data ?? []
-    if (!wantsNewest) return all.find((entry) => entry.name === id)
-    // "latest" means the newest FINISHED one: a .partial is not a backup, and sending the sidebar's
-    // link to a half-written file would be the one case where the word is actively misleading.
-    // NO FALLBACK TO all[0]. It used to be there, and it undid the line above it: a directory
-    // holding nothing but a backup that is still being written answered "latest" with that file,
-    // labelled "incomplete", on a page whose whole job is to say which backup there is.
-    return all.find((entry) => !entry.partial)
-  }, [backups.data, id, wantsNewest])
-
-  const runs = useRuns(50)
-  const match = useMemo(() => matchingRun(backup, runs.data ?? []), [backup, runs.data])
-
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={backup ? backup.name : "Backup"}
-        actions={
-          <Button asChild variant="outline">
-            <Link to="/operations/restore">
-              <DownloadIcon aria-hidden />
-              Restore
-            </Link>
-          </Button>
-        }
-      />
-
-      {backups.isPending || backups.error ? (
-        // `rows`: this page is one file out of the directory listing, and until the listing is
-        // here there is no telling whether there is a file to draw at all.
-        <QueryState query={backups} rows={4}>{() => null}</QueryState>
-      ) : backup === undefined ? (
-        <Empty
-          title={wantsNewest ? "No backup present" : "Unknown file"}
-          note={
-            wantsNewest
-              ? backups.data && backups.data.length > 0
-                ? "There is no finished file in the backup directory yet - what is there is being written or was aborted (.partial)."
-                : "There is no file in the backup directory."
-              : `"${id}" is not in the backup directory. The cleanup run may have taken it away by now.`
-          }
-        />
-      ) : (
-        <>
-          <Card>
-            <CardContent className="flex flex-wrap items-start gap-6 pt-6">
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  State
-                </span>
-                {backup.partial ? (
-                  <StatusBadge tone="warn">incomplete</StatusBadge>
-                ) : (
-                  <StatusBadge tone="ok">complete</StatusBadge>
-                )}
-                <span className="max-w-xs text-xs text-muted-foreground">
-                  {backup.partial
-                    ? "The file still carries the .partial suffix. Either it is being written, or the run died doing it - it cannot be restored."
-                    : "The file was read back once after writing, and only then renamed."}
-                </span>
-              </div>
-
-              <Separator orientation="vertical" className="h-14" />
-
-              <Stat
-                label="Taken"
-                value={dateTime(backup.modified)}
-                hint={relative(backup.modified)}
-              />
-              <Stat label="Age" value={since(backup.modified)} />
-              <Stat
-                label="Size"
-                value={bytes(backup.bytes)}
-                hint={`the worker calls it ${backup.human}`}
-              />
-              <div className="flex min-w-48 flex-col gap-1">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Contents
-                </span>
-                <span className="text-sm">
-                  <ArchiveKind name={backup.name} />
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {archived(backup.name).kind === "unknown"
-                    ? "The name follows neither of the two patterns the worker writes."
-                    : "Read from the file name - nobody looked inside the archive."}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium">The run behind it</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <QueryState
-                query={runs}
-                isEmpty={() => match === undefined}
-                empty={{
-                  title: "No matching run found",
-                  note: "Among the last 50 rows there is none that matches in time and name. That does not mean there was none - it means it is no longer among the last 50.",
-                }}
-              >
-                {(answer) => (
-                  <div className="flex flex-wrap items-center gap-4">
-                    <Stat
-                      label="Run"
-                      value={
-                        answer && match ? (
-                          <Link
-                            to="/operations/runs/$id"
-                            params={{ id: String(match.id) }}
-                            className="underline-offset-4 hover:text-primary hover:underline"
-                          >
-                            #{match.id}
-                          </Link>
-                        ) : undefined
-                      }
-                      hint={
-                        answer && match ? (
-                          <span className="flex flex-col gap-0.5">
-                            <span>{RUN_KIND[match.kind] ?? match.kind}</span>
-                            <Actor
-                              system={match.system}
-                              discordId={match.actorDiscordId}
-                              label={match.actorLabel}
-                            />
-                          </span>
-                        ) : undefined
-                      }
-                    />
-                    <Stat
-                      label="Status"
-                      value={answer && match ? <RunStatus status={match.status} /> : undefined}
-                    />
-                    <Stat
-                      label="Ran"
-                      value={answer && match ? dateTime(match.started) : undefined}
-                      hint={answer && match ? duration(runSeconds(match)) : undefined}
-                    />
-                    {answer && match ? (
-                      <Button asChild variant="outline" size="sm" className="ml-auto">
-                        <Link to="/operations/runs/$id" params={{ id: String(match.id) }}>
-                          <PlayIcon aria-hidden />
-                          View the report
-                        </Link>
-                      </Button>
-                    ) : null}
-                  </div>
-                )}
-              </QueryState>
-            </CardContent>
-          </Card>
-        </>
-      )}
-    </div>
-  )
-}
-
-/** A minute of slack on both ends, because the file's mtime is when the tar was closed. */
-const SLACK = 60 * 1000
-
-function matchingRun(backup: Backup | undefined, runs: Run[]): Run | undefined {
-  if (!backup) return undefined
-  const at = parseInstant(backup.modified)
-  const subject = archived(backup.name).subject
-  if (at == null || subject == null) return undefined
-
-  return runs.find((run) => {
-    const started = parseInstant(run.started)
-    if (started == null) return false
-    const ended = parseInstant(run.finished) ?? new Date()
-    if (at.getTime() < started.getTime() - SLACK) return false
-    if (at.getTime() > ended.getTime() + SLACK) return false
-    return (run.report?.services ?? []).some((line) => line.service === subject)
-  })
-}
-
-// --- 5. /operations/restore ----------------------------------------------------------------
-
-/**
- * This page restores nothing - and that is the decision, not a gap in it (concept §10a,
- * 2026-09-12).
- *
- * A restore is needed exactly when the stack is broken. `steward-ui` is part of the stack it would
- * be restoring: a button here works in every situation except the one it would exist for. A path
- * that fails in the emergency is not a path. So the page builds the finished command and a person
- * runs it on the host - which is where they would have to run it in the emergency anyway.
- */
-export function OperationsRestorePage() {
-  const backups = useBackups()
-  const [chosen, setChosen] = useState<string>("")
-  // What can actually be restored. A .partial is a file being written or a run that died in the
-  // middle of one, and restore.sh will not take it.
-  const restorable = useMemo(
-    () => (backups.data ?? []).filter((backup) => !backup.partial),
-    [backups.data],
-  )
-  const command = `sudo bash deploy/restore.sh ${chosen || "<archive>"}`
-
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Restore"
-      />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Choose an archive</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {backups.isPending || backups.error ? (
-            // `rows`: the control below is one select, and a skeleton select that becomes an empty
-            // state on most days would be a control offered and then withdrawn.
-            <QueryState query={backups} rows={3}>{() => null}</QueryState>
-          ) : restorable.length === 0 ? (
-            // The empty state is about what can be RESTORED, not about what lies there. A
-            // directory holding three .partial files used to draw a selector with three entries,
-            // every one of them disabled - a control that cannot be used and does not say why.
-            <Empty
-              title="No archive on the disk"
-              note={
-                (backups.data ?? []).length > 0
-                  ? "Every file in the backup directory still carries the .partial suffix: it is being written, or the run died doing it. None of them can be restored."
-                  : "There is no file in the backup directory that could be restored."
-              }
-            />
-          ) : (
-            <div className="flex max-w-xl flex-col gap-1.5">
-              <Label htmlFor="restore-archive">Backup</Label>
-              <Select value={chosen} onValueChange={setChosen}>
-                <SelectTrigger id="restore-archive" className="w-full">
-                  <SelectValue placeholder="Choose an archive…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {restorable.map((backup) => (
-                    <SelectItem key={backup.name} value={backup.name}>
-                      {backup.name} ({bytes(backup.bytes)}, {relative(backup.modified)})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Command
-            </span>
-            <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-[#0a0a0a] px-3 py-2 font-mono text-xs whitespace-pre">
-                {command}
-              </code>
-              <CopyButton text={command} disabled={!chosen} />
-            </div>
-            {/* TWO SENTENCES STAY HERE, and they are different in kind (2026-09-14). The
-                first is why there is no button, which is the ticket's named exception; the second
-                names a real danger, which is the fourth case that exception allows for. */}
-            <p className="max-w-prose text-xs text-muted-foreground">
-              Steward does not run it: it is a container in the stack it would be restoring.
-            </p>
-            <p className="max-w-prose text-xs text-warning">
-              A volume is overwritten, not added to - everything made since the backup is gone.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-    </div>
-  )
-}
-
 /**
  * Copy to clipboard, with the failure spelled out rather than swallowed.
  *
@@ -1881,7 +849,7 @@ export function OperationsRestorePage() {
  * button that silently does nothing on the one day it is not would be worse than no button - so the
  * command stays selectable in the block beside it and a failure says why.
  */
-function CopyButton({ text, disabled }: { text: string; disabled?: boolean }) {
+export function CopyButton({ text, disabled }: { text: string; disabled?: boolean }) {
   const [copied, setCopied] = useState(false)
 
   return (

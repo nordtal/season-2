@@ -15,6 +15,7 @@ import {
 import { NAVIGATION } from "@/app/navigation"
 import { RUN_KIND_SEARCH_TERMS } from "@/app/run-search-terms"
 import type { Run } from "@/lib/api"
+import { runPath } from "@/lib/run-path"
 import { dateTime, relative } from "@/lib/format"
 import {
   useConfigDocuments,
@@ -250,10 +251,7 @@ export function CommandPalette() {
                   keywords={[runSearchValue(run)]}
                   onSelect={() => {
                     setOpen(false)
-                    void navigate({
-                      to: "/operations/runs/$id",
-                      params: { id: String(run.id) },
-                    })
+                    void navigate(runPath(run))
                   }}
                   className="min-h-control gap-2.5"
                 >

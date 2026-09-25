@@ -183,8 +183,9 @@ describe("CommandPalette - Ctrl+K", () => {
  */
 describe("CommandPalette - finding a run (steward/52)", () => {
   it("still finds a page by its title - the behaviour before this ticket, unchanged", async () => {
+    // Restore is a dialog on Backups now, and the word still finds the page that holds it.
     await search("restore")
-    expect(screen.queryByText("Restore")).not.toBeNull()
+    expect(screen.queryByText("Backups")).not.toBeNull()
   })
 
   it('finds the failed backup run on "report" - Till\'s own sentence', async () => {
@@ -220,8 +221,9 @@ describe("CommandPalette - finding a run (steward/52)", () => {
     await search("report")
     const item = await screen.findByText(/Run #91/)
     fireEvent.click(item)
+    // The fixture is a BACKUP run, whose page is under Backups.
     expect(navigateSpy).toHaveBeenCalledWith({
-      to: "/operations/runs/$id",
+      to: "/operations/backups/$id",
       params: { id: "91" },
     })
   })

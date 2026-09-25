@@ -10,7 +10,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { toast } from "sonner"
 
-import { OperationsPage } from "@/pages/operations"
+import { UpdatesPage } from "@/pages/updates"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 // The toasts, read rather than drawn: `<Toaster />` lives in the shell and this test renders one
@@ -60,8 +60,20 @@ function backend(runs: unknown[], onCancel?: () => Response): typeof fetch {
     if (url === "/api/updates/cancel" && init?.method === "POST") {
       return onCancel ? onCancel() : json(200, { ...(runs[0] as object), status: "CANCELLED" })
     }
+    if (url.startsWith("/api/updates/available")) {
+      return json(200, {
+        checkedAt: new Date().toISOString(),
+        resolvedAt: new Date().toISOString(),
+        seasonPrerelease: false,
+        hasWork: false,
+        hasFailures: false,
+        changes: [],
+        unclaimed: [],
+        notes: [],
+      })
+    }
     if (url.startsWith("/api/updates")) return json(200, runs)
-    if (url === "/api/host") return json(200, { load1: 0.2, cpus: 4 })
+    if (url === "/api/config") return json(200, [])
     if (url === "/api/services") {
       return json(200, {
         services: [],
@@ -79,15 +91,13 @@ function draw() {
   const root = createRootRoute()
   const nothing = () => null
   const routeTree = root.addChildren([
-    createRoute({ getParentRoute: () => root, path: "/operations", component: OperationsPage }),
-    createRoute({ getParentRoute: () => root, path: "/operations/backups", component: nothing }),
-    createRoute({ getParentRoute: () => root, path: "/operations/plan", component: nothing }),
-    createRoute({ getParentRoute: () => root, path: "/operations/runs/$id", component: nothing }),
+    createRoute({ getParentRoute: () => root, path: "/operations/updates", component: UpdatesPage }),
+    createRoute({ getParentRoute: () => root, path: "/operations/updates/$id", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: nothing }),
   ])
   const router = createRouter({
     routeTree,
-    history: createMemoryHistory({ initialEntries: ["/operations"] }),
+    history: createMemoryHistory({ initialEntries: ["/operations/updates"] }),
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 

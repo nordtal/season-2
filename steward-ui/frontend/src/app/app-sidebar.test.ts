@@ -27,10 +27,9 @@ describe("activeEntryId - the longest match wins", () => {
   })
 
   it("picks the nested entry over its parent, which is the whole reason it is not a predicate", () => {
-    // /operations/plan matches "Overview" (/operations) and "Plan" (/operations/plan). Before the
-    // longest-match rule the sidebar drew both rows selected.
-    expect(activeEntryId("/operations/plan", NAVIGATION)).toBe("operations-plan")
-    expect(activeEntryId("/operations", NAVIGATION)).toBe("operations")
+    // /operations/updates/27 matches "Updates" by its fixed part; nothing shorter may win.
+    expect(activeEntryId("/operations/updates/27", NAVIGATION)).toBe("operations-updates")
+    expect(activeEntryId("/operations/backups", NAVIGATION)).toBe("operations-backups")
   })
 
   it("keeps the right service selected rather than all ten of them", () => {
@@ -40,11 +39,8 @@ describe("activeEntryId - the longest match wins", () => {
     expect(activeEntryId("/services/steward-worker", NAVIGATION)).toBe("service-steward-worker")
   })
 
-  it("keeps the Run row selected while you are reading a run that is not the one it links to", () => {
-    // "Run" links to /operations/runs/latest; run 27 must not deselect it.
-    const latest = activeEntryId("/operations/runs/latest", NAVIGATION)
-    expect(latest).not.toBeNull()
-    expect(activeEntryId("/operations/runs/27", NAVIGATION)).toBe(latest)
+  it("keeps Backups selected while you are reading one backup run", () => {
+    expect(activeEntryId("/operations/backups/27", NAVIGATION)).toBe("operations-backups")
   })
 
   it("answers null for a path that is in no group, so the sidebar draws no selection", () => {

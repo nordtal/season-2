@@ -9,7 +9,7 @@ import {
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { OperationsRunPage } from "@/pages/operations"
+import { UpdateRunPage } from "@/pages/operations"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
@@ -81,14 +81,14 @@ function draw() {
   const routeTree = root.addChildren([
     createRoute({
       getParentRoute: () => root,
-      path: "/operations/runs/$id",
-      component: OperationsRunPage,
+      path: "/operations/updates/$id",
+      component: UpdateRunPage,
     }),
-    createRoute({ getParentRoute: () => root, path: "/operations", component: () => null }),
+    createRoute({ getParentRoute: () => root, path: "/operations/updates", component: () => null }),
   ])
   const router = createRouter({
     routeTree,
-    history: createMemoryHistory({ initialEntries: ["/operations/runs/79"] }),
+    history: createMemoryHistory({ initialEntries: ["/operations/updates/79"] }),
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 

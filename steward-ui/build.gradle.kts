@@ -167,7 +167,13 @@ val glyphManifest = tasks.register<eu.nordtal.s2.build.GlyphManifest>("glyphMani
     target.set(layout.buildDirectory.dir("glyphs"))
 }
 
+// processResources copies, it does not sync: Vite hashes its file names, so every frontend build
+// would leave the previous bundle behind in build/resources/main/web, and the jar packs whatever is
+// there. Emptying web/ first makes the jar hold exactly the last Vite build. Nothing else writes
+// under web/, so nothing is lost.
 tasks.named<ProcessResources>("processResources") {
+    val webDirectory = destinationDir.resolve("web")
+    doFirst { webDirectory.deleteRecursively() }
     from(viteBuild) {
         into("web")
     }

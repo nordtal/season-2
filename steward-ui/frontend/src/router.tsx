@@ -14,6 +14,7 @@ import { SeasonPage } from "@/pages/season"
 import { JournalPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { OverviewPage } from "@/pages/overview"
 import { ChartsGalleryPage } from "@/app/designs/charts-gallery"
+import { TranslationsPage, translationsSearch } from "@/app/designs/translations/translations-page"
 
 /**
  * The route tree, written out rather than generated.
@@ -79,6 +80,13 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
   // The chart proposals for a service page's head, side by side. Goes with `app/designs/` once one is picked.
   createRoute({ getParentRoute: () => rootRoute, path: "/designs/charts", component: ChartsGalleryPage }),
+  // The three translation editors on real bundles. Goes with `app/designs/` once one is picked.
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/designs/translations",
+    component: TranslationsPage,
+    validateSearch: translationsSearch,
+  }),
 ]
 
 const routeTree = rootRoute.addChildren(routes)

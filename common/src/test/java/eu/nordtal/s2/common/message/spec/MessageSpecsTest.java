@@ -147,6 +147,23 @@ class MessageSpecsTest {
         assertTrue(problems.contains("duel.won: in en.properties, but no method declares it"), problems::toString);
     }
 
+    @MessageSpec("spec-test")
+    @Shown(Display.DISCORD_MESSAGE)
+    @Format(TextFormat.DISCORD_MARKDOWN)
+    interface Annotated {
+
+        @Name("Lost")
+        @Key("duel.lost")
+        MessageRef lost();
+    }
+
+    @Test
+    void formatAndPlaceOnTheSpecItselfReachTheSchema() {
+        final MessageSchema.Entry lost = MessageSchema.entries(Annotated.class).getFirst();
+        assertEquals(TextFormat.DISCORD_MARKDOWN, lost.format());
+        assertEquals(Display.DISCORD_MESSAGE, lost.shown());
+    }
+
     @Test
     void kebabCaseSplitsWordsAndDigitRuns() {
         assertEquals("no-such-member", MessageSpecs.kebab("noSuchMember"));

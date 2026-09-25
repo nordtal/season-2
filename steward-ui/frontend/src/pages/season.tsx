@@ -229,6 +229,7 @@ function DatesCard({ season }: { season?: Season }) {
           which="launch"
           label="Network launch"
           note="What the countdown before launch counts towards."
+          removal="The countdown and the start page go back to having no date. Nothing else moves."
           at={season?.launch}
           waiting={!season}
         />
@@ -236,6 +237,7 @@ function DatesCard({ season }: { season?: Season }) {
           which="smpStart"
           label="SMP launch"
           note="When the season properly begins."
+          removal="Access periods stay where they are, and the next date set moves every live one onto it - this is not an undo."
           at={season?.smpStart}
           waiting={!season}
         />
@@ -248,12 +250,15 @@ function DateField({
   which,
   label,
   note,
+  removal,
   at,
   waiting,
 }: {
   which: "launch" | "smpStart"
   label: string
   note: string
+  /** What removing this date does, in one sentence. The two dates differ exactly here. */
+  removal: string
   at?: string
   /** `at` is absent for two different reasons: no date is set, or none has arrived yet. */
   waiting?: boolean
@@ -262,6 +267,7 @@ function DateField({
   const [local, setLocal] = useState(saved)
   const change = useSetSeasonDate()
   const dirty = local !== saved
+  const [removing, setRemoving] = useState(false)
 
   // steward/120: the field is mounted before the answer, so its initial state is the empty string
   // and `useState` would keep it there for ever. Nothing is overwritten that somebody typed: this
@@ -299,12 +305,57 @@ function DateField({
         >
           Save
         </Button>
+        {/*
+          Reset while something is typed, Remove while nothing is: never both, so the row stays
+          one field and two buttons and does not wrap into three lines on a phone.
+        */}
         {dirty ? (
           <Button type="button" variant="ghost" size="sm" onClick={() => setLocal(toLocalInput(at))}>
             Reset
           </Button>
+        ) : at && !waiting ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={change.isPending}
+            onClick={() => setRemoving(true)}
+          >
+            Remove
+          </Button>
         ) : null}
       </div>
+      <ResponsiveAlertDialog open={removing} onOpenChange={setRemoving}>
+        <ResponsiveAlertDialogContent>
+          <ResponsiveAlertDialogHeader>
+            <ResponsiveAlertDialogTitle>Remove the {label.toLowerCase()} date?</ResponsiveAlertDialogTitle>
+            <ResponsiveAlertDialogDescription>{removal}</ResponsiveAlertDialogDescription>
+          </ResponsiveAlertDialogHeader>
+          {change.error ? <Failure error={change.error} /> : null}
+          <ResponsiveAlertDialogFooter>
+            <ResponsiveAlertDialogCancel disabled={change.isPending}>Cancel</ResponsiveAlertDialogCancel>
+            <ResponsiveAlertDialogAction
+              variant="destructive"
+              disabled={change.isPending}
+              onClick={(event) => {
+                event.preventDefault()
+                change.mutate(
+                  { which, at: null },
+                  {
+                    onSuccess: () => {
+                      setLocal("")
+                      setRemoving(false)
+                      toast.success(`${label} removed.`)
+                    },
+                  },
+                )
+              }}
+            >
+              {change.isPending ? "Removing…" : "Remove"}
+            </ResponsiveAlertDialogAction>
+          </ResponsiveAlertDialogFooter>
+        </ResponsiveAlertDialogContent>
+      </ResponsiveAlertDialog>
       {waiting ? (
         <SkeletonText className="text-sm" width="long" />
       ) : (
@@ -312,7 +363,7 @@ function DateField({
           {at ? `Saved: ${dateTime(at)} (${relative(at)})` : "No date set yet."}
         </p>
       )}
-      {change.error ? <Failure error={change.error} /> : null}
+      {change.error && !removing ? <Failure error={change.error} /> : null}
     </div>
   )
 }

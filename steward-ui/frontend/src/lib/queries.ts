@@ -1102,7 +1102,8 @@ export function useSetPhase() {
 export function useSetSeasonDate() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (change: { which: "launch" | "smpStart"; at: string }) =>
+    /** `at: null` removes the date: "none announced" is a state the countdown reads. */
+    mutationFn: (change: { which: "launch" | "smpStart"; at: string | null }) =>
       api<Season>("/api/season/date", { method: "POST", body: change }),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: keys.season })

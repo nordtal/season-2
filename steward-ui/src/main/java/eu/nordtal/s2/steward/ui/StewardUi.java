@@ -907,14 +907,21 @@ public final class StewardUi {
 
             cfg.routes.post("/api/season/date", ctx -> {
                 final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
-                if (ask == null || ask.at == null || ask.at.isBlank()) {
-                    throw new BadRequestResponse("at is the instant, as ISO-8601");
-                }
+                if (ask == null) throw new BadRequestResponse("The body is empty.");
+                // A null `at` is "no date": the state the start page and the MOTD countdown read
+                // before anything is announced, and the one `/phase ... clear` writes. A blank
+                // string is not that - it is a field somebody forgot to fill.
                 final Instant at;
-                try {
-                    at = Instant.parse(ask.at.trim());
-                } catch (java.time.format.DateTimeParseException e) {
-                    throw new BadRequestResponse(ask.at + " is not an ISO-8601 instant");
+                if (ask.at == null) {
+                    at = null;
+                } else if (ask.at.isBlank()) {
+                    throw new BadRequestResponse("at is the instant, as ISO-8601, or null to remove it");
+                } else {
+                    try {
+                        at = Instant.parse(ask.at.trim());
+                    } catch (java.time.format.DateTimeParseException e) {
+                        throw new BadRequestResponse(ask.at + " is not an ISO-8601 instant");
+                    }
                 }
                 final DiscordAuth.Account who = account(ctx).orElseThrow();
                 // PhaseDirectory documents this parameter as the admin's Discord id, and its SQL

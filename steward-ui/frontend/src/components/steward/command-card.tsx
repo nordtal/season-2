@@ -116,6 +116,14 @@ export function isAccessCommand(command: AdminCommand): boolean {
   return command.path[0] === "access"
 }
 
+/**
+ * The smp and hunger-games commands, which are designed controls on their service pages and are
+ * not drawn as commands anywhere.
+ */
+export function isServiceCommand(command: AdminCommand): boolean {
+  return command.path[0] === "smp" || command.path[0] === "hg"
+}
+
 /** Four absent commands, so the card waits at about the height it will have. */
 const PLACEHOLDERS: (AdminCommand | undefined)[] = [undefined, undefined, undefined, undefined]
 

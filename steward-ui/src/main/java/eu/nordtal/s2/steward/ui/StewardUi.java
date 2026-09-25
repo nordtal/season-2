@@ -192,6 +192,9 @@ public final class StewardUi {
 
     /** The admin commands that also exist in the game, over `command_request`. */
     private final CommandApi commands;
+
+    /** The SMP's and the hunger games' actions, over the same rows as {@link #commands}. */
+    private final GameActions games;
     private final AccessApi access;
 
     /** The one service allowed to create a container, asked for exactly one thing (10a.4). */
@@ -245,6 +248,7 @@ public final class StewardUi {
         this.guild = new DiscordApi(
                 new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
+        this.games = new GameActions(data == null ? null : data.dataSource(), commands);
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.deployments = new DeployerApi(deployer, data, ctx -> account(ctx).orElseThrow(),
                 !config.deployer().token().isBlank());
@@ -797,6 +801,15 @@ public final class StewardUi {
             cfg.routes.get("/api/commands", commands::list, Gate.KEY_HELD);
             cfg.routes.post("/api/commands", commands::ask, Gate.KEY_FRESH);
             cfg.routes.get("/api/commands/{id}", commands::outcome, Gate.KEY_HELD);
+
+            // --- the SMP's and the hunger games' actions, on their service pages -------------
+            //
+            // The same rows as above, asked for by what they act on rather than by command name.
+            cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);
+            cfg.routes.post("/api/smp/objective", games::completeObjective, Gate.KEY_FRESH);
+            cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH);
+            cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
+            cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_FRESH);
 
             // --- the configuration of every service in the stack ------------------------------
             //

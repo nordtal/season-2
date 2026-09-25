@@ -6,7 +6,7 @@ import type { Season } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
 import { useSeason, useSetPhase, useSetSeasonDate } from "@/lib/queries"
 import { SEASON_PHASES as PHASES, type SeasonPhaseName as PhaseName } from "@/lib/season-phases"
-import { CommandCard, isAccessCommand } from "@/components/steward/command-card"
+import { CommandCard, isAccessCommand, isServiceCommand } from "@/components/steward/command-card"
 import { PageHeader } from "@/components/steward/page-header"
 import { Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -57,7 +57,7 @@ export function SeasonPage() {
             <DatesCard season={current} />
             {/* Everything except `/access`, which has its own card on the page about
               * people. A season is not where somebody goes to settle a payment. */}
-            <CommandCard only={(command) => !isAccessCommand(command)} />
+            <CommandCard only={(command) => !isAccessCommand(command) && !isServiceCommand(command)} />
             <Alert>
               <ShieldWarningIcon aria-hidden />
               <AlertTitle>Nothing is carried between seasons.</AlertTitle>

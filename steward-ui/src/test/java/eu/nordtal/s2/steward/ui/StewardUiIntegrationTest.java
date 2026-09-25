@@ -1571,6 +1571,83 @@ class StewardUiIntegrationTest {
         }
     }
 
+    /**
+     * The service pages ask for what they act on - an objective, a milestone, a round - and never
+     * by command name. Only what can be acted on is offered and accepted: the open objectives of the
+     * active milestone and that milestone itself, because unlocking one further down the track by
+     * hand skips the ones before it.
+     */
+    @Test
+    @DisplayName("the smp and hunger-games actions are rows asked for by what they act on")
+    void gameActionsAreRowsWithoutACommandName() throws Exception {
+        try (var connection = data.dataSource().getConnection();
+             var statement = connection.createStatement()) {
+            statement.execute("""
+                    INSERT INTO smp_milestone (key, state) VALUES
+                        ('t-open', 'ACTIVE'), ('t-later', 'LOCKED'), ('t-done', 'UNLOCKED');
+                    INSERT INTO smp_objective (milestone_key, key, type, amount, target, completed) VALUES
+                        ('t-open', 't-iron', 'HAND_IN', 64, 128, NULL),
+                        ('t-open', 't-coal', 'STATISTIC', 10, 10, now()),
+                        ('t-later', 't-gold', 'HAND_IN', 0, 64, NULL);
+                    """);
+        }
+        try {
+            final JsonObject track = GSON.fromJson(get("/api/smp/track").body(), JsonObject.class);
+            final JsonArray active = track.getAsJsonArray("active");
+            assertEquals(1, active.size(), track.toString());
+            final JsonObject open = active.get(0).getAsJsonObject();
+            assertEquals("t-open", open.get("key").getAsString());
+            assertEquals(2, open.getAsJsonArray("objectives").size(), track.toString());
+
+            assertEquals(400, post("/api/smp/objective", "{\"key\":\"t-coal\"}").statusCode());
+            assertEquals(400, post("/api/smp/objective", "{\"key\":\"t-gold\"}").statusCode());
+            assertEquals(400, post("/api/smp/objective", "{}").statusCode());
+            assertEquals(400, post("/api/smp/milestone", "{\"key\":\"t-later\"}").statusCode());
+            assertEquals(400, post("/api/smp/milestone", "{\"key\":\"t-done\"}").statusCode());
+
+            assertRow(post("/api/smp/objective", "{\"key\":\"t-iron\"}"),
+                    "SMP", "smp objective complete", "t-iron");
+            assertRow(post("/api/smp/milestone", "{\"key\":\"t-open\"}"),
+                    "SMP", "smp milestone unlock", "t-open");
+            assertEquals("{}", get("/api/hunger-games/round").body());
+            try (var connection = data.dataSource().getConnection();
+                 var statement = connection.createStatement()) {
+                statement.execute("INSERT INTO hg_game (state) VALUES ('REGISTRATION')");
+            }
+            final JsonObject round = GSON.fromJson(get("/api/hunger-games/round").body(), JsonObject.class);
+            assertEquals("REGISTRATION", round.get("state").getAsString(), round.toString());
+            assertEquals(0, round.get("registered").getAsLong(), round.toString());
+            assertRow(post("/api/hunger-games/start", "{}"), "HUNGER_GAMES", "hg start", "");
+            assertRow(post("/api/hunger-games/start", "{\"confirm\":true}"),
+                    "HUNGER_GAMES", "hg start", "confirm");
+        } finally {
+            try (var connection = data.dataSource().getConnection();
+                 var statement = connection.createStatement()) {
+                statement.execute("DELETE FROM smp_milestone WHERE key LIKE 't-%'");
+                statement.execute("DELETE FROM hg_game");
+            }
+        }
+    }
+
+    private static void assertRow(final HttpResponse<String> asked, final String target,
+                                  final String command, final String arguments) throws Exception {
+        assertEquals(202, asked.statusCode(), asked.body());
+        final JsonObject answer = GSON.fromJson(asked.body(), JsonObject.class);
+        assertFalse(answer.has("name"), "the browser was told a command name: " + answer);
+        try (var connection = data.dataSource().getConnection();
+             var statement = connection.prepareStatement(
+                     "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
+            statement.setLong(1, Long.parseLong(answer.get("id").getAsString()));
+            try (var rows = statement.executeQuery()) {
+                assertTrue(rows.next(), "the row was not written");
+                assertEquals(target, rows.getString("target"));
+                assertEquals(command, rows.getString("command"));
+                assertEquals(arguments, rows.getString("arguments"));
+                assertEquals("WEB", rows.getString("source"));
+            }
+        }
+    }
+
     @Test
     @DisplayName("a command this interface may not ask for is refused, not written")
     void anUndeclaredCommandIsRefused() throws Exception {

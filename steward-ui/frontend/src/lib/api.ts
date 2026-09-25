@@ -1002,6 +1002,26 @@ export type CommandRun = {
   result?: string
 }
 
+/** `GET /api/smp/track` - the active milestones and their objectives, as the SMP holds them. */
+export type SmpTrack = {
+  active: {
+    key: string
+    objectives: {
+      key: string
+      type: "HAND_IN" | "STATISTIC" | "ADVANCEMENT"
+      amount: number
+      target: number
+      completed: boolean
+    }[]
+  }[]
+}
+
+/** `GET /api/hunger-games/round` - the open round, or nothing when none is open. */
+export type HungerGamesRound = {
+  state?: "REGISTRATION" | "COUNTDOWN" | "RUNNING"
+  registered?: number
+}
+
 // ---------------------------------------------------------------------------------------------
 // steward-deployer: one question and one verb (§10a.4).
 // ---------------------------------------------------------------------------------------------

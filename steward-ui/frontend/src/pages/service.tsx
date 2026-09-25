@@ -20,6 +20,7 @@ import {
 import { ServiceConsole } from "@/components/steward/console"
 import { ServiceSettings } from "@/components/steward/settings"
 import { ServicePlugins } from "@/components/steward/plugins"
+import { HungerGamesActions, SmpActions } from "@/components/steward/game-actions"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
@@ -166,6 +167,9 @@ export function ServicePage() {
           {/* The "unknown service" case is a 404 from the worker and arrives as a failure, which
               says the same thing with the name of the service in it. */}
           <QueryState query={service}>{(data) => <ServiceHead service={data} name={name} />}</QueryState>
+          {/* Their own area, not the header: the header's actions are about the container. */}
+          {name === "smp" ? <SmpActions /> : null}
+          {name === "hunger-games" ? <HungerGamesActions /> : null}
           <ServiceConsole
             name={name}
             hasConsole={service.data?.hasConsole ?? false}

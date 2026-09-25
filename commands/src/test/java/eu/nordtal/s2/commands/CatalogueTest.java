@@ -160,7 +160,7 @@ class CatalogueTest {
     void thereIsOneAdminList() {
         // discord_user.admin, mirrored from the Discord role, and the console: no permission nodes
         // and no second list. The exceptions are named one by one so that another does not arrive by
-        // accident: /smp status is the one read-only thing a player may ask the SMP.
+        // accident.
         //
         // /announce left this list on 2026-09-14. It had been here on the grounds that it is typed
         // by nobody - its surface is SYSTEM, no adapter registers it, and the only thing that can
@@ -178,10 +178,11 @@ class CatalogueTest {
         // THIS LIST IS THEREFORE SHORTER THAN IT WAS, and that is the change and not a regression;
         // the five still exist and a player still types them.
         //
-        // What remains is the two a non-admin can reach through a tree this module builds. /aura is
-        // the SMP's and /smp status is the proxy's; the allowlist takes vanilla's commands away, so
-        // ours have to cover what a player actually needs.
-        assertEquals(List.of("/smp status", "/aura"),
+        // /aura and /smp status followed on 2026-09-25, for the same reasons, into the smp plugin.
+        // Nothing is left: every declaration is an admin's, and what a player types is native
+        // Brigadier in the process that answers it. A declaration that turns up here again is a
+        // player command that found its way back into the framework, and has to say why.
+        assertEquals(List.of(),
                 Catalogue.all().stream()
                 .filter(declaration -> !declaration.adminOnly())
                 .map(Declaration::name)

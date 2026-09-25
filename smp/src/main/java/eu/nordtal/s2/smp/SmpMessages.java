@@ -280,6 +280,55 @@ public interface SmpMessages {
 
             @Name("Advancement")
             MessageRef advancement(@Arg("aura") Object aura);
+
+            @Name("Own")
+            MessageRef own(@Arg("aura") Object aura, @Arg("rank") Object rank, @Arg("total") Object total);
+
+            @Name("Top")
+            MessageRef top(@Arg("count") Object count);
+
+            @Name("Line")
+            MessageRef line(@Arg("place") Object place, @Arg("player") PlayerContext player, @Arg("aura") Object aura);
+
+            @Name("Empty")
+            MessageRef empty();
+
+            @Name("Unlinked")
+            MessageRef unlinked();
+
+            @Name("Failed")
+            MessageRef failed();
+        }
+
+        Status status();
+
+        @Name("Status")
+        interface Status {
+
+            @Name("Milestone")
+            MessageRef milestone(@Arg("milestone") MilestoneContext milestone, @Arg("percent") Object percent);
+
+            @Name("Finished")
+            MessageRef finished();
+
+            @Name("Online")
+            MessageRef online(@Arg("online") Object online);
+
+            @Name("Failed")
+            MessageRef failed();
+
+            @Key("online")
+            Online onlineSection();
+
+            @Name("Online")
+            interface Online {
+
+                @Name("None")
+                MessageRef none();
+
+                @Name("One")
+                MessageRef one();
+            }
         }
 
         Headstart headstart();

@@ -14,6 +14,7 @@ import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.commands.update.UpdateCommands;
 import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.papercommon.command.PaperCommands;
+import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.command.UpdateWatcher;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -23,12 +24,14 @@ import eu.nordtal.s2.smp.state.SeasonState;
 
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The SMP's Brigadier trees: its own six commands, plus everything another process runs.
+ * The SMP's Brigadier trees: its own commands, plus everything another process runs.
  *
  * <h2>What is left of this class</h2>
  * Almost nothing, and that is the point. It used to be three hundred lines holding a tree, an admin
@@ -63,7 +66,7 @@ public final class SmpCommand {
     public static List<LiteralCommandNode<CommandSourceStack>> build(
             final Plugin plugin, final Messages messages, final PlayerLocales locales,
             final Identities identities, final SmpSounds sounds, final Outbox outbox,
-            final SmpEffects effects, final UpdateWatcher updates,
+            final BukkitSmpEffects effects, final UpdateWatcher updates,
             final java.util.function.Supplier<MilestoneTrack> track,
             final SeasonState season, final java.util.function.Supplier<ToneColours> colours) {
 
@@ -110,7 +113,22 @@ public final class SmpCommand {
             commands.local(command, updateEffects);
         }
 
+        // /aura and /smp status: what a player types here, native rather than declared - see
+        // PlayerCommands. status hangs under the declared /smp root as an open subtree, which is
+        // also what keeps that root in a player's tree now that everything else under it is the
+        // console's.
+        final PlayerCommands own = new PlayerCommands(effects, effects, sender ->
+                sender instanceof Player player
+                        ? PaperUser.of(plugin, player, locales.of(player.getUniqueId()),
+                                identities.of(player.getUniqueId()).admin(),
+                                () -> identities.discordIdOf(player.getUniqueId()), messages,
+                                sounds::play, colours)
+                        : PaperUser.console(plugin, sender, messages, colours));
+        commands.extraOpen("smp", own.status());
+
         commands.remoteAll(Catalogue.all());
-        return commands.build();
+        final List<LiteralCommandNode<CommandSourceStack>> roots = new ArrayList<>(commands.build());
+        roots.add(own.aura());
+        return List.copyOf(roots);
     }
 }

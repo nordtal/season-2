@@ -401,7 +401,15 @@ public final class UpdateCommand extends ListenerAdapter {
                 notes.add(Card.bold(line.service()) + " " + Card.escape(line.detail()));
             }
         }
-        report.notes().forEach(note -> notes.add(Card.escape(note)));
+        for (final String note : report.notes()) {
+            // A note of several lines is a page rendered for a terminal - steward-worker's "what was
+            // done" table - and says again what the service lines above already say, in a shape
+            // that only reads in a monospaced font. Cut into a field it is a wall of text; Steward's
+            // log has it in full.
+            if (!note.isBlank() && note.strip().indexOf('\n') < 0) {
+                notes.add(Card.escape(note.strip()));
+            }
+        }
         card.block(messages.format(locale, MESSAGES.update().embed().services()), lines, more);
         card.block(messages.format(locale, MESSAGES.update().embed().notes()), notes, more);
         return card.build();

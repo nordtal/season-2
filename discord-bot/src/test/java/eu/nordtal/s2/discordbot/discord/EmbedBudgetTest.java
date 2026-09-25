@@ -96,6 +96,21 @@ class EmbedBudgetTest {
     }
 
     @Test
+    @DisplayName("a note that is a page rendered for a terminal is left to Steward's log")
+    void aTerminalPageIsNotANote() {
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
+                .withNote("proxy: release v0.9.5 carries no proxy-<version>.jar")
+                .withNote("what was done\n\nproxy\n  proxy   unchanged   proxy-0.9.5.jar\n");
+        final MessageEmbed embed = UpdateCommand.fields(report, request(), messages, Locale.ENGLISH);
+
+        final String notes = embed.getFields().stream().filter(field -> "Notes".equals(field.getName()))
+                .map(MessageEmbed.Field::getValue).findFirst().orElseThrow();
+        assertTrue(notes.contains("carries no proxy"), "a one-line note is drawn");
+        assertFalse(notes.contains("what was done"), "the table repeats the service lines in a"
+                + " shape only a monospaced font reads");
+    }
+
+    @Test
     @DisplayName("a run too big for one embed counts what it leaves out, and never draws a code block")
     void theWorstCaseSummarises() {
         final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request(),

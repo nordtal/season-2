@@ -13,6 +13,7 @@ import { ServicePage, serviceSearch } from "@/pages/service"
 import { SeasonPage } from "@/pages/season"
 import { JournalPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { OverviewPage } from "@/pages/overview"
+import { ChartsGalleryPage } from "@/app/designs/charts-gallery"
 
 /**
  * The route tree, written out rather than generated.
@@ -76,6 +77,8 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
+  // The chart proposals for a service page's head, side by side. Goes with `app/designs/` once one is picked.
+  createRoute({ getParentRoute: () => rootRoute, path: "/designs/charts", component: ChartsGalleryPage }),
 ]
 
 const routeTree = rootRoute.addChildren(routes)

@@ -3,6 +3,7 @@ import {
   CalendarIcon,
   CreditCardIcon,
   HardDrivesIcon,
+  MegaphoneIcon,
   PlayIcon,
   PulseIcon,
   SlidersHorizontalIcon,
@@ -175,6 +176,14 @@ export const NAVIGATION: NavGroup[] = [
         note: "Phase, dates, and what a season change resets.",
         icon: CalendarIcon,
         keywords: ["season", "phase", "reset", "launch"],
+      },
+      {
+        id: "announcements",
+        label: "Announcements",
+        to: "/announcements",
+        note: "Write an announcement in every language, and read the latest ones.",
+        icon: MegaphoneIcon,
+        keywords: ["announce", "announcement", "discord", "news", "broadcast"],
       },
       {
         id: "access",

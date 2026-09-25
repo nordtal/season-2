@@ -1629,6 +1629,52 @@ class StewardUiIntegrationTest {
         }
     }
 
+    /**
+     * One form, one row per language, and nothing written when any language is missing its text -
+     * an announcement that went out in one language of two is the mistake the form is for.
+     */
+    @Test
+    @DisplayName("an announcement is one row per language, and read back with the SMP's own")
+    void anAnnouncementIsOneRowPerLanguage() throws Exception {
+        final long before = count("SELECT count(*) FROM command_request WHERE command = 'announce'");
+        assertEquals(400, post("/api/announcements", "{\"texts\":{}}").statusCode());
+        assertEquals(400, post("/api/announcements",
+                "{\"texts\":{\"en\":\"Hello\",\"de\":\"  \"}}").statusCode());
+        assertEquals(400, post("/api/announcements", "{\"texts\":{\"EN x\":\"Hello\"}}").statusCode());
+        assertEquals(400, post("/api/announcements",
+                "{\"texts\":{\"en\":\"" + "x".repeat(Announcements.MAX_LENGTH + 1) + "\"}}").statusCode());
+        assertEquals(before, count("SELECT count(*) FROM command_request WHERE command = 'announce'"),
+                "a refused announcement wrote a row");
+
+        final HttpResponse<String> sent = post("/api/announcements",
+                "{\"texts\":{\"en\":\"The end opens tonight.\",\"de\":\"Das Ende öffnet heute Abend.\"}}");
+        assertEquals(202, sent.statusCode(), sent.body());
+        final JsonObject ids = GSON.fromJson(sent.body(), JsonObject.class).getAsJsonObject("ids");
+        assertEquals(2, ids.size(), sent.body());
+        for (final String tag : List.of("en", "de")) {
+            try (var connection = data.dataSource().getConnection();
+                 var statement = connection.prepareStatement(
+                         "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
+                statement.setLong(1, Long.parseLong(ids.get(tag).getAsString()));
+                try (var rows = statement.executeQuery()) {
+                    assertTrue(rows.next(), "no row for " + tag);
+                    assertEquals("BOT", rows.getString("target"));
+                    assertEquals("announce", rows.getString("command"));
+                    assertTrue(rows.getString("arguments").startsWith(tag + " "), rows.getString("arguments"));
+                    assertEquals("WEB", rows.getString("source"));
+                }
+            }
+        }
+
+        final JsonArray recent = GSON.fromJson(get("/api/announcements").body(), JsonObject.class)
+                .getAsJsonArray("recent");
+        final JsonObject newest = recent.get(0).getAsJsonObject();
+        assertEquals("de", newest.get("language").getAsString(), recent.toString());
+        assertEquals("Das Ende öffnet heute Abend.", newest.get("text").getAsString());
+        assertEquals("PENDING", newest.get("status").getAsString());
+        assertEquals("en", recent.get(1).getAsJsonObject().get("language").getAsString());
+    }
+
     private static void assertRow(final HttpResponse<String> asked, final String target,
                                   final String command, final String arguments) throws Exception {
         assertEquals(202, asked.statusCode(), asked.body());

@@ -871,6 +871,21 @@ export type ConfigEntry = {
   protectedEntry?: ConfigProtectedEntry
 }
 
+/** One announcement row, the SMP's or an admin's - `GET /api/announcements`. */
+export type Announcement = {
+  id: string
+  language: string
+  text: string
+  /** `CONSOLE` for a line a server wrote by itself, `WEB` for one written here. */
+  source: string
+  requestedBy: string
+  requested: string
+  status: CommandRun["status"]
+  result?: string
+}
+
+export type Announcements = { recent: Announcement[] }
+
 /**
  * One role or channel of the guild, as the pickers offer it.
  *

@@ -11,6 +11,7 @@ import {
 import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
 import { ServicePage, serviceSearch } from "@/pages/service"
 import { SeasonPage } from "@/pages/season"
+import { AnnouncementsPage } from "@/pages/announcements"
 import { JournalPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { OverviewPage } from "@/pages/overview"
 import { ChartsGalleryPage } from "@/app/designs/charts-gallery"
@@ -75,6 +76,7 @@ const routes = [
   // Nor a `/settings` (2026-09-24): its account half is the popover behind the round picture, and
   // the thresholds it showed are set in the notifications dialog beside it.
   createRoute({ getParentRoute: () => rootRoute, path: "/season", component: SeasonPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/announcements", component: AnnouncementsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),

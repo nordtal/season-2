@@ -195,6 +195,8 @@ public final class StewardUi {
 
     /** The SMP's and the hunger games' actions, over the same rows as {@link #commands}. */
     private final GameActions games;
+    /** Announcements written by hand, over the same rows as {@link #commands}. */
+    private final Announcements announcements;
     private final AccessApi access;
 
     /** The one service allowed to create a container, asked for exactly one thing (10a.4). */
@@ -249,6 +251,7 @@ public final class StewardUi {
                 new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
+        this.announcements = new Announcements(data == null ? null : data.dataSource(), commands);
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.deployments = new DeployerApi(deployer, data, ctx -> account(ctx).orElseThrow(),
                 !config.deployer().token().isBlank());
@@ -810,6 +813,8 @@ public final class StewardUi {
             cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH);
             cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
             cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_FRESH);
+            cfg.routes.get("/api/announcements", announcements::recent, Gate.KEY_HELD);
+            cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH);
 
             // --- the configuration of every service in the stack ------------------------------
             //

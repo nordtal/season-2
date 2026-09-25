@@ -1,9 +1,9 @@
 package eu.nordtal.s2.proxy.launch;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -106,6 +106,6 @@ public final class LaunchCountdown {
      */
     public static Component component(final Messages messages, final Locale locale,
                                       final Instant launch, final Instant now) {
-        return MiniMessage.miniMessage().deserialize(sentence(messages, locale, launch, now));
+        return MessageRenderer.parse(sentence(messages, locale, launch, now));
     }
 }

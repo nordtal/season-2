@@ -146,6 +146,40 @@ public final class Glyphs {
     /** In front of a line the whole server is told: a milestone, an objective, a restart. */
     public static final String ICON_ANNOUNCE = cp(0xFE085);
 
+    /**
+     * The glyphs of {@code minecraft:default} by name, in the order an editor offers them - what a
+     * message writes as {@code <glyph:name>}. Read from {@code glyph-names.txt} beside this class,
+     * because the steward-ui build reads the same file for its menu and cannot read Java.
+     */
+    public static java.util.Map<String, String> named() {
+        return Named.TABLE;
+    }
+
+    private static final class Named {
+        private static final java.util.Map<String, String> TABLE = load();
+
+        private static java.util.Map<String, String> load() {
+            final java.util.Map<String, String> table = new java.util.LinkedHashMap<>();
+            try (var in = Glyphs.class.getResourceAsStream("glyph-names.txt")) {
+                if (in == null) {
+                    throw new IllegalStateException("glyph-names.txt is missing beside Glyphs");
+                }
+                for (final String line : new String(in.readAllBytes(),
+                        java.nio.charset.StandardCharsets.UTF_8).split("\n")) {
+                    final String trimmed = line.strip();
+                    if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                        continue;
+                    }
+                    final String[] parts = trimmed.split("\\s+");
+                    table.put(parts[0], cp(Integer.parseInt(parts[1], 16)));
+                }
+            } catch (final java.io.IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            return java.util.Collections.unmodifiableMap(table);
+        }
+    }
+
     // === nordtal:board ===
     // The objective board and aura leaderboard's frame. A dedicated font rather than
     // minecraft:default: the tiled segments need their own negative-advance space provider to close

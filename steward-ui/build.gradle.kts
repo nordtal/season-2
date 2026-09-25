@@ -156,9 +156,23 @@ tasks.named("check") {
     dependsOn(viteTest)
 }
 
+// The glyphs a message can name, for the translation editor's menu: served under /glyphs/, next to
+// the frontend rather than inside it, because Vite cannot read across the repository and the pack's
+// textures are not copied into the source tree.
+val glyphManifest = tasks.register<eu.nordtal.s2.build.GlyphManifest>("glyphManifest") {
+    group = "build"
+    description = "Writes the named glyphs of minecraft:default with their textures."
+    names.set(rootProject.layout.projectDirectory.file("common/src/main/resources/eu/nordtal/s2/common/glyph-names.txt"))
+    assets.set(rootProject.layout.projectDirectory.dir("resource-pack/src/assets"))
+    target.set(layout.buildDirectory.dir("glyphs"))
+}
+
 tasks.named<ProcessResources>("processResources") {
     from(viteBuild) {
         into("web")
+    }
+    from(glyphManifest) {
+        into("web/glyphs")
     }
 }
 

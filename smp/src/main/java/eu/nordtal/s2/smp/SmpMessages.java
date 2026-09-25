@@ -311,6 +311,9 @@ public interface SmpMessages {
             @Name("Finished")
             MessageRef finished();
 
+            @Name("Unread")
+            MessageRef unread();
+
             @Name("Online")
             MessageRef online(@Arg("online") Object online);
 

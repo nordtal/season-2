@@ -137,7 +137,10 @@ public final class PlayerCommands {
                 return;
             }
             user.reply(CommandMessages.MESSAGES.phase().current(status.phase()), Tone.NEUTRAL);
-            if (status.milestone().isPresent()) {
+            if (!status.read()) {
+                // The first second after enable: an empty milestone here would read as "finished".
+                user.reply(MESSAGES.smp().status().unread(), Tone.MUTED);
+            } else if (status.milestone().isPresent()) {
                 user.reply(MESSAGES.smp().status().milestone(new MilestoneContext(status.milestone().get()),
                         status.percent()), Tone.NEUTRAL);
             } else {

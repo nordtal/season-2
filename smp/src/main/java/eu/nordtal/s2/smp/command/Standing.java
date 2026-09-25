@@ -17,12 +17,14 @@ public interface Standing {
      * What {@code /smp status} says.
      *
      * @param phase     the season phase's name, as {@code SeasonPhase#name()}
+     * @param read      false before the plugin's first season refresh, when neither the milestone
+     *                  nor "finished" is known yet
      * @param milestone the active milestone's display name in the asker's language, or empty when
      *                  every milestone is done
      * @param percent   how far the active milestone is, 0-100, meaningless when it is empty
      * @param online    how many players are on the SMP right now
      */
-    record Status(String phase, Optional<String> milestone, int percent, int online) {
+    record Status(String phase, boolean read, Optional<String> milestone, int percent, int online) {
     }
 
     /**

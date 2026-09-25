@@ -1169,6 +1169,11 @@ services:
     # runs the network without it runs a network nobody can reach. `mc` is therefore not a
     # convenience here - it is what keeps `db,bot,mc,backup` a complete deployment.
     #
+    # IT DOES NOT MAKE STEWARD OPTIONAL. The one caddyfile below carries the interface's site and
+    # its ACME address as well as the guard, so STEWARD_HOST and STEWARD_ACME_EMAIL are required on
+    # every installation, `steward` in the profile list or not. Running the network means running
+    # Steward, which since the admin tree moved into it is the only way to administer it anyway.
+    #
     # AND IT IS IN NO PROFILE AN UPDATE RUN TOUCHES, which is the other half of the same ticket. A
     # run stops services by name out of Topology.SERVICES, and this one is not in it - a guard that
     # restarted with the proxy would have moved the dead port rather than closed it.

@@ -53,6 +53,12 @@ compose pulls every one of them. The `build:` blocks in `compose.yml` are for de
 machine: **a deploy pulls and never builds**, so an image that only exists in one host's
 Docker fails the deploy with `error from registry: denied`.
 
+**Running the network means running Steward.** Caddy is the guard in front of the game port as well
+as the interface's front door, so it is in the `mc` profile too, and its one configuration carries
+both: the certificate for `STEWARD_HOST`, requested with `STEWARD_ACME_EMAIL`. Both are required on
+every installation, including one whose `COMPOSE_PROFILES` leaves `steward` out, and
+`deploy/nordtal.sh` asks for them unconditionally.
+
 ### Once, before the first deployment
 
 1. **Publish the release.** Tag it, publish it on GitHub, and let `release.yml` finish. It attaches
@@ -698,8 +704,9 @@ counter-command is `deploy/dev stop`.
   working on. The first `deploy/dev up` still has to have happened — `ui` starts containers, it
   does not build jars.
 - **The three steward services are named, never added to `COMPOSE_PROFILES`.** Naming a service
-  activates its profile, so nothing here needs `--profile`; putting `steward` in the profile list
-  would bring Caddy with it, and a laptop has no certificate for it to fetch.
+  activates its profile, so nothing here needs `--profile`. Caddy comes up with `mc` anyway, as
+  the guard in front of the game port; for `steward.localhost` it issues its own local certificate
+  and asks Let's Encrypt nothing.
 - **`PACK_PORT` is 8081 because `STEWARD_UI_PORT` is 8080.** Both defaulted to 8080, and with
   `devpack` on and the interface up they are on at the same time now. `deploy/dev ui` refuses to
   start when the two are equal rather than letting Docker explain it three services later.

@@ -72,7 +72,7 @@ public final class MessageRenderer {
 
     /** @return the message at {@code key}, parsed as MiniMessage */
     public Component get(final Locale locale, final String key) {
-        return MiniMessage.miniMessage().deserialize(messages.get(locale, key));
+        return parse(messages.get(locale, key));
     }
 
     /**
@@ -148,10 +148,7 @@ public final class MessageRenderer {
             escaped.put(String.valueOf(parameters[i]), escape(String.valueOf(parameters[i + 1])));
         }
         final String raw = messages.format(locale, key, escaped);
-        if (components.isEmpty()) {
-            return MiniMessage.miniMessage().deserialize(raw);
-        }
-        final TagResolver.Builder resolver = TagResolver.builder();
+        final TagResolver.Builder resolver = TagResolver.builder().resolver(GlyphTag.RESOLVER);
         components.forEach((name, value) -> resolver.resolver(Placeholder.component(name, value)));
         return MiniMessage.miniMessage().deserialize(raw, resolver.build());
     }
@@ -175,6 +172,17 @@ public final class MessageRenderer {
             }
         }
         return format(locale, message.key(), components, java.util.Arrays.copyOf(parameters, index));
+    }
+
+    /**
+     * Parses a bundle text that was put together elsewhere, with every tag a bundle may use -
+     * {@code <glyph:name>} included, which plain {@code MiniMessage.deserialize} does not know.
+     *
+     * @param text MiniMessage whose substituted values were already {@link #escape}d
+     * @return the parsed component
+     */
+    public static Component parse(final String text) {
+        return MiniMessage.miniMessage().deserialize(text, GlyphTag.RESOLVER);
     }
 
     /**

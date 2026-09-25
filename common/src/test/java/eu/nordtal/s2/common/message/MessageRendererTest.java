@@ -58,6 +58,37 @@ class MessageRendererTest {
     }
 
     @Test
+    @DisplayName("a glyph tag names a glyph and draws it in the default font")
+    void aGlyphTagDrawsTheGlyph() {
+        final Component rendered = RENDER.get(Locale.ENGLISH, "glyph");
+        assertEquals(eu.nordtal.s2.common.Glyphs.TAG_ADMIN + " Admin", plain(rendered));
+        assertTrue(fonts(rendered).contains(net.kyori.adventure.key.Key.key("minecraft", "default")),
+                "the glyph named no font, so a surrounding font would draw something else there");
+    }
+
+    @Test
+    @DisplayName("a glyph tag with a name nobody knows stays visible as text")
+    void anUnknownGlyphStaysText() {
+        assertEquals("<glyph:nope> here", plain(RENDER.get(Locale.ENGLISH, "glyph-unknown")));
+    }
+
+    @Test
+    @DisplayName("a value cannot draw a glyph")
+    void aValueCannotDrawAGlyph() {
+        assertEquals("Hello <glyph:admin>",
+                plain(RENDER.format(Locale.ENGLISH, "glyph-in-value", "name", "<glyph:admin>")));
+    }
+
+    private static java.util.Set<net.kyori.adventure.key.Key> fonts(final Component component) {
+        final java.util.Set<net.kyori.adventure.key.Key> out = new java.util.HashSet<>();
+        if (component.font() != null) {
+            out.add(component.font());
+        }
+        component.children().forEach(child -> out.addAll(fonts(child)));
+        return out;
+    }
+
+    @Test
     @DisplayName("a component value arrives as a component, not as its text")
     void componentValuesKeepTheirStyle() {
         final Component rendered = RENDER.format(Locale.ENGLISH, "composed",

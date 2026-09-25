@@ -1,0 +1,32 @@
+# The names of the glyphs in minecraft:default, in the order Steward's editor offers them.
+# A message draws one with <glyph:name>; the steward-ui build reads this file for its glyph menu.
+# One line per glyph: the name, then its code point. GlyphNamesTest holds every line to Glyphs and
+# to default.json, and every glyph of default.json to exactly one line.
+admin FE004
+donor-star FE000
+logo FE020
+logo-large FE021
+flag-other FE010
+flag-germany FE011
+flag-netherlands FE012
+flag-united-kingdom FE013
+flag-united-states FE014
+crest-1 FE030
+crest-2 FE031
+crest-3 FE032
+crest-4 FE033
+crest-5 FE034
+crest-6 FE035
+crest-7 FE036
+crest-8 FE037
+crest-9 FE038
+crest-10 FE039
+crest-11 FE03A
+crest-12 FE03B
+crest-13 FE03C
+separator FE080
+join FE081
+leave FE082
+death FE083
+advancement FE084
+announce FE085

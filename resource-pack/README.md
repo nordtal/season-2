@@ -9,6 +9,11 @@ handful of vanilla overrides.
 below — a change is a change in all of them, in one commit, and `ResourcePackTest` holds them
 against each other on every build.
 
+A glyph of `minecraft/font/default.json` also has a **name**, which is what a message writes as
+`<glyph:name>` and what Steward's translation editor offers. The names are
+`common/src/main/resources/eu/nordtal/s2/common/glyph-names.txt`, and `GlyphNamesTest` fails a
+build in which a glyph of that font has no name or a name points at nothing.
+
 ## Building and deploying
 
 This is a module of the [season-2](../) build. From the repository root:

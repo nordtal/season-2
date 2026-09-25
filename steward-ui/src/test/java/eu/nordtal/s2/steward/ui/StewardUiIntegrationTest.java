@@ -1647,7 +1647,7 @@ class StewardUiIntegrationTest {
                 "a refused announcement wrote a row");
 
         final HttpResponse<String> sent = post("/api/announcements",
-                "{\"texts\":{\"en\":\"The end opens tonight.\",\"de\":\"Das Ende öffnet heute Abend.\"}}");
+                "{\"texts\":{\"en\":\"The end opens tonight.\",\"de\":\"The second language, tonight.\"}}");
         assertEquals(202, sent.statusCode(), sent.body());
         final JsonObject ids = GSON.fromJson(sent.body(), JsonObject.class).getAsJsonObject("ids");
         assertEquals(2, ids.size(), sent.body());
@@ -1670,7 +1670,7 @@ class StewardUiIntegrationTest {
                 .getAsJsonArray("recent");
         final JsonObject newest = recent.get(0).getAsJsonObject();
         assertEquals("de", newest.get("language").getAsString(), recent.toString());
-        assertEquals("Das Ende öffnet heute Abend.", newest.get("text").getAsString());
+        assertEquals("The second language, tonight.", newest.get("text").getAsString());
         assertEquals("PENDING", newest.get("status").getAsString());
         assertEquals("en", recent.get(1).getAsJsonObject().get("language").getAsString());
     }

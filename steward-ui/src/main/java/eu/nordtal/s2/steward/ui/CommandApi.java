@@ -85,13 +85,36 @@ final class CommandApi {
                 .orElseThrow(() -> new BadRequestResponse(
                         name + " is not a command this interface may ask for."));
 
-        final DiscordAuth.Account who = accounts.apply(ctx);
         final JsonElement sent = body.get("arguments");
         if (sent != null && !sent.isJsonNull() && !sent.isJsonObject()) {
             throw new BadRequestResponse("`arguments` is an object of argument name to value.");
         }
-        final String arguments = encode(declaration,
+        final long id = submit(ctx, declaration,
                 sent == null || sent.isJsonNull() ? null : sent.getAsJsonObject());
+
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("id", String.valueOf(id));
+        answer.put("name", declaration.name());
+        answer.put("status", "PENDING");
+        ctx.status(202).json(answer);
+    }
+
+    /**
+     * Writes one row for {@code declaration} and its journal line, and returns the row's id.
+     *
+     * <p>The one door every button that reaches a Paper server goes through - the generic card and
+     * the designed controls on the service pages alike - so the refusals, the identity on the row
+     * and the journal line cannot differ between them.</p>
+     */
+    long submit(final @NotNull Context ctx, final @NotNull Declaration declaration,
+                final JsonObject sent) {
+        if (!declaration.surfaces().contains(Surface.WEB)) {
+            // The target refuses a WEB row for a declaration without the surface, and it would do
+            // so two minutes from now, as an expired row. Saying it here is the same answer, now.
+            throw new BadRequestResponse(declaration.name() + " is not released to the interface.");
+        }
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        final String arguments = encode(declaration, sent);
 
         // Two different columns for two different things, and they are not interchangeable.
         // `command_request.requested_by` is varchar(64) and exists to be read by a person, so it
@@ -126,12 +149,7 @@ final class CommandApi {
                                 + (arguments.isBlank() ? "" : ": " + arguments)));
 
         log.info("{} asked for {} {}", who.name(), declaration.name(), arguments);
-
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("id", String.valueOf(id));
-        answer.put("name", declaration.name());
-        answer.put("status", "PENDING");
-        ctx.status(202).json(answer);
+        return id;
     }
 
     /** {@code GET /api/commands/{id}} - what became of it. */

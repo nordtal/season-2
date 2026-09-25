@@ -10,6 +10,8 @@ import {
   type AccessRequestRun,
   type AdminCommand,
   type CommandRun,
+  type SmpTrack,
+  type HungerGamesRound,
   type ConfigChanges,
   type ConfigDocument,
   type ConfigLocation,
@@ -94,6 +96,8 @@ export const keys = {
   settings: ["settings"] as const,
   commands: ["commands"] as const,
   commandRun: (id: string) => ["command-run", id] as const,
+  smpTrack: ["smp-track"] as const,
+  hungerGamesRound: ["hunger-games-round"] as const,
   configs: ["configs"] as const,
   deployer: ["deployer"] as const,
   deployerJob: (id: string) => ["deployer-job", id] as const,
@@ -451,6 +455,37 @@ export function useCommands(enabled = true) {
     queryFn: () => api<AdminCommand[]>("/api/commands"),
     staleTime: 60 * 60 * SECOND,
     enabled,
+  })
+}
+
+/** The SMP's active milestones and their objectives, for the actions on its service page. */
+export function useSmpTrack() {
+  return useQuery({
+    queryKey: keys.smpTrack,
+    queryFn: () => api<SmpTrack>("/api/smp/track"),
+  })
+}
+
+/** The open hunger games round, if there is one. */
+export function useHungerGamesRound() {
+  return useQuery({
+    queryKey: keys.hungerGamesRound,
+    queryFn: () => api<HungerGamesRound>("/api/hunger-games/round"),
+  })
+}
+
+/**
+ * One action on the smp or hunger-games page: a `command_request` row, asked for by what it acts
+ * on. The answer is the row's id; `useCommandRun` is what became of it.
+ */
+export function useGameAction() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ path, body }: { path: string; body: unknown }) =>
+      api<{ id: string }>(path, { method: "POST", body }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["journal"] })
+    },
   })
 }
 

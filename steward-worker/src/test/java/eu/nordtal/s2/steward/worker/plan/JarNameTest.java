@@ -36,7 +36,7 @@ class JarNameTest {
                 "discord-bot-0.2.0.jar,          discord-bot,          0.2.0",
                 "papermc-display-tags-2.0.0.jar, papermc-display-tags, 2.0.0",
                 "packetevents-spigot-2.13.0.jar, packetevents-spigot,  2.13.0",
-                "Chunky-Bukkit-1.5.3.jar,        Chunky-Bukkit,        1.5.3",
+                "voicechat-bukkit-2.6.24.jar,    voicechat-bukkit,     2.6.24",
                 "paper-26.2-121.jar,             paper-26.2,           121",
                 "velocity-4.1.1-24.jar,          velocity-4.1.1,       24",
         })

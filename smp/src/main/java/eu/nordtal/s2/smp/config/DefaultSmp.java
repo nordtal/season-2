@@ -70,8 +70,8 @@ final class DefaultSmp {
      *
      * <p>Chosen to agree with the other placeholders in this file rather than to be neutral:
      * Nordtal's is the border centre X 106 / Z 88 that the NPC, the boards and the duel platforms
-     * are already written around, and the other three are the 0/0 their borders are centred on and
-     * their pre-generation runs from. The Nether's Y follows its balloon box at 32 for the same
+     * are already written around, and the other three are the 0/0 their borders are centred on.
+     * The Nether's Y follows its balloon box at 32 for the same
      * reason the box is there - 64 in the Nether is as likely to be inside rock as above it.
      *
      * <p>None of that makes them right. They are the shape of the setting, and every one of them

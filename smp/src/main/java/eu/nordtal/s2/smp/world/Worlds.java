@@ -16,8 +16,7 @@ import java.util.Optional;
  * borders.
  *
  * <p>Nordtal is expected to exist already - it is the {@code level-name} world, it carries the
- * built spawn, and it is pre-generated once to its final border of 4000 before the phase opens. The
- * other two are created here if the server has never seen them.
+ * built spawn. The other two are created here if the server has never seen them.
  *
  * <p><b>Where a created world lands is not where the old Bukkit layout put it.</b> Measured on
  * Paper 26.2 build 121 on 2026-09-01: a world created through {@code WorldCreator} appears at
@@ -118,8 +117,7 @@ public final class Worlds {
      * a milestone unlocks, which is {@link #expandNordtal} below. Everything else is a constant
      * from {@code config.yml}.
      *
-     * <p>The two secondary worlds are centred on 0/0, which is where their pre-generation is
-     * centred and where {@link #balloonSpawnPoint} defaults to - Nordtal is the only world whose
+     * <p>The two secondary worlds are centred on 0/0, which is where {@link #balloonSpawnPoint} defaults to - Nordtal is the only world whose
      * centre is a built place and therefore the only one that needs a configured one.
      */
     public void applyFixedBorders() {

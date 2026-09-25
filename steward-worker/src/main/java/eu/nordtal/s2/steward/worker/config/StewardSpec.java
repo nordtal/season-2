@@ -105,22 +105,6 @@ public interface StewardSpec {
         return "HYKaKraK";
     }
 
-    @Order(4)
-    @Name("Chunky project")
-    @Key("chunky-project")
-    @Comment({
-            "The Modrinth project id of Chunky, the chunk pre-generator ('chunky').",
-            "",
-            "Chunky is also a compileOnly dependency of :smp at a version pinned in",
-            "gradle/libs.versions.toml. A version resolved here that is ahead of that pin is",
-            "how you get a NoSuchMethodError in production and nowhere else, so an update to",
-            "Chunky is a reason to look at the catalog - the report says so when it moves."
-    })
-    @Explain("Resolving a version ahead of the compileOnly pin in gradle/libs.versions.toml is how you get a NoSuchMethodError in production and nowhere else - the report flags it when the two move apart.")
-    default String chunkyProject() {
-        return "fALzjamp";
-    }
-
     // There is deliberately no minecraft-version, velocity-version, paper-build or velocity-build
     // key here. The two versions are eu.nordtal.s2.common.Platform: a platform version is a property
     // of the season - every plugin is compiled against one Paper API and the pack_format matches it -

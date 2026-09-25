@@ -97,14 +97,14 @@ class TopologyMergeTest {
     @Test
     @DisplayName("a row for a plugin the code already gives changes nothing - the fixed entry wins")
     void theFixedListWins() {
-        final List<Topology.Service> merged = Topology.servicesWith(List.of(added(Topology.SMP, Topology.CHUNKY)));
+        final List<Topology.Service> merged = Topology.servicesWith(List.of(added(Topology.SMP, Topology.PACKETEVENTS)));
 
         final Topology.Service smp = find(merged, Topology.SMP);
-        assertEquals(1, smp.plugins().stream().filter(Topology.CHUNKY::equals).count(),
-                "chunky appears twice, so it would be resolved twice and fought over on disk");
-        // And it keeps the fixed row's guardedness: the code says the SMP needs Chunky, and a row
+        assertEquals(1, smp.plugins().stream().filter(Topology.PACKETEVENTS::equals).count(),
+                "packetevents appears twice, so it would be resolved twice and fought over on disk");
+        // And it keeps the fixed row's guardedness: the code says the SMP needs PacketEvents, and a row
         // in a table must not be able to demote that.
-        assertTrue(smp.guarded().contains(Topology.CHUNKY));
+        assertTrue(smp.guarded().contains(Topology.PACKETEVENTS));
     }
 
     @Test

@@ -12,7 +12,7 @@ import org.jetbrains.annotations.Nullable;
  *   proxy-0.2.0.jar         -&gt; proxy      / 0.2.0
  *   papermc-display-tags-2.0.0.jar    -&gt; papermc-display-tags / 2.0.0
  *   packetevents-spigot-2.13.0.jar    -&gt; packetevents-spigot  / 2.13.0
- *   Chunky-Bukkit-1.5.3.jar           -&gt; Chunky-Bukkit        / 1.5.3
+ *   voicechat-bukkit-2.6.24.jar       -&gt; voicechat-bukkit     / 2.6.24
  *   paper-26.2-121.jar                -&gt; paper-26.2           / 121
  * </pre>
  *

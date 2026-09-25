@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 /**
- * The Modrinth v2 API, for the third-party plugins the network runs: PacketEvents, Chunky,
+ * The Modrinth v2 API, for the third-party plugins the network runs: PacketEvents,
  * Simple Voice Chat - on the two backends and on the proxy - and CoreProtect.
  *
  * <h2>Why Modrinth and not each project's own releases</h2>
@@ -310,7 +310,7 @@ public final class Modrinth {
      * The project a file with this SHA-512 was published under, or {@code null} when Modrinth has
      * never published that file.
      *
-     * <p>The hash is the identity, not the name: {@code Chunky-Bukkit-1.5.3.jar} says nothing about
+     * <p>The hash is the identity, not the name: {@code voicechat-bukkit-2.6.24.jar} says nothing about
      * which project it came from, and the same answer holds for a jar somebody put there by hand. A
      * 404 is an answer - "not from Modrinth" - and every other failure is a failure.</p>
      */

@@ -18,8 +18,8 @@ import java.util.zip.ZipFile;
  *
  * <h2>Why this cannot be guessed from the filename</h2>
  * Paper names a plugin's data folder after the {@code name:} in its descriptor, not after its jar.
- * {@code Chunky-Bukkit-1.5.3.jar} makes {@code plugins/Chunky/}; {@code voicechat-bukkit-2.6.18.jar}
- * makes {@code plugins/voicechat/}. Removing a plugin means deleting that folder, and
+ * {@code voicechat-bukkit-2.6.18.jar} makes {@code plugins/voicechat/}; {@code CoreProtect-CE-24.0.jar}
+ * makes {@code plugins/CoreProtect/}. Removing a plugin means deleting that folder, and
  * season-2-ops/129 requires the confirmation to <b>name it</b> - a dialog that says "and its data
  * folder" while the operator is looking at the one directory in this whole installation they have
  * edited by hand is not a confirmation, it is a formality.

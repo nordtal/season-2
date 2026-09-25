@@ -67,7 +67,7 @@ class UpdatePlanTest {
         // no WORK in it, which is hasMissing(), not that the plan is empty.
         final UpdatePlan plan = planOf(
                 Change.unresolved("smp", "PacketEvents", "Modrinth answered 503"),
-                change("Chunky", Change.Status.MOUNT_MISSING));
+                change("VoiceChat", Change.Status.MOUNT_MISSING));
 
         final UpdatePlan bootstrap = plan.onlyMissing();
 
@@ -85,11 +85,11 @@ class UpdatePlanTest {
         // The first real deployment, exactly: GitHub answered 403 for the season release while
         // Modrinth answered fine for the two third-party plugins. Dropping the unresolved row left
         // a plan of two installable jars and a report that said everything asked for was done -
-        // and smp came up with PacketEvents, Chunky and no season on it.
+        // and smp came up with its third-party plugins and no season on it.
         final UpdatePlan plan = planOf(
                 Change.unresolved("smp", "season", "could not read nordtal/season-2@latest: HTTP 403"),
                 change("PacketEvents", Change.Status.MISSING),
-                change("Chunky", Change.Status.MISSING));
+                change("VoiceChat", Change.Status.MISSING));
 
         final UpdatePlan bootstrap = plan.onlyMissing();
 

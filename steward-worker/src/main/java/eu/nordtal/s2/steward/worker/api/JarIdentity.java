@@ -29,8 +29,8 @@ import java.util.function.Supplier;
  * Which Modrinth project a jar on the disk came from, told by its hash.
  *
  * <p>The plugins the network gives carry no row, so their name, picture and link have to come from
- * somewhere else, and the file name is not it: {@code Chunky-Bukkit-1.5.3.jar} does not say
- * "Chunky". Modrinth answers a file's SHA-512 with the version it belongs to, so a jar Modrinth
+ * somewhere else, and the file name is not it: {@code voicechat-bukkit-2.6.24.jar} does not say
+ * "Simple Voice Chat". Modrinth answers a file's SHA-512 with the version it belongs to, so a jar Modrinth
  * published is recognised whoever put it there, and one it never published - the Nordtal jars,
  * display-tags from GitHub - is recognised as not being one.
  *

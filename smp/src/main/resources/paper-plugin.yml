@@ -14,9 +14,3 @@ dependencies:
     DisplayTags:
       load: BEFORE
       required: true
-    # Chunky fills a world out to its border. It was required because the farm world was
-    # regenerated nightly and a missing Chunky would have postponed that silently; the farm world
-    # went with season-2-ingame/30, and whether this stays required is season-2-ops/152's question.
-    Chunky:
-      load: BEFORE
-      required: true

@@ -32,7 +32,7 @@ the service's own `command` — always name the subcommand.
 |---|---|
 | the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2` |
 | DisplayTags | GitHub releases, `nordtal/papermc-display-tags` |
-| PacketEvents, Chunky | Modrinth v2, filtered to the Minecraft version and `paper` |
+| PacketEvents | Modrinth v2, filtered to the Minecraft version and `paper` |
 | Paper, Velocity | PaperMC Fill v3, newest `STABLE` build |
 | what is installed | the six volumes under `volumes-root` |
 | what pack the proxy offers | `pack.yml` in the `proxy` volume |

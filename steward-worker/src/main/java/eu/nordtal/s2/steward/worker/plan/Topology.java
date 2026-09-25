@@ -112,8 +112,8 @@ public final class Topology {
 
     // ---------------------------------------------------------------- artifact ids
     // The id is what the topology, the resolver and the report join on. For our own five jars it
-    // happens to equal the jar's filename prefix; for the third-party three it does not
-    // (packetevents -> packetevents-spigot-2.13.0.jar, chunky -> Chunky-Bukkit-1.5.3.jar), which
+    // happens to equal the jar's filename prefix; for the third-party ones it does not
+    // (packetevents -> packetevents-spigot-2.13.0.jar, voicechat -> voicechat-bukkit-2.6.18.jar), which
     // is exactly why the prefix is read back off the resolved filename instead of being assumed.
 
     public static final String PROXY = "proxy";
@@ -125,7 +125,6 @@ public final class Topology {
 
     public static final String DISPLAY_TAGS = "display-tags";
     public static final String PACKETEVENTS = "packetevents";
-    public static final String CHUNKY = "chunky";
 
     /**
      * Simple Voice Chat's Bukkit plugin - {@code voicechat-bukkit-<version>.jar}, so the filename
@@ -287,8 +286,7 @@ public final class Topology {
             new Service(HUNGER_GAMES, Kind.PAPER, List.of(HUNGER_GAMES, VOICE_CHAT),
                     List.of(VOICE_CHAT)),
             // The only service with required third-party plugins. DisplayTags is required by the
-            // SMP plugin's own paper-plugin.yml; PacketEvents is required under DisplayTags;
-            // Chunky pre-generates the world border and is loaded by :smp reflectively.
+            // SMP plugin's own paper-plugin.yml; PacketEvents is required under DisplayTags.
             //
             // The two optional ones are optional for two different reasons and both are worth
             // keeping straight. CoreProtect CANNOT be installed - no build for this Minecraft
@@ -297,7 +295,7 @@ public final class Topology {
             // optional because a server nobody can talk on is better than a server nobody can join
             // (owner, 2026-09-09).
             new Service(SMP, Kind.PAPER,
-                    List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY, VOICE_CHAT, CORE_PROTECT),
+                    List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, VOICE_CHAT, CORE_PROTECT),
                     List.of(VOICE_CHAT, CORE_PROTECT)));
 
     /**

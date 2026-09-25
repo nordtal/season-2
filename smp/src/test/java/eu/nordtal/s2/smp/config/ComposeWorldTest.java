@@ -56,7 +56,7 @@ class ComposeWorldTest {
     }
 
     /**
-     * Nordtal is pre-generated once, to border 4000, and then frozen for the season - so the seed
+     * Nordtal is generated from it once and then kept for the season - so the seed
      * is the one value here that cannot be corrected afterwards by editing a file.
      */
     @Test
@@ -64,40 +64,6 @@ class ComposeWorldTest {
         final String seed = defaultOf(environmentOf("smp").get("LEVEL_SEED"), "smp.LEVEL_SEED");
         assertTrue(seed.matches("-?\\d+"),
                 "LEVEL_SEED should default to a literal seed, not to '" + seed + "'");
-    }
-
-    /**
-     * The pre-generation switch reaches the container, and compose does <b>not</b> pin it.
-     *
-     * <p><b>The first half cost something to learn, on 2026-09-05.</b> A value in an env file does
-     * not reach a container at all - compose uses it for interpolation, and only what a service's
-     * {@code environment:} block lists is passed in. {@code dev.env} carried
-     * {@code NORDTAL_SMP_PREGENERATION_ON_START=false}, the local stack came up, and Chunky started
-     * pre-generating anyway; nothing said why, because from inside the plugin the setting simply
-     * had its default.
-     *
-     * <p><b>The second half was wrong until 2026-09-14, and this test said so out loud.</b> It used
-     * to demand that compose's fallback <em>repeat</em> the spec's default, on the belief that an
-     * environment variable set to the empty string still wins over the file. It does not: jcore's
-     * {@code EnvOverlay.applyTo} skips a variable that is null or blank, and
-     * {@code EnvOverlayTest.blankVariableIsUnset} asserts it - which is also the only reason the
-     * two dozen other {@code ${VAR:-}} lines in that file are not all blanking their own defaults.
-     * The repetition was not harmless: an environment variable that always carries a value wins
-     * over {@code smp.yml} for ever, so switching pre-generation off in Steward would have written
-     * the file and changed nothing.
-     */
-    @Test
-    void thePreGenerationSwitchIsPassedThroughAndIsNotPinned() {
-        final String composed = defaultOf(
-                environmentOf("smp").get("NORDTAL_SMP_PREGENERATION_ON_START"),
-                "smp.NORDTAL_SMP_PREGENERATION_ON_START");
-
-        assertEquals("", composed,
-                "compose.yml's fallback for pregeneration-on-start is '" + composed + "' rather"
-                        + " than empty. A blank variable is UNSET to jcore, so an empty fallback"
-                        + " leaves SmpSpec's default in force AND leaves smp.yml editable; a"
-                        + " repeated default wins over the file for ever and makes the setting"
-                        + " unchangeable from the interface.");
     }
 
     // theBackupWindowIsNotPinnedEither stood here until 2026-09-20. It said the same thing about

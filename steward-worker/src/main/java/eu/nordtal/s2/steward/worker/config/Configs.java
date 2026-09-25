@@ -69,7 +69,6 @@ public final class Configs {
                     requireRepo("season-repo", config.seasonRepo());
                     requireRepo("display-tags-repo", config.displayTagsRepo());
                     requireModrinthId("packetevents-project", config.packetEventsProject());
-                    requireModrinthId("chunky-project", config.chunkyProject());
                     requireText("volumes-root", config.volumesRoot());
                     requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
                     requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());

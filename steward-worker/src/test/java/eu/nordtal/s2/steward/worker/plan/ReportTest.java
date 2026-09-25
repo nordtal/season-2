@@ -67,7 +67,7 @@ class ReportTest {
         // A footnote for a single occurrence is worse than the sentence itself: the reader has to
         // go and find it, and there is nothing to deduplicate.
         final UpdatePlan plan = new UpdatePlan(Instant.EPOCH, "v0.2.1", false,
-                List.of(Change.unresolved("smp", "chunky", "Modrinth answered 503")),
+                List.of(Change.unresolved("smp", "packetevents", "Modrinth answered 503")),
                 List.of(), List.of());
 
         final String rendered = Report.render(plan);

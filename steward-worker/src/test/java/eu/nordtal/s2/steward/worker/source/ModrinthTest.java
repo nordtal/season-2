@@ -38,22 +38,22 @@ class ModrinthTest {
     }
 
     @Test
-    @DisplayName("Chunky: filename and version differ, and the filename is what is used")
+    @DisplayName("Simple Voice Chat: filename and version differ, and the filename is what is used")
     void usesThePublishedFilename() throws IOException {
         final Modrinth modrinth = new Modrinth(
-                new FakeHttp().serving("/project/fALzjamp/version", "modrinth-chunky.json"));
+                new FakeHttp().serving("/project/9eGKb6K1/version", "modrinth-voicechat.json"));
 
-        final RemoteFile file = modrinth.newest("chunky", "fALzjamp", MC, "paper");
+        final RemoteFile file = modrinth.newest("voicechat", "9eGKb6K1", MC, "paper");
 
-        assertEquals("Chunky-Bukkit-1.5.3.jar", file.fileName());
-        assertEquals("1.5.3", file.version());
+        assertEquals("voicechat-bukkit-2.6.23.jar", file.fileName());
+        assertEquals("bukkit-2.6.23", file.version());
     }
 
     @Test
     @DisplayName("the game_versions and loaders filters are sent as Modrinth's bracketed JSON")
     void sendsTheDocumentedFilters() throws IOException {
-        final FakeHttp http = new FakeHttp().serving("/project/fALzjamp/version", "modrinth-chunky.json");
-        new Modrinth(http).newest("chunky", "fALzjamp", MC, "paper");
+        final FakeHttp http = new FakeHttp().serving("/project/9eGKb6K1/version", "modrinth-voicechat.json");
+        new Modrinth(http).newest("voicechat", "9eGKb6K1", MC, "paper");
 
         // Percent-encoded, because the brackets and quotes are data inside a query parameter. If
         // they are ever sent raw the API answers with every version of the project for every
@@ -69,7 +69,7 @@ class ModrinthTest {
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", "[]"));
 
         final IOException failure = assertThrows(IOException.class,
-                () -> modrinth.newest("chunky", "fALzjamp", "27.0", "paper"));
+                () -> modrinth.newest("voicechat", "9eGKb6K1", "27.0", "paper"));
 
         // "The plugin has no 26.2 build yet" must not become "install the 26.1 build instead".
         assertTrue(failure.getMessage().contains("no stable release"), failure.getMessage());
@@ -80,12 +80,12 @@ class ModrinthTest {
     void ignoresPreReleases() {
         final String body = """
                 [{"version_number":"1.6.0","version_type":"beta","date_published":"2026-08-01T00:00:00Z",
-                  "files":[{"filename":"Chunky-Bukkit-1.6.0.jar","primary":true,
+                  "files":[{"filename":"voicechat-bukkit-1.6.0.jar","primary":true,
                             "url":"https://cdn.modrinth.com/x","hashes":{"sha512":"ab"}}]}]
                 """;
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", body));
 
-        assertThrows(IOException.class, () -> modrinth.newest("chunky", "fALzjamp", MC, "paper"));
+        assertThrows(IOException.class, () -> modrinth.newest("voicechat", "9eGKb6K1", MC, "paper"));
     }
 
     /**
@@ -139,7 +139,7 @@ class ModrinthTest {
 
         // And every other artefact the resolver asks Modrinth for still refuses the same payload.
         // Same body, same loader, same everything but the id.
-        for (final String artifact : List.of("packetevents", "chunky", "voicechat", "coreprotect")) {
+        for (final String artifact : List.of("packetevents", "voicechat", "coreprotect")) {
             final Modrinth modrinth =
                     new Modrinth(new FakeHttp().answering("/version", VELOCITY_PRE_RELEASES));
 
@@ -170,15 +170,15 @@ class ModrinthTest {
         // cost of relying on it would be installing a two-year-old build without a word.
         final String body = """
                 [{"version_number":"1.5.0","version_type":"release","date_published":"2024-01-01T00:00:00Z",
-                  "files":[{"filename":"Chunky-Bukkit-1.5.0.jar","primary":true,
+                  "files":[{"filename":"voicechat-bukkit-1.5.0.jar","primary":true,
                             "url":"https://cdn.modrinth.com/old","hashes":{"sha512":"aa"}}]},
                  {"version_number":"1.5.3","version_type":"release","date_published":"2026-05-04T05:46:08Z",
-                  "files":[{"filename":"Chunky-Bukkit-1.5.3.jar","primary":true,
+                  "files":[{"filename":"voicechat-bukkit-1.5.3.jar","primary":true,
                             "url":"https://cdn.modrinth.com/new","hashes":{"sha512":"bb"}}]}]
                 """;
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", body));
 
-        assertEquals("Chunky-Bukkit-1.5.3.jar", modrinth.newest("chunky", "fALzjamp", MC, "paper").fileName());
+        assertEquals("voicechat-bukkit-1.5.3.jar", modrinth.newest("voicechat", "9eGKb6K1", MC, "paper").fileName());
     }
 
     @Test

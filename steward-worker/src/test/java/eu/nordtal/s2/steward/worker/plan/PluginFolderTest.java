@@ -44,13 +44,13 @@ class PluginFolderTest {
     @Test
     @DisplayName("the folder is the descriptor's name, not the jar's")
     void readsTheDescriptorAndNotTheFilename() throws IOException {
-        // Chunky's real shape: the jar is Chunky-Bukkit-<version>.jar and the folder is
-        // plugins/Chunky/. Anything deriving the folder from the filename deletes nothing, or
+        // Simple Voice Chat's real shape: the jar is voicechat-bukkit-<version>.jar and the folder
+        // is plugins/voicechat/. Anything deriving the folder from the filename deletes nothing, or
         // something else.
-        final Path path = jar("Chunky-Bukkit-1.5.3.jar",
-                Map.of("plugin.yml", "name: Chunky\nversion: 1.5.3\nmain: org.popcraft.chunky.Chunky\n"));
+        final Path path = jar("voicechat-bukkit-2.6.24.jar",
+                Map.of("plugin.yml", "name: voicechat\nversion: 2.6.24\nmain: de.maxhenkel.voicechat.Voicechat\n"));
 
-        assertEquals("Chunky", PluginFolder.nameIn(path));
+        assertEquals("voicechat", PluginFolder.nameIn(path));
     }
 
     @Test

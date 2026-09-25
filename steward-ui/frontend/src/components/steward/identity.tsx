@@ -69,27 +69,6 @@ function splitQuery(baseUrl: string): [string, string] {
 }
 
 /**
- * The one name for a person, for the places a component cannot go.
- *
- * steward/124 is "profiles, never user ids", and {@link PersonIdentity} is the answer everywhere
- * something is rendered. A toast title and a `<SelectItem>` label are strings, not trees - so they
- * get the same order of preference in one line instead of each page inventing its own.
- *
- * The id is the LAST resort and never disappears: somebody the roster does not know still has to
- * be identifiable, and an admin typing an id into the grant dialog has to see it echoed back.
- */
-export function personLabel(person: {
-  discordDisplayName?: string
-  discordUsername?: string
-  mcName?: string
-  discordId?: string
-}): string {
-  return (
-    person.discordDisplayName ?? person.discordUsername ?? person.mcName ?? person.discordId ?? ""
-  )
-}
-
-/**
  * The pattern `identity.test.tsx` and `access.test.tsx` hold a page's rendered text against.
  *
  * A Discord snowflake is a 17-20 digit decimal number (Discord's own range as ids have grown since
@@ -140,6 +119,17 @@ export type PersonIdentityProps = {
    * behind this one to reveal, so opening one would show nothing rather than something.
    */
   system?: boolean
+  /**
+   * Which half of the person is drawn closed. `discord` (the default) is avatar and Discord name;
+   * `minecraft` is head and Minecraft name, for a row that names somebody by their Minecraft UUID.
+   * The popover is the same either way.
+   */
+  face?: "discord" | "minecraft"
+  /**
+   * `false` draws the closed face alone, with no popover behind it - for a place that is itself
+   * interactive, such as a select option, where a button inside a button would be wrong.
+   */
+  interactive?: boolean
 }
 
 /** The name shown closed. */
@@ -168,6 +158,37 @@ export function PersonIdentity(props: PersonIdentityProps) {
   }
 
   const name = displayName(props)
+  const minecraft = props.face === "minecraft"
+  const closed = (
+    <>
+      {minecraft ? (
+        <MinecraftHead mcUuid={props.mcUuid ?? ""} baseUrl={props.avatarBaseUrl} />
+      ) : (
+        <DiscordAvatar url={props.discordAvatarUrl} name={name.text} />
+      )}
+      {minecraft ? (
+        <span
+          className={"truncate text-sm " + (props.mcName ? "text-foreground" : "text-muted-foreground italic")}
+        >
+          {props.mcName ?? "no name yet"}
+        </span>
+      ) : (
+        <span
+          className={"truncate text-sm " + (name.text ? "text-foreground" : "text-muted-foreground italic")}
+        >
+          {name.text ?? "no Discord name on record"}
+        </span>
+      )}
+    </>
+  )
+
+  if (props.interactive === false) {
+    return (
+      <span className={"inline-flex min-w-0 max-w-full items-center gap-2 " + (props.className ?? "")}>
+        {closed}
+      </span>
+    )
+  }
 
   return (
     <Popover>
@@ -185,14 +206,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
             (props.className ?? "")
           }
         >
-          <DiscordAvatar url={props.discordAvatarUrl} name={name.text} />
-          <span
-            className={
-              "truncate text-sm " + (name.text ? "text-foreground" : "text-muted-foreground italic")
-            }
-          >
-            {name.text ?? "no Discord name on record"}
-          </span>
+          {closed}
         </button>
       </PopoverTrigger>
       <PopoverContent className="flex flex-col gap-3">
@@ -210,7 +224,11 @@ export function PersonIdentity(props: PersonIdentityProps) {
           </div>
         </div>
 
-        <CopyableId label="Discord-ID" value={props.discordId ?? ""} />
+        {props.discordId ? (
+          <CopyableId label="Discord-ID" value={props.discordId} />
+        ) : (
+          <p className="text-xs text-muted-foreground">No Discord account on record.</p>
+        )}
 
         {props.mcUuid ? (
           <>
@@ -380,39 +398,6 @@ export function MinecraftHead({
       title="No head image available right now."
     >
       <QuestionIcon aria-hidden className="size-3" />
-    </span>
-  )
-}
-
-/**
- * The Minecraft half on its own - the Access table's "Minecraft" column and the person dialog's
- * "Minecraft" stat both draw a name and a head and nothing that can be copied, because the one
- * place to copy the uuid is the identity popover already on the row.
- */
-export function MinecraftFace({
-  mcUuid,
-  mcName,
-  avatarBaseUrl,
-}: {
-  mcUuid: string
-  mcName?: string
-  avatarBaseUrl?: string
-}) {
-  return (
-    // `min-w-0` on both boxes and `truncate` on the text (steward/103): without it the name is
-    // drawn at its full width straight past the right edge of a 390px card, where the table
-    // container clips it with no ellipsis - `no name observed ye`.
-    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-      <MinecraftHead mcUuid={mcUuid} baseUrl={avatarBaseUrl} />
-      <span
-        className={
-          mcName
-            ? "min-w-0 truncate text-sm"
-            : "min-w-0 truncate text-sm text-muted-foreground italic"
-        }
-      >
-        {mcName ?? "no name yet"}
-      </span>
     </span>
   )
 }

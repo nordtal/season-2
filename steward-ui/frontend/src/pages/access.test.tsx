@@ -1,5 +1,12 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -118,9 +125,18 @@ function draw(node: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+  // A router, because Entity draws a service as a link to its page.
+  const root = createRootRoute({ component: () => <>{node}</> })
+  const service = createRoute({ getParentRoute: () => root, path: "/services/$name" })
+  const router = createRouter({
+    routeTree: root.addChildren([service]),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  })
   return render(
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>{node}</TooltipProvider>
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
     </QueryClientProvider>,
   )
 }
@@ -719,9 +735,31 @@ describe("JournalPage - profiles, never user ids (steward/124)", () => {
     draw(<JournalPage />)
 
     await screen.findByText("REVOKE_ACCESS")
-    expect(screen.getByText("no Discord name on record")).toBeTruthy()
+    expect(await screen.findByText("no Discord name on record")).toBeTruthy()
     // Still not the number: the id lives in the popover, next to a button that copies it.
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
+  })
+
+  it("draws a service it concerns as a link to that service, and an unknown actor as unknown", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        journal: () => [
+          {
+            id: "j3",
+            occurred: "2026-09-18T09:00:00Z",
+            action: "FORGET_FACTORS",
+            actor: "host",
+            subject: "smp",
+          },
+        ],
+      }),
+    )
+    draw(<JournalPage />)
+
+    const link = await screen.findByRole("link", { name: "smp" })
+    expect(link.getAttribute("href")).toBe("/services/smp")
+    expect(screen.getByText("host").closest("[data-entity='unknown']")).toBeTruthy()
   })
 
   it("draws Steward itself when no admin was behind the line", async () => {

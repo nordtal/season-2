@@ -1,5 +1,5 @@
 import { PlayIcon, TerminalIcon } from "@phosphor-icons/react"
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 
 import type { AdminCommand, CommandArgument, CommandRun, Person } from "@/lib/api"
 import { euros } from "@/lib/format"
@@ -10,7 +10,7 @@ import {
   useOpenPayments,
   usePeople,
 } from "@/lib/queries"
-import { personLabel } from "@/components/steward/identity"
+import { Entity } from "@/components/steward/entity"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import {
   ResponsiveAlertDialog,
@@ -254,9 +254,9 @@ function CommandRow({ command }: { command?: AdminCommand }) {
 /**
  * The roster as a picker, by NAME (steward/124).
  *
- * The comment that stood inline here said the roster cannot answer a display name - which was
- * wrong: it carries `discordDisplayName` and `discordUsername`, and {@link personLabel} falls back
- * to the id for anybody it has neither for, so nobody becomes an unpickable blank row.
+ * Each option is the person drawn by {@link Entity}, without its popover because an option is
+ * already something to click. Somebody the roster has no name for reads "no Discord name on
+ * record" - a row that says what it does not know, not a bare snowflake.
  *
  * The **value** is still the Discord id, because that is what the command takes. This is only what
  * a human reads while choosing - which is also why this is a picker and not a field: an id is not
@@ -267,12 +267,17 @@ function CommandRow({ command }: { command?: AdminCommand }) {
  */
 export function accountOptions(
   people: Person[] | undefined,
-): { value: string; label: string }[] {
+): { value: string; label: ReactNode }[] {
   return (people ?? []).map((person) => ({
     value: person.discordId,
-    label: person.minecraftUuid
-      ? `${personLabel(person)} (linked)`
-      : `${personLabel(person)} (not linked)`,
+    label: (
+      <span className="inline-flex min-w-0 items-center gap-1.5">
+        <Entity id={person.discordId} kind="discord" interactive={false} />
+        <span className="text-xs text-muted-foreground">
+          {person.minecraftUuid ? "linked" : "not linked"}
+        </span>
+      </span>
+    ),
   }))
 }
 
@@ -301,15 +306,21 @@ function ArgumentField({
     // One `Select` for three sources. The empty case is spelled out rather than left as a silent
     // dropdown with nothing in it: "nothing is open" and "the list has not loaded" are different
     // answers and the difference decides whether somebody waits or goes and looks.
-    const options: { value: string; label: string }[] = argument.choices
+    const options: { value: string; label: ReactNode }[] = argument.choices
       ? argument.choices.map((choice) => ({ value: choice, label: choice }))
       : argument.kind === "ACCOUNT"
         ? accountOptions(people.data)
         : (open.data ?? []).map((payment) => ({
             value: payment.reference,
-            label: `${payment.reference} (${payment.days} days, ${euros(
-              payment.amountCents + payment.donationCents,
-            )}, ${personLabel(payment)})`,
+            label: (
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                {payment.reference}
+                <span className="text-xs text-muted-foreground">
+                  {payment.days} days, {euros(payment.amountCents + payment.donationCents)}
+                </span>
+                <Entity id={payment.discordId} kind="discord" interactive={false} />
+              </span>
+            ),
           }))
 
     const loading =

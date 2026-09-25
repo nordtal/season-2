@@ -23,10 +23,18 @@ const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
  * `identity.tsx` is exempt because it IS the popover - the one place the ticket puts them, behind
  * a click, next to a copy button.
  */
-const IDENTIFIER_FIELDS = ["discordId", "minecraftUuid", "mcUuid"]
+const IDENTIFIER_FIELDS = ["discordId", "minecraftUuid", "mcUuid", "actorDiscordId", "requestedBy"]
 
 /** The component that is allowed to draw them, and nothing else. */
 const ALLOWED = ["components/steward/identity.tsx"]
+
+/**
+ * Till, 2026-09-20: one component that recognises an entity and draws it, app-wide. `Entity`
+ * decides whether an identifier is a person, a service or unknown; a page that reaches past it for
+ * `PersonIdentity` is a page that has decided for itself again, which is the habit this replaced.
+ */
+const MAY_IMPORT_PERSON_IDENTITY = ["components/steward/entity.tsx"]
+const PERSON_IDENTITY_IMPORT = /import\s*\{[^}]*\bPersonIdentity\b[^}]*\}\s*from\s*"@\/components\/steward\/identity"/
 
 /**
  * Where an expression ends up in front of a person: as a JSX child, or as a `title` tooltip - a
@@ -91,6 +99,18 @@ describe("an identifier is drawn in one place and nowhere else (steward/45)", ()
         "click and next to a copy button, because a table full of 19-digit numbers is a table\n" +
         "nobody reads. If a new one is genuinely right, it belongs in identity.tsx.\n\n" +
         offenders.join("\n"),
+    ).toEqual([])
+  })
+
+  it("no page draws a person except through Entity", () => {
+    const offenders = sourceFiles(source)
+      .map((file) => path.relative(source, file))
+      .filter((relative) => !MAY_IMPORT_PERSON_IDENTITY.includes(relative))
+      .filter((relative) => PERSON_IDENTITY_IMPORT.test(fs.readFileSync(path.join(source, relative), "utf8")))
+    expect(
+      offenders,
+      "These import PersonIdentity directly. Draw an identifier with <Entity id=... />, which\n" +
+        "works out by itself whether it is a person, a service or unknown.",
     ).toEqual([])
   })
 

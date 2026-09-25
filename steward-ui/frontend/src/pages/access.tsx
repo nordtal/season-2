@@ -17,7 +17,6 @@ import { toast } from "sonner"
 import type { Grant, JournalEntry, Payment, Person } from "@/lib/api"
 import { count, date, dateTime, euros, playtime, relative, splitPlaytime } from "@/lib/format"
 import {
-  useAvatarBaseUrl,
   useCommands,
   useGrantAccess,
   useGrants,
@@ -27,7 +26,7 @@ import {
   useRevokeAccess,
   useSetPlaytime,
 } from "@/lib/queries"
-import { MinecraftFace, PersonIdentity, personLabel } from "@/components/steward/identity"
+import { Entity } from "@/components/steward/entity"
 import { InlineCommandAction } from "@/components/steward/inline-command"
 import { PageHeader } from "@/components/steward/page-header"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
@@ -203,7 +202,7 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
  *
  * Paid but unlinked is the one combination worth a warning colour: that person has spent money and
  * still cannot join, because the proxy knows Minecraft accounts and not Discord ones. The linked
- * case never reaches this component any more (steward/46) - the table draws `MinecraftFace`
+ * case never reaches this component any more (steward/46) - the table draws the `Entity`
  * directly for it, name and head, so this badge only has one state left to speak for.
  */
 function LinkBadge({ person }: { person: Person }) {
@@ -227,49 +226,6 @@ const WAITING_GRANTS = [0, 1, 2]
 const GRANT_SOURCES: Record<string, string> = {
   PURCHASE: "Purchase",
   ADMIN: "by hand",
-}
-
-/**
- * A person a row names by identifier alone - a payment request, a journal entry.
- *
- * steward/45 put identifiers in one place, behind a click. These two tables were the reason that
- * promise did not hold: they carry a Discord id or a Minecraft uuid and nothing else, so drawing
- * the row meant drawing the number. The roster already knows who that is, so it is looked up here
- * instead - and when it does not (a payment from somebody who has since left the guild, a journal
- * entry about an account nobody linked), `PersonIdentity` falls back to saying so, and the number
- * is still one click away in its popover, next to the copy button.
- *
- * The lookup is a linear scan of a list the page has already fetched. The roster is a few hundred
- * rows and this runs per visible row of one page of twenty; an index would be a second thing to
- * keep in step with the first.
- */
-function PersonByIdentifier({
-  discordId,
-  mcUuid,
-  people,
-  avatarBaseUrl,
-}: {
-  discordId?: string
-  mcUuid?: string
-  people: Person[] | undefined
-  avatarBaseUrl: string | undefined
-}) {
-  const known = people?.find(
-    (candidate) =>
-      (discordId !== undefined && candidate.discordId === discordId) ||
-      (mcUuid !== undefined && candidate.minecraftUuid === mcUuid),
-  )
-  return (
-    <PersonIdentity
-      discordId={known?.discordId ?? discordId ?? ""}
-      discordUsername={known?.discordUsername}
-      discordDisplayName={known?.discordDisplayName}
-      discordAvatarUrl={known?.discordAvatarUrl}
-      mcUuid={mcUuid ?? known?.minecraftUuid}
-      mcName={known?.mcName}
-      avatarBaseUrl={avatarBaseUrl}
-    />
-  )
 }
 
 /** Where a period stands right now, judged from the row itself rather than from the roster. */
@@ -392,7 +348,6 @@ function WaitingPersonRow() {
  */
 export function AccessPage() {
   const people = usePeople()
-  const avatarBase = useAvatarBaseUrl()
   const commands = useCommands()
   const unlinkCommand = commands.data?.find((command) => command.name === "/access unlink")
   const [needle, setNeedle] = useState("")
@@ -544,15 +499,7 @@ export function AccessPage() {
                         <TableRow key={person.discordId}>
                           <TableCell data-label="Person" className="font-medium">
                             <div className="flex flex-wrap items-center gap-2">
-                              <PersonIdentity
-                                discordId={person.discordId}
-                                discordUsername={person.discordUsername}
-                                discordDisplayName={person.discordDisplayName}
-                                discordAvatarUrl={person.discordAvatarUrl}
-                                mcUuid={person.minecraftUuid}
-                                mcName={person.mcName}
-                                avatarBaseUrl={avatarBase.data}
-                              />
+                              <Entity id={person.discordId} kind="discord" />
                               {/* "Member" is the ordinary case and is left unsaid (steward/46) -
                                * LEFT and BANNED are exactly the two states worth a glance, and
                                * they still get one, right next to the name rather than in a
@@ -567,11 +514,7 @@ export function AccessPage() {
                           </TableCell>
                           <TableCell data-label="Minecraft">
                             {person.minecraftUuid ? (
-                              <MinecraftFace
-                                mcUuid={person.minecraftUuid}
-                                mcName={person.mcName}
-                                avatarBaseUrl={avatarBase.data}
-                              />
+                              <Entity id={person.minecraftUuid} kind="minecraft" />
                             ) : (
                               <LinkBadge person={person} />
                             )}
@@ -962,7 +905,10 @@ function GrantDialog({
                     // it was opened from the toolbar - there is nobody else to name then, and an
                     // echo of what was typed is what confirms the right account was hit.
                     toast.success(
-                      `Access granted for ${person ? personLabel(person) : written.discordId}`,
+                      <span className="inline-flex min-w-0 items-center gap-1.5">
+                        Access granted for
+                        <Entity id={written.discordId} kind="discord" interactive={false} />
+                      </span>,
                       {
                         description: `Valid ${dateTime(written.validFrom)} until ${dateTime(
                           written.validUntil,
@@ -1198,12 +1144,20 @@ function RevokeDialog({
                   // clicking, the run may have ended or somebody else may have revoked it.
                   if (result.revoked === 0) {
                     toast.warning("There was nothing to revoke", {
-                      description: `No period was still running for ${personLabel(person)}.`,
+                      description: (
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                          No period was still running for
+                          <Entity id={person.discordId} kind="discord" interactive={false} />
+                        </span>
+                      ),
                     })
                     return
                   }
                   toast.success(
-                    `${count(result.revoked)} period(s) of ${personLabel(person)} revoked`,
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      {count(result.revoked)} period(s) revoked for
+                      <Entity id={person.discordId} kind="discord" interactive={false} />
+                    </span>,
                     { description: "A journal line names you." },
                   )
                 },
@@ -1232,21 +1186,12 @@ function PersonGrants({
   onRevoke: () => void
 }) {
   const grants = useGrants(person.discordId)
-  const avatarBase = useAvatarBaseUrl()
 
   return (
     <>
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle className="flex flex-wrap items-center justify-between gap-3 pr-6">
-          <PersonIdentity
-            discordId={person.discordId}
-            discordUsername={person.discordUsername}
-            discordDisplayName={person.discordDisplayName}
-            discordAvatarUrl={person.discordAvatarUrl}
-            mcUuid={person.minecraftUuid}
-            mcName={person.mcName}
-            avatarBaseUrl={avatarBase.data}
-          />
+          <Entity id={person.discordId} kind="discord" />
           {person.accessActive ? (
             <Button
               type="button"
@@ -1272,11 +1217,7 @@ function PersonGrants({
           label="Minecraft"
           value={
             person.minecraftUuid ? (
-              <MinecraftFace
-                mcUuid={person.minecraftUuid}
-                mcName={person.mcName}
-                avatarBaseUrl={avatarBase.data}
-              />
+              <Entity id={person.minecraftUuid} kind="minecraft" />
             ) : (
               "–"
             )
@@ -1409,12 +1350,6 @@ function isOverdue(payment: Payment, now: number): boolean {
  */
 export function PaymentsPage() {
   const payments = usePayments()
-  // The roster is fetched here only to put a name on a payment's Discord id (steward/45). It is
-  // the same cached query the People page uses, so on a session that has visited that page this
-  // costs nothing, and a failure to load it is not a failure of this page: the identity falls
-  // back to "no Discord name on record" and the row still shows its reference and its amount.
-  const people = usePeople()
-  const avatarBase = useAvatarBaseUrl()
   const commands = useCommands()
   const settleCommand = commands.data?.find((command) => command.name === "/access settle")
   const [status, setStatus] = useState("")
@@ -1594,11 +1529,7 @@ export function PaymentsPage() {
                                 {payment.reference}
                               </TableCell>
                               <TableCell data-label="Person">
-                                <PersonByIdentifier
-                                  discordId={payment.discordId}
-                                  people={people.data}
-                                  avatarBaseUrl={avatarBase.data}
-                                />
+                                <Entity id={payment.discordId} kind="discord" />
                               </TableCell>
                               <TableCell data-label="Days" className="text-right tnum">{payment.days}</TableCell>
                               <TableCell data-label="Amount" className="text-right tnum">
@@ -1727,11 +1658,6 @@ export function JournalPage() {
   const [typed, setTyped] = useState("")
   const entries = useJournal(action, subject)
   const actions = [...new Set((all.data ?? []).map((entry) => entry.action))].sort()
-  // Same reason as on the payments page: a journal entry carries a Minecraft uuid and no name,
-  // and steward/45 keeps the number out of the table. The roster is the cached query that knows
-  // who it is; without it the identity says so rather than showing the uuid.
-  const people = usePeople()
-  const avatarBase = useAvatarBaseUrl()
 
   return (
     <div className="flex flex-col gap-6">
@@ -1879,24 +1805,13 @@ export function JournalPage() {
                          * the popover, which is a name for the row rather than an anonymous one.
                          * No admin at all is Steward's own mark, the case `system` was built for. */}
                         <TableCell data-label="Triggered by" className="text-muted-foreground">
-                          {entry.actor ? (
-                            <PersonByIdentifier
-                              discordId={entry.actor}
-                              people={people.data}
-                              avatarBaseUrl={avatarBase.data}
-                            />
-                          ) : (
-                            <PersonIdentity system />
-                          )}
+                          {entry.actor ? <Entity id={entry.actor} /> : <Entity system />}
                         </TableCell>
                         <TableCell data-label="Concerns" className="text-muted-foreground">
-                          {entry.subject || entry.mcUuid ? (
-                            <PersonByIdentifier
-                              discordId={entry.subject}
-                              mcUuid={entry.mcUuid}
-                              people={people.data}
-                              avatarBaseUrl={avatarBase.data}
-                            />
+                          {entry.subject ? (
+                            <Entity id={entry.subject} />
+                          ) : entry.mcUuid ? (
+                            <Entity id={entry.mcUuid} kind="minecraft" />
                           ) : null}
                         </TableCell>
                         {/* steward/114: the one column here that is running text rather than a

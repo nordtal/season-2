@@ -19,10 +19,10 @@ import {
   XCircleIcon,
 } from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
-import type { Action, Person } from "@/lib/api"
+import type { Action } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
 import { RUN_KIND } from "@/components/steward/status"
-import { PersonIdentity } from "@/components/steward/identity"
+import { Actor } from "@/components/steward/entity"
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
 /**
@@ -90,20 +90,13 @@ function iconOf(kind: string): Icon {
 /** One row: an icon for the kind, the label and its extent, then who is credited and when. */
 export function ActionRow({
   action,
-  people,
-  avatarBaseUrl,
   now,
 }: {
   /** Absent while the feed is still loading: the row is then drawn empty (steward/120). */
   action?: Action
-  people: Person[] | undefined
-  avatarBaseUrl: string | undefined
   now: number
 }) {
   const Icon = action ? iconOf(action.kind) : undefined
-  const known = action?.actorDiscordId
-    ? people?.find((person) => person.discordId === action.actorDiscordId)
-    : undefined
 
   return (
     <li className="flex items-start gap-3 border-b border-border/60 py-3 last:border-0">
@@ -132,23 +125,12 @@ export function ActionRow({
         <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
           {!action ? (
             <SkeletonText className="w-32 text-xs" />
-          ) : action.system ? (
-            <PersonIdentity system />
-          ) : action.actorDiscordId ? (
-            <PersonIdentity
-              discordId={action.actorDiscordId}
-              discordUsername={known?.discordUsername}
-              discordDisplayName={known?.discordDisplayName}
-              discordAvatarUrl={known?.discordAvatarUrl}
-              mcUuid={known?.minecraftUuid}
-              mcName={known?.mcName}
-              avatarBaseUrl={avatarBaseUrl}
-            />
           ) : (
-            // A console request with no id behind it at all - "token-rotation-check", a nightly
-            // clock is already `system`. Plain text, deliberately: there is nothing here that
-            // safely resolves this to a person, and PersonIdentity is for people.
-            <span className="truncate">{action.actorLabel || "console"}</span>
+            <Actor
+              system={action.system}
+              discordId={action.actorDiscordId}
+              label={action.actorLabel || "console"}
+            />
           )}
           {action ? (
             <>

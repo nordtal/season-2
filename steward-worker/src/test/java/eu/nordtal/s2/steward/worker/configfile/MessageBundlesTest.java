@@ -163,6 +163,39 @@ class MessageBundlesTest {
                 MessageBundles.unknownPlaceholders(entry(bundle, "welcome"), "Welcome {player}"));
     }
 
+    private static final String ROLE_SCHEMA = """
+            {"bundle": "smp", "messages": [
+              {"key": "duel.won", "name": "Duel won", "format": "MINIMESSAGE", "shown": "TITLE",
+               "args": [{"name": "winner", "component": false, "context": "player"},
+                        {"name": "count", "component": false}],
+               "section": []}
+            ],
+             "contexts": {"player": {"name": "Player", "properties": ["name"]},
+                          "service": {"name": "Service", "properties": ["name"]},
+                          "season": {"name": "Season", "properties": ["number"]}},
+             "globals": [{"name": "server", "context": "service"}, {"name": "season", "context": "season"}]}
+            """;
+
+    @Test
+    @DisplayName("a role becomes one placeholder per property of its type, and every message gets the globals")
+    void aRoleIsExpandedIntoItsProperties() throws IOException {
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
+                "messages/smp/en.properties", "duel.won={winner.name} won {count}\n",
+                "messages/smp/schema.json", ROLE_SCHEMA));
+        final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
+        final MessageEntry won = entry(MessageBundles.read(new MessageBundleLocation(
+                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true)), "duel.won");
+
+        assertEquals(List.of(new MessageArg("winner.name", false, "player", false),
+                new MessageArg("count", false),
+                new MessageArg("server.name", false, "service", true),
+                new MessageArg("season.number", false, "season", true)), won.args());
+        assertEquals("MINIMESSAGE", won.format());
+        assertEquals("TITLE", won.shown());
+        assertEquals(List.of("{winner.nope}", "{winner}"), MessageBundles.unknownPlaceholders(won,
+                "{winner.name} {server.name} {season.number} {winner.nope} {winner}"));
+    }
+
     @Test
     @DisplayName("a key without a schema is shown and never checked")
     void aKeyWithoutASchemaIsNeverChecked() throws IOException {

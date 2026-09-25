@@ -35,6 +35,10 @@ describe("previewSegments", () => {
     expect(seen("<white>{world}</white> by <_player>", [{ name: "world", component: false }, { name: "_player", component: true }])).toEqual(["{world}", " by ||", "{player}"])
   })
 
+  it("draws a role's property as one placeholder, dot and all", () => {
+    expect(seen("{winner.name} won", [{ name: "winner.name", component: false, type: "player", global: false }])).toEqual(["{winner.name}", " won||"])
+  })
+
   it("leaves an undeclared brace as text", () => {
     expect(seen("{nope} left", [])).toEqual(["{nope} left||"])
   })

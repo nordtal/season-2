@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.aura.AuraPayout;
 import eu.nordtal.s2.smp.aura.AuraReason;
@@ -298,7 +299,7 @@ public final class ObjectiveEngine {
         // line uses. The sentence follows the unlock rather than assuming a border step - a Nether
         // or End milestone would otherwise announce a growth that did not happen.
         announcer.announce(locale -> {
-            final String milestone = MilestoneNames.of(messages, locale, milestoneKey);
+            final MilestoneContext milestone = new MilestoneContext(MilestoneNames.of(messages, locale, milestoneKey));
             final SmpMessages.Smp.Announce.Milestone by = MESSAGES.smp().announce().milestoneSection();
             return switch (unlock) {
                 case BORDER -> by.border(milestone);
@@ -310,7 +311,7 @@ public final class ObjectiveEngine {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final var locale = locales.of(player.getUniqueId());
-            final String name = MilestoneNames.of(messages, locale, milestoneKey);
+            final MilestoneContext name = new MilestoneContext(MilestoneNames.of(messages, locale, milestoneKey));
 
             player.sendMessage(renderer.format(locale,
                     MESSAGES.smp().milestone().completed(Glyphs.ICON_ANNOUNCE, name)));

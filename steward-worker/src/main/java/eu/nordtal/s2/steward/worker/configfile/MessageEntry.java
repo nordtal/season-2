@@ -38,6 +38,10 @@ import java.util.List;
  *                        when the schema does not describe the key
  * @param section         the names of the sections around the key, outermost first; {@code null} for
  *                        a section that has none
+ * @param format          how the text is written - {@code MINIMESSAGE}, {@code DISCORD_MARKDOWN} or
+ *                        {@code PLAIN} - or {@code null} when the schema does not say
+ * @param shown           where the text is shown, e.g. {@code TITLE}, or {@code null} when the schema
+ *                        does not say
  */
 public record MessageEntry(
         @NotNull String key,
@@ -49,7 +53,9 @@ public record MessageEntry(
         @Nullable String name,
         @Nullable String description,
         @NotNull List<MessageArg> args,
-        @NotNull List<String> section) {
+        @NotNull List<String> section,
+        @Nullable String format,
+        @Nullable String shown) {
 
     public MessageEntry {
         args = List.copyOf(args);

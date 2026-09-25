@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.context.MilestoneContext;
 
 
 import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
@@ -31,7 +32,7 @@ public final class ShowStatus implements NordtalCommand<SmpEffects> {
             }
             user.reply(MESSAGES.phase().current(status.phase()), Tone.NEUTRAL);
             if (status.milestone().isPresent()) {
-                user.reply(MESSAGES.smp().status().milestone(status.milestone().get(), status.percent()),
+                user.reply(MESSAGES.smp().status().milestone(new MilestoneContext(status.milestone().get()), status.percent()),
                         Tone.NEUTRAL);
             } else {
                 // Every milestone in the season is done. That is the one line here that is news.

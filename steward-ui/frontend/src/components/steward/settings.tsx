@@ -1109,7 +1109,7 @@ function MessageField({
               onClick={() => insert(tokenOf(arg))}
               className="rounded-full disabled:pointer-events-none"
             >
-              <Badge variant="outline" className="font-mono">
+              <Badge variant={arg.global ? "secondary" : "outline"} className="font-mono">
                 {tokenOf(arg)}
               </Badge>
             </button>

@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.menu.SlotGeometry;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.papercommon.menu.BlankItem;
 import eu.nordtal.s2.smp.board.ProgressBar;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
@@ -191,7 +192,7 @@ public final class ObjectiveGui implements Surface {
     private void fill() {
         final ItemStack heading = BlankItem.of(
                 MessageRenderer.of(messages).format(locale,
-                        MESSAGES.smp().objectives().heading(milestoneName())),
+                        MESSAGES.smp().objectives().heading(new MilestoneContext(milestoneName()))),
                 List.of(MessageRenderer.of(messages).format(locale,
                         MESSAGES.smp().objectives().headingHint(finished(), rows.size()))));
         for (int column = 0; column < SlotGeometry.COLUMNS; column++) {

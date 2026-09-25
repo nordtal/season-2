@@ -111,7 +111,7 @@ class MessageSpecsTest {
         assertEquals(List.of(new MessageSchema.Arg("_sender", true), new MessageSchema.Arg("separator", false),
                 new MessageSchema.Arg("_message", true)), entries.get(8).args());
         assertTrue(MessageSchema.json(TestMessages.class).contains(
-                "{\"key\": \"greeting\", \"name\": \"Greeting\", \"args\": [{\"name\": \"player\", \"component\": false}], \"section\": []}"));
+                "{\"key\": \"greeting\", \"name\": \"Greeting\", \"format\": \"MINIMESSAGE\", \"shown\": \"CHAT\", \"args\": [{\"name\": \"player\", \"component\": false}], \"section\": []}"));
     }
 
     @Test

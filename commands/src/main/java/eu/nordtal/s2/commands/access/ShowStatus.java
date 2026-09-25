@@ -6,6 +6,8 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.context.DiscordMemberContext;
+import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.common.phase.SeasonDates;
 
 import java.util.Optional;
@@ -41,7 +43,7 @@ public final class ShowStatus implements NordtalCommand<AccessEffects> {
             }
             if (status.isEmpty()) {
                 // The id is one Discord no longer has: the row is not wrong, the person is gone.
-                user.reply(MESSAGES.access().noSuchMember(discordId),
+                user.reply(MESSAGES.access().noSuchMember(new DiscordMemberContext(discordId)),
                         Feedback.REFUSED, Tone.BAD);
                 return;
             }
@@ -49,7 +51,7 @@ public final class ShowStatus implements NordtalCommand<AccessEffects> {
             final AccessEffects.Status account = status.get();
             // The tones shape the readout: the header says who, one line carries the news, the
             // rest is detail.
-            user.reply(MESSAGES.access().header(account.name(), discordId),
+            user.reply(MESSAGES.access().header(new PlayerContext(account.name()), new DiscordMemberContext(discordId)),
                     Tone.NEUTRAL);
             user.reply(account.accessUntil()
                             .map(until -> MESSAGES.access().until(SeasonDates.format(until)))

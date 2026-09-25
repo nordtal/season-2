@@ -134,6 +134,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // Must be first: loads the class every disable step below goes through, while the jar it
         // lives in still exists. See Shutdown#warmUp.
         eu.nordtal.s2.common.health.Shutdown.warmUp();
+        // {server.name} in every message: the plugin's name is the service's.
+        eu.nordtal.s2.common.message.context.Contexts.server(getName());
         try {
             start();
         } catch (final RuntimeException failure) {

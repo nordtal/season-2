@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.context.ServiceContext;
 import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
@@ -64,7 +65,7 @@ public final class HoldService implements NordtalCommand<UpdateEffects> {
                 effects.watch(id, user);
                 if (down) {
                     user.reply(
-                            MESSAGES.update().down().asked(services.isEmpty() ? "" : services.getFirst(),
+                            MESSAGES.update().down().asked(new ServiceContext(services.isEmpty() ? "" : services.getFirst()),
                                     UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
                             Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
                 } else {

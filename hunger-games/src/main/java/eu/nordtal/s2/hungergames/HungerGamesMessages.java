@@ -1,11 +1,15 @@
 package eu.nordtal.s2.hungergames;
 
 import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.common.message.context.PlayerContext;
+import eu.nordtal.s2.common.message.context.TeamContext;
 import eu.nordtal.s2.common.message.spec.Arg;
+import eu.nordtal.s2.common.message.spec.Display;
 import eu.nordtal.s2.common.message.spec.Key;
 import eu.nordtal.s2.common.message.spec.MessageSpec;
 import eu.nordtal.s2.common.message.spec.MessageSpecs;
 import eu.nordtal.s2.common.message.spec.Name;
+import eu.nordtal.s2.common.message.spec.Shown;
 import net.kyori.adventure.text.Component;
 
 /**
@@ -61,7 +65,7 @@ public interface HungerGamesMessages {
         interface Team {
 
             @Name("Demoted")
-            MessageRef demoted(@Arg("team") Object team);
+            MessageRef demoted(@Arg("team") TeamContext team);
         }
 
         Loot loot();
@@ -94,10 +98,10 @@ public interface HungerGamesMessages {
         interface Win {
 
             @Name("Player")
-            MessageRef player(@Arg("icon") Object icon, @Arg("winner") Object winner);
+            MessageRef player(@Arg("icon") Object icon, @Arg("winner") PlayerContext winner);
 
             @Name("Tie broken")
-            MessageRef tieBroken(@Arg("winner") Object winner, @Arg("winnerKills") Object winnerKills, @Arg("loserKills") Object loserKills);
+            MessageRef tieBroken(@Arg("winner") PlayerContext winner, @Arg("winnerKills") Object winnerKills, @Arg("loserKills") Object loserKills);
 
             @Name("No winner")
             MessageRef noWinner(@Arg("kills") Object kills);
@@ -118,7 +122,7 @@ public interface HungerGamesMessages {
             MessageRef noWinner();
 
             @Name("Kills")
-            MessageRef kills(@Arg("player") Object player, @Arg("kills") Object kills);
+            MessageRef kills(@Arg("player") PlayerContext player, @Arg("kills") Object kills);
 
             @Name("Footer")
             MessageRef footer();
@@ -127,6 +131,7 @@ public interface HungerGamesMessages {
         Hud hud();
 
         @Name("HUD")
+        @Shown(Display.BOSS_BAR)
         interface Hud {
 
             @Name("Players")
@@ -168,6 +173,7 @@ public interface HungerGamesMessages {
     Tab tab();
 
     @Name("Tab")
+    @Shown(Display.TAB_LIST)
     interface Tab {
 
         @Name("Header")

@@ -483,6 +483,7 @@ public class AccessBot implements AutoCloseable {
     private static final java.time.Duration FATAL_BACKOFF = java.time.Duration.ofSeconds(60);
 
     public static void main(final String[] args) throws InterruptedException {
+        eu.nordtal.s2.common.message.context.Contexts.server("discord-bot");
         final AccessBot bot;
         try {
             bot = new AccessBot();

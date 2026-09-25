@@ -2,6 +2,8 @@ package eu.nordtal.s2.discordbot.hungergames;
 
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.message.context.DiscordMemberContext;
+import eu.nordtal.s2.common.message.context.TeamContext;
 import eu.nordtal.s2.discordbot.AccessMessages;
 
 import lombok.extern.slf4j.Slf4j;
@@ -174,7 +176,7 @@ public final class RegisterFlow extends ListenerAdapter {
         switch (result.status()) {
             case INVITED -> {
                 event.getHook().editOriginal(messages.format(locale,
-                        MESSAGES.register().invite().sent(partner.getAsMention()))).queue();
+                        MESSAGES.register().invite().sent(new DiscordMemberContext(partner.getAsMention())))).queue();
                 dmInvite(partner, result.memberId(), result.teamName());
             }
             case NOT_REGISTERED, NOT_OWNER ->
@@ -197,7 +199,7 @@ public final class RegisterFlow extends ListenerAdapter {
 
     private void dmInvite(final User partner, final UUID memberId, final String teamName) {
         final Locale locale = teams.localeOf(partner.getId());
-        final String text = messages.format(locale, MESSAGES.register().invite().dm(teamName));
+        final String text = messages.format(locale, MESSAGES.register().invite().dm(new TeamContext(teamName)));
         final List<ActionRow> components = List.of(ActionRow.of(
                 Button.success(Ids.INVITE_ACCEPT + memberId, messages.format(locale,
                         MESSAGES.register().invite().accept())),
@@ -243,16 +245,18 @@ public final class RegisterFlow extends ListenerAdapter {
 
         final AccessMessages.Register.Invite invite = MESSAGES.register().invite();
         final MessageRef answer = accept
-                ? invite.accepted(result.teamName()) : invite.declined(result.teamName());
+                ? invite.accepted(new TeamContext(result.teamName()))
+                : invite.declined(new TeamContext(result.teamName()));
         event.getHook().editOriginalComponents(List.of())
                 .setContent(messages.format(locale, answer)).queue();
 
         teams.ownerOf(result.teamId()).ifPresent(ownerId -> {
             final Locale ownerLocale = teams.localeOf(ownerId);
-            final String player = event.getUser().getAsMention();
+            final DiscordMemberContext player = new DiscordMemberContext(event.getUser().getAsMention());
+            final TeamContext team = new TeamContext(result.teamName());
             final String text = messages.format(ownerLocale, accept
-                    ? invite.ownerNotifiedAccepted(player, result.teamName())
-                    : invite.ownerNotifiedDeclined(player, result.teamName()));
+                    ? invite.ownerNotifiedAccepted(player, team)
+                    : invite.ownerNotifiedDeclined(player, team));
             jda.openPrivateChannelById(ownerId).queue(
                     channel -> channel.sendMessage(text).queue(ok -> { }, failure ->
                             log.info("Could not DM team owner {} about an invite answer ({})",

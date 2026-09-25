@@ -2,6 +2,7 @@ package eu.nordtal.s2.commands.update;
 
 import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.context.ServiceContext;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
@@ -65,7 +66,7 @@ class UpdateFollowerTest {
         // which is what a German admin got on the longest answer in the network.
         assertEquals(List.of("update.stage.PLANNED", "update.line.PLANNED", "update.change"),
                 user.keys());
-        assertEquals("smp", user.replies.get(1).of("service"));
+        assertEquals(new ServiceContext("smp"), user.replies.get(1).of("service"));
         assertEquals("smp.jar", user.replies.get(2).of("artefact"));
         assertEquals("<0.7.1>", user.replies.get(2).of("to"),
                 "a version string with a '<' in it travels as a placeholder, which MessageRenderer"

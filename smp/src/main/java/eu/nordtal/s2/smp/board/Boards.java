@@ -3,6 +3,8 @@ package eu.nordtal.s2.smp.board;
 import eu.nordtal.s2.common.hud.BoardFrame;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
+import eu.nordtal.s2.common.message.context.MilestoneContext;
+import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -204,7 +206,7 @@ public final class Boards {
         }
 
         lines.add(renderer.format(locale,
-                MESSAGES.smp().board().objective().milestone(milestoneName(active.key(), locale))));
+                MESSAGES.smp().board().objective().milestone(new MilestoneContext(milestoneName(active.key(), locale)))));
         for (final ObjectiveRow objective : active.objectives()) {
             lines.add(renderer.format(locale,
                     row(objective.key(), objective)));
@@ -226,8 +228,8 @@ public final class Boards {
         int place = 1;
         for (final AuraRow row : rows.subList(0, Math.min(LEADERBOARD_SIZE, rows.size()))) {
             lines.add(renderer.format(locale,
-                    row.aura() > 0 ? MESSAGES.smp().board().aura().row(place, nameOf(row.mcUuid()),
-                            row.aura()) : MESSAGES.smp().board().aura().rowZero(place, nameOf(row.mcUuid()),
+                    row.aura() > 0 ? MESSAGES.smp().board().aura().row(place, new PlayerContext(nameOf(row.mcUuid())),
+                            row.aura()) : MESSAGES.smp().board().aura().rowZero(place, new PlayerContext(nameOf(row.mcUuid())),
                             row.aura())));
             place++;
         }

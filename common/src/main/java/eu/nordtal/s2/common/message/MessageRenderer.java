@@ -1,5 +1,7 @@
 package eu.nordtal.s2.common.message;
 
+import eu.nordtal.s2.common.message.context.Contexts;
+
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -155,15 +157,17 @@ public final class MessageRenderer {
 
     /**
      * Renders a message a spec chose. A {@link Component} value fills its {@code <name>} tag,
-     * every other value its {@code {name}} placeholder, escaped as always.
+     * every other value its {@code {name}} placeholder, escaped as always - a context's properties
+     * and the global roles' included.
      *
      * @return the formatted message, parsed as MiniMessage
      */
     public Component format(final Locale locale, final MessageRef message) {
         final Map<String, Component> components = new LinkedHashMap<>();
-        final Object[] parameters = new Object[message.args().size() * 2];
+        final Map<String, Object> values = Contexts.flatten(message.args());
+        final Object[] parameters = new Object[values.size() * 2];
         int index = 0;
-        for (final Map.Entry<String, Object> arg : message.args().entrySet()) {
+        for (final Map.Entry<String, Object> arg : values.entrySet()) {
             if (arg.getValue() instanceof final Component component) {
                 components.put(arg.getKey(), component);
             } else {

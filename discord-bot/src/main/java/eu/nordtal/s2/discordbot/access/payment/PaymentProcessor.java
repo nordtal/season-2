@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
+import eu.nordtal.s2.common.message.context.DiscordMemberContext;
 import eu.nordtal.s2.common.payment.PaymentNotice;
 import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequests;
@@ -189,7 +190,7 @@ public final class PaymentProcessor {
             return;
         }
         channel.sendMessage(messages.format(locale,
-                MESSAGES.publicSection().donation("<@" + discordId + ">", Money.format(donationCents))))
+                MESSAGES.publicSection().donation(new DiscordMemberContext("<@" + discordId + ">"), Money.format(donationCents))))
                 .queue(ok -> {
                 }, failure -> log.error("Could not post the donation thank-you", failure));
     }

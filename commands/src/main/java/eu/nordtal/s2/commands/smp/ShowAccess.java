@@ -7,6 +7,8 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.access.OpenPayment;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.context.DiscordMemberContext;
+import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.common.phase.SeasonDates;
 
 import java.util.Optional;
@@ -58,12 +60,12 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
                 // An unlinked account should not have got past the proxy at all, so this is worth
                 // saying plainly rather than folding into "no access": it means something else is
                 // already wrong.
-                user.reply(MESSAGES.smp().access().unlinked(name), Feedback.REFUSED, Tone.BAD);
+                user.reply(MESSAGES.smp().access().unlinked(new PlayerContext(name)), Feedback.REFUSED, Tone.BAD);
                 return;
             }
 
             final SmpEffects.Access state = access.get();
-            user.reply(MESSAGES.smp().access().linked(name, state.discordId()),
+            user.reply(MESSAGES.smp().access().linked(new PlayerContext(name), new DiscordMemberContext(state.discordId())),
                     Tone.NEUTRAL);
 
             if (state.accessActive() && state.validUntil() != null) {

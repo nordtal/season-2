@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.context.PlayerContext;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -72,7 +73,7 @@ public final class ShowAura implements NordtalCommand<SmpEffects> {
             for (final SmpEffects.AuraLine line : shown.top()) {
                 // One key, two tones. A second key with the same words in a different colour is two
                 // strings to translate and one of them eventually says something else.
-                user.reply(MESSAGES.smp().aura().line(line.place(), line.player(), line.aura()),
+                user.reply(MESSAGES.smp().aura().line(line.place(), new PlayerContext(line.player()), line.aura()),
                         line.you() ? Tone.GOOD : Tone.MUTED);
             }
         });

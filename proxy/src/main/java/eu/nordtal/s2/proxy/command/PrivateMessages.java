@@ -20,6 +20,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 
@@ -246,8 +247,8 @@ public final class PrivateMessages {
         final Component message = Component.text(text);
         final ProxyMessages.Chat.Msg msg = ProxyMessages.MESSAGES.chat().msg();
         return MessageRenderer.of(messages).format(reader, switch (half) {
-            case SENT -> msg.sent(flag, about.getUsername(), adminTag(about), message);
-            case RECEIVED -> msg.received(flag, about.getUsername(), adminTag(about), message);
+            case SENT -> msg.sent(flag, new PlayerContext(about.getUsername()), adminTag(about), message);
+            case RECEIVED -> msg.received(flag, new PlayerContext(about.getUsername()), adminTag(about), message);
         });
     }
 

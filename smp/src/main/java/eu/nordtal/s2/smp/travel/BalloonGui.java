@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.papercommon.menu.BlankItem;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -113,7 +114,7 @@ public final class BalloonGui implements Surface {
             case OPEN -> lore.add(renderer.format(locale, MESSAGES.smp().balloon().open()));
             case LOCKED -> {
                 lore.add(renderer.format(locale,
-                        MESSAGES.smp().balloon().locked(milestoneName(entry.destination(), locale))));
+                        MESSAGES.smp().balloon().locked(new MilestoneContext(milestoneName(entry.destination(), locale)))));
                 lore.add(renderer.format(locale, MESSAGES.smp().balloon().lockedHint()));
             }
         }
@@ -153,7 +154,7 @@ public final class BalloonGui implements Surface {
         if (!entry.travellable()) {
             if (entry.state() == BalloonMenu.State.LOCKED) {
                 player.sendMessage(MessageRenderer.of(messages).format(locale,
-                        MESSAGES.smp().balloon().locked(milestoneName(entry.destination(), locale))));
+                        MESSAGES.smp().balloon().locked(new MilestoneContext(milestoneName(entry.destination(), locale)))));
                 sounds.play(player, Feedback.REFUSED);
             }
             return false;

@@ -34,7 +34,7 @@ const SEASON = {
   smpStart: "2026-10-08T18:00:00Z",
 }
 
-/** The page's own two routes, plus the command catalogue the card inside it asks for. */
+/** The page's own routes. There is no command card on it any more, so no catalogue either. */
 function backend(over: { phase?: () => { status: number; body: unknown } } = {}) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/season/phase" && init?.method === "POST") {
@@ -42,7 +42,6 @@ function backend(over: { phase?: () => { status: number; body: unknown } } = {})
       return json(answer.status, answer.body)
     }
     if (url === "/api/season") return json(200, SEASON)
-    if (url === "/api/commands") return json(200, [])
     throw new Error(`the page asked for ${url}, which this test did not expect`)
   })
 }

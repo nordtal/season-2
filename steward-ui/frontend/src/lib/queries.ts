@@ -11,6 +11,7 @@ import {
   type AdminCommand,
   type CommandRun,
   type SmpTrack,
+  type Announcements,
   type HungerGamesRound,
   type ConfigChanges,
   type ConfigDocument,
@@ -97,6 +98,7 @@ export const keys = {
   commands: ["commands"] as const,
   commandRun: (id: string) => ["command-run", id] as const,
   smpTrack: ["smp-track"] as const,
+  announcements: ["announcements"] as const,
   hungerGamesRound: ["hunger-games-round"] as const,
   configs: ["configs"] as const,
   deployer: ["deployer"] as const,
@@ -484,6 +486,27 @@ export function useGameAction() {
     mutationFn: ({ path, body }: { path: string; body: unknown }) =>
       api<{ id: string }>(path, { method: "POST", body }),
     onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["journal"] })
+    },
+  })
+}
+
+/** The latest announcements, by the SMP and by admins, newest first. */
+export function useAnnouncements() {
+  return useQuery({
+    queryKey: keys.announcements,
+    queryFn: () => api<Announcements>("/api/announcements"),
+  })
+}
+
+/** One announcement, one text per language; the answer is one row id per language. */
+export function useSendAnnouncement() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (texts: Record<string, string>) =>
+      api<{ ids: Record<string, string> }>("/api/announcements", { method: "POST", body: { texts } }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: keys.announcements })
       client.invalidateQueries({ queryKey: ["journal"] })
     },
   })

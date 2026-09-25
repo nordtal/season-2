@@ -1191,6 +1191,30 @@ class StewardUiIntegrationTest {
         assertEquals(200, post("/api/season/date", "{" + at + ",\"which\":\"launch\"}").statusCode());
     }
 
+    /**
+     * "No date" is a real state - the start page and the MOTD countdown read it - and once a date
+     * was set, the interface had no way back to it. A null {@code at} is that way; a blank one is
+     * still a forgotten field, and {@code which} is still required.
+     */
+    @Test
+    @DisplayName("a season date that was set can be removed again")
+    void aSeasonDateCanBeRemoved() throws Exception {
+        final String at = "\"at\":\"2026-10-01T18:00:00Z\"";
+        assertEquals(200, post("/api/season/date", "{" + at + ",\"which\":\"launch\"}").statusCode());
+        assertEquals(200, post("/api/season/date", "{" + at + ",\"which\":\"smpStart\"}").statusCode());
+
+        assertEquals(400, post("/api/season/date", "{\"at\":\"  \",\"which\":\"launch\"}").statusCode());
+        assertEquals(400, post("/api/season/date", "{\"at\":null}").statusCode());
+
+        final HttpResponse<String> smp = post("/api/season/date", "{\"at\":null,\"which\":\"smpStart\"}");
+        assertEquals(200, smp.statusCode(), smp.body());
+        assertEquals(200, post("/api/season/date", "{\"which\":\"launch\"}").statusCode());
+
+        final JsonObject season = GSON.fromJson(get("/api/season").body(), JsonObject.class);
+        assertFalse(season.has("launch"), season.toString());
+        assertFalse(season.has("smpStart"), season.toString());
+    }
+
     @Test
     @DisplayName("the curves come out of postgres, and an empty window is an empty list")
     void theCurvesAreRead() throws Exception {

@@ -229,3 +229,75 @@ describe("SeasonPage - a switch the backend refuses", () => {
     expect(refusals(within(dialog))).toHaveLength(1)
   })
 })
+
+describe("SeasonPage - a date can be removed again", () => {
+  /** The date routes on top of the page's own, recording what was asked. */
+  function dates(answer: { status: number; body: unknown } = { status: 200, body: {} }) {
+    const base = backend()
+    const sent: unknown[] = []
+    const fetched = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/season/date" && init?.method === "POST") {
+        sent.push(JSON.parse(String(init.body)))
+        return json(answer.status, answer.body)
+      }
+      return base(url, init)
+    })
+    vi.stubGlobal("fetch", fetched)
+    return sent
+  }
+
+  const remove = async (field: string) => {
+    const row = (await screen.findByLabelText(field)).closest("div.flex-wrap") as HTMLElement
+    const button = await within(row).findByRole("button", { name: "Remove" })
+    fireEvent.click(button)
+    return screen.findByRole("alertdialog")
+  }
+
+  it("asks first, and sends null for the date it names", async () => {
+    const sent = dates()
+    draw(<SeasonPage />)
+
+    const dialog = await remove("SMP launch")
+    expect(sent).toHaveLength(0)
+    expect(dialog.textContent).toContain("not an undo")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }))
+
+    await waitFor(() => expect(sent).toEqual([{ which: "smpStart", at: null }]))
+  })
+
+  it("says the launch is harmless, and cancelling sends nothing", async () => {
+    const sent = dates()
+    draw(<SeasonPage />)
+
+    const dialog = await remove("Network launch")
+    expect(dialog.textContent).toContain("Nothing else moves")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    expect(sent).toHaveLength(0)
+  })
+
+  it("never offers Remove and Reset side by side", async () => {
+    dates()
+    draw(<SeasonPage />)
+
+    const input = (await screen.findByLabelText("Network launch")) as HTMLInputElement
+    const row = input.closest("div.flex-wrap") as HTMLElement
+    await within(row).findByRole("button", { name: "Remove" })
+
+    fireEvent.change(input, { target: { value: "2026-11-01T18:00" } })
+    expect(within(row).queryByRole("button", { name: "Remove" })).toBeNull()
+    expect(within(row).getByRole("button", { name: "Reset" })).toBeTruthy()
+  })
+
+  it("keeps the dialog open with the reason when the backend refuses", async () => {
+    dates({ status: 400, body: { error: "The season is already in SMP." } })
+    draw(<SeasonPage />)
+
+    const dialog = await remove("SMP launch")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }))
+
+    await waitFor(() => expect(within(dialog).getByText(/already in SMP/)).toBeTruthy())
+    expect(screen.queryByRole("alertdialog")).not.toBeNull()
+  })
+})

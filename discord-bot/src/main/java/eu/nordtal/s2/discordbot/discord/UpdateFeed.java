@@ -41,8 +41,8 @@ import java.util.concurrent.Executor;
  * they would disagree.
  *
  * <h2>It draws, it does not decide</h2>
- * The embed is {@link UpdateCommand#fields}, the same one the asker sees, with a footer naming who
- * asked and from where. Nothing here forms an opinion about a run.
+ * The embed is {@link UpdateCommand#fields}, the same one the asker sees, plus three fields naming
+ * the run, who asked and from where. Nothing here forms an opinion about a run.
  *
  * <h2>English, like everything else in that channel</h2>
  * The admin channel has many readers and one text. Every {@code AdminLog} line in this bot is
@@ -324,7 +324,9 @@ public final class UpdateFeed {
             return;
         }
         try {
-            board.alert(footer(request) + " - FAILED. See the embed above.");
+            board.alert("**" + request.kind().name().toLowerCase(java.util.Locale.ROOT) + " failed** ↑ "
+                    + (request.requestedBy() == null ? "console" : Card.escape(request.requestedBy()))
+                    + ", " + request.source().name().toLowerCase(java.util.Locale.ROOT));
         } catch (final RuntimeException failure) {
             // The embed is already posted; losing the mention must not lose the pass.
             log.warn("Could not alert admins about failed update request {}", request.id(), failure);
@@ -341,12 +343,7 @@ public final class UpdateFeed {
     private MessageEmbed embed(final UpdateRequest request) {
         final UpdateReport report = UpdateReports.parse(request.result())
                 .orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
-        return UpdateCommand.fields(report, request, messages, Locales.DEFAULT, footer(request));
-    }
-
-    /** {@code /update now, asked for by Till from GAME} - the half the asker's own embed omits. */
-    private static String footer(final UpdateRequest request) {
-        final String who = request.requestedBy() == null ? "the console" : request.requestedBy();
-        return request.kind() + ", asked for by " + who + " from " + request.source();
+        // With the context the asker's own embed omits: which run, who asked, and from where.
+        return UpdateCommand.fields(report, request, messages, Locales.DEFAULT, true);
     }
 }

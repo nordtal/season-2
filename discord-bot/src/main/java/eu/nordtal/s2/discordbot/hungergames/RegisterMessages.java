@@ -7,7 +7,7 @@ import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.common.message.Messages;
 
 import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.EmbedBuilder;
+import eu.nordtal.s2.discordbot.discord.Card;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -36,9 +36,6 @@ import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
  */
 @Slf4j
 public final class RegisterMessages {
-
-    /** nordtal blue, the same value every other managed embed uses. */
-    private static final int COLOUR = 0x3459_74;
 
     private final JDA jda;
     private final Languages languages;
@@ -105,10 +102,13 @@ public final class RegisterMessages {
     }
 
     private MessageEmbed registerEmbed(final Locale locale) {
-        return new EmbedBuilder()
-                .setColor(COLOUR)
-                .setTitle(messages.format(locale, MESSAGES.register().title()))
-                .setDescription(messages.format(locale, MESSAGES.register().body()))
+        return Card.of(messages.format(locale, MESSAGES.register().title()), Card.Accent.NORDTAL)
+                .field(messages.format(locale, MESSAGES.register().teamHeading()),
+                        messages.format(locale, MESSAGES.register().team()))
+                .field(messages.format(locale, MESSAGES.register().nameHeading()),
+                        messages.format(locale, MESSAGES.register().name()))
+                .field(messages.format(locale, MESSAGES.register().partnerHeading()),
+                        messages.format(locale, MESSAGES.register().partner()))
                 .build();
     }
 }

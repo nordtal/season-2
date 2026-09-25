@@ -296,8 +296,11 @@ class UpdateFeedTest {
         feed.tick();
 
         assertEquals(1, board.posted.size());
-        assertTrue(board.posted.getFirst().embed().getFooter().getText().contains("Till"),
-                "the footer is the half the asker's own embed omits: who asked, and from where");
+        final java.util.Map<String, String> context = new java.util.HashMap<>();
+        board.posted.getFirst().embed().getFields().forEach(f -> context.put(f.getName(), f.getValue()));
+        assertEquals("Till", context.get("By"),
+                "who asked is the half the asker's own embed omits, and here it is a field");
+        assertEquals("game", context.get("From"));
 
         rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING,
                 reportAt(UpdateReport.Stage.STOPPING), null));

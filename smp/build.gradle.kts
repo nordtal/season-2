@@ -29,10 +29,6 @@ repositoryRootTestInputs {
 repositories {
     // jcore and papermc-display-tags are both published via JitPack, not Maven Central.
     maven("https://jitpack.io")
-
-    // Chunky. Its author publishes to CodeMC, and nowhere else that carries this artefact; the
-    // "chunky" coordinates on Maven Central belong to unrelated projects.
-    maven("https://repo.codemc.io/repository/maven-public/")
 }
 
 dependencies {
@@ -56,14 +52,6 @@ dependencies {
     // interfaces and the lookup would hand back an instance of the wrong one. DisplayTags and
     // PacketEvents are therefore required at runtime on the SMP server.
     compileOnly(libs.display.tags)
-
-    // Chunky pre-generates the farm world to its border - roughly 15 000 chunks a day, next to a
-    // live server.
-    //
-    // compileOnly AND NEVER SHADED, for the same reason as DisplayTags: `ChunkyAPI` is an interface
-    // over the running plugin, handed out through Bukkit's ServicesManager, so a bundled copy would
-    // return an instance the plugin cannot cast.
-    compileOnly(libs.chunky)
 
     // SpinRefundIntegrationTest drives the wheel-refund statements against a real PostgreSQL: what
     // can go wrong in a refund is a property of the database, not of Java (a null `last_free` needs

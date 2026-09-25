@@ -650,7 +650,7 @@ public final class WorkerApi implements AutoCloseable {
             config.routes.delete("/api/services/{name}/plugins/{artifact}", ctx -> plugins().remove(ctx));
 
             // season-2-ops/128: WHAT A RUN WOULD DO, WITHOUT DOING IT. Until this existed the only
-            // way to see whether Chunky or Paper had moved was to start a run, so the plan page
+            // way to see whether PacketEvents or Paper had moved was to start a run, so the plan page
             // said in as many words that there was no dry run and drew an image comparison
             // instead. Reading this route writes nothing: no row in update_request, no container
             // touched, no jar moved. See AVAILABLE_TTL for why that is not a breach of "nothing

@@ -30,8 +30,8 @@ class VersionPairTest {
     @Test
     @DisplayName("two builds of one artefact come apart into the part that differs")
     void theVersionIsWhatDiffers() {
-        assertEquals(new VersionPair("1.5.3", "1.6.0"),
-                VersionPair.of("Chunky-Bukkit-1.5.3.jar", "Chunky-Bukkit-1.6.0.jar").orElseThrow());
+        assertEquals(new VersionPair("2.6.18", "2.7.0"),
+                VersionPair.of("voicechat-bukkit-2.6.18.jar", "voicechat-bukkit-2.7.0.jar").orElseThrow());
     }
 
     @Test

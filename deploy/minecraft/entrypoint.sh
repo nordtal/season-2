@@ -631,10 +631,9 @@ SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING%-*}"
 # rule for anything it does not account for is that it is reported and left alone - and a guard
 # demanding an exact set would stop the SMP the first evening one is hand-installed.
 #
-# The two third-party prefixes are the soft spot: Topology deliberately reads a prefix back off the
+# The third-party prefix is the soft spot: Topology deliberately reads a prefix back off the
 # resolved filename rather than assuming one, because `packetevents` resolves to
-# packetevents-spigot-*.jar and `chunky` to Chunky-Bukkit-*.jar. Listing them here does assume
-# it. If either publisher renames a jar on a first install, this refuses to start while the plugin
+# packetevents-spigot-*.jar. Listing it here does assume it. If the publisher renames the jar on a first install, this refuses to start while the plugin
 # is really there - a false positive, but a loud one with the prefix in the message, and the same
 # blind spot the worker already has (it would call the artefact MISSING and report the old jar as
 # unclaimed). Refusing is the right side to fail on.
@@ -709,9 +708,9 @@ fi
 # sha512 and not sha256 because that is what Modrinth actually publishes for a file - the pin can
 # then be copied straight out of the API response instead of being computed by hand, and a pin
 # nobody can re-derive is a pin that rots.
-# The checksum is optional but wanted: a datapack that silently changes version between Nordtal's
-# one-off pre-generation and a nightly farm world is two worlds that stop looking like each other,
-# and nothing reports it.
+# The checksum is optional but wanted: a datapack that silently changes version while Nordtal is
+# still being explored is a world whose new chunks stop looking like its old ones, and nothing
+# reports it.
 fetch_datapacks() {
     local dir="$1" spec url sha file dest tmp actual
 

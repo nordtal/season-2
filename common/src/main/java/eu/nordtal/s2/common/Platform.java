@@ -60,7 +60,7 @@ public final class Platform {
      * <p>It exists so that steward-worker can say when the two have parted company. Following
      * {@link #VELOCITY_FAMILY} means the proxy can be moved to a newer 4.x by a run nobody
      * reviewed, and a plugin built against an older API then runs on a newer one - the same trap
-     * {@code StewardSpec}'s Chunky comment describes for a {@code compileOnly} pin. The update
+     * a {@code compileOnly} pin sets for any plugin API resolved ahead of it. The update
      * report names it and does not block on it: refusing the proxy's own update over a version skew
      * that is usually harmless would be the worse failure.</p>
      */

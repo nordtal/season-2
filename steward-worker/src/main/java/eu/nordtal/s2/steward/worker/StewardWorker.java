@@ -527,7 +527,6 @@ public final class StewardWorker {
                                 eu.nordtal.s2.common.Platform.MINECRAFT,
                                 java.util.Map.of(
                                         eu.nordtal.s2.steward.worker.plan.Topology.PACKETEVENTS, config.packetEventsProject(),
-                                        eu.nordtal.s2.steward.worker.plan.Topology.CHUNKY, config.chunkyProject(),
                                         eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT, config.voiceChatProject(),
                                         eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT_PROXY, config.voiceChatProject(),
                                         eu.nordtal.s2.steward.worker.plan.Topology.CORE_PROTECT, config.coreProtectProject())),

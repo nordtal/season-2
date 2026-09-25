@@ -187,21 +187,21 @@ class ApplierTest {
     @DisplayName("a download failing part way through leaves the whole server exactly as it was")
     void nothingMovesUntilEverythingIsStaged() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
-        install("smp", "plugins/Chunky-Bukkit-1.5.2.jar");
+        install("smp", "plugins/voicechat-bukkit-2.6.21.jar");
 
         // The second of two downloads fails. Without two phases the SMP server would now be
-        // running a new season jar against an old Chunky, which is a combination nobody chose.
-        final ApplyResult result = apply(new Fake().failingOn("Chunky-Bukkit-1.5.3.jar"), plan(
+        // running a new season jar against an old Simple Voice Chat, which is a combination nobody chose.
+        final ApplyResult result = apply(new Fake().failingOn("voicechat-bukkit-2.6.23.jar"), plan(
                 outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
-                outdated("smp", "chunky", "Chunky-Bukkit-1.5.2.jar", "Chunky-Bukkit-1.5.3.jar")));
+                outdated("smp", "voicechat", "voicechat-bukkit-2.6.21.jar", "voicechat-bukkit-2.6.23.jar")));
 
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")), "the old jar is still there");
         assertFalse(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")), "the new jar was not placed");
-        assertTrue(Files.exists(volumes.resolve("smp/plugins/Chunky-Bukkit-1.5.2.jar")));
+        assertTrue(Files.exists(volumes.resolve("smp/plugins/voicechat-bukkit-2.6.21.jar")));
         assertFalse(Files.exists(volumes.resolve("smp/plugins").resolve(Applier.STAGING)));
 
         assertEquals(ApplyResult.Status.FAILED, outcome(result, "smp", "smp").status());
-        assertEquals(ApplyResult.Status.FAILED, outcome(result, "smp", "chunky").status());
+        assertEquals(ApplyResult.Status.FAILED, outcome(result, "smp", "voicechat").status());
         assertFalse(result.restartWorthOffering());
     }
 
@@ -380,7 +380,7 @@ class ApplierTest {
     @DisplayName("B4: a bootstrap whose season jar is unresolved installs nothing for that server")
     void anIncompleteServerIsNotPartlyFilled() {
         // The first real deployment. GitHub answered 403 for the season release while Modrinth
-        // answered fine for PacketEvents and Chunky, so smp's folder was filled with its two
+        // answered fine for PacketEvents and Simple Voice Chat, so smp's folder was filled with its two
         // third-party plugins and no season - and the entrypoint's guard, which only counted jars,
         // let it start. Three other servers were caught because their folders stayed empty.
         //
@@ -391,8 +391,8 @@ class ApplierTest {
                 Change.unresolved("smp", "smp", "could not read nordtal/season-2@latest: HTTP 403"),
                 new Change("smp", "packetevents", Change.Status.MISSING, null,
                         remote("packetevents", "packetevents-spigot-2.13.0.jar"), null),
-                new Change("smp", "chunky", Change.Status.MISSING, null,
-                        remote("chunky", "Chunky-Bukkit-1.5.3.jar"), null))
+                new Change("smp", "voicechat", Change.Status.MISSING, null,
+                        remote("voicechat", "voicechat-bukkit-2.6.23.jar"), null))
                 .onlyMissing();
 
         final ApplyResult result = apply(new Fake(), bootstrap);
@@ -400,7 +400,7 @@ class ApplierTest {
         assertFalse(Files.exists(volumes.resolve("smp/plugins/packetevents-spigot-2.13.0.jar")),
                 "PacketEvents was installed beside a season that could not be resolved. That is the"
                         + " one shape of half-filled volume the empty-plugins guard cannot see.");
-        assertFalse(Files.exists(volumes.resolve("smp/plugins/Chunky-Bukkit-1.5.3.jar")));
+        assertFalse(Files.exists(volumes.resolve("smp/plugins/voicechat-bukkit-2.6.23.jar")));
         assertFalse(result.changedAnything());
         assertTrue(result.skippedAnything());
 

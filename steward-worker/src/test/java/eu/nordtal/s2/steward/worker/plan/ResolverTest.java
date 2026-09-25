@@ -54,7 +54,6 @@ class ResolverTest {
                 .serving("/repos/nordtal/season-2/releases", "github-season-v0.1.0.json")
                 .serving("/repos/nordtal/papermc-display-tags/releases", "github-display-tags.json")
                 .serving("/project/HYKaKraK/version", "modrinth-packetevents.json")
-                .serving("/project/fALzjamp/version", "modrinth-chunky.json")
                 .serving("/project/9eGKb6K1/version", "modrinth-voicechat.json")
                 // The same project asked a second time for its Velocity build, so the route has to
                 // be the loader filter rather than the project - a longer substring wins in
@@ -347,7 +346,7 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "packetevents"));
-        assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "chunky"));
+        assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "voicechat"));
         // The question an operator is usually asking is about our own jars. Losing that answer to
         // somebody else's CDN would make this report worth less than the .env file it replaces.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "smp"));
@@ -367,7 +366,7 @@ class ResolverTest {
 
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "smp"));
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "proxy", "resource-pack"));
-        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "chunky"));
+        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "packetevents"));
         // A 404 here is not an outage: it is a repository with no published release, which is a
         // thing a person has to go and do. The message has to say so.
         final Change change = changeFor(plan, "smp", "smp");
@@ -392,15 +391,15 @@ class ResolverTest {
     @DisplayName("a plugin renamed by its publisher shows up as MISSING and unclaimed at once")
     void aRenamedJarIsVisibleFromBothSides() throws IOException {
         installCurrentEverything();
-        // Chunky-Paper-* instead of Chunky-Bukkit-*. This is the one way this module could end up
+        // packetevents-paper-* instead of packetevents-spigot-*. This is the one way this module could end up
         // installing a second copy of something, and the two rows together are what make it
         // obvious rather than mysterious.
-        replace("smp", "plugins/Chunky-Bukkit-1.5.3.jar", "plugins/Chunky-Paper-1.5.3.jar");
+        replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-paper-2.13.0.jar");
 
         final UpdatePlan plan = resolve();
 
-        assertEquals(Change.Status.MISSING, statusOf(plan, "smp", "chunky"));
-        assertEquals(List.of(new UpdatePlan.Unclaimed("smp", "Chunky-Paper-1.5.3.jar")), plan.unclaimed());
+        assertEquals(Change.Status.MISSING, statusOf(plan, "smp", "packetevents"));
+        assertEquals(List.of(new UpdatePlan.Unclaimed("smp", "packetevents-paper-2.13.0.jar")), plan.unclaimed());
     }
 
     @Test
@@ -616,7 +615,6 @@ class ResolverTest {
         write("smp", "plugins/smp-0.1.0.jar");
         write("smp", "plugins/papermc-display-tags-2.0.0.jar");
         write("smp", "plugins/packetevents-spigot-2.13.0.jar");
-        write("smp", "plugins/Chunky-Bukkit-1.5.3.jar");
         write("smp", "plugins/voicechat-bukkit-2.6.23.jar");
         write("smp", ".server/paper-26.2-121.jar");
         // The bot and the worker are one jar in the root of their own volume - no plugins folder,

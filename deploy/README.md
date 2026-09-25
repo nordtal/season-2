@@ -642,8 +642,8 @@ deploy/dev up            # builds the five jars and both images, then brings the
 deploy/dev deploy smp    # rebuild :smp, replace the jar, restart that one container
 ```
 
-The first `up` takes a while: `steward-worker` fetches Paper, Velocity, DisplayTags, PacketEvents,
-Chunky and the SMP's two world-generation datapacks. It does **not** fetch our five jars, because
+The first `up` takes a while: `steward-worker` fetches Paper, Velocity, DisplayTags, PacketEvents
+and the SMP's two world-generation datapacks. It does **not** fetch our five jars, because
 `deploy/dev up` has already put them in `plugins/` and the bootstrap installs only what is missing.
 Then join `localhost` with a real client.
 
@@ -676,13 +676,6 @@ that does not work.
   existing `deploy/dev.env` needs those four lines added by hand — the file is gitignored, so
   nothing migrated it. `deploy/dev` refuses a value with no `/` in it rather than writing jars into
   a directory no container mounts.
-- **`SMP_FARM_RESET_BACKUP_WINDOW_HOURS=0`, which lets the farm world reset without a backup
-  behind it.** On a laptop there is no steward-worker taking one, so the gate would refuse the
-  reset every night. It is logged at WARN on every start, which is the point: on production that
-  line would mean the farm world is being deleted with nothing saved.
-- **`SMP_PREGENERATION_ON_START=false`**, or every `up` spends its first minutes with Chunky on
-  every core. The cost is one postponed reset: the first daily reset finds no finished world, says
-  so, and builds it then. The production default is `true`.
 - **Small heaps and `NETWORK_MAX_PLAYERS=20`.**
 
 ### The interface
@@ -1018,18 +1011,14 @@ It is optional at every level: a player without the client mod notices nothing, 
   [`papermc-display-tags`](https://github.com/nordtal/papermc-display-tags) — our own fork — through
   its API. `smp`'s `paper-plugin.yml` declares it with `load: BEFORE` and `required: true`, so a
   server missing either fails loudly at start instead of quietly rendering plain nametags.
-- **Required, `smp` only: Chunky** (`Chunky-Bukkit-1.5.3.jar`, the version Modrinth tags for `paper`
-  on 26.2). The farm world is pre-generated every night and the daily reset waits for Chunky's
-  completion event before it swaps anything in. Without it the reset would postpone itself every
-  night, silently, which is why `required: true` turns that into a start-up failure instead.
 - **Optional: CoreProtect**, purely as insurance. Nothing in the design depends on it, and it gets
   its own SQLite file rather than a schema in our PostgreSQL so that exactly one process migrates.
   It had no 26.2 release as of 2026-08-31, only a `master` that builds against it; if it has not
   shipped when the phase is ready, the phase opens without block logging and Prism 4.4 is the
   written fallback.
 
-The worker resolves all three — DisplayTags from its own repository's releases, PacketEvents and
-Chunky from Modrinth filtered to this Minecraft version and `paper` — so a version bump is a run of
+The worker resolves both — DisplayTags from its own repository's releases, PacketEvents from
+Modrinth filtered to this Minecraft version and `paper` — so a version bump is a run of
 `/update now` and not an edit to `.env`.
 
 **Each service names what it needs in `EXPECTED_PLUGINS`** (filename prefixes), and a folder missing

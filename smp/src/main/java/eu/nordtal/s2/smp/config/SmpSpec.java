@@ -42,12 +42,10 @@ public interface SmpSpec {
     @Comment({
             "The permanent build world: the spawn, the tavern, the balloon, the duel platforms.",
             "",
-            "PRE-GENERATED ONCE, TO ITS FINAL BORDER OF 4000, BEFORE THE PHASE OPENS. A milestone",
-            "unlock then only moves a number and never starts a generator. How long that costs in",
-            "wall clock and disk has to be measured on the real host before the phase is",
-            "scheduled."
+            "Nothing is pre-generated: chunks are generated as players reach them, as in vanilla.",
+            "A milestone unlock only moves the border."
     })
-    @Explain("The permanent world's folder name. Pre-generate it to its final 4000 border before opening the phase - a milestone unlock only moves a number and never starts a generator.")
+    @Explain("The permanent world's folder name. Chunks are generated as players reach them; a milestone unlock only moves the border.")
     default String worldNordtal() {
         return "nordtal";
     }
@@ -77,7 +75,7 @@ public interface SmpSpec {
             "Deliberately several times larger than the 1:8 mapping requires - a 4000 overworld",
             "needs only 500 blocks of Nether to be fully reachable. It costs nothing, because",
             "Minecraft handles portal search and linking beyond a border anyway, and it leaves room",
-            "for any milestone appended above 4000 without a second pre-generation."
+            "for any milestone appended above 4000."
     })
     @Explain("Deliberately several times larger than the 1:8 mapping requires - costs nothing, since Minecraft links portals beyond a border anyway, and leaves room for a milestone appended later.")
     default int netherBorderDiameter() {
@@ -153,43 +151,6 @@ public interface SmpSpec {
     @Explain("Checked at enable, never installed by this plugin - a world generated without these packs is vanilla terrain forever, since terrain is never re-rolled once it is on disk.")
     default List<String> requiredDatapacks() {
         return List.of("Terralith", "Dungeons and Taverns");
-    }
-
-    @Order(15)
-    @Name("Pregeneration pattern")
-    @Key("pregeneration-pattern")
-    @Comment({
-            "The order Chunky walks the chunks in. 'concentric' works outwards from the centre, so",
-            "an interrupted run still leaves a usable middle; 'loop', 'spiral' and 'csv' are the",
-            "other shapes Chunky accepts.",
-            "",
-            "Chunky is a REQUIRED plugin (paper-plugin.yml). What used to ask it for a world was",
-            "the farm world's nightly reset, which went with season-2-ingame/30; whether anything",
-            "still needs it is season-2-ops/152."
-    })
-    @Explain("The order Chunky walks chunks in - 'concentric' leaves a usable middle if a run is interrupted.")
-    default String pregenerationPattern() {
-        return "concentric";
-    }
-
-    @Order(16)
-    @Name("Pregenerate on start")
-    @Key("pregeneration-on-start")
-    @Comment({
-            "Whether this plugin starts a pre-generation as soon as it enables. True is the",
-            "production answer and the default.",
-            "",
-            "Set it to false on a machine you also want to use. Chunky takes every core it is",
-            "given, so a stack that has just come up spends the next minutes at full load - which",
-            "is right on a server that exists for nothing else and wrong on a laptop.",
-            "",
-            "WHAT IT ASKED FOR was the farm world, which was regenerated nightly and wanted a",
-            "finished one waiting. The farm world went with season-2-ingame/30 and nothing reads",
-            "this key at the moment; season-2-ops/152 decides whether it and Chunky stay."
-    })
-    @Explain("True starts a pre-generation at once, which spends the next minutes at full CPU load - set it false on a machine also used for something else.")
-    default boolean pregenerationOnStart() {
-        return true;
     }
 
     // ---------------------------------------------------------------- the balloons

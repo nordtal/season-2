@@ -84,7 +84,6 @@ public final class Resolver {
         final GitHubReleases.Release season = resolveSeason(newest, failures, unreleased);
         resolveDisplayTags(newest, failures);
         resolveModrinth(newest, failures, unsupported, Topology.PACKETEVENTS, config.packetEventsProject(), "paper");
-        resolveModrinth(newest, failures, unsupported, Topology.CHUNKY, config.chunkyProject(), "paper");
         resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT, config.voiceChatProject(), "paper");
         // The same Modrinth project, asked again for its Velocity build: one id, two jars that move
         // separately, told apart by the loader.

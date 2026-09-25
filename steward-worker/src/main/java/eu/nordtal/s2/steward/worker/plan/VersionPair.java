@@ -12,15 +12,15 @@ import java.util.Optional;
  * <h2>Why a comparison and not a parse</h2>
  * Nothing in this project knows the version of an installed jar. A {@link Change} carries the
  * installed <em>filename</em> and the wanted <em>file</em>, and a version parsed out of one name on
- * its own is a guess: {@code Chunky-Bukkit-1.5.3.jar} could be version {@code 1.5.3} or
- * {@code Bukkit-1.5.3}, and PacketEvents publishes {@code 2.13.0+spigot} as
+ * its own is a guess: {@code voicechat-bukkit-2.6.24.jar} could be version {@code 2.6.24} or
+ * {@code bukkit-2.6.24}, and PacketEvents publishes {@code 2.13.0+spigot} as
  * {@code packetevents-spigot-2.13.0.jar}. Two builds of the same artefact, on the other hand,
  * differ in the version and nowhere else - so the part that differs <b>is</b> the version, and
  * finding it is a comparison nobody has to trust.
  *
  * <pre>
- * Chunky-Bukkit-1.5.3.jar
- * Chunky-Bukkit-1.6.0.jar   ->   1.5.3 -> 1.6.0
+ * voicechat-bukkit-2.6.18.jar
+ * voicechat-bukkit-2.7.0.jar   ->   2.6.18 -> 2.7.0
  * </pre>
  *
  * <h2>Two ways it refuses, and both matter</h2>

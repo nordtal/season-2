@@ -34,7 +34,7 @@ class UpdatePlanScopeTest {
     @DisplayName("a scope keeps only the services it names")
     void keepsOnlyTheNamedServices() {
         final UpdatePlan plan = planOf(
-                List.of(on("smp", "smp"), on("smp", "chunky"), on("limbo", "limbo")),
+                List.of(on("smp", "smp"), on("smp", "packetevents"), on("limbo", "limbo")),
                 List.of(new UpdatePlan.Unclaimed("smp", "ByHand.jar"),
                         new UpdatePlan.Unclaimed("limbo", "AlsoByHand.jar")));
 

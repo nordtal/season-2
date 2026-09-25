@@ -35,7 +35,7 @@ class UpdatePlanHoldTest {
     @DisplayName("a held service is taken out of the plan, jars and unclaimed alike")
     void aHeldServiceFallsOut() {
         final UpdatePlan plan = planOf(
-                List.of(on("smp", "smp"), on("smp", "chunky"), on("limbo", "limbo")),
+                List.of(on("smp", "smp"), on("smp", "packetevents"), on("limbo", "limbo")),
                 List.of(new UpdatePlan.Unclaimed("smp", "ByHand.jar"),
                         new UpdatePlan.Unclaimed("limbo", "AlsoByHand.jar")));
 

@@ -343,13 +343,6 @@ public final class SmpPlugin extends JavaPlugin {
         // Everything below this line touches the database, so it happens off the main thread.
         Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
 
-        // Chunky was a hard requirement here until 2026-09-20: the farm world was regenerated
-        // every night and could not be pre-generated without it, so a server that came up without
-        // Chunky came up unable to do the one thing that happened every day. The farm world went
-        // with season-2-ingame/30 and the requirement went with it. `smp.pregen` itself is still
-        // in the tree - Chunky and pre-generation are season-2-ops/152, so that this ticket stays
-        // one sitting.
-
         hud = new SmpHud(this, worlds, season, navigation, messages, locales);
         hud.start();
 

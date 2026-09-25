@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui;
 
+import eu.nordtal.s2.common.access.PlaytimeWording;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -21,9 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>Till: the play time dialog asks in days, hours and minutes rather than in decimal hours,
  * because a slipped decimal point is invisible in a field that accepts both. The list was pulled
  * across with it. This holds the last place a raw number of seconds reached a person - the
- * {@code SET_PLAYTIME} journal line - to the same wording, and holds the Java half of the
- * formatting against the TypeScript half, which is a second implementation of one rule and would
- * otherwise drift in silence.</p>
+ * {@code SET_PLAYTIME} journal line, which the bot writes since Steward asks it to - to the same
+ * wording, and holds the Java half of the formatting against the TypeScript half, which is a
+ * second implementation of one rule and would otherwise drift in silence.</p>
  */
 class PlaytimeWordingTest {
 
@@ -44,7 +45,7 @@ class PlaytimeWordingTest {
     @DisplayName("the three units, the empty ones left out, and a total of nothing still says 0 min")
     void theWordingIsTheOneTheInterfaceUses() {
         for (final long[] each : CASES) {
-            assertEquals(EXPECTED.get((int) each[1]), StewardUi.playtime(each[0]),
+            assertEquals(EXPECTED.get((int) each[1]), PlaytimeWording.of(each[0]),
                     each[0] + " seconds");
         }
     }
@@ -54,8 +55,8 @@ class PlaytimeWordingTest {
     void secondsAreDropped() {
         // The interface splits the same way. A Java half that rounded 3 659 up to "1 h 1 min" would
         // make the journal disagree with the column beside it for every value not on a minute.
-        assertEquals("1 h", StewardUi.playtime(3_659));
-        assertEquals("0 min", StewardUi.playtime(-1));
+        assertEquals("1 h", PlaytimeWording.of(3_659));
+        assertEquals("0 min", PlaytimeWording.of(-1));
     }
 
     @Test
@@ -66,7 +67,7 @@ class PlaytimeWordingTest {
         // that is actually precise is in the log line, where nobody has to divide by 3600 to read
         // the journal.
         final Path source = repository()
-                .resolve("steward-ui/src/main/java/eu/nordtal/s2/steward/ui/StewardUi.java");
+                .resolve("discord-bot/src/main/java/eu/nordtal/s2/discordbot/discord/BotAccessEffects.java");
         final String text = Files.readString(source, StandardCharsets.UTF_8);
 
         final Matcher call = Pattern.compile("record\\(\"SET_PLAYTIME\".{0,1200}?\\);", Pattern.DOTALL)
@@ -74,8 +75,8 @@ class PlaytimeWordingTest {
         assertTrue(call.find(), "the SET_PLAYTIME journal line is not where this test looks");
 
         final List<String> offending = new ArrayList<>();
-        if (!call.group().contains("playtime(ask.seconds)")) {
-            offending.add("the detail is not formatted with StewardUi#playtime");
+        if (!call.group().contains("PlaytimeWording.of(seconds)")) {
+            offending.add("the detail is not formatted with PlaytimeWording#of");
         }
         if (call.group().contains("\" seconds")) {
             offending.add("the detail still spells out a number of seconds");

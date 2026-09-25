@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.access.AccessEffects;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.access.AccessSource;
+import eu.nordtal.s2.common.access.PlaytimeWording;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
@@ -255,10 +256,12 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
     @Override
     public void setPlaytime(final String discordId, final long seconds, final Actor by) {
         access.setPlaytimeSeconds(discordId, seconds);
+        // Days, hours and minutes and not a number of seconds: Steward's dialog asks in those
+        // units and its list answers in them, so the journal and the admin channel do too.
         admin.record("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(),
-                seconds + " seconds");
-        admin.note(by.mention() + " set <@" + discordId + ">'s play time to " + seconds
-                + " seconds.");
+                PlaytimeWording.of(seconds));
+        admin.note(by.mention() + " set <@" + discordId + ">'s play time to "
+                + PlaytimeWording.of(seconds) + ".");
     }
 
     @Override

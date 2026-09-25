@@ -7,6 +7,7 @@ import {
   rememberCsrf,
   type Action,
   type Backup,
+  type AccessRequestRun,
   type AdminCommand,
   type CommandRun,
   type ConfigChanges,
@@ -978,29 +979,94 @@ export function useSaveRawConfig(file: string) {
   })
 }
 
+/**
+ * Asks the bot for an access change and waits for what it did.
+ *
+ * Every access write goes through the bot now (`AccessApi`): only the bot can apply the role, send
+ * the direct message and post the admin note, and writing the tables from here skipped all three.
+ * So the write answers 202 with a row id and this polls that row every second until it is settled -
+ * the rule `useCommandRun` follows - inside the mutation, so a dialog that already waits on
+ * `isPending` goes on waiting for exactly as long as the change takes, and then says what happened.
+ */
+async function askTheBot(
+  path: string,
+  body: unknown,
+): Promise<Record<string, string | undefined>> {
+  const asked = await api<AccessRequestRun>(path, { method: "POST", body })
+  for (;;) {
+    const row = await api<AccessRequestRun>(`/api/access/requests/${asked.id}`)
+    if (row.status === "DONE") return row.result ?? {}
+    if (row.status === "FAILED") {
+      throw new Error(row.result?.error ?? "The bot could not carry this out.")
+    }
+    if (row.status === "EXPIRED") {
+      // EXPIRED means one thing only: the bot never picked the row up, so nothing changed.
+      throw new Error("The bot did not pick this up within two minutes. Nothing was changed.")
+    }
+    await new Promise((resolve) => setTimeout(resolve, SECOND))
+  }
+}
+
+/** Everything an access change can move: the roster, the periods, the payments and the journal. */
+function afterAccessChange(client: ReturnType<typeof useQueryClient>) {
+  client.invalidateQueries({ queryKey: keys.people })
+  client.invalidateQueries({ queryKey: ["grants"] })
+  client.invalidateQueries({ queryKey: keys.payments })
+  client.invalidateQueries({ queryKey: ["journal"] })
+}
+
+/** A grant, at most 365 days. Resolves with the end of the period the bot wrote. */
 export function useGrantAccess() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (grant: { discordId: string; days: number }) =>
-      api<Grant>("/api/access/grant", { method: "POST", body: grant }),
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: keys.people })
-      client.invalidateQueries({ queryKey: ["grants"] })
-      client.invalidateQueries({ queryKey: ["journal"] })
+    mutationFn: async (grant: { discordId: string; days: number }) => {
+      const result = await askTheBot("/api/access/grant", grant)
+      return { until: result.until ?? "" }
     },
+    onSettled: () => afterAccessChange(client),
   })
 }
 
 export function useRevokeAccess() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (discordId: string) =>
-      api<{ revoked: number }>("/api/access/revoke", { method: "POST", body: { discordId } }),
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: keys.people })
-      client.invalidateQueries({ queryKey: ["grants"] })
-      client.invalidateQueries({ queryKey: ["journal"] })
+    mutationFn: async (discordId: string) => {
+      const result = await askTheBot("/api/access/revoke", { discordId })
+      return { revoked: Number(result.revoked ?? 0) }
     },
+    onSettled: () => afterAccessChange(client),
+  })
+}
+
+/** Breaks the link between a Discord account and its Minecraft account. */
+export function useUnlink() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (discordId: string) => {
+      const result = await askTheBot("/api/access/unlink", { discordId })
+      return { unlinked: result.unlinked === "true" }
+    },
+    onSettled: () => afterAccessChange(client),
+  })
+}
+
+/**
+ * Books a payment by hand. `outcome` is the bot's own word: `BOOKED`, `NOT_OPEN` (somebody or
+ * bunq got there first - `was` says what it is now) or `UNKNOWN` (no such reference).
+ */
+export function useSettle() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (reference: string) => {
+      const result = await askTheBot("/api/access/settle", { reference })
+      return {
+        outcome: result.outcome ?? "UNKNOWN",
+        days: Number(result.days ?? 0),
+        until: result.until,
+        was: result.was,
+      }
+    },
+    onSettled: () => afterAccessChange(client),
   })
 }
 
@@ -1008,21 +1074,16 @@ export function useRevokeAccess() {
  * Sets an account's total play time outright (steward/119).
  *
  * Seconds and not hours, because seconds is what the column holds; the dialog does the arithmetic
- * so that the wire and the database agree on a unit. The journal is invalidated as well - this is a
- * write with an admin's name on it, the same as a grant.
+ * so that the wire and the database agree on a unit.
  */
 export function useSetPlaytime() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ discordId, seconds }: { discordId: string; seconds: number }) =>
-      api<{ discordId: string; seconds: number }>(`/api/people/${discordId}/playtime`, {
-        method: "POST",
-        body: { seconds },
-      }),
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: keys.people })
-      client.invalidateQueries({ queryKey: ["journal"] })
+    mutationFn: async ({ discordId, seconds }: { discordId: string; seconds: number }) => {
+      const result = await askTheBot(`/api/people/${discordId}/playtime`, { seconds })
+      return { discordId, seconds: Number(result.seconds ?? seconds) }
     },
+    onSettled: () => afterAccessChange(client),
   })
 }
 

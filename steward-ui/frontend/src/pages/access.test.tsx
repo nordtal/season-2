@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { AccessPage, JournalPage, PaymentsPage } from "@/pages/access"
 import { IDENTIFIER_PATTERN } from "@/components/steward/identity"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { toast } from "sonner"
 
 /**
  * steward/46: faces instead of identifiers in the Access table, search over four fields rather
@@ -85,37 +86,41 @@ function manyMatches(): Record<string, unknown>[] {
 function backend(over: {
   people?: () => Record<string, unknown>[]
   payments?: () => Record<string, unknown>[]
-  commands?: () => Record<string, unknown>[]
-  commandPost?: (body: unknown) => { status: number; body: unknown }
   journal?: () => Record<string, unknown>[]
   playtimePost?: (url: string, body: unknown) => { status: number; body: unknown }
+  /** What the bot answered, by kind - DONE with an empty result unless a test says otherwise. */
+  answer?: (kind: string) => Record<string, unknown>
 } = {}) {
+  const asked = new Map<string, string>()
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith("/playtime") && init?.method === "POST") {
       const answer = over.playtimePost?.(url, JSON.parse(String(init.body))) ?? {
-        status: 200,
-        body: {},
+        status: 202,
+        body: { id: "a-playtime", kind: "SET_PLAYTIME", status: "PENDING" },
       }
+      asked.set("a-playtime", "SET_PLAYTIME")
       return json(answer.status, answer.body)
+    }
+    if (url.startsWith("/api/access/") && !url.startsWith("/api/access/requests/")) {
+      // Every write is an access_request row the bot carries out: 202 and an id to poll.
+      const kind = url.split("/").pop()!.toUpperCase()
+      const id = `a-${kind.toLowerCase()}`
+      asked.set(id, kind)
+      return json(202, { id, kind, status: "PENDING" })
+    }
+    if (url.startsWith("/api/access/requests/")) {
+      const id = url.split("/").pop()!
+      const kind = asked.get(id) ?? "UNKNOWN"
+      return json(
+        200,
+        over.answer?.(kind) ?? { id, kind, status: "DONE", result: {} },
+      )
     }
     if (url === "/api/people") return json(200, over.people ? over.people() : PEOPLE)
     if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])
     if (url.startsWith("/api/journal")) return json(200, over.journal ? over.journal() : [])
     if (url === "/api/settings") {
       return json(200, { greenDays: 3, yellowDays: 7, minecraftHeadBaseUrl: "https://crafatar.com/avatars" })
-    }
-    if (url === "/api/commands" && init?.method !== "POST") {
-      return json(200, over.commands ? over.commands() : [])
-    }
-    if (url === "/api/commands" && init?.method === "POST") {
-      const answer = over.commandPost?.(JSON.parse(String(init.body))) ?? {
-        status: 200,
-        body: { id: "run-1", status: "PENDING" },
-      }
-      return json(answer.status, answer.body)
-    }
-    if (url.startsWith("/api/commands/")) {
-      return json(200, { id: url.split("/").pop(), status: "DONE", result: "done" })
     }
     throw new Error(`the page asked for ${url}, which this test did not expect`)
   })
@@ -353,7 +358,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
         people: () => [person({ discordUsername: "alice", playtimeSeconds: 0 })],
         playtimePost: (url, body) => {
           calls.push({ url, body })
-          return { status: 200, body: { discordId: "100000000000000001", seconds: 0 } }
+          return { status: 202, body: { id: "a-playtime", status: "PENDING" } }
         },
       }),
     )
@@ -380,7 +385,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
         people: () => [person({ discordUsername: "alice", playtimeSeconds: 0 })],
         playtimePost: (url, body) => {
           calls.push({ url, body })
-          return { status: 200, body: { discordId: "100000000000000001", seconds: 0 } }
+          return { status: 202, body: { id: "a-playtime", status: "PENDING" } }
         },
       }),
     )
@@ -402,7 +407,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
       people: () => [person({ discordUsername: "alice", playtimeSeconds: 3600 })],
       playtimePost: (url, body) => {
         calls.push({ url, body })
-        return { status: 200, body: { discordId: "100000000000000001", seconds: 43200 } }
+        return { status: 202, body: { id: "a-playtime", status: "PENDING" } }
       },
     })
     vi.stubGlobal("fetch", fetcher)
@@ -431,19 +436,10 @@ describe("PaymentsPage - settle as a row action", () => {
     created: "2026-09-01T00:00:00Z",
     expires: "2026-09-20T00:00:00Z",
   }
-  const SETTLE_COMMAND = {
-    name: "/access settle",
-    path: ["access", "settle"],
-    target: "DISCORD_BOT",
-    adminOnly: true,
-    irreversible: true,
-    arguments: [{ name: "reference", kind: "REFERENCE", required: true }],
-  }
-
-  it("offers Settle on an open request once the command is released to the web", async () => {
+  it("offers Settle on an open request", async () => {
     vi.stubGlobal(
       "fetch",
-      backend({ payments: () => [OPEN_PAYMENT], commands: () => [SETTLE_COMMAND] }),
+      backend({ payments: () => [OPEN_PAYMENT] }),
     )
     draw(<PaymentsPage />)
 
@@ -452,7 +448,7 @@ describe("PaymentsPage - settle as a row action", () => {
   })
 
   it("sends the row's own reference, with no picker to get wrong", async () => {
-    const fetched = backend({ payments: () => [OPEN_PAYMENT], commands: () => [SETTLE_COMMAND] })
+    const fetched = backend({ payments: () => [OPEN_PAYMENT] })
     vi.stubGlobal("fetch", fetched)
     draw(<PaymentsPage />)
 
@@ -461,19 +457,16 @@ describe("PaymentsPage - settle as a row action", () => {
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: "Settle" }))
 
+    // The bot's inbox, not /api/commands: the bot books it and tells the payer.
     await waitFor(() => {
-      const call = fetched.mock.calls.find(
-        ([url, init]) => url === "/api/commands" && (init as RequestInit | undefined)?.method === "POST",
-      )
+      const call = fetched.mock.calls.find(([url]) => url === "/api/access/settle")
       expect(call).toBeTruthy()
     })
-    const call = fetched.mock.calls.find(
-      ([url, init]) => url === "/api/commands" && (init as RequestInit | undefined)?.method === "POST",
-    )!
-    expect(JSON.parse(String((call[1] as RequestInit).body))).toEqual({
-      name: "/access settle",
-      arguments: { reference: "AB12CD" },
-    })
+    const call = fetched.mock.calls.find(([url]) => url === "/api/access/settle")!
+    expect(JSON.parse(String((call[1] as RequestInit).body))).toEqual({ reference: "AB12CD" })
+    await waitFor(() =>
+      expect(fetched.mock.calls.some(([url]) => url === "/api/access/requests/a-settle")).toBe(true),
+    )
   })
 
   // steward/116: with a bunq.me link on the payment, an OPEN row draws both Tab and Settle -
@@ -486,7 +479,6 @@ describe("PaymentsPage - settle as a row action", () => {
       "fetch",
       backend({
         payments: () => [{ ...OPEN_PAYMENT, shareUrl: "https://bunq.me/xyz" }],
-        commands: () => [SETTLE_COMMAND],
       }),
     )
     draw(<PaymentsPage />)
@@ -498,15 +490,6 @@ describe("PaymentsPage - settle as a row action", () => {
 })
 
 describe("AccessPage - unlink as a row action", () => {
-  const UNLINK_COMMAND = {
-    name: "/access unlink",
-    path: ["access", "unlink"],
-    target: "DISCORD_BOT",
-    adminOnly: true,
-    irreversible: true,
-    arguments: [{ name: "member", kind: "ACCOUNT", required: true }],
-  }
-
   /**
    * Ally carries four actions (steward/106), so hers are behind a popover and the row holds one
    * button. Opening it is part of reaching any of them - which is the interface, not the test
@@ -520,8 +503,8 @@ describe("AccessPage - unlink as a row action", () => {
     return (await screen.findByRole("dialog")) as HTMLElement
   }
 
-  it("offers Unlink on a person once the command is released to the web", async () => {
-    vi.stubGlobal("fetch", backend({ commands: () => [UNLINK_COMMAND] }))
+  it("offers Unlink on a linked person", async () => {
+    vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
     const actions = await openActions("Ally")
@@ -529,7 +512,7 @@ describe("AccessPage - unlink as a row action", () => {
   })
 
   it("sends that person's own Discord id, with no picker to get wrong", async () => {
-    const fetched = backend({ commands: () => [UNLINK_COMMAND] })
+    const fetched = backend()
     vi.stubGlobal("fetch", fetched)
     draw(<AccessPage />)
 
@@ -539,27 +522,15 @@ describe("AccessPage - unlink as a row action", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Unlink" }))
 
     await waitFor(() => {
-      const call = fetched.mock.calls.find(
-        ([url, init]) => url === "/api/commands" && (init as RequestInit | undefined)?.method === "POST",
-      )
+      const call = fetched.mock.calls.find(([url]) => url === "/api/access/unlink")
       expect(call).toBeTruthy()
     })
-    const call = fetched.mock.calls.find(
-      ([url, init]) => url === "/api/commands" && (init as RequestInit | undefined)?.method === "POST",
-    )!
+    const call = fetched.mock.calls.find(([url]) => url === "/api/access/unlink")!
     expect(JSON.parse(String((call[1] as RequestInit).body))).toEqual({
-      name: "/access unlink",
-      arguments: { member: "214906139328839681" },
+      discordId: "214906139328839681",
     })
   })
 
-  it("does not offer Unlink when the command is not released to the web", async () => {
-    vi.stubGlobal("fetch", backend({ commands: () => [] }))
-    draw(<AccessPage />)
-
-    const actions = await openActions("Ally")
-    expect(within(actions).queryByRole("button", { name: /unlink/i })).toBeNull()
-  })
 })
 
 /**
@@ -571,15 +542,6 @@ describe("AccessPage - unlink as a row action", () => {
  * that those two rows must not look the same.
  */
 describe("AccessPage - the actions of a row depend on that row", () => {
-  const UNLINK_COMMAND = {
-    name: "/access unlink",
-    path: ["access", "unlink"],
-    target: "DISCORD_BOT",
-    adminOnly: true,
-    irreversible: true,
-    arguments: [{ name: "member", kind: "ACCOUNT", required: true }],
-  }
-
   /** Every control offered against one person, whether it is inline or inside the popover. */
   async function actionsOf(name: string): Promise<string[]> {
     const row = (await screen.findByText(name)).closest("tr") as HTMLElement
@@ -594,17 +556,16 @@ describe("AccessPage - the actions of a row depend on that row", () => {
   }
 
   it("offers nothing to unlink for somebody with no Minecraft account", async () => {
-    vi.stubGlobal("fetch", backend({ commands: () => [UNLINK_COMMAND] }))
+    vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    // bob has no minecraftUuid. The command IS released to the web, so the only thing that can
-    // hide the button is the row's own state - which is exactly what was missing.
+    // bob has no minecraftUuid, and the row's own state is the only thing that hides the button.
     expect(await actionsOf("bob")).not.toContain("Unlink")
     expect(await actionsOf("Ally")).toContain("Unlink")
   })
 
   it("offers no Periods to somebody who has never had one", async () => {
-    vi.stubGlobal("fetch", backend({ commands: () => [] }))
+    vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
     // `accessUntil` absent means no period was ever written - the dialog would open on nothing.
@@ -613,7 +574,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
   })
 
   it("offers no Revoke where there is nothing running to take away", async () => {
-    vi.stubGlobal("fetch", backend({ commands: () => [] }))
+    vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
     expect(await actionsOf("bob")).not.toContain("Revoke")
@@ -621,7 +582,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
   })
 
   it("always offers Grant, because more access can always be given", async () => {
-    vi.stubGlobal("fetch", backend({ commands: () => [] }))
+    vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
     expect(await actionsOf("bob")).toContain("Grant")
@@ -629,7 +590,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
   })
 
   it("puts a row's actions behind one popover as soon as there are more than two", async () => {
-    vi.stubGlobal("fetch", backend({ commands: () => [UNLINK_COMMAND] }))
+    vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
     // Ally has four; bob has one, and a popover holding a single button would be a click for
@@ -639,6 +600,106 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     expect(within(ally).getByRole("button", { name: /^Actions for/ })).toBeTruthy()
     expect(within(bob).queryByRole("button", { name: /^Actions for/ })).toBeNull()
     expect(within(bob).getByRole("button", { name: "Grant" })).toBeTruthy()
+  })
+})
+
+/**
+ * Every access change is asked of the bot (an `access_request` row), because only the bot can
+ * apply the role, send the direct message and post the admin note. Writing the tables from here
+ * skipped all three, and nobody granted access from a browser was ever told.
+ */
+describe("AccessPage - access changes are asked of the bot", () => {
+  async function openGrant() {
+    fireEvent.click(await screen.findByRole("button", { name: "Grant access" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.change(within(dialog).getByLabelText("Discord-ID"), {
+      target: { value: "214906139328839681" },
+    })
+    return dialog
+  }
+
+  it("refuses a grant longer than 365 days before it is sent", async () => {
+    const fetched = backend()
+    vi.stubGlobal("fetch", fetched)
+    draw(<AccessPage />)
+
+    const dialog = await openGrant()
+    fireEvent.change(within(dialog).getByLabelText("Days"), { target: { value: "366" } })
+    expect(
+      (within(dialog).getByRole("button", { name: "Grant" }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+    fireEvent.change(within(dialog).getByLabelText("Days"), { target: { value: "365" } })
+    expect(
+      (within(dialog).getByRole("button", { name: "Grant" }) as HTMLButtonElement).disabled,
+    ).toBe(false)
+  })
+
+  it("sends the grant to the bot's inbox and waits for its answer", async () => {
+    const fetched = backend({
+      answer: (kind) => ({
+        id: "a-grant",
+        kind,
+        status: "DONE",
+        result: { until: "2026-10-25T00:00:00Z" },
+      }),
+    })
+    vi.stubGlobal("fetch", fetched)
+    const success = vi.spyOn(toast, "success")
+    draw(<AccessPage />)
+
+    const dialog = await openGrant()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
+
+    await waitFor(() => expect(success).toHaveBeenCalled())
+    const call = fetched.mock.calls.find(([url]) => url === "/api/access/grant")!
+    expect(JSON.parse(String((call[1] as RequestInit).body))).toEqual({
+      discordId: "214906139328839681",
+      days: 30,
+    })
+    expect(fetched.mock.calls.some(([url]) => url === "/api/access/requests/a-grant")).toBe(true)
+    expect(fetched.mock.calls.some(([url]) => String(url).startsWith("/api/commands"))).toBe(false)
+    success.mockRestore()
+  })
+
+  it("says what the bot said when it could not carry the change out", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        answer: (kind) => ({
+          id: "a-grant",
+          kind,
+          status: "FAILED",
+          result: { error: "the role could not be applied" },
+        }),
+      }),
+    )
+    const failure = vi.spyOn(toast, "error")
+    draw(<AccessPage />)
+
+    const dialog = await openGrant()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
+
+    await waitFor(() => expect(failure).toHaveBeenCalled())
+    expect(String(failure.mock.calls[0][1]?.description)).toContain(
+      "the role could not be applied",
+    )
+    failure.mockRestore()
+  })
+
+  it("says nothing changed when the bot never picked the request up", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({ answer: (kind) => ({ id: "a-grant", kind, status: "EXPIRED" }) }),
+    )
+    const failure = vi.spyOn(toast, "error")
+    draw(<AccessPage />)
+
+    const dialog = await openGrant()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
+
+    await waitFor(() => expect(failure).toHaveBeenCalled())
+    expect(String(failure.mock.calls[0][1]?.description)).toContain("Nothing was changed")
+    failure.mockRestore()
   })
 })
 

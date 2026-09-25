@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.ui.data;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.access.AccessRequests;
 import eu.nordtal.s2.common.audit.AuditDirectory;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.metric.MetricDirectory;
@@ -42,6 +43,7 @@ public final class Data implements AutoCloseable {
     private final AuditDirectory audit;
     private final AccessDirectory access;
     private final CommandRequests commands;
+    private final AccessRequests accessRequests;
 
     public Data(final @NotNull DatabaseSpec config) {
         this.database = Database.create(DatabaseConfig.builder(config.jdbcUrl())
@@ -59,6 +61,9 @@ public final class Data implements AutoCloseable {
         // below is the only close there is. `AccessDirectory.open` would build a second pool.
         this.access = AccessDirectory.using(database.dataSource());
         this.commands = CommandRequests.borrowing(database.dataSource());
+        // Borrowing as well. Every access change from this interface is a row here, carried out
+        // by the bot - see AccessApi.
+        this.accessRequests = AccessRequests.on(database.dataSource());
     }
 
     /**
@@ -117,6 +122,10 @@ public final class Data implements AutoCloseable {
      */
     public @NotNull CommandRequests commands() {
         return commands;
+    }
+
+    public @NotNull AccessRequests accessRequests() {
+        return accessRequests;
     }
 
     @Override

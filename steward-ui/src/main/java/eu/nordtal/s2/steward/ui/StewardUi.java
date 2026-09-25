@@ -2,7 +2,6 @@ package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.Gson;
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.access.AccessSource;
 import eu.nordtal.s2.common.roster.Person;
 import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateKind;
@@ -118,52 +117,6 @@ public final class StewardUi {
      */
     private static final Duration STEP_UP = Duration.ofMinutes(5);
 
-    /**
-     * The longest access anybody may be granted from here, in days.
-     *
-     * <p>A decade is nine seasons more than a season lasts, so it refuses nothing real. What it
-     * does refuse is a slip of the keyboard reaching PostgreSQL, where the interval is built as
-     * {@code hours => days * 24} and overflows an integer long before {@code Integer.MAX_VALUE}.
-     * A ceiling here is a sentence the operator can read; the overflow there is a 500.</p>
-     */
-    private static final int MOST_DAYS = 3650;
-
-    /**
-     * The ceiling on a play time somebody may type (steward/119): ten years of wall clock, which
-     * nobody reaches and a slipped digit does.
-     */
-    private static final long MOST_PLAYTIME_SECONDS = 10L * 365 * 24 * 3600;
-
-    /**
-     * A play time, in the three units a person thinks in: {@code 1 d 6 h 30 min} (steward/126).
-     *
-     * <p>The twin of {@code playtime()} in the interface's {@code format.ts}, deliberately kept
-     * short enough that the two cannot drift in any way that matters: same units, same order, same
-     * rule that zero parts are left out and that a total of nothing is still {@code 0 min}. It
-     * exists for one caller - the journal line for {@code SET_PLAYTIME} - because that is the last
-     * place a number of seconds reached a human.</p>
-     */
-    static String playtime(final long seconds) {
-        if (seconds < 0) {
-            return "0 min";
-        }
-        final long minutes = seconds / 60;
-        final long days = minutes / (24 * 60);
-        final long hours = minutes / 60 % 24;
-        final long rest = minutes % 60;
-        final StringBuilder text = new StringBuilder();
-        if (days > 0) {
-            text.append(days).append(" d");
-        }
-        if (hours > 0) {
-            text.append(text.isEmpty() ? "" : " ").append(hours).append(" h");
-        }
-        if (rest > 0 || text.isEmpty()) {
-            text.append(text.isEmpty() ? "" : " ").append(rest).append(" min");
-        }
-        return text.toString();
-    }
-
     /** The default: serve. Named so that spelling it out is not an error. */
     private static final String SERVE = "serve";
 
@@ -239,6 +192,7 @@ public final class StewardUi {
 
     /** The admin commands that also exist in the game, over `command_request`. */
     private final CommandApi commands;
+    private final AccessApi access;
 
     /** The one service allowed to create a container, asked for exactly one thing (10a.4). */
     private final DeployerApi deployments;
@@ -291,6 +245,7 @@ public final class StewardUi {
         this.guild = new DiscordApi(
                 new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
+        this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.deployments = new DeployerApi(deployer, data, ctx -> account(ctx).orElseThrow(),
                 !config.deployer().token().isBlank());
         this.pushSubscriptions = data == null ? null : new PushSubscriptions(data.dataSource());
@@ -915,88 +870,16 @@ public final class StewardUi {
                     ctx.queryParam("action"), ctx.queryParam("subject"),
                     limit(ctx, 200, 1000))), Gate.KEY_HELD);
 
-            // Granting and revoking - the only writing here that is not an update_request row.
-            //
-            // Till decided on 2026-09-13 that the interface may do both, so there are now two doors
-            // into one room: this and /access in Discord. The price of the second door is paid in
-            // the journal, one row per click, naming the admin - because "who let this person in"
-            // has to stay answerable when the answer is no longer "the only person who could".
-            cfg.routes.post("/api/access/grant", ctx -> {
-                final Grant ask = ctx.bodyAsClass(Grant.class);
-                if (ask == null || ask.discordId == null || ask.discordId.isBlank()) {
-                    throw new BadRequestResponse("discordId is whose access this is");
-                }
-                if (ask.days == null || ask.days <= 0 || ask.days > MOST_DAYS) {
-                    // The ceiling is not decoration. `make_interval(hours => :days * 24)` in
-                    // AccessDao overflows a PostgreSQL integer well before Integer.MAX_VALUE, and
-                    // what comes back is a 500 blaming this program for a number somebody typed.
-                    throw new BadRequestResponse("days is between 1 and " + MOST_DAYS);
-                }
-                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                // ensureUser first: a grant against a Discord id the bot has never seen would fail
-                // on the foreign key, and "this person has not spoken to the bot yet" is a worse
-                // error message than simply making the row.
-                data.access().ensureUser(ask.discordId);
-                final var granted = data.access().grantAccess(
-                        ask.discordId, ask.days, AccessSource.ADMIN, null);
-                // The id. `audit_log.actor` is varchar(32) and holds a Discord id - the composed
-                // "name (id)" overflowed it for any display name of 11 characters or more, and
-                // this insert then took the grant's own answer down with a 500. The name is in
-                // the detail, which is `text`.
-                data.audit().record("GRANT_ACCESS", who.id(), ask.discordId, null,
-                        ask.days + " days granted by " + who.name() + " from the web interface,"
-                                + " until " + granted.validUntil());
-                log.info("{} granted {} {} days of access", who.name(), ask.discordId, ask.days);
-                ctx.status(201).json(granted);
-            }, Gate.KEY_FRESH);
-
-            // Play time, set outright (steward/119). A write, so KEY_FRESH and a journal line,
-            // exactly like a grant - and for the same reason: this moves somebody's prestige tier,
-            // which is derived from this number and stored nowhere, so "who set this to nine
-            // hours" has to stay answerable.
-            cfg.routes.post("/api/people/{id}/playtime", ctx -> {
-                final Playtime ask = ctx.bodyAsClass(Playtime.class);
-                if (ask == null || ask.seconds == null || ask.seconds < 0) {
-                    throw new BadRequestResponse("seconds is the new total, and is never negative");
-                }
-                if (ask.seconds > MOST_PLAYTIME_SECONDS) {
-                    // A century of play time is a typo, and the column is a bigint that would take
-                    // it without complaint.
-                    throw new BadRequestResponse("seconds is at most " + MOST_PLAYTIME_SECONDS);
-                }
-                final String discordId = ctx.pathParam("id");
-                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                // The same ensureUser the grant does, and for the same reason: player_playtime has
-                // a foreign key onto discord_user, and "this person has not spoken to the bot yet"
-                // is a worse error than simply making the row.
-                data.access().ensureUser(discordId);
-                data.access().setPlaytimeSeconds(discordId, ask.seconds);
-                data.audit().record("SET_PLAYTIME", who.id(), discordId, null,
-                        // Days, hours and minutes and not a number of seconds (steward/126): the
-                        // dialog asks in those units and the list answers in them, and a journal
-                        // line saying "111600 seconds" is the one place left where somebody has to
-                        // divide by 3600 to know what they did. The exact number is in the log line
-                        // below, which is where an exact number belongs.
-                        playtime(ask.seconds) + " set by " + who.name()
-                                + " from the web interface");
-                log.info("{} set the play time of {} to {} seconds",
-                        who.name(), discordId, ask.seconds);
-                ctx.json(Map.of("discordId", discordId, "seconds", ask.seconds));
-            }, Gate.KEY_FRESH);
-
-            cfg.routes.post("/api/access/revoke", ctx -> {
-                final Grant ask = ctx.bodyAsClass(Grant.class);
-                if (ask == null || ask.discordId == null || ask.discordId.isBlank()) {
-                    throw new BadRequestResponse("discordId is whose access this is");
-                }
-                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                final int revoked = data.access().revokeAccess(ask.discordId);
-                data.audit().record("REVOKE_ACCESS", who.id(), ask.discordId, null,
-                        revoked + " grant(s) revoked by " + who.name()
-                                + " from the web interface");
-                log.info("{} revoked {} grants of {}", who.name(), revoked, ask.discordId);
-                ctx.json(Map.of("revoked", revoked));
-            }, Gate.KEY_FRESH);
+            // Granting, revoking, play time, settling and unlinking: each is one access_request
+            // row the bot carries out, so the role, the DM and the admin note follow from here
+            // exactly as they do from /access in Discord. AccessApi says why nothing is written
+            // directly any more.
+            cfg.routes.post("/api/access/grant", access::grant, Gate.KEY_FRESH);
+            cfg.routes.post("/api/access/revoke", access::revoke, Gate.KEY_FRESH);
+            cfg.routes.post("/api/access/unlink", access::unlink, Gate.KEY_FRESH);
+            cfg.routes.post("/api/access/settle", access::settle, Gate.KEY_FRESH);
+            cfg.routes.post("/api/people/{id}/playtime", access::playtime, Gate.KEY_FRESH);
+            cfg.routes.get("/api/access/requests/{id}", access::outcome, Gate.KEY_HELD);
 
             // --- the season ------------------------------------------------------------------
             //
@@ -2084,17 +1967,6 @@ public final class StewardUi {
          * health exactly as an unscoped one does.</p>
          */
         private java.util.List<String> services;
-    }
-
-    /** The body of both access endpoints. {@code days} is unused by the revoke. */
-    private static final class Grant {
-        private String discordId;
-        private Integer days;
-    }
-
-    /** The body of {@code POST /api/people/{id}/playtime}: the new total, in seconds. */
-    private static final class Playtime {
-        private Long seconds;
     }
 
     /** The body of both season endpoints. Each uses the fields it needs. */

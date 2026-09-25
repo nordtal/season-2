@@ -17,7 +17,6 @@ import { toast } from "sonner"
 import type { Grant, JournalEntry, Payment, Person } from "@/lib/api"
 import { count, date, dateTime, euros, playtime, relative, splitPlaytime } from "@/lib/format"
 import {
-  useCommands,
   useGrantAccess,
   useGrants,
   useJournal,
@@ -25,9 +24,10 @@ import {
   usePeople,
   useRevokeAccess,
   useSetPlaytime,
+  useSettle,
+  useUnlink,
 } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
-import { InlineCommandAction } from "@/components/steward/inline-command"
 import { PageHeader } from "@/components/steward/page-header"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
 import { Stat } from "@/components/steward/stat"
@@ -257,6 +257,9 @@ function shortId(value: string): string {
   return value.length > 8 ? `${value.slice(0, 8)}…` : value
 }
 
+/** The longest grant, in days - `AccessApi.MOST_DAYS`, which refuses anything above it. */
+const MOST_DAYS = 365
+
 /** Rows per page of the People table (steward/46) - the whole roster is filtered first, always. */
 const PEOPLE_PAGE_SIZE = 20
 
@@ -340,16 +343,12 @@ function WaitingPersonRow() {
 /**
  * The roster: everyone the bot knows, and what they may.
  *
- * The two writes on this page are the reason it needs a paragraph of its own. Granting and revoking
- * used to be `/access` in Discord and nothing else; since 2026-09-13 this is a second door into the
- * same room, and the price of a second door is that "who let them in" has to stay
- * answerable. It does, because every click here writes an `audit_log` row naming the admin - which
- * is exactly what the Journal page shows.
+ * Every write on this page - grant, revoke, play time, unlink - is a request the bot carries out,
+ * the same as `/access` in Discord: the bot applies the role, sends the direct message, posts the
+ * admin note and writes the journal line naming the admin. This page only asks and waits.
  */
 export function AccessPage() {
   const people = usePeople()
-  const commands = useCommands()
-  const unlinkCommand = commands.data?.find((command) => command.name === "/access unlink")
   const [needle, setNeedle] = useState("")
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
   const [page, setPage] = useState(0)
@@ -555,7 +554,6 @@ export function AccessPage() {
                             <RowActions
                               label={`Actions for ${personName(person)}`}
                               actions={rowActions(person, {
-                                unlinkable: unlinkCommand !== undefined,
                                 onPeriods: () => setSelected(person),
                                 onGrant: () => setGranting(person),
                                 onPlaytime: () => setPlaytimeFor(person),
@@ -630,14 +628,8 @@ export function AccessPage() {
 
       {/* Both rendered here rather than in the row, for the reason `unlinking` is declared with. */}
       {unlinking ? (
-        <InlineCommandAction
-          command={unlinkCommand}
-          argumentName="member"
-          value={unlinking.discordId}
-          label="Unlink"
-          icon={LinkBreakIcon}
-          destructive
-          confirmDescription="Breaks the link between this Discord account and its Minecraft account. The paid period is untouched; the person can link a Minecraft account again afterwards."
+        <UnlinkDialog
+          person={unlinking}
           open
           onOpenChange={(open) => (open ? null : setUnlinking(null))}
         />
@@ -683,10 +675,7 @@ function personName(person: Person): string {
  *   is nothing to take away, and a disabled destructive control reads as "not allowed" rather than
  *   "not applicable".
  * - **Unlink** only when a Minecraft account is linked - the bug Till found. It was drawn for
- *   everybody, including the people with nothing to unlink. It is still additionally conditional
- *   on `/access unlink` being declared for `Surface.WEB` in `/api/commands`, which is steward/47's
- *   original rule and unchanged: a withdrawn declaration hides the button rather than producing a
- *   404.
+ *   everybody, including the people with nothing to unlink.
  *
  * <h2>The two of the five that are deliberately not here</h2>
  * steward/106 names five `access` commands for this table. `settle` is not one of these rows'
@@ -698,7 +687,6 @@ function personName(person: Person): string {
 function rowActions(
   person: Person,
   on: {
-    unlinkable: boolean
     onPeriods: () => void
     onGrant: () => void
     onPlaytime: () => void
@@ -758,7 +746,7 @@ function rowActions(
     })
   }
 
-  if (person.minecraftUuid && on.unlinkable) {
+  if (person.minecraftUuid) {
     actions.push({
       key: "unlink",
       node: (
@@ -828,7 +816,11 @@ function GrantDialog({
   const [discordId, setDiscordId] = useState(person?.discordId ?? "")
   const [days, setDays] = useState("30")
   const parsedDays = Number.parseInt(days, 10)
-  const usable = discordId.trim().length > 0 && Number.isFinite(parsedDays) && parsedDays > 0
+  const usable =
+    discordId.trim().length > 0 &&
+    Number.isFinite(parsedDays) &&
+    parsedDays > 0 &&
+    parsedDays <= MOST_DAYS
 
   return (
     <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
@@ -844,9 +836,8 @@ function GrantDialog({
         <ResponsiveAlertDialogHeader>
           <ResponsiveAlertDialogTitle>Grant access by hand</ResponsiveAlertDialogTitle>
           <ResponsiveAlertDialogDescription>
-            Writes a period with the source <code className="text-xs">ADMIN</code> - no payment, no
-            bunq tab. The person may then join the server as soon as their Minecraft account is
-            linked.
+            The bot writes a period with the source <code className="text-xs">ADMIN</code> - no
+            payment, no bunq tab - gives the role and tells the person by direct message.
           </ResponsiveAlertDialogDescription>
         </ResponsiveAlertDialogHeader>
 
@@ -872,10 +863,13 @@ function GrantDialog({
               onChange={(event) => setDays(event.target.value)}
               type="number"
               min={1}
+              max={MOST_DAYS}
               className="w-32"
+              aria-invalid={Number.isFinite(parsedDays) && parsedDays > MOST_DAYS}
             />
           </div>
           <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-muted-foreground">
+            <li>At most {MOST_DAYS} days. A longer period is two grants.</li>
             <li>A day is exactly 24 hours, not a calendar day.</li>
             <li>
               If a period is already running, the new one is appended - paid time is never lost,
@@ -900,19 +894,17 @@ function GrantDialog({
               grant.mutate(
                 { discordId: discordId.trim(), days: parsedDays },
                 {
-                  onSuccess: (written: Grant) => {
+                  onSuccess: (written, asked) => {
                     // The person if this dialog was opened from their row, the id they typed if
                     // it was opened from the toolbar - there is nobody else to name then, and an
                     // echo of what was typed is what confirms the right account was hit.
                     toast.success(
                       <span className="inline-flex min-w-0 items-center gap-1.5">
                         Access granted for
-                        <Entity id={written.discordId} kind="discord" interactive={false} />
+                        <Entity id={asked.discordId} kind="discord" interactive={false} />
                       </span>,
                       {
-                        description: `Valid ${dateTime(written.validFrom)} until ${dateTime(
-                          written.validUntil,
-                        )}. A journal line names you.`,
+                        description: `Valid until ${dateTime(written.until)}. A journal line names you.`,
                       },
                     )
                     setDiscordId(person?.discordId ?? "")
@@ -1061,6 +1053,130 @@ function PlaytimeDialog({
             }}
           >
             Save
+          </ResponsiveAlertDialogAction>
+        </ResponsiveAlertDialogFooter>
+      </ResponsiveAlertDialogContent>
+    </ResponsiveAlertDialog>
+  )
+}
+
+/**
+ * Unlinking: the Discord account keeps its access, the Minecraft account is released. The bot does
+ * it, so the person is told and the admin channel hears about it.
+ */
+function UnlinkDialog({
+  person,
+  open,
+  onOpenChange,
+}: {
+  person: Person
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const unlink = useUnlink()
+  return (
+    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveAlertDialogContent>
+        <ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogTitle>Unlink?</ResponsiveAlertDialogTitle>
+          <ResponsiveAlertDialogDescription>
+            Breaks the link between this Discord account and its Minecraft account. The paid period
+            is untouched; the person can link a Minecraft account again afterwards.
+          </ResponsiveAlertDialogDescription>
+        </ResponsiveAlertDialogHeader>
+        <ResponsiveAlertDialogFooter>
+          <ResponsiveAlertDialogCancel disabled={unlink.isPending}>Cancel</ResponsiveAlertDialogCancel>
+          <ResponsiveAlertDialogAction
+            variant="destructive"
+            disabled={unlink.isPending}
+            onClick={() => {
+              unlink.mutate(person.discordId, {
+                onSuccess: (result) => {
+                  if (!result.unlinked) {
+                    toast.warning("There was nothing to unlink", {
+                      description: (
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                          No Minecraft account was linked to
+                          <Entity id={person.discordId} kind="discord" interactive={false} />
+                        </span>
+                      ),
+                    })
+                    return
+                  }
+                  toast.success(
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      Unlinked
+                      <Entity id={person.discordId} kind="discord" interactive={false} />
+                    </span>,
+                    { description: "A journal line names you." },
+                  )
+                },
+                onError: (error) => {
+                  toast.error("Nothing was unlinked", { description: String(error) })
+                },
+              })
+            }}
+          >
+            Unlink
+          </ResponsiveAlertDialogAction>
+        </ResponsiveAlertDialogFooter>
+      </ResponsiveAlertDialogContent>
+    </ResponsiveAlertDialog>
+  )
+}
+
+/**
+ * Settling by hand, on the one row it can apply to - an OPEN request already names the reference,
+ * so there is nothing left to pick. The bot books it exactly as if bunq had reported it: period,
+ * role, direct message, admin note.
+ */
+function SettleAction({ reference }: { reference: string }) {
+  const settle = useSettle()
+  return (
+    <ResponsiveAlertDialog>
+      <ResponsiveAlertDialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm" disabled={settle.isPending}>
+          <HandCoinsIcon aria-hidden />
+          Settle
+        </Button>
+      </ResponsiveAlertDialogTrigger>
+      <ResponsiveAlertDialogContent>
+        <ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogTitle>Settle?</ResponsiveAlertDialogTitle>
+          <ResponsiveAlertDialogDescription>
+            Marks {reference} paid by hand and writes the access period it bought. Use this only
+            once the money has actually arrived - it books access, it does not check bunq.
+          </ResponsiveAlertDialogDescription>
+        </ResponsiveAlertDialogHeader>
+        <ResponsiveAlertDialogFooter>
+          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
+          <ResponsiveAlertDialogAction
+            onClick={() => {
+              settle.mutate(reference, {
+                onSuccess: (result) => {
+                  if (result.outcome === "BOOKED") {
+                    toast.success(`${reference} settled`, {
+                      description: `${count(result.days)} days, valid until ${dateTime(
+                        result.until ?? "",
+                      )}. A journal line names you.`,
+                    })
+                  } else if (result.outcome === "NOT_OPEN") {
+                    toast.warning(`${reference} was not open any more`, {
+                      description: `It is ${result.was ?? "settled"} now. Nothing was booked.`,
+                    })
+                  } else {
+                    toast.warning(`There is no payment ${reference}`, {
+                      description: "Nothing was booked.",
+                    })
+                  }
+                },
+                onError: (error) => {
+                  toast.error("Nothing was settled", { description: String(error) })
+                },
+              })
+            }}
+          >
+            Settle
           </ResponsiveAlertDialogAction>
         </ResponsiveAlertDialogFooter>
       </ResponsiveAlertDialogContent>
@@ -1350,8 +1466,6 @@ function isOverdue(payment: Payment, now: number): boolean {
  */
 export function PaymentsPage() {
   const payments = usePayments()
-  const commands = useCommands()
-  const settleCommand = commands.data?.find((command) => command.name === "/access settle")
   const [status, setStatus] = useState("")
   const now = Date.now()
 
@@ -1604,14 +1718,7 @@ export function PaymentsPage() {
                                     the button everywhere and disabling it.
                                   */}
                                   {payment.status === "OPEN" ? (
-                                    <InlineCommandAction
-                                      command={settleCommand}
-                                      argumentName="reference"
-                                      value={payment.reference}
-                                      label="Settle"
-                                      icon={HandCoinsIcon}
-                                      confirmDescription={`Marks ${payment.reference} paid by hand and writes the access period it bought. Use this only once the money has actually arrived - it books access, it does not check bunq.`}
-                                    />
+                                    <SettleAction reference={payment.reference} />
                                   ) : null}
                                 </div>
                               </TableCell>

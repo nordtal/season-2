@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -66,7 +68,7 @@ class ReadinessWiringTest {
             // Only the method that starts the heartbeat: its refusals, or the calls that can refuse, must come first.
             final String text = enclosingMethod(file, file.indexOf("startHeartbeat();"));
 
-            final int lastRefusal = lastRefusal(text);
+            final int lastRefusal = Math.max(lastRefusal(text), lastRefusingCall(file, text));
             final int heartbeat = text.indexOf("startHeartbeat();");
             assertTrue(
                     lastRefusal >= 0,
@@ -169,6 +171,8 @@ class ReadinessWiringTest {
     }
 
     /** The method around a position: from the member declaration above it to the next one below it. */
+    private static final Pattern METHOD_NAME = Pattern.compile("\\s(\\w+)\\(");
+
     private static String enclosingMethod(final String text, final int at) {
         if (at < 0) {
             return text;
@@ -181,6 +185,18 @@ class ReadinessWiringTest {
         final int to =
                 Math.min(nextPrivate < 0 ? text.length() : nextPrivate, nextPublic < 0 ? text.length() : nextPublic);
         return text.substring(Math.max(from, 0), to);
+    }
+
+    /** The last call, in {@code text}, to a method of {@code file} that itself refuses with {@code severe("...")}. */
+    private static int lastRefusingCall(final String file, final String text) {
+        int last = -1;
+        for (int at = lastRefusal(file); at >= 0; at = lastRefusal(file.substring(0, at))) {
+            final Matcher header = METHOD_NAME.matcher(enclosingMethod(file, at));
+            if (header.find()) {
+                last = Math.max(last, text.lastIndexOf(header.group(1) + "("));
+            }
+        }
+        return last;
     }
 
     /**

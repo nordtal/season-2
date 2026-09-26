@@ -1,4 +1,4 @@
--- Web push subscriptions (concept §10c / steward/98): the browsers that get told about a traffic
+-- Web push subscriptions: the browsers that get told about a traffic
 -- light change over the phone's lock screen rather than only on the page they might not have open.
 --
 -- ONE ROW PER BROWSER SUBSCRIPTION, keyed by the endpoint the push service handed out - the same

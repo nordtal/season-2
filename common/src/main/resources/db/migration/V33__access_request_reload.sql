@@ -1,4 +1,4 @@
--- A sixth kind on the bot's inbox: re-read the message bundles (season-2-community/09).
+-- A sixth kind on the bot's inbox: re-read the message bundles.
 --
 -- WHY IT BELONGS HERE AND NOT ON A RELOAD TABLE OF ITS OWN. `ConfigApi` already knows how to reload
 -- a Minecraft service - a map from a file to a console command, sent through the container's tmux

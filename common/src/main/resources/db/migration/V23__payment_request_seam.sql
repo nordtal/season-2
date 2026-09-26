@@ -1,12 +1,11 @@
 -- The payment seam: the columns that let the bot ask for a bunq call instead of making one.
 --
--- Concept §10d, and steward/99's measurement behind it: Purchases.confirm() calls bunq
+-- Concept §10d: Purchases.confirm() calls bunq
 -- synchronously out of a Discord interaction, which is what stops the bunq half from moving to
 -- steward-worker. The way out is a row rather than a call - the bot writes what it wants, the
 -- worker does it and writes back, and a NOTIFY on nordtal_payment makes the answer feel immediate.
 --
--- This migration adds the columns and nothing else writes them yet (steward/108). The two writers
--- arrive with steward/109.
+-- This migration adds the columns and nothing else writes them yet.
 
 ALTER TABLE payment_request
     -- Set when the bot wants a bunq.me tab for this request, NULL otherwise. The worker's queue is
@@ -17,7 +16,7 @@ ALTER TABLE payment_request
     ADD COLUMN tab_requested    timestamptz,
 
     -- What bunq said when it did not work. Without it "der Link kommt gleich" is a state with no
-    -- exit, which is exactly what steward/07 named: the user waits on a message that never
+    -- exit: the user waits on a message that never
     -- changes. Set together with clearing tab_requested, so the pair means "asked, refused".
     ADD COLUMN tab_failed       text,
 

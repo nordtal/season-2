@@ -1,5 +1,5 @@
 -- payment_notice gets an outbox column, because the process that FINDS the payment and the process
--- that CAN SAY SO are no longer the same one (steward/109).
+-- that CAN SAY SO are not the same one.
 --
 -- Until now the two were: PaymentProcessor inserted the row and, when the insert was the first one,
 -- posted the sentence into the admin channel in the next statement. `noticeOnce` returning 1 was

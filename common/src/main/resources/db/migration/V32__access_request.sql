@@ -1,5 +1,5 @@
 -- The bot's inbox for access changes: one row per request, the answer written back into the same
--- row (season-2-community/08).
+-- row.
 --
 -- WHY THIS EXISTS AT ALL. Granting access is four things - a row, a Discord role, a direct message
 -- in the recipient's own language, and a line in the admin channel - and only the bot holds a JDA

@@ -1,6 +1,6 @@
--- How many players are on each Minecraft-facing service, right now (steward/86).
+-- How many players are on each Minecraft-facing service, right now.
 --
--- steward/81 wants a player count next to smp, hunger-games and limbo on Steward's service list,
+-- Steward wants a player count next to smp, hunger-games and limbo on its service list,
 -- plus the network's total next to network-control - and the number does not exist anywhere today.
 -- A Docker daemon has no idea: a player is a fact inside a JVM's memory, not a fact about a
 -- container. The one process that already knows all four without adding anything up is the proxy -
@@ -13,7 +13,7 @@
 -- ONE ROW PER SUBJECT, OVERWRITTEN. THIS IS NOT metric_sample.
 --
 -- V17's table is a deliberate time series with a retention policy because steward-ui draws curves
--- from it. Nothing here draws a curve - steward/86 is explicit that a history was not asked for and
+-- from it. Nothing here draws a curve - a history was not asked for and
 -- would be "a data store nobody asked for" if built anyway. So this is the other shape: a single
 -- row per subject that the next write replaces, the same pattern player_playtime already uses
 -- (V4__phase_admin_playtime.sql) for exactly the same reason - an UPSERT every few seconds, forever,
@@ -74,7 +74,7 @@ COMMENT ON TABLE online_count IS
     'How many players are on smp, hunger-games and limbo, and the network total under '
         '"network-control" - one row per subject, overwritten on every write, never a history. '
         'Written by network-control every OnlineDirectory.WRITE_INTERVAL; read by steward-worker '
-        'for /api/services (steward/86, steward/81).';
+        'for /api/services.';
 
 COMMENT ON COLUMN online_count.subject IS
     'A compose service name (smp, hunger-games, limbo) or "network-control" for the proxy''s own '

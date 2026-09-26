@@ -35,7 +35,6 @@ package eu.nordtal.jcore.config.spec;
 
 import eu.nordtal.jcore.config.spec.annotation.Reload;
 import eu.nordtal.jcore.config.spec.annotation.Save;
-
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -47,10 +46,7 @@ final class SpecProxy<T> implements InvocationHandler {
     public static <T> T proxy(Class<T> type, Supplier<T> supplier, Runnable onReload, Runnable onSave) {
         //noinspection unchecked
         return (T) Proxy.newProxyInstance(
-                type.getClassLoader(),
-                new Class<?>[]{type},
-                new SpecProxy<>(type, supplier, onReload, onSave)
-        );
+                type.getClassLoader(), new Class<?>[] {type}, new SpecProxy<>(type, supplier, onReload, onSave));
     }
 
     private final Class<?> type;
@@ -73,9 +69,7 @@ final class SpecProxy<T> implements InvocationHandler {
             onReload.run();
             if (method.isDefault()) {
                 if (reloadDef == null) {
-                    reloadDef = MHLookup.privateLookupIn(type)
-                            .in(type)
-                            .unreflectSpecial(method, type);
+                    reloadDef = MHLookup.privateLookupIn(type).in(type).unreflectSpecial(method, type);
                 }
                 return reloadDef.bindTo(proxy).invokeWithArguments(args);
             }
@@ -85,9 +79,7 @@ final class SpecProxy<T> implements InvocationHandler {
             onSave.run();
             if (method.isDefault()) {
                 if (saveDef == null) {
-                    saveDef = MHLookup.privateLookupIn(type)
-                            .in(type)
-                            .unreflectSpecial(method, type);
+                    saveDef = MHLookup.privateLookupIn(type).in(type).unreflectSpecial(method, type);
                 }
                 return saveDef.bindTo(proxy).invokeWithArguments(args);
             }

@@ -15,11 +15,6 @@ import eu.nordtal.jcore.config.spec.ArrayCommentStyle;
 import eu.nordtal.jcore.config.spec.CommentedConfiguration;
 import eu.nordtal.jcore.config.spec.ManagedSpecReference;
 import eu.nordtal.jcore.config.spec.Specs;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Unmodifiable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +26,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Unmodifiable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A live handle on one YAML configuration file and its schema.
@@ -91,8 +90,13 @@ public final class ConfigHandle<T> {
     /** Config paths currently supplied by the environment. Never written back to the file. */
     private volatile List<String> overriddenPaths = List.of();
 
-    ConfigHandle(final Path file, final Class<T> specType, final Gson gson, final EnvOverlay overlay,
-                 final ConfigValidator<T> validator, final Consumer<T> onLoad) {
+    ConfigHandle(
+            final Path file,
+            final Class<T> specType,
+            final Gson gson,
+            final EnvOverlay overlay,
+            final ConfigValidator<T> validator,
+            final Consumer<T> onLoad) {
         this.file = file.toAbsolutePath().normalize();
         this.specType = specType;
         this.gson = gson;
@@ -205,19 +209,21 @@ public final class ConfigHandle<T> {
         // already dead. It is dropped by the write below, named in the log, and still in the .bak.
         final List<UnknownKeyDetector.UnknownKey> unknown =
                 UnknownKeyDetector.detect(specType, configuration.getData());
-        final List<UnknownKeyDetector.UnknownKey> mistyped =
-                unknown.stream().filter(UnknownKeyDetector.UnknownKey::probableTypo).toList();
+        final List<UnknownKeyDetector.UnknownKey> mistyped = unknown.stream()
+                .filter(UnknownKeyDetector.UnknownKey::probableTypo)
+                .toList();
         if (!mistyped.isEmpty()) {
             throw new UnknownConfigKeyException(file, mistyped);
         }
-        final List<String> retired = unknown.stream().map(UnknownKeyDetector.UnknownKey::path).toList();
+        final List<String> retired =
+                unknown.stream().map(UnknownKeyDetector.UnknownKey::path).toList();
 
         final T value;
         try {
             value = configuration.getAs(specType);
         } catch (RuntimeException e) {
-            throw new ConfigReadException("Cannot read config file " + file + " as "
-                    + specType.getSimpleName() + ": " + e.getMessage(), e);
+            throw new ConfigReadException(
+                    "Cannot read config file " + file + " as " + specType.getSimpleName() + ": " + e.getMessage(), e);
         }
 
         // Normalise: adds settings that were not in the file yet and fixes ordering. Only writes
@@ -239,9 +245,13 @@ public final class ConfigHandle<T> {
                 if (!retired.isEmpty()) {
                     // The paths, never the values - a setting that has been retired can still
                     // have been a password. The .bak written just above is where the values are.
-                    LOG.warn("{}: {} setting(s) no longer exist and were removed from the file: {}."
+                    LOG.warn(
+                            "{}: {} setting(s) no longer exist and were removed from the file: {}."
                                     + " They are still in {}.bak if you need what they said.",
-                            file.getFileName(), retired.size(), String.join(", ", retired), file);
+                            file.getFileName(),
+                            retired.size(),
+                            String.join(", ", retired),
+                            file);
                 }
             }
         } catch (UncheckedIOException e) {
@@ -268,8 +278,11 @@ public final class ConfigHandle<T> {
         }
         if (!overridden.isEmpty()) {
             // The paths, never the values - any one of them could be a secret.
-            LOG.info("{}: {} setting(s) overridden by environment variables: {}",
-                    file.getFileName(), overridden.size(), String.join(", ", overridden));
+            LOG.info(
+                    "{}: {} setting(s) overridden by environment variables: {}",
+                    file.getFileName(),
+                    overridden.size(),
+                    String.join(", ", overridden));
         }
 
         // Validate before the new value is published. Otherwise a reload that fails validation

@@ -35,13 +35,12 @@
  */
 package eu.nordtal.jcore.config.spec;
 
-import org.jetbrains.annotations.NotNull;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
 import eu.nordtal.jcore.config.spec.annotation.Save;
-
 import java.lang.reflect.Proxy;
 import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * A utility object wrapper that creates a {@link Proxy} for {@link ConfigSpec}
@@ -140,5 +139,4 @@ public final class SpecReference<T> {
         Objects.requireNonNull(value, "value cannot be null!");
         this.value = value;
     }
-
 }

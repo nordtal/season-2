@@ -10,14 +10,12 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
 import eu.nordtal.jcore.config.spec.annotation.Save;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
-
 import java.util.List;
 
 /** The spec interfaces the config tests load. */
 public final class TestSpecs {
 
-    private TestSpecs() {
-    }
+    private TestSpecs() {}
 
     /** Modelled on the payments-bot's PaymentProcessingConfig, plus a nested section. */
     @ConfigSpec(header = {"Test configuration", "Second header line"})
@@ -152,10 +150,10 @@ public final class TestSpecs {
         @Order(1)
         @Key("mode")
         @Comment({
-                "Controls how strictly an input that is not on the known list is handled.",
-                "",
-                "STRICT refuses it outright. LOOSE accepts it and logs a warning instead of",
-                "failing the whole request over a value nobody has taught this setting about yet."
+            "Controls how strictly an input that is not on the known list is handled.",
+            "",
+            "STRICT refuses it outright. LOOSE accepts it and logs a warning instead of",
+            "failing the whole request over a value nobody has taught this setting about yet."
         })
         @Explain("How strictly an unknown value is rejected.")
         default Mode mode() {
@@ -164,7 +162,9 @@ public final class TestSpecs {
 
         @Order(2)
         @Key("accent-colour")
-        @AllowedValues(value = {"red", "green", "blue"}, strict = false)
+        @AllowedValues(
+                value = {"red", "green", "blue"},
+                strict = false)
         @Explain("Suggested accent colour - anything else is accepted too.")
         default String accentColour() {
             return "blue";
@@ -194,7 +194,8 @@ public final class TestSpecs {
         }
 
         enum Mode {
-            STRICT, LOOSE
+            STRICT,
+            LOOSE
         }
     }
 }

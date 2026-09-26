@@ -42,6 +42,9 @@
  */
 package eu.nordtal.jcore.config.spec;
 
+import static eu.nordtal.jcore.config.spec.Specs.createDefault;
+import static eu.nordtal.jcore.config.spec.Specs.isConfigSpec;
+
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
@@ -49,16 +52,12 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-import static eu.nordtal.jcore.config.spec.Specs.createDefault;
-import static eu.nordtal.jcore.config.spec.Specs.isConfigSpec;
+import org.jetbrains.annotations.NotNull;
 
 @SuppressWarnings({"unchecked"})
 public final class SpecAdapterFactory implements TypeAdapterFactory {
@@ -81,18 +80,16 @@ public final class SpecAdapterFactory implements TypeAdapterFactory {
         SpecClass impl = Specs.from(rawType);
         Map<String, BoundField> fieldsMap = new LinkedHashMap<>();
         for (SpecProperty value : impl.properties().values()) {
-            if (value.isHandledByProxy())
-                continue;
+            if (value.isHandledByProxy()) continue;
             Method getter = value.getter();
 
             // Upstream Spec honoured @JsonAdapter here by reflecting into Gson's private
             // 'constructorConstructor' field. That is removed - see the header. Reject the
             // annotation loudly rather than ignoring it, so nobody assumes it took effect.
             if (getter.isAnnotationPresent(JsonAdapter.class)) {
-                throw new IllegalArgumentException(
-                        "@JsonAdapter on " + rawType.getName() + "#" + getter.getName()
-                                + " is not supported by jcore's vendored Spec. Register the "
-                                + "TypeAdapter on the GsonBuilder passed to the config loader instead.");
+                throw new IllegalArgumentException("@JsonAdapter on " + rawType.getName() + "#" + getter.getName()
+                        + " is not supported by jcore's vendored Spec. Register the "
+                        + "TypeAdapter on the GsonBuilder passed to the config loader instead.");
             }
 
             TypeToken<?> fieldType = TypeToken.get(getter.getGenericReturnType());
@@ -150,9 +147,8 @@ public final class SpecAdapterFactory implements TypeAdapterFactory {
             if (isConfigSpec(candidate)) {
                 if (found != null) {
                     // Two spec interfaces on one proxy would make the choice arbitrary.
-                    throw new IllegalArgumentException(
-                            "Proxy implements more than one @ConfigSpec interface: " + found.getName()
-                                    + " and " + candidate.getName());
+                    throw new IllegalArgumentException("Proxy implements more than one @ConfigSpec interface: "
+                            + found.getName() + " and " + candidate.getName());
                 }
                 found = candidate;
             }

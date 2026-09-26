@@ -1,10 +1,9 @@
 package eu.nordtal.jcore.persistence.sql;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.time.Duration;
 import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Immutable connection and pool settings for a {@link Database}.
@@ -35,8 +34,7 @@ public record DatabaseConfig(
         @NotNull Duration connectionTimeout,
         @NotNull Duration idleTimeout,
         @NotNull Duration maxLifetime,
-        boolean logSql
-) {
+        boolean logSql) {
 
     /** The pool name used when the caller does not pick one. */
     public static final String DEFAULT_POOL_NAME = "jcore-pool";
@@ -104,9 +102,8 @@ public record DatabaseConfig(
      * @param password the database password
      * @return a configuration using HikariCP's defaults
      */
-    public static @NotNull DatabaseConfig of(final @NotNull String jdbcUrl,
-                                             final @Nullable String username,
-                                             final @Nullable String password) {
+    public static @NotNull DatabaseConfig of(
+            final @NotNull String jdbcUrl, final @Nullable String username, final @Nullable String password) {
         return builder(jdbcUrl).username(username).password(password).build();
     }
 

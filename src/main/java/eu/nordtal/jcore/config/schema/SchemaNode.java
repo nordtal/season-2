@@ -1,13 +1,12 @@
 package eu.nordtal.jcore.config.schema;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.Unmodifiable;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 
 /**
  * One key of a {@code config.schema.json}, as {@link SchemaWriter} builds it from a
@@ -83,8 +82,7 @@ public record SchemaNode(
         @Nullable SettingType type,
         @Nullable Choices choices,
         @NotNull @Unmodifiable Map<String, SchemaNode> children,
-        @Nullable ProtectedEntry protectedEntry
-) {
+        @Nullable ProtectedEntry protectedEntry) {
 
     public SchemaNode {
         // Not Map.copyOf(): its iteration order is unspecified, and @Order is exactly what
@@ -116,6 +114,6 @@ public record SchemaNode(
      * @param field the element's own field to match against, e.g. {@code tag}
      * @param value the value that field must equal for that entry to be the protected one
      */
-    public record ProtectedEntry(@NotNull String field, @NotNull String value) {
-    }
+    public record ProtectedEntry(
+            @NotNull String field, @NotNull String value) {}
 }

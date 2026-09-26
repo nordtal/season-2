@@ -3,14 +3,13 @@ package eu.nordtal.jcore.config.internal;
 import eu.nordtal.jcore.config.spec.SpecClass;
 import eu.nordtal.jcore.config.spec.SpecProperty;
 import eu.nordtal.jcore.config.spec.Specs;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Addresses the leaves of a spec by their dotted config path ({@code nametag.display.scale}).
@@ -21,12 +20,13 @@ import java.util.Map;
  */
 public final class SpecPaths {
 
-    private SpecPaths() {
-    }
+    private SpecPaths() {}
 
     /** A single settable value in a spec, identified by its dotted path. */
-    public record Leaf(@NotNull String path, @NotNull Class<?> type, @NotNull Type genericType) {
-    }
+    public record Leaf(
+            @NotNull String path,
+            @NotNull Class<?> type,
+            @NotNull Type genericType) {}
 
     /**
      * Every leaf of {@code specType}, in declaration order. Nested specs are descended into;
@@ -90,8 +90,8 @@ public final class SpecPaths {
     }
 
     /** A shallow snapshot of the values at the given paths, for restoring them later. */
-    public static @NotNull Map<String, Object> snapshot(final @NotNull Object spec,
-                                                        final @NotNull Iterable<String> paths) {
+    public static @NotNull Map<String, Object> snapshot(
+            final @NotNull Object spec, final @NotNull Iterable<String> paths) {
         final Map<String, Object> snapshot = new LinkedHashMap<>();
         for (String path : paths) {
             snapshot.put(path, get(spec, path));

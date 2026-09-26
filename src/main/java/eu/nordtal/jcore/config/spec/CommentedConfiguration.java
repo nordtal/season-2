@@ -44,21 +44,13 @@
  */
 package eu.nordtal.jcore.config.spec;
 
+import static java.util.regex.Pattern.LITERAL;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.UnmodifiableView;
 import eu.nordtal.jcore.config.internal.AtomicConfigWriter;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.LoaderOptions;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.SafeConstructor;
-import org.yaml.snakeyaml.representer.Representer;
-import org.yaml.snakeyaml.events.*;
 import eu.nordtal.jcore.config.spec.Util.PeekingIterator;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -69,8 +61,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Pattern;
-
-import static java.util.regex.Pattern.LITERAL;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.UnmodifiableView;
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.events.*;
+import org.yaml.snakeyaml.representer.Representer;
 
 /**
  * A configuration that supports comments. Set comments with
@@ -97,8 +96,8 @@ public class CommentedConfiguration {
      * Pattern for matching newline characters.
      */
     public static final Pattern NEW_LINE = Pattern.compile("\n", LITERAL);
-    private static final Type MAP_TYPE = new TypeToken<Map<String, Object>>() {
-    }.getType();
+
+    private static final Type MAP_TYPE = new TypeToken<Map<String, Object>>() {}.getType();
 
     /**
      * YAML processor instance for reading and writing YAML data.
@@ -229,10 +228,8 @@ public class CommentedConfiguration {
         }
         for (int i = 0; i < headers.size(); i++) {
             String l = headers.get(i);
-            if (l.startsWith("#"))
-                lines.add(i, "#" + l);
-            else
-                lines.add(i, "# " + l);
+            if (l.startsWith("#")) lines.add(i, "#" + l);
+            else lines.add(i, "# " + l);
         }
         if (!headers.isEmpty()) {
             lines.add(headers.size(), "");
@@ -249,11 +246,8 @@ public class CommentedConfiguration {
      * @return A new instance of CommentedConfiguration
      */
     public static @NotNull CommentedConfiguration from(
-            @NotNull Path file,
-            @NotNull Gson json,
-            @NotNull ArrayCommentStyle arrayCommentStyle
-    ) {
-        //Creating a blank instance of the config.
+            @NotNull Path file, @NotNull Gson json, @NotNull ArrayCommentStyle arrayCommentStyle) {
+        // Creating a blank instance of the config.
         return new CommentedConfiguration(file, json, arrayCommentStyle);
     }
 
@@ -265,10 +259,8 @@ public class CommentedConfiguration {
      * @return A new instance of CommentedConfiguration
      */
     public static @NotNull CommentedConfiguration from(
-            @NotNull Path file,
-            @NotNull ArrayCommentStyle arrayCommentStyle
-    ) {
-        //Creating a blank instance of the config.
+            @NotNull Path file, @NotNull ArrayCommentStyle arrayCommentStyle) {
+        // Creating a blank instance of the config.
         return new CommentedConfiguration(file, GSON, arrayCommentStyle);
     }
 
@@ -279,11 +271,8 @@ public class CommentedConfiguration {
      * @param gson The JSON instance to deserialize with
      * @return A new instance of CommentedConfiguration
      */
-    public static @NotNull CommentedConfiguration from(
-            @NotNull Path file,
-            @NotNull Gson gson
-    ) {
-        //Creating a blank instance of the config.
+    public static @NotNull CommentedConfiguration from(@NotNull Path file, @NotNull Gson gson) {
+        // Creating a blank instance of the config.
         return new CommentedConfiguration(file, gson, ArrayCommentStyle.COMMENT_FIRST_ELEMENT);
     }
 
@@ -294,7 +283,7 @@ public class CommentedConfiguration {
      * @return A new instance of CommentedConfiguration
      */
     public static @NotNull CommentedConfiguration from(@NotNull Path file) {
-        //Creating a blank instance of the config.
+        // Creating a blank instance of the config.
         return from(file, GSON);
     }
 
@@ -309,7 +298,6 @@ public class CommentedConfiguration {
     public <T> T get(@NotNull String key, @NotNull Type type) {
         return fromValue(gson, data.get(key), Object.class, type);
     }
-
 
     /**
      * Deserializes the entire configuration data to the specified type.
@@ -341,10 +329,8 @@ public class CommentedConfiguration {
      * @param v   The value to set.
      */
     public void set(@NotNull String key, @Nullable Object v) {
-        if (v == null)
-            data.remove(key);
-        else
-            data.put(key, toJsonValue(gson, v, v.getClass()));
+        if (v == null) data.remove(key);
+        else data.put(key, toJsonValue(gson, v, v.getClass()));
     }
 
     /**
@@ -440,8 +426,7 @@ public class CommentedConfiguration {
             } else if (event instanceof ScalarEvent) {
                 if (expectKey) {
                     expectKey = false;
-                    if (lastWasScalar)
-                        path.removeLast();
+                    if (lastWasScalar) path.removeLast();
                     path.add(((ScalarEvent) event).getValue());
                 } else {
                     expectKey = true;
@@ -463,7 +448,9 @@ public class CommentedConfiguration {
             lastWasScalar = event instanceof ScalarEvent;
             String commentPath = String.join(".", path);
             String comment = configComments.get(commentPath);
-            if (comment != null && (commentsAdded.add(commentPath) || arrayCommentStyle == ArrayCommentStyle.COMMENT_ALL_ELEMENTS)) {
+            if (comment != null
+                    && (commentsAdded.add(commentPath)
+                            || arrayCommentStyle == ArrayCommentStyle.COMMENT_ALL_ELEMENTS)) {
                 lines.add(event.getStartMark().getLine() + (offset++), comment);
             }
         }
@@ -492,8 +479,7 @@ public class CommentedConfiguration {
      */
     protected static void setProcessComments(@NotNull DumperOptions options, boolean process) {
         try {
-            if (SET_PROCESS_COMMENTS != null)
-                SET_PROCESS_COMMENTS.invoke(options, process);
+            if (SET_PROCESS_COMMENTS != null) SET_PROCESS_COMMENTS.invoke(options, process);
         } catch (ReflectiveOperationException ignored) {
             // Best effort; the flag only affects how SnakeYAML re-emits comments it parsed,
             // and this class writes its comments itself.

@@ -1,13 +1,12 @@
 package eu.nordtal.jcore.persistence.sql;
 
+import java.sql.SQLException;
+import java.time.temporal.ChronoUnit;
 import org.jdbi.v3.core.statement.SqlLogger;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.sql.SQLException;
-import java.time.temporal.ChronoUnit;
 
 /**
  * A {@link SqlLogger} that writes rendered statements and their execution time to SLF4J.
@@ -33,7 +32,8 @@ final class Slf4jSqlLogger implements SqlLogger {
 
     @Override
     public void logException(final @NotNull StatementContext context, final @NotNull SQLException exception) {
-        LOGGER.warn("SQL failed [{} ms]: {} ({}: {})",
+        LOGGER.warn(
+                "SQL failed [{} ms]: {} ({}: {})",
                 context.getElapsedTime(ChronoUnit.MILLIS),
                 context.getRenderedSql(),
                 exception.getSQLState(),

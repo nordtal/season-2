@@ -1,11 +1,10 @@
 package eu.nordtal.jcore.config.spec.annotation;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Written for nordtal.eu - <b>not</b> part of the vendored Spec library, unlike most of this
@@ -38,12 +37,14 @@ public @interface Protected {
      *
      * @return the property key on the list's element type
      */
-    @NotNull String field();
+    @NotNull
+    String field();
 
     /**
      * The value {@link #field()} must equal for that entry to be protected.
      *
      * @return the protected value
      */
-    @NotNull String value();
+    @NotNull
+    String value();
 }

@@ -32,15 +32,14 @@
  */
 package eu.nordtal.jcore.config.spec;
 
+import static eu.nordtal.jcore.config.spec.SpecProperty.headerOf;
+import static eu.nordtal.jcore.config.spec.SpecProperty.propertiesOf;
+
+import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import java.util.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
-import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
-
-import java.util.*;
-
-import static eu.nordtal.jcore.config.spec.SpecProperty.headerOf;
-import static eu.nordtal.jcore.config.spec.SpecProperty.propertiesOf;
 
 public final class SpecClass {
 
@@ -51,11 +50,7 @@ public final class SpecClass {
     private @Nullable Map<String, String> comments;
     private final @NotNull List<String> headers;
 
-    SpecClass(
-            @NotNull Class<?> type,
-            @NotNull Map<String, SpecProperty> properties,
-            @NotNull List<String> headers
-    ) {
+    SpecClass(@NotNull Class<?> type, @NotNull Map<String, SpecProperty> properties, @NotNull List<String> headers) {
         this.type = type;
         this.properties = properties;
         this.headers = headers;
@@ -71,12 +66,10 @@ public final class SpecClass {
             @NotNull Map<String, String> comments,
             @NotNull Collection<SpecProperty> properties,
             @NotNull String parentPath,
-            int indent
-    ) {
+            int indent) {
         for (SpecProperty property : properties) {
             boolean isSpec = Specs.isConfigSpec(property.type());
-            if (!property.hasComments() && !isSpec)
-                continue;
+            if (!property.hasComments() && !isSpec) continue;
             String indentStr = spaces(indent);
             String commentPath = parentPath.isEmpty() ? property.key() : parentPath + '.' + property.key();
             StringJoiner commentsString = new StringJoiner(System.lineSeparator(), "\n", "");
@@ -86,22 +79,13 @@ public final class SpecClass {
             comments.put(commentPath, commentsString.toString());
             if (isSpec) {
                 SpecClass bpc = Specs.from(property.type());
-                computeCommentsRecursively(
-                        comments,
-                        bpc.properties().values(),
-                        commentPath,
-                        indent + 2
-                );
+                computeCommentsRecursively(comments, bpc.properties().values(), commentPath, indent + 2);
             } else if (isCollection(property.type())) {
                 Class<?> type = getCollectionType(property.getter().getGenericReturnType());
                 if (Specs.isConfigSpec(type)) {
                     SpecClass bpc = Specs.from(type);
                     computeCommentsRecursively(
-                            comments,
-                            bpc.properties().values(),
-                            commentPath + "." + ARRAY_INDEX,
-                            indent + 2
-                    );
+                            comments, bpc.properties().values(), commentPath + "." + ARRAY_INDEX, indent + 2);
                 }
             }
         }
@@ -128,8 +112,7 @@ public final class SpecClass {
 
     static @NotNull SpecClass from(@NotNull Class<?> type) {
         Objects.requireNonNull(type, "interface cannot be null!");
-        if (!type.isInterface())
-            throw new IllegalArgumentException("Class is not an interface: " + type.getName());
+        if (!type.isInterface()) throw new IllegalArgumentException("Class is not an interface: " + type.getName());
         if (!type.isAnnotationPresent(ConfigSpec.class))
             throw new IllegalArgumentException("Interface does not have @ConfigSpec on it!");
         List<String> headers = headerOf(type);
@@ -138,8 +121,7 @@ public final class SpecClass {
     }
 
     public @NotNull Map<String, String> comments() {
-        if (comments == null)
-            comments = computeComments();
+        if (comments == null) comments = computeComments();
         return comments;
     }
 
@@ -160,5 +142,4 @@ public final class SpecClass {
     public @NotNull <T> T createUnsafe(Map<String, Object> map) {
         return (T) Specs.createUnsafe(type, map);
     }
-
 }

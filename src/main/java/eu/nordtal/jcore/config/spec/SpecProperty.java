@@ -33,20 +33,19 @@
  */
 package eu.nordtal.jcore.config.spec;
 
-import com.google.gson.annotations.SerializedName;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.Unmodifiable;
-import eu.nordtal.jcore.config.spec.annotation.*;
+import static eu.nordtal.jcore.config.spec.CommentedConfiguration.NEW_LINE;
+import static java.util.stream.Collectors.toList;
 
+import com.google.gson.annotations.SerializedName;
+import eu.nordtal.jcore.config.spec.annotation.*;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
-
-import static java.util.stream.Collectors.toList;
-import static eu.nordtal.jcore.config.spec.CommentedConfiguration.NEW_LINE;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 
 /**
  * Represents a property in a {@link ConfigSpec}
@@ -165,10 +164,10 @@ public final class SpecProperty {
      * @param type The new type
      */
     private void setType(@Nullable Class<?> type) {
-        if (this.type == null)
-            this.type = type;
+        if (this.type == null) this.type = type;
         else if (!this.type.equals(type))
-            throw new IllegalArgumentException("Inconsistent types for property " + key + ". Received " + this.type + " and " + type + ".");
+            throw new IllegalArgumentException(
+                    "Inconsistent types for property " + key + ". Received " + this.type + " and " + type + ".");
     }
 
     /**
@@ -191,11 +190,9 @@ public final class SpecProperty {
      */
     public static @NotNull String keyOf(@NotNull Method method) {
         Key key = method.getAnnotation(Key.class);
-        if (key != null)
-            return key.value();
+        if (key != null) return key.value();
         SerializedName sn = method.getAnnotation(SerializedName.class);
-        if (sn != null)
-            return sn.value();
+        if (sn != null) return sn.value();
         return fromName(method.getName());
     }
 
@@ -206,10 +203,8 @@ public final class SpecProperty {
      * @return The new name
      */
     private static @NotNull String fromName(@NotNull String name) {
-        if (name.startsWith("get") || name.startsWith("set"))
-            return lowerFirst(name.substring(3));
-        else if (name.startsWith("is"))
-            return lowerFirst(name.substring(2));
+        if (name.startsWith("get") || name.startsWith("set")) return lowerFirst(name.substring(3));
+        else if (name.startsWith("is")) return lowerFirst(name.substring(2));
         return name;
     }
 
@@ -220,8 +215,7 @@ public final class SpecProperty {
      * @return The new string
      */
     private static @NotNull String lowerFirst(@NotNull String name) {
-        if (name.isEmpty())
-            return name;
+        if (name.isEmpty()) return name;
         return Character.toLowerCase(name.charAt(0)) + name.substring(1);
     }
 
@@ -236,13 +230,12 @@ public final class SpecProperty {
 
         sortByAnnotation(methods);
         for (Method method : methods) {
-            if (Modifier.isStatic(method.getModifiers()))
-                continue;
+            if (Modifier.isStatic(method.getModifiers())) continue;
             if (method.isAnnotationPresent(IgnoreMethod.class)) {
-                if (method.isDefault())
-                    continue;
+                if (method.isDefault()) continue;
                 else
-                    throw new IllegalArgumentException("Cannot ignore a non-default method! Ignored methods must be default");
+                    throw new IllegalArgumentException(
+                            "Cannot ignore a non-default method! Ignored methods must be default");
             }
             parse(method, properties);
         }
@@ -259,21 +252,15 @@ public final class SpecProperty {
         Arrays.sort(methods, (o1, o2) -> {
             Order order1 = o1.getAnnotation(Order.class);
             Order order2 = o2.getAnnotation(Order.class);
-            if (order1 == null && order2 == null)
-                return 0; // Both methods are unannotated
-            if (order1 == null)
-                return -1; // o1 is unannotated, so it comes first
-            if (order2 == null)
-                return 1;  // o2 is unannotated, so it comes first
+            if (order1 == null && order2 == null) return 0; // Both methods are unannotated
+            if (order1 == null) return -1; // o1 is unannotated, so it comes first
+            if (order2 == null) return 1; // o2 is unannotated, so it comes first
             // Both methods have the annotation, compare their values
             return Integer.compare(order1.value(), order2.value());
         });
     }
 
-    private static void parse(
-            @NotNull Method method,
-            @NotNull Map<String, SpecProperty> properties
-    ) {
+    private static void parse(@NotNull Method method, @NotNull Map<String, SpecProperty> properties) {
         String key = keyOf(method);
         SpecProperty existing = properties.computeIfAbsent(key, SpecProperty::new);
         @Nullable List<String> comments = commentsOf(method);
@@ -284,10 +271,8 @@ public final class SpecProperty {
             return;
         }
         if (comments != null) {
-            if (existing.comments.isEmpty())
-                existing.comments = comments;
-            else
-                throw new IllegalArgumentException("Inconsistent comments for property '" + key + "'");
+            if (existing.comments.isEmpty()) existing.comments = comments;
+            else throw new IllegalArgumentException("Inconsistent comments for property '" + key + "'");
         }
         if (method.getReturnType() == Void.TYPE || impliesSetter(method)) {
             if (existing.setter != null)
@@ -318,9 +303,7 @@ public final class SpecProperty {
         Comment comment = method.getAnnotation(Comment.class);
         if (comment != null) {
             String[] value = comment.value();
-            return Arrays.stream(value)
-                    .flatMap(NEW_LINE::splitAsStream)
-                    .collect(toList());
+            return Arrays.stream(value).flatMap(NEW_LINE::splitAsStream).collect(toList());
         }
         return null;
     }
@@ -329,9 +312,7 @@ public final class SpecProperty {
         ConfigSpec spec = type.getAnnotation(ConfigSpec.class);
         if (spec != null) {
             String[] value = spec.header();
-            return Arrays.stream(value)
-                    .flatMap(NEW_LINE::splitAsStream)
-                    .collect(toList());
+            return Arrays.stream(value).flatMap(NEW_LINE::splitAsStream).collect(toList());
         }
         return Collections.emptyList();
     }
@@ -344,5 +325,4 @@ public final class SpecProperty {
     public Class<?> type() {
         return type;
     }
-
 }

@@ -34,21 +34,20 @@
  */
 package eu.nordtal.jcore.config.spec;
 
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-import eu.nordtal.jcore.config.spec.annotation.*;
+import static eu.nordtal.jcore.config.spec.SpecProperty.impliesSetter;
+import static eu.nordtal.jcore.config.spec.SpecProperty.keyOf;
+import static eu.nordtal.jcore.config.spec.Specs.createDefaultMap;
+import static eu.nordtal.jcore.config.spec.Specs.isConfigSpec;
 
+import eu.nordtal.jcore.config.spec.annotation.*;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-
-import static eu.nordtal.jcore.config.spec.SpecProperty.impliesSetter;
-import static eu.nordtal.jcore.config.spec.SpecProperty.keyOf;
-import static eu.nordtal.jcore.config.spec.Specs.createDefaultMap;
-import static eu.nordtal.jcore.config.spec.Specs.isConfigSpec;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Generates proxies that are backed by {@link Map maps}.
@@ -57,7 +56,7 @@ final class MapProxy<T> implements InvocationHandler {
 
     @SuppressWarnings("unchecked")
     public static @NotNull <T> T generate(@NotNull Class<T> type, @NotNull Map<String, Object> map) {
-        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class[]{type}, new MapProxy<>(type, map));
+        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class[] {type}, new MapProxy<>(type, map));
     }
 
     @SuppressWarnings({"unchecked"})
@@ -67,13 +66,16 @@ final class MapProxy<T> implements InvocationHandler {
         if (!Proxy.isProxyClass(value.getClass())) {
             for (Class<?> cInterface : value.getClass().getInterfaces()) {
                 if (isConfigSpec(cInterface))
-                    throw new IllegalArgumentException("Don't try to create an instance of a ConfigSpec directly! " + "Use Specs.createDefault() or Specs.createUnsafe() instead. " + "Tried to create an instance of " + cInterface + ".");
+                    throw new IllegalArgumentException("Don't try to create an instance of a ConfigSpec directly! "
+                            + "Use Specs.createDefault() or Specs.createUnsafe() instead. "
+                            + "Tried to create an instance of " + cInterface + ".");
             }
             throw new IllegalArgumentException("Not a proxy instance: " + value);
         }
         InvocationHandler handler = Proxy.getInvocationHandler(value);
         if (!(handler instanceof MapProxy)) {
-            throw new IllegalArgumentException("Not a config spec: " + value + " (proxy is handled by " + handler + ")");
+            throw new IllegalArgumentException(
+                    "Not a config spec: " + value + " (proxy is handled by " + handler + ")");
         }
         return ((MapProxy<T>) handler).map;
     }
@@ -115,8 +117,7 @@ final class MapProxy<T> implements InvocationHandler {
             return asMethodHandle(method).bindTo(proxy).invokeWithArguments(args);
         }
         if (method.isAnnotationPresent(Memoize.class)) {
-            if (!method.isDefault())
-                throw new IllegalArgumentException("@Memoize methods must be default!");
+            if (!method.isDefault()) throw new IllegalArgumentException("@Memoize methods must be default!");
             if (memoized == null) memoized = new ConcurrentHashMap<>();
             return memoized.computeIfAbsent(method, m -> {
                 try {

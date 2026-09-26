@@ -32,21 +32,19 @@
  */
 package eu.nordtal.jcore.config.spec;
 
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.lang.reflect.*;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A utility class with small helper functions
  */
 final class Util {
 
-    private Util() {
-    }
+    private Util() {}
 
     /**
      * Returns the {@link Class} object representing the class or interface
@@ -86,8 +84,8 @@ final class Util {
 
         } else {
             String className = type == null ? "null" : type.getClass().getName();
-            throw new IllegalArgumentException("Expected a Class, ParameterizedType, or "
-                    + "GenericArrayType, but <" + type + "> is of type " + className);
+            throw new IllegalArgumentException("Expected a Class, ParameterizedType, or " + "GenericArrayType, but <"
+                    + type + "> is of type " + className);
         }
     }
 
@@ -177,8 +175,7 @@ final class Util {
          * @throws IllegalStateException If {@code peek()} was called after the last {@code next()}.
          */
         public void remove() {
-            if (hasPeeked)
-                throw new IllegalStateException("Can't remove after you've peeked at next");
+            if (hasPeeked) throw new IllegalStateException("Can't remove after you've peeked at next");
             this.iterator.remove();
         }
 

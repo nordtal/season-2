@@ -1,9 +1,8 @@
 package eu.nordtal.jcore.persistence.sql;
 
+import java.util.Objects;
 import org.jdbi.v3.core.Jdbi;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Objects;
 
 /**
  * Optional thin base class for a repository backed by a JDBI SqlObject DAO interface.

@@ -2,14 +2,13 @@ package eu.nordtal.jcore.persistence.sql;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import java.util.Objects;
+import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jetbrains.annotations.NotNull;
-
-import javax.sql.DataSource;
-import java.util.Objects;
 
 /**
  * Owns one HikariCP connection pool and the single {@link Jdbi} instance built on top of it.
@@ -81,9 +80,8 @@ public final class Database implements AutoCloseable {
         final HikariDataSource dataSource = new HikariDataSource(hikariConfig);
 
         try {
-            final Jdbi jdbi = Jdbi.create(dataSource)
-                    .installPlugin(new SqlObjectPlugin())
-                    .installPlugin(new PostgresPlugin());
+            final Jdbi jdbi =
+                    Jdbi.create(dataSource).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
 
             if (config.logSql()) {
                 jdbi.setSqlLogger(new Slf4jSqlLogger());

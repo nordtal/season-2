@@ -1,11 +1,10 @@
 package eu.nordtal.jcore.config.spec.annotation;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Written for nordtal.eu - <b>not</b> part of the vendored Spec library, unlike most of this
@@ -30,7 +29,8 @@ public @interface AllowedValues {
      *
      * @return the allowed (or suggested) values, in display order
      */
-    @NotNull String[] value();
+    @NotNull
+    String[] value();
 
     /**
      * Whether the list is closed.
@@ -39,5 +39,4 @@ public @interface AllowedValues {
      * with a free-text field beside it ("suggestion")
      */
     boolean strict() default true;
-
 }

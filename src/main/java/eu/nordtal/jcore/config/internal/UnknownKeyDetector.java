@@ -3,8 +3,6 @@ package eu.nordtal.jcore.config.internal;
 import eu.nordtal.jcore.config.spec.SpecClass;
 import eu.nordtal.jcore.config.spec.SpecProperty;
 import eu.nordtal.jcore.config.spec.Specs;
-import org.jetbrains.annotations.NotNull;
-
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -12,6 +10,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Finds keys in a loaded config file that the spec interface does not declare.
@@ -40,11 +39,13 @@ public final class UnknownKeyDetector {
      */
     private static final int MAX_SUGGESTION_DISTANCE = 3;
 
-    private UnknownKeyDetector() {
-    }
+    private UnknownKeyDetector() {}
 
     /** One unknown key, with its full dotted path and the best guess at what was meant. */
-    public record UnknownKey(@NotNull String path, String suggestion, @NotNull List<String> known) {
+    public record UnknownKey(
+            @NotNull String path,
+            String suggestion,
+            @NotNull List<String> known) {
 
         /**
          * Whether this reads as a mistyped declared key rather than as a setting that has been
@@ -62,8 +63,8 @@ public final class UnknownKeyDetector {
             if (suggestion != null) {
                 return "'" + path + "' is not a known setting - did you mean '" + suggestion + "'?";
             }
-            return "'" + path + "' is not a known setting. Known settings at this level: "
-                    + String.join(", ", known) + ".";
+            return "'" + path + "' is not a known setting. Known settings at this level: " + String.join(", ", known)
+                    + ".";
         }
     }
 
@@ -74,17 +75,18 @@ public final class UnknownKeyDetector {
      * @param data     the raw YAML tree as loaded from the file
      * @return the unknown keys, empty if the file matches the spec
      */
-    public static @NotNull List<UnknownKey> detect(final @NotNull Class<?> specType,
-                                                   final @NotNull Map<String, Object> data) {
+    public static @NotNull List<UnknownKey> detect(
+            final @NotNull Class<?> specType, final @NotNull Map<String, Object> data) {
         final List<UnknownKey> found = new ArrayList<>();
         walk(specType, data, "", found);
         return found;
     }
 
-    private static void walk(final Class<?> specType,
-                             final Map<String, Object> data,
-                             final String prefix,
-                             final List<UnknownKey> found) {
+    private static void walk(
+            final Class<?> specType,
+            final Map<String, Object> data,
+            final String prefix,
+            final List<UnknownKey> found) {
         final SpecClass spec = Specs.from(specType);
         final Map<String, SpecProperty> properties = new LinkedHashMap<>();
         for (SpecProperty property : spec.properties().values()) {

@@ -32,12 +32,11 @@
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
-import org.jetbrains.annotations.ApiStatus;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Marks an annotation as handled by the proxy, and not a property. Used
@@ -48,5 +47,4 @@ import java.lang.annotation.Target;
 @ApiStatus.Internal
 @Target(ElementType.ANNOTATION_TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface HandledByProxy {
-}
+public @interface HandledByProxy {}

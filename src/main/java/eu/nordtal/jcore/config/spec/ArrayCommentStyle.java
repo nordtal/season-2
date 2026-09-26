@@ -46,5 +46,4 @@ public enum ArrayCommentStyle {
      * Comments all elements
      */
     COMMENT_ALL_ELEMENTS,
-
 }

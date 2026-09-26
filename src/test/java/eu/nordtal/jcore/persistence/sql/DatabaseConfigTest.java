@@ -1,12 +1,11 @@
 package eu.nordtal.jcore.persistence.sql;
 
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.time.Duration;
+import org.junit.jupiter.api.Test;
 
 /**
  * Pure unit tests for {@link DatabaseConfig}. These need no database.
@@ -47,19 +46,26 @@ class DatabaseConfigTest {
 
     @Test
     void rejectsNonJdbcUrl() {
-        assertThrows(IllegalArgumentException.class,
-                () -> DatabaseConfig.of("postgresql://localhost:5432/db", "u", "p"));
+        assertThrows(
+                IllegalArgumentException.class, () -> DatabaseConfig.of("postgresql://localhost:5432/db", "u", "p"));
     }
 
     @Test
     void rejectsIdleGreaterThanMaximum() {
-        assertThrows(IllegalArgumentException.class,
-                () -> DatabaseConfig.builder("jdbc:postgresql://localhost/db").maximumPoolSize(2).minimumIdle(3).build());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DatabaseConfig.builder("jdbc:postgresql://localhost/db")
+                        .maximumPoolSize(2)
+                        .minimumIdle(3)
+                        .build());
     }
 
     @Test
     void rejectsZeroPoolSize() {
-        assertThrows(IllegalArgumentException.class,
-                () -> DatabaseConfig.builder("jdbc:postgresql://localhost/db").maximumPoolSize(0).build());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DatabaseConfig.builder("jdbc:postgresql://localhost/db")
+                        .maximumPoolSize(0)
+                        .build());
     }
 }

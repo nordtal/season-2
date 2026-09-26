@@ -1,6 +1,8 @@
 package eu.nordtal.jcore.config.internal;
 
-import org.jetbrains.annotations.NotNull;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import static java.nio.file.StandardOpenOption.WRITE;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -10,10 +12,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
-import static java.nio.file.StandardOpenOption.WRITE;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Writes a config file so that a crash, a kill or a full disk can never leave a half-written
@@ -28,8 +27,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
  */
 public final class AtomicConfigWriter {
 
-    private AtomicConfigWriter() {
-    }
+    private AtomicConfigWriter() {}
 
     /**
      * Writes {@code content} to {@code file}, atomically.

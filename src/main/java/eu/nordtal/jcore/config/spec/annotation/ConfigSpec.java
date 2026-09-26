@@ -33,9 +33,8 @@
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.lang.annotation.*;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Represents a config specification interface
@@ -70,6 +69,6 @@ public @interface ConfigSpec {
      *
      * @return The header lines, or an empty array for a file that needs none
      */
-    @NotNull String[] header() default {};
-
+    @NotNull
+    String[] header() default {};
 }

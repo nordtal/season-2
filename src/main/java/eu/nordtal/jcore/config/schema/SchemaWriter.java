@@ -4,8 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.internal.AtomicConfigWriter;
-import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.SpecProperty;
+import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.annotation.AllowedValues;
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
@@ -13,8 +13,6 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
-import org.jetbrains.annotations.NotNull;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -25,6 +23,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Writes {@code <name>.schema.json} beside {@code <name>.yml} - the same operation that writes
@@ -61,8 +60,7 @@ public final class SchemaWriter {
     private static final Gson GSON =
             new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
-    private SchemaWriter() {
-    }
+    private SchemaWriter() {}
 
     /**
      * Builds the schema tree for a {@code @ConfigSpec} interface, without touching a file.
@@ -71,8 +69,8 @@ public final class SchemaWriter {
      * @return the root node, always {@link SettingKind#MAP}
      */
     public static @NotNull SchemaNode build(final @NotNull Class<?> specType) {
-        return new SchemaNode(SettingKind.MAP, "", headerOf(specType), false, false,
-                null, null, childrenOf(specType), null);
+        return new SchemaNode(
+                SettingKind.MAP, "", headerOf(specType), false, false, null, null, childrenOf(specType), null);
     }
 
     /**
@@ -123,12 +121,10 @@ public final class SchemaWriter {
         final boolean fileExists = Files.isRegularFile(ymlFile);
         final boolean schemaExists = Files.isRegularFile(schemaFile);
         if (fileExists && !schemaExists) {
-            throw new ConfigException(
-                    "Config file " + ymlFile + " exists but its schema " + schemaFile + " does not.");
+            throw new ConfigException("Config file " + ymlFile + " exists but its schema " + schemaFile + " does not.");
         }
         if (schemaExists && !fileExists) {
-            throw new ConfigException(
-                    "Schema " + schemaFile + " exists but its config file " + ymlFile + " does not.");
+            throw new ConfigException("Schema " + schemaFile + " exists but its config file " + ymlFile + " does not.");
         }
     }
 
@@ -195,9 +191,8 @@ public final class SchemaWriter {
         final Comment comment = getter.getAnnotation(Comment.class);
         final NoExplanationNeeded noExplanationNeeded = getter.getAnnotation(NoExplanationNeeded.class);
         if (explain != null && noExplanationNeeded != null) {
-            throw new IllegalArgumentException(
-                    "Property '" + property.key() + "' carries both @Explain and"
-                            + " @NoExplanationNeeded - decide which one this setting means.");
+            throw new IllegalArgumentException("Property '" + property.key() + "' carries both @Explain and"
+                    + " @NoExplanationNeeded - decide which one this setting means.");
         }
         // steward/72: @Explain always wins when it is present - it is the sentence somebody wrote
         // on purpose for this interface, and @Comment is not a second vote on the same field, it
@@ -208,8 +203,8 @@ public final class SchemaWriter {
         // '\n' rather than a space, because a blank entry is a paragraph break the source author
         // put there on purpose (see Explain's own javadoc example) and the interface already
         // renders a multi-line explanation. Neither annotation present stays "", exactly as before.
-        final String explanation = explain != null ? explain.value()
-                : comment != null ? String.join("\n", comment.value()) : "";
+        final String explanation =
+                explain != null ? explain.value() : comment != null ? String.join("\n", comment.value()) : "";
         final boolean skipExplanation = noExplanationNeeded != null;
         final boolean secret = getter.isAnnotationPresent(Secret.class);
         final String label = labelOf(property);
@@ -218,23 +213,46 @@ public final class SchemaWriter {
 
         if (Specs.isConfigSpec(type)) {
             refuseProtectedOutsideAListOfSettings(protectedAnnotation, property.key());
-            return new SchemaNode(SettingKind.MAP, label, explanation, skipExplanation, secret,
-                    null, null, childrenOf(type), null);
+            return new SchemaNode(
+                    SettingKind.MAP, label, explanation, skipExplanation, secret, null, null, childrenOf(type), null);
         }
         if (isCollection(type)) {
             final Class<?> elementType = collectionElementType(getter);
             if (Specs.isConfigSpec(elementType)) {
-                return new SchemaNode(SettingKind.LIST, label, explanation, skipExplanation, secret,
-                        null, null, childrenOf(elementType),
+                return new SchemaNode(
+                        SettingKind.LIST,
+                        label,
+                        explanation,
+                        skipExplanation,
+                        secret,
+                        null,
+                        null,
+                        childrenOf(elementType),
                         protectedEntryOf(protectedAnnotation, elementType, property.key()));
             }
             refuseProtectedOutsideAListOfSettings(protectedAnnotation, property.key());
-            return new SchemaNode(SettingKind.LIST, label, explanation, skipExplanation, secret,
-                    scalarTypeOf(elementType), choicesOf(getter, elementType), Map.of(), null);
+            return new SchemaNode(
+                    SettingKind.LIST,
+                    label,
+                    explanation,
+                    skipExplanation,
+                    secret,
+                    scalarTypeOf(elementType),
+                    choicesOf(getter, elementType),
+                    Map.of(),
+                    null);
         }
         refuseProtectedOutsideAListOfSettings(protectedAnnotation, property.key());
-        return new SchemaNode(SettingKind.SCALAR, label, explanation, skipExplanation, secret,
-                scalarTypeOf(type), choicesOf(getter, type), Map.of(), null);
+        return new SchemaNode(
+                SettingKind.SCALAR,
+                label,
+                explanation,
+                skipExplanation,
+                secret,
+                scalarTypeOf(type),
+                choicesOf(getter, type),
+                Map.of(),
+                null);
     }
 
     /**
@@ -266,8 +284,7 @@ public final class SchemaWriter {
      * {@code @Explain} beside {@code @NoExplanationNeeded}: a contradiction the writer will not
      * guess at.
      */
-    private static void refuseProtectedOutsideAListOfSettings(final Protected annotation,
-                                                               final String propertyKey) {
+    private static void refuseProtectedOutsideAListOfSettings(final Protected annotation, final String propertyKey) {
         if (annotation != null) {
             throw new IllegalArgumentException("Property '" + propertyKey + "' carries @Protected, but"
                     + " it is not a list of nested settings - @Protected only makes sense there, since"
@@ -283,9 +300,8 @@ public final class SchemaWriter {
      *                                  does not have - a typo here would otherwise silently protect
      *                                  nothing, which is worse than refusing to build the schema
      */
-    private static SchemaNode.ProtectedEntry protectedEntryOf(final Protected annotation,
-                                                              final Class<?> elementType,
-                                                              final String propertyKey) {
+    private static SchemaNode.ProtectedEntry protectedEntryOf(
+            final Protected annotation, final Class<?> elementType, final String propertyKey) {
         if (annotation == null) {
             return null;
         }
@@ -324,14 +340,17 @@ public final class SchemaWriter {
         if (type == boolean.class || type == Boolean.class) {
             return SettingType.BOOLEAN;
         }
-        if (type == byte.class || type == Byte.class
-                || type == short.class || type == Short.class
-                || type == int.class || type == Integer.class
-                || type == long.class || type == Long.class) {
+        if (type == byte.class
+                || type == Byte.class
+                || type == short.class
+                || type == Short.class
+                || type == int.class
+                || type == Integer.class
+                || type == long.class
+                || type == Long.class) {
             return SettingType.INTEGER;
         }
-        if (type == float.class || type == Float.class
-                || type == double.class || type == Double.class) {
+        if (type == float.class || type == Float.class || type == double.class || type == Double.class) {
             return SettingType.DECIMAL;
         }
         // String, char, a Java enum, and anything else not covered above.

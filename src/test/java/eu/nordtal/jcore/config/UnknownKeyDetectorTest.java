@@ -1,36 +1,33 @@
 package eu.nordtal.jcore.config;
 
-import eu.nordtal.jcore.config.internal.UnknownKeyDetector;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.jcore.config.internal.UnknownKeyDetector;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 /** The suggestion has to be good enough to act on, and quiet when it would be noise. */
 class UnknownKeyDetectorTest {
 
-    private static final List<String> KNOWN =
-            List.of("check-interval-seconds", "confirmation-channel-id", "balance");
+    private static final List<String> KNOWN = List.of("check-interval-seconds", "confirmation-channel-id", "balance");
 
     @Test
     @DisplayName("a one-character slip suggests the intended key")
     void suggestsOnTypo() {
         assertAll(
-                () -> assertEquals("check-interval-seconds",
-                        UnknownKeyDetector.suggest("check-intervall-seconds", KNOWN)),
-                () -> assertEquals("check-interval-seconds",
-                        UnknownKeyDetector.suggest("check-interval-second", KNOWN)),
-                () -> assertEquals("confirmation-channel-id",
-                        UnknownKeyDetector.suggest("confirmation-chanel-id", KNOWN))
-        );
+                () -> assertEquals(
+                        "check-interval-seconds", UnknownKeyDetector.suggest("check-intervall-seconds", KNOWN)),
+                () -> assertEquals(
+                        "check-interval-seconds", UnknownKeyDetector.suggest("check-interval-second", KNOWN)),
+                () -> assertEquals(
+                        "confirmation-channel-id", UnknownKeyDetector.suggest("confirmation-chanel-id", KNOWN)));
     }
 
     @Test
@@ -38,8 +35,7 @@ class UnknownKeyDetectorTest {
     void noSuggestionForUnrelatedKey() {
         assertAll(
                 () -> assertNull(UnknownKeyDetector.suggest("completely-different-thing", KNOWN)),
-                () -> assertNull(UnknownKeyDetector.suggest("x", KNOWN))
-        );
+                () -> assertNull(UnknownKeyDetector.suggest("x", KNOWN)));
     }
 
     @Test
@@ -69,8 +65,9 @@ class UnknownKeyDetectorTest {
         balance.put("formt", "%s");
         data.put("balance", balance);
 
-        final List<String> paths = UnknownKeyDetector.detect(TestSpecs.Payments.class, data)
-                .stream().map(UnknownKeyDetector.UnknownKey::path).toList();
+        final List<String> paths = UnknownKeyDetector.detect(TestSpecs.Payments.class, data).stream()
+                .map(UnknownKeyDetector.UnknownKey::path)
+                .toList();
 
         assertEquals(List.of("check-interval-second", "balance.chanel-id", "balance.formt"), paths);
     }
@@ -82,15 +79,13 @@ class UnknownKeyDetectorTest {
         data.put("check-interval-second", 10);
         data.put("legacy-contribution-tiers", 3);
 
-        final List<UnknownKeyDetector.UnknownKey> found =
-                UnknownKeyDetector.detect(TestSpecs.Payments.class, data);
+        final List<UnknownKeyDetector.UnknownKey> found = UnknownKeyDetector.detect(TestSpecs.Payments.class, data);
 
         // This is the whole decision: the first is refused and left in the file, the second is
         // deleted by the next write.
         assertAll(
                 () -> assertTrue(found.get(0).probableTypo(), found.get(0).describe()),
-                () -> assertFalse(found.get(1).probableTypo(), found.get(1).describe())
-        );
+                () -> assertFalse(found.get(1).probableTypo(), found.get(1).describe()));
     }
 
     @Test
@@ -99,11 +94,11 @@ class UnknownKeyDetectorTest {
         final Map<String, Object> data = new LinkedHashMap<>();
         data.put("totally-unrelated-setting", 1);
 
-        final String message = UnknownKeyDetector.detect(TestSpecs.Payments.class, data).get(0).describe();
+        final String message =
+                UnknownKeyDetector.detect(TestSpecs.Payments.class, data).get(0).describe();
 
         assertAll(
                 () -> assertTrue(message.contains("check-interval-seconds"), message),
-                () -> assertTrue(message.contains("balance"), message)
-        );
+                () -> assertTrue(message.contains("balance"), message));
     }
 }

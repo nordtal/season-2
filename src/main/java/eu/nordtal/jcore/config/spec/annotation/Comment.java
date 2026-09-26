@@ -54,7 +54,6 @@ import java.lang.annotation.Target;
  *     }
  * }}</pre>
  */
-
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Comment {
@@ -69,5 +68,4 @@ public @interface Comment {
      * @return The comments
      */
     String[] value();
-
 }

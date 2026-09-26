@@ -67,5 +67,4 @@ public @interface Order {
      * @return The index value
      */
     int value();
-
 }

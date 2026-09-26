@@ -1,11 +1,10 @@
 package eu.nordtal.jcore.config.exception;
 
 import eu.nordtal.jcore.config.internal.UnknownKeyDetector.UnknownKey;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Unmodifiable;
-
 import java.nio.file.Path;
 import java.util.List;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Unmodifiable;
 
 /**
  * Thrown when a config file contains a setting that reads as a <i>mistyped</i> declared key -

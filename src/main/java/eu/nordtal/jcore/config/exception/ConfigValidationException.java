@@ -1,9 +1,8 @@
 package eu.nordtal.jcore.config.exception;
 
+import java.nio.file.Path;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.nio.file.Path;
 
 /**
  * Thrown when a config file parses but the values in it do not make sense - a negative interval,
@@ -12,8 +11,8 @@ import java.nio.file.Path;
  */
 public class ConfigValidationException extends ConfigException {
 
-    public ConfigValidationException(final @NotNull Path file, final @NotNull String reason,
-                                     final @Nullable Throwable cause) {
+    public ConfigValidationException(
+            final @NotNull Path file, final @NotNull String reason, final @Nullable Throwable cause) {
         super(file + " is not valid: " + reason, cause);
     }
 }

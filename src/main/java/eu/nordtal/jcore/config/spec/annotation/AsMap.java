@@ -32,12 +32,11 @@
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Returns the {@link java.util.Map} representation of a given
@@ -72,7 +71,8 @@ public @interface AsMap {
      *
      * @return The behavior of this {@link AsMap} method
      */
-    @NotNull Behavior value() default Behavior.IMMUTABLE_VIEW;
+    @NotNull
+    Behavior value() default Behavior.IMMUTABLE_VIEW;
 
     enum Behavior {
 

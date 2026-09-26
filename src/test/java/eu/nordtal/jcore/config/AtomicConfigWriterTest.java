@@ -1,12 +1,13 @@
 package eu.nordtal.jcore.config;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import eu.nordtal.jcore.config.internal.AtomicConfigWriter;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.UncheckedIOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
@@ -16,11 +17,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Finding 3: the old loader wrote straight into the destination file. */
 class AtomicConfigWriterTest {
@@ -90,7 +89,9 @@ class AtomicConfigWriterTest {
 
             final String tooBig = "replacement: " + "x".repeat(1_000_000) + "\n";
             assertThrows(UncheckedIOException.class, () -> AtomicConfigWriter.write(file, tooBig));
-            assertEquals("good: yes\n", Files.readString(file),
+            assertEquals(
+                    "good: yes\n",
+                    Files.readString(file),
                     "the destination must still hold the previous, complete content");
         }
     }
@@ -104,11 +105,11 @@ class AtomicConfigWriterTest {
             final Path file = full.getPath("/config/config.yml");
             AtomicConfigWriter.write(file, "good: yes\n");
 
-            assertThrows(UncheckedIOException.class,
-                    () -> AtomicConfigWriter.write(file, "x".repeat(1_000_000)));
+            assertThrows(UncheckedIOException.class, () -> AtomicConfigWriter.write(file, "x".repeat(1_000_000)));
 
             try (var entries = Files.list(file.getParent())) {
-                final List<String> names = entries.map(path -> path.getFileName().toString()).toList();
+                final List<String> names =
+                        entries.map(path -> path.getFileName().toString()).toList();
                 assertEquals(List.of("config.yml"), names, "a temp file survived: " + names);
             }
         }
@@ -123,7 +124,8 @@ class AtomicConfigWriterTest {
         }
 
         try (var entries = Files.list(directory)) {
-            final List<String> names = entries.map(path -> path.getFileName().toString()).toList();
+            final List<String> names =
+                    entries.map(path -> path.getFileName().toString()).toList();
             assertEquals(List.of("config.yml"), names, "a temp file survived: " + names);
         }
     }
@@ -154,7 +156,6 @@ class AtomicConfigWriterTest {
         assertAll(
                 () -> assertEquals(directory.resolve("config.yml.bak"), backup),
                 () -> assertEquals("first: 1\n", Files.readString(backup)),
-                () -> assertEquals("second: 2\n", Files.readString(file))
-        );
+                () -> assertEquals("second: 2\n", Files.readString(file)));
     }
 }

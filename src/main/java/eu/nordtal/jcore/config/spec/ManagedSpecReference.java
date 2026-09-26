@@ -24,9 +24,8 @@ public final class ManagedSpecReference<T> {
      * @param onReload run when a {@code @Reload} method is called on the spec
      * @param onSave   run when a {@code @Save} method is called on the spec
      */
-    public ManagedSpecReference(final @NotNull Class<T> type,
-                                final @NotNull Runnable onReload,
-                                final @NotNull Runnable onSave) {
+    public ManagedSpecReference(
+            final @NotNull Class<T> type, final @NotNull Runnable onReload, final @NotNull Runnable onSave) {
         if (!Specs.isConfigSpec(type)) {
             throw new IllegalArgumentException(type.getName() + " must be an interface annotated with @ConfigSpec.");
         }

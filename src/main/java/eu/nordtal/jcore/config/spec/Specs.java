@@ -33,9 +33,7 @@
  */
 package eu.nordtal.jcore.config.spec;
 
-import org.jetbrains.annotations.NotNull;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
-
 import java.io.File;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
@@ -43,6 +41,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jetbrains.annotations.NotNull;
 
 public final class Specs {
 
@@ -68,9 +67,9 @@ public final class Specs {
      * @param <T>    The type
      * @return The newly created {@link SpecReference}.
      */
-    public static @NotNull <T> SpecReference<T> reference(@NotNull Class<T> type, @NotNull CommentedConfiguration config) {
-        if (!isConfigSpec(type))
-            throw new IllegalArgumentException(type + " must be a spec class!");
+    public static @NotNull <T> SpecReference<T> reference(
+            @NotNull Class<T> type, @NotNull CommentedConfiguration config) {
+        if (!isConfigSpec(type)) throw new IllegalArgumentException(type + " must be a spec class!");
         return new SpecReference<>(type, config);
     }
 
@@ -118,8 +117,7 @@ public final class Specs {
      * @return The generated {@link SpecClass}
      */
     public static @NotNull SpecClass from(@NotNull Class<?> interfaceType) {
-        if (!interfaceType.isInterface())
-            throw new IllegalArgumentException("Class is not an interface.");
+        if (!interfaceType.isInterface()) throw new IllegalArgumentException("Class is not an interface.");
         if (!interfaceType.isAnnotationPresent(ConfigSpec.class))
             throw new IllegalArgumentException("Interface must have @ConfigSpec");
 
@@ -140,8 +138,7 @@ public final class Specs {
      * @return The newly created instance.
      */
     public static @NotNull <T> T createDefault(@NotNull Class<T> interfaceType) {
-        if (!isConfigSpec(interfaceType))
-            throw new IllegalArgumentException(interfaceType + " must be a spec class!");
+        if (!isConfigSpec(interfaceType)) throw new IllegalArgumentException(interfaceType + " must be a spec class!");
         Map<String, Object> properties = new LinkedHashMap<>();
         T proxy = MapProxy.generate(interfaceType, properties);
         createDefaultMap(interfaceType, proxy, properties);
@@ -158,9 +155,7 @@ public final class Specs {
      * @return The newly created instance.
      */
     public static @NotNull <T> T createUnsafe(
-            @NotNull Class<T> interfaceType,
-            @NotNull Map<String, Object> properties
-    ) {
+            @NotNull Class<T> interfaceType, @NotNull Map<String, Object> properties) {
         return MapProxy.generate(interfaceType, properties);
     }
 
@@ -174,11 +169,11 @@ public final class Specs {
         return MapProxy.getInternalMap(configSpec);
     }
 
-    static <T> void createDefaultMap(@NotNull Class<T> interfaceType, T proxy, @NotNull Map<String, Object> properties) {
+    static <T> void createDefaultMap(
+            @NotNull Class<T> interfaceType, T proxy, @NotNull Map<String, Object> properties) {
         SpecClass specClass = from(interfaceType);
         for (SpecProperty value : specClass.properties().values()) {
-            if (value.isHandledByProxy())
-                continue;
+            if (value.isHandledByProxy()) continue;
             if (value.hasDefault()) {
                 Method getter = value.getter();
                 MethodHandle getterHandle;
@@ -188,25 +183,24 @@ public final class Specs {
                             .unreflectSpecial(getter, interfaceType);
                 } catch (IllegalAccessException e) {
                     throw new IllegalStateException(
-                            "Cannot access the default method for property '" + value.key()
-                                    + "' on " + interfaceType.getName(), e);
+                            "Cannot access the default method for property '" + value.key() + "' on "
+                                    + interfaceType.getName(),
+                            e);
                 }
                 try {
                     properties.put(value.key(), getterHandle.invoke(proxy));
                 } catch (Throwable e) {
                     throw new IllegalStateException(
-                            "Failed to read the default value of property '" + value.key()
-                                    + "' on " + interfaceType.getName(), e);
+                            "Failed to read the default value of property '" + value.key() + "' on "
+                                    + interfaceType.getName(),
+                            e);
                 }
             } else {
                 Class<?> type = value.type();
                 if (isConfigSpec(type)) {
                     Object v = createDefault(type);
                     properties.put(value.key(), v);
-                } else if (type == List.class
-                        || type == Iterable.class
-                        || type == Collection.class
-                ) {
+                } else if (type == List.class || type == Iterable.class || type == Collection.class) {
                     properties.put(value.key(), new ArrayList<>());
                 } else if (type == Set.class) {
                     properties.put(value.key(), new LinkedHashSet<>());

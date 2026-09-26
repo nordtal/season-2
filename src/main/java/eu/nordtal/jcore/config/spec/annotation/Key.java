@@ -32,12 +32,11 @@
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Sets the key of the property in the configuration file
@@ -62,6 +61,6 @@ public @interface Key {
      *
      * @return The key
      */
-    @NotNull String value();
-
+    @NotNull
+    String value();
 }

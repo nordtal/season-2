@@ -33,15 +33,14 @@
  */
 package eu.nordtal.jcore.config.spec;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import static java.lang.invoke.MethodHandles.lookup;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-
-import static java.lang.invoke.MethodHandles.lookup;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A utility for generating private {@link Lookup}s. These are not supported
@@ -54,7 +53,8 @@ final class MHLookup {
 
     static {
         try {
-            privateLookupIn = MethodHandles.class.getDeclaredMethod("privateLookupIn", Class.class, MethodHandles.Lookup.class);
+            privateLookupIn =
+                    MethodHandles.class.getDeclaredMethod("privateLookupIn", Class.class, MethodHandles.Lookup.class);
         } catch (NoSuchMethodException e) {
             try {
                 constructor = Lookup.class.getDeclaredConstructor(Class.class);
@@ -65,8 +65,7 @@ final class MHLookup {
         }
     }
 
-    private MHLookup() {
-    }
+    private MHLookup() {}
 
     /**
      * Generates a {@link Lookup} that can access private members in the given

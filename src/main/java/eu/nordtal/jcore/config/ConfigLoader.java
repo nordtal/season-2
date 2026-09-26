@@ -7,13 +7,12 @@ import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.internal.EnvOverlay;
 import eu.nordtal.jcore.config.spec.SpecAdapterFactory;
 import eu.nordtal.jcore.config.spec.Specs;
-import org.jetbrains.annotations.NotNull;
-
 import java.io.File;
 import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Loads commented YAML configuration files described by an annotated interface.
@@ -65,8 +64,7 @@ public final class ConfigLoader {
             .setObjectToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE)
             .create();
 
-    private ConfigLoader() {
-    }
+    private ConfigLoader() {}
 
     /**
      * A Gson pre-configured for Spec, to add your own type adapters to.
@@ -86,8 +84,8 @@ public final class ConfigLoader {
      * @throws ConfigException if the file cannot be read or written, or contains a mistyped
      *                         setting
      */
-    public static @NotNull <T> ConfigHandle<T> load(final @NotNull Path file,
-                                                    final @NotNull Class<T> specType) throws ConfigException {
+    public static @NotNull <T> ConfigHandle<T> load(final @NotNull Path file, final @NotNull Class<T> specType)
+            throws ConfigException {
         return builder(file, specType).load();
     }
 
@@ -109,10 +107,8 @@ public final class ConfigLoader {
         private Gson gson = DEFAULT_GSON;
         private String envPrefix = DEFAULT_ENV_PREFIX;
         private Function<String, String> environment = System::getenv;
-        private ConfigValidator<T> validator = config -> {
-        };
-        private Consumer<T> onLoad = config -> {
-        };
+        private ConfigValidator<T> validator = config -> {};
+        private Consumer<T> onLoad = config -> {};
 
         private Builder(final Path file, final Class<T> specType) {
             if (!Specs.isConfigSpec(specType)) {
@@ -124,9 +120,8 @@ public final class ConfigLoader {
             // with an UndeclaredThrowableException wrapping IllegalAccessException the first time
             // a value is read - a long way from the cause. Say so here instead.
             if (!Modifier.isPublic(specType.getModifiers())) {
-                throw new IllegalArgumentException(
-                        specType.getName() + " must be public. A config spec is served by a "
-                                + "reflective proxy, which cannot read a package-private interface.");
+                throw new IllegalArgumentException(specType.getName() + " must be public. A config spec is served by a "
+                        + "reflective proxy, which cannot read a package-private interface.");
             }
             this.file = file;
             this.specType = specType;
@@ -187,8 +182,7 @@ public final class ConfigLoader {
          */
         public @NotNull ConfigHandle<T> load() throws ConfigException {
             final EnvOverlay overlay = EnvOverlay.forSpec(specType, envPrefix, environment, gson);
-            final ConfigHandle<T> handle =
-                    new ConfigHandle<>(file, specType, gson, overlay, validator, onLoad);
+            final ConfigHandle<T> handle = new ConfigHandle<>(file, specType, gson, overlay, validator, onLoad);
             handle.loadInitially();
             return handle;
         }

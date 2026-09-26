@@ -2,8 +2,6 @@ package eu.nordtal.jcore.config.internal;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
-import org.jetbrains.annotations.NotNull;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -12,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Lets every single config value be overridden by an environment variable.
@@ -38,12 +37,12 @@ public final class EnvOverlay {
 
     /** An empty value counts as unset, matching how the bot already treated POSTGRES_PASSWORD. */
     private final Map<String, SpecPaths.Leaf> byVariable;
+
     private final Function<String, String> environment;
     private final Gson gson;
 
-    private EnvOverlay(final Map<String, SpecPaths.Leaf> byVariable,
-                       final Function<String, String> environment,
-                       final Gson gson) {
+    private EnvOverlay(
+            final Map<String, SpecPaths.Leaf> byVariable, final Function<String, String> environment, final Gson gson) {
         this.byVariable = byVariable;
         this.environment = environment;
         this.gson = gson;
@@ -58,10 +57,11 @@ public final class EnvOverlay {
      * @param gson        used to parse values whose type is not a plain scalar
      * @throws IllegalStateException if two config paths map to the same variable name
      */
-    public static @NotNull EnvOverlay forSpec(final @NotNull Class<?> specType,
-                                              final @NotNull String prefix,
-                                              final @NotNull Function<String, String> environment,
-                                              final @NotNull Gson gson) {
+    public static @NotNull EnvOverlay forSpec(
+            final @NotNull Class<?> specType,
+            final @NotNull String prefix,
+            final @NotNull Function<String, String> environment,
+            final @NotNull Gson gson) {
         final Map<String, SpecPaths.Leaf> byVariable = new LinkedHashMap<>();
         final Map<String, List<String>> collisions = new TreeMap<>();
 
@@ -136,14 +136,18 @@ public final class EnvOverlay {
             if (List.class.isAssignableFrom(type) && isStringList(leaf)) {
                 // The overwhelmingly common list is a list of strings, and a comma-separated
                 // value is far friendlier in a docker-compose file than JSON.
-                return Arrays.stream(raw.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+                return Arrays.stream(raw.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .toList();
             }
             return gson.fromJson(raw, leaf.genericType());
         } catch (NumberFormatException | JsonSyntaxException e) {
             // The value itself never appears in the message - it could be a secret.
             throw new IllegalArgumentException(
-                    variable + " cannot be read as " + type.getSimpleName()
-                            + " for config setting '" + leaf.path() + "'.", e);
+                    variable + " cannot be read as " + type.getSimpleName() + " for config setting '" + leaf.path()
+                            + "'.",
+                    e);
         }
     }
 
@@ -169,7 +173,8 @@ public final class EnvOverlay {
         } catch (IllegalArgumentException e) {
             final String allowed = Arrays.stream(type.getEnumConstants())
                     .map(constant -> ((Enum<?>) constant).name().toLowerCase(Locale.ROOT))
-                    .reduce((a, b) -> a + ", " + b).orElse("");
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse("");
             throw new IllegalArgumentException(variable + " must be one of: " + allowed + ".");
         }
     }

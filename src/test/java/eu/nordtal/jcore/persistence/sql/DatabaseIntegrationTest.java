@@ -1,5 +1,15 @@
 package eu.nordtal.jcore.persistence.sql;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -14,17 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Drives {@link Database} against a real PostgreSQL server started by Testcontainers.
@@ -44,8 +43,7 @@ public class DatabaseIntegrationTest {
     private static int migrationsAppliedOnFirstRun;
 
     /** A widget row. */
-    public record Widget(long id, String name, UUID owner) {
-    }
+    public record Widget(long id, String name, UUID owner) {}
 
     /** Maps a {@code widgets} row onto {@link Widget}. */
     public static class WidgetMapper implements RowMapper<Widget> {
@@ -138,10 +136,12 @@ public class DatabaseIntegrationTest {
     void transactionsRollBack() {
         final WidgetDao dao = database.jdbi().onDemand(WidgetDao.class);
 
-        assertThrows(IllegalStateException.class, () -> database.jdbi().useTransaction(handle -> {
-            handle.attach(WidgetDao.class).insert("doomed", UUID.randomUUID());
-            throw new IllegalStateException("boom");
-        }));
+        assertThrows(
+                IllegalStateException.class,
+                () -> database.jdbi().useTransaction(handle -> {
+                    handle.attach(WidgetDao.class).insert("doomed", UUID.randomUUID());
+                    throw new IllegalStateException("boom");
+                }));
 
         assertEquals(0, dao.all().size(), "the failed transaction must not have committed");
     }
@@ -150,16 +150,17 @@ public class DatabaseIntegrationTest {
     void poolIsExposedAndClosingReleasesIt() {
         assertNotNull(database.dataSource());
 
-        try (Database throwaway = Database.create(
-                DatabaseConfig.builder(POSTGRES.getJdbcUrl())
-                        .username(POSTGRES.getUsername())
-                        .password(POSTGRES.getPassword())
-                        .poolName("jcore-it-throwaway")
-                        .maximumPoolSize(1)
-                        .minimumIdle(0)
-                        .build())) {
-            final int one = throwaway.jdbi().withHandle(handle ->
-                    handle.createQuery("SELECT 1").mapTo(Integer.class).one());
+        try (Database throwaway = Database.create(DatabaseConfig.builder(POSTGRES.getJdbcUrl())
+                .username(POSTGRES.getUsername())
+                .password(POSTGRES.getPassword())
+                .poolName("jcore-it-throwaway")
+                .maximumPoolSize(1)
+                .minimumIdle(0)
+                .build())) {
+            final int one = throwaway
+                    .jdbi()
+                    .withHandle(handle ->
+                            handle.createQuery("SELECT 1").mapTo(Integer.class).one());
             assertEquals(1, one);
         }
     }

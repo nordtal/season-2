@@ -2,14 +2,13 @@ package eu.nordtal.displaytags.commands.framework;
 
 import eu.nordtal.displaytags.DisplayTags;
 import eu.nordtal.displaytags.util.MessageUtil;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
-import org.jetbrains.annotations.NotNull;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.jetbrains.annotations.NotNull;
 
 public abstract class CommandGroup extends Command {
     protected DisplayTags plugin;
@@ -33,7 +32,8 @@ public abstract class CommandGroup extends Command {
     }
 
     @Override
-    public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String @NotNull [] args) {
+    public boolean execute(
+            @NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String @NotNull [] args) {
         if (args.length == 0) {
             MessageUtil.error(sender, "Unknown sub-command.");
             return true;
@@ -55,7 +55,9 @@ public abstract class CommandGroup extends Command {
     }
 
     @Override
-    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args) throws IllegalArgumentException {
+    public @NotNull List<String> tabComplete(
+            @NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args)
+            throws IllegalArgumentException {
         String name = args[0].toLowerCase();
         if (args.length == 1) {
             return commands.values().stream()

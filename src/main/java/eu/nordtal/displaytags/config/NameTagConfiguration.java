@@ -5,12 +5,11 @@ import eu.nordtal.displaytags.api.nametag.SeeThroughMode;
 import eu.nordtal.displaytags.config.spec.DisplayTagsConfigurationSpec;
 import eu.nordtal.displaytags.wrapper.display.DisplayBillboard;
 import eu.nordtal.displaytags.wrapper.display.TextAlignment;
-import org.bukkit.util.Vector;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
+import org.bukkit.util.Vector;
 
 public class NameTagConfiguration {
     private boolean enabled;
@@ -29,8 +28,14 @@ public class NameTagConfiguration {
     private Vector scale;
 
     public void load(DisplayTagsConfigurationSpec config) {
-        TextAlignment alignment = parse(TextAlignment.class, "display.text-alignment", config.nametag().display().textAlignment());
-        DisplayBillboard billboard = parse(DisplayBillboard.class, "display.billboard", config.nametag().display().billboard());
+        TextAlignment alignment = parse(
+                TextAlignment.class,
+                "display.text-alignment",
+                config.nametag().display().textAlignment());
+        DisplayBillboard billboard = parse(
+                DisplayBillboard.class,
+                "display.billboard",
+                config.nametag().display().billboard());
         SeeThroughMode seeThrough = parseSeeThrough(config.nametag().display().seeThrough());
         parseBackground(config.nametag().display().background());
 
@@ -130,8 +135,7 @@ public class NameTagConfiguration {
                 .collect(Collectors.joining(", "));
 
         throw new IllegalArgumentException(
-                "nametag." + key + ": '" + value + "' is not a valid value. Available values: " + allowed + "."
-        );
+                "nametag." + key + ": '" + value + "' is not a valid value. Available values: " + allowed + ".");
     }
 
     /**
@@ -145,12 +149,10 @@ public class NameTagConfiguration {
         SeeThroughMode mode = SeeThroughMode.parse(value);
         if (mode != null) return mode;
 
-        throw new IllegalArgumentException(
-                "nametag.display.see-through: '" + value + "' is not a valid value. " +
-                        "Available values: vanilla (visible through blocks but dimmed, like a " +
-                        "vanilla name tag), true (visible through blocks), false (hidden behind " +
-                        "blocks)."
-        );
+        throw new IllegalArgumentException("nametag.display.see-through: '" + value + "' is not a valid value. "
+                + "Available values: vanilla (visible through blocks but dimmed, like a "
+                + "vanilla name tag), true (visible through blocks), false (hidden behind "
+                + "blocks).");
     }
 
     /**
@@ -161,10 +163,8 @@ public class NameTagConfiguration {
         try {
             Util.parseDisplayBackground(background);
         } catch (RuntimeException error) {
-            throw new IllegalArgumentException(
-                    "nametag.display.background: '" + background + "' is not a valid value. " +
-                            "Available values: 'default', 'transparent', or a hex colour such as '#FFFFFF'."
-            );
+            throw new IllegalArgumentException("nametag.display.background: '" + background + "' is not a valid value. "
+                    + "Available values: 'default', 'transparent', or a hex colour such as '#FFFFFF'.");
         }
     }
 

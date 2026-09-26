@@ -1,11 +1,10 @@
 package eu.nordtal.displaytags.config;
 
+import eu.nordtal.displaytags.DisplayTags;
+import eu.nordtal.displaytags.config.spec.DisplayTagsConfigurationSpec;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.displaytags.DisplayTags;
-import eu.nordtal.displaytags.config.spec.DisplayTagsConfigurationSpec;
-
 import java.io.File;
 
 /**

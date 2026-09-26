@@ -1,11 +1,10 @@
 package eu.nordtal.displaytags.api.nametag;
 
 import eu.nordtal.displaytags.api.Util;
+import java.util.List;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.util.Vector;
-
-import java.util.List;
 
 public class NameTagData {
     private boolean showToSelf = true;

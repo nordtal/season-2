@@ -5,9 +5,8 @@ import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityType;
 import eu.nordtal.displaytags.util.ConversionUtil;
 import eu.nordtal.displaytags.wrapper.EntityWrapper;
-import org.bukkit.util.Vector;
-
 import java.util.List;
+import org.bukkit.util.Vector;
 
 public class DisplayWrapper extends EntityWrapper {
     /**
@@ -25,6 +24,7 @@ public class DisplayWrapper extends EntityWrapper {
      * Re-check both whenever the targeted Minecraft version changes.
      */
     private static final int INDEX_TRANSLATION = 11;
+
     private static final int INDEX_SCALE = 12;
     private static final int INDEX_BILLBOARD_CONSTRAINTS = 15;
 
@@ -41,20 +41,9 @@ public class DisplayWrapper extends EntityWrapper {
         List<EntityData<?>> data = super.getEntityData();
 
         data.add(new EntityData<>(
-                INDEX_TRANSLATION,
-                EntityDataTypes.VECTOR3F,
-                ConversionUtil.fromBukkitVector(this.translation)
-        ));
-        data.add(new EntityData<>(
-                INDEX_SCALE,
-                EntityDataTypes.VECTOR3F,
-                ConversionUtil.fromBukkitVector(this.scale)
-        ));
-        data.add(new EntityData<>(
-                INDEX_BILLBOARD_CONSTRAINTS,
-                EntityDataTypes.BYTE,
-                (byte) this.billboard.value
-        ));
+                INDEX_TRANSLATION, EntityDataTypes.VECTOR3F, ConversionUtil.fromBukkitVector(this.translation)));
+        data.add(new EntityData<>(INDEX_SCALE, EntityDataTypes.VECTOR3F, ConversionUtil.fromBukkitVector(this.scale)));
+        data.add(new EntityData<>(INDEX_BILLBOARD_CONSTRAINTS, EntityDataTypes.BYTE, (byte) this.billboard.value));
 
         return data;
     }

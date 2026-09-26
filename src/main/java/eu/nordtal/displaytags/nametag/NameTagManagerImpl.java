@@ -1,16 +1,15 @@
 package eu.nordtal.displaytags.nametag;
 
-import eu.nordtal.displaytags.api.nametag.NameTagManager;
-import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
 import eu.nordtal.displaytags.api.events.NameTagCreateEvent;
 import eu.nordtal.displaytags.api.events.NameTagRemoveEvent;
-import org.bukkit.entity.Player;
-
+import eu.nordtal.displaytags.api.nametag.NameTagManager;
+import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.bukkit.entity.Player;
 
 public class NameTagManagerImpl implements NameTagManager {
     private final Map<UUID, PlayerNameTag> tags = new ConcurrentHashMap<>();

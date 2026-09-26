@@ -1,12 +1,11 @@
 package eu.nordtal.displaytags.api.nametag;
 
-import org.bukkit.Location;
-import org.bukkit.entity.Player;
-
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
 
 public abstract class PlayerNameTag {
     protected Player player;
@@ -30,9 +29,13 @@ public abstract class PlayerNameTag {
     }
 
     public abstract void spawnFor(UUID viewerId);
+
     public abstract void updateFor(UUID viewerId);
+
     public abstract void teleportFor(UUID viewerId);
+
     public abstract void despawnFor(UUID viewerId);
+
     public abstract void tick();
 
     /**

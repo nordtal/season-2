@@ -1,9 +1,9 @@
 package eu.nordtal.displaytags.listener;
 
-import io.papermc.paper.event.player.PlayerClientLoadedWorldEvent;
 import eu.nordtal.displaytags.DisplayTags;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
 import eu.nordtal.displaytags.config.NameTagConfiguration;
+import io.papermc.paper.event.player.PlayerClientLoadedWorldEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;

@@ -1,6 +1,5 @@
 package eu.nordtal.displaytags;
 
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.displaytags.api.DisplayTagsPlugin;
 import eu.nordtal.displaytags.api.nametag.NameTagManager;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
@@ -12,13 +11,13 @@ import eu.nordtal.displaytags.nametag.NameTagManagerImpl;
 import eu.nordtal.displaytags.nametag.NameTagScheduler;
 import eu.nordtal.displaytags.util.DependencyUtil;
 import eu.nordtal.displaytags.util.TabUtil;
+import eu.nordtal.jcore.config.exception.ConfigException;
+import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandMap;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.List;
 
 public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
     private static DisplayTags INSTANCE;
@@ -62,7 +61,9 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
     public void onEnable() {
         if (this.config == null) {
             getLogger().severe("DisplayTags is not starting up because its configuration could not be read.");
-            getLogger().severe("Correct the error reported above in plugins/DisplayTags/config.yml, then restart the server.");
+            getLogger()
+                    .severe(
+                            "Correct the error reported above in plugins/DisplayTags/config.yml, then restart the server.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }

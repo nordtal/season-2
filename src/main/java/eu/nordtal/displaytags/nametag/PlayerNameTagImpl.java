@@ -1,11 +1,10 @@
 package eu.nordtal.displaytags.nametag;
 
-import me.clip.placeholderapi.PlaceholderAPI;
 import eu.nordtal.displaytags.DisplayTags;
-import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
-import eu.nordtal.displaytags.api.nametag.SeeThroughMode;
 import eu.nordtal.displaytags.api.events.NameTagDespawnEvent;
 import eu.nordtal.displaytags.api.events.NameTagSpawnEvent;
+import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
+import eu.nordtal.displaytags.api.nametag.SeeThroughMode;
 import eu.nordtal.displaytags.config.NameTagConfiguration;
 import eu.nordtal.displaytags.util.ComponentUtil;
 import eu.nordtal.displaytags.util.Constants;
@@ -15,6 +14,10 @@ import eu.nordtal.displaytags.wrapper.EntityWrapper;
 import eu.nordtal.displaytags.wrapper.display.DisplayBillboard;
 import eu.nordtal.displaytags.wrapper.display.TextAlignment;
 import eu.nordtal.displaytags.wrapper.display.TextDisplayWrapper;
+import java.text.DecimalFormat;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -22,10 +25,6 @@ import org.bukkit.Location;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
-
-import java.text.DecimalFormat;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerNameTagImpl extends PlayerNameTag {
     /**
@@ -73,8 +72,10 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.ghost = new TextDisplayWrapper();
 
         NameTagConfiguration config = DisplayTags.get().config().nametag();
-        TextDisplay.TextAlignment alignment = TextDisplay.TextAlignment.valueOf(config.getTextAlignment().name());
-        Display.Billboard billboard = Display.Billboard.valueOf(config.getBillboard().name());
+        TextDisplay.TextAlignment alignment =
+                TextDisplay.TextAlignment.valueOf(config.getTextAlignment().name());
+        Display.Billboard billboard =
+                Display.Billboard.valueOf(config.getBillboard().name());
 
         this.data.setShowToSelf(config.showToSelf());
         this.data.setVisibilityDistance(config.getVisibilityDistance());
@@ -126,9 +127,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         // With the ghost present the background belongs to it and to it alone, which is how vanilla
         // draws it: the box rides the see-through pass, so it is visible through a wall as well,
         // and a second box on this display would sit on top of the first and darken it twice.
-        this.display.setBackground(ghost
-                ? Constants.TRANSPARENT_TEXT_DISPLAY_BACKGROUND
-                : this.data.getBackground());
+        this.display.setBackground(ghost ? Constants.TRANSPARENT_TEXT_DISPLAY_BACKGROUND : this.data.getBackground());
 
         if (ghost) {
             this.apply(this.ghost);
@@ -152,8 +151,8 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         // reason both displays have to go out in one packet: sent one after the other, the second
         // would throw the first off the player.
         if (ghost) {
-            EntityWrapper.mountAllFor(viewerId, this.player.getEntityId(),
-                    this.display.getEntityId(), this.ghost.getEntityId());
+            EntityWrapper.mountAllFor(
+                    viewerId, this.player.getEntityId(), this.display.getEntityId(), this.ghost.getEntityId());
         } else {
             this.display.mountFor(viewerId, this.player.getEntityId());
         }
@@ -177,7 +176,8 @@ public class PlayerNameTagImpl extends PlayerNameTag {
      * background - those three are what makes one of them the faint one.
      */
     private void apply(TextDisplayWrapper display) {
-        display.setTextAlignment(TextAlignment.valueOf(this.data.getTextAlignment().name()));
+        display.setTextAlignment(
+                TextAlignment.valueOf(this.data.getTextAlignment().name()));
         display.setBillboard(DisplayBillboard.valueOf(this.data.getBillboard().name()));
         display.setTextShadow(this.data.hasTextShadow());
         display.setTranslation(this.data.getTranslation());
@@ -299,11 +299,10 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     }
 
     private Component getText() {
-        List<String> lines = this.getResolvedLines()
-                .stream()
+        List<String> lines = this.getResolvedLines().stream()
                 .map((line) -> {
-                    String modified = line
-                            .replace("{health}", String.valueOf(new DecimalFormat("#.##").format(player.getHealth())));
+                    String modified = line.replace(
+                            "{health}", String.valueOf(new DecimalFormat("#.##").format(player.getHealth())));
                     if (DependencyUtil.enabledPlaceholderAPI())
                         modified = PlaceholderAPI.setPlaceholders(this.player, modified);
 

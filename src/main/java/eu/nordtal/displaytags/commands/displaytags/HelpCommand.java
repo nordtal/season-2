@@ -4,12 +4,11 @@ import eu.nordtal.displaytags.commands.framework.CommandGroup;
 import eu.nordtal.displaytags.commands.framework.SubCommand;
 import eu.nordtal.displaytags.util.ComponentUtil;
 import eu.nordtal.displaytags.util.MessageUtil;
-import net.kyori.adventure.text.Component;
-import org.bukkit.command.CommandSender;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import net.kyori.adventure.text.Component;
+import org.bukkit.command.CommandSender;
 
 public class HelpCommand extends SubCommand {
     private Component HELP_MESSAGE;
@@ -27,16 +26,11 @@ public class HelpCommand extends SubCommand {
 
             List<String> lines = new ArrayList<>();
             lines.add(MessageUtil.prefixed(
-                    String.format("Commands <dark_gray>(<white>%s<dark_gray>)<white>:", commands.size()))
-            );
+                    String.format("Commands <dark_gray>(<white>%s<dark_gray>)<white>:", commands.size())));
 
-            commands.forEach((cmd) ->
-                    lines.add(String.format(
-                            "<gray>/%s <dark_gray>→ <white>%s",
-                            cmd.getName(),
-                            cmd.getDescription() != null ? cmd.getDescription() : "No description."
-                    ))
-            );
+            commands.forEach((cmd) -> lines.add(String.format(
+                    "<gray>/%s <dark_gray>→ <white>%s",
+                    cmd.getName(), cmd.getDescription() != null ? cmd.getDescription() : "No description.")));
 
             this.HELP_MESSAGE = ComponentUtil.render(lines);
         }

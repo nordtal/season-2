@@ -4,9 +4,8 @@ import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes;
 import eu.nordtal.displaytags.util.Constants;
-import net.kyori.adventure.text.Component;
-
 import java.util.List;
+import net.kyori.adventure.text.Component;
 
 public class TextDisplayWrapper extends DisplayWrapper {
     /**
@@ -25,6 +24,7 @@ public class TextDisplayWrapper extends DisplayWrapper {
      * Re-check both whenever the targeted Minecraft version changes.
      */
     private static final int INDEX_TEXT = 23;
+
     private static final int INDEX_LINE_WIDTH = 24;
     private static final int INDEX_BACKGROUND = 25;
     private static final int INDEX_TEXT_OPACITY = 26;
@@ -38,6 +38,7 @@ public class TextDisplayWrapper extends DisplayWrapper {
      * means centred.
      */
     private static final int FLAG_SHADOW = 0x01;
+
     private static final int FLAG_SEE_THROUGH = 0x02;
     private static final int FLAG_ALIGN_LEFT = 0x08;
     private static final int FLAG_ALIGN_RIGHT = 0x10;
@@ -56,31 +57,11 @@ public class TextDisplayWrapper extends DisplayWrapper {
     public List<EntityData<?>> getEntityData() {
         List<EntityData<?>> data = super.getEntityData();
 
-        data.add(new EntityData<>(
-                INDEX_TEXT,
-                EntityDataTypes.ADV_COMPONENT,
-                text
-        ));
-        data.add(new EntityData<>(
-                INDEX_LINE_WIDTH,
-                EntityDataTypes.INT,
-                this.lineWidth
-        ));
-        data.add(new EntityData<>(
-                INDEX_BACKGROUND,
-                EntityDataTypes.INT,
-                this.background
-        ));
-        data.add(new EntityData<>(
-                INDEX_TEXT_OPACITY,
-                EntityDataTypes.BYTE,
-                (byte) this.textOpacity
-        ));
-        data.add(new EntityData<>(
-                INDEX_STYLE_FLAGS,
-                EntityDataTypes.BYTE,
-                (byte) this.flags
-        ));
+        data.add(new EntityData<>(INDEX_TEXT, EntityDataTypes.ADV_COMPONENT, text));
+        data.add(new EntityData<>(INDEX_LINE_WIDTH, EntityDataTypes.INT, this.lineWidth));
+        data.add(new EntityData<>(INDEX_BACKGROUND, EntityDataTypes.INT, this.background));
+        data.add(new EntityData<>(INDEX_TEXT_OPACITY, EntityDataTypes.BYTE, (byte) this.textOpacity));
+        data.add(new EntityData<>(INDEX_STYLE_FLAGS, EntityDataTypes.BYTE, (byte) this.flags));
 
         return data;
     }

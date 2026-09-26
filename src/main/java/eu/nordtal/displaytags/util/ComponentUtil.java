@@ -1,10 +1,9 @@
 package eu.nordtal.displaytags.util;
 
+import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-
-import java.util.List;
 
 public class ComponentUtil {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
@@ -15,10 +14,7 @@ public class ComponentUtil {
     }
 
     public static Component render(List<String> lines) {
-        List<Component> components = lines
-                .stream()
-                .map(ComponentUtil::render)
-                .toList();
+        List<Component> components = lines.stream().map(ComponentUtil::render).toList();
         return join(components);
     }
 

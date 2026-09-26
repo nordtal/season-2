@@ -1,9 +1,8 @@
 package eu.nordtal.displaytags.commands.framework;
 
 import eu.nordtal.displaytags.DisplayTags;
-import org.bukkit.command.CommandSender;
-
 import java.util.List;
+import org.bukkit.command.CommandSender;
 
 public abstract class SubCommand {
     private final CommandGroup commandGroup;

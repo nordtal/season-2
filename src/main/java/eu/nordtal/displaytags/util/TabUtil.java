@@ -1,10 +1,10 @@
 package eu.nordtal.displaytags.util;
 
+import eu.nordtal.displaytags.DisplayTags;
 import me.neznamy.tab.api.TabAPI;
 import me.neznamy.tab.api.event.EventBus;
 import me.neznamy.tab.api.event.player.PlayerLoadEvent;
 import me.neznamy.tab.api.nametag.NameTagManager;
-import eu.nordtal.displaytags.DisplayTags;
 
 /**
  * Compatibility layer for the TAB plugin (<a href="https://github.com/NEZNAMY/TAB">NEZNAMY/TAB</a>).
@@ -20,8 +20,7 @@ import eu.nordtal.displaytags.DisplayTags;
 public final class TabUtil {
     private static boolean available;
 
-    private TabUtil() {
-    }
+    private TabUtil() {}
 
     public static void load(DisplayTags plugin) {
         available = false;
@@ -30,7 +29,9 @@ public final class TabUtil {
         try {
             Class.forName("me.neznamy.tab.api.TabAPI", false, TabUtil.class.getClassLoader());
         } catch (ClassNotFoundException | LinkageError error) {
-            plugin.getLogger().warning("TAB is installed, but its API is not accessible. DisplayTags will manage the vanilla name tags itself.");
+            plugin.getLogger()
+                    .warning(
+                            "TAB is installed, but its API is not accessible. DisplayTags will manage the vanilla name tags itself.");
             return;
         }
 
@@ -38,10 +39,14 @@ public final class TabUtil {
 
         try {
             Hook.registerNameTagHider(plugin);
-            plugin.getLogger().info("TAB is installed on this server. DisplayTags will let TAB hide the vanilla name tags instead of sending its own team packets.");
+            plugin.getLogger()
+                    .info(
+                            "TAB is installed on this server. DisplayTags will let TAB hide the vanilla name tags instead of sending its own team packets.");
         } catch (LinkageError | RuntimeException error) {
             available = false;
-            plugin.getLogger().warning("Failed to hook into TAB (" + error + "). DisplayTags will manage the vanilla name tags itself.");
+            plugin.getLogger()
+                    .warning("Failed to hook into TAB (" + error
+                            + "). DisplayTags will manage the vanilla name tags itself.");
         }
     }
 
@@ -65,7 +70,9 @@ public final class TabUtil {
             // TAB only creates its event bus once it has finished loading, so this can be null.
             EventBus eventBus = TabAPI.getInstance().getEventBus();
             if (eventBus == null) {
-                plugin.getLogger().warning("TAB's event bus is not available, so DisplayTags cannot ask TAB to hide the vanilla name tags.");
+                plugin.getLogger()
+                        .warning(
+                                "TAB's event bus is not available, so DisplayTags cannot ask TAB to hide the vanilla name tags.");
                 return;
             }
 

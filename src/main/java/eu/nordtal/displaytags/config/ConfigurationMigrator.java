@@ -1,8 +1,5 @@
 package eu.nordtal.displaytags.config;
 
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.Plugin;
-
 import java.io.File;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -10,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.Plugin;
 
 /**
  * Migrates a DisplayTags v1 configuration (all keys below the {@code nametags} root) to the
@@ -49,8 +48,7 @@ public final class ConfigurationMigrator {
         KEYS.put("display.scale.z", "display.scale.z");
     }
 
-    private ConfigurationMigrator() {
-    }
+    private ConfigurationMigrator() {}
 
     /**
      * Migrates the plugin's {@code config.yml} if — and only if — it still uses the v1 format.
@@ -106,7 +104,8 @@ public final class ConfigurationMigrator {
             config.save(file);
 
             for (String line : migrated) logger.info("  Migrated " + line);
-            for (String line : skipped) logger.warning("  Kept your existing value of " + line + " (it was already set).");
+            for (String line : skipped)
+                logger.warning("  Kept your existing value of " + line + " (it was already set).");
             for (String line : unknown) logger.warning("  Dropped unknown setting " + line + " (no equivalent in v2).");
 
             logger.info("Migrated " + migrated.size() + " setting(s). Your old configuration was backed up to:");

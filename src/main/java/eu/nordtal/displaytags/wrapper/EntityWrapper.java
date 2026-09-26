@@ -4,13 +4,12 @@ import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityType;
 import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.wrapper.play.server.*;
+import eu.nordtal.displaytags.util.PacketUtil;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
-import eu.nordtal.displaytags.util.PacketUtil;
+import java.util.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-
-import java.util.*;
 
 public class EntityWrapper {
     private final int entityId;
@@ -82,30 +81,20 @@ public class EntityWrapper {
                 location.getYaw(),
                 location.getYaw(),
                 0,
-                Optional.of(Vector3d.zero())
-        );
+                Optional.of(Vector3d.zero()));
     }
 
     private WrapperPlayServerEntityTeleport teleportPacket() {
         return new WrapperPlayServerEntityTeleport(
-                this.entityId,
-                SpigotConversionUtil.fromBukkitLocation(this.location),
-                true
-        );
+                this.entityId, SpigotConversionUtil.fromBukkitLocation(this.location), true);
     }
 
     private WrapperPlayServerEntityMetadata metadataPacket() {
-        return new WrapperPlayServerEntityMetadata(
-                this.entityId,
-                this.getEntityData()
-        );
+        return new WrapperPlayServerEntityMetadata(this.entityId, this.getEntityData());
     }
 
     private static WrapperPlayServerSetPassengers passengersPacket(int vehicleId, int... passengers) {
-        return new WrapperPlayServerSetPassengers(
-                vehicleId,
-                passengers
-        );
+        return new WrapperPlayServerSetPassengers(vehicleId, passengers);
     }
 
     private WrapperPlayServerDestroyEntities destroyPacket() {

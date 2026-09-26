@@ -11,7 +11,9 @@ public class DependencyUtil {
         PluginManager pluginManager = plugin.getServer().getPluginManager();
         if (pluginManager.isPluginEnabled("PlaceholderAPI")) {
             enabledPlaceholderAPI = true;
-            plugin.getLogger().info("PlaceholderAPI is installed on this server. DisplayTags will hook into this and allow you to use you placeholders in name tags! Yay!");
+            plugin.getLogger()
+                    .info(
+                            "PlaceholderAPI is installed on this server. DisplayTags will hook into this and allow you to use you placeholders in name tags! Yay!");
         }
 
         enabledTAB = pluginManager.isPluginEnabled("TAB");

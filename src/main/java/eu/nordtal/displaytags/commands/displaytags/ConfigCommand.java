@@ -4,12 +4,11 @@ import eu.nordtal.displaytags.commands.framework.CommandGroup;
 import eu.nordtal.displaytags.commands.framework.SubCommand;
 import eu.nordtal.displaytags.config.NameTagConfiguration;
 import eu.nordtal.displaytags.util.MessageUtil;
-import org.bukkit.command.CommandSender;
-import org.bukkit.util.Vector;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.bukkit.command.CommandSender;
+import org.bukkit.util.Vector;
 
 public class ConfigCommand extends SubCommand {
     public ConfigCommand(CommandGroup group) {
@@ -33,11 +32,14 @@ public class ConfigCommand extends SubCommand {
         messages.add("<dark_gray>• <white>Display");
         messages.add("  <white>Lines <dark_gray>→ " + hover(String.join("\n", config.getLines())));
         messages.add("  <white>Text Shadow <dark_gray>→ " + booleanToString(config.hasTextShadow()));
-        messages.add("  <white>See Through <dark_gray>→ <gray>" + config.getSeeThrough().configValue());
+        messages.add("  <white>See Through <dark_gray>→ <gray>"
+                + config.getSeeThrough().configValue());
         messages.add("  <white>Sneak Text Opacity <dark_gray>→ " + opacity(config.getSneakTextOpacity()));
-        messages.add("  <white>Text Alignment <dark_gray>→ <gray>" + config.getTextAlignment().name());
+        messages.add("  <white>Text Alignment <dark_gray>→ <gray>"
+                + config.getTextAlignment().name());
         messages.add("  <white>Background <dark_gray>→ " + color(background) + background(background));
-        messages.add("  <white>Billboard <dark_gray>→ <gray>" + config.getBillboard().name());
+        messages.add(
+                "  <white>Billboard <dark_gray>→ <gray>" + config.getBillboard().name());
         messages.add("  <white>Offset <dark_gray>→ " + hover(vector(config.getOffset())));
         messages.add("  <white>Scale <dark_gray>→ " + hover(vector(config.getScale())));
 
@@ -50,11 +52,12 @@ public class ConfigCommand extends SubCommand {
     }
 
     private String vector(Vector vector) {
-        return String.join("\n", List.of(
-                "<white>X <dark_gray>→ <gray>" + vector.getX(),
-                "<white>Y <dark_gray>→ <gray>" + vector.getY(),
-                "<white>Z <dark_gray>→ <gray>" + vector.getZ()
-        ));
+        return String.join(
+                "\n",
+                List.of(
+                        "<white>X <dark_gray>→ <gray>" + vector.getX(),
+                        "<white>Y <dark_gray>→ <gray>" + vector.getY(),
+                        "<white>Z <dark_gray>→ <gray>" + vector.getZ()));
     }
 
     private String hover(String text) {
@@ -70,9 +73,7 @@ public class ConfigCommand extends SubCommand {
      * enough - everything else in the line is still parsed as MiniMessage, which is intended.
      */
     private String escapeArgument(String text) {
-        return text
-                .replace("\\", "\\\\")
-                .replace("'", "\\'");
+        return text.replace("\\", "\\\\").replace("'", "\\'");
     }
 
     private String opacity(int opacity) {

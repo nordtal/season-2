@@ -1,8 +1,7 @@
 package eu.nordtal.displaytags.util;
 
-import org.bukkit.command.CommandSender;
-
 import java.util.List;
+import org.bukkit.command.CommandSender;
 
 public class MessageUtil {
     private static final String PREFIX = "<#00BFFF>DisplayTags";
@@ -20,9 +19,7 @@ public class MessageUtil {
     }
 
     public static void send(CommandSender sender, String message) {
-        sender.sendMessage(
-                ComponentUtil.render(format(prefixed(message)))
-        );
+        sender.sendMessage(ComponentUtil.render(format(prefixed(message))));
     }
 
     public static void send(CommandSender sender, List<String> messages) {
@@ -34,8 +31,7 @@ public class MessageUtil {
     }
 
     private static String format(String input) {
-        return input
-                .replace("{prefix}", PREFIX)
+        return input.replace("{prefix}", PREFIX)
                 .replace("{success}", "{start}{success_color}✔{end}")
                 .replace("{warn}", "{start}{warn_color}⚠{end}")
                 .replace("{danger}", "{start}{danger_color}❌{end}")

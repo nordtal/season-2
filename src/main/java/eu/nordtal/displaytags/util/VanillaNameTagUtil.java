@@ -1,10 +1,9 @@
 package eu.nordtal.displaytags.util;
 
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTeams;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
-
-import java.util.UUID;
 
 /**
  * Hides the vanilla player name tag from individual viewers.
@@ -15,8 +14,7 @@ import java.util.UUID;
  * visibility is {@code NEVER}.
  */
 public final class VanillaNameTagUtil {
-    private VanillaNameTagUtil() {
-    }
+    private VanillaNameTagUtil() {}
 
     /**
      * Hides {@code target}'s vanilla name tag for a single viewer.
@@ -34,15 +32,12 @@ public final class VanillaNameTagUtil {
                 WrapperPlayServerTeams.NameTagVisibility.NEVER,
                 WrapperPlayServerTeams.CollisionRule.ALWAYS,
                 null,
-                WrapperPlayServerTeams.OptionData.NONE
-        );
+                WrapperPlayServerTeams.OptionData.NONE);
 
-        PacketUtil.sendPacket(viewerId, new WrapperPlayServerTeams(
-                getTeamName(target),
-                WrapperPlayServerTeams.TeamMode.CREATE,
-                teamInfo,
-                target.getName()
-        ));
+        PacketUtil.sendPacket(
+                viewerId,
+                new WrapperPlayServerTeams(
+                        getTeamName(target), WrapperPlayServerTeams.TeamMode.CREATE, teamInfo, target.getName()));
 
         return true;
     }
@@ -56,12 +51,13 @@ public final class VanillaNameTagUtil {
     public static boolean show(Player target, UUID viewerId) {
         if (TabUtil.managesNameTags()) return false;
 
-        PacketUtil.sendPacket(viewerId, new WrapperPlayServerTeams(
-                getTeamName(target),
-                WrapperPlayServerTeams.TeamMode.REMOVE,
-                (WrapperPlayServerTeams.ScoreBoardTeamInfo) null,
-                target.getName()
-        ));
+        PacketUtil.sendPacket(
+                viewerId,
+                new WrapperPlayServerTeams(
+                        getTeamName(target),
+                        WrapperPlayServerTeams.TeamMode.REMOVE,
+                        (WrapperPlayServerTeams.ScoreBoardTeamInfo) null,
+                        target.getName()));
 
         return true;
     }

@@ -5,17 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The arithmetic behind {@code online_count}, in memory - see {@link OnlineCounts} for why it never
- * touches a real {@code ProxyServer}.
+ * The arithmetic behind {@code online_count}, in memory.
+ *
+ * See {@link OnlineCounts} for why it never touches a real {@code ProxyServer}.
  */
 class OnlineCountsTest {
 
     @Test
-    @DisplayName("the network total always appears, even with no backend registered at all")
     void theTotalAlwaysAppears() {
         final Map<String, Integer> counts = OnlineCounts.of(0, Map.of());
 
@@ -23,7 +22,6 @@ class OnlineCountsTest {
     }
 
     @Test
-    @DisplayName("every registered backend's count is carried through untouched")
     void everyBackendIsCarriedThrough() {
         final Map<String, Integer> counts = OnlineCounts.of(5, Map.of("smp", 2, "limbo", 3));
 
@@ -34,7 +32,6 @@ class OnlineCountsTest {
     }
 
     @Test
-    @DisplayName("a backend not currently registered is absent, never guessed at zero")
     void anUnregisteredBackendIsAbsent() {
         // hunger-games is not in playersByServer at all - the proxy has no such server right now.
         final Map<String, Integer> counts = OnlineCounts.of(4, Map.of("smp", 4));

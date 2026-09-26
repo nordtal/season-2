@@ -8,27 +8,26 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * That the name in the MOTD is one mark and not five.
  *
- * <h2>Why this is a text search</h2>
+ * <b>Why this is a text search.</b>
  * The same reason {@code AdminWatchWiringTest} is one: {@link NetworkSpec.MotdSpec}'s defaults are
  * {@code default} methods on an interface served by a reflective proxy, so there is no instance to
  * ask without loading a config, and what has to be protected is the <b>literal</b> somebody types
  * when they add a sixth phase.
  *
- * <p>It is not hypothetical. Until 2026-09-09 each of the five MOTDs coloured {@code nordtal.eu}
+ * It is not hypothetical. Each of the five MOTDs used to colour {@code nordtal.eu}
  * for itself: a light blue gradient before the start, orange during the hunger games, green on the
  * SMP, grey in maintenance. Every one of them was a reasonable choice on its own, and together they
  * meant the server browser showed four different marks depending on the day. The owner saw the
- * green one and named the rule: Nordtal is the dark blue of the logo, always.</p>
+ * green one and named the rule: Nordtal is the dark blue of the logo, always.
  *
- * <p>The value itself is measured rather than chosen - see the comment on
+ * The value itself is measured rather than chosen - see the comment on
  * {@link NetworkSpec.MotdSpec#NORDTAL_BLUE}. This test pins the string exactly, so changing the
- * brand colour stays a deliberate edit in two places rather than a drift in one.</p>
+ * brand colour stays a deliberate edit in two places rather than a drift in one.
  */
 class BrandColourTest {
 
@@ -38,7 +37,6 @@ class BrandColourTest {
     private static final int PHASES = 5;
 
     @Test
-    @DisplayName("every MOTD opens with the one brand colour")
     void everyMotdUsesTheBrand() throws IOException {
         final String text = read();
 
@@ -47,17 +45,16 @@ class BrandColourTest {
                 occurrences(text, "return NORDTAL_BLUE"),
                 "not every MOTD default opens with NORDTAL_BLUE. There is one mark, and the phase is"
                         + " what the second line says - a name that changes colour is four marks"
-                        + " seen one at a time, which is what this file did until 2026-09-09.");
+                        + " seen one at a time, which is what this file used to do.");
     }
 
     @Test
-    @DisplayName("no MOTD colours the name for itself again")
     void noPhaseColoursTheNameItself() throws IOException {
         final String text = read();
 
         assertFalse(
                 text.contains("<gradient:"),
-                "a gradient is back in the MOTDs. The five phases each had one until 2026-09-09 and"
+                "a gradient is back in the MOTDs. The five phases each had one before, and"
                         + " that is exactly the regression this test exists for; if a gradient is"
                         + " genuinely wanted, it belongs in NORDTAL_BLUE so all five share it.");
 
@@ -70,7 +67,6 @@ class BrandColourTest {
     }
 
     @Test
-    @DisplayName("the brand colour is the logo's blue, lightened for a dark list")
     void theBrandColourIsTheLogosBlue() throws IOException {
         final String text = read();
 

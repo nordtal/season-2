@@ -15,38 +15,30 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The gate's phase table, asserted phase by phase.
- * <p>
+ *
  * {@code MAINTENANCE} admits the same linked member every other phase does; the player is held in
  * {@code limbo} by {@code eu.nordtal.s2.proxy.routing.PhaseRouting} instead.
- * </p>
- * <table>
- *   <caption>Gate outcome per phase and player kind</caption>
- *   <tr><th></th><th>unlinked</th><th>left / banned</th><th>member, no access</th>
- *       <th>member, access</th><th>admin, no access</th></tr>
- *   <tr><th>{@code PRE_LAUNCH}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>PRE_LAUNCH_BUY</td>
- *       <td>PRE_LAUNCH_READY</td><td>ALLOW</td></tr>
- *   <tr><th>{@code PRE_EVENT}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>ALLOW</td>
- *       <td>ALLOW</td><td>ALLOW</td></tr>
- *   <tr><th>{@code START_EVENT}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>ALLOW</td>
- *       <td>ALLOW</td><td>ALLOW</td></tr>
- *   <tr><th>{@code SMP}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>NO_ACCESS</td>
- *       <td>ALLOW</td><td>ALLOW</td></tr>
- *   <tr><th>{@code MAINTENANCE}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>ALLOW</td>
- *       <td>ALLOW</td><td>ALLOW</td></tr>
- * </table>
- * <p>
+ *
+ * Gate outcome per phase and player kind - columns are unlinked, left/banned, member with no
+ * access, member with access, admin with no access:
+ *
+ * {@code PRE_LAUNCH}:   NOT_LINKED, NOT_MEMBER, PRE_LAUNCH_BUY, PRE_LAUNCH_READY, ALLOW
+ * {@code PRE_EVENT}:    NOT_LINKED, NOT_MEMBER, ALLOW, ALLOW, ALLOW
+ * {@code START_EVENT}:  NOT_LINKED, NOT_MEMBER, ALLOW, ALLOW, ALLOW
+ * {@code SMP}:          NOT_LINKED, NOT_MEMBER, NO_ACCESS, ALLOW, ALLOW
+ * {@code MAINTENANCE}:  NOT_LINKED, NOT_MEMBER, ALLOW, ALLOW, ALLOW
+ *
  * In memory and exhaustive: {@link GateOutcome#of(AccessState)} is a total function of one record,
  * which is why the decision lives there and not inside a {@code LoginEvent} handler. What this
  * does <b>not</b> prove is that the resulting disconnect screens render, or that Velocity honours
  * the denial - that needs a running proxy and a real client.
- * </p>
  */
 class GateOutcomeTest {
 
     private static final UUID PLAYER = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final String DISCORD_ID = "300000000000000001";
 
-    // ---------------------------------------------------------------- unlinked, in every phase
+    // unlinked, in every phase
 
     @Test
     void anUnlinkedAccountIsRefusedAsUnlinkedInEveryPhase() {
@@ -64,7 +56,7 @@ class GateOutcomeTest {
         assertEquals(GateOutcome.NOT_LINKED, GateOutcome.of(AccessState.unlinked(PLAYER, SeasonPhase.MAINTENANCE)));
     }
 
-    // ---------------------------------------------------------------- not a member, in every phase
+    // not a member, in every phase
 
     @Test
     void aBannedAccountIsRefusedInEveryPhaseEvenWithAccessAndTheAdminFlag() {
@@ -83,7 +75,7 @@ class GateOutcomeTest {
                 GateOutcome.NOT_MEMBER, GateOutcome.of(state(SeasonPhase.PRE_EVENT, MemberState.LEFT, false, false)));
     }
 
-    // ---------------------------------------------------------------- PRE_EVENT and START_EVENT
+    // PRE_EVENT and START_EVENT
 
     @Test
     void theTwoEventPhasesLetInAnyLinkedMemberWithNothingBought() {
@@ -101,7 +93,7 @@ class GateOutcomeTest {
         assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.PRE_EVENT, true)));
     }
 
-    // ---------------------------------------------------------------- SMP
+    // SMP
 
     @Test
     void theSmpIsTheOnlyPhaseThatAsksForAccess() {
@@ -111,9 +103,7 @@ class GateOutcomeTest {
 
     @Test
     void theAdminFlagIsAFreeAccessPeriod() {
-        // The admin flag is a free pass in SMP, the same way it already exempts an admin from the
-        // player limit - otherwise the admin who types /phase set SMP is disconnected by the switch
-        // they just confirmed.
+        // The admin flag is a free pass in SMP, else the admin who types /phase set SMP is disconnected by it.
         final AccessState adminWithoutAccess = state(SeasonPhase.SMP, MemberState.MEMBER, false, true);
 
         assertEquals(
@@ -122,7 +112,7 @@ class GateOutcomeTest {
                 "an admin is on the network to run it, not to play a bought period");
     }
 
-    // ---------------------------------------------------------------- the whole table at once
+    // the whole table at once
 
     @Test
     void theFullDecisionTableIsWhatThisClassProduces() {
@@ -161,12 +151,11 @@ class GateOutcomeTest {
                 phase + " / admin without access");
     }
 
-    // ---------------------------------------------------------------- MAINTENANCE
+    // MAINTENANCE
 
     @Test
     void maintenanceLetsAPlainLinkedMemberInSoTheyCanBeHeldInLimbo() {
-        // Maintenance is a routing decision, not a gate decision: a non-admin is admitted and then
-        // held in limbo.
+        // Maintenance is a routing decision, not a gate decision: a non-admin is admitted and then held in limbo.
         assertEquals(
                 GateOutcome.ALLOW,
                 GateOutcome.of(member(SeasonPhase.MAINTENANCE, false)),
@@ -189,10 +178,7 @@ class GateOutcomeTest {
 
     @Test
     void theAdminFlagChangesTheGateDecisionInPreLaunchAndSmpAndNowhereElse() {
-        // PRE_LAUNCH: before the network has ever opened, being an admin IS the admission rule.
-        // SMP: the flag stands in for an access period. In the three remaining phases it decides
-        // where a player goes, not whether they get in - and this loop keeps a third exception from
-        // arriving quietly.
+        // PRE_LAUNCH: admin IS the admission rule. SMP: it stands in for access. Elsewhere it only routes.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             if (phase == SeasonPhase.PRE_LAUNCH || phase == SeasonPhase.SMP) {
                 continue;
@@ -214,13 +200,11 @@ class GateOutcomeTest {
                 "linkedMember() is still asked before the phase, so the reversal did not open a hole");
     }
 
-    // ---------------------------------------------------------------- the boolean form agrees
+    // the boolean form agrees
 
     @Test
     void mayJoinAgreesWithTheOutcomeForEveryPhaseAndEveryAccountState() {
-        // AccessState#mayJoin() is the same table collapsed to one boolean, and the fallback cache
-        // and the expiry sweep decide on it. If the two ever drift, a player let in at login is
-        // kicked by the sweep a minute later - so this asserts they cannot.
+        // mayJoin() is the same table as one boolean; if the two drift, a player let in is kicked a minute later.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             for (final MemberState membership : MemberState.values()) {
                 for (final boolean accessActive : new boolean[] {false, true}) {
@@ -247,8 +231,7 @@ class GateOutcomeTest {
                 PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, false, Locale.ENGLISH, null, null);
 
         assertEquals(SeasonPhase.MAINTENANCE, state.phase());
-        // The guess lands on MAINTENANCE, which means "everybody waits in limbo" - the harmless
-        // place to put a player the proxy cannot yet locate.
+        // The guess lands on MAINTENANCE: "everybody waits in limbo", harmless for an unlocatable player.
         assertEquals(GateOutcome.ALLOW, GateOutcome.of(state));
         assertTrue(state.mayJoin());
     }
@@ -263,7 +246,7 @@ class GateOutcomeTest {
                         + " - and nothing about maintenance");
     }
 
-    // ---------------------------------------------------------------- PRE_LAUNCH
+    // PRE_LAUNCH
 
     @Test
     void preLaunchLetsNobodyInButAnAdmin() {
@@ -277,9 +260,7 @@ class GateOutcomeTest {
 
     @Test
     void preLaunchAsksWhetherAccessWasBoughtAndNotWhetherItIsRunning() {
-        // THE POINT OF THE TWO SCREENS. A period bought before the season opens sits and waits
-        // rather than burning, so it is paid for and not active - asking accessActive() here would
-        // show "buy your first month" to the very people who just did.
+        // A period bought before opening waits rather than burning; accessActive() would wrongly ask them to buy.
         final AccessState boughtButNotRunning = new AccessState(
                 PLAYER,
                 DISCORD_ID,
@@ -312,7 +293,7 @@ class GateOutcomeTest {
                 "a banned admin is still banned, before the opening as after it");
     }
 
-    // ---------------------------------------------------------------- helpers
+    // helpers
 
     private static AccessState member(final SeasonPhase phase, final boolean accessActive) {
         return state(phase, MemberState.MEMBER, accessActive, false);

@@ -5,13 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.common.message.Messages;
 import java.util.List;
 import java.util.Locale;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The far half of {@code /discord} and {@code /rules}.
  *
- * <h2>Why this test is in this module and not next to the commands</h2>
+ * <b>Why this test is in this module and not next to the commands.</b>
  * Because the seam runs between the two. {@code :commands} decides which key each command prints and
  * has a test for that; the value lives here, in the proxy's own bundle, because it wants a clickable
  * link and a colour and the shared bundle carries no markup at all. Neither module can see both
@@ -28,7 +27,6 @@ class InfoTextTest {
             InfoTexts.RULES_TEXT.apply("").key());
 
     @Test
-    @DisplayName("both keys the commands name exist, in both languages")
     void theKeysExist() {
         for (final String key : KEYS) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
@@ -41,7 +39,6 @@ class InfoTextTest {
     }
 
     @Test
-    @DisplayName("both texts carry the invite, because that is the one thing they are for")
     void bothNameTheInvite() {
         for (final String key : KEYS) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
@@ -56,12 +53,8 @@ class InfoTextTest {
     }
 
     @Test
-    @DisplayName("the rules are still marked as a placeholder in both languages")
     void theRulesAreNotInServiceYet() {
-        // Till writes the rules. Until then the one way this ships wrong is quietly:
-        // a /rules that answers with something plausible is a /rules nobody checks again. When the
-        // real text lands, this test is deleted in the same commit - it is a reminder with a build
-        // behind it, not a rule about the wording.
+        // The one way this ships wrong is quietly, with a plausible answer nobody checks again; deleted with the text.
         assertTrue(
                 MESSAGES.get(Locale.ENGLISH, InfoTexts.RULES_TEXT.apply("").key())
                         .contains("PLACEHOLDER"),

@@ -14,25 +14,21 @@ import net.kyori.adventure.sound.Sound;
 /**
  * The one place in {@code proxy} that names a sound to Velocity.
  *
- * <h2>Why it lives here and not in {@code :common}</h2>
- * The same reason {@code SmpSounds} and {@code HungerGamesSounds} live in their own modules:
- * {@code :common} is compiled against neither Paper nor Velocity, so the platform call
- * ({@code Player#playSound}) has to sit next to whichever plugin makes it. {@code SoundVocabularyTest}
- * in {@code :common} fails the build if a second sound-playing file appears anywhere in the four
- * client-facing modules; this file is the third named exception, added in season-2-ingame/28.
+ * Lives here and not in {@code :common} for the same reason {@code SmpSounds} and
+ * {@code HungerGamesSounds} live in their own modules: {@code :common} is compiled against neither
+ * Paper nor Velocity, so the platform call ({@code Player#playSound}) has to sit next to whichever
+ * plugin makes it. {@code SoundVocabularyTest} in {@code :common} fails the build if a second
+ * sound-playing file appears anywhere in the four client-facing modules.
  *
- * <h2>What is different here, and why</h2>
- * {@code smp} and {@code hunger-games} each read a {@code sounds.yml} an operator can retune by ear
- * while players are online. This module has no such file yet - {@code CommandGate} only ever needs
- * one category, {@link Feedback#REFUSED}, and {@code network.yml} carries no sound configuration to
- * read one from. The declared table below is therefore a constant rather than a parsed config, using
- * the same {@code minecraft:block.note_block.bass} at pitch 0.7 that {@code smp} and {@code
- * hunger-games} already use for the same category - one refusal sound across the whole network,
- * unless an operator has reason to want a different one on the proxy specifically. A future category
- * only needs another entry in the map below; a config file to retune them by ear is a separate
- * change, for whenever the proxy grows a second sound.
+ * Unlike {@code smp} and {@code hunger-games}, which each read a {@code sounds.yml} an operator can
+ * retune by ear, this module has no such file: {@code CommandGate} only ever needs one category,
+ * {@link Feedback#REFUSED}, and {@code network.yml} carries no sound configuration to read one
+ * from. The declared table below is therefore a constant rather than a parsed config, using the
+ * same {@code minecraft:block.note_block.bass} at pitch 0.7 that {@code smp} and
+ * {@code hunger-games} already use for the same category. A future category only needs another
+ * entry in the map below; a config file to retune them by ear is a separate change.
  *
- * <p>Everything here must be called from Velocity's own event thread, the same thread
+ * Everything here must be called from Velocity's own event thread, the same thread
  * {@code CommandGate#onCommandExecute} already runs on - there is no second hop to get wrong.
  */
 public final class ProxySounds implements CommandGate.Chime {
@@ -46,8 +42,9 @@ public final class ProxySounds implements CommandGate.Chime {
     }
 
     /**
-     * The one sound this module plays today: {@link Feedback#REFUSED}, at the same key and pitch
-     * {@code smp} and {@code hunger-games} declare in their shipped {@code sounds.yml}.
+     * The one sound this module plays today: {@link Feedback#REFUSED}.
+     *
+     * At the same key and pitch {@code smp} and {@code hunger-games} declare in their shipped {@code sounds.yml}.
      *
      * @param problems where a value that had to be ignored is reported, once each. A plugin passes
      *                 {@code logger::warn}
@@ -66,14 +63,10 @@ public final class ProxySounds implements CommandGate.Chime {
             return;
         }
         try {
-            // MASTER rather than a themed category, same reasoning as SmpSounds: whether the server
-            // may answer a refused command is not the kind of ambience a client's volume sliders
-            // are for.
+            // MASTER rather than a themed category: this is not the kind of ambience a client's sliders are for.
             player.playSound(Sound.sound(Key.key(sound.key()), Sound.Source.MASTER, sound.volume(), sound.pitch()));
         } catch (final RuntimeException exception) {
-            // A malformed key is refused at load, so reaching here means the platform disagreed
-            // with us about something. Silence the category and say so once - the same rule
-            // FeedbackSounds documents for every other adapter.
+            // A malformed key is refused at load, so reaching here means the platform disagreed about something.
             sounds.failed(category, exception, problems);
         }
     }

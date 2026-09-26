@@ -23,20 +23,19 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * The one query behind every MOTD placeholder, against a real PostgreSQL running the real
- * migrations.
+ * The one query behind every MOTD placeholder, against a real PostgreSQL running the real migrations.
  *
- * <p>This is the only thing that can say anything about that query at all. It is a page of scalar
+ * This is the only thing that can say anything about that query at all. It is a page of scalar
  * subqueries over tables <b>two other modules</b> own ({@code V5}'s hunger games, {@code V6}'s SMP),
  * it runs on a timer where a failure is caught and logged rather than thrown, and it renders into a
  * server-list entry nobody is watching in a test. A typo in it would be invisible until somebody
  * noticed the browser had been showing zeroes for a week.
  *
- * <p>It also pins the two derivations that are not simply counts: eliminated players come from
+ * It also pins the two derivations that are not simply counts: eliminated players come from
  * {@code hg_event}'s {@code DEATH} rows rather than from any stored flag, and a team is "still in"
  * while any of its members has no such row.
  *
- * <p>Skips itself without Docker, like every other integration test here - so a green build on a
+ * Skips itself without Docker, like every other integration test here - so a green build on a
  * machine without a daemon proves nothing about this file.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -89,8 +88,7 @@ class SnapshotStoreIntegrationTest {
 
     @Test
     void anEmptyDatabaseAnswersZeroesRatherThanFailing() {
-        // The state a fresh season is in for weeks, and the state the MOTD has to survive: no game,
-        // no milestones, nobody registered.
+        // The state a fresh season is in for weeks: no game, no milestones, nobody registered.
         store.refresh();
 
         assertEquals(
@@ -109,9 +107,7 @@ class SnapshotStoreIntegrationTest {
 
         assertEquals("REGISTRATION", snapshot.hgState());
         assertEquals(2, snapshot.hgTeams());
-        // Four rows, three of them on a team: an INVITED row is an unanswered question and not a
-        // participant, which is the distinction V5 draws and this query has to draw with it. The
-        // other two states, OWNER and ACCEPTED, both count.
+        // An INVITED row is an unanswered question, not a participant; OWNER and ACCEPTED both count.
         assertEquals(3, snapshot.hgParticipants());
         assertEquals(0, snapshot.hgEliminated());
         assertEquals(3, snapshot.hgAlive());
@@ -145,9 +141,7 @@ class SnapshotStoreIntegrationTest {
 
     @Test
     void aDecidedGameStopsBeingTheCurrentOne() {
-        // hg_game has a partial unique index allowing at most one non-DECIDED row, so "the current
-        // game" is a query and not a stored pointer. Once it is decided there is no current game and
-        // every number falls back to zero - which is what the browser should say between games.
+        // "The current game" is a query, not a stored pointer; once decided every number falls back to zero.
         seedGame();
         execute("UPDATE hg_game SET state = 'DECIDED'");
 
@@ -184,8 +178,7 @@ class SnapshotStoreIntegrationTest {
 
     @Test
     void anOvershootingObjectiveCannotCarryTheOthersPastWhatWasAsked() {
-        // least(amount, target) per objective. Without it a hand-in of 10 000 against a target of
-        // 100 would report the whole milestone as complete while its other objectives sat untouched.
+        // least(amount, target) per objective, else an overshoot reports the whole milestone complete early.
         execute("INSERT INTO smp_milestone (key, state) VALUES ('the-nether', 'ACTIVE')");
         execute("""
                 INSERT INTO smp_objective (milestone_key, key, type, amount, target) VALUES
@@ -217,10 +210,7 @@ class SnapshotStoreIntegrationTest {
 
     @Test
     void aDeathAgainstSomebodyWhoNeverJoinedATeamIsNotAnElimination() {
-        // eliminated is counted over exactly the set participants is counted over. Without that
-        // restriction a DEATH row belonging to a member who is not playing - an unanswered
-        // invitation, or somebody whose row moved after they died - makes eliminated exceed
-        // participants, and the server browser then reads "0 alive, 4 eliminated, 3 registered".
+        // eliminated is counted over the same set participants is, else a non-playing DEATH row exceeds it.
         seedGame();
         kill("100000000000000003"); // the INVITED row on Alpha
         store.refresh();
@@ -235,10 +225,7 @@ class SnapshotStoreIntegrationTest {
 
     @Test
     void aFailedRefreshKeepsTheNumbersThatWereAlreadyThere() {
-        // The database stops answering, by refusing connections rather than by losing its tables:
-        // dropping them would leave the schema broken for whichever test runs next, since Flyway
-        // builds it once per class and @BeforeEach only truncates. JUnit's method order is not
-        // something this file should have to depend on.
+        // Refuses connections rather than losing tables: dropping them would break the schema for the next test.
         final AtomicBoolean unreachable = new AtomicBoolean();
         final SnapshotStore overAnOutage = SnapshotStore.using(
                 failingWhen(unreachable), LoggerFactory.getLogger(SnapshotStoreIntegrationTest.class));
@@ -247,8 +234,7 @@ class SnapshotStoreIntegrationTest {
         overAnOutage.refresh();
         assertEquals(2, overAnOutage.current().hgTeams());
 
-        // The MOTD keeps showing what it last knew rather than blanking, which is the whole reason
-        // a failure here is caught and not thrown.
+        // The MOTD keeps showing what it last knew rather than blanking, so a failure is caught, not thrown.
         unreachable.set(true);
         overAnOutage.refresh();
 
@@ -259,11 +245,12 @@ class SnapshotStoreIntegrationTest {
         assertEquals(2, overAnOutage.current().hgTeams(), "and the next tick is the retry");
     }
 
-    // ---------------------------------------------------------------- fixtures
+    // fixtures
 
     /**
-     * Two teams: Alpha with an owner, an accepted partner and one unanswered invitation; Beta with
-     * an owner. Three participants out of four rows.
+     * Two teams: Alpha with an owner, an accepted partner and one unanswered invitation; Beta with an owner.
+     *
+     * Three participants out of four rows.
      */
     private void seedGame() {
         execute("""
@@ -311,9 +298,10 @@ class SnapshotStoreIntegrationTest {
     }
 
     /**
-     * The real pool, until the flag is set - at which point every {@code getConnection} fails the
-     * way an unreachable database does. A {@link Proxy} rather than a hand-written {@code
-     * DataSource}: the interface has nine methods and this needs one of them.
+     * The real pool, until the flag flips every {@code getConnection} into failing like an unreachable database.
+     *
+     * A {@link Proxy} rather than a hand-written {@code DataSource}: the interface has nine methods and this needs
+     * one of them.
      */
     private static DataSource failingWhen(final AtomicBoolean unreachable) {
         return (DataSource) Proxy.newProxyInstance(

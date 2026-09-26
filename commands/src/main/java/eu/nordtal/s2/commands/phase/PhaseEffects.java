@@ -8,6 +8,7 @@ import eu.nordtal.s2.common.phase.PhaseChange;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import java.time.Instant;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The back half of {@code /phase}: everything the two processes that answer it do differently.
@@ -38,7 +39,8 @@ public interface PhaseEffects extends CommandEffects {
      *                 readable, so it is being treated as X" are not the same statement
      * @param launch   the announced opening, if this process holds one
      */
-    record Observation(SeasonPhase phase, boolean everRead, Instant launch) {}
+    record Observation(
+            SeasonPhase phase, boolean everRead, @Nullable Instant launch) {}
 
     /** The row, for everything that has to be read or written for real. */
     PhaseDirectory phases();

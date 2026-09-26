@@ -14,21 +14,19 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 
 /**
- * season-2-ingame/13's proxy half: {@code CommandGate#onCommandExecute} paints {@code Tone.BAD}
- * already and calls the chime hook on every refusal - the same call site {@code CommandFilterTest}
- * holds Paper to. This file stays a hook-level test with a spy rather than a real
- * {@code ProxySounds}: it is what proves the call site itself is right regardless of what
- * plays the sound, and {@code ProxySoundsTest} covers the adapter that maps
- * {@link Feedback} to an actual {@code Player#playSound} call in production, wired by
- * {@code ProxyPlugin} since season-2-ingame/28. See the javadoc on {@link CommandGate.Chime}
- * for the measured answer to season-2-ingame/05's open question - the API says the proxy can reach a
- * player on any backend with {@code playSound}, the same way {@code RestartWatch} already reaches one
- * with {@code sendMessage} and {@code showTitle}.
+ * {@code CommandGate#onCommandExecute} paints {@code Tone.BAD} and calls the chime hook on every refusal.
+ *
+ * The same call site {@code CommandFilterTest} holds Paper to. This file stays a
+ * hook-level test with a spy rather than a real {@code ProxySounds}: it is what proves the call
+ * site itself is right regardless of what plays the sound, and {@code ProxySoundsTest} covers the
+ * adapter that maps {@link Feedback} to an actual {@code Player#playSound} call in production,
+ * wired by {@code ProxyPlugin}. See the javadoc on {@link CommandGate.Chime}: the API lets the
+ * proxy reach a player on any backend with {@code playSound}, the same way {@code RestartWatch}
+ * already reaches one with {@code sendMessage} and {@code showTitle}.
  */
 class CommandGateChimeTest {
 
@@ -47,7 +45,6 @@ class CommandGateChimeTest {
     }
 
     @Test
-    @DisplayName("a command refused for not being on the allowlist plays REFUSED through the hook")
     void refusalPlaysRefused() {
         final SpyChime chime = new SpyChime();
         final CommandGate gate =
@@ -66,11 +63,8 @@ class CommandGateChimeTest {
     }
 
     @Test
-    @DisplayName("without a Chime the old constructor stays silent - nothing regresses for callers")
     void theOldConstructorIsSilentByDefault() {
-        // No SpyChime reachable here at all: this is exactly the four-argument constructor every
-        // existing caller (ProxyPlugin) still uses, proving it still compiles and runs
-        // without ever having heard of Chime.
+        // No SpyChime reachable here: the four-argument constructor every existing caller still uses, unchanged.
         final CommandGate gate = new CommandGate(new LoginRoster(), CommandAllowlist.NOTHING, messages, silentLogger());
         final CommandExecuteEvent event = new CommandExecuteEvent(player(), "spawn");
         gate.onCommandExecute(event);

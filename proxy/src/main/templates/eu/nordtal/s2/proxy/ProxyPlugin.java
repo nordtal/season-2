@@ -91,28 +91,21 @@ import java.util.concurrent.atomic.AtomicReference;
  * Owns the season 2 phase state machine, the access login gate and the network-wide play-time
  * counter.
  *
- * <p>What is wired up here:
+ * What is wired up here: {@link LoginGate}, the phase-aware login decision, one database round
+ * trip carrying both the access state and the {@link SeasonPhase}; {@link PhaseWatch} plus a
+ * {@link NotificationListener}, the 30-second poll and a dedicated {@code LISTEN nordtal_phase}
+ * connection outside the pool - the poll is the guarantee, the listener only makes a switch feel
+ * instant; {@code PhaseCommand}, the emergency {@code /phase}, authorised by
+ * {@code discord_user.admin} through {@link LoginRoster}; {@link PlaytimeWriter},
+ * {@code player_playtime}, written on disconnect and periodically in between;
+ * {@link MisconfiguredGate}, the fail-closed handler, below; {@code PlayerRouter}, the limbo-first
+ * login route and the phase-change re-route; and {@link PackStation}, the forced resource-pack
+ * offer, the {@code nordtal:limbo} channel and the release out of the waiting room.
  *
- * <ul>
- *   <li>{@link LoginGate} - the phase-aware login decision, one database round trip carrying both
- *       the access state and the {@link SeasonPhase}.</li>
- *   <li>{@link PhaseWatch} + a {@link NotificationListener} - the 30-second poll <b>and</b> a dedicated
- *       {@code LISTEN nordtal_phase} connection outside the pool. The poll is the guarantee; the
- *       listener only makes a switch feel instant.</li>
- *   <li>{@link PhaseCommand} - the emergency {@code /phase}, authorised by
- *       {@code discord_user.admin} through {@link LoginRoster}.</li>
- *   <li>{@link PlaytimeWriter} - {@code player_playtime}, written on disconnect and periodically
- *       in between.</li>
- *   <li>{@link MisconfiguredGate} - the fail-closed handler, below.</li>
- *   <li>{@link PlayerRouter} - the limbo-first login route and the phase-change re-route.</li>
- *   <li>{@link PackStation} - the forced resource-pack offer, the {@code nordtal:limbo} channel and
- *       the release out of the waiting room.</li>
- * </ul>
- *
- * <p><b>Configuration failure fails closed:</b> a bad {@code database.yml} or {@code gate.yml}
- * registers a {@code LoginEvent} handler that refuses <em>everybody</em>, which is the per-plugin
- * disable Velocity does not have. Admins are not exempted and cannot be - the admin flag lives in
- * the database a bad {@code database.yml} cannot reach.
+ * Configuration failure fails closed: a bad {@code database.yml} or {@code gate.yml} registers a
+ * {@code LoginEvent} handler that refuses everybody, which is the per-plugin disable Velocity does
+ * not have. Admins are not exempted and cannot be - the admin flag lives in the database a bad
+ * {@code database.yml} cannot reach.
  */
 @Plugin(
         id = "proxy",
@@ -135,9 +128,9 @@ public final class ProxyPlugin {
     /**
      * Assigned after the listener above is started, and read by it.
      *
-     * <p>Volatile because the listener's own thread calls its refreshes the moment it connects,
+     * Volatile because the listener's own thread calls its refreshes the moment it connects,
      * which is before this line is reached - the same window {@code commandInbox} has, answered the
-     * same way. The five-second poll covers it.</p>
+     * same way. The five-second poll covers it.
      */
     private volatile RestartWatch restartWatch;
     private volatile Evacuation evacuation;
@@ -145,8 +138,8 @@ public final class ProxyPlugin {
     /**
      * Commands another process asked this one to run.
      *
-     * <p>A field because the notification listener is built before it and refers to it: the listener
-     * carries {@code nordtal_command} alongside the phase and admin channels, on one connection.</p>
+     * A field because the notification listener is built before it and refers to it: the listener
+     * carries {@code nordtal_command} alongside the phase and admin channels, on one connection.
      */
     private volatile CommandInbox commandInbox;
     /** {@code :commands}' bundle as the inbox renders it - a second view of the same files. */
@@ -169,14 +162,7 @@ public final class ProxyPlugin {
         logger.info("proxy enabled, {} backends registered", proxy.getAllServers().size());
 
         try {
-            // Inside the try, and that is the point of this block: Messages.load creates the
-            // override directory and writes a README into it, so on a read-only or full volume it
-            // throws - and outside the try that would leave the proxy up and accepting logins with
-            // neither LoginGate nor MisconfiguredGate registered.
-            //
-            // Two roots: the shared bundle of :commands underneath this module's own, so that every
-            // string /phase says is declared with the command and shared with the bot. This
-            // module's own keys win on a collision, which lets the proxy reword a shared line.
+            // Inside the try since Messages.load can throw on a read-only volume; two roots, this module's keys win.
             final Messages messages = Messages.load(getClass().getClassLoader(),
                     List.of("messages/commands", "messages/proxy"),
                     dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
@@ -198,17 +184,13 @@ public final class ProxyPlugin {
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
                        final PackSpec packConfig, final NetworkSpec networkConfig,
                        final ColoursSpec coloursConfig, final Messages messages) {
-        // :commands' bundle on its own, with the operator's override on top of it, for the command
-        // inbox to render remote answers with. One root and not two, because the layered bundle
-        // above lets THIS module's keys win and this module's keys are allowed MiniMessage, which
-        // a Discord admin would read as a literal <green>. /network reload moves both.
+        // :commands' bundle alone, for the inbox: its own keys allow MiniMessage, unlike the layered root.
         this.sharedMessages = Messages.load(getClass().getClassLoader(), "messages/commands",
                 dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
         this.pool = AccessPool.open(databaseConfig);
         this.access = AccessDirectory.using(pool);
 
-        // season-2-ingame/22: the five reply colours. Read once, here, the same as network.yml and
-        // gate.yml - see ColoursSpec's own javadoc for why this has no reload path yet.
+        // The five reply colours, read once, here, the same as network.yml and gate.yml - see ColoursSpec.
         final ToneColours colours = ToneColours.parse(Configs.declared(coloursConfig), logger::warn);
 
         final PhaseDirectory phases = PhaseDirectory.using(pool);
@@ -216,20 +198,10 @@ public final class ProxyPlugin {
         final FallbackCache fallback = new FallbackCache(Duration.ofMinutes(gateConfig.fallbackCacheWindowMinutes()));
         final LoginRoster roster = new LoginRoster();
 
-        // ------------------------------------------------------------ the phase: poll and listen
-
-        // PlayerRouter is the phase-change listener, but it needs the watch it listens to (for the
-        // login-time phase), so the reference is filled in immediately after the watch exists. The
-        // watch never calls its listener from the constructor, only from refresh().
-        // ONE PhaseServers for the whole plugin, not one per caller. Since season-2-ops/120 it
-        // carries two waiting-room names rather than one, and two constructions of it would be two
-        // chances for half the plugin to know about the standby and half not to.
+        // PlayerRouter is the phase-change listener; ONE PhaseServers for the whole plugin, not one per caller.
         final PhaseServers phaseServers = PhaseServers.from(gateConfig);
 
-        // WHICH OF THE TWO PROXIES THIS IS (season-2-ops/121), and the only thing that says so.
-        // Both containers are the same image with the same environment - compose.yml shares one
-        // YAML node between them - and Velocity binds 0.0.0.0:25565 inside both, so nothing here
-        // can be worked out by looking. See ProxyRole for why guessing is worse than asking.
+        // Which of the two proxies this is: both containers are the same image; nothing can be worked out by looking.
         final ProxyRole role = ProxyRole.of(networkConfig.standby());
         final PhaseRouting routing = new PhaseRouting(phaseServers, role);
         final java.net.InetSocketAddress publicAddress =
@@ -239,17 +211,12 @@ public final class ProxyPlugin {
                         .orElse(null);
         final SwapStore swaps = SwapStore.using(pool);
 
-        // READ ONCE, HERE, AND BEFORE VELOCITY BINDS ITS LISTENER. Measured on this host's own
-        // velocity-4.2.0-30.jar (2026-09-19): ProxyInitializeEvent is fired before
-        // ConnectionManager#bind, so no login can race this read. The statement empties the table,
-        // which is what makes a seat valid for one run and not for ever.
+        // Read once, before Velocity binds its listener, so no login can race it; the statement empties the table.
         ParkedSeats parked;
         try {
             parked = new ParkedSeats(swaps.takeAllSeats(), Clock.systemUTC().instant());
         } catch (final RuntimeException failure) {
-            // Not fatal. Everything a seat changes is where an ADMIN lands after a swap; every
-            // other player is routed by the phase, which is where the seat would have sent them
-            // anyway. Refusing to start over that would trade the network for a convenience.
+            // Not fatal: a seat only changes where an admin lands, and refusing to start over that trades the network.
             logger.warn("Could not read where players were standing before the last proxy swap; "
                     + "everybody will be routed by the season phase", failure);
             parked = new ParkedSeats(java.util.List.of(), Clock.systemUTC().instant());
@@ -267,7 +234,7 @@ public final class ProxyPlugin {
             }
         });
 
-        // ------------------------------------------------------------ the pack station
+        // the pack station
 
         final PackMessages packMessages = new PackMessages(messages);
         final PackOffer offer = packConfig.enabled()
@@ -285,25 +252,18 @@ public final class ProxyPlugin {
         final WaitingBook book = new WaitingBook(offer != null,
                 Duration.ofSeconds(packConfig.applyTimeoutSeconds()),
                 Duration.ofSeconds(gateConfig.limboReadyGraceSeconds()), role, Clock.systemUTC());
-        // season-2-ops/20: one breaker per backend, shared by BackendKick (which trips it), the
-        // pack station's own release-connection failures (which trip it too) and PlayerRouter
-        // (which clears it the moment a real connection to that backend succeeds again).
+        // One breaker per backend: BackendKick and the pack station trip it, PlayerRouter clears it on reconnect.
         final BackendHealth backendHealth = new BackendHealth(Clock.systemUTC());
         final PackStation packs = new PackStation(proxy, logger, routing, phaseWatch, roster,
                 packMessages, packConfig, offer, book, backendHealth);
         packs.registerChannel();
 
-        // Every destination this plugin chooses is recorded, and every other one is refused - the
-        // layer underneath CommandGate, below. Routing was a decision nothing enforced: Velocity's
-        // own /server is open to every player, so /server hunger-games during the SMP phase put
-        // somebody there past the phase, past that backend's access check and past the pack.
+        // Every destination this plugin chooses is recorded, every other refused - Velocity's /server was open to all.
         final RouteIntents intents =
                 new RouteIntents(roster, phaseServers, logger);
         proxy.getEventManager().register(this, intents);
 
-        // THE WAY BACK HAS A VOICE TOO (season-2-ops/118). One object for both returns - out of
-        // the waiting room and off the standby proxy - because they are one sentence said twice
-        // and the register of who is owed it is the same register.
+        // The way back has a voice too: one object for both returns, one sentence said twice on the same register.
         final Homecoming homecoming = new Homecoming(logger, messages, roster, phaseServers);
 
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
@@ -320,27 +280,12 @@ public final class ProxyPlugin {
                 .repeat(sweepInterval)
                 .schedule();
 
-        // Read once, before the first player can arrive, so the proxy never runs on the
-        // never-read-it MAINTENANCE fallback longer than it has to.
+        // Read once, before the first player arrives, so the MAINTENANCE fallback runs as briefly as possible.
         phaseWatch.refresh();
 
         final Duration pollInterval = Duration.ofSeconds(gateConfig.phasePollIntervalSeconds());
 
-        // The admin roster rides the same two signals as the phase - the poll and the LISTEN - for
-        // the same reason: LoginRoster is filled at login and was never touched again, so an admin
-        // who lost the role in Discord kept /phase and /smp until they disconnected. An emergency
-        // revocation is precisely the case where that is the wrong direction.
-        //
-        // The whole set, re-derived: a lost notification then costs latency and not correctness,
-        // and the poll needs no bookkeeping to catch up on.
-        // A CHANGED FLAG RE-ROUTES. Refreshing the roster only fixes who may run /phase and /smp;
-        // without this an admin whose rank was revoked during MAINTENANCE would keep standing on
-        // the SMP - the one phase where the flag is the whole difference between being let in and
-        // being held - until somebody happened to change the phase.
-        //
-        // rerouteAll re-reads each player's own admission row rather than trusting the phase passed
-        // in, so this is the same pass a phase change runs, and it only runs when something
-        // actually changed.
+        // The admin roster rides the phase's two signals; the whole set is re-derived, rerouteAll only on change.
         final Runnable refreshAdmins = () -> {
             final int changed = roster.refreshAdmins(access.admins());
             if (changed > 0) {
@@ -373,33 +318,22 @@ public final class ProxyPlugin {
                     java.util.List.of(
                             new NotificationListener.Refresh("the season phase", phaseWatch::refresh),
                             new NotificationListener.Refresh("the admin roster", refreshAdmins),
-                            // One connection carrying three channels. The listener never inspects
-                            // which one woke it and runs every refresh on every signal, which is
-                            // what makes sharing strictly cheaper than not.
+                            // One connection, three channels: every refresh runs on every signal regardless.
                             new NotificationListener.Refresh("the command inbox", () -> {
-                                // Null until the command layer is built, ninety lines further down,
-                                // and the listener's own thread calls every refresh the moment it
-                                // connects - so the first one lands before this field is assigned.
-                                // The five-second poll picks up anything missed in that window.
+                                // Null until the command layer is built further down; the poll covers that window.
                                 final CommandInbox inbox = commandInbox;
                                 if (inbox != null) {
                                     inbox.drain();
                                 }
                             }),
-                            // The countdown, for the same reason and with the same null guard. On a
-                            // thirty-second warning, five seconds of poll latency is a sixth of it
-                            // spent before anybody is told - and the beats that passed in that
-                            // window are dropped, so the "30 seconds" line would simply not happen.
+                            // The countdown, same reason and null guard: latency here would drop the "30s" beat.
                             new NotificationListener.Refresh("the restart countdown", () -> {
                                 final RestartWatch watch = restartWatch;
                                 if (watch != null) {
                                     watch.check();
                                 }
                             }),
-                            // And the evacuation on the same signal. It has eight seconds of window
-                            // to work in, so five seconds of poll latency is most of it - a
-                            // notification is what makes the move happen with time to complete
-                            // rather than in the same second as the stop.
+                            // And the evacuation on the same signal: an eight-second window makes it matter.
                             new NotificationListener.Refresh("the update evacuation", () -> {
                                 final Evacuation moving = evacuation;
                                 if (moving != null) {
@@ -414,7 +348,7 @@ public final class ProxyPlugin {
                     Channels.PHASE, Channels.ADMIN, pollInterval.toSeconds());
         }
 
-        // ------------------------------------------------------------ the gate
+        // the gate
 
         final LoginGate loginGate = new LoginGate(logger, proxy, access, fallback, roster, gateMessages,
                 gateConfig, networkConfig, Clock.systemUTC());
@@ -424,10 +358,7 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, loginGate);
         proxy.getEventManager().register(this, roster);
         proxy.getEventManager().register(this, expiryWatch);
-        // A kick with a reason keeps the backend's own screen, without Velocity's English wrapper
-        // around it. A kick with none - the connection died rather than being decided - goes to
-        // the waiting room instead of a disconnect screen, and suspends that one backend in
-        // backendHealth until a real connection to it succeeds again. See BackendKick.
+        // A kick with a reason keeps the backend's screen; one with none goes to the waiting room. See BackendKick.
         proxy.getEventManager().register(this, new BackendKick(proxy, phaseServers,
                 backendHealth, gateMessages, roster, logger));
 
@@ -436,12 +367,7 @@ public final class ProxyPlugin {
                 .repeat(Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds()))
                 .schedule();
 
-        // ------------------------------------------------------------ the server browser
-
-        // The MOTD and the advertised limit, both out of network.yml. The snapshot behind the
-        // placeholders is refreshed on a timer and never on the ping itself: a ping is
-        // unauthenticated and arrives in bursts, so it must not be able to make the proxy query
-        // anything.
+        // The MOTD and limit, out of network.yml; refreshed on a timer, never on the unauthenticated ping itself.
         final SnapshotStore snapshots = SnapshotStore.using(pool, logger);
         final Duration snapshotInterval = Duration.ofSeconds(networkConfig.snapshotRefreshSeconds());
         snapshots.refresh();
@@ -453,22 +379,7 @@ public final class ProxyPlugin {
                 snapshots, messages, Clock.systemUTC(),
                 eu.nordtal.s2.proxy.ping.ServerIcon.load(dataDirectory, logger)));
 
-        // ------------------------------------------------------------ the service list's player counts
-
-        // steward/86: this proxy is the only process that already knows every connection and which
-        // backend it is on, without adding anything up - the same two calls NetworkPing's own
-        // placeholders already use. Writing them to online_count is what lets steward-worker show a
-        // count next to smp, hunger-games, limbo and the network total without a Velocity API of its
-        // own. See OnlineDirectory#WRITE_INTERVAL for why this runs on a fixed constant and not a
-        // network.yml setting.
-        // steward/111: the same tick also writes WHO is connected into online_player, because
-        // online_count is numbers and nothing else by its own migration's decision. One pass over
-        // the proxy, two tables - a second timer would let the count and the list describe two
-        // different moments.
-        // season-2-ops/122: the task ticks every second and the writer decides whether that tick
-        // is due. It is not a tenfold increase in writes - on all but the seconds of an actual run
-        // it is two comparisons - and it is what makes "is this service free of players yet" a
-        // question steward-worker can answer inside its ten-second cap.
+        // This proxy already knows every connection; it writes counts and who is connected in one pass per tick.
         final OnlineWriter onlineWriter = new OnlineWriter(proxy, phaseServers,
                 OnlineDirectory.using(pool), OnlineRoster.using(pool), role, logger);
         onlineWriter.write();
@@ -477,7 +388,7 @@ public final class ProxyPlugin {
                 .repeat(OnlineWriter.TICK)
                 .schedule();
 
-        // ------------------------------------------------------------ play time
+        // play time
 
         this.playtime = new PlaytimeWriter(PlaytimeStore.using(pool), roster, logger);
         proxy.getEventManager().register(this, playtime);
@@ -488,12 +399,7 @@ public final class ProxyPlugin {
                 .repeat(flushInterval)
                 .schedule();
 
-        // ------------------------------------------------------------ the restart countdown
-
-        // The proxy is the only process that sees every player, so it is the one that warns them.
-        // A restart is asked for in Discord or with /smp update restart; both write a row with an
-        // absolute instant on it, and this counts towards that instant rather than a duration of
-        // its own.
+        // The proxy is the only process that sees every player, so it warns them, towards the row's own instant.
         this.restartWatch = new RestartWatch(this, proxy, logger,
                 UpdateDirectory.using(pool), roster, messages, phaseServers, Clock.systemUTC());
         proxy.getScheduler().buildTask(this, this.restartWatch::check)
@@ -501,73 +407,36 @@ public final class ProxyPlugin {
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();
 
-        // Warning them is half of it; the other half is not disconnecting them. This moves the
-        // players off a backend the run is about to stop into the waiting room, and tells the
-        // waiting room to say "update" rather than "waiting for the server" while it holds them.
-        // Bringing them back needs nothing here: the sweep above already releases a held player the
-        // moment their backend takes a connection again.
-        //
-        // The same interval as the countdown, on its own task rather than chained to it: a watch
-        // that throws must not take the other one down with it, and these two are the only things
-        // standing between a player and a disconnect nobody explained.
+        // Warning is half of it; the other half moves players into the waiting room, its own task off the countdown.
         this.evacuation = new Evacuation(proxy, logger,
                 UpdateDirectory.using(pool), phaseServers, homecoming);
         packs.whenUpdating(this.evacuation::isMoving);
         packs.whenHeld(this.evacuation::isHeld);
-        // And the counts get their fast cadence from the same watch - see OnlineWriter#tick.
-        // FROM THE COUNTDOWN AND NOT FROM THE MOVE (season-2-ops/118). steward-worker asks how many
-        // players are on a service the instant the counter reaches zero, which is the same instant
-        // the move happens - so a cadence that starts with the move starts one question too late
-        // and the first answer is a count up to ten seconds old.
+        // The counts get their fast cadence from the countdown, not the move - see OnlineWriter#tick.
         onlineWriter.whenHurrying(() ->
                 this.restartWatch.isCountingDown() || this.evacuation.isAnyMoving());
-        // THE MOMENT, NOT THE WINDOW (season-2-ops/118). The countdown already schedules a task on
-        // the exact instant the counter reaches zero; this is that instant handed to the one other
-        // thing that has to happen on it. Nobody is moved a second early any more - the worker
-        // waits after zero until the servers are empty, so there is nothing left to get a head
-        // start on.
+        // The moment, not the window: the countdown already schedules a task on the instant, handed on here.
         proxy.getScheduler().buildTask(this, this.evacuation::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();
 
-        // ------------------------------------------------------------ the proxy swap
-
-        // What Evacuation cannot do, because the process it would do it with is the one being
-        // stopped (season-2-ops/121). One of these two does something and the other does nothing,
-        // and which is which is `role`: the live proxy parks the network on the standby before it
-        // goes, and the standby holds it and hands it back. Both are wired on every proxy so that
-        // the standby is the live proxy with one value changed, and never a second build.
+        // What Evacuation cannot do, since its own process is being stopped; `role` decides which of the two acts.
         final ProxySwap swap = new ProxySwap(proxy, logger, UpdateDirectory.using(pool), swaps,
                 role, standbyAddress, Clock.systemUTC());
-        // ON THE SAME MOMENT, AND SECOND (season-2-ops/118). The park reads the same running row
-        // the evacuation does, so on its own five-second sweep it lands anywhere in the five
-        // seconds after zero - measured 2026-09-20: two seconds late. The order is the order a
-        // player travels: off the backends into the waiting room first, then the whole network onto
-        // the standby proxy. Parking first would move people twice.
+        // On the same moment, and second: the order is the order a player travels, backends first then the network.
         this.restartWatch.whenZeroReached(() -> {
             this.evacuation.check();
             swap.check();
         });
-        // AND THE ANNOUNCEMENT LEARNS WHETHER THERE IS A STANDBY (season-2-ops/118). It is the
-        // difference between telling a player they will see a loading screen and telling them they
-        // are about to be thrown out, and it is a fact about right now rather than about the
-        // configuration - the standby lives in a profile of its own and is stopped most of the
-        // time. Asked once per countdown, never on a pass with nothing to do.
+        // And the announcement learns whether there is a standby: loading screen or thrown out, once per countdown.
         this.restartWatch.standbyProxyAnswers(swap::canPark);
         proxy.getScheduler().buildTask(this, swap::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();
 
-        // THE PARK IS A MOMENT AND THE DOOR IS A STATE (season-2-ops/151). Between the park above
-        // and the actual stop lie the seconds the worker spends waiting for the backends to empty
-        // - sixteen in run 59 - and whoever connects in them was never parked. They get a sentence
-        // now instead of Velocity's "Proxy shutting down".
-        // PARKED, NOT REFUSED (season-2-ops/151, Till's decision on 2026-09-20). The door does not
-        // shut any more: an arrival in that window is handed to the standby exactly like everybody
-        // who was already connected, and the sentence is what is left when the transfer itself
-        // cannot be sent. A player with a seat is coming BACK from this swap and is not touched.
+        // The park is a moment, the door a state: an arrival in the gap gets a sentence and goes to the standby too.
         proxy.getEventManager().register(this,
                 new RestartGate(logger, swap::isStopping, parkedSeats::holds, swap::park,
                         gateMessages, fallback));
@@ -579,10 +448,7 @@ public final class ProxyPlugin {
                 .repeat(StandbyReturn.INTERVAL)
                 .schedule();
 
-        // SAID AT START AND NOT ON THE DAY IT MATTERS. Everything about a proxy swap is invisible
-        // until one runs, and the two ways it silently does not happen - no public address, and a
-        // standby that was never told it is one - both look exactly like a network that simply
-        // went down for the update.
+        // Said at start, not on the day it matters: a silent swap failure looks like a network that just went down.
         if (role.isStandby()) {
             logger.info("THIS IS THE STANDBY PROXY. Arrivals are held in '{}' and transferred back "
                             + "to {} as soon as it answers again; no player counts are written "
@@ -600,12 +466,7 @@ public final class ProxyPlugin {
                     + "proxies instead.");
         }
 
-        // ------------------------------------------------------------ the command allowlist
-
-        // One list, in network.yml, for the whole network. This proxy enforces it directly - it
-        // sees every command a player types, including the ones bound for a backend - and
-        // publishes it for the three Paper servers, which need it for the one half a proxy cannot
-        // do: what a client is told exists. See CommandGate and :common's CommandFilter.
+        // One list, in network.yml, enforced here and published for the Paper servers. See CommandGate/CommandFilter.
         final CommandAllowlist allowlist =
                 CommandAllowlist.parse(networkConfig.commandAllowlist());
         proxy.getEventManager().register(this,
@@ -623,21 +484,12 @@ public final class ProxyPlugin {
                 logger.info("Published the command allowlist for the three Paper backends");
             }
         } catch (final RuntimeException failure) {
-            // Not fatal, and deliberately so. This proxy's own enforcement does not depend on the
-            // row - it reads the file. What a failure here costs is the backends' completion
-            // filter, which stays as it was until the next start; and the login gate behind this
-            // point is worth more than the tab list on three servers.
+            // Not fatal: this proxy's enforcement reads the file, not the row; only the tab-completion filter is lost.
             logger.warn("Could not publish the command allowlist; the Paper backends will keep "
                     + "whatever list they last read. This proxy still enforces it.", failure);
         }
 
-        // ------------------------------------------------------------ the emergency command
-
-        // Every decision lives in :commands and is shared with the bot; VelocityCommands builds the
-        // Brigadier tree, resolves the source, confirms, and prints the usage line when somebody
-        // types half a command. The proxy registers only ITS OWN commands: Velocity answers a
-        // command it knows before the packet reaches a backend, so a /smp here would shadow the
-        // SMP's own and turn a local command into a round trip through a request row.
+        // Every decision lives in :commands, shared with the bot; the proxy registers only its own commands here.
         final PhaseEffects phaseEffects =
                 new ProxyPhaseEffects(this, proxy, logger, phases, phaseWatch);
         final NetworkEffects networkEffects = new ProxyNetworkEffects(
@@ -647,12 +499,7 @@ public final class ProxyPlugin {
         PhaseCommands.all().forEach(command -> tree.local(command, phaseEffects));
         NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
 
-        // /update is Target.LOCAL, so the proxy writes the update_request row over the pool it
-        // already holds. This is the surface that matters most: an update is asked for when the
-        // network is misbehaving and the proxy is what an admin can still reach, and Velocity
-        // executes every command it knows itself, so for anybody playing this is the only process
-        // that serves /update at all. The watcher is therefore not optional - without it an admin
-        // gets the acknowledgement and never the answer.
+        // /update is Target.LOCAL: the proxy writes the row itself, and the watcher is not optional for the answer.
         final eu.nordtal.s2.proxy.update.UpdateWatch updateWatch =
                 new eu.nordtal.s2.proxy.update.UpdateWatch(this, proxy, logger,
                         UpdateDirectory.using(pool), Clock.systemUTC());
@@ -665,24 +512,10 @@ public final class ProxyPlugin {
                         updateWatch::watch);
         eu.nordtal.s2.commands.update.UpdateCommands.all()
                 .forEach(command -> tree.local(command, updateEffects));
-        // ---------------------------------------------- the five a player types, natively
-        //
-        // /msg, /whisper, /r, /discord and /rules are NOT built through `tree`: they are plain
-        // Velocity Brigadier, registered below beside it (season-2-ops/155). They went that way
-        // because none of the four things a Declaration is worth its cost for applies to any of
-        // them - one surface, one target, no confirmation, no admin flag, and no argument that
-        // ever travels through a database row. What they lost is a declaration, an effects
-        // interface and a catalogue entry; what they do is unchanged.
-        //
-        // NOT admin-only, in either half: the command allowlist takes vanilla's /tell, /msg, /w and
-        // /teammsg away from players, and these replace them. The proxy owns them because it is
-        // the only process that can see both people, and because /discord and /rules have to work
-        // in the waiting room - where the player who most needs to be told how to reach us is
-        // standing.
+        // The five a player types, natively: plain Velocity Brigadier, not built through `tree`, and not admin-only.
         final PrivateMessages privateMessages =
                 new PrivateMessages(proxy, roster, messages, () -> colours, logger);
-        // A listener as well as a command: it holds who last spoke to whom, for /r, and that has to
-        // be dropped when somebody leaves. Nothing about a private message is persisted.
+        // A listener as well as a command: it holds who last spoke to whom, for /r, dropped when somebody leaves.
         proxy.getEventManager().register(this, privateMessages);
 
         // The invite is gate.yml's, the same string every login screen already uses.
@@ -701,24 +534,16 @@ public final class ProxyPlugin {
         registered.forEach(command -> commands.register(
                 commands.metaBuilder(command).plugin(this).build(), command));
 
-        // The proxy's own inbox: /network reload asked for in Discord arrives as a request row.
-        // /phase does not travel - the bot runs it against the database itself, because the row it
-        // writes is the state and no process owns it.
+        // The proxy's own inbox: /network reload is a request row; /phase does not travel, the row is the state.
         commandInbox = new CommandInbox(Target.PROXY,
                 CommandRequests.borrowing(pool),
-                // :commands' bundle alone - the layered `messages` would let this module's own
-                // bundle win, and that one is allowed MiniMessage, which reaches a Discord admin as
-                // a literal <green>. Alone means one root and NOT no overrides: the operator's
-                // override directory is on it, and sharedMessages is reloaded by /network reload
-                // alongside `messages`, so the same command does not read differently depending on
-                // where it was typed.
+                // :commands' bundle alone - the layered `messages` allows MiniMessage an admin would read literally.
                 sharedMessages,
                 eu.nordtal.s2.commands.remote.CommandInbox.AdminCheck.of(
                         access::admins, access::adminMinecraftAccounts),
                 (message, failure) -> logger.warn(message, failure));
         NetworkCommands.all().forEach(command -> commandInbox.register(command,
-                // Inline: the inbox settles a request row when the command returns, so scheduled
-                // effects would write the answer before the command produced it.
+                // Inline: the inbox settles a request row when the command returns, before any scheduled effect.
                 new ProxyNetworkEffects(Runnable::run, messages, sharedMessages, logger)));
         proxy.getScheduler().buildTask(this, commandInbox::drain)
                 .delay(java.time.Duration.ofSeconds(5))
@@ -748,11 +573,11 @@ public final class ProxyPlugin {
     /**
      * The container readiness marker - see {@link Readiness}, and note where this call sits.
      *
-     * <p>It is the last thing {@link #start} does, and {@link #failClosed} does not call it at all.
-     * That is the whole point on this service: a proxy whose configuration is broken is <em>up</em>,
+     * It is the last thing {@link #start} does, and {@link #failClosed} does not call it at all.
+     * That is the whole point on this service: a proxy whose configuration is broken is up,
      * bound to 25565 and answering pings, while refusing every login there is. "The proxy is up and
      * the gate is off" announced itself nowhere until this marker existed - a port check cannot see
-     * it, because the port is exactly what still works.</p>
+     * it, because the port is exactly what still works.
      */
     private void startHeartbeat() {
         final Readiness readiness = Readiness.onDefaultPath(logger::warn);
@@ -771,19 +596,13 @@ public final class ProxyPlugin {
                 + "Fix the configuration and restart the proxy.");
         logger.error("{}", failure.getMessage(), failure);
 
-        // Its own bundle, from the classpath and with NO override directory: the override layer is
-        // a directory this plugin writes into, so it is one of the things that can be broken here,
-        // and the screen that says "the network is misconfigured" must not depend on it.
+        // Its own bundle, from the classpath with NO override directory: that layer is one thing that can break.
         try {
             final Messages messages = Messages.load(getClass().getClassLoader(),
                     "messages/proxy", Locale.ENGLISH, Locale.GERMAN);
             proxy.getEventManager().register(this, new MisconfiguredGate(logger, messages));
         } catch (final RuntimeException broken) {
-            // The packaged bundle is inside this jar, so reaching here means the jar itself is
-            // damaged. There is no screen left to refuse anybody with, and a proxy that cannot
-            // refuse must not keep accepting: this is the same rule the three Paper plugins follow
-            // with getServer().shutdown(), for the same reason. "The proxy is down" announces
-            // itself; "the proxy is up and the gate is off" never does.
+            // The packaged bundle is inside the jar; reaching here means it is damaged, so the proxy shuts down.
             logger.error("proxy cannot even load its own packaged messages, so it cannot "
                     + "put up a refusal screen. Stopping the proxy - that is the only way left to "
                     + "refuse everybody.", broken);
@@ -792,25 +611,21 @@ public final class ProxyPlugin {
             return;
         }
 
-        // Whatever got as far as being opened before the failure has to go: a half-built plugin
-        // holding a connection pool open is worse than one holding nothing.
+        // Whatever got opened before the failure has to go: a half-built plugin holding a pool is worse than nothing.
         closeResources();
     }
 
     @Subscribe
     public void onProxyShutdown(final ProxyShutdownEvent event) {
         if (playtime != null) {
-            // The last slice of every connected session. Without this, a planned restart costs
-            // everybody the time since their last periodic flush for no reason at all.
+            // The last slice of every connected session, so a planned restart costs nobody time since their last flush.
             logger.info("Flushed play time for {} players on shutdown", playtime.flushAll());
         }
         closeResources();
     }
 
     private void closeResources() {
-        // Stops the beat, so a proxy that is going down stops claiming to be up. The marker is
-        // deliberately not deleted: going stale is the signal. This runs on the fail-closed path
-        // too, where there is nothing to cancel - and nothing to claim either.
+        // Stops the beat so a proxy going down stops claiming to be up; going stale, not deleted, is the signal.
         if (heartbeat != null) {
             heartbeat.cancel();
             heartbeat = null;
@@ -819,8 +634,7 @@ public final class ProxyPlugin {
             phaseListener.close();
             phaseListener = null;
         }
-        // access.close() is a no-op (AccessDirectory.using(...) never owns the pool it is handed) -
-        // this proxy built the pool itself with AccessPool and is the one that has to close it.
+        // access.close() is a no-op (it never owns the pool); this proxy built the pool with AccessPool and closes it.
         if (pool != null) {
             pool.close();
             pool = null;

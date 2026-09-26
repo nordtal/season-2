@@ -8,18 +8,17 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code config/gate.yml} - everything the login gate and the mid-session expiry check need that
- * is not a database credential.
- * <p>
+ * {@code config/gate.yml}.
+ *
+ * Everything the login gate and the mid-session expiry check need that is not a database credential.
+ *
  * {@link #linkCodeTtlMinutes()} is the only link-code TTL: the proxy calls
  * {@code AccessDirectory#issueLinkCode}, so it is the only process that can act on one.
- * </p>
  */
 @ConfigSpec(
         header = {
-            "-------------------------------------------------------------------",
-            "  proxy - the login gate and the mid-session expiry check",
-            "-------------------------------------------------------------------",
+            "proxy - the login gate and the mid-session expiry check",
+            "",
             "Every setting here can be overridden with an environment variable",
             "named NORDTAL_PROXY_GATE_<PATH>, with '.' and '-' both",
             "becoming '_':",
@@ -220,19 +219,17 @@ public interface GateSpec {
     @Name("Limbo standby server")
     @Key("server-limbo-standby")
     @Comment({
-        "THE SECOND WAITING ROOM, and the only reason it exists is that the first one can",
-        "itself be the thing being updated (season-2-ops/120). A run that stops `limbo` used",
-        "to leave the proxy with nowhere to put anybody: everybody connected was disconnected",
-        "and the countdown was all the warning they got.",
+        "The second waiting room, for while the first one (`limbo`) is itself the thing being",
+        "updated. Without it, a run that stops `limbo` would leave the proxy with nowhere to put",
+        "anybody connected.",
         "",
-        "It is NOT a special kind of waiting room. It is a second limbo with the normal role -",
-        "a player sits there for the same reasons, sees the same titles, and is released onto",
-        "the same backend. Everything that asks \"is this player waiting\" accepts both names;",
-        "see PhaseServers#isWaitingRoom.",
+        "Not a special kind of waiting room: a second limbo with the normal role - a player sits",
+        "there for the same reasons, sees the same titles, and is released onto the same backend.",
+        "Everything that asks \"is this player waiting\" accepts both names; see",
+        "PhaseServers#isWaitingRoom.",
         "",
-        "It runs only while a swap needs it - compose.yml keeps it in the profile `standby` -",
-        "so a proxy that has no such server registered is the ordinary case and not a fault.",
-        "Without one, a run that includes the limbo behaves exactly as it did before."
+        "Runs only while a swap needs it - compose.yml keeps it in the profile `standby` - so a",
+        "proxy with no such server registered is the ordinary case and not a fault."
     })
     @Explain("The backend that stands in for the waiting room while the waiting room itself is being updated.")
     default String serverLimboStandby() {

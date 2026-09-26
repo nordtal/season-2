@@ -10,6 +10,7 @@ import org.jdbi.v3.sqlobject.statement.SqlBatch;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The whole SQL surface of {@code online_player}, the same style as {@link OnlineDao}.
@@ -87,5 +88,5 @@ interface OnlineRosterDao {
      *
      * @param subject may be {@code null}: the proxy has this player and no backend does yet
      */
-    record BoundPresence(UUID uuid, String name, String subject, OffsetDateTime updated) {}
+    record BoundPresence(UUID uuid, String name, @Nullable String subject, OffsetDateTime updated) {}
 }

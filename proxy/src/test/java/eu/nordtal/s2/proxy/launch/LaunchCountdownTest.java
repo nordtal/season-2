@@ -12,12 +12,11 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The countdown the three {@code PRE_LAUNCH} screens and the server browser share.
- * <p>
+ *
  * Every case here is one a player can actually see, and the two that matter most are the ones that
  * are not a duration at all: no date announced, and a date that has passed while nobody has
  * switched the phase yet. Both are normal states of a network before its opening, and both would
  * otherwise render as something that looks broken.
- * </p>
  */
 class LaunchCountdownTest {
 
@@ -56,9 +55,7 @@ class LaunchCountdownTest {
 
     @Test
     void aPassedInstantNeverRendersNegative() {
-        // The normal state between the announced instant and somebody typing /phase. Nothing
-        // switches the phase on its own, so this window is expected rather than exceptional - and
-        // "-3 hours" in the server browser would look exactly like a bug.
+        // The normal state between the announced instant and an admin's switch; "-3 hours" would look like a bug.
         final String line = render(Duration.ofHours(-3));
 
         assertEquals("any moment now", line);
@@ -74,10 +71,7 @@ class LaunchCountdownTest {
 
     @Test
     void theNoDateFragmentCarriesNoMiniMessageTag() {
-        // render() feeds gate.countdown and the MOTD's {countdown} - both substitute this value
-        // before MiniMessage ever parses the surrounding template, and Placeholders escapes
-        // whatever it inserts. A tag here would not become colour, it would become the literal
-        // text "<gray>" in the server browser, which is exactly what shipped before this fixed it.
+        // Placeholders escapes whatever it inserts; a tag here would become literal "<gray>" text, not colour.
         final String line = LaunchCountdown.render(MESSAGES, Locale.ENGLISH, null, NOW);
 
         assertFalse(line.contains("<"), line);
@@ -85,12 +79,7 @@ class LaunchCountdownTest {
 
     @Test
     void theSentenceFormWrapsACountdownButNotTheNoDateLine() {
-        // gate.countdown is "The network opens in {countdown}." and gate.countdown.unknown is
-        // already a whole sentence - wrapping the second in the first would produce "The network
-        // opens in No opening date has been announced yet".
-        // contains rather than startsWith: gate.countdown carries MiniMessage since the palette
-        // pass, so the sentence begins with a tag. What is being asserted is which of the two keys
-        // was used, and that survives the markup - anchoring on the first character did not.
+        // Wrapping the two would double the sentence; contains, not startsWith, since a tag now opens the line.
         final String counting =
                 LaunchCountdown.sentence(MESSAGES, Locale.ENGLISH, NOW.plus(Duration.ofMinutes(20)), NOW);
         assertTrue(counting.contains("The network opens in"), counting);
@@ -102,8 +91,7 @@ class LaunchCountdownTest {
 
     @Test
     void germanIsTranslatedRatherThanFallingBackToEnglish() {
-        // The bundle falls back to English for a missing key, silently, which is exactly how a
-        // half-translated screen ships. These are the keys the PRE_LAUNCH screens are made of.
+        // The bundle falls back to English for a missing key, silently, which is how a half-translated screen ships.
         assertEquals(
                 "42 Minuten", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW.plus(Duration.ofMinutes(42)), NOW));
         assertEquals("jedem Moment", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW, NOW));

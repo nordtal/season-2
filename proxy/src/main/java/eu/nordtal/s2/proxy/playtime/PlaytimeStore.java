@@ -7,13 +7,13 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
- * Where accumulated online time goes. One method, because that is the whole of what the proxy does
- * with {@code player_playtime}: it adds seconds to it.
- * <p>
+ * Where accumulated online time goes.
+ *
+ * One method, because that is the whole of what the proxy does with {@code player_playtime}: it adds seconds to it.
+ *
  * An interface with one implementation, so {@link PlaytimeWriter} - which owns the interesting part,
  * the counting - can be tested without a database while the SQL itself is covered against a real
  * one.
- * </p>
  */
 public interface PlaytimeStore {
 

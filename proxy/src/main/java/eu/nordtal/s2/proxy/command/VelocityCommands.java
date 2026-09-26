@@ -34,34 +34,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@code :paper-common}'s {@code PaperCommands}, for Velocity.
  *
- * <p>A second class rather than a shared one because the two platforms resolve different Brigadier
+ * A second class rather than a shared one because the two platforms resolve different Brigadier
  * artefacts - {@code com.mojang:brigadier} on Paper, {@code com.velocitypowered:velocity-brigadier}
  * here - so no module can be compiled against both, and one compiled against neither cannot name
  * {@code CommandSource}. Only the tree building is duplicated; the declarations, decisions, messages
  * and confirmation are shared. The two are kept in the same shape - same method names, same order -
- * so a rule added to one is findable in the other.</p>
+ * so a rule added to one is findable in the other.
  *
- * <p>The proxy does not register the backends' commands. Velocity answers a command it knows before
+ * The proxy does not register the backends' commands. Velocity answers a command it knows before
  * the packet reaches a backend, so registering {@code /smp} here would shadow the SMP's own and turn
- * a local command into a round trip through a request row.</p>
+ * a local command into a round trip through a request row.
  *
- * <p><b>Which is why this class has {@link #local} and no counterpart to {@code PaperCommands}'
- * {@code remote}</b>, checked while fixing ops/25 on 2026-09-16: there is no second registration
- * path here that could filter a declaration by its surfaces, so what {@code PaperCommands#remote}
- * gained on 2026-09-15 under ops/18 - registering a travelling command on {@code GAME}
- * <em>or</em> {@code CONSOLE} rather than on {@code GAME} alone - has nothing to mirror on this
- * side. Everything handed to {@code local} is built into the tree whatever its surfaces say.</p>
+ * This class has {@link #local} and no counterpart to {@code PaperCommands}' {@code remote}: there
+ * is no second registration path here that could filter a declaration by its surfaces, so what
+ * {@code PaperCommands#remote} does - registering a travelling command on {@code GAME} or
+ * {@code CONSOLE} rather than on {@code GAME} alone - has nothing to mirror on this side. Everything
+ * handed to {@code local} is built into the tree whatever its surfaces say.
  *
- * <p><b>Since steward/106 (2026-09-17) the surface is decided while the tree is built</b>, by
- * {@link #gate(Node)}: a node whose every command lost {@link Surface#GAME} is gated against every
- * {@link Player}, so it is not in the tree a client receives and the person typing reads "Unknown
- * command". {@link #run} keeps the same check as the lock behind that gate, but it is no longer the
- * single place that answers the question.</p>
+ * The surface is decided while the tree is built, by {@link #gate(Node)}: a node whose every
+ * command lost {@link Surface#GAME} is gated against every {@link Player}, so it is not in the tree
+ * a client receives and the person typing reads "Unknown command". {@link #run} keeps the same
+ * check as the lock behind that gate, but it is no longer the single place that answers the
+ * question.
  */
 public final class VelocityCommands {
 
@@ -74,7 +75,7 @@ public final class VelocityCommands {
 
         private final String literal;
         private final Map<String, Node> children = new LinkedHashMap<>();
-        private Entry command;
+        private @Nullable Entry command;
 
         private Node(final String literal) {
             this.literal = literal;
@@ -132,15 +133,12 @@ public final class VelocityCommands {
             }
             node.command = entry;
         }
-        // Bottom-up: Brigadier's ArgumentBuilder.then(ArgumentBuilder) builds its argument on the
-        // spot, so anything added to a node after its parent took it is silently lost.
+        // Bottom-up: Brigadier's ArgumentBuilder.then(ArgumentBuilder) builds its argument on the spot.
         return roots.values().stream()
                 .map(root -> {
                     final LiteralArgumentBuilder<CommandSource> builder = materialise(root);
-                    // A root whose every command is admin-only is gated itself: the check on the
-                    // children alone would leave a runnable bare root open to any player. On the
-                    // proxy it also stops Velocity forwarding the command to a backend.
-                    final java.util.function.Predicate<CommandSource> gate = gate(root);
+                    // A root whose every command is admin-only is gated itself, or a runnable bare root stays open.
+                    final Predicate<CommandSource> gate = gate(root);
                     if (gate != null) {
                         builder.requires(gate);
                     }
@@ -166,21 +164,18 @@ public final class VelocityCommands {
     }
 
     /**
-     * What has to be true of a source for this node to exist for it at all, or {@code null} when
-     * the node is open to everyone - {@code PaperCommands#gate} is the same method, and the two are
-     * kept in the same shape on purpose.
+     * What has to be true of a source for this node to exist at all, or {@code null} when open to everyone.
      *
-     * <p>steward/106, 2026-09-17: a node whose every command lost {@link Surface#GAME} is gated
-     * against every {@link Player}, so it is not in the tree the proxy sends a client and the
-     * person typing reads Brigadier's own "Unknown command". That is what replaces the
-     * {@code command.not-in-game} sentence ops/25 put into {@link #run}: Till saw that sentence in
-     * game and called it a misreading of his requirement, and took the "Unknown command" cost with
-     * his eyes open.</p>
+     * {@code PaperCommands#gate} is the same method, and the two are kept in the same shape on purpose.
      *
-     * <p>Not a player means the console here, which {@link #mayUse} lets through unconditionally -
-     * so the console keeps every one of these, which is the one surface that may never be lost.</p>
+     * A node whose every command lost {@link Surface#GAME} is gated against every {@link Player},
+     * so it is not in the tree the proxy sends a client and the person typing reads Brigadier's own
+     * "Unknown command" rather than a sentence naming the command as off-limits.
+     *
+     * Not a player means the console here, which {@link #mayUse} lets through unconditionally - so
+     * the console keeps every one of these, which is the one surface that may never be lost.
      */
-    private java.util.function.Predicate<CommandSource> gate(final Node node) {
+    private @Nullable Predicate<CommandSource> gate(final Node node) {
         if (offGame(node)) {
             return source -> !(source instanceof Player) && mayUse(source);
         }
@@ -190,10 +185,9 @@ public final class VelocityCommands {
     private LiteralArgumentBuilder<CommandSource> materialise(final Node node) {
         final LiteralArgumentBuilder<CommandSource> builder = BrigadierCommand.literalArgumentBuilder(node.literal);
         for (final Node child : node.children.values()) {
-            // Only when everything below it is admin-only - or when nothing below it may be typed
-            // in game at all, which is the same question asked about the surface (steward/106).
+            // Only when everything below it is admin-only, or when nothing below it may be typed in game at all.
             final LiteralArgumentBuilder<CommandSource> sub = materialise(child);
-            final java.util.function.Predicate<CommandSource> gate = gate(child);
+            final Predicate<CommandSource> gate = gate(child);
             builder.then(gate == null ? sub : sub.requires(gate));
         }
         final boolean runnableHere = node.command != null && arguments(builder, node.command);
@@ -301,8 +295,7 @@ public final class VelocityCommands {
                         values.put(argument.name(), target.get().getUniqueId());
                         continue;
                     }
-                    // A map lookup: the roster filled the Discord id at login, and a player
-                    // without one cannot be past the gate, so the empty case is a symptom.
+                    // A map lookup: the roster filled the Discord id at login, so an empty case is a symptom.
                     final var linked = roster.of(target.get().getUniqueId())
                             .map(eu.nordtal.s2.proxy.gate.LoginRoster.Session::discordId);
                     if (linked.isEmpty()) {
@@ -321,30 +314,19 @@ public final class VelocityCommands {
 
         if (user.origin() == NordtalUser.Origin.CONSOLE
                 && !entry.declaration().surfaces().contains(Surface.CONSOLE)) {
-            // /phase is the one this exists for: it records who took the decision, and the console
-            // is nobody in particular.
+            // /phase is the one this exists for: it records who took the decision, and the console is nobody.
             user.reply(MESSAGES.command().notFromConsole(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
-        // The symmetric case. Since steward/106 (2026-09-17) the tree itself answers it: gate()
-        // keeps a node whose every command lost Surface.GAME out of every player's tree, so an
-        // admin typing /phase set in the lobby is told by Minecraft that no such command exists.
-        // This block is the lock behind that gate and no longer the gate itself.
-        //
-        // It used to answer command.not-in-game ("that command still exists, but not here any
-        // more"), built by ops/18 and wired up here by ops/25. Till saw that sentence in game and
-        // called it a misreading of his requirement: the commands are to be gone. So a player who
-        // does reach this line by a path this adapter did not foresee reads the same answer the
-        // tree would have given them, and not a hint that the command is somewhere else.
+        // The lock behind gate()'s tree filtering: a player reaching this line reads the same "unknown command".
         if (user.origin() == NordtalUser.Origin.GAME
                 && !entry.declaration().surfaces().contains(Surface.GAME)) {
             user.reply(MESSAGES.command().unknown(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
-        // The lock behind the tree's gate: a root-level command has no node above it to carry a
-        // requires, so this check cannot be skipped by the tree's shape.
+        // A root-level command has no node above it to carry a requires, so this cannot be skipped by the tree.
         if (entry.declaration().adminOnly() && !mayUse(context.getSource())) {
             user.reply(MESSAGES.command().notAdmin(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
@@ -364,8 +346,7 @@ public final class VelocityCommands {
             }
         }
 
-        // Before the confirmation: otherwise /phase set NOT_A_PHASE demands a retype and only then
-        // says the phase does not exist.
+        // Before the confirmation, or /phase set NOT_A_PHASE would demand a retype before saying it does not exist.
         final var problem = entry.problem().apply(new Values(entry.declaration(), values));
         if (problem.isPresent()) {
             user.reply(problem.get(), Feedback.REFUSED, Tone.BAD);
@@ -393,8 +374,6 @@ public final class VelocityCommands {
 
     private int help(final CommandContext<CommandSource> context, final Node node) {
         // A root with a declared default runs it instead of listing itself: /phase is /phase show.
-        // The admin flag goes with it, because this path goes around the child node's requires -
-        // which is the whole admin gate.
         final java.util.Optional<Declaration> preset =
                 eu.nordtal.s2.commands.Catalogue.rootDefault(node.literal, mayUse(context.getSource()));
         if (preset.isPresent()) {
@@ -417,8 +396,7 @@ public final class VelocityCommands {
                 return Command.SINGLE_SUCCESS;
             }
         }
-        // The same rule for the surface (steward/106): listing a command that is not in this
-        // player's tree would name something they are then told does not exist.
+        // Listing a command that is not in this player's tree would name something they are then told does not exist.
         if (user.origin() == NordtalUser.Origin.GAME) {
             below.removeIf(declaration -> !declaration.surfaces().contains(Surface.GAME));
             if (below.isEmpty()) {
@@ -458,20 +436,19 @@ public final class VelocityCommands {
     }
 
     /**
-     * A map lookup, never a query - Brigadier evaluates this while building the command tree it
-     * sends to a client, which is not a place for a blocking JDBC call.
+     * A map lookup, never a query.
      *
-     * <p>The console passes here unconditionally and is refused later, per command, by its surface
+     * Brigadier evaluates this while building the command tree it sends to a client, not a place for a blocking
+     * JDBC call.
+     *
+     * The console passes here unconditionally and is refused later, per command, by its surface
      * set: a {@code requires} that hid a command from the console would hide it from tab completion
      * as well, and "the console may not run this one" is worth a sentence rather than a command
-     * that appears not to exist.</p>
+     * that appears not to exist.
      *
-     * <p><b>The reverse direction is now a {@code requires}, and deliberately so</b> - see
-     * {@link #gate(Node)}. "A player may not type this one" is answered by leaving the node out of
-     * their tree, which is precisely the tab completion and the "appears not to exist" this
-     * paragraph argues against for the console. The asymmetry is Till's decision of 2026-09-17
-     * (steward/106): a command taken off the game is to be gone, and the console is the one surface
-     * that is never taken away.</p>
+     * The reverse direction is a {@code requires} instead - see {@link #gate(Node)}. "A player may
+     * not type this one" is answered by leaving the node out of their tree: a command taken off the
+     * game is to be gone, while the console is the one surface that is never taken away.
      */
     private boolean mayUse(final CommandSource source) {
         if (source instanceof Player player) {

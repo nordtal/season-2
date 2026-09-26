@@ -19,22 +19,24 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
 /**
- * The per-plugin disable Velocity does not have: a {@code LoginEvent} handler that refuses
- * <b>everybody</b> because {@code proxy}'s own configuration could not be read.
+ * The per-plugin disable Velocity does not have.
  *
- * <p>Failing closed is the point. "The proxy is up but nobody can join" announces itself within
+ * A {@code LoginEvent} handler that refuses <b>everybody</b> because {@code proxy}'s own configuration could
+ * not be read.
+ *
+ * Failing closed is the point. "The proxy is up but nobody can join" announces itself within
  * seconds of the first player trying; "the proxy is up and the gate is off" announces itself never,
- * and a single mistyped key would silently open the network.</p>
+ * and a single mistyped key would silently open the network.
  *
- * <p>Admins cannot be exempted: the admin flag is a column in the database a broken
+ * Admins cannot be exempted: the admin flag is a column in the database a broken
  * {@code database.yml} is the reason we cannot reach, and an exemption would mean inventing a second
  * notion of who is an admin inside the file that is itself broken. The recovery path is a human
- * fixing the file and restarting the proxy.</p>
+ * fixing the file and restarting the proxy.
  *
- * <p>The screen is bilingual because the table that stores every player's language is unreachable.
+ * The screen is bilingual because the table that stores every player's language is unreachable.
  * It also answers the ping, since the MOTD lives in {@code network.yml} and that is one of the files
  * that can be broken - the line comes from the message bundle, a classpath resource and therefore
- * the one thing still readable when the configuration is the problem.</p>
+ * the one thing still readable when the configuration is the problem.
  */
 public final class MisconfiguredGate {
 
@@ -66,8 +68,9 @@ public final class MisconfiguredGate {
     }
 
     /**
-     * What the server browser shows while nobody can join. Deliberately not the configured MOTD -
-     * the configuration is what failed.
+     * What the server browser shows while nobody can join.
+     *
+     * Deliberately not the configured MOTD - the configuration is what failed.
      */
     @Subscribe
     public void onPing(final ProxyPingEvent event) {
@@ -81,12 +84,13 @@ public final class MisconfiguredGate {
     }
 
     /**
-     * The decision itself, without the Velocity event around it: refuse, count, and log the first
-     * one and every {@value #REPEAT_LOG_EVERY}th after that.
-     * <p>
+     * The decision itself, without the Velocity event around it.
+     *
+     * Refuse, count, and log the first one and every {@value #REPEAT_LOG_EVERY}th after that.
+     *
      * Package-visible so a test can assert it without constructing a {@code LoginEvent} and a
      * {@code Player}, neither of which exists outside a running proxy.
-     * </p>
+     *
      *
      * @param mcUuid   who tried
      * @param username their name, for the log line

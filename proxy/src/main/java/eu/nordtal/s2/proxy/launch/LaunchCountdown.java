@@ -8,21 +8,22 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import net.kyori.adventure.text.Component;
+import org.jspecify.annotations.Nullable;
 
 /**
  * How long until the network opens, as a line somebody reads once.
  *
- * <p>Both places that show it are read-once surfaces: a disconnect screen, which is gone the moment
+ * Both places that show it are read-once surfaces: a disconnect screen, which is gone the moment
  * the player closes it, and the MOTD in the server browser, which refreshes on the client's own
  * schedule and not on ours. That is why this is deliberately coarse - days and hours, or hours and
  * minutes, never seconds. A number that is already stale by the time it is read should not pretend
  * to a precision it does not have.
  *
- * <p>The instant comes from {@code season_phase.launch} ({@code V8__pre_launch.sql}) and may be
+ * The instant comes from {@code season_phase.launch} ({@code V8__pre_launch.sql}) and may be
  * absent: a phase without an announced date is a real state, not a defect, and
  * {@link #render(Messages, Locale, Instant, Instant)} answers the "not announced yet" line for it.
  *
- * <p><b>A passed instant renders as "any moment now", never as a negative or as zero.</b> Nothing
+ * <b>A passed instant renders as "any moment now", never as a negative or as zero.</b> Nothing
  * switches the phase when the date passes - that stays an admin's decision - so the window between
  * the announced instant and the actual switch is a normal state that has to read as one.
  */
@@ -39,12 +40,10 @@ public final class LaunchCountdown {
      * @param now      the instant to measure against, passed in so this is testable without a clock
      * @return one line, never {@code null} and never empty
      */
-    public static String render(final Messages messages, final Locale locale, final Instant launch, final Instant now) {
+    public static String render(
+            final Messages messages, final Locale locale, final @Nullable Instant launch, final Instant now) {
         if (launch == null) {
-            // Not gate.countdown.unknown: that key is an already-tagged whole sentence for when
-            // nothing wraps it, and this value is a plain-text fragment that gets substituted into
-            // one - both gate.countdown and the MOTD template. A tag here would survive
-            // Placeholders' escaping as literal text instead of colour.
+            // A plain-text fragment substituted into a wrapper; a tag here would survive escaping as literal text.
             return messages.format(locale, MESSAGES.countdown().unknown());
         }
 
@@ -62,9 +61,10 @@ public final class LaunchCountdown {
     }
 
     /**
-     * The full sentence, ready to put under a disconnect screen: the countdown wrapped in
-     * {@code gate.countdown}, or the "no date announced" line on its own - which is already a
-     * sentence and must not be wrapped in one.
+     * The full sentence, ready to put under a disconnect screen.
+     *
+     * The countdown wrapped in {@code gate.countdown}, or the "no date announced" line on its own -
+     * which is already a sentence and must not be wrapped in one.
      *
      * @param messages the bundle
      * @param locale   the language
@@ -73,7 +73,7 @@ public final class LaunchCountdown {
      * @return one sentence
      */
     public static String sentence(
-            final Messages messages, final Locale locale, final Instant launch, final Instant now) {
+            final Messages messages, final Locale locale, final @Nullable Instant launch, final Instant now) {
         if (launch == null) {
             return messages.format(locale, MESSAGES.gate().countdownSection().unknown());
         }
@@ -83,14 +83,14 @@ public final class LaunchCountdown {
     /**
      * The same sentence as a component, for the disconnect screens.
      *
-     * <p><b>It composes first and parses once</b>, rather than going through
+     * <b>It composes first and parses once</b>, rather than going through
      * {@code MessageRenderer.format}, and the difference matters here: {@code gate.countdown} wraps
      * {@code countdown.*}, so a renderer would escape the inner message's tags on its way into the
      * outer one and a formatted countdown could never carry any. Parsing the finished sentence lets
      * either key carry tags - and nothing arbitrary is substituted along the way, because every
      * value this class puts in is a number it computed itself. The MOTD keeps taking the
      * {@link #sentence} form; {@code Placeholders} escapes it there for the same reason, since a
-     * MOTD template is edited by hand.</p>
+     * MOTD template is edited by hand.
      *
      * @param messages the bundle
      * @param locale   the language
@@ -99,7 +99,7 @@ public final class LaunchCountdown {
      * @return one sentence, parsed as MiniMessage
      */
     public static Component component(
-            final Messages messages, final Locale locale, final Instant launch, final Instant now) {
+            final Messages messages, final Locale locale, final @Nullable Instant launch, final Instant now) {
         return MessageRenderer.parse(sentence(messages, locale, launch, now));
     }
 }

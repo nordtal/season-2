@@ -16,18 +16,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The play-time counter's arithmetic, in memory: what goes into {@code player_playtime} is entirely
- * a matter of subtracting instants.
- * <p>
- * The SQL itself is not exercised here; the store is a functional interface precisely so this class
- * can be driven by a list.
- * </p>
+ * The play-time counter's arithmetic, in memory.
+ *
+ * What goes into {@code player_playtime} is entirely a matter of subtracting instants. The SQL itself is not
+ * exercised here; the store is a functional interface precisely so this class can be driven by a list.
  */
 class PlaytimeWriterTest {
 
@@ -50,7 +47,7 @@ class PlaytimeWriterTest {
         writer = new PlaytimeWriter(store, roster, LOGGER, clock);
     }
 
-    // ---------------------------------------------------------------- the two write paths
+    // the two write paths
 
     @Test
     void disconnectingWritesTheWholeSession() {
@@ -90,12 +87,11 @@ class PlaytimeWriterTest {
         assertEquals(2, store.writes.size());
     }
 
-    // ---------------------------------------------------------------- not losing time
+    // not losing time
 
     @Test
     void subSecondRemaindersSurviveAFlushInsteadOfBeingThrownAway() {
-        // Flushing every 60s at 60.4s intervals would otherwise lose 0.4s each time - about six
-        // minutes over a 24-hour session.
+        // Flushing every 60s at 60.4s intervals would otherwise lose 0.4s each time - six minutes a day.
         join(PLAYER, DISCORD_ID);
 
         clock.advance(Duration.ofMillis(60_400));
@@ -138,7 +134,7 @@ class PlaytimeWriterTest {
                 "the 60 seconds the failed flush could not write are still owed, so the next one " + "carries all 90");
     }
 
-    // ---------------------------------------------------------------- session lifecycle
+    // session lifecycle
 
     @Test
     void aDisconnectedPlayerIsNoLongerCounted() {
@@ -154,8 +150,7 @@ class PlaytimeWriterTest {
 
     @Test
     void aPlayerTheLoginPathNeverIdentifiedIsNotCountedAtAll() {
-        // The only way in is a login the fallback cache admitted while the database was down, so
-        // there is no Discord id - and player_playtime is keyed by exactly that.
+        // The fallback cache admitted this login while the database was down, so there is no Discord id.
         writer.begin(PLAYER, "unknown-player");
         clock.advance(Duration.ofHours(1));
 
@@ -182,7 +177,7 @@ class PlaytimeWriterTest {
                         + "ends up with 100 without this class ever holding a total");
     }
 
-    // ---------------------------------------------------------------- helpers
+    // helpers
 
     private void join(final UUID mcUuid, final String discordId) {
         roster.remember(
@@ -207,15 +202,11 @@ class PlaytimeWriterTest {
         writer.forget(mcUuid);
     }
 
-    // ---------------------------------------------------------------- the two paths racing
+    // the two paths racing
 
     @Test
-    @DisplayName("M7: the periodic flush and the disconnect flush cannot book the same seconds twice")
     void oneSessionIsNeverCountedTwice() throws Exception {
-        // Genuinely different threads: flushAll runs on the proxy's scheduler and the disconnect
-        // flush on the event thread, with nothing stopping them being in flush() for the same
-        // player at once. Unsynchronised they read the same marker and add the same seconds twice,
-        // and nothing afterwards would ever disagree.
+        // flushAll runs on the scheduler, disconnect on the event thread; unsynchronised, both could double-count.
         join(PLAYER, DISCORD_ID);
         clock.advance(Duration.ofMinutes(10));
 

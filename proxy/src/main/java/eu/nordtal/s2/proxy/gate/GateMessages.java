@@ -11,13 +11,14 @@ import java.util.Locale;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Builds the disconnect and chat components the login gate, the expiry check and the phase router
- * show, so that {@link LoginGate} and {@link ExpiryWatch} stay about deciding what happens.
- * <p>
+ * Builds the disconnect and chat components the login gate, the expiry check and the phase router show.
+ *
+ * So that {@link LoginGate} and {@link ExpiryWatch} stay about deciding what happens.
+ *
  * The methods the {@code routing} package needs are {@code public}; the rest are package-private.
- * </p>
  */
 public final class GateMessages {
 
@@ -30,10 +31,11 @@ public final class GateMessages {
     }
 
     /**
-     * The unlinked screen: English first, German underneath in grey italics, because the account
-     * is unknown at this point and there is no locale to pick from.
+     * The unlinked screen: English first, German underneath in grey italics.
+     *
+     * Because the account is unknown at this point and there is no locale to pick from.
      */
-    Component notLinked(final String code, final Instant launch, final Instant now) {
+    Component notLinked(final String code, final @Nullable Instant launch, final @Nullable Instant now) {
         Component result = MessageRenderer.of(messages)
                 .format(Locale.ENGLISH, MESSAGES.gate().notLinked(code))
                 .appendNewline()
@@ -53,18 +55,20 @@ public final class GateMessages {
     }
 
     /**
-     * The account is no longer linked, discovered while the player was already connected. Unlike
-     * the login screen it carries no fresh link code: issuing one is a database write, and this
-     * path is not a login.
+     * The account is no longer linked, discovered while the player was already connected.
+     *
+     * Unlike the login screen it carries no fresh link code: issuing one is a database write, and this path is not a
+     * login.
      */
     public Component unlinked(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().unlinked());
     }
 
     /**
-     * The screen for somebody who arrives in the seconds between a proxy swap parking the network
-     * and the process actually stopping (season-2-ops/151). It promises nothing about how long,
-     * because the proxy saying it is about to stop cannot know when it comes back.
+     * The screen for somebody who arrives between a proxy swap parking the network and it actually stopping.
+     *
+     * It promises nothing about how long, because the proxy saying it is about to stop cannot know when it
+     * comes back.
      */
     public Component restarting(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().restarting());
@@ -97,21 +101,20 @@ public final class GateMessages {
     }
 
     /**
-     * The network is in {@code MAINTENANCE} and there is <b>no {@code limbo} server to hold this
-     * player in</b>.
-     * <p>
+     * The network is in {@code MAINTENANCE} and there is no {@code limbo} server to hold this player in.
+     *
      * Not a gate screen: a non-admin is admitted during maintenance and routed to {@code limbo},
      * where the explanation is shown. This is the fallback for {@code gate.yml#server-limbo} naming
      * a server the proxy does not have.
-     * </p>
      */
     public Component maintenance(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().maintenance());
     }
 
     /**
-     * The phase says this player belongs on a server this proxy does not have registered, and the
-     * phase is not {@code MAINTENANCE} (which has its own screen above). Always a config error -
+     * The phase says this player belongs on a server this proxy does not have registered.
+     *
+     * And the phase is not {@code MAINTENANCE} (which has its own screen above). Always a config error -
      * {@code gate.yml}'s server names not matching {@code velocity.toml}.
      */
     public Component noServer(final Locale locale) {
@@ -119,19 +122,21 @@ public final class GateMessages {
     }
 
     /**
-     * The network is at {@code network.yml#max-players} and this player is not an admin. The
-     * numbers are in the text on purpose: "312 of 312" reads as a limit somebody chose, where
-     * "full" alone reads as something broken.
+     * The network is at {@code network.yml#max-players} and this player is not an admin.
+     *
+     * The numbers are in the text on purpose: "312 of 312" reads as a limit somebody chose, where "full" alone reads as
+     * something broken.
      */
     Component full(final Locale locale, final int online, final int max) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().full(online, max));
     }
 
     /**
-     * {@code PRE_LAUNCH}, linked, nothing bought yet: the invitation to buy the first month now so
-     * that the SMP is playable the moment the event ends.
+     * {@code PRE_LAUNCH}, linked, nothing bought yet: the invitation to buy the first month now.
+     *
+     * So that the SMP is playable the moment the event ends.
      */
-    public Component preLaunchBuy(final Locale locale, final Instant launch, final Instant now) {
+    public Component preLaunchBuy(final Locale locale, final @Nullable Instant launch, final @Nullable Instant now) {
         Component result = MessageRenderer.of(messages)
                 .format(locale, MESSAGES.gate().preLaunch().buy());
         if (hasInvite()) {
@@ -143,7 +148,7 @@ public final class GateMessages {
     }
 
     /** {@code PRE_LAUNCH}, linked, and a period already bought. Nothing to do but wait. */
-    public Component preLaunchReady(final Locale locale, final Instant launch, final Instant now) {
+    public Component preLaunchReady(final Locale locale, final @Nullable Instant launch, final @Nullable Instant now) {
         return withCountdown(
                 MessageRenderer.of(messages)
                         .format(locale, MESSAGES.gate().preLaunch().ready()),
@@ -153,11 +158,12 @@ public final class GateMessages {
     }
 
     /**
-     * Appends the countdown line, in grey, with a blank line above it - or nothing at all when
-     * there is no countdown to show, which is every phase but {@code PRE_LAUNCH}.
+     * Appends the countdown line, in grey, with a blank line above it.
+     *
+     * Or nothing at all when there is no countdown to show, which is every phase but {@code PRE_LAUNCH}.
      */
     private Component withCountdown(
-            final Component screen, final Locale locale, final Instant launch, final Instant now) {
+            final Component screen, final Locale locale, final @Nullable Instant launch, final @Nullable Instant now) {
         if (now == null) {
             return screen;
         }
@@ -167,10 +173,10 @@ public final class GateMessages {
     }
 
     /**
-     * A backend lost this player without sending a reason, so they were redirected into the waiting
-     * room instead of onto a disconnect screen (season-2-ops/20). Velocity shows this component at
-     * the moment of the redirect - it is the only explanation the player gets, because the path that
-     * produced the kick never decided anything to say. See {@link BackendKick}.
+     * A backend lost this player without a reason, redirected to the waiting room instead of a disconnect screen.
+     *
+     * Velocity shows this component at the moment of the redirect - the only explanation the player gets,
+     * because the path that produced the kick never decided anything to say. See {@link BackendKick}.
      */
     public Component connectionLost(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().connectionLost());

@@ -5,10 +5,9 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Turns what the proxy currently sees into the map {@code OnlineDirectory#write} expects
- * (steward/86).
+ * Turns what the proxy currently sees into the map {@code OnlineDirectory#write} expects.
  *
- * <p>Static and free of every Velocity type on purpose, the same reason {@code BackendKick.decide}
+ * Static and free of every Velocity type on purpose, the same reason {@code BackendKick.decide}
  * and {@code PhaseRouting.decide} are: the interesting arithmetic is one line, and a test for it
  * should not need to fake {@code ProxyServer} or {@code RegisteredServer} to exercise it. {@link
  * OnlineWriter} is the thin, untested-on-its-own layer that reads the real proxy and calls this.
@@ -16,9 +15,10 @@ import java.util.Objects;
 public final class OnlineCounts {
 
     /**
-     * The proxy's own subject in {@code online_count} - the network total, next to the three
-     * backends. Not one of {@link eu.nordtal.s2.proxy.PhaseServers}' names because
-     * it names this process, not a phase's destination, and is never configurable the way they are.
+     * The proxy's own subject in {@code online_count} - the network total, next to the three backends.
+     *
+     * Not one of {@link eu.nordtal.s2.proxy.PhaseServers}' names because it names this process, not a phase's
+     * destination, and is never configurable the way they are.
      */
     public static final String PROXY = "proxy";
 

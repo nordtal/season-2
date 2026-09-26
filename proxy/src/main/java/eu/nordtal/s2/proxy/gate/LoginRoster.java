@@ -10,24 +10,23 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * What the login query already told us about the players currently connected: their Discord id,
- * their language, and whether they are an admin.
- * <p>
+ * What the login query already told us about the players currently connected.
+ *
+ * Their Discord id, their language, and whether they are an admin.
+ *
  * Not a cache of the access decision - {@link FallbackCache} is that. This exists because two things
  * outside the gate need facts the gate reads anyway and must not re-read:
- * </p>
- * <ul>
- *   <li><b>The emergency {@code /phase} command.</b> Brigadier calls a command's {@code requires}
- *       predicate while building the tree it sends to a client, which is no place for a blocking
- *       JDBC call. It also keeps an admin authorised while the database is down, which is the
- *       situation the emergency path exists for.</li>
- *   <li><b>The play-time writer.</b> {@code player_playtime} is keyed by {@code discord_id}, and the
- *       proxy learns a player's Discord id exactly once, on the login query.</li>
- * </ul>
- * <p>
+ *
+ * <b>The emergency {@code /phase} command.</b> Brigadier calls a command's {@code requires}
+ * predicate while building the tree it sends to a client, which is no place for a blocking
+ * JDBC call. It also keeps an admin authorised while the database is down, which is the
+ * situation the emergency path exists for.
+ *
+ * <b>The play-time writer.</b> {@code player_playtime} is keyed by {@code discord_id}, and the
+ * proxy learns a player's Discord id exactly once, on the login query.
+ *
  * Only a linked account is remembered. Entries die on disconnect and with the process; the database
  * remains authoritative.
- * </p>
  */
 public final class LoginRoster {
 
@@ -42,8 +41,9 @@ public final class LoginRoster {
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
 
     /**
-     * Records what a successful login query said. A state that is not linked removes any earlier
-     * entry rather than storing a half-one.
+     * Records what a successful login query said.
+     *
+     * A state that is not linked removes any earlier entry rather than storing a half-one.
      *
      * @param mcUuid the account the query was about
      * @param state  the answer the database just gave
@@ -52,7 +52,8 @@ public final class LoginRoster {
         Objects.requireNonNull(mcUuid, "mcUuid");
         Objects.requireNonNull(state, "state");
         if (state.linked()) {
-            sessions.put(mcUuid, new Session(state.discordId(), state.locale(), state.admin()));
+            final String discordId = Objects.requireNonNull(state.discordId(), "linked() guarantees discordId is set");
+            sessions.put(mcUuid, new Session(discordId, state.locale(), state.admin()));
         } else {
             sessions.remove(mcUuid);
         }
@@ -86,12 +87,13 @@ public final class LoginRoster {
     }
 
     /**
-     * Re-derives every tracked session's admin flag from the set the database currently holds, so
-     * that an admin who loses the role in Discord loses it in game before they disconnect.
+     * Re-derives every tracked session's admin flag from the set the database currently holds.
      *
-     * <p>Takes the whole set and ignores the id the notification carried: re-deriving every session
+     * So that an admin who loses the role in Discord loses it in game before they disconnect.
+     *
+     * Takes the whole set and ignores the id the notification carried: re-deriving every session
      * is idempotent and costs one query either way, which makes a <b>lost</b> notification cost
-     * latency rather than correctness. Language is not touched - the next login re-reads it.</p>
+     * latency rather than correctness. Language is not touched - the next login re-reads it.
      *
      * @param adminDiscordIds every Discord account that currently holds the flag
      * @return how many sessions changed, which is what the caller logs - it is normally zero
@@ -103,8 +105,7 @@ public final class LoginRoster {
             final Session session = entry.getValue();
             final boolean admin = adminDiscordIds.contains(session.discordId());
             if (admin != session.admin()) {
-                // replace() and not put(): a player who disconnected while this was running must
-                // not be put back into the map.
+                // replace(), not put(): a player who disconnected while this ran must not be put back into the map.
                 if (sessions.replace(
                         entry.getKey(), session, new Session(session.discordId(), session.locale(), admin))) {
                     changed++;
@@ -121,11 +122,11 @@ public final class LoginRoster {
 
     /**
      * Forgets a player on disconnect.
-     * <p>
+     *
      * Nothing may depend on this entry surviving the disconnect: handler order between two
      * {@code @Subscribe} methods on the same event is not something to rely on. The play-time writer
      * therefore copies the Discord id out when the player <em>joins</em>.
-     * </p>
+     *
      *
      * @param event the disconnect
      */

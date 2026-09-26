@@ -11,23 +11,24 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
- * Where a proxy swap keeps the two things it cannot keep in memory (season-2-ops/121): which backend
- * each player was standing on, and whether the standby still has anybody.
+ * Where a proxy swap keeps the two things it cannot keep in memory.
  *
- * <p>An interface with one implementation, the same shape {@code PlaytimeStore} has and for the same
+ * Which backend each player was standing on, and whether the standby still has anybody.
+ *
+ * An interface with one implementation, the same shape {@code PlaytimeStore} has and for the same
  * reason: {@link ProxySwap} and {@link StandbyReturn} own the interesting part - when to move
- * somebody - and that part is assertable without a database only if the storage is a seam.</p>
+ * somebody - and that part is assertable without a database only if the storage is a seam.
  */
 public interface SwapStore {
 
     /**
      * How long a seat is worth acting on.
      *
-     * <p>A swap is over in twenty seconds; this is three minutes, which is the difference between
+     * A swap is over in twenty seconds; this is three minutes, which is the difference between
      * "long enough for a bad one" and "long enough to still be here tomorrow". The upper bound is
-     * the one that matters: past it a seat is a player's <em>old</em> position, and acting on one
+     * the one that matters: past it a seat is a player's old position, and acting on one
      * would move somebody on an ordinary login to a server the phase does not point at - which
-     * looks exactly like broken routing and is not.</p>
+     * looks exactly like broken routing and is not.
      */
     Duration SEAT_VALID_FOR = Duration.ofMinutes(3);
 

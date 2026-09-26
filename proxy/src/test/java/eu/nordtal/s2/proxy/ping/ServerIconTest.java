@@ -10,7 +10,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.imageio.ImageIO;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.LoggerFactory;
@@ -18,14 +17,13 @@ import org.slf4j.LoggerFactory;
 /**
  * The built-in server icon is what Velocity accepts, and a fresh data folder gets a copy of it.
  *
- * <p>Both halves fail silently on a real proxy - a wrong-sized PNG is one warning line and a
+ * Both halves fail silently on a real proxy - a wrong-sized PNG is one warning line and a
  * browser entry without an icon, which nobody reports as a fault - so the size is pinned here
- * against the file in the jar, and the seeding against a temp directory.</p>
+ * against the file in the jar, and the seeding against a temp directory.
  */
 class ServerIconTest {
 
     @Test
-    @DisplayName("the built-in icon is a 64x64 PNG, which is the only size Velocity sends")
     void theBuiltInIconIs64By64() throws IOException {
         try (InputStream in = ServerIcon.class.getResourceAsStream("/" + ServerIcon.FILE_NAME)) {
             assertNotNull(in, "proxy's jar has to carry " + ServerIcon.FILE_NAME);
@@ -37,7 +35,6 @@ class ServerIconTest {
     }
 
     @Test
-    @DisplayName("a first start copies the icon into the data folder and serves it")
     void aFreshDataFolderIsSeeded(@TempDir final Path dataDirectory) {
         assertTrue(
                 ServerIcon.load(dataDirectory, LoggerFactory.getLogger("test")).isPresent());
@@ -47,7 +44,6 @@ class ServerIconTest {
     }
 
     @Test
-    @DisplayName("the built-in icon is opaque, so it is a mark and not a hole in the list")
     void theBuiltInIconIsOpaque() throws IOException {
         final BufferedImage image = builtIn();
         for (int y = 0; y < image.getHeight(); y++) {
@@ -62,24 +58,26 @@ class ServerIconTest {
         }
     }
 
+    /**
+     * The built-in server icon is pixel art, not a resampled photograph.
+     *
+     * {@code resource-pack/src/pack.png} is 128x128 with 21 distinct colours and every 2x2 block
+     * uniform - 64x64 pixel art, doubled. The icon is every second pixel of it, which is exactly
+     * lossless at that ratio.
+     *
+     * A resampled source instead turns those 21 colours into hundreds: a pixel logo with soft
+     * edges, which in a list of server entries reads as a low-resolution photograph. Nothing
+     * about that is visible from the dimensions, from the PNG being valid, or from
+     * {@code Favicon.create} accepting it, and it is not visible in an IDE either at 64 px.
+     *
+     * The bound is loose on purpose. It is not "the logo has 21 colours", which would fail the
+     * day the mark is redrawn; it is "this is a palette rather than a gradient", which is what
+     * separates the two ways of getting to 64x64. A hand-painted icon with more than 64 colours
+     * is a real possibility, and a deliberate one, at which point this case is the conversation
+     * about which resampler that art wants.
+     */
     @Test
-    @DisplayName("the built-in icon is pixel art reduced, not pixel art resampled")
     void theBuiltInIconWasNotSmoothed() throws IOException {
-        // resource-pack/src/pack.png is 128x128 with 21 distinct colours and every 2x2 block
-        // uniform - 64x64 pixel art, doubled. The icon is every second pixel of it, which is exactly
-        // lossless at that ratio.
-        //
-        // The file that shipped until 2026-09-09 was made with `sips` instead, and its smoothing
-        // turned those 21 colours into 454: a pixel logo with soft edges, which in a list of server
-        // entries reads as a low-resolution photograph. Nothing about that is visible from the
-        // dimensions, from the PNG being valid, or from Favicon.create accepting it - all three
-        // were green on the blurred file - and it is not visible in an IDE either, at 64 px.
-        //
-        // The bound is loose on purpose. It is not "the logo has 21 colours", which would fail the
-        // day the mark is redrawn; it is "this is a palette rather than a gradient", which is what
-        // separates the two ways of getting to 64x64. A hand-painted icon with more than 64 colours
-        // is a real possibility - and it would be a deliberate act, at which point this case is the
-        // conversation about which resampler that art wants.
         final BufferedImage image = builtIn();
         final java.util.Set<Integer> colours = new java.util.HashSet<>();
         for (int y = 0; y < image.getHeight(); y++) {
@@ -95,7 +93,6 @@ class ServerIconTest {
     }
 
     @Test
-    @DisplayName("a file that is not a 64x64 PNG is a warning and no icon, never a failed start")
     void aBadFileIsAWarning(@TempDir final Path dataDirectory) throws IOException {
         Files.writeString(dataDirectory.resolve(ServerIcon.FILE_NAME), "not a png");
         assertTrue(

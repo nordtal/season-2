@@ -10,17 +10,16 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
  * {@code config/database.yml} - the proxy's own connection to the access database.
- * <p>
+ *
  * This is a second, independent connection pool from the bot's - a different process, a different
  * container, its own credentials - even though both eventually point at the same PostgreSQL
  * instance. Nothing here is shared with {@code access-bot/config/database.yml}: the two modules
  * ship in different images and read different config volumes.
- * </p>
- * <p>
+ *
+ *
  * {@link #queryTimeoutSeconds()} bounds both HikariCP's connection acquisition and, through the
  * PostgreSQL driver's {@code socketTimeout}, a query that is already running: a login must fail
  * fast onto the fallback cache rather than queue behind a struggling database.
- * </p>
  */
 @ConfigSpec(
         header = {

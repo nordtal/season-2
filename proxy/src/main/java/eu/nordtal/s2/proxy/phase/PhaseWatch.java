@@ -6,25 +6,27 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * The proxy's view of the season phase: whatever the {@code season_phase} row last said, refreshed
- * by a poll every {@code phase-poll-interval-seconds} and, when it is available, by a
+ * The proxy's view of the season phase: whatever the {@code season_phase} row last said.
+ *
+ * Refreshed by a poll every {@code phase-poll-interval-seconds} and, when available, by a
  * {@code LISTEN}/{@code NOTIFY} connection that makes a switch feel instant.
  *
- * <p><b>This is not what the login path reads.</b> That gets the phase on the same row as the
+ * <b>This is not what the login path reads.</b> That gets the phase on the same row as the
  * access state, in one round trip. This class is for everything else: logging a switch, answering
  * {@code /phase} without a database call, and re-routing connected players when the phase moves.
- * Nothing here is authoritative - the row is.</p>
+ * Nothing here is authoritative - the row is.
  *
- * <p>A phase that cannot be read falls back to the last known one, and to {@code MAINTENANCE} only
+ * A phase that cannot be read falls back to the last known one, and to {@code MAINTENANCE} only
  * when the row has never been read: the state that lets nobody in is the safe guess. A failed
- * refresh therefore leaves the previous value in place.</p>
+ * refresh therefore leaves the previous value in place.
  *
- * <p>{@link #refresh()} is called from the poll thread, the listener thread and the {@code /phase}
+ * {@link #refresh()} is called from the poll thread, the listener thread and the {@code /phase}
  * command, so the value is an {@link AtomicReference} and the change callback fires only for the
- * caller that actually swapped it.</p>
+ * caller that actually swapped it.
  */
 public final class PhaseWatch {
 
@@ -38,7 +40,7 @@ public final class PhaseWatch {
          *                 changed under us" are different events and a listener may care
          * @param current  what the row says now
          */
-        void phaseChanged(SeasonPhase previous, SeasonPhase current);
+        void phaseChanged(@Nullable SeasonPhase previous, SeasonPhase current);
     }
 
     private final PhaseDirectory phases;
@@ -47,16 +49,16 @@ public final class PhaseWatch {
 
     /**
      * The phase and the announced opening instant, as one value.
-     * <p>
+     *
      * One reference rather than two, because {@code NetworkPing} renders a {@code PRE_LAUNCH} MOTD
      * out of both, and two separately published references would let a ping pair the old phase with
      * the new instant.
-     * </p>
+     *
      *
      * @param phase  what the row said
      * @param launch when the network opens, {@code null} when no date is set
      */
-    public record Known(SeasonPhase phase, Instant launch) {}
+    public record Known(SeasonPhase phase, @Nullable Instant launch) {}
 
     /** {@code null} until the row has been read successfully at least once. */
     private final AtomicReference<Known> known = new AtomicReference<>();
@@ -69,10 +71,10 @@ public final class PhaseWatch {
 
     /**
      * Re-reads the row, <b>unconditionally</b>.
-     * <p>
+     *
      * No short cut: notifications are lost while a process is disconnected and carry no payload, so
      * a reconnecting listener has to re-read whether or not it missed anything.
-     * </p>
+     *
      *
      * @return {@code true} when the row was read, {@code false} when the database could not be
      *         reached - in which case {@link #lastKnown()} keeps whatever it had
@@ -82,8 +84,7 @@ public final class PhaseWatch {
         final Instant announced;
         try {
             current = phases.currentPhase();
-            // A second query, off the login path: the login query carries its own copy of this
-            // column, because the disconnect screens need it in the same round trip.
+            // A second query, off the login path: disconnect screens need this column in the same round trip.
             announced = phases.launch().orElse(null);
         } catch (final RuntimeException exception) {
             logger.warn("Could not read the season phase; staying on the last known one ({})", lastKnown(), exception);
@@ -112,8 +113,9 @@ public final class PhaseWatch {
     }
 
     /**
-     * The phase and the opening instant as they were read together, for the one caller that needs
-     * both to agree - see {@link Known}.
+     * The phase and the opening instant as they were read together.
+     *
+     * For the one caller that needs both to agree - see {@link Known}.
      *
      * @return never {@code null}; before the first successful read it is
      *         {@link SeasonPhase#MAINTENANCE} with no announced instant, the same guess
@@ -141,12 +143,11 @@ public final class PhaseWatch {
         return known.get() != null;
     }
 
-    private void notifyListener(final SeasonPhase previous, final SeasonPhase current) {
+    private void notifyListener(final @Nullable SeasonPhase previous, final SeasonPhase current) {
         try {
             listener.phaseChanged(previous, current);
         } catch (final RuntimeException exception) {
-            // The phase is already swapped by the time we get here, so a throwing listener must
-            // not undo that.
+            // The phase is already swapped by the time we get here, so a throwing listener must not undo that.
             logger.error("A phase change listener failed for {} -> {}", previous, current, exception);
         }
     }

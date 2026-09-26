@@ -7,29 +7,26 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Losing the admin rank moves you, it does not only stop you typing.
  *
- * <h2>The half that was missing</h2>
- * The proxy has re-read the admin roster on its poll and its {@code LISTEN} since 2026-09-02, and
- * the reason written next to it is exactly right: "an emergency revocation is precisely the case
- * where [waiting for a disconnect] is the wrong direction". What it fixed was <em>authorisation</em>
- * - who may run {@code /phase} and {@code /smp}. It moved nobody.
+ * <b>The half that was missing.</b>
+ * The proxy re-reads the admin roster on its poll and its {@code LISTEN}, and the reason written
+ * next to it is exactly right: "an emergency revocation is precisely the case where [waiting for
+ * a disconnect] is the wrong direction". What it fixes is <em>authorisation</em> - who may run
+ * {@code /phase} and {@code /smp}. It moves nobody.
  *
- * <p>In {@code MAINTENANCE} the flag is the entire difference between being let onto the backend and
- * being held in the waiting room. So a revoked admin kept standing on the SMP, through a phase whose
- * whole purpose is that nobody is on it, until somebody happened to change the phase. Measured on the
- * local stack 2026-09-07: the change was noticed and logged within four seconds, and the player had
- * not moved three minutes later (finding 141).
+ * In {@code MAINTENANCE} the flag is the entire difference between being let onto the backend and
+ * being held in the waiting room. So a revoked admin used to stay standing on the SMP, through a
+ * phase whose whole purpose is that nobody is on it, until somebody happened to change the phase
+ * again - measured on a running deployment as several seconds to notice but no movement at all.
  *
- * <p>{@code PlayerRouter#rerouteAll} was already public for this - its javadoc says "a future admin
+ * {@code PlayerRouter#rerouteAll} was already public for this - its javadoc says "a future admin
  * command can force one" - and it re-reads each player's own admission row rather than trusting the
  * phase handed in, so driving it from a flag change is the same pass a phase change makes. The
- * decision to do it at all is the owner's, 2026-09-07, and matches the one the three backends took
- * for the operator grant on 2026-09-04.
+ * decision to do it at all matches the one the three backends took for the operator grant.
  */
 class AdminChangeRoutesTest {
 
@@ -37,7 +34,6 @@ class AdminChangeRoutesTest {
     private static final String ROUTER = "proxy/src/main/java/eu/nordtal/s2/proxy/PlayerRouter.java";
 
     @Test
-    @DisplayName("a changed admin flag forces a re-route, not just a roster update")
     void aChangedFlagReroutes() {
         final String body = methodBody(read(PLUGIN), "final Runnable refreshAdmins =");
         assertTrue(
@@ -52,7 +48,6 @@ class AdminChangeRoutesTest {
     }
 
     @Test
-    @DisplayName("the re-route runs only when something actually changed")
     void onlyOnAChange() {
         final String body = methodBody(read(PLUGIN), "final Runnable refreshAdmins =");
         final int guard = body.indexOf("if (changed > 0)");
@@ -63,7 +58,6 @@ class AdminChangeRoutesTest {
     }
 
     @Test
-    @DisplayName("rerouteAll is still the shared pass and still re-reads each player")
     void theRouterStillRereads() {
         final String source = read(ROUTER);
         assertTrue(

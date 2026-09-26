@@ -8,19 +8,18 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code config/pack.yml} - the resource pack the proxy offers every player on their way through
- * the waiting room.
+ * {@code config/pack.yml} - the resource pack the proxy offers every player on their way through the waiting room.
  *
- * <p>Its own file rather than two more keys on {@link GateSpec}, because these values change on
+ * Its own file rather than two more keys on {@link GateSpec}, because these values change on
  * every pack release and {@code gate.yml} - which decides who may join - should not be edited on
- * that rhythm.</p>
+ * that rhythm.
  *
- * <p>{@link #sha1()} has no default: the client is sent the URL and the hash and refuses the pack
- * if they disagree, so a guessed hash is wrong by construction.</p>
+ * {@link #sha1()} has no default: the client is sent the URL and the hash and refuses the pack
+ * if they disagree, so a guessed hash is wrong by construction.
  *
- * <p>A config this module cannot make sense of fails the proxy closed, because letting players in
+ * A config this module cannot make sense of fails the proxy closed, because letting players in
  * without the pack is what the waiting room exists to prevent. The escape hatch for a deployment
- * that genuinely has no pack yet is {@link #enabled()}.</p>
+ * that genuinely has no pack yet is {@link #enabled()}.
  */
 @ConfigSpec(
         header = {

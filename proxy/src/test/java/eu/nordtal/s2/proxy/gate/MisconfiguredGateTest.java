@@ -16,16 +16,15 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The fail-closed handler.
- * <p>
+ *
  * There is deliberately little to test, and that is the property being asserted: this class has no
  * state to branch on, so it cannot be talked into letting somebody through. In particular there is
  * <b>no admin path</b> - the admin flag lives in the database a broken {@code database.yml} cannot
  * reach.
- * </p>
- * <p>
+ *
+ *
  * The {@code LoginEvent} wiring is not exercised: constructing one needs a Velocity
  * {@code Player}, which only exists on a running proxy.
- * </p>
  */
 class MisconfiguredGateTest {
 
@@ -42,8 +41,7 @@ class MisconfiguredGateTest {
 
     @Test
     void theBundleLoadsWithoutAnyConfigurationAtAll() {
-        // The whole point: this screen has to render on a path where the configuration is what is
-        // broken. A resource bundle needs the classpath and nothing else.
+        // The whole point: this screen must render when the configuration itself is what is broken.
         assertNotNull(messages.get(Locale.ENGLISH, "gate.misconfigured"));
         assertTrue(
                 messages.hasTranslation(Locale.GERMAN, "gate.misconfigured"),
@@ -54,8 +52,7 @@ class MisconfiguredGateTest {
     void theScreenShowsBothLanguagesBecauseNobodyCanBeIdentified() {
         final String rendered = flatten(gate.refuse(UUID.randomUUID(), "someone"));
 
-        // Compared against the DRAWN text, not the raw bundle value: the screen carries markup, and
-        // a raw comparison would fail on colour as though it were a missing translation.
+        // Compared against the drawn text, not the raw value: a raw comparison would fail on colour as if missing.
         assertTrue(rendered.contains(drawn(messages.get(Locale.ENGLISH, "gate.misconfigured"))), rendered);
         assertTrue(rendered.contains(drawn(messages.get(Locale.GERMAN, "gate.misconfigured"))), rendered);
     }

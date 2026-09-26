@@ -15,50 +15,50 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Writes what the proxy currently sees into {@code online_count}, on a timer (steward/86).
+ * Writes what the proxy currently sees into {@code online_count}, on a timer.
  *
- * <h2>Why the proxy, and not each backend</h2>
- * proxy is the one process that already knows every connection and which backend it is
- * on, without adding anything up itself - {@code ProxyServer.getPlayerCount()} is the network total
+ * The proxy is the one process that already knows every connection and which backend it is on,
+ * without adding anything up itself - {@code ProxyServer.getPlayerCount()} is the network total
  * {@link eu.nordtal.s2.proxy.gate.LoginGate} already enforces against, and
  * {@code RegisteredServer.getPlayersConnected().size()} is what
  * {@link eu.nordtal.s2.proxy.ping.Placeholders} already puts in the MOTD. This class writes
  * the same two calls out to a table instead of a ping response, so steward-worker - which has no
  * Velocity API and no reason to have one - can read them.
  *
- * <h2>A failed write is logged and dropped, never retried out of turn</h2>
- * The next tick is the retry, the same rule {@code SnapshotStore#refresh} and
- * {@code PlaytimeWriter#flush} both already follow: a database hiccup costs one row's freshness, and
- * nothing here should try harder than the schedule that calls it.
+ * A failed write is logged and dropped, never retried out of turn: the next tick is the retry, the
+ * same rule {@code SnapshotStore#refresh} and {@code PlaytimeWriter#flush} both already follow - a
+ * database hiccup costs one row's freshness, and nothing here should try harder than the schedule
+ * that calls it.
  *
- * <p>The arithmetic itself is {@link OnlineCounts#of}, kept static and free of every Velocity type
+ * The arithmetic itself is {@link OnlineCounts#of}, kept static and free of every Velocity type
  * so it can be tested without a fake {@code ProxyServer}; this class is the thin, unavoidably
  * Velocity-shaped layer around it.
  *
- * <h2>How many, and who - one tick, two tables (steward/111)</h2>
- * {@code online_count} is numbers and nothing else, by its own migration's decision, so the names
- * live in {@code online_player} next to it and are written from this same method: one pass over the
- * proxy, both tables, on {@link OnlineDirectory#WRITE_INTERVAL}. A second timer would let the count
- * and the list describe two different moments for no gain at all.
+ * How many, and who: one tick, two tables. {@code online_count} is numbers and nothing else, by
+ * its own migration's decision, so the names live in {@code online_player} next to it and are
+ * written from this same method: one pass over the proxy, both tables, on
+ * {@link OnlineDirectory#WRITE_INTERVAL}. A second timer would let the count and the list describe
+ * two different moments for no gain at all.
  *
- * <p>The two writes are guarded separately, which is the one place they are not treated as one
+ * The two writes are guarded separately, which is the one place they are not treated as one
  * thing: a roster write that fails must not cost the counts their tick, since a number with no
  * faces is most of what the dashboard shows and faces with no number is none of it.
  *
- * <h2>Ten seconds is a dashboard's cadence and not a run's (season-2-ops/122)</h2>
- * steward-worker waits, after the countdown, for a service to be free of players before it stops
- * it - and gives up after ten. A number that is itself up to ten seconds old cannot answer that
- * question at all: it would still be describing the moment before the players were moved, so the
- * run would wait the whole cap every time and then report a count that was never true.
+ * Ten seconds is a dashboard's cadence and not a run's. steward-worker waits, after the countdown,
+ * for a service to be free of players before it stops it - and gives up after ten. A number that is
+ * itself up to ten seconds old cannot answer that question at all: it would still be describing the
+ * moment before the players were moved, so the run would wait the whole cap every time and then
+ * report a count that was never true.
  *
- * <p>So {@link #tick()} is called every second and decides for itself. It writes on
- * {@link OnlineDirectory#WRITE_INTERVAL} as it always did, <b>unless</b> a run is about to stop
+ * So {@link #tick()} is called every second and decides for itself. It writes on
+ * {@link OnlineDirectory#WRITE_INTERVAL} as it always did, unless a run is about to stop
  * something, in which case it writes every second for the ten or twenty seconds that lasts. Still
  * one timer and still one pass over the proxy, which is what keeps the count and the roster
- * describing the same moment - the thing a second timer would have cost.</p>
+ * describing the same moment - the thing a second timer would have cost.
  */
 public final class OnlineWriter {
 
@@ -73,8 +73,8 @@ public final class OnlineWriter {
     /**
      * How often {@link #tick()} is called, which is not how often it writes.
      *
-     * <p>One second. The scheduled task is cheap by construction: on all but the ten seconds of a
-     * run it does two comparisons and returns.</p>
+     * One second. The scheduled task is cheap by construction: on all but the ten seconds of a
+     * run it does two comparisons and returns.
      */
     public static final Duration TICK = Duration.ofSeconds(1);
 
@@ -82,7 +82,7 @@ public final class OnlineWriter {
     private volatile BooleanSupplier hurry = () -> false;
 
     /** When this last wrote, so the ordinary cadence survives being ticked ten times as often. */
-    private volatile Instant lastWrite;
+    private volatile @Nullable Instant lastWrite;
 
     /**
      * @param role which of the two proxies this process is. A standby writes nothing at all - see
@@ -128,8 +128,8 @@ public final class OnlineWriter {
     /**
      * One tick of the one-second timer: writes, or decides it is not due yet.
      *
-     * <p>The decision itself is {@link #isDue}, which is where the two cadences are and is the part
-     * worth asserting. Everything here is the clock and the two writes.</p>
+     * The decision itself is {@link #isDue}, which is where the two cadences are and is the part
+     * worth asserting. Everything here is the clock and the two writes.
      */
     public void tick() {
         if (role.isStandby()) {
@@ -148,8 +148,7 @@ public final class OnlineWriter {
         try {
             return hurry.getAsBoolean();
         } catch (final RuntimeException failure) {
-            // The watch behind this reads a database row. A pass that cannot answer is a pass that
-            // falls back to the ordinary cadence, never one that stops writing counts altogether.
+            // A pass that cannot answer falls back to the ordinary cadence, never one that stops writing counts.
             logger.debug("Could not tell whether a run is imminent; writing on the usual cadence", failure);
             return false;
         }
@@ -158,16 +157,16 @@ public final class OnlineWriter {
     /**
      * Whether this tick writes.
      *
-     * <p>Static and free of every Velocity type, for the reason {@link OnlineCounts#of} is: this is
-     * the whole of season-2-ops/122's half of this class, and it is two comparisons that a test can
-     * hold without a proxy, a pool or ten real seconds.</p>
+     * Static and free of every Velocity type, for the reason {@link OnlineCounts#of} is: this is
+     * the hurry-cadence half of this class, and it is two comparisons that a test can hold without
+     * a proxy, a pool or ten real seconds.
      *
      * @param lastWrite when this last wrote, or {@code null} on the very first tick - which always
      *                  writes, because a deployment whose first row appears ten seconds after start
      *                  is one where every dashboard says "nothing known" for ten seconds
      * @param hurrying  whether a run is close enough to a stop that the ordinary cadence is no use
      */
-    static boolean isDue(final Instant lastWrite, final Instant now, final boolean hurrying) {
+    static boolean isDue(final @Nullable Instant lastWrite, final Instant now, final boolean hurrying) {
         if (lastWrite == null || hurrying) {
             return true;
         }
@@ -179,20 +178,19 @@ public final class OnlineWriter {
     /**
      * Called from the proxy's scheduler on {@link OnlineDirectory#WRITE_INTERVAL}.
      *
-     * <h2>The standby writes nothing, and that is not an optimisation (season-2-ops/121)</h2>
-     * These two tables answer "who is on the network". There is one network and, for a minute
-     * during a proxy swap, two proxies - and the second one would be answering the same question
-     * with a different number, every ten seconds, overwriting the first. For most of the standby's
-     * life its honest answer is zero, so the dashboard would flicker between the truth and nothing,
-     * and {@code steward-worker} asking whether the standby is empty could be handed the live
-     * proxy's row.
+     * The standby writes nothing, and that is not an optimisation: these two tables answer "who is
+     * on the network". There is one network and, for a minute during a proxy swap, two proxies -
+     * and the second one would be answering the same question with a different number, every ten
+     * seconds, overwriting the first. For most of the standby's life its honest answer is zero, so
+     * the dashboard would flicker between the truth and nothing, and {@code steward-worker} asking
+     * whether the standby is empty could be handed the live proxy's row.
      *
-     * <p>What the standby writes instead is {@code proxy_standby_state}, which is its own count in
+     * What the standby writes instead is {@code proxy_standby_state}, which is its own count in
      * its own row and cannot be confused with anybody's - see {@link
      * eu.nordtal.s2.proxy.update.StandbyReturn}. During the window when the live proxy is actually
-     * <em>down</em>, these tables go stale rather than to zero; that is the right direction, since
+     * down, these tables go stale rather than to zero; that is the right direction, since
      * the players are still on the network and the {@code updated} column says how old the answer
-     * is.</p>
+     * is.
      */
     public void write() {
         if (role.isStandby()) {
@@ -207,8 +205,7 @@ public final class OnlineWriter {
         try {
             online.write(OnlineCounts.of(proxy.getPlayerCount(), playersByServer()));
         } catch (final RuntimeException failure) {
-            // Nothing is retried here and nothing is cleared: the next tick is the retry, and a
-            // slightly stale row beats a dashboard that goes blank over one missed write.
+            // Nothing is retried here: the next tick is the retry, and a stale row beats a blank dashboard.
             logger.warn(
                     "Could not write online player counts; the service list keeps showing the " + "last numbers it saw",
                     failure);
@@ -219,8 +216,7 @@ public final class OnlineWriter {
         try {
             roster.replace(present());
         } catch (final RuntimeException failure) {
-            // Same rule as above, and the same retry: the next tick. A roster that is one tick
-            // behind shows a face too many for ten seconds; the count next to it is unaffected.
+            // Same rule as above: a roster one tick behind shows a face too many; the count next to it is unaffected.
             logger.warn(
                     "Could not write the online player list; the service list keeps showing " + "the last names it saw",
                     failure);
@@ -230,7 +226,7 @@ public final class OnlineWriter {
     /**
      * Everyone the proxy currently has, with the backend they are on where there is one.
      *
-     * <p>A player with no current server is included with a {@code null} subject rather than left
+     * A player with no current server is included with a {@code null} subject rather than left
      * out: {@code getPlayerCount()} counts them, so dropping them here would make the list one
      * shorter than the number beside it for no reason a reader could see. They are mid-transfer or
      * one step past login, and where they are is the only thing nobody knows yet.
@@ -250,11 +246,7 @@ public final class OnlineWriter {
 
     private Map<String, Integer> playersByServer() {
         final Map<String, Integer> byServer = new LinkedHashMap<>();
-        // The standby is in the list and is usually absent, which is the point: getServer returns
-        // empty while it is not running, so it contributes no row - and during a swap, when it is
-        // where the players actually are, it is the only row that would not have been zero
-        // (season-2-ops/120). A count that says nobody is online while everybody is parked is
-        // worse than no count.
+        // The standby is usually absent; during a swap a zero count while everybody is parked there would mislead.
         for (final String name :
                 List.of(servers.smp(), servers.hungerGames(), servers.limbo(), servers.limboStandby())) {
             proxy.getServer(name)

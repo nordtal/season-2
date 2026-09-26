@@ -14,16 +14,15 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The MOTD placeholder substitution, which is the one piece of the ping path with any logic in it.
- * <p>
+ *
  * Everything else on that path is a field read by design - a ping is unauthenticated and arrives in
  * bursts - so this is where the behaviour worth pinning lives: what an unknown name does, what a
  * value containing MiniMessage syntax does, and what is shown when the database has never answered.
- * </p>
- * <p>
+ *
+ *
  * {@link ProxyServer} is served by a {@link Proxy} rather than a hand-written fake. The interface
  * has some twenty methods and this needs two of them; a fake implementing the rest to throw would
  * be longer than the class under test.
- * </p>
  */
 class PlaceholdersTest {
 
@@ -42,9 +41,7 @@ class PlaceholdersTest {
 
     @Test
     void aServerThisProxyDoesNotHaveIsZeroAndNotAnError() {
-        // The MOTD is not the place to discover a routing misconfiguration: gate.yml's names are
-        // checked where they are used, and a ping that throws would make the network look
-        // unreachable rather than misconfigured.
+        // A ping that throws would make the network look unreachable rather than merely misconfigured.
         assertEquals("0", apply("{players:does-not-exist}"));
     }
 
@@ -61,8 +58,7 @@ class PlaceholdersTest {
 
     @Test
     void anEmptySnapshotRendersZeroesRatherThanNothing() {
-        // What a proxy shows before its first successful refresh, and if one never succeeds. The
-        // MOTD stays a MOTD.
+        // What a proxy shows before its first successful refresh, and if one never succeeds. The MOTD stays a MOTD.
         assertEquals(
                 "0 teams,  running",
                 Placeholders.apply(
@@ -76,16 +72,13 @@ class PlaceholdersTest {
 
     @Test
     void anUnknownPlaceholderIsLeftStandingSoTheTypoIsVisible() {
-        // A typo that vanishes is a typo nobody finds. This matches how Messages treats a parameter
-        // it was not given.
+        // A typo that vanishes is a typo nobody finds. This matches how Messages treats a parameter it was not given.
         assertEquals("{hg-alve} and {nonsense}", apply("{hg-alve} and {nonsense}"));
     }
 
     @Test
     void aValueContainingATagCannotInjectMiniMessage() {
-        // Substitution happens before parsing, which is what lets a MOTD colour a number. The cost
-        // is that a value with an angle bracket in it could otherwise open a tag - and
-        // smp-milestone is a key out of a YAML file somebody edits.
+        // Substitution before parsing is what lets a MOTD colour a number, at the cost of an injectable bracket.
         final NetworkSnapshot hostile =
                 new NetworkSnapshot("", 0, 0, 0, 0, 0, "<red>everything after this", 0, 0, 0, 0L, 0);
 
@@ -111,7 +104,7 @@ class PlaceholdersTest {
         assertEquals("nordtal.eu", apply("nordtal.eu"));
     }
 
-    // ---------------------------------------------------------------- helpers
+    // helpers
 
     private static String apply(final String template) {
         return Placeholders.apply(template, proxy(), SeasonPhase.SMP, 500, SNAPSHOT, "3 days 4 hours");
@@ -137,8 +130,7 @@ class PlaceholdersTest {
                 RegisteredServer.class.getClassLoader(),
                 new Class<?>[] {RegisteredServer.class},
                 (instance, method, arguments) -> switch (method.getName()) {
-                    // nCopies, not List.of/copyOf: this only has to have a size, and the two
-                    // factory methods reject the nulls that fill it.
+                    // nCopies, not List.of/copyOf: this only needs a size, and those factories reject the nulls.
                     case "getPlayersConnected" -> Collections.nCopies(players, null);
                     default -> throw new UnsupportedOperationException(method.getName());
                 });

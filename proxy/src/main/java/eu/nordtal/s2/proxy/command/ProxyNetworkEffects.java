@@ -9,9 +9,9 @@ import org.slf4j.Logger;
 /**
  * {@link NetworkEffects} against this proxy.
  *
- * <p>Off the event thread for the chat path: this reads files, and a proxy thread blocked on disk is
+ * Off the event thread for the chat path: this reads files, and a proxy thread blocked on disk is
  * every login blocked on disk. Inline for the command inbox, because the inbox settles a request row
- * when the command returns.</p>
+ * when the command returns.
  */
 public final class ProxyNetworkEffects implements NetworkEffects {
 
@@ -53,9 +53,7 @@ public final class ProxyNetworkEffects implements NetworkEffects {
     public boolean reloadMessages() {
         try {
             messages.reload();
-            // The inbox's own view of the shared bundle, in the same breath. Its unknown keys are
-            // deliberately not reported: it holds one root, so a key this module declares would be
-            // named as unknown by it and is not.
+            // The inbox's own view of the shared bundle; its unknown keys go unreported since it holds one root.
             shared.reload();
             messages.unknownOverrideKeys()
                     .forEach(unknown -> logger.warn(

@@ -23,43 +23,23 @@ import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The proxy's half of steward/106: a command that carries no
- * {@link eu.nordtal.s2.commands.Surface#GAME} is not in a player's command tree at all.
+ * The proxy's half of the rule about {@link eu.nordtal.s2.commands.Surface#GAME} and a player's command tree.
  *
- * <h2>What this test used to hold, and why it now holds the opposite</h2>
- * Written for {@code season-2-ops/25} on 2026-09-16, it asserted that an admin typing the old chat
- * form of {@code /update check} or {@code /phase show} heard {@code command.not-in-game} - "that
- * command still exists, but not here any more". Till read that sentence in game on 2026-09-17 and
- * called it a misreading of his own requirement: the commands are to be <b>gone</b>. The cost is
- * that Minecraft answers "Unknown command", which is the very thing {@code ops/18} built that key
- * to avoid, and Till took the cost deliberately. So the two keys are deleted and this file asks the
- * tree instead of the chat log - which is also the only place the new answer can be seen, because
- * a command that does not exist produces no message to assert on.
+ * A command carrying no {@code GAME} surface is not in that tree at all. An admin typing the chat form of
+ * {@code /update check} or {@code /phase show} is meant to get
+ * Minecraft's own "Unknown command" rather than a bespoke not-in-game message: the commands are
+ * meant to be gone from a player's view entirely, and a command that does not exist produces no
+ * message to assert on, so this file asks the tree instead of a chat log.
  *
- * <h2>Why the gap is reachable here at all, unchanged from ops/25</h2>
  * {@code ProxyPlugin} hands this adapter {@code PhaseCommands}, {@code NetworkCommands} and
- * {@code UpdateCommands} through {@code local()} - and since {@code season-2-ops/155} nothing else:
- * the five a player types are native Brigadier beside this tree rather than declarations in it. So
- * after {@code season-2-ops/18} all three carry no {@code Surface.GAME} - {@code /network
- * reload} and the {@code /update} family are {@code CONSOLE} only, {@code /phase} is {@code CONSOLE}
- * and {@code WEB}. {@link VelocityUser#origin()} returns {@code GAME} for every connected player.
- *
- * <h2>Seen red, 2026-09-17</h2>
- * Against {@code VelocityCommands} exactly as ops/25 left it - {@code requires} being
- * {@code mayUse} alone, which an admin passes - both assertions failed:
- *
- * <pre>
- * VelocityCommandsGameSurfaceTest &gt; a console-only command is not in an admin's tree FAILED
- *     org.opentest4j.AssertionFailedError: /update is Surface.CONSOLE alone, so it must not be in
- *     the tree an admin standing in the lobby receives ==&gt; expected: &lt;false&gt; but was: &lt;true&gt;
- * VelocityCommandsGameSurfaceTest > ...and neither is one that kept Surface.WEB FAILED
- *     org.opentest4j.AssertionFailedError: /phase is CONSOLE and WEB - the web is not a place a
- *     player types a command, so the tree loses it too ==&gt; expected: &lt;false&gt; but was: &lt;true&gt;
- * </pre>
+ * {@code UpdateCommands} through {@code local()}, and nothing else: the five commands a player
+ * types are native Brigadier beside this tree rather than declarations in it. All three carry no
+ * {@code Surface.GAME} - {@code /network reload} and the {@code /update} family are
+ * {@code CONSOLE} only, {@code /phase} is {@code CONSOLE} and {@code WEB}.
+ * {@link VelocityUser#origin()} returns {@code GAME} for every connected player.
  */
 class VelocityCommandsGameSurfaceTest {
 
@@ -69,7 +49,6 @@ class VelocityCommandsGameSurfaceTest {
     private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locale.ENGLISH);
 
     @Test
-    @DisplayName("a console-only command is not in an admin's tree")
     void aConsoleOnlyCommandIsGoneFromTheGame() {
         final VelocityCommands commands = adapter();
         for (final NordtalCommand<UpdateEffects> command : UpdateCommands.all()) {
@@ -85,7 +64,6 @@ class VelocityCommandsGameSurfaceTest {
     }
 
     @Test
-    @DisplayName("...and neither is one that kept Surface.WEB")
     void aWebCommandIsGoneFromTheGameToo() {
         final VelocityCommands commands = adapter();
         for (final NordtalCommand<PhaseEffects> command : PhaseCommands.all()) {
@@ -93,8 +71,7 @@ class VelocityCommandsGameSurfaceTest {
         }
         final var phase = root(commands, "phase");
 
-        // The bare root as well: Catalogue#rootDefault makes /phase run /phase show, which was a
-        // second way into run() and would be a second way past the gate if the root were ungated.
+        // The bare root too: Catalogue#rootDefault makes /phase run /phase show, a second way past an ungated root.
         assertFalse(
                 phase.getRequirement().test(admin()),
                 "/phase is CONSOLE and WEB - the web is not a place a player types a command, so"

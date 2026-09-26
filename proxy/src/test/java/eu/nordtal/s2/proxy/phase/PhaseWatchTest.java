@@ -16,14 +16,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link PhaseWatch} against a fake {@link PhaseDirectory} - the poll's arithmetic without a
- * database.
- * <p>
+ * {@link PhaseWatch} against a fake {@link PhaseDirectory} - the poll's arithmetic without a database.
+ *
  * Most of these are about the fallback rule: a phase that cannot be read falls back to the last
  * known one, and to {@code MAINTENANCE} when there is none. Both halves are easy to get wrong in
  * opposite directions - clearing the value on a failed read locks everybody out during a database
  * blip, and defaulting a never-read value to {@code PRE_EVENT} opens the network.
- * </p>
  */
 class PhaseWatchTest {
 
@@ -144,8 +142,7 @@ class PhaseWatchTest {
 
         @Override
         public java.util.Optional<java.time.Instant> launch() {
-            // No test here is about the opening date; PhaseWatch reads it on the same refresh as
-            // the phase and renders it only into the MOTD.
+            // No test here is about the opening date; it is read on the same refresh and rendered only in the MOTD.
             return java.util.Optional.empty();
         }
 

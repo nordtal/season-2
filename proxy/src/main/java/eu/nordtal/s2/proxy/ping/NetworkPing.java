@@ -17,10 +17,9 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
 /**
- * What the server browser shows: the MOTD for the current phase, and the player limit the network
- * actually enforces.
+ * What the server browser shows: the MOTD for the current phase, and the player limit the network actually enforces.
  *
- * <h2>Why the plugin owns this and {@code velocity.toml} does not</h2>
+ * <b>Why the plugin owns this and {@code velocity.toml} does not.</b>
  * The MOTD used to be seeded into {@code velocity.toml} on a fresh volume and owned by the operator
  * afterwards, which meant changing it on a network that had ever started required editing a file
  * inside a Docker volume - and setting {@code VELOCITY_MOTD} in {@code .env} silently did nothing.
@@ -29,18 +28,16 @@ import org.slf4j.Logger;
  * ({@code EXPECTED_PLUGINS}), so there is no configuration in which that leaves the browser showing
  * Velocity's own default.
  *
- * <h2>Nothing on this path blocks</h2>
+ * <b>Nothing on this path blocks.</b>
  * A ping is unauthenticated, arrives in bursts from every client with the server in its list, and
  * Velocity waits on this event before answering ({@code @AwaitingEvent}). So: no database call, no
  * lock, no I/O. The phase comes from {@link PhaseWatch}'s last known value, the counts from the
  * proxy's own view, and everything else from a {@link NetworkSnapshot} a timer refreshed - all of
  * them field reads.
  *
- * <h2>The maximum is the real one</h2>
+ * <b>The maximum is the real one.</b>
  * {@code maximumPlayers} here is the same number {@code LoginGate} enforces, from the same config
- * key. Before 2026-09-03 the browser advertised 500 while the first backend a player reached
- * refused the 21st - the two numbers could not disagree if they wanted to now, because there is
- * only one.
+ * key. The two numbers could not disagree if they wanted to, because there is only one.
  */
 public final class NetworkPing {
 
@@ -96,9 +93,7 @@ public final class NetworkPing {
     }
 
     private Component description() {
-        // One read, not two: the phase decides which MOTD is shown and the instant is what its
-        // countdown counts to, so a ping that caught them from either side of a refresh could
-        // render a PRE_LAUNCH line against an opening date that had just been cleared.
+        // One read, not two: a ping caught mid-refresh could otherwise pair a stale phase with a new instant.
         final PhaseWatch.Known known = phases.known();
         final SeasonPhase phase = known.phase();
         final String template = motdFor(phase);
@@ -110,9 +105,7 @@ public final class NetworkPing {
         try {
             return MiniMessage.miniMessage().deserialize(substituted);
         } catch (final RuntimeException malformed) {
-            // A MOTD is operator-written text, and a mistyped tag must not take the ping down -
-            // every client in the world would then show this network as unreachable rather than as
-            // badly configured. The unparsed string is still a readable line.
+            // A mistyped tag must not take the ping down and show the network as unreachable; unparsed still reads.
             logger.warn("network.yml's MOTD for {} is not valid MiniMessage; showing it unparsed", phase, malformed);
             return Component.text(substituted);
         }

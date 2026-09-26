@@ -18,45 +18,40 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * The way back gets a voice - season-2-ops/118, point 3.
+ * The way back gets a voice, not only the way out.
  *
- * <h2>Why the return needed one at all</h2>
- * Everything this network says is said on the way out. Till, 2026-09-20: <i>when they are
- * transferred back there should be a message too. Coming back out of the limbo or the standby limbo,
- * a chat line shortly beforehand is enough - if the proxy is swapped and the player is already on
- * the SMP, that additionally needs a countdown, because it interrupts gameplay.</i> So there are two
- * returns here and they are weighted differently, which is the whole design:
+ * Everything this network otherwise says is said on the way out: when players are transferred
+ * back there should be a message too. Coming back out of the limbo or the standby limbo, a chat
+ * line shortly beforehand is enough; if the proxy is swapped and the player is already on the SMP,
+ * that additionally needs a countdown, because it interrupts gameplay. So there are two returns
+ * here, weighted differently, which is the whole design: out of the waiting room is one chat line
+ * immediately before the connection, since somebody sitting in the limbo is doing nothing that can
+ * be interrupted and a countdown would be ten more seconds of waiting; off the standby proxy is
+ * chat and a counted subtitle, because the player is standing on the SMP with their own hands full
+ * and the transfer lands in the middle of whatever they are doing.
  *
- * <ul>
- *   <li><b>Out of the waiting room.</b> One chat line, immediately before the connection. Somebody
- *       sitting in the limbo is doing nothing that can be interrupted, and a countdown to the end of
- *       a wait would be ten more seconds of waiting.</li>
- *   <li><b>Off the standby proxy.</b> Chat <em>and</em> a counted subtitle, because the player is
- *       standing on the SMP with their own hands full - the transfer lands in the middle of
- *       whatever they are doing, which is exactly the reason the way out has a countdown.</li>
- * </ul>
- *
- * <h2>The register, and why it is not every release</h2>
- * {@code limbo} is where <em>every</em> login waits, so "is being released from the waiting room"
- * is not the same question as "is coming back from a run". Only players {@link Evacuation} moved
- * are owed the sentence, and each is owed it once: {@link #movedOut} writes them down and
- * {@link #comingBack} spends it. A release that fails leaves nothing behind - the player stays in
- * the room and the next attempt is silent - which is the deliberately quiet direction. One line
- * that was swallowed is better than one every ten seconds for as long as a backend is down.
+ * The register is not every release: {@code limbo} is where every login waits, so "is being
+ * released from the waiting room" is not the same question as "is coming back from a run". Only
+ * players {@link Evacuation} moved are owed the sentence, and each is owed it once:
+ * {@link #movedOut} writes them down and {@link #comingBack} spends it. A release that fails
+ * leaves nothing behind - the player stays in the room and the next attempt is silent - which is
+ * the deliberately quiet direction. One line that was swallowed is better than one every ten
+ * seconds for as long as a backend is down.
  */
 public final class Homecoming {
 
     /**
      * How long the standby proxy warns before it hands the network back.
      *
-     * <p>Ten, and not the sixty of {@code UpdateDirectory.UPDATE_COUNTDOWN}: the two are different
+     * Ten, and not the sixty of {@code UpdateDirectory.UPDATE_COUNTDOWN}: the two are different
      * promises. Sixty seconds of warning exist so that somebody can get out of a cave before the
      * server stops; a return costs nothing but a loading screen, and the whole point of the swap is
      * that it is over quickly. Ten is also exactly the stretch {@code Countdown} already draws one
-     * subtitle per second for, so the return counts in the same voice the way out does.</p>
+     * subtitle per second for, so the return counts in the same voice the way out does.
      */
     public static final Duration NOTICE = Duration.ofSeconds(10);
 
@@ -72,9 +67,9 @@ public final class Homecoming {
     /**
      * Who was moved out of the way and has not been told they are going back.
      *
-     * <p>Emptied at the start of every evacuation rather than swept: what is in it is the last
+     * Emptied at the start of every evacuation rather than swept: what is in it is the last
      * run's moved players, so a player who disconnected in the waiting room costs one UUID until
-     * the next run and nothing after it.</p>
+     * the next run and nothing after it.
      */
     private final Set<UUID> owed = ConcurrentHashMap.newKeySet();
 
@@ -86,7 +81,7 @@ public final class Homecoming {
         this.servers = Objects.requireNonNull(servers, "servers");
     }
 
-    // ------------------------------------------------------------------ out of the waiting room
+    // out of the waiting room
 
     /** A new evacuation: these are the players it moved, and nobody else is owed anything. */
     public void movedOut(final Collection<Player> players) {
@@ -111,10 +106,9 @@ public final class Homecoming {
     /**
      * A player the waiting room is about to release. Says so, once, if a run put them there.
      *
-     * <p>Said <em>before</em> the connection is asked for rather than after it succeeds: after it
+     * Said before the connection is asked for rather than after it succeeds: after it
      * succeeds they are already standing on their own server and the sentence has become a
-     * greeting. Till asked for shortly beforehand, and the chat line and the loading screen
-     * arriving together is what that looks like from a client.</p>
+     * greeting instead, and the chat line and the loading screen arriving together is the point.
      *
      * @param player      the player being released
      * @param destination the server they are going to, for the name in the line
@@ -136,15 +130,15 @@ public final class Homecoming {
         }
     }
 
-    // ------------------------------------------------------------------ off the standby proxy
+    // off the standby proxy
 
     /**
      * One beat of the standby proxy's return, spoken to the players it is holding.
      *
-     * <p>The chat half goes to everybody and the subtitle only to the players who are not sitting
-     * in a waiting room. That split is Till's distinction exactly: a counter in the middle of the
-     * screen is for somebody whose game is about to be interrupted, and a black screen with a
-     * "please wait" on it is not interrupted by anything.</p>
+     * The chat half goes to everybody and the subtitle only to the players who are not sitting
+     * in a waiting room: a counter in the middle of the screen is for somebody whose game is about
+     * to be interrupted, and a black screen with a "please wait" on it is not interrupted by
+     * anything.
      */
     public void say(final Collection<Player> players, final Announcement announcement) {
         for (final Player player : players) {
@@ -181,10 +175,7 @@ public final class Homecoming {
                             renderer.format(locale, MESSAGES.returnSection().now()));
                 }
             }
-            // Neither can happen on this path: the standby speaks only about a return it has
-            // already decided on, and it decides by looking at a port rather than at a row that
-            // could be withdrawn. Named rather than defaulted, so a future kind is a compile error
-            // here instead of silence on somebody's screen.
+            // Neither can happen here: the standby only speaks about a return it already decided on by port.
             case CANCELLED, FAILED ->
                 logger.warn(
                         "The standby was asked to announce {}, which is" + " not something a return can be",
@@ -209,7 +200,7 @@ public final class Homecoming {
      *               use to them
      * @return whether a transfer would interrupt something
      */
-    static boolean interrupts(final String server, final PhaseServers servers) {
+    static boolean interrupts(final @Nullable String server, final PhaseServers servers) {
         return server != null && !servers.isWaitingRoom(server);
     }
 
@@ -218,14 +209,13 @@ public final class Homecoming {
     }
 
     /**
-     * A compose service name as a player would say it, or the compose name itself when there is no
-     * line for it.
+     * A compose service name as a player would say it, or the compose name itself when there is no line for it.
      *
-     * <p>Shared with {@code RestartWatch}, which asks the same question of the service a run is
+     * Shared with {@code RestartWatch}, which asks the same question of the service a run is
      * about: two answers to one question would be two different names for the SMP in two messages
-     * about the same run. <b>Asked of English</b> and not of the player's own locale - every
+     * about the same run. Asked of English and not of the player's own locale - every
      * language falls back to English, so asking the locale would drop a perfectly good English name
-     * in favour of a compose name for anything not yet translated.</p>
+     * in favour of a compose name for anything not yet translated.
      */
     public static Component serviceName(final Messages messages, final Locale locale, final String service) {
         final ProxyMessages.Restart.What names = MESSAGES.restart().what();

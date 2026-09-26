@@ -28,19 +28,18 @@ import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The three commands that came out of {@code :commands} in season-2-ops/155.
+ * The three commands that came out of {@code :commands}.
  *
- * <p>What is asserted here is what survived the move: the shape of the tree a client receives, the
+ * What is asserted here is what survived the move: the shape of the tree a client receives, the
  * two lines a message is drawn as, and the reply partner. The delivery itself is not - it needs two
  * Velocity {@code Player}s on a running proxy, which is the same limit {@code RestartGateTest}
  * states. The seams {@link PrivateMessages#line}, {@link PrivateMessages#remember} and
- * {@link PrivateMessages#forget} exist so that the part with a decision in it does not need one.</p>
+ * {@link PrivateMessages#forget} exist so that the part with a decision in it does not need one.
  */
 class PrivateMessagesTest {
 
@@ -55,10 +54,9 @@ class PrivateMessagesTest {
     private final PrivateMessages commands =
             new PrivateMessages(noProxy(), roster, messages, () -> ToneColours.DEFAULTS, LOGGER);
 
-    // ---------------------------------------------------------------- the tree
+    // the tree
 
     @Test
-    @DisplayName("the tree is /msg <player> <message>, twice, and /r <message>")
     void theShapeIsWhatTheDeclarationsSaid() {
         assertEquals(List.of("msg", "whisper", "r"), literals());
 
@@ -71,11 +69,8 @@ class PrivateMessagesTest {
     }
 
     @Test
-    @DisplayName("every step of every command runs something rather than failing to parse")
     void nothingInTheTreeIsADeadEnd() {
-        // The declaration used to guarantee this: VelocityCommands put a usage line on every node
-        // that could not run yet. Written out by hand, a forgotten `executes` is a command that
-        // answers "Unknown command" to somebody who typed it correctly but stopped one word short.
+        // Written out by hand, a forgotten `executes` answers "Unknown command" for a word typed correctly.
         final List<String> dead = new ArrayList<>();
         for (final BrigadierCommand command : commands.commands()) {
             walk(command.getNode(), command.getNode().getName(), dead);
@@ -84,12 +79,8 @@ class PrivateMessagesTest {
     }
 
     @Test
-    @DisplayName("a player may actually type all three, out of the box")
     void theDefaultAllowlistCarriesThem() {
-        // THE FAILURE THIS CATCHES: a native command is registered with Velocity and refused by
-        // CommandGate, so it exists, tab-completes for an admin, and tells everybody else they may
-        // not use it. The declaration never protected against that either - but the list and the
-        // registration now sit in two different modules, so nothing else holds them together.
+        // The failure this catches: a command registered but refused by CommandGate, tab-completing yet unusable.
         final List<String> allowed = new NetworkSpec() {}.commandAllowlist();
         for (final String literal : literals()) {
             assertTrue(
@@ -98,10 +89,9 @@ class PrivateMessagesTest {
         }
     }
 
-    // ---------------------------------------------------------------- the two lines
+    // the two lines
 
     @Test
-    @DisplayName("each side reads their own language, and the flag is the other side's")
     void theLineIsDrawnForItsReaderAndAboutTheOther() {
         roster.remember(ONE, session(ONE, Locale.ENGLISH, false));
         roster.remember(TWO, session(TWO, Locale.GERMAN, false));
@@ -120,7 +110,6 @@ class PrivateMessagesTest {
     }
 
     @Test
-    @DisplayName("an admin carries the tag and nobody else does")
     void theAdminTagIsOnlyOnAdmins() {
         roster.remember(ONE, session(ONE, Locale.ENGLISH, true));
         roster.remember(TWO, session(TWO, Locale.ENGLISH, false));
@@ -132,11 +121,8 @@ class PrivateMessagesTest {
     }
 
     @Test
-    @DisplayName("what somebody types is never parsed as markup")
     void aPlayerCannotColourSomebodyElsesChat() {
-        // The component slot, and the whole reason it exists. A substituted string would be
-        // escaped by MessageRenderer, but escaping is a rule somebody has to remember; a component
-        // never reaches the parser at all.
+        // The component slot: a substituted string would rely on escaping, but a component never reaches the parser.
         roster.remember(TWO, session(TWO, Locale.ENGLISH, false));
         final Component line =
                 commands.line(PrivateMessages.Half.SENT, Locale.ENGLISH, player(TWO, "zwei"), "<red>look at me</red>");
@@ -146,10 +132,9 @@ class PrivateMessagesTest {
                 "the tags reached the reader as the characters they typed: " + flat(line));
     }
 
-    // ---------------------------------------------------------------- the reply partner
+    // the reply partner
 
     @Test
-    @DisplayName("one message points both of them at each other")
     void theReplyPartnerIsSetOnBothSides() {
         commands.remember(ONE, TWO);
 
@@ -161,7 +146,6 @@ class PrivateMessagesTest {
     }
 
     @Test
-    @DisplayName("a leaving player is forgotten in both directions")
     void leavingClearsBothEnds() {
         commands.remember(ONE, TWO);
         commands.forget(TWO);
@@ -176,7 +160,6 @@ class PrivateMessagesTest {
     }
 
     @Test
-    @DisplayName("a third conversation is untouched by somebody else leaving")
     void forgettingIsNotAReset() {
         commands.remember(ONE, TWO);
         commands.remember(THREE, ONE);
@@ -186,13 +169,11 @@ class PrivateMessagesTest {
         assertEquals(Optional.of(ONE), commands.partnerOf(THREE));
     }
 
-    // ---------------------------------------------------------------- the sentences
+    // the sentences
 
     @Test
-    @DisplayName("every key these three name is in this module's bundle, in both languages")
     void theMovedSentencesArrived() {
-        // They stood in messages/commands until season-2-ops/155. Messages answers a missing key
-        // with the key, so a half-finished move reaches a player as the literal chat.no-partner.
+        // Moved out of messages/commands; Messages answers a missing key with the key itself, not a fallback.
         for (final String key : List.of(
                 "chat.msg.sent",
                 "chat.msg.received",
@@ -207,7 +188,7 @@ class PrivateMessagesTest {
         }
     }
 
-    // ---------------------------------------------------------------- helpers
+    // helpers
 
     private List<String> literals() {
         return commands.commands().stream()

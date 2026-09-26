@@ -13,17 +13,15 @@ import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
 /**
- * season-2-ops/20's own red test: "ein Backend, das sofort wieder wirft, hielte den Spieler sonst
- * in einer Endlosschleife" - a backend that immediately kicks again must not bounce the player
- * between {@code limbo} and itself on every attempt.
+ * A backend that immediately kicks again must not bounce the player between {@code limbo} and itself.
  *
- * <p>Nothing here can build a real {@code KickedFromServerEvent} or a real connection - see
+ * Nothing here can build a real {@code KickedFromServerEvent} or a real connection - see
  * {@link BackendKick} and {@code PackStation} for why the pieces that can be asserted are the pure
  * ones. What this composes instead is exactly the seam {@code PackStation#evaluate} walks in
  * production: {@link BackendKick#decide} says what a kick with no reason becomes,
  * {@link BackendHealth} is what that decision suspends, and {@link LimboHold#reason} is what a
  * suspended destination turns into on the waiting room's own screen. Together they are the whole
- * mechanism; nothing below is mocked.</p>
+ * mechanism; nothing below is mocked.
  */
 class BackendKickLoopTest {
 
@@ -31,10 +29,7 @@ class BackendKickLoopTest {
 
     @Test
     void withoutTheBreakerASecondKickWouldFollowImmediately() {
-        // The situation this class exists to fix: a backend that kicks with no reason twice in a
-        // row. Without BackendHealth in the loop, "is smp available" only ever asks whether it is
-        // *registered* on the proxy - which a crash-looping container still is - so the player is
-        // released straight back into it and is kicked again on arrival.
+        // Without BackendHealth, "available" only asks whether registered; a crash-looping container still passes.
         assertEquals(
                 BackendKick.Decision.TO_LIMBO,
                 BackendKick.decide(DisconnectPlayer.create(Component.text("kicked")), null));
@@ -63,10 +58,7 @@ class BackendKickLoopTest {
                 BackendKick.decide(DisconnectPlayer.create(Component.text("kicked")), null));
         health.suspend(SMP);
 
-        // The waiting room's own sweep re-asks immediately, as it does every
-        // gate.yml#limbo-sweep-interval-seconds. 'smp' is still registered, but the breaker is open,
-        // so the player is held with the same BACKEND title the room already uses for a destination
-        // that is merely down - not released, and therefore not kicked a second time.
+        // 'smp' is still registered, but the breaker is open, so the player is held with the same BACKEND title.
         assertEquals(
                 Optional.of(WaitReason.BACKEND),
                 LimboHold.reason(true, SeasonPhase.SMP, false, false, !health.isSuspended(SMP), false, false),
@@ -78,8 +70,7 @@ class BackendKickLoopTest {
                 Optional.of(WaitReason.BACKEND),
                 LimboHold.reason(true, SeasonPhase.SMP, false, false, !health.isSuspended(SMP), false, false));
 
-        // The retry window passes. The next sweep is allowed to try again - this is
-        // "regelmäßig prüfen", not a second kick.
+        // The retry window passes; the next sweep may try again - "regelmäßig prüfen", not a second kick.
         clock.advance(java.time.Duration.ofSeconds(1));
         assertEquals(
                 Optional.empty(),
@@ -87,9 +78,7 @@ class BackendKickLoopTest {
                 "once the retry window has passed the player may be released - this is the actual "
                         + "health check: a real connection attempt");
 
-        // Say that attempt succeeded: PlayerRouter would clear the breaker on the connection's own
-        // success, and the player is on 'smp' having done nothing themselves - "wird verbunden, ohne
-        // dass er etwas tun muss".
+        // PlayerRouter clears the breaker on the connection's own success - "wird verbunden, ohne etwas zu tun".
         health.clear(SMP);
         assertEquals(
                 Optional.empty(),

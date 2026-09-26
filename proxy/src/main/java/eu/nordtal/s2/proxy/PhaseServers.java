@@ -3,24 +3,18 @@ package eu.nordtal.s2.proxy;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.proxy.config.GateSpec;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Which backend a player in each phase belongs on.
  *
- * <table>
- *   <caption>Phase to backend</caption>
- *   <tr><th>phase</th><th>server</th></tr>
- *   <tr><td>{@code PRE_EVENT}</td><td>{@code hunger-games} - the lobby</td></tr>
- *   <tr><td>{@code START_EVENT}</td><td>{@code hunger-games} - the event itself</td></tr>
- *   <tr><td>{@code SMP}</td><td>{@code smp}</td></tr>
- *   <tr><td>{@code MAINTENANCE}</td><td>{@code limbo}</td></tr>
- * </table>
+ * {@code PRE_EVENT} and {@code START_EVENT} are the {@code hunger-games} lobby and event,
+ * {@code SMP} is the {@code smp} backend, and {@code MAINTENANCE} is {@code limbo}. The mapping is
+ * not configurable; the names are, defaulting in {@link GateSpec#serverLimbo()} to the module
+ * directory names.
  *
- * <p>The mapping is not configurable; the <b>names</b> are, defaulting in
- * {@link GateSpec#serverLimbo()} to the module directory names.</p>
- *
- * <p>This class knows nothing about Velocity and nothing about whether a named server exists, which
- * keeps "which server should this player be on" separate from "does this proxy have it".</p>
+ * This class knows nothing about Velocity and nothing about whether a named server exists, which
+ * keeps "which server should this player be on" separate from "does this proxy have it".
  */
 public final class PhaseServers {
 
@@ -56,21 +50,19 @@ public final class PhaseServers {
         return switch (phase) {
             case PRE_EVENT, START_EVENT -> hungerGames;
             case SMP -> smp;
-            // MAINTENANCE holds non-admins in the waiting room; PRE_LAUNCH admits nobody but
-            // admins, and a network that has not opened may not have its own servers built yet.
+            // PRE_LAUNCH admits nobody either: an unopened network may not have its other servers built yet.
             case MAINTENANCE, PRE_LAUNCH -> limbo;
         };
     }
 
     /**
      * Where a player the gate has admitted goes once the waiting room lets them out.
-     * <p>
+     *
      * The same as {@link #forPhase} except for an admin while the network is closed. Those phases
-     * name {@code limbo} as the phase's backend, and releasing somebody from the waiting room
-     * <em>into</em> the waiting room is a black screen with a stale title and no timeout - so an
-     * admin is released onto the SMP, the server being worked on, and {@code /server} reaches the
-     * others from there.
-     * </p>
+     * name {@code limbo} as the phase's backend, and releasing somebody from the waiting room into
+     * the waiting room is a black screen with a stale title and no timeout - so an admin is
+     * released onto the SMP, the server being worked on, and {@code /server} reaches the others
+     * from there.
      *
      * @param phase the phase the network is in
      * @param admin whether the player carries {@code discord_user.admin}
@@ -90,31 +82,25 @@ public final class PhaseServers {
     }
 
     /**
-     * @return the name of the second waiting room - the one that stands in while {@link #limbo()}
-     *         is itself being updated (season-2-ops/120)
+     * @return the name of the second waiting room, which stands in while {@link #limbo()} is
+     *         itself being updated
      */
     public String limboStandby() {
         return limboStandby;
     }
 
     /**
-     * Whether a backend name is a waiting room - <b>either</b> of them.
+     * Whether a backend name is a waiting room - either of them.
      *
-     * <p>This method is the whole of season-2-ops/120's second half, and it exists because the
-     * question used to be answered by comparing against {@link #limbo()} alone. A player moved to
-     * the standby would have been, to every one of those comparisons, somebody on an unrelated
-     * backend rather than somebody waiting: the pack station would not have counted them, the kick
-     * handler would have tried to redirect them <em>into</em> the room they are already standing
-     * in, and nothing would ever have released them. They would have sat there until they gave up.
-     * That is why the ticket says half-built is worse here than not built.</p>
-     *
-     * <p>Ask this instead of {@code name.equals(servers.limbo())}, everywhere, including the
-     * places where a swap "cannot" be running - those are the places that will be wrong first.</p>
+     * A player parked on the standby room counts as waiting too: comparing only against
+     * {@link #limbo()} would treat them as somebody on an unrelated backend instead, and nothing
+     * would ever release them from a room that already holds them. Ask this instead of
+     * {@code name.equals(servers.limbo())} everywhere.
      *
      * @param server a backend name, or {@code null}
      * @return whether a player standing on it is a player who is waiting
      */
-    public boolean isWaitingRoom(final String server) {
+    public boolean isWaitingRoom(final @Nullable String server) {
         return limbo.equals(server) || limboStandby.equals(server);
     }
 

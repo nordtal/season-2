@@ -6,19 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.InetSocketAddress;
 import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** The two addresses a swap moves players between (season-2-ops/121). */
+/** The two addresses a swap moves players between for a proxy that has been swapped in. */
 class SwapAddressesTest {
 
     @Test
-    @DisplayName("the address a player is handed is never resolved on this side")
     void theAddressStaysAName() {
-        // The whole reason SwapAddresses exists. Velocity builds the transfer packet from
-        // getHostName(), and on a RESOLVED address that is a reverse DNS lookup on whichever
-        // thread holds it - so a resolved address here would be both a blocking call and,
-        // potentially, a different name than the one Till configured.
+        // Unresolved on purpose: the transfer packet uses getHostName(), a blocking reverse lookup when resolved.
         final InetSocketAddress address =
                 SwapAddresses.publicAddress("play.nordtal.eu:25565").orElseThrow();
         assertTrue(address.isUnresolved());
@@ -27,11 +22,8 @@ class SwapAddressesTest {
     }
 
     @Test
-    @DisplayName("no port is no address, because a transfer packet has nowhere to get one")
     void thePortIsNotOptional() {
-        // A SRV record hides the port from somebody typing a name into a client. Nothing looks one
-        // up on behalf of a transfer, so guessing 25565 here would transfer everybody to a port
-        // that may have nothing on it.
+        // A SRV record hides the port, and nothing looks one up for a transfer, so guessing 25565 could be wrong.
         assertEquals(Optional.empty(), SwapAddresses.publicAddress("play.nordtal.eu"));
         assertEquals(Optional.empty(), SwapAddresses.publicAddress("play.nordtal.eu:"));
         assertEquals(Optional.empty(), SwapAddresses.publicAddress("play.nordtal.eu:no"));
@@ -40,7 +32,6 @@ class SwapAddressesTest {
     }
 
     @Test
-    @DisplayName("empty is a valid answer and means this deployment does not swap proxies")
     void emptyIsAValidAnswer() {
         assertEquals(Optional.empty(), SwapAddresses.publicAddress(""));
         assertEquals(Optional.empty(), SwapAddresses.publicAddress("   "));
@@ -48,7 +39,6 @@ class SwapAddressesTest {
     }
 
     @Test
-    @DisplayName("an IPv6 literal keeps its own colons")
     void ipv6KeepsItsColons() {
         final InetSocketAddress address =
                 SwapAddresses.publicAddress("[2001:db8::1]:25565").orElseThrow();
@@ -57,7 +47,6 @@ class SwapAddressesTest {
     }
 
     @Test
-    @DisplayName("the standby is the same host on the other port")
     void theStandbyIsTheSameHost() {
         final InetSocketAddress home =
                 SwapAddresses.publicAddress("play.nordtal.eu:25565").orElseThrow();
@@ -69,11 +58,8 @@ class SwapAddressesTest {
     }
 
     @Test
-    @DisplayName("a standby on the live port is refused, because that is a transfer to nowhere")
     void theSamePortIsNoStandby() {
-        // Not hypothetical: PROXY_STANDBY_PORT and PROXY_PORT are two variables in one .env, and
-        // setting them equal is one keystroke. The result would be every player transferred to the
-        // address they are already connected to, seconds before that proxy stops.
+        // PROXY_STANDBY_PORT and PROXY_PORT are two variables in one .env; equal by a keystroke moves nobody.
         final InetSocketAddress home =
                 SwapAddresses.publicAddress("play.nordtal.eu:25565").orElseThrow();
         assertFalse(SwapAddresses.standbyAddress(home, 25565).isPresent());

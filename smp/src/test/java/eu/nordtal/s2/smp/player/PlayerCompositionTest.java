@@ -155,8 +155,8 @@ class PlayerCompositionTest {
 
         final long manyHours = Prestige.defaults().secondsFor(Prestige.TIER_COUNT);
         final Identity veteran = new Identity(Locale.GERMAN, false, false, 0, manyHours);
-        assertTrue(
-                plain(composition.nameTag("Till", veteran)).contains(Glyphs.PRESTIGE_CRESTS.get(Prestige.TIER_COUNT - 1)));
+        assertTrue(plain(composition.nameTag("Till", veteran))
+                .contains(Glyphs.PRESTIGE_CRESTS.get(Prestige.TIER_COUNT - 1)));
     }
 
     @Test

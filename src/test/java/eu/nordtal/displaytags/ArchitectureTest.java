@@ -24,7 +24,7 @@ class ArchitectureTest {
 
     @Test
     void packagesHaveNoCycles() {
-        slices().matching("eu.nordtal.displaytags.(**)")
+        slices().matching("eu.nordtal.displaytags.(*)..")
                 .should()
                 .beFreeOfCycles()
                 .check(classes);

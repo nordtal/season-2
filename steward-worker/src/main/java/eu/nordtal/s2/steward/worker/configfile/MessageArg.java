@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One placeholder a message declares in its jar's {@code schema.json}.
@@ -17,14 +16,14 @@ import org.jetbrains.annotations.Nullable;
  * @param global    whether every message of the network has it, rather than this one alone
  */
 public record MessageArg(
-        @NotNull String name, boolean component, @Nullable String type, boolean global) {
+        String name, boolean component, @Nullable String type, boolean global) {
 
-    public MessageArg(final @NotNull String name, final boolean component) {
+    public MessageArg(final String name, final boolean component) {
         this(name, component, null, false);
     }
 
     /** How the placeholder is written in a text. */
-    public @NotNull String token() {
+    public String token() {
         return component ? "<" + name + ">" : "{" + name + "}";
     }
 }

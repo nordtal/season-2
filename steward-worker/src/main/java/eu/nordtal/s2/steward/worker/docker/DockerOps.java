@@ -12,8 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,13 +45,13 @@ public final class DockerOps implements ContainerOps {
     private final Docker docker;
     private final String project;
 
-    public DockerOps(final @NotNull Docker docker, final @NotNull String project) {
+    public DockerOps(final Docker docker, final String project) {
         this.docker = docker;
         this.project = project;
     }
 
     @Override
-    public @NotNull RuntimeResult runtime() {
+    public RuntimeResult runtime() {
         try {
             final List<ServiceRuntime> services = new ArrayList<>();
             for (final Docker.Container container : docker.containers(project)) {
@@ -101,7 +100,7 @@ public final class DockerOps implements ContainerOps {
      * watched is neither a failure of this call nor a fact to swallow.
      */
     @Override
-    public @NotNull RedeployResult stop(final @NotNull String containerId) {
+    public RedeployResult stop(final String containerId) {
         try {
             docker.stop(containerId, STOP_GRACE_SECONDS);
         } catch (DockerException e) {
@@ -127,7 +126,7 @@ public final class DockerOps implements ContainerOps {
     }
 
     @Override
-    public @NotNull RedeployResult start(final @NotNull String containerId) {
+    public RedeployResult start(final String containerId) {
         try {
             docker.start(containerId);
             return RedeployResult.triggered("start asked for " + shortId(containerId));
@@ -166,7 +165,7 @@ public final class DockerOps implements ContainerOps {
      * </ul>
      */
     @Override
-    public @NotNull ImageResult images() {
+    public ImageResult images() {
         try {
             final Map<String, ImageResult.State> states = new HashMap<>();
             final Set<String> unverifiable = new LinkedHashSet<>();
@@ -218,7 +217,7 @@ public final class DockerOps implements ContainerOps {
      * image no longer has a name - never a real {@code repo[:tag]}, because those carry a slash or a
      * colon and this is exactly the twelve lowercase hex characters at the front of {@code imageId}.
      */
-    private static boolean isOrphanedShortId(final @NotNull String reference, final @Nullable String imageId) {
+    private static boolean isOrphanedShortId(final String reference, final @Nullable String imageId) {
         return imageId != null
                 && imageId.startsWith("sha256:")
                 && reference.length() == 12
@@ -235,7 +234,7 @@ public final class DockerOps implements ContainerOps {
      * @param reference what the container was created from, e.g. {@code ghcr.io/nordtal/smp:latest}
      * @param imageId   the image the container actually runs, as a sha256
      */
-    public @NotNull ImageCheck check(final @NotNull String reference, final String imageId) {
+    public ImageCheck check(final String reference, final String imageId) {
         final Optional<Docker.ImageIdentity> identity = docker.imageIdentity(imageId);
         if (identity.isEmpty()) {
             // The exact bits this container was created from are gone from the daemon's store.
@@ -282,7 +281,7 @@ public final class DockerOps implements ContainerOps {
     }
 
     /** The state, and why it could not be established when that is the answer. */
-    public record ImageCheck(@NotNull ImageResult.State state, String reason) {}
+    public record ImageCheck(ImageResult.State state, String reason) {}
 
     /**
      * Refused here, on purpose.
@@ -293,12 +292,12 @@ public final class DockerOps implements ContainerOps {
      * changed and then quietly create the old container for ever.</p>
      */
     @Override
-    public @NotNull RedeployResult deploy(final @NotNull String service) {
+    public RedeployResult deploy(final String service) {
         return refusal("deploying", service);
     }
 
     @Override
-    public @NotNull RedeployResult recreate(final @NotNull String service) {
+    public RedeployResult recreate(final String service) {
         return refusal("recreating", service);
     }
 

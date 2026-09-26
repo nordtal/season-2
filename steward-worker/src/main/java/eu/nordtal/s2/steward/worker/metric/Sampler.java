@@ -19,7 +19,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,11 +68,7 @@ public final class Sampler implements AutoCloseable {
     });
     private final ExecutorService perContainer = Executors.newVirtualThreadPerTaskExecutor();
 
-    public Sampler(
-            final @NotNull Docker docker,
-            final @NotNull HostMetrics host,
-            final @NotNull MetricDirectory metrics,
-            final @NotNull String project) {
+    public Sampler(final Docker docker, final HostMetrics host, final MetricDirectory metrics, final String project) {
         this.docker = docker;
         this.host = host;
         this.metrics = metrics;
@@ -100,7 +95,7 @@ public final class Sampler implements AutoCloseable {
     }
 
     /** One round. Visible for tests, which call it directly rather than waiting 30 seconds. */
-    public int tick(final @NotNull Instant at) {
+    public int tick(final Instant at) {
         final List<MetricSample> samples = new ArrayList<>(hostSamples(at));
         samples.addAll(containerSamples(at));
         if (!samples.isEmpty()) {

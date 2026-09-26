@@ -11,12 +11,13 @@ import eu.nordtal.s2.common.payment.Money;
 import eu.nordtal.s2.common.payment.PaymentNotice;
 import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequests;
+import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.discordbot.discord.AdminLog;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
@@ -104,7 +105,10 @@ public final class PaymentProcessor {
             // Both are non-null by the queue's own predicate: matched_cents is what it selects on,
             // and recordMatch is the only statement that writes it - in the same UPDATE that claims
             // bunq_payment_id.
-            book(request, request.bunqPaymentId(), request.matchedCents());
+            book(
+                    request,
+                    Objects.requireNonNull(request.bunqPaymentId()),
+                    Objects.requireNonNull(request.matchedCents()));
         }
     }
 
@@ -230,7 +234,8 @@ public final class PaymentProcessor {
     private void postWhatNeedsAHuman() {
         for (final PaymentNotice notice : requests.unpostedNotices()) {
             if (requests.claimNotice(notice.bunqPaymentId())) {
-                admin.alert(notice.detail());
+                // Falls back to the reason label on the rare notice built with no detail sentence.
+                admin.alert(Objects.requireNonNullElse(notice.detail(), notice.reason()));
             }
         }
     }

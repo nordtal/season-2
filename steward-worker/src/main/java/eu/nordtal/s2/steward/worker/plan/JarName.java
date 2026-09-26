@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The project's one rule for reading a jar's filename: <b>everything before the last {@code -} is
@@ -33,7 +32,7 @@ public final class JarName {
     private JarName() {}
 
     /** Whether a directory entry is a jar at all. Case-sensitive: so is every filesystem we run on. */
-    public static boolean isJar(final @NotNull String fileName) {
+    public static boolean isJar(final String fileName) {
         return fileName.endsWith(SUFFIX) && fileName.length() > SUFFIX.length();
     }
 
@@ -44,7 +43,7 @@ public final class JarName {
      *         the last one. A split only exists when both halves do: a name yielding a prefix but no
      *         version would supersede real jars while being unidentifiable itself.
      */
-    public static @Nullable String prefixOf(final @NotNull String fileName) {
+    public static @Nullable String prefixOf(final String fileName) {
         return versionOf(fileName) == null ? null : splitStem(fileName, true);
     }
 
@@ -56,7 +55,7 @@ public final class JarName {
      *         publishing API has already answered which version is newer and no string comparison
      *         answers it correctly (2.13.0 vs 2.9.0, 1.5.3 vs 1.5.3+build.2).
      */
-    public static @Nullable String versionOf(final @NotNull String fileName) {
+    public static @Nullable String versionOf(final String fileName) {
         return splitStem(fileName, false);
     }
 
@@ -64,7 +63,7 @@ public final class JarName {
      * Both halves of the split, or {@code null} when there is no valid split. One method so the
      * two can never disagree about where the dash is.
      */
-    private static @Nullable String splitStem(final @NotNull String fileName, final boolean wantPrefix) {
+    private static @Nullable String splitStem(final String fileName, final boolean wantPrefix) {
         if (!isJar(fileName)) {
             return null;
         }
@@ -81,7 +80,7 @@ public final class JarName {
      * This is what decides which jar is deleted when a new one is installed; a plan that only
      * reports uses it to explain a row and deletes nothing.
      */
-    public static boolean looksSuperseded(final @NotNull String candidate, final @NotNull String wanted) {
+    public static boolean looksSuperseded(final String candidate, final String wanted) {
         if (candidate.equals(wanted)) {
             return false;
         }

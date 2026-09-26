@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.discord;
+package eu.nordtal.s2.discordbot;
 
 import java.util.Optional;
 import org.jdbi.v3.sqlobject.customizer.Bind;

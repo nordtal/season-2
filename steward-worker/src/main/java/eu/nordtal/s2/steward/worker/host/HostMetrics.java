@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.OptionalDouble;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Reads {@link HostSnapshot} out of {@code /proc} and one {@code statvfs}. Cheap enough to call on a
@@ -86,7 +85,7 @@ public final class HostMetrics {
      *                 kernel's format. The tests point this at captured text.
      * @param diskPath any path on the filesystem to measure.
      */
-    public HostMetrics(final @NotNull Path procRoot, final @NotNull Path diskPath) {
+    public HostMetrics(final Path procRoot, final Path diskPath) {
         this.procRoot = procRoot;
         this.diskPath = diskPath;
     }
@@ -100,7 +99,7 @@ public final class HostMetrics {
      *                     name the file and the line, because "NumberFormatException: null" from a
      *                     background sampler is a morning spent grepping.
      */
-    public synchronized @NotNull HostSnapshot read() throws IOException {
+    public synchronized HostSnapshot read() throws IOException {
         final Load load = readLoad();
         final Cpu cpu = readCpu();
         final Memory memory = readMemory();
@@ -144,7 +143,7 @@ public final class HostMetrics {
      * {@code 0.27 0.31 0.32 1/914 2752038} - three averages, then runnable/total tasks and the last
      * PID, neither of which anybody is asking about on a "how full is the box" page.
      */
-    private @NotNull Load readLoad() throws IOException {
+    private Load readLoad() throws IOException {
         final Path file = procRoot.resolve("loadavg");
         final String line = Files.readString(file, StandardCharsets.UTF_8).strip();
         final String[] fields = line.split("\\s+");
@@ -179,7 +178,7 @@ public final class HostMetrics {
      * cost is that a box thrashing its disk looks idle on this page - which is what the load average
      * next to it is for, because iowait does raise that.</p>
      */
-    private @NotNull Cpu readCpu() throws IOException {
+    private Cpu readCpu() throws IOException {
         final Path file = procRoot.resolve("stat");
         final List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
 
@@ -230,7 +229,7 @@ public final class HostMetrics {
      * on a timer will never hit and a test can); or counters that went backwards, which a real
      * kernel does not do but a CPU going offline and a re-pointed {@code procRoot} both can.</p>
      */
-    private @NotNull OptionalDouble percentSince(final @NotNull Cpu cpu) {
+    private OptionalDouble percentSince(final Cpu cpu) {
         if (previousTotalJiffies < 0) {
             return OptionalDouble.empty();
         }
@@ -268,7 +267,7 @@ public final class HostMetrics {
      * precisely and only what zero bytes of swap means. This host prints the lines and they say
      * {@code 0 kB} (measured 2026-09-12), so both spellings of swapless land on the same answer.</p>
      */
-    private @NotNull Memory readMemory() throws IOException {
+    private Memory readMemory() throws IOException {
         final Path file = procRoot.resolve("meminfo");
         long total = -1;
         long available = -1;

@@ -8,6 +8,8 @@ import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.discordbot.AdminLog;
+import eu.nordtal.s2.discordbot.Card;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.entities.MessageEmbed;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Every update run in the admin channel, including the ones nobody in Discord started.
@@ -108,7 +111,7 @@ public final class UpdateFeed {
     }
 
     /** A run being drawn: the message showing it, and the report that message currently shows. */
-    private record Drawn(String messageId, String showing) {}
+    private record Drawn(String messageId, @Nullable String showing) {}
 
     private final UpdateDirectory updates;
     private final Board board;
@@ -125,7 +128,7 @@ public final class UpdateFeed {
      * message id and is simply not edited until it has one - which is an ordinary state and not an
      * error, because the row is the record and the embed is a drawing of it.</p>
      */
-    private final Map<Long, Drawn> drawing = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Drawn> drawing = new ConcurrentHashMap<>();
 
     /** Whether a pass is running. See {@link #tick()} for why this is a flag and not a lock. */
     private final java.util.concurrent.atomic.AtomicBoolean ticking = new java.util.concurrent.atomic.AtomicBoolean();

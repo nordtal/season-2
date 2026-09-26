@@ -9,7 +9,6 @@ import eu.nordtal.s2.common.update.UpdateStatus;
 import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * One row of steward/82's unified feed: a run from {@code update_request} or a line from
@@ -43,12 +42,7 @@ import org.jetbrains.annotations.NotNull;
  *                         settle, or a journal line the bot wrote with no admin behind it
  */
 public record ActionEntry(
-        @NotNull String kind,
-        @NotNull Instant occurred,
-        @NotNull String extent,
-        @NotNull String actorDiscordId,
-        @NotNull String actorLabel,
-        boolean system) {
+        String kind, Instant occurred, String extent, String actorDiscordId, String actorLabel, boolean system) {
 
     /**
      * A trailing {@code (12345678901234567)} on a free-text requester - the shape a human's request
@@ -71,7 +65,7 @@ public record ActionEntry(
      *
      * @return a map, in the order the fields are declared; {@code occurred} as ISO-8601
      */
-    public @NotNull java.util.Map<String, Object> json() {
+    public java.util.Map<String, Object> json() {
         final java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
         row.put("kind", kind);
         row.put("occurred", occurred.toString());
@@ -100,7 +94,7 @@ public record ActionEntry(
      * @param run the row, however it finished
      * @return the entry that describes it
      */
-    static ActionEntry of(final @NotNull UpdateRequest run) {
+    static ActionEntry of(final UpdateRequest run) {
         final Instant occurred = run.finished() != null ? run.finished() : run.requested();
         final String requestedBy = run.requestedBy();
         final boolean system = requestedBy == null || requestedBy.startsWith("steward-worker");
@@ -124,7 +118,7 @@ public record ActionEntry(
      * @param entry the journal line
      * @return the entry that describes it
      */
-    static ActionEntry of(final @NotNull AuditEntry entry) {
+    static ActionEntry of(final AuditEntry entry) {
         final boolean system = entry.actor() == null;
         final String extent = entry.detail() == null || entry.detail().isBlank() ? entry.action() : entry.detail();
         return new ActionEntry(entry.action(), entry.occurred(), extent, system ? "" : entry.actor(), "", system);

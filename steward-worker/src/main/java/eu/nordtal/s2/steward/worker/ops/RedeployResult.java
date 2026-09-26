@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.worker.ops;
 
-import org.jetbrains.annotations.NotNull;
-
 /**
  * What came of asking the container runtime to do one thing: stop, start or recreate one service.
  *
@@ -23,14 +21,13 @@ import org.jetbrains.annotations.NotNull;
  * @param message   one sentence for the request row, and from there for a Discord embed or a chat
  *                  line. Says what to do next when {@code triggered} is false
  */
-public record RedeployResult(
-        boolean triggered, boolean verified, @NotNull String message) {
+public record RedeployResult(boolean triggered, boolean verified, String message) {
 
-    public static RedeployResult triggered(final @NotNull String message) {
+    public static RedeployResult triggered(final String message) {
         return new RedeployResult(true, true, message);
     }
 
-    public static RedeployResult refused(final @NotNull String message) {
+    public static RedeployResult refused(final String message) {
         return new RedeployResult(false, true, message);
     }
 
@@ -43,7 +40,7 @@ public record RedeployResult(
      * answer, and it travels as far as the archive: the file gets a mark beside it saying the stop
      * behind it was never verified.</p>
      */
-    public static RedeployResult unverified(final @NotNull String message) {
+    public static RedeployResult unverified(final String message) {
         return new RedeployResult(true, false, message);
     }
 }

@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Pattern;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 /**
@@ -26,7 +25,7 @@ public final class Configs {
 
     private Configs() {}
 
-    public static @NotNull ConfigHandle<DatabaseSpec> database(final Path directory, final Logger logger)
+    public static ConfigHandle<DatabaseSpec> database(final Path directory, final Logger logger)
             throws ConfigException {
         final Path file = directory.resolve("database.yml");
         final boolean fresh = !Files.isRegularFile(file);
@@ -56,8 +55,7 @@ public final class Configs {
         return handle;
     }
 
-    public static @NotNull ConfigHandle<StewardSpec> steward(final Path directory, final Logger logger)
-            throws ConfigException {
+    public static ConfigHandle<StewardSpec> steward(final Path directory, final Logger logger) throws ConfigException {
         final Path file = directory.resolve("steward.yml");
         final boolean fresh = !Files.isRegularFile(file);
 

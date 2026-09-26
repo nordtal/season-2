@@ -6,8 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -54,12 +53,12 @@ public record PackState(
     /** The Velocity plugin id, which is the name of its data directory under {@code plugins/}. */
     public static final String PLUGIN_ID = "proxy";
 
-    public static @NotNull Path fileIn(final @NotNull Path proxyVolume) {
+    public static Path fileIn(final Path proxyVolume) {
         return proxyVolume.resolve(Installation.PLUGINS).resolve(PLUGIN_ID).resolve("pack.yml");
     }
 
     /** Never creates the file, never rewrites it, and treats an unreadable one as absent-with-a-reason. */
-    public static @NotNull PackState read(final @NotNull Path proxyVolume) throws IOException {
+    public static PackState read(final Path proxyVolume) throws IOException {
         final Path file = fileIn(proxyVolume);
         if (!Files.isRegularFile(file)) {
             return new PackState(false, null, null);

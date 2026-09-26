@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +45,7 @@ final class Schemas {
      * @return the root of its schema tree - always {@link eu.nordtal.jcore.config.schema.SettingKind#MAP} -
      *         or empty if there is none to read
      */
-    static @NotNull Optional<SchemaNode> read(final @NotNull Path ymlFile) {
+    static Optional<SchemaNode> read(final Path ymlFile) {
         final Path schemaFile = SchemaWriter.schemaFileFor(ymlFile);
         if (!Files.isRegularFile(schemaFile)) {
             return Optional.empty();

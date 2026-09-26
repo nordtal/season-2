@@ -1,9 +1,20 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
-/** The outcome of inviting a partner, from {@link Teams#invite(String, String)}. */
-public record InviteResult(Status status, UUID memberId, UUID teamId, String teamName) {
+/**
+ * The outcome of inviting a partner, from {@link Teams#invite(String, String)}.
+ *
+ * @param memberId null unless {@link #status()} is {@link Status#INVITED}
+ * @param teamId null unless {@link #status()} is {@link Status#INVITED}
+ * @param teamName null unless {@link #status()} is {@link Status#INVITED}
+ */
+public record InviteResult(
+        Status status,
+        @Nullable UUID memberId,
+        @Nullable UUID teamId,
+        @Nullable String teamName) {
 
     public static InviteResult invited(final UUID memberId, final UUID teamId, final String teamName) {
         return new InviteResult(Status.INVITED, memberId, teamId, teamName);

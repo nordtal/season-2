@@ -3,8 +3,7 @@ package eu.nordtal.s2.steward.worker.ops;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Which of the project's services are running an image older than the registry's.
@@ -32,8 +31,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public record ImageResult(
         boolean reached,
-        @NotNull Map<String, State> services,
-        @NotNull Set<String> unverifiable,
+        Map<String, State> services,
+        Set<String> unverifiable,
         @Nullable String message) {
 
     public ImageResult {
@@ -70,30 +69,30 @@ public record ImageResult(
         UNKNOWN
     }
 
-    public static ImageResult of(final @NotNull Map<String, State> services) {
+    public static ImageResult of(final Map<String, State> services) {
         return of(services, Set.of());
     }
 
-    public static ImageResult of(final @NotNull Map<String, State> services, final @NotNull Set<String> unverifiable) {
+    public static ImageResult of(final Map<String, State> services, final Set<String> unverifiable) {
         return new ImageResult(true, services, unverifiable, null);
     }
 
-    public static ImageResult unreachable(final @NotNull String message) {
+    public static ImageResult unreachable(final String message) {
         return new ImageResult(false, Map.of(), Set.of(), message);
     }
 
     /** @return what was found for that service, or {@link State#UNKNOWN} if it was not among them */
-    public @NotNull State state(final @NotNull String service) {
+    public State state(final String service) {
         return services.getOrDefault(service, State.UNKNOWN);
     }
 
     /** @return whether that service is running an image the registry has moved past */
-    public boolean isOutdated(final @NotNull String service) {
+    public boolean isOutdated(final String service) {
         return state(service) == State.OUTDATED;
     }
 
     /** @return whether that service is running an image built here and published nowhere */
-    public boolean isLocal(final @NotNull String service) {
+    public boolean isLocal(final String service) {
         return state(service) == State.LOCAL;
     }
 

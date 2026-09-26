@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.backup;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The two halves of a backup, which are not alike.
@@ -21,10 +20,10 @@ import org.jetbrains.annotations.Nullable;
  *                 reported as "not dumped" rather than quietly skipped: a backup that silently
  *                 omits the database is the one nobody notices until a restore
  */
-public record Backups(@NotNull Snapshots volumes, @Nullable DatabaseDump database) {
+public record Backups(Snapshots volumes, @Nullable DatabaseDump database) {
 
     /** The dump, or a failure that says the database was deliberately left out. */
-    public @NotNull SnapshotResult saveDatabase() {
+    public SnapshotResult saveDatabase() {
         if (database == null) {
             return SnapshotResult.failed(
                     DatabaseDump.NAME,

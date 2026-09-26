@@ -33,8 +33,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,8 +122,7 @@ public final class MessageBundles {
      * @return every bundle found, by service then module. <b>Empty if {@code configsRoot} does not
      *         exist</b>
      */
-    public static @NotNull List<MessageBundleLocation> discover(
-            final @NotNull Path configsRoot, final @Nullable Path volumesRoot) {
+    public static List<MessageBundleLocation> discover(final Path configsRoot, final @Nullable Path volumesRoot) {
         if (!Files.isDirectory(configsRoot)) {
             return List.of();
         }
@@ -210,7 +208,7 @@ public final class MessageBundles {
      * @return the bundle, the schema's keys in its order, then the rest sorted
      * @throws IOException if the jar or an override file cannot be read
      */
-    public static @NotNull MessageBundle read(final @NotNull MessageBundleLocation location) throws IOException {
+    public static MessageBundle read(final MessageBundleLocation location) throws IOException {
         final Map<String, String> packagedEnglish = new HashMap<>();
         final Map<String, String> packagedGerman = new HashMap<>();
         // Root name to its schema, sorted so the order of the entries does not depend on the order
@@ -450,9 +448,7 @@ public final class MessageBundles {
      * @throws IOException              if the directory or the file cannot be written
      */
     public static void write(
-            final @NotNull MessageBundleLocation location,
-            final @NotNull String language,
-            final @NotNull Map<String, String> changes)
+            final MessageBundleLocation location, final String language, final Map<String, String> changes)
             throws IOException {
         if (!"en".equals(language) && !"de".equals(language)) {
             throw new IllegalArgumentException("language has to be \"en\" or \"de\", not \"" + language + "\"");
@@ -566,8 +562,7 @@ public final class MessageBundles {
      * argument's own tag ({@code <player>}) is indistinguishable from one without a list of every
      * tag Adventure knows. An entry the schema does not describe is never checked.</p>
      */
-    public static @NotNull List<String> unknownPlaceholders(
-            final @NotNull MessageEntry entry, final @Nullable String edited) {
+    public static List<String> unknownPlaceholders(final MessageEntry entry, final @Nullable String edited) {
         if (!entry.described() || edited == null || edited.isEmpty()) {
             return List.of();
         }
@@ -587,7 +582,7 @@ public final class MessageBundles {
     }
 
     /** Every placeholder token in {@code text}, in the order it appears; {@code null} reads as none. */
-    public static @NotNull List<String> placeholdersOf(final @Nullable String text) {
+    public static List<String> placeholdersOf(final @Nullable String text) {
         if (text == null || text.isEmpty()) {
             return List.of();
         }
@@ -610,8 +605,7 @@ public final class MessageBundles {
      * @return the missing tokens, each once, in the order {@code original} has them; empty if none
      *         are missing or {@code original} names none at all
      */
-    public static @NotNull List<String> missingPlaceholders(
-            final @Nullable String original, final @Nullable String edited) {
+    public static List<String> missingPlaceholders(final @Nullable String original, final @Nullable String edited) {
         final List<String> before = placeholdersOf(original);
         if (before.isEmpty()) {
             return List.of();

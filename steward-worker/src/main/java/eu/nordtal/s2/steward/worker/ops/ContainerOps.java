@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.worker.ops;
 
-import org.jetbrains.annotations.NotNull;
-
 /**
  * What an update sequence needs a container runtime to do, as a seam.
  *
@@ -22,7 +20,6 @@ import org.jetbrains.annotations.NotNull;
 public interface ContainerOps {
 
     /** Every service of the project with its container id, status and health. */
-    @NotNull
     RuntimeResult runtime();
 
     /**
@@ -34,12 +31,10 @@ public interface ContainerOps {
      * needed longer to save would be killed, and that surfaces as a corrupt region file rather than
      * as an error here.</p>
      */
-    @NotNull
-    RedeployResult stop(@NotNull String containerId);
+    RedeployResult stop(String containerId);
 
     /** Starts one container again. Started is not back - {@link #runtime()} answers that. */
-    @NotNull
-    RedeployResult start(@NotNull String containerId);
+    RedeployResult start(String containerId);
 
     /**
      * Which services are running an image the registry has moved past.
@@ -48,7 +43,6 @@ public interface ContainerOps {
      * down and therefore belongs in the plan a person confirms - not in a step discovered halfway
      * through a run that was counted down for something else.</p>
      */
-    @NotNull
     ImageResult images();
 
     /**
@@ -68,8 +62,7 @@ public interface ContainerOps {
      * @param service the compose service name, not a container id - it is resolved against the
      *                compose project, and a container id here names nothing
      */
-    @NotNull
-    RedeployResult deploy(@NotNull String service);
+    RedeployResult deploy(String service);
 
     /**
      * Makes one service's container again, <b>from the image already on this host</b>.
@@ -90,6 +83,5 @@ public interface ContainerOps {
      *
      * @param service the compose service name
      */
-    @NotNull
-    RedeployResult recreate(@NotNull String service);
+    RedeployResult recreate(String service);
 }

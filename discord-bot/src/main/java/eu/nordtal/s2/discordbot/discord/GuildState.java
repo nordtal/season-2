@@ -23,7 +23,6 @@ import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleAddEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleRemoveEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jdbi.v3.core.Jdbi;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Keeps {@code discord_user.member_state} and {@code locale} current. The proxy decides whether a
@@ -83,7 +82,7 @@ public final class GuildState extends ListenerAdapter {
     // ---------------------------------------------------------------- events
 
     @Override
-    public void onGuildMemberJoin(final @NotNull GuildMemberJoinEvent event) {
+    public void onGuildMemberJoin(final GuildMemberJoinEvent event) {
         if (!ours(event.getGuild()) || event.getMember().getUser().isBot()) {
             return;
         }
@@ -93,7 +92,7 @@ public final class GuildState extends ListenerAdapter {
     }
 
     @Override
-    public void onGuildMemberRemove(final @NotNull GuildMemberRemoveEvent event) {
+    public void onGuildMemberRemove(final GuildMemberRemoveEvent event) {
         if (!ours(event.getGuild()) || event.getUser().isBot()) {
             return;
         }
@@ -118,7 +117,7 @@ public final class GuildState extends ListenerAdapter {
     }
 
     @Override
-    public void onGuildBan(final @NotNull GuildBanEvent event) {
+    public void onGuildBan(final GuildBanEvent event) {
         if (!ours(event.getGuild())) {
             return;
         }
@@ -128,7 +127,7 @@ public final class GuildState extends ListenerAdapter {
     }
 
     @Override
-    public void onGuildUnban(final @NotNull GuildUnbanEvent event) {
+    public void onGuildUnban(final GuildUnbanEvent event) {
         if (!ours(event.getGuild())) {
             return;
         }
@@ -138,7 +137,7 @@ public final class GuildState extends ListenerAdapter {
     }
 
     @Override
-    public void onGuildMemberRoleAdd(final @NotNull GuildMemberRoleAddEvent event) {
+    public void onGuildMemberRoleAdd(final GuildMemberRoleAddEvent event) {
         if (!ours(event.getGuild())) {
             return;
         }
@@ -148,7 +147,7 @@ public final class GuildState extends ListenerAdapter {
     }
 
     @Override
-    public void onGuildMemberRoleRemove(final @NotNull GuildMemberRoleRemoveEvent event) {
+    public void onGuildMemberRoleRemove(final GuildMemberRoleRemoveEvent event) {
         if (!ours(event.getGuild())) {
             return;
         }

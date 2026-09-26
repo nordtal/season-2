@@ -13,7 +13,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Makes each standby's {@code plugins/} a copy of the service it stands in for (season-2-ops/119).
@@ -56,8 +55,7 @@ public final class Standbys {
      * @param services    the services this run touched; anything without a standby is ignored
      * @return one row per standby that is mounted, under the standby's own compose service name
      */
-    public static @NotNull List<ApplyResult.Outcome> fill(
-            final @NotNull Path volumesRoot, final @NotNull Collection<String> services) {
+    public static List<ApplyResult.Outcome> fill(final Path volumesRoot, final Collection<String> services) {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
         for (final String service : Topology.SERVICES_WITH_STANDBY) {
             if (!services.contains(service)) {

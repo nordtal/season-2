@@ -22,8 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -134,7 +133,7 @@ public final class TarSnapshots implements Snapshots {
      * the directory it was resolved against - see {@code WorkerApi#downloadBackup} for the second
      * half of the check.</p>
      */
-    public static boolean isFinishedArchive(final @NotNull String name) {
+    public static boolean isFinishedArchive(final String name) {
         return ARCHIVE.matcher(name).matches() || DUMP.matcher(name).matches();
     }
 
@@ -179,7 +178,7 @@ public final class TarSnapshots implements Snapshots {
      * @param clock       injected so the stamp in a file name is a value a test can pin, not
      *                    whatever second the test happened to run in
      */
-    public TarSnapshots(final @NotNull Path sourcesRoot, final @NotNull Path outputRoot, final @NotNull Clock clock) {
+    public TarSnapshots(final Path sourcesRoot, final Path outputRoot, final Clock clock) {
         this(sourcesRoot, outputRoot, clock, DEFAULT_WALL);
     }
 
@@ -191,11 +190,7 @@ public final class TarSnapshots implements Snapshots {
      * number answers is the same one and there is no reason to ask it twice: how long may a
      * backup hold the network down before it is given up on.</p>
      */
-    public TarSnapshots(
-            final @NotNull Path sourcesRoot,
-            final @NotNull Path outputRoot,
-            final @NotNull Clock clock,
-            final @NotNull Duration wall) {
+    public TarSnapshots(final Path sourcesRoot, final Path outputRoot, final Clock clock, final Duration wall) {
         this.wall = wall;
         this.sourcesRoot = sourcesRoot;
         this.outputRoot = outputRoot;
@@ -203,7 +198,7 @@ public final class TarSnapshots implements Snapshots {
     }
 
     @Override
-    public @NotNull SnapshotResult save(final @NotNull String volume) {
+    public SnapshotResult save(final String volume) {
         final long startedAt = System.nanoTime();
         if (!VOLUME_NAME.matcher(volume).matches()) {
             return SnapshotResult.failed(
@@ -289,7 +284,7 @@ public final class TarSnapshots implements Snapshots {
     }
 
     @Override
-    public @Nullable String markUnverified(final @NotNull String archive, final @NotNull String why) {
+    public @Nullable String markUnverified(final String archive, final String why) {
         final Path mark;
         try {
             mark = Path.of(archive + MARK);
@@ -334,7 +329,7 @@ public final class TarSnapshots implements Snapshots {
      * now is never mistaken for debris.</p>
      */
     @Override
-    public @NotNull List<String> prune(final @NotNull Retention policy) {
+    public List<String> prune(final Retention policy) {
         final List<String> removed = new ArrayList<>();
         final List<Path> files;
         try (Stream<Path> listing = Files.list(outputRoot)) {
@@ -435,7 +430,7 @@ public final class TarSnapshots implements Snapshots {
      * <p>Package-private because it is the gate the rename in {@link #save} stands behind, and a
      * gate nobody has watched refuse anything is not a gate. Its only caller is that rename.</p>
      */
-    String unreadable(final @NotNull Path archive) throws IOException, InterruptedException {
+    String unreadable(final Path archive) throws IOException, InterruptedException {
         final Path listing = Files.createTempFile("snapshot-listing-", ".txt");
         try {
             final Shell read = pipeline(listing, List.of(List.of("tar", "--zstd", "-tf", archive.toString())));
@@ -541,8 +536,7 @@ public final class TarSnapshots implements Snapshots {
     }
 
     /** What a pipeline came to: every stage's status, and whatever any of them said on stderr. */
-    private record Shell(
-            @NotNull List<Integer> exitCodes, @NotNull String stderr) {
+    private record Shell(List<Integer> exitCodes, String stderr) {
 
         boolean failed() {
             return exitCodes.stream().anyMatch(code -> code != 0);

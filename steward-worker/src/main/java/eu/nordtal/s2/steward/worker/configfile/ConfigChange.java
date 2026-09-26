@@ -3,7 +3,6 @@ package eu.nordtal.s2.steward.worker.configfile;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * What a form is asking a key to say.
@@ -17,12 +16,12 @@ import org.jetbrains.annotations.NotNull;
 public sealed interface ConfigChange {
 
     /** @param text the new scalar; newlines in it make the key a block scalar */
-    static @NotNull ConfigChange of(final @NotNull String text) {
+    static ConfigChange of(final String text) {
         return new Text(text);
     }
 
     /** @param items the new entries of a sequence, in order; empty writes an empty list */
-    static @NotNull ConfigChange list(final @NotNull List<String> items) {
+    static ConfigChange list(final List<String> items) {
         return new Items(items);
     }
 
@@ -30,7 +29,7 @@ public sealed interface ConfigChange {
      * @param sections one {@code field key -> new value} record per entry of a
      *                 {@link ConfigEntry.Kind#SECTIONS} list, in order - see {@link Sections}
      */
-    static @NotNull ConfigChange sections(final @NotNull List<? extends Map<String, ?>> sections) {
+    static ConfigChange sections(final List<? extends Map<String, ?>> sections) {
         return new Sections(
                 sections.stream().<Map<String, Object>>map(LinkedHashMap::new).toList());
     }
@@ -44,7 +43,7 @@ public sealed interface ConfigChange {
      * begins with a space, say - it falls back to a double-quoted single line, which is uglier to
      * read and still exactly right.</p>
      */
-    record Text(@NotNull String text) implements ConfigChange {}
+    record Text(String text) implements ConfigChange {}
 
     /**
      * New entries for a {@link ConfigEntry.Kind#LIST}.
@@ -57,7 +56,7 @@ public sealed interface ConfigChange {
      * its {@code @Comment}s go above the key - but a hand-edited file may have one, and a rewrite
      * of the block does not carry it across.</p>
      */
-    record Items(@NotNull List<String> items) implements ConfigChange {
+    record Items(List<String> items) implements ConfigChange {
 
         public Items {
             items = List.copyOf(items);
@@ -87,7 +86,7 @@ public sealed interface ConfigChange {
      * invented as a new line - the same "the file is the truth" rule steward/50 applies everywhere
      * else.</p>
      */
-    record Sections(@NotNull List<Map<String, Object>> sections) implements ConfigChange {
+    record Sections(List<Map<String, Object>> sections) implements ConfigChange {
 
         public Sections {
             sections = List.copyOf(sections);

@@ -20,8 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Turns an {@link UpdatePlan} into files on disk.
@@ -55,7 +54,7 @@ public final class Applier {
         this.fetcher = fetcher;
     }
 
-    public @NotNull ApplyResult apply(final @NotNull UpdatePlan plan) {
+    public ApplyResult apply(final UpdatePlan plan) {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
         final Path root = Path.of(config.volumesRoot());
 

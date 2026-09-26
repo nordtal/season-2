@@ -20,7 +20,6 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -320,32 +319,32 @@ class DeployerRecreateTest {
     /** Every other {@link ContainerOps} call, unused by these tests and never asked. */
     private static final class NoopDelegate implements ContainerOps {
         @Override
-        public @NotNull RuntimeResult runtime() {
+        public RuntimeResult runtime() {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public @NotNull RedeployResult stop(final @NotNull String containerId) {
+        public RedeployResult stop(final String containerId) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public @NotNull RedeployResult start(final @NotNull String containerId) {
+        public RedeployResult start(final String containerId) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public @NotNull ImageResult images() {
+        public ImageResult images() {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public @NotNull RedeployResult deploy(final @NotNull String service) {
+        public RedeployResult deploy(final String service) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public @NotNull RedeployResult recreate(final @NotNull String service) {
+        public RedeployResult recreate(final String service) {
             throw new UnsupportedOperationException();
         }
     }

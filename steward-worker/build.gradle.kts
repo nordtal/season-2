@@ -48,6 +48,10 @@ repositories {
 }
 
 dependencies {
+    // NullAway's annotations name checker-qual's TypeUseLocation; without it javac warns and -Werror fails.
+    compileOnly("org.checkerframework:checker-qual:4.2.3")
+    testCompileOnly("org.checkerframework:checker-qual:4.2.3")
+
     // The internal API steward-ui calls. It is here rather than in the interface because §3 keeps
     // the docker socket away from the web layer: the part an attacker reaches must not be the part
     // that can stop a container. Javalin brings jetty and slf4j and nothing else that matters -

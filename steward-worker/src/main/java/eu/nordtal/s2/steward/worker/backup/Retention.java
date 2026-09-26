@@ -12,7 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * How long a backup is kept - the arithmetic, with no directory under it.
@@ -61,7 +60,7 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
      * for. The moment comes from the stamp in the file name rather than from an mtime - a file
      * copied off this host and back has a new mtime and the same age.
      */
-    public record Dated(@NotNull String name, @NotNull Instant taken) {}
+    public record Dated(String name, Instant taken) {}
 
     public Retention {
         if (daily < 1) {
@@ -91,7 +90,7 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
      * @param all everything of one series that is on the disk, in any order
      * @param now the moment the sweep is running, which decides what is still inside the grace
      */
-    public @NotNull List<Dated> expired(final @NotNull List<Dated> all, final @NotNull Instant now) {
+    public List<Dated> expired(final List<Dated> all, final Instant now) {
         final Instant settledBefore = now.minus(Duration.ofDays(collapseAfterDays));
 
         // Newest first, so "the last run of a day" and "the newest day of a week" are both simply

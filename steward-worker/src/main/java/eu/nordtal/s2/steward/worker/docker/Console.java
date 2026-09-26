@@ -4,7 +4,6 @@ import eu.nordtal.s2.steward.worker.plan.Topology;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,12 +37,12 @@ public final class Console {
     private final Docker docker;
     private final String project;
 
-    public Console(final @NotNull Docker docker, final @NotNull String project) {
+    public Console(final Docker docker, final String project) {
         this.docker = docker;
         this.project = project;
     }
 
-    public static boolean has(final @NotNull String service) {
+    public static boolean has(final String service) {
         return WITH_A_CONSOLE.contains(service);
     }
 
@@ -58,7 +57,7 @@ public final class Console {
      * @throws IllegalArgumentException if that service has no console, naming what it has instead
      * @throws DockerException          if the container is not there or the exec failed
      */
-    public void send(final @NotNull String service, final @NotNull String command) {
+    public void send(final String service, final String command) {
         if (!has(service)) {
             throw new IllegalArgumentException(service + " has no console: " + why(service)
                     + ". The four Minecraft services are " + String.join(", ", WITH_A_CONSOLE) + ".");

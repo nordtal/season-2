@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.discord;
+package eu.nordtal.s2.discordbot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,14 +9,12 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.dv8tion.jda.api.entities.MessageEmbed;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Discord's limits, answered once - and measured here, because JDA refuses what breaks them. */
 class CardTest {
 
     @Test
-    @DisplayName("a block that outgrows one field continues into the next and keeps every line")
     void aLongBlockContinues() {
         final List<String> lines = lines(10, 200);
         final MessageEmbed embed = Card.of("Update", Card.Accent.NEUTRAL)
@@ -35,7 +33,6 @@ class CardTest {
     }
 
     @Test
-    @DisplayName("a block bigger than the whole embed is counted, not cut, and the count is right")
     void anOversizedBlockIsSummarised() {
         final List<String> lines = lines(100, 500);
         final MessageEmbed embed = Card.of("Update", Card.Accent.BAD)
@@ -57,7 +54,6 @@ class CardTest {
     }
 
     @Test
-    @DisplayName("no more than 25 fields, however many are asked for")
     void twentyFiveFields() {
         final Card card = Card.of("Many", Card.Accent.NORDTAL);
         for (int i = 0; i < 40; i++) {
@@ -67,7 +63,6 @@ class CardTest {
     }
 
     @Test
-    @DisplayName("a transition is an arrow with the new value bold, and a name cannot open markdown")
     void formatting() {
         assertEquals("0.9.3 → **0.9.4**", Card.arrow("0.9.3", "0.9.4"));
         assertEquals("**some\\_player**", Card.bold("some_player"));

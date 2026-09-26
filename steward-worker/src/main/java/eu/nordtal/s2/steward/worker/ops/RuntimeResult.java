@@ -2,8 +2,7 @@ package eu.nordtal.s2.steward.worker.ops;
 
 import java.util.List;
 import java.util.Optional;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What came of asking the container runtime for the project's services.
@@ -20,23 +19,23 @@ import org.jetbrains.annotations.Nullable;
  */
 public record RuntimeResult(
         boolean reached,
-        @NotNull List<ServiceRuntime> services,
+        List<ServiceRuntime> services,
         @Nullable String message) {
 
     public RuntimeResult {
         services = List.copyOf(services);
     }
 
-    public static RuntimeResult of(final @NotNull List<ServiceRuntime> services) {
+    public static RuntimeResult of(final List<ServiceRuntime> services) {
         return new RuntimeResult(true, services, null);
     }
 
-    public static RuntimeResult unreachable(final @NotNull String message) {
+    public static RuntimeResult unreachable(final String message) {
         return new RuntimeResult(false, List.of(), message);
     }
 
     /** @return the entry for that compose service, if the project has a container for it */
-    public Optional<ServiceRuntime> service(final @NotNull String name) {
+    public Optional<ServiceRuntime> service(final String name) {
         return services.stream().filter(entry -> entry.service().equals(name)).findFirst();
     }
 }

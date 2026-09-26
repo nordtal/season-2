@@ -9,7 +9,6 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Docker's log stream comes in two shapes, and reading the wrong one is visible to everybody.
@@ -46,8 +45,7 @@ public final class LogFrames {
      * @param multiplexed whether the eight-byte header is there - {@code Config.Tty} is false
      * @param line        called for each complete line, without its terminator
      */
-    public static void read(
-            final @NotNull InputStream in, final boolean multiplexed, final @NotNull Consumer<String> line)
+    public static void read(final InputStream in, final boolean multiplexed, final Consumer<String> line)
             throws IOException {
         final StringBuilder held = new StringBuilder();
         final Utf8 text = new Utf8();

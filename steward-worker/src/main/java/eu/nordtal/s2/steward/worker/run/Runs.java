@@ -13,7 +13,6 @@ import eu.nordtal.s2.steward.worker.source.Modrinth;
 import eu.nordtal.s2.steward.worker.source.PaperFill;
 import java.time.Clock;
 import java.time.Duration;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * The two things steward-worker actually does, assembled in one place.
@@ -33,7 +32,7 @@ public final class Runs {
      * Asks every source what the newest thing is and compares it with what is in the volumes.
      * Writes nothing.
      */
-    public static @NotNull UpdatePlan resolve(final @NotNull StewardSpec config) {
+    public static UpdatePlan resolve(final StewardSpec config) {
         return resolve(config, eu.nordtal.s2.common.plugin.PluginDirectory.NONE);
     }
 
@@ -47,8 +46,8 @@ public final class Runs {
      * {@code PluginDirectory#NONE}, which resolves exactly what this method resolved before the
      * table existed.</p>
      */
-    public static @NotNull UpdatePlan resolve(
-            final @NotNull StewardSpec config, final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+    public static UpdatePlan resolve(
+            final StewardSpec config, final eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
         final Http http = new JdkHttp(Duration.ofSeconds(config.httpTimeoutSeconds()), config.githubToken());
         return new Resolver(
                         config,
@@ -67,7 +66,7 @@ public final class Runs {
      * against a schema older than itself, and a failed migration has to stop the run while nothing
      * has moved yet.</p>
      */
-    public static @NotNull ApplyResult apply(final @NotNull StewardSpec config, final @NotNull UpdatePlan plan) {
+    public static ApplyResult apply(final StewardSpec config, final UpdatePlan plan) {
         return new Applier(config, new Downloads(Duration.ofSeconds(config.downloadTimeoutSeconds()))).apply(plan);
     }
 }

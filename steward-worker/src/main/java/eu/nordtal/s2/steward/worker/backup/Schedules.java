@@ -4,7 +4,6 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.time.ZoneId;
 import java.util.Optional;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,8 +27,7 @@ public final class Schedules implements AutoCloseable {
     private NightlyClock backup;
     private NightlyClock update;
 
-    public Schedules(
-            final @NotNull UpdateDirectory directory, final @NotNull StewardSpec config, final @NotNull ZoneId zone) {
+    public Schedules(final UpdateDirectory directory, final StewardSpec config, final ZoneId zone) {
         this.directory = directory;
         this.config = config;
         this.zone = zone;

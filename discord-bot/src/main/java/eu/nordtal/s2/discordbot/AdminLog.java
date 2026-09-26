@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.discord;
+package eu.nordtal.s2.discordbot;
 
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.jdbi.v3.core.Jdbi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The admin surface: one row in {@code audit_log} and, when a human is needed, one line in the
@@ -109,7 +110,11 @@ public final class AdminLog {
      * @param detail  free text for whoever reads the table later
      */
     public void record(
-            final String action, final String actor, final String subject, final UUID mcUuid, final String detail) {
+            final String action,
+            final @Nullable String actor,
+            final @Nullable String subject,
+            final @Nullable UUID mcUuid,
+            final String detail) {
         try {
             dao.record(action, actor, subject, mcUuid, detail);
         } catch (final RuntimeException exception) {
@@ -119,7 +124,7 @@ public final class AdminLog {
         }
     }
 
-    private MessageChannel channel() {
+    private @Nullable MessageChannel channel() {
         // Unconfigured and unresolvable are two different situations and must not read the same in
         // a log. The first is a deployment that has not picked a channel; the second is a channel
         // that was picked and has since been deleted or hidden from the bot.

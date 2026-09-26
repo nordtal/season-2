@@ -3,7 +3,6 @@ package eu.nordtal.s2.steward.worker.configfile;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * One config file, read as a form rather than as an object.
@@ -22,11 +21,7 @@ import org.jetbrains.annotations.NotNull;
  *                Empty when the file starts with a key or with a comment that belongs to one
  * @param entries every key in the file, in file order, sections included
  */
-public record ConfigDocument(
-        @NotNull Path file,
-        @NotNull String revision,
-        @NotNull List<String> header,
-        @NotNull List<ConfigEntry> entries) {
+public record ConfigDocument(Path file, String revision, List<String> header, List<ConfigEntry> entries) {
 
     /** Defensive copies: a document is a snapshot of a file at a moment, not a mutable model. */
     public ConfigDocument {
@@ -38,14 +33,14 @@ public record ConfigDocument(
      * @param path the dotted path
      * @return the entry at that path, if the file has one
      */
-    public @NotNull Optional<ConfigEntry> find(final @NotNull String path) {
+    public Optional<ConfigEntry> find(final String path) {
         return entries.stream().filter(entry -> entry.path().equals(path)).findFirst();
     }
 
     /**
      * @return the paths of every entry that {@link ConfigFiles#write} would accept a change to
      */
-    public @NotNull List<String> editablePaths() {
+    public List<String> editablePaths() {
         return entries.stream()
                 .filter(ConfigEntry::editable)
                 .map(ConfigEntry::path)

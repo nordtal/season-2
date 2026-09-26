@@ -6,8 +6,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import java.io.IOException;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Reading the three APIs' JSON, with the field name in the message when it is not there.
@@ -24,11 +23,11 @@ final class Json {
 
     private Json() {}
 
-    static @NotNull JsonObject object(final @NotNull String body, final @NotNull String what) throws IOException {
+    static JsonObject object(final String body, final String what) throws IOException {
         return element(body, what).getAsJsonObject();
     }
 
-    static @NotNull JsonArray array(final @NotNull String body, final @NotNull String what) throws IOException {
+    static JsonArray array(final String body, final String what) throws IOException {
         final JsonElement element = element(body, what);
         if (!element.isJsonArray()) {
             throw new IOException(
@@ -37,8 +36,7 @@ final class Json {
         return element.getAsJsonArray();
     }
 
-    private static @NotNull JsonElement element(final @NotNull String body, final @NotNull String what)
-            throws IOException {
+    private static JsonElement element(final String body, final String what) throws IOException {
         try {
             return JsonParser.parseString(body);
         } catch (final JsonSyntaxException malformed) {
@@ -46,9 +44,7 @@ final class Json {
         }
     }
 
-    static @NotNull String string(
-            final @NotNull JsonObject object, final @NotNull String field, final @NotNull String what)
-            throws IOException {
+    static String string(final JsonObject object, final String field, final String what) throws IOException {
         final String value = optionalString(object, field);
         if (value == null) {
             throw new IOException(what + ": no '" + field + "' in the response. The API's shape has"
@@ -57,22 +53,22 @@ final class Json {
         return value;
     }
 
-    static @Nullable String optionalString(final @NotNull JsonObject object, final @NotNull String field) {
+    static @Nullable String optionalString(final JsonObject object, final String field) {
         final JsonElement element = object.get(field);
         return element == null || element.isJsonNull() ? null : element.getAsString();
     }
 
-    static boolean bool(final @NotNull JsonObject object, final @NotNull String field, final boolean fallback) {
+    static boolean bool(final JsonObject object, final String field, final boolean fallback) {
         final JsonElement element = object.get(field);
         return element == null || element.isJsonNull() ? fallback : element.getAsBoolean();
     }
 
-    static long number(final @NotNull JsonObject object, final @NotNull String field, final long fallback) {
+    static long number(final JsonObject object, final String field, final long fallback) {
         final JsonElement element = object.get(field);
         return element == null || element.isJsonNull() ? fallback : element.getAsLong();
     }
 
-    static @Nullable JsonObject child(final @NotNull JsonObject object, final @NotNull String field) {
+    static @Nullable JsonObject child(final JsonObject object, final String field) {
         final JsonElement element = object.get(field);
         return element == null || !element.isJsonObject() ? null : element.getAsJsonObject();
     }

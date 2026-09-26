@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Everything {@code /access} touches that only the Discord bot can reach.
@@ -80,7 +81,11 @@ public interface AccessEffects extends CommandEffects {
      * @param status   the status a {@link Settlement#NOT_OPEN} request was actually in, so the
      *                 refusal can name it - "already paid" and "cancelled" are different problems
      */
-    record Settled(Settlement outcome, Instant until, int days, String status) {}
+    record Settled(
+            Settlement outcome,
+            @Nullable Instant until,
+            int days,
+            @Nullable String status) {}
 
     /** The three ways {@link #settle} can end. */
     enum Settlement {

@@ -21,14 +21,12 @@ import org.slf4j.LoggerFactory;
 /**
  * Every {@code docker compose} invocation this service makes, in one place.
  *
- * <p><b>The compose file is baked into the image</b> (§8b). Nothing reads a working tree on the
- * host, nothing syncs a directory, and "which compose file is live" is answered by the image tag
- * of this container rather than by a commit hash somebody has to look up.</p>
+ * <p><b>The compose file is baked into the image.</b> Nothing reads a working tree on the host,
+ * nothing syncs a directory, and "which compose file is live" is answered by the image tag of this
+ * container rather than by a commit hash somebody has to look up.</p>
  *
- * <p><b>Dependencies are never pulled along.</b> Every {@code up} carries {@code --no-deps}. Arcane
- * called compose with {@code RecreateDependencies = RecreateDiverged} and nobody could change it,
- * which is why a recreate of one backend could recreate the service every backend waits for.
- * Here it is one flag.</p>
+ * <p><b>Dependencies are never pulled along.</b> Every {@code up} carries {@code --no-deps}, so a
+ * recreate of one service can never drag in the service every other one waits for.</p>
  */
 public final class Compose {
 
@@ -38,7 +36,7 @@ public final class Compose {
     /**
      * This service, by its compose name. It is refused everywhere a service name is accepted: the
      * recreate would take down the container the request is running in, and the caller would never
-     * learn what happened. The setup script on the host renews this one (§9c).
+     * learn what happened. The setup script on the host renews this one instead.
      */
     public static final String SELF = "steward-deployer";
 
@@ -55,11 +53,11 @@ public final class Compose {
     /**
      * The four-argument constructor with the inode check swapped out - for tests only.
      *
-     * <p>A real orphaned inode (steward/102's whole bug) only exists behind an actual bind mount: a
-     * plain file, deleted on the same filesystem a test runs on, simply stops resolving by path at
-     * all, which is a different and much less interesting failure than the one this class defends
-     * against. Faking the link count is what lets {@link #assertEnvFileFresh} be tested without a
-     * Docker daemon, the same way {@link ComposeRefusesItselfTest} needs none.</p>
+     * <p>A real orphaned inode only exists behind an actual bind mount: a plain file, deleted on the
+     * same filesystem a test runs on, simply stops resolving by path at all, which is a different
+     * and much less interesting failure than the one this class defends against. Faking the link
+     * count is what lets {@link #assertEnvFileFresh} be tested without a Docker daemon, the same way
+     * {@link ComposeRefusesItselfTest} needs none.</p>
      */
     Compose(Path composeFile, Path envFile, Path projectDirectory, String projectName, LinkCounter linkCounter) {
         this.composeFile = composeFile;
@@ -69,8 +67,10 @@ public final class Compose {
         this.linkCounter = linkCounter;
     }
 
-    /** How many hard links the file at this path has - {@link Optional#empty()} if that cannot be
-     * determined, which is not itself a reason to refuse a deployment (see {@link #posixLinkCount}). */
+    /**
+     * How many hard links the file at this path has, or {@link Optional#empty()} if that cannot be
+     * determined - not itself a reason to refuse a deployment, see {@link #posixLinkCount}.
+     */
     @FunctionalInterface
     interface LinkCounter {
         OptionalLong nlink(Path path);
@@ -95,7 +95,7 @@ public final class Compose {
 
     /**
      * Refuses to go on if {@link #envFile} is a deleted inode still being served through a stale
-     * mount (steward/102).
+     * mount.
      *
      * <p>A FILE bind mount follows the inode, not the path: once the host replaces this file - a
      * temp file and a {@code mv}, which is how a secret is rotated rather than edited - the mount
@@ -105,10 +105,10 @@ public final class Compose {
      * inode's own link count: a bind mount is not a hard link, so when the host's directory entry
      * for it disappears, the count the kernel reports drops to zero - visible through the mount,
      * because {@code stat} answers with the inode's real, system-wide link count regardless of which
-     * mount you asked it through. A directory mount (the fix for steward/102) never produces this:
-     * every lookup under it walks the host directory fresh, so whatever it finds always has a real
-     * link. Called at start-up and again before every {@code up} - {@code serve} can run for days,
-     * and the file can be rotated at any point in that time, not only once at boot.</p>
+     * mount you asked it through. A directory mount never produces this: every lookup under it walks
+     * the host directory fresh, so whatever it finds always has a real link. Called at start-up and
+     * again before every {@code up} - {@code serve} can run for days, and the file can be rotated at
+     * any point in that time, not only once at boot.</p>
      */
     void assertEnvFileFresh() throws IOException {
         if (!Files.exists(envFile)) {
@@ -120,13 +120,17 @@ public final class Compose {
                     + " is a deleted inode still being served through this container's mount"
                     + " (link count 0). Something on the host replaced this file after the mount"
                     + " was set up, and every value read from it since is from before that change."
-                    + " Refusing to deploy with it. See steward/102 - recreating steward-deployer"
-                    + " against a directory mount, rather than a file mount, is the fix.");
+                    + " Refusing to deploy with it. Recreate steward-deployer against a directory"
+                    + " mount, rather than a file mount, to fix it.");
         }
     }
 
-    /** Thrown by {@link #assertEnvFileFresh}. A plain {@link IOException} so every existing caller
-     * of {@link #up}, {@link #bootstrap} and {@link #recreate} already propagates it correctly. */
+    /**
+     * Thrown by {@link #assertEnvFileFresh}.
+     *
+     * <p>A plain {@link IOException}, so every existing caller of {@link #up}, {@link #bootstrap}
+     * and {@link #recreate} already propagates it correctly.</p>
+     */
     public static final class StaleEnvFileException extends IOException {
         StaleEnvFileException(String message) {
             super(message);
@@ -172,12 +176,12 @@ public final class Compose {
      *
      * <p><b>Only {@code deployer up} may call this</b> - the throwaway container the setup script
      * runs with {@code docker run --rm}. That process is not the compose-managed service, so
-     * creating steward-deployer from it is not a container recreating itself; it is how §9c renews
-     * this service, and without it the bootstrap would bring up a stack with no deployer in it.</p>
+     * creating steward-deployer from it is not a container recreating itself; it is how the service
+     * is renewed, and without it the bootstrap would bring up a stack with no deployer in it.</p>
      *
-     * <p>Everything else goes through {@link #up}, which refuses. The two used to be one method
-     * that passed an empty list on the whole-stack path - and an empty list means <i>every</i>
-     * service to compose, so the refusal was skipped exactly when it mattered most.</p>
+     * <p>Everything else goes through {@link #up}, which refuses: an empty list means <i>every</i>
+     * service to compose, so a shared method that only sometimes refuses would skip that refusal
+     * exactly when it matters most.</p>
      */
     public int bootstrap(List<String> services, Consumer<String> output) throws IOException {
         assertEnvFileFresh();
@@ -191,11 +195,8 @@ public final class Compose {
      * {@code up -d --no-deps --force-recreate <service>}: a new container from the image that is
      * already on this host.
      *
-     * <p><b>Nothing is pulled here, and that is season-2-ops/134.</b> Until 2026-09-19 the recreate
-     * route pulled first, which meant the one button an admin reaches for to un-wedge a container
-     * silently replaced a locally built image with the published one - measured on {@code
-     * steward-ui}: {@code md5sum /app/app.jar} went from the jar built a minute earlier to the jar
-     * from the registry, while the job reported 202 and the container came up healthy. "Recreate"
+     * <p><b>Nothing is pulled here.</b> The one button an admin reaches for to un-wedge a container
+     * must not be able to silently replace a locally built image with the published one. "Recreate"
      * means <i>make this container again</i>; "deploy" means <i>fetch what is new</i>. Whoever
      * wants both presses both.</p>
      *
@@ -288,12 +289,11 @@ public final class Compose {
     /**
      * Every service the compose file defines, whatever profile it sits in.
      *
-     * <p><b>Why this exists (season-2-ops/122):</b> {@code docker compose config} answers for the
-     * profiles that are enabled, so under {@code COMPOSE_PROFILES=db,bot,mc,backup,steward} the
-     * standbys are not in the answer at all - and a question asked through {@link #services} about
-     * {@code proxy-standby} comes back "no such service" rather than "no image". That made
-     * {@link #hasLocalImage} false for a service whose image is certainly here, which refused every
-     * recreate of a standby with exit 1 and aborted the run that wanted it.</p>
+     * <p><b>Why this exists:</b> {@code docker compose config} answers only for the profiles that
+     * are enabled, so a standby sitting in a profile the active selection does not carry is not in
+     * the answer at all - and a question asked through {@link #services} about it comes back "no
+     * such service" rather than "no image", which would make {@link #hasLocalImage} false for a
+     * service whose image is certainly here.</p>
      *
      * <p>{@code --profile "*"} enables all of them for this one read. Nothing is started by it;
      * {@code config} only prints.</p>

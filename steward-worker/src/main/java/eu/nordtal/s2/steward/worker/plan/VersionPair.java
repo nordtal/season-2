@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.worker.plan;
 
 import java.util.Optional;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The two versions behind two filenames, read against each other rather than parsed out of either
@@ -41,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
  * @param from what is installed now
  * @param to   what the run installs
  */
-public record VersionPair(@NotNull String from, @NotNull String to) {
+public record VersionPair(String from, String to) {
 
     /** Characters a version runs through, and therefore ones a boundary must not sit inside. */
     private static boolean insideANumber(final char character) {
@@ -55,7 +54,7 @@ public record VersionPair(@NotNull String from, @NotNull String to) {
      *         which case the caller keeps the filename, which is the ticket's own fallback and
      *         reads as the stopgap it is
      */
-    public static @NotNull Optional<VersionPair> of(final @Nullable String installed, final @Nullable String wanted) {
+    public static Optional<VersionPair> of(final @Nullable String installed, final @Nullable String wanted) {
         if (installed == null
                 || wanted == null
                 || installed.equals(wanted)

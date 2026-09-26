@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Stop the servers, do the work, start them again, and prove they came back.
@@ -100,10 +99,7 @@ final class UpdateRun {
      */
     private final Map<String, String> fellBack = new LinkedHashMap<>();
 
-    UpdateRun(
-            final @NotNull ContainerOps containers,
-            final @NotNull Snapshots snapshots,
-            final @NotNull Consumer<UpdateReport> progress) {
+    UpdateRun(final ContainerOps containers, final Snapshots snapshots, final Consumer<UpdateReport> progress) {
         this.containers = containers;
         this.snapshots = snapshots;
         this.progress = progress;
@@ -115,7 +111,6 @@ final class UpdateRun {
      * <p>Called before anything is resolved, downloaded or moved. That ordering is the whole of
      * decision Q14: an update that cannot stop a server has no safe way to continue.</p>
      */
-    @NotNull
     RuntimeResult check() {
         return containers.runtime();
     }
@@ -127,7 +122,6 @@ final class UpdateRun {
      *         on - a service that could not be stopped is <b>not</b> in it, because starting
      *         something that was never stopped is how one failure becomes two
      */
-    @NotNull
     Stopped stop(final UpdateReport planned, final RuntimeResult runtime) {
         UpdateReport report = planned.withStage(UpdateReport.Stage.STOPPING);
         progress.accept(report);
@@ -203,7 +197,6 @@ final class UpdateRun {
      * @param volumes the Docker volume names, from {@code steward.yml#backup.volumes}
      * @return the report with one line per volume, each {@code SAVED} or {@code FAILED}
      */
-    @NotNull
     UpdateReport save(final UpdateReport stopped, final List<String> volumes) {
         UpdateReport report = stopped.withStage(UpdateReport.Stage.BACKING_UP);
         progress.accept(report);
@@ -253,7 +246,6 @@ final class UpdateRun {
      * downstream - a report, a retention count, an operator reading the list - counts an archive
      * nobody can vouch for as one.</p>
      */
-    @NotNull
     List<String> unverifiedStops() {
         return List.copyOf(unverifiedStops);
     }
@@ -274,7 +266,6 @@ final class UpdateRun {
      * this class: the call can take steward-worker down with it if compose considers it a diverged
      * dependency, and then this line is the last thing written.</p>
      */
-    @NotNull
     UpdateReport start(final Stopped state) {
         return start(state, ImageResult.of(java.util.Map.of()));
     }
@@ -285,8 +276,7 @@ final class UpdateRun {
      *               an abort, a restart, a backup: all three promise to change no version, and
      *               pulling an image during one would change the biggest version there is
      */
-    @NotNull
-    UpdateReport start(final Stopped state, final @NotNull ImageResult images) {
+    UpdateReport start(final Stopped state, final ImageResult images) {
         UpdateReport report = state.report().withStage(UpdateReport.Stage.STARTING);
         progress.accept(report);
 
@@ -371,7 +361,6 @@ final class UpdateRun {
      *
      * @param clock how "now" is told, so the wait can be driven in a test without sleeping
      */
-    @NotNull
     UpdateReport verify(final UpdateReport started, final List<String> services, final Waiting clock) {
         UpdateReport report = started.withStage(UpdateReport.Stage.VERIFYING);
         progress.accept(report);

@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.jetbrains.annotations.NotNull;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
@@ -36,7 +35,7 @@ final class Scalars {
      * value jcore wrote as {@code '12'} came out of a {@code String} method and has to go back into
      * one.</p>
      */
-    static @NotNull Type typeOf(final @NotNull ScalarNode node) {
+    static Type typeOf(final ScalarNode node) {
         final Tag tag = node.getTag();
         if (Tag.INT.equals(tag)) {
             return Type.INTEGER;
@@ -61,7 +60,7 @@ final class Scalars {
      * @return the rendered scalar
      * @throws IllegalArgumentException if {@code value} is not of {@code type}
      */
-    static @NotNull String render(final @NotNull Type type, final @NotNull String value, final @NotNull String path) {
+    static String render(final Type type, final String value, final String path) {
         return render(type, value, path, Where.VALUE);
     }
 
@@ -71,8 +70,7 @@ final class Scalars {
      * @param type the type the list already holds - see {@link ConfigEntry#type()}
      * @param flow whether the list is written {@code [a, b]} rather than as a block
      */
-    static @NotNull String renderItem(
-            final @NotNull Type type, final @NotNull String value, final @NotNull String path, final boolean flow) {
+    static String renderItem(final Type type, final String value, final String path, final boolean flow) {
         return render(type, value, path, flow ? Where.FLOW_ITEM : Where.BLOCK_ITEM);
     }
 
@@ -296,7 +294,7 @@ final class Scalars {
      *               line is empty rather than two spaces, because trailing whitespace in a config
      *               file is noise in every future diff
      */
-    record Block(@NotNull String header, @NotNull List<String> lines) {}
+    record Block(String header, List<String> lines) {}
 
     /**
      * Writes {@code value} as a literal block, if it can be written as one.
@@ -319,7 +317,7 @@ final class Scalars {
      *         back as itself. The caller then
      *         writes a double-quoted single line, which is uglier and always correct
      */
-    static @NotNull Optional<Block> block(final @NotNull String value) {
+    static Optional<Block> block(final String value) {
         String core = value;
         int trailing = 0;
         while (core.endsWith("\n")) {

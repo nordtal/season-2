@@ -14,6 +14,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,7 +79,8 @@ public final class Jobs {
     }
 
     private void submit(Job job, Work work) {
-        worker.submit(() -> {
+        // The runnable catches every exception itself, so the future's own result carries nothing new.
+        var _ = worker.submit(() -> {
             try {
                 int code = work.run(job::append);
                 job.finish(code);
@@ -90,7 +92,7 @@ public final class Jobs {
         });
     }
 
-    public Job get(String id) {
+    public @Nullable Job get(String id) {
         return byId.get(id);
     }
 
@@ -136,7 +138,7 @@ public final class Jobs {
 
         private volatile State state = State.RUNNING;
         private volatile int exitCode = Integer.MIN_VALUE;
-        private volatile Instant finished;
+        private volatile @Nullable Instant finished;
 
         Job(String id, String kind, List<String> services) {
             this.id = id;

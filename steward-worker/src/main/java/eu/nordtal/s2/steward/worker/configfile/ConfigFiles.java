@@ -35,7 +35,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.DumperOptions;
@@ -92,7 +91,7 @@ public final class ConfigFiles {
      * @throws IOException if the file cannot be read, or is not YAML, or is not a mapping at its
      *                     root. The message names the file and the line
      */
-    public static @NotNull ConfigDocument read(final @NotNull Path file) throws IOException {
+    public static ConfigDocument read(final Path file) throws IOException {
         return parse(file).document();
     }
 
@@ -108,7 +107,7 @@ public final class ConfigFiles {
      * call the save route can read the file through the route above it - it is a way of noticing
      * that two people had the same form open.</p>
      */
-    public static @NotNull String revisionOf(final @NotNull String content) {
+    public static String revisionOf(final String content) {
         final MessageDigest sha256;
         try {
             sha256 = MessageDigest.getInstance("SHA-256");
@@ -622,8 +621,7 @@ public final class ConfigFiles {
      *                                  value that is not of the type that key already has
      * @throws IOException              if the file cannot be read or written
      */
-    static @NotNull ConfigDocument write(final @NotNull Path file, final @NotNull Map<String, ConfigChange> changes)
-            throws IOException {
+    static ConfigDocument write(final Path file, final Map<String, ConfigChange> changes) throws IOException {
         return write(file, changes, null);
     }
 
@@ -648,8 +646,8 @@ public final class ConfigFiles {
      *                          {@code null} not to check at all
      * @throws StaleConfigException if the file has been written since
      */
-    public static @NotNull ConfigDocument write(
-            final @NotNull Path file, final @NotNull Map<String, ConfigChange> changes, final String expectedRevision)
+    public static ConfigDocument write(
+            final Path file, final Map<String, ConfigChange> changes, final String expectedRevision)
             throws IOException {
         final Parsed parsed = parse(file);
         if (expectedRevision != null
@@ -702,8 +700,8 @@ public final class ConfigFiles {
      * @throws StaleConfigException if the file has been written since {@code expectedRevision}
      * @throws IOException          if the file cannot be read or written
      */
-    public static @NotNull String writeRaw(
-            final @NotNull Path file, final @NotNull String content, final String expectedRevision) throws IOException {
+    public static String writeRaw(final Path file, final String content, final String expectedRevision)
+            throws IOException {
         final String current = Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : "";
         final String currentRevision = revisionOf(current);
         if (expectedRevision != null && !expectedRevision.equals(currentRevision)) {
@@ -1775,7 +1773,7 @@ public final class ConfigFiles {
      *         not a failure
      * @throws UncheckedIOException if the root exists but cannot be walked
      */
-    public static @NotNull List<ConfigLocation> discover(final @NotNull Path root) {
+    public static List<ConfigLocation> discover(final Path root) {
         if (!Files.isDirectory(root)) {
             return List.of();
         }

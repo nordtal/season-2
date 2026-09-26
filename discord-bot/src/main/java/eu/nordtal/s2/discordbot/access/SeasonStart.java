@@ -3,7 +3,7 @@ package eu.nordtal.s2.discordbot.access;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
-import eu.nordtal.s2.discordbot.discord.AdminLog;
+import eu.nordtal.s2.discordbot.AdminLog;
 import lombok.extern.slf4j.Slf4j;
 
 /**

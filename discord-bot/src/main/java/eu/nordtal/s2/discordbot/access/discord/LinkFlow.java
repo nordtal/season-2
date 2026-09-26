@@ -5,10 +5,11 @@ import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.LinkRedemption;
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.discordbot.discord.AdminLog;
-import eu.nordtal.s2.discordbot.discord.Ids;
+import eu.nordtal.s2.discordbot.AdminLog;
+import eu.nordtal.s2.discordbot.Ids;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -23,7 +24,6 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.modals.Modal;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Account linking on the Discord side: the managed link message's button opens a modal for the
@@ -71,7 +71,7 @@ public final class LinkFlow extends ListenerAdapter {
     }
 
     @Override
-    public void onButtonInteraction(final @NotNull ButtonInteractionEvent event) {
+    public void onButtonInteraction(final ButtonInteractionEvent event) {
         if (!Ids.LINK.equals(event.getComponentId())) {
             return;
         }
@@ -92,7 +92,7 @@ public final class LinkFlow extends ListenerAdapter {
     }
 
     @Override
-    public void onModalInteraction(final @NotNull ModalInteractionEvent event) {
+    public void onModalInteraction(final ModalInteractionEvent event) {
         if (!Ids.LINK_MODAL.equals(event.getModalId())) {
             return;
         }
@@ -139,9 +139,11 @@ public final class LinkFlow extends ListenerAdapter {
 
             switch (result.status()) {
                 case LINKED -> {
+                    // LINKED guarantees mcUuid, per LinkRedemption's contract.
+                    final UUID linked = Objects.requireNonNull(result.mcUuid());
                     limit.clear(discordId);
-                    admin.record("LINK", null, discordId, result.mcUuid(), "redeemed a link code");
-                    admin.note(event.getUser().getAsMention() + " linked Minecraft account `" + result.mcUuid() + "`.");
+                    admin.record("LINK", null, discordId, linked, "redeemed a link code");
+                    admin.note(event.getUser().getAsMention() + " linked Minecraft account `" + linked + "`.");
                     event.getHook()
                             .editOriginal(
                                     messages.format(locale, MESSAGES.link().success()))
@@ -178,7 +180,7 @@ public final class LinkFlow extends ListenerAdapter {
     // ---------------------------------------------------------------- /unlink
 
     @Override
-    public void onSlashCommandInteraction(final @NotNull SlashCommandInteractionEvent event) {
+    public void onSlashCommandInteraction(final SlashCommandInteractionEvent event) {
         if (!"unlink".equals(event.getFullCommandName())) {
             return;
         }

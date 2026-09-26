@@ -2,8 +2,7 @@ package eu.nordtal.s2.steward.worker.plan;
 
 import java.util.List;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Which server runs which jars. A mirror of {@code compose.yml}, and it says so out loud.
@@ -50,7 +49,7 @@ public final class Topology {
             this.modrinthLoader = modrinthLoader;
         }
 
-        public @NotNull String fillProject() {
+        public String fillProject() {
             return fillProject;
         }
 
@@ -64,7 +63,7 @@ public final class Topology {
          * tag anybody can apply. Collapsing them into one field would make the day they diverge a
          * silent wrong query rather than a compile error.</p>
          */
-        public @NotNull String modrinthLoader() {
+        public String modrinthLoader() {
             return modrinthLoader;
         }
     }
@@ -76,14 +75,10 @@ public final class Topology {
      * @param optional the subset of {@code plugins} whose <b>absence must not stop the container</b>
      *                 - see {@link #optional()}.
      */
-    public record Service(
-            @NotNull String name,
-            @NotNull Kind kind,
-            @NotNull List<String> plugins,
-            @NotNull List<String> optional) {
+    public record Service(String name, Kind kind, List<String> plugins, List<String> optional) {
 
         /** A service every one of whose plugins the entrypoint guard demands. */
-        public Service(final @NotNull String name, final @NotNull Kind kind, final @NotNull List<String> plugins) {
+        public Service(final String name, final Kind kind, final List<String> plugins) {
             this(name, kind, plugins, List.of());
         }
 
@@ -106,7 +101,7 @@ public final class Topology {
          * installed</em>: {@link Change.Status#UNSUPPORTED} is somebody else's release schedule,
          * and turning that into a server that will not boot buys nothing and costs a season.</p>
          */
-        public @NotNull List<String> guarded() {
+        public List<String> guarded() {
             return plugins.stream().filter(plugin -> !optional.contains(plugin)).toList();
         }
     }
@@ -234,7 +229,7 @@ public final class Topology {
     }
 
     /** The filename prefix a fixed artefact's jar carries, where that is known up front. */
-    public static @Nullable String nordtalPrefixOf(final @NotNull String artifact) {
+    public static @Nullable String nordtalPrefixOf(final String artifact) {
         if (DISPLAY_TAGS.equals(artifact)) {
             return "papermc-display-tags";
         }
@@ -273,7 +268,7 @@ public final class Topology {
      * @param artifact an artifact id
      * @return {@code true} for the bot and steward-worker
      */
-    public static boolean isStandalone(final @NotNull String artifact) {
+    public static boolean isStandalone(final String artifact) {
         return STANDALONE_JARS.contains(artifact);
     }
 
@@ -312,7 +307,7 @@ public final class Topology {
      * @param service a compose service name
      * @return {@code true} for proxy, limbo, hunger-games and smp
      */
-    public static boolean hasPlugins(final @NotNull String service) {
+    public static boolean hasPlugins(final String service) {
         return SERVICES.stream().anyMatch(candidate -> candidate.name().equals(service));
     }
 
@@ -348,12 +343,12 @@ public final class Topology {
      * @param service the name of a service, whether or not it actually has one
      * @return that name plus {@link #STANDBY_SUFFIX}
      */
-    public static @NotNull String standbyOf(final @NotNull String service) {
+    public static String standbyOf(final String service) {
         return service + STANDBY_SUFFIX;
     }
 
     /** Every standby compose.yml defines, in the order of {@link #SERVICES_WITH_STANDBY}. */
-    public static @NotNull List<String> standbyNames() {
+    public static List<String> standbyNames() {
         return SERVICES_WITH_STANDBY.stream().map(Topology::standbyOf).toList();
     }
 
@@ -388,8 +383,8 @@ public final class Topology {
      * @param added every row of {@code service_plugin}, from {@code PluginDirectory#all()}
      * @return the same four services, in the same order, each carrying its own extra plugins
      */
-    public static @NotNull List<Service> servicesWith(
-            final @NotNull java.util.Collection<eu.nordtal.s2.common.plugin.ManagedPlugin> added) {
+    public static List<Service> servicesWith(
+            final java.util.Collection<eu.nordtal.s2.common.plugin.ManagedPlugin> added) {
         if (added.isEmpty()) {
             return SERVICES;
         }
@@ -431,7 +426,7 @@ public final class Topology {
      * two halves of a project look the same in a report whether they were written in Java or picked
      * in a browser.</p>
      */
-    public static @NotNull String addedArtifact(final @NotNull String slug, final @NotNull Kind kind) {
+    public static String addedArtifact(final String slug, final Kind kind) {
         return kind == Kind.VELOCITY ? slug + "-velocity" : slug;
     }
 

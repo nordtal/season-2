@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.worker.plan;
 
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One artefact on one server, and what a run would do about it.
@@ -17,8 +16,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public record Change(
         @Nullable String service,
-        @NotNull String artifact,
-        @NotNull Status status,
+        String artifact,
+        Status status,
         @Nullable String installed,
         @Nullable RemoteFile wanted,
         @Nullable String note) {
@@ -84,8 +83,7 @@ public record Change(
         }
     }
 
-    public static @NotNull Change unresolved(
-            final @Nullable String service, final @NotNull String artifact, final @NotNull String why) {
+    public static Change unresolved(final @Nullable String service, final String artifact, final String why) {
         return new Change(service, artifact, Status.UNRESOLVED, null, null, why);
     }
 
@@ -98,8 +96,7 @@ public record Change(
      * where every file this plan does not account for goes and is louder than a version comparison
      * would be.</p>
      */
-    public static @NotNull Change unsupported(
-            final @Nullable String service, final @NotNull String artifact, final @NotNull String why) {
+    public static Change unsupported(final @Nullable String service, final String artifact, final String why) {
         return new Change(service, artifact, Status.UNSUPPORTED, null, null, why);
     }
 }

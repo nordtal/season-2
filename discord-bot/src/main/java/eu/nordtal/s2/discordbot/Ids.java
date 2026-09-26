@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.discord;
+package eu.nordtal.s2.discordbot;
 
 /**
  * Every component id the bot listens for, in one place.

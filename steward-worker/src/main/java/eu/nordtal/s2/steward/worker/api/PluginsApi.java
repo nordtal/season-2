@@ -24,8 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,10 +88,10 @@ public final class PluginsApi {
      *                    which is {@code Platform#MINECRAFT}
      */
     public PluginsApi(
-            final @NotNull PluginDirectory plugins,
-            final @NotNull Modrinth modrinth,
+            final PluginDirectory plugins,
+            final Modrinth modrinth,
             final @Nullable Path volumesRoot,
-            final @NotNull String gameVersion) {
+            final String gameVersion) {
         this(plugins, modrinth, volumesRoot, gameVersion, Map.of());
     }
 
@@ -101,11 +100,11 @@ public final class PluginsApi {
      *                      keyed by artefact id - what names and draws one that is not on the disk
      */
     public PluginsApi(
-            final @NotNull PluginDirectory plugins,
-            final @NotNull Modrinth modrinth,
+            final PluginDirectory plugins,
+            final Modrinth modrinth,
             final @Nullable Path volumesRoot,
-            final @NotNull String gameVersion,
-            final @NotNull Map<String, String> fixedProjects) {
+            final String gameVersion,
+            final Map<String, String> fixedProjects) {
         this.fixedProjects = Map.copyOf(fixedProjects);
         this.plugins = Objects.requireNonNull(plugins, "plugins");
         this.modrinth = Objects.requireNonNull(modrinth, "modrinth");
@@ -117,7 +116,7 @@ public final class PluginsApi {
     // ---------------------------------------------------------------- the list
 
     /** {@code GET /api/services/{name}/plugins} */
-    public void list(final @NotNull Context ctx) {
+    public void list(final Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
         final List<ManagedPlugin> added = plugins.on(service.name());
 
@@ -206,7 +205,7 @@ public final class PluginsApi {
     private Map<String, Object> describe(
             final @Nullable ManagedPlugin plugin,
             final @Nullable String prefix,
-            final @Nullable Installation.Jar jar,
+            final Installation.@Nullable Jar jar,
             final boolean running) {
         final Map<String, Object> row = new LinkedHashMap<>();
         // The title when there is a row, the filename prefix when there is not. Never the artefact
@@ -270,11 +269,11 @@ public final class PluginsApi {
      * starts with the artefact id ({@code CoreProtect-CE}, {@code voicechat-bukkit}). A fixed
      * plugin that is neither, the platform itself for one, is not listed at all.</p>
      */
-    static @NotNull List<String> absentFixed(
-            final @NotNull Topology.Service service,
-            final @NotNull List<Installation.Jar> jars,
-            final @NotNull Map<String, Modrinth.Project> identified,
-            final @NotNull Map<String, String> fixedProjects) {
+    static List<String> absentFixed(
+            final Topology.Service service,
+            final List<Installation.Jar> jars,
+            final Map<String, Modrinth.Project> identified,
+            final Map<String, String> fixedProjects) {
         final List<String> absent = new ArrayList<>();
         for (final String artifact : service.plugins()) {
             final String nordtal = Topology.nordtalPrefixOf(artifact);
@@ -299,14 +298,14 @@ public final class PluginsApi {
         return absent;
     }
 
-    private static String jarName(final @Nullable Installation.Jar jar) {
+    private static String jarName(final Installation.@Nullable Jar jar) {
         return jar == null ? "?" : jar.fileName();
     }
 
     // ---------------------------------------------------------------- the search
 
     /** {@code GET /api/services/{name}/plugins/search?q=} */
-    public void search(final @NotNull Context ctx) {
+    public void search(final Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
         // Blank is allowed and is not an error: an empty search box should show the popular
         // plugins for this platform, not a message about having typed nothing.
@@ -379,7 +378,7 @@ public final class PluginsApi {
      * of the row becoming a plugin that silently never installs. It also produces the filename
      * prefix, which is the one thing the removal later cannot work out for itself.
      */
-    public void add(final @NotNull Context ctx) {
+    public void add(final Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
         final Ask ask = ctx.bodyAsClass(Ask.class);
         if (ask == null || ask.projectId == null || ask.projectId.isBlank() || ask.slug == null || ask.slug.isBlank()) {
@@ -467,7 +466,7 @@ public final class PluginsApi {
      * The other order would leave a jar nothing knows about, which the next plan would report as
      * unclaimed and nobody could remove from here.
      */
-    public void remove(final @NotNull Context ctx) {
+    public void remove(final Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
         final String artifact = ctx.pathParam("artifact");
         final ManagedPlugin plugin = plugins.on(service.name()).stream()

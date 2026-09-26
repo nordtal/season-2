@@ -10,8 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Saving volumes, without a disk.
@@ -47,7 +46,7 @@ final class FakeSnapshots implements Snapshots {
     }
 
     @Override
-    public @NotNull SnapshotResult save(final @NotNull String volume) {
+    public SnapshotResult save(final String volume) {
         calls.add("backup:" + volume);
         if (failing.contains(volume)) {
             return SnapshotResult.failed(
@@ -63,7 +62,7 @@ final class FakeSnapshots implements Snapshots {
 
     /** The mark, recorded in the same call list, because when it is written is half the point. */
     @Override
-    public @Nullable String markUnverified(final @NotNull String archive, final @NotNull String why) {
+    public @Nullable String markUnverified(final String archive, final String why) {
         calls.add("mark:" + archive.substring(archive.lastIndexOf('/') + 1));
         marks.put(archive, why);
         return archive.substring(archive.lastIndexOf('/') + 1) + ".unverified";
@@ -84,7 +83,7 @@ final class FakeSnapshots implements Snapshots {
     }
 
     @Override
-    public @NotNull List<String> prune(final @NotNull eu.nordtal.s2.steward.worker.backup.Retention policy) {
+    public List<String> prune(final eu.nordtal.s2.steward.worker.backup.Retention policy) {
         calls.add("prune:" + policy.daily());
         return List.of();
     }

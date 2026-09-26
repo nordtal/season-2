@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.ops;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One service of the compose project, as the Docker daemon sees it right now.
@@ -18,7 +17,7 @@ import org.jetbrains.annotations.Nullable;
  *                    healthcheck. Every one of ours does
  */
 public record ServiceRuntime(
-        @NotNull String service,
+        String service,
         @Nullable String containerId,
         @Nullable String status,
         @Nullable String health) {
@@ -46,7 +45,7 @@ public record ServiceRuntime(
     }
 
     /** What a report line says when this service did not come back. */
-    public @NotNull String describe() {
+    public String describe() {
         final String state = status == null ? "no container" : status;
         return health == null || health.isBlank() ? state : state + ", " + health;
     }

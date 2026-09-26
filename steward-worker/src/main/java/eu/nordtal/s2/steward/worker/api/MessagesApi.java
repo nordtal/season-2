@@ -26,8 +26,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +80,7 @@ public final class MessagesApi {
     private final AccessRequests inbox;
     private final ConfigApi.ConsoleLine console;
 
-    public MessagesApi(final @NotNull Path configsRoot, final @Nullable Path volumesRoot) {
+    public MessagesApi(final Path configsRoot, final @Nullable Path volumesRoot) {
         this(configsRoot, volumesRoot, null, (service, command) -> {
             throw new IllegalArgumentException(service + " has no console here");
         });
@@ -94,10 +93,10 @@ public final class MessagesApi {
      * @param console the Minecraft services' consoles, which a saved bundle's reload goes through
      */
     public MessagesApi(
-            final @NotNull Path configsRoot,
+            final Path configsRoot,
             final @Nullable Path volumesRoot,
             final @Nullable AccessRequests inbox,
-            final @NotNull ConfigApi.ConsoleLine console) {
+            final ConfigApi.ConsoleLine console) {
         this.configsRoot = configsRoot;
         this.volumesRoot = volumesRoot;
         this.inbox = inbox;
@@ -105,12 +104,12 @@ public final class MessagesApi {
     }
 
     /** {@code GET /api/messages} - every bundle found, without opening a single jar. */
-    public void list(final @NotNull Context ctx) {
+    public void list(final Context ctx) {
         ctx.json(locations().stream().map(MessagesApi::describe).toList());
     }
 
     /** {@code GET /api/messages/<bundle>} - one bundle, packaged text and override side by side. */
-    public void one(final @NotNull Context ctx) {
+    public void one(final Context ctx) {
         final MessageBundleLocation location = locate(ctx);
         try {
             ctx.json(document(location, MessageBundles.read(location)));
@@ -135,7 +134,7 @@ public final class MessagesApi {
      * written: the plugin fills the declared arguments and nothing else, so the line would draw its
      * {@code {name}} literally. The 400 names the key.</p>
      */
-    public void save(final @NotNull Context ctx) {
+    public void save(final Context ctx) {
         final MessageBundleLocation location = locate(ctx);
         if (!location.writable()) {
             throw new ForbiddenResponse(identityOf(location) + " is mounted read-only in this"

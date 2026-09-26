@@ -9,7 +9,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * The PaperMC Fill v3 API: the newest {@code STABLE} build of a Paper or Velocity version.
@@ -56,8 +55,7 @@ public final class PaperFill {
      *                in the entrypoint, and the id used both as the artifact id and in the URL.
      * @param version the pinned version, e.g. {@code 26.2} or {@code 4.1.1}.
      */
-    public @NotNull RemoteFile newestStable(final @NotNull String project, final @NotNull String version)
-            throws IOException {
+    public RemoteFile newestStable(final String project, final String version) throws IOException {
 
         final URI uri = URI.create(API + project + "/versions/" + version + "/builds");
         final String what = "PaperMC Fill " + project + " " + version;
@@ -111,8 +109,7 @@ public final class PaperFill {
      *                     fallback onto another family, which would move the network to a different
      *                     Velocity major without anybody asking for it
      */
-    public @NotNull String newestStableVersion(final @NotNull String project, final @NotNull String family)
-            throws IOException {
+    public String newestStableVersion(final String project, final String family) throws IOException {
 
         final URI uri = URI.create(API + project);
         final String what = "PaperMC Fill " + project;

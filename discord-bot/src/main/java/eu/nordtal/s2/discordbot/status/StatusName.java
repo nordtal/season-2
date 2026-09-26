@@ -8,6 +8,7 @@ import eu.nordtal.s2.common.network.NetworkSnapshot;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What the status channel is called, right now, in one language.
@@ -75,7 +76,7 @@ public final class StatusName {
             final Locale locale,
             final SeasonPhase phase,
             final NetworkSnapshot snapshot,
-            final Instant launch,
+            final @Nullable Instant launch,
             final Instant now) {
         return truncate(
                 switch (phase) {
@@ -91,7 +92,7 @@ public final class StatusName {
     }
 
     private static String countdown(
-            final Messages messages, final Locale locale, final Instant launch, final Instant now) {
+            final Messages messages, final Locale locale, final @Nullable Instant launch, final Instant now) {
         if (launch == null) {
             return messages.format(locale, MESSAGES.status().preLaunch().unknown());
         }

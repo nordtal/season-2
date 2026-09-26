@@ -9,6 +9,7 @@ import eu.nordtal.s2.common.message.context.TeamContext;
 import eu.nordtal.s2.discordbot.AccessMessages;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +26,6 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.modals.Modal;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Team registration end to end: the {@link Ids#REGISTER} button opens the team name modal, the
@@ -56,7 +56,7 @@ public final class RegisterFlow extends ListenerAdapter {
     // ---------------------------------------------------------------- register
 
     @Override
-    public void onButtonInteraction(final @NotNull ButtonInteractionEvent event) {
+    public void onButtonInteraction(final ButtonInteractionEvent event) {
         final String id = event.getComponentId();
         if (Ids.REGISTER.equals(id)) {
             openRegisterModal(event);
@@ -88,7 +88,7 @@ public final class RegisterFlow extends ListenerAdapter {
     }
 
     @Override
-    public void onModalInteraction(final @NotNull ModalInteractionEvent event) {
+    public void onModalInteraction(final ModalInteractionEvent event) {
         if (!Ids.REGISTER_MODAL.equals(event.getModalId())) {
             return;
         }
@@ -156,7 +156,7 @@ public final class RegisterFlow extends ListenerAdapter {
     }
 
     @Override
-    public void onEntitySelectInteraction(final @NotNull EntitySelectInteractionEvent event) {
+    public void onEntitySelectInteraction(final EntitySelectInteractionEvent event) {
         if (!Ids.INVITE_SELECT.equals(event.getComponentId())) {
             return;
         }
@@ -198,7 +198,8 @@ public final class RegisterFlow extends ListenerAdapter {
                                 locale,
                                 MESSAGES.register().invite().sent(new DiscordMemberContext(partner.getAsMention()))))
                         .queue();
-                dmInvite(partner, result.memberId(), result.teamName());
+                // INVITED guarantees these two, per InviteResult's contract.
+                dmInvite(partner, Objects.requireNonNull(result.memberId()), Objects.requireNonNull(result.teamName()));
             }
             case NOT_REGISTERED, NOT_OWNER ->
                 event.getHook()
@@ -288,20 +289,23 @@ public final class RegisterFlow extends ListenerAdapter {
             return;
         }
 
+        // ANSWERED is the only remaining status past the NOT_PENDING return above, and it guarantees
+        // both of these, per AnswerResult's contract.
+        final String teamName = Objects.requireNonNull(result.teamName());
+        final UUID teamId = Objects.requireNonNull(result.teamId());
         final AccessMessages.Register.Invite invite = MESSAGES.register().invite();
-        final MessageRef answer = accept
-                ? invite.accepted(new TeamContext(result.teamName()))
-                : invite.declined(new TeamContext(result.teamName()));
+        final MessageRef answer =
+                accept ? invite.accepted(new TeamContext(teamName)) : invite.declined(new TeamContext(teamName));
         event.getHook()
                 .editOriginalComponents(List.of())
                 .setContent(messages.format(locale, answer))
                 .queue();
 
-        teams.ownerOf(result.teamId()).ifPresent(ownerId -> {
+        teams.ownerOf(teamId).ifPresent(ownerId -> {
             final Locale ownerLocale = teams.localeOf(ownerId);
             final DiscordMemberContext player =
                     new DiscordMemberContext(event.getUser().getAsMention());
-            final TeamContext team = new TeamContext(result.teamName());
+            final TeamContext team = new TeamContext(teamName);
             final String text = messages.format(
                     ownerLocale,
                     accept ? invite.ownerNotifiedAccepted(player, team) : invite.ownerNotifiedDeclined(player, team));

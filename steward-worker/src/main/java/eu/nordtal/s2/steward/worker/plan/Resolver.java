@@ -18,8 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Asks every source what is newest, looks at what is on disk, and says what the difference is.
@@ -75,7 +74,7 @@ public final class Resolver {
         this.plugins = plugins;
     }
 
-    public @NotNull UpdatePlan resolve() {
+    public UpdatePlan resolve() {
         final Map<String, RemoteFile> newest = new LinkedHashMap<>();
         final Map<String, String> failures = new HashMap<>();
         // Kept apart from `failures`: both mean "no file to install", only one means the report is
@@ -210,7 +209,7 @@ public final class Resolver {
 
     // ---------------------------------------------------------------- sources
 
-    private @Nullable GitHubReleases.Release resolveSeason(
+    private GitHubReleases.@Nullable Release resolveSeason(
             final Map<String, RemoteFile> newest, final Map<String, String> failures, final Set<String> unreleased) {
         final GitHubReleases.Release release;
         try {

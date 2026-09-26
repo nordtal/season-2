@@ -8,7 +8,6 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * The real {@link Http}: {@code java.net.http}, no dependency, redirects followed.
@@ -62,7 +61,7 @@ public final class JdkHttp implements Http {
     }
 
     @Override
-    public @NotNull String get(final @NotNull URI uri) throws IOException {
+    public String get(final URI uri) throws IOException {
         final HttpRequest.Builder request = HttpRequest.newBuilder(uri).GET().timeout(timeout);
         headers.forEach(request::header);
 

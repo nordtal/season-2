@@ -2,7 +2,6 @@ package eu.nordtal.s2.steward.worker.configfile;
 
 import java.util.Locale;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Turns a config key into the words a human reads above the input.
@@ -33,7 +32,7 @@ final class Labels {
      * @return the key split on {@code -}, {@code _} and a change of case, lowercased except for a
      *         known acronym, with the first word capitalised
      */
-    static @NotNull String of(final @NotNull String key) {
+    static String of(final String key) {
         final StringBuilder out = new StringBuilder(key.length() + 4);
         for (final String part : key.split("[-_]+")) {
             // "HTTPServer" is HTTP and Server, "serverUuid" is server and Uuid. A key written all

@@ -3,7 +3,6 @@ package eu.nordtal.s2.discordbot;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * The bot refuses to start against a database it was not built against. steward-worker owns the
@@ -25,7 +24,7 @@ final class SchemaCheck {
      *                               message names the worker's command, because that is the only
      *                               thing that fixes it.
      */
-    static void validate(final @NotNull DataSource dataSource) {
+    static void validate(final DataSource dataSource) {
         try {
             // Resolved against this class's own class loader, so the migrations bundled inside
             // the shaded jar are found.

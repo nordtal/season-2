@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
 import java.nio.file.Path;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * One message bundle found under the mount, before its jar has been opened.
@@ -34,8 +33,4 @@ import org.jetbrains.annotations.NotNull;
  *                          writable, because a save is a create-or-replace of one whole file in it
  */
 public record MessageBundleLocation(
-        @NotNull String service,
-        @NotNull String module,
-        @NotNull Path jar,
-        @NotNull Path overrideDirectory,
-        boolean writable) {}
+        String service, String module, Path jar, Path overrideDirectory, boolean writable) {}

@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Where the bot's config files live, and every rule about what a valid value is.
@@ -94,7 +93,7 @@ public final class Configs {
 
     // ------------------------------------------------------------------ the three configs
 
-    public static @NotNull ConfigHandle<DatabaseSpec> database() throws ConfigException {
+    public static ConfigHandle<DatabaseSpec> database() throws ConfigException {
         return load("database", DatabaseSpec.class, "NORDTAL_DATABASE", config -> {
             requireText("jdbc-url", config.jdbcUrl());
             requireText("username", config.username());
@@ -116,7 +115,7 @@ public final class Configs {
      * sentence; it simply has to be made in the process that has something to be half-configured.
      * </p>
      */
-    public static @NotNull ConfigHandle<BotSpec> bot() throws ConfigException {
+    public static ConfigHandle<BotSpec> bot() throws ConfigException {
         return load(
                 "bot",
                 BotSpec.class,
@@ -124,7 +123,7 @@ public final class Configs {
                 config -> requireSecret("token", "NORDTAL_BOT_TOKEN", config.token()));
     }
 
-    public static @NotNull ConfigHandle<AccessSpec> access() throws ConfigException {
+    public static ConfigHandle<AccessSpec> access() throws ConfigException {
         return load("access", AccessSpec.class, "NORDTAL_ACCESS", Configs::validateAccess);
     }
 

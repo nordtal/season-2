@@ -1,7 +1,7 @@
 package eu.nordtal.s2.limbo.world;
 
 import eu.nordtal.s2.limbo.config.LimboSpec;
-
+import java.util.Objects;
 import org.bukkit.Difficulty;
 import org.bukkit.GameRule;
 import org.bukkit.GameRules;
@@ -10,8 +10,6 @@ import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
 import org.bukkit.plugin.Plugin;
-
-import java.util.Objects;
 
 /**
  * The empty world every player waits in, and the one location in it.

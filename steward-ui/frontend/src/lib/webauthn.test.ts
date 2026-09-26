@@ -83,14 +83,10 @@ describe("the server's JSON as the browser's API wants it", () => {
   it("turns the three byte fields into bytes and leaves everything else alone", () => {
     const options = toCreationOptions(answer) as unknown as Record<string, unknown>
 
-    expect(new Uint8Array(options.challenge as ArrayBuffer)).toEqual(
-      new Uint8Array([1, 2, 3, 4]),
-    )
+    expect(new Uint8Array(options.challenge as ArrayBuffer)).toEqual(new Uint8Array([1, 2, 3, 4]))
     // "MTIz" is the digits 1, 2, 3 - the user handle is the Discord id as UTF-8 bytes, which is
     // what `Credentials.handleOf` writes on the other side.
-    expect(new Uint8Array((options.user as { id: ArrayBuffer }).id)).toEqual(
-      new Uint8Array([0x31, 0x32, 0x33]),
-    )
+    expect(new Uint8Array((options.user as { id: ArrayBuffer }).id)).toEqual(new Uint8Array([0x31, 0x32, 0x33]))
     expect(options.rp).toEqual({ id: "nordtal.eu", name: "Nordtal Steward" })
     expect(options.pubKeyCredParams).toEqual([{ alg: -7, type: "public-key" }])
     expect(options.timeout).toBe(120000)
@@ -194,9 +190,7 @@ describe("the credential as the server's library reads it", () => {
   })
 
   it("carries the attachment when it is there", () => {
-    const written = JSON.parse(
-      fromCredential(credentialOf({ authenticatorAttachment: "cross-platform" })),
-    )
+    const written = JSON.parse(fromCredential(credentialOf({ authenticatorAttachment: "cross-platform" })))
 
     expect(written.authenticatorAttachment).toBe("cross-platform")
   })
@@ -258,9 +252,7 @@ describe("what a person is told went wrong", () => {
   })
 
   it("falls back to the browser's own words, and to a sentence when it has none", () => {
-    expect(whyTheKeyFailed(named("TypeError", "options is not an object"))).toBe(
-      "options is not an object",
-    )
+    expect(whyTheKeyFailed(named("TypeError", "options is not an object"))).toBe("options is not an object")
     expect(whyTheKeyFailed(named("TypeError"))).toMatch(/did not say why/)
     expect(whyTheKeyFailed("not an error at all")).toMatch(/did not say why/)
   })

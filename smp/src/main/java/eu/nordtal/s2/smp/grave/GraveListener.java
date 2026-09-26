@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.grave;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -9,8 +11,11 @@ import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
-
-import net.kyori.adventure.text.Component;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Predicate;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -22,14 +27,6 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.function.Predicate;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * What happens when somebody dies, and what happens when somebody opens what they left.
@@ -59,10 +56,16 @@ public final class GraveListener implements Listener {
     private final PlayerLocales locales;
     private final SmpSounds sounds;
 
-    public GraveListener(final Plugin plugin, final SmpDao dao, final Graves graves,
-                         final Identities identities, final DeathPenalty penalty,
-                         final Predicate<Player> inArena, final Messages messages,
-                         final PlayerLocales locales, final SmpSounds sounds) {
+    public GraveListener(
+            final Plugin plugin,
+            final SmpDao dao,
+            final Graves graves,
+            final Identities identities,
+            final DeathPenalty penalty,
+            final Predicate<Player> inArena,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.graves = graves;
@@ -100,14 +103,14 @@ public final class GraveListener implements Listener {
         }
 
         if (!drops.isEmpty() || experience > 0) {
-            graves.create(discordId.get(), player.getUniqueId(), at,
-                    drops.toArray(new ItemStack[0]), experience);
+            graves.create(discordId.get(), player.getUniqueId(), at, drops.toArray(new ItemStack[0]), experience);
         }
         applyPenalty(player, discordId.get(), event);
     }
 
     private void applyPenalty(final Player player, final String discordId, final PlayerDeathEvent event) {
-        final String cause = event.getDamageSource() == null ? null
+        final String cause = event.getDamageSource() == null
+                ? null
                 : event.getDamageSource().getDamageType().key().value();
         final int delta = penalty.deltaFor(cause, false);
         if (delta == 0) {
@@ -124,8 +127,8 @@ public final class GraveListener implements Listener {
                     identities.recordAura(player.getUniqueId(), now);
                 }
                 if (player.isOnline()) {
-                    player.sendMessage(MessageRenderer.of(messages).format(locale,
-                            MESSAGES.smp().aura().death(Math.abs(delta))));
+                    player.sendMessage(MessageRenderer.of(messages)
+                            .format(locale, MESSAGES.smp().aura().death(Math.abs(delta))));
                     sounds.play(player, Feedback.LOSS);
                 }
             });
@@ -135,7 +138,8 @@ public final class GraveListener implements Listener {
     /** Right-clicking a grave's invisible click surface opens it - for anybody, by design. */
     @EventHandler(ignoreCancelled = true)
     public void onInteract(final PlayerInteractEntityEvent event) {
-        final Optional<UUID> graveId = graves.graveOfInteraction(event.getRightClicked().getUniqueId());
+        final Optional<UUID> graveId =
+                graves.graveOfInteraction(event.getRightClicked().getUniqueId());
         if (graveId.isEmpty()) {
             return;
         }

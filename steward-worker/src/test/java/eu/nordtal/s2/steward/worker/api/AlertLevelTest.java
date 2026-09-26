@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -9,9 +9,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link AlertLevel#of} against the same shapes {@code WorkerApi} actually builds - see that
@@ -30,9 +29,8 @@ class AlertLevelTest {
     @Test
     @DisplayName("a stopped service is red and links to that service")
     void stoppedServiceIsDown() {
-        final Map<String, Object> table = table(List.of(
-                service("smp", "exited", null, "UP_TO_DATE"),
-                service("caddy", "running", null, "UP_TO_DATE")));
+        final Map<String, Object> table = table(
+                List.of(service("smp", "exited", null, "UP_TO_DATE"), service("caddy", "running", null, "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()));
 
@@ -44,8 +42,7 @@ class AlertLevelTest {
     @Test
     @DisplayName("running but unhealthy is red too")
     void unhealthyServiceIsDown() {
-        final Map<String, Object> table = table(List.of(
-                service("postgres", "running", "unhealthy", "UP_TO_DATE")));
+        final Map<String, Object> table = table(List.of(service("postgres", "running", "unhealthy", "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()));
 
@@ -103,9 +100,8 @@ class AlertLevelTest {
     @Test
     @DisplayName("an outdated image is yellow when nothing else is wrong")
     void outdatedImageIsWarn() {
-        final Map<String, Object> table = table(List.of(
-                service("smp", "running", null, "OUTDATED"),
-                service("caddy", "running", null, "UP_TO_DATE")));
+        final Map<String, Object> table = table(
+                List.of(service("smp", "running", null, "OUTDATED"), service("caddy", "running", null, "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()));
 
@@ -130,8 +126,7 @@ class AlertLevelTest {
     @DisplayName("nothing wrong is the OK reading, and nothing else answers it")
     void allClearIsOk() {
         final Map<String, Object> table = table(List.of(
-                service("smp", "running", null, "UP_TO_DATE"),
-                service("caddy", "running", null, "UP_TO_DATE")));
+                service("smp", "running", null, "UP_TO_DATE"), service("caddy", "running", null, "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()));
 
@@ -139,7 +134,8 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("a stopped service outranks a missing backup, exactly like a stopped service and a missing backup both being true")
+    @DisplayName(
+            "a stopped service outranks a missing backup, exactly like a stopped service and a missing backup both being true")
     void downOutranksWarnEvenWhenBothArePresent() {
         final Map<String, Object> table = table(List.of(service("smp", "exited", null, "OUTDATED")));
 
@@ -152,16 +148,16 @@ class AlertLevelTest {
     @Test
     @DisplayName("every trigger is listed, not only the worst one")
     void everyTriggerIsListed() {
-        final Map<String, Object> table = table(List.of(
-                service("smp", "exited", null, "OUTDATED"),
-                service("caddy", "running", null, "UP_TO_DATE")));
+        final Map<String, Object> table = table(
+                List.of(service("smp", "exited", null, "OUTDATED"), service("caddy", "running", null, "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of());
 
         // Before steward/98's review this returned the first branch that fired and stopped, which
         // is why this assertion exists: a push is now per type and switchable per account, so an
         // image drift hidden behind a stopped service is a notification nobody can ever receive.
-        assertEquals(List.of(AlertLevel.Kind.SERVICE, AlertLevel.Kind.BACKUP, AlertLevel.Kind.DRIFT),
+        assertEquals(
+                List.of(AlertLevel.Kind.SERVICE, AlertLevel.Kind.BACKUP, AlertLevel.Kind.DRIFT),
                 reading.triggers().stream().map(AlertLevel.Trigger::kind).toList(),
                 "a reading with three different things wrong did not report all three");
         assertEquals(AlertLevel.Level.DOWN, reading.level());
@@ -178,13 +174,14 @@ class AlertLevelTest {
         host.put("memoryTotalBytes", 1000L);
         host.put("memoryAvailableBytes", 250L);
 
-        final AlertLevel.Reading reading =
-                AlertLevel.of(table, List.of(dump(), volume()), host, Instant.now());
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()), host, Instant.now());
 
         assertEquals(45.0, reading.diskPercent(), 0.0001);
         // Used is total minus AVAILABLE, the same arithmetic health.ts does on the same two fields.
         assertEquals(75.0, reading.memoryPercent(), 0.0001);
-        assertEquals(AlertLevel.Level.OK, reading.level(),
+        assertEquals(
+                AlertLevel.Level.OK,
+                reading.level(),
                 "a disk at 45 % was turned into an alert in the process that has no threshold");
     }
 
@@ -195,8 +192,7 @@ class AlertLevelTest {
         final Map<String, Object> host = new LinkedHashMap<>();
         host.put("unreadable", "could not read /proc: no such file");
 
-        final AlertLevel.Reading reading =
-                AlertLevel.of(table, List.of(dump(), volume()), host, Instant.now());
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()), host, Instant.now());
 
         assertNull(reading.diskPercent(), "an unreadable disk was reported as a measured 0 %");
         assertNull(reading.memoryPercent(), "unreadable memory was reported as a measured 0 %");
@@ -217,7 +213,10 @@ class AlertLevelTest {
         // health.ts's own argument, held to one number: sixteen archives from tonight and a world
         // from three weeks ago make "the newest backup" minutes old, and the per-volume failure
         // that a missing mount produces hides behind the small volumes that succeeded.
-        assertEquals(50.0, reading.backupAgeHours(), 0.0001,
+        assertEquals(
+                50.0,
+                reading.backupAgeHours(),
+                0.0001,
                 "the age answered was the newest file in the directory, not the oldest series");
     }
 
@@ -226,11 +225,9 @@ class AlertLevelTest {
     void noBackupHasNoAge() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
 
-        final AlertLevel.Reading reading =
-                AlertLevel.of(table, List.of(), Map.of(), Instant.now());
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(), Map.of(), Instant.now());
 
-        assertNull(reading.backupAgeHours(),
-                "an age was invented for a directory with nothing finished in it");
+        assertNull(reading.backupAgeHours(), "an age was invented for a directory with nothing finished in it");
         assertEquals(AlertLevel.Kind.BACKUP, reading.triggers().getFirst().kind());
     }
 
@@ -255,8 +252,8 @@ class AlertLevelTest {
         return table;
     }
 
-    private static Map<String, Object> service(final String name, final String state,
-                                               final String health, final String drift) {
+    private static Map<String, Object> service(
+            final String name, final String state, final String health, final String drift) {
         final Map<String, Object> service = new LinkedHashMap<>();
         service.put("service", name);
         service.put("state", state);

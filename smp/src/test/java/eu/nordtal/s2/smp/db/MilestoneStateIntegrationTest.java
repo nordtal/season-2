@@ -1,5 +1,14 @@
 package eu.nordtal.s2.smp.db;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
+import java.util.Optional;
 import org.flywaydb.core.Flyway;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
@@ -13,16 +22,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The milestone state machine against the real {@code smp_milestone_state_check}.
@@ -45,7 +44,8 @@ class MilestoneStateIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed milestone state tests");
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
                 .withDatabaseName("access")
@@ -91,9 +91,13 @@ class MilestoneStateIntegrationTest {
         assertEquals(Optional.of("waiting"), dao.activeMilestoneKey());
 
         final Optional<String> unlocked = dao.completeMilestone("waiting");
-        assertEquals(Optional.of("waiting"), unlocked,
+        assertEquals(
+                Optional.of("waiting"),
+                unlocked,
                 "the UPDATE has to return the key - the row it wrote is what the announcement is for");
-        assertEquals(List.of("waiting"), dao.completedMilestoneKeys(),
+        assertEquals(
+                List.of("waiting"),
+                dao.completedMilestoneKeys(),
                 "and the read side has to see the same value the write side used");
         assertEquals(Optional.empty(), dao.activeMilestoneKey(), "unlocked is not active any more");
     }
@@ -103,7 +107,9 @@ class MilestoneStateIntegrationTest {
     void aSecondCompletionIsEmpty() {
         dao.activateMilestone("waiting");
         assertTrue(dao.completeMilestone("waiting").isPresent());
-        assertEquals(Optional.empty(), dao.completeMilestone("waiting"),
+        assertEquals(
+                Optional.empty(),
+                dao.completeMilestone("waiting"),
                 "the engine and the escape hatch may both call this; only one may announce");
         assertEquals(List.of("waiting"), dao.completedMilestoneKeys());
     }
@@ -134,7 +140,7 @@ class MilestoneStateIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException exception) {
             throw new IllegalStateException(sql, exception);

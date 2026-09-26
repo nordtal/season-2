@@ -1,22 +1,20 @@
 package eu.nordtal.s2.commands.update;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Every process registers {@code /update} itself, because nothing else will.
@@ -61,7 +59,8 @@ class UpdateIsServedEverywhereTest {
     @DisplayName("all four processes with a surface register the update commands")
     void nobodyForgets() {
         for (final String file : ADAPTERS) {
-            assertTrue(read(file).contains("UpdateCommands.all()"),
+            assertTrue(
+                    read(file).contains("UpdateCommands.all()"),
                     file + " does not register /update. It is Target.LOCAL, so no inbox will run it"
                             + " for this process and no test but this one can notice: the command"
                             + " simply does not exist there, silently.");
@@ -78,17 +77,20 @@ class UpdateIsServedEverywhereTest {
         // loses both surfaces regardless, /update included - console remains, and it is the one
         // surface that does not depend on the thing being updated in the first place.
         for (final Declaration declaration : UpdateCommands.declarations()) {
-            assertEquals(Target.LOCAL, declaration.target(),
+            assertEquals(
+                    Target.LOCAL,
+                    declaration.target(),
                     declaration.name() + " is not LOCAL. Giving /update a real target puts a second"
                             + " live process in front of the command somebody types because the"
                             + " network is already misbehaving.");
-            assertTrue(declaration.adminOnly(),
-                    declaration.name() + " is not admin-only, and it takes servers away.");
-            assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
+            assertTrue(declaration.adminOnly(), declaration.name() + " is not admin-only, and it takes servers away.");
+            assertTrue(
+                    declaration.surfaces().contains(Surface.CONSOLE),
                     declaration.name() + " lost the console, which must never happen.");
-            assertFalse(declaration.surfaces().contains(Surface.GAME),
-                    declaration.name() + " is still reachable in game.");
-            assertFalse(declaration.surfaces().contains(Surface.DISCORD),
+            assertFalse(
+                    declaration.surfaces().contains(Surface.GAME), declaration.name() + " is still reachable in game.");
+            assertFalse(
+                    declaration.surfaces().contains(Surface.DISCORD),
                     declaration.name() + " is still reachable from Discord.");
         }
     }
@@ -100,7 +102,8 @@ class UpdateIsServedEverywhereTest {
         // list: the other three take a server away and give it back, and that one does not give it
         // back until a person says so. /update start is NOT here for the same reason /update check
         // is not - nothing is taken away by it.
-        assertEquals(List.of("/backup now", "/update down", "/update now", "/update restart"),
+        assertEquals(
+                List.of("/backup now", "/update down", "/update now", "/update restart"),
                 UpdateCommands.declarations().stream()
                         .filter(Declaration::irreversible)
                         .map(Declaration::name)
@@ -119,17 +122,15 @@ class UpdateIsServedEverywhereTest {
         // configured, migrated and documented on 2026-09-01 and had no READER at all until
         // 2026-09-07. A kind in the enum, in the CHECK and in steward-worker's switch, with nothing
         // anywhere able to write one, is the same shape - and it looks exactly like a feature.
-        final java.util.Set<eu.nordtal.s2.common.update.UpdateKind> asked =
-                new java.util.HashSet<>();
-        for (final eu.nordtal.s2.commands.NordtalCommand<eu.nordtal.s2.commands.update.UpdateEffects>
-                command : UpdateCommands.all()) {
+        final java.util.Set<eu.nordtal.s2.common.update.UpdateKind> asked = new java.util.HashSet<>();
+        for (final eu.nordtal.s2.commands.NordtalCommand<eu.nordtal.s2.commands.update.UpdateEffects> command :
+                UpdateCommands.all()) {
             final eu.nordtal.s2.common.update.UpdateKind kind = kindOf(command);
             if (kind != null) {
                 asked.add(kind);
             }
         }
-        for (final eu.nordtal.s2.common.update.UpdateKind kind
-                : eu.nordtal.s2.common.update.UpdateKind.values()) {
+        for (final eu.nordtal.s2.common.update.UpdateKind kind : eu.nordtal.s2.common.update.UpdateKind.values()) {
             if (kind == eu.nordtal.s2.common.update.UpdateKind.APPLY) {
                 // Retired 2026-09-07 and deliberately unreachable - see UpdateKind.APPLY. Named
                 // here rather than skipped by a general rule, so that putting it back is a visible
@@ -139,21 +140,24 @@ class UpdateIsServedEverywhereTest {
             if (!kind.stopsServers()) {
                 continue;
             }
-            assertTrue(asked.contains(kind), "nothing can ask for " + kind + ". steward-worker would"
-                    + " run it, the CHECK would accept it and no surface could write one.");
+            assertTrue(
+                    asked.contains(kind),
+                    "nothing can ask for " + kind + ". steward-worker would"
+                            + " run it, the CHECK would accept it and no surface could write one.");
         }
     }
 
     /** Which kind a command submits, by running it against a directory that records rows. */
     private static eu.nordtal.s2.common.update.UpdateKind kindOf(
-            final eu.nordtal.s2.commands.NordtalCommand<eu.nordtal.s2.commands.update.UpdateEffects>
-                    command) {
+            final eu.nordtal.s2.commands.NordtalCommand<eu.nordtal.s2.commands.update.UpdateEffects> command) {
         final FakeUpdateDirectory directory = new FakeUpdateDirectory();
-        command.run(eu.nordtal.s2.commands.FakeUser.console(),
+        command.run(
+                eu.nordtal.s2.commands.FakeUser.console(),
                 eu.nordtal.s2.commands.Values.none(command.declaration()),
-                new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> { },
-                        (id, user) -> { }));
-        return directory.submitted.isEmpty() ? null : directory.submitted.getFirst().kind();
+                new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> {}, (id, user) -> {}));
+        return directory.submitted.isEmpty()
+                ? null
+                : directory.submitted.getFirst().kind();
     }
 
     private static String read(final String relative) {

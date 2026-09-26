@@ -1,8 +1,7 @@
 package eu.nordtal.s2.common.access;
 
-import org.flywaydb.core.Flyway;
-
 import javax.sql.DataSource;
+import org.flywaydb.core.Flyway;
 
 /**
  * Applies the real season 2 schema to a test database - every migration on the classpath, not just
@@ -24,8 +23,7 @@ public final class AccessSchema {
     /** The same location jcore's {@code Database#migrate()} scans without arguments. */
     private static final String MIGRATIONS = "classpath:db/migration";
 
-    private AccessSchema() {
-    }
+    private AccessSchema() {}
 
     /**
      * @param dataSource the test database to migrate

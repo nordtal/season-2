@@ -2,7 +2,6 @@ package eu.nordtal.s2.proxy.pack;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.limbo.WaitReason;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -47,8 +46,7 @@ import java.util.Optional;
  */
 public final class LimboHold {
 
-    private LimboHold() {
-    }
+    private LimboHold() {}
 
     /**
      * @param packSettled           whether the pack is applied, or there is none to apply because
@@ -75,11 +73,14 @@ public final class LimboHold {
      * @return what the waiting room should say, or empty when nothing is left to wait for and the
      *         player may be connected onward
      */
-    public static Optional<WaitReason> reason(final boolean packSettled, final SeasonPhase phase,
-                                              final boolean admin, final boolean standby,
-                                              final boolean destinationAvailable,
-                                              final boolean destinationUpdating,
-                                              final boolean destinationHeld) {
+    public static Optional<WaitReason> reason(
+            final boolean packSettled,
+            final SeasonPhase phase,
+            final boolean admin,
+            final boolean standby,
+            final boolean destinationAvailable,
+            final boolean destinationUpdating,
+            final boolean destinationHeld) {
         Objects.requireNonNull(phase, "phase");
 
         if (!packSettled) {

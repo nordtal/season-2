@@ -1,15 +1,10 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.steward.worker.ops.RedeployResult;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
+import eu.nordtal.s2.steward.worker.ops.RedeployResult;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
 import eu.nordtal.s2.steward.worker.ops.ServiceRuntime;
 import eu.nordtal.s2.steward.worker.plan.Topology;
-
-import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -20,6 +15,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The run's stage directions: which standbys it needs, when the players are gone, and when the
@@ -103,8 +101,10 @@ final class Choreography {
     /** What this run has started and not yet stopped, so {@link #close} can be called twice. */
     private final Set<String> standing = new LinkedHashSet<>();
 
-    Choreography(final @NotNull ContainerOps containers, final @NotNull Occupancy occupancy,
-                 final @NotNull UpdateRun.Waiting clock) {
+    Choreography(
+            final @NotNull ContainerOps containers,
+            final @NotNull Occupancy occupancy,
+            final @NotNull UpdateRun.Waiting clock) {
         this.containers = containers;
         this.occupancy = occupancy;
         this.clock = clock;
@@ -149,7 +149,8 @@ final class Choreography {
      * @return a window that {@link Window#opened() opened}, or one carrying the sentence to put in
      *         the report of a run that must now touch nothing
      */
-    @NotNull Window open(final @NotNull Collection<String> moving) {
+    @NotNull
+    Window open(final @NotNull Collection<String> moving) {
         final List<String> wanted = standbysFor(moving);
         if (wanted.isEmpty()) {
             return new Window(List.of(), null);
@@ -184,8 +185,8 @@ final class Choreography {
             // never a fresh call per service, which would let one report disagree with itself.
             final RuntimeResult seen = containers.runtime();
             if (seen.reached()) {
-                pending.removeIf(standby -> seen.service(standby)
-                        .map(ServiceRuntime::isBack).orElse(false));
+                pending.removeIf(standby ->
+                        seen.service(standby).map(ServiceRuntime::isBack).orElse(false));
             }
             if (pending.isEmpty()) {
                 return null;
@@ -193,13 +194,16 @@ final class Choreography {
             if (!clock.now().isBefore(deadline)) {
                 final List<String> named = new ArrayList<>();
                 for (final String standby : pending) {
-                    named.add(standby + " (" + (seen.reached()
-                            ? seen.service(standby).map(ServiceRuntime::describe)
-                                    .orElse("no container for it in the project")
-                            : "the container runtime could not be read: " + seen.message()) + ")");
+                    named.add(standby + " ("
+                            + (seen.reached()
+                                    ? seen.service(standby)
+                                            .map(ServiceRuntime::describe)
+                                            .orElse("no container for it in the project")
+                                    : "the container runtime could not be read: " + seen.message())
+                            + ")");
                 }
-                return String.join(", ", named) + " did not become healthy within "
-                        + STANDBY_HEALTHY_WITHIN.toMinutes() + " minutes";
+                return String.join(", ", named) + " did not become healthy within " + STANDBY_HEALTHY_WITHIN.toMinutes()
+                        + " minutes";
             }
             if (!clock.sleep(STANDBY_HEALTH_POLL)) {
                 return "steward-worker stopped while waiting for " + String.join(", ", pending);
@@ -217,10 +221,10 @@ final class Choreography {
      *         the report - either "stopped with N player(s) still connected" or the honest one
      *         about not having been able to tell
      */
-    @Nullable String waitUntilEmpty(final @NotNull Collection<String> moving) {
-        final List<String> watched = moving.stream()
-                .filter(Choreography::canCarryPlayers)
-                .toList();
+    @Nullable
+    String waitUntilEmpty(final @NotNull Collection<String> moving) {
+        final List<String> watched =
+                moving.stream().filter(Choreography::canCarryPlayers).toList();
         if (watched.isEmpty()) {
             return null;
         }
@@ -260,16 +264,20 @@ final class Choreography {
      * The second is not the first - "nobody is on it" and "nothing has told me" are different
      * facts, and reporting the second as the first is how a wait stops being a wait.</p>
      */
-    static @NotNull String stoppedAnyway(final @NotNull Map<String, Integer> occupied,
-                                         final @NotNull List<String> unknown) {
+    static @NotNull String stoppedAnyway(
+            final @NotNull Map<String, Integer> occupied, final @NotNull List<String> unknown) {
         final StringBuilder said = new StringBuilder();
         if (!occupied.isEmpty()) {
-            final int total = occupied.values().stream().mapToInt(Integer::intValue).sum();
-            said.append("stopped with ").append(total)
-                    .append(total == 1 ? " player" : " players").append(" still connected (");
+            final int total =
+                    occupied.values().stream().mapToInt(Integer::intValue).sum();
+            said.append("stopped with ")
+                    .append(total)
+                    .append(total == 1 ? " player" : " players")
+                    .append(" still connected (");
             said.append(occupied.entrySet().stream()
                     .map(entry -> entry.getKey() + ": " + entry.getValue())
-                    .reduce((a, b) -> a + ", " + b).orElse(""));
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse(""));
             said.append(") after waiting ").append(EMPTY_CAP.toSeconds()).append('s');
         }
         if (!unknown.isEmpty()) {
@@ -278,7 +286,8 @@ final class Choreography {
             }
             said.append("Nothing recent said how many players were on ")
                     .append(String.join(", ", unknown))
-                    .append(", so the ").append(EMPTY_CAP.toSeconds())
+                    .append(", so the ")
+                    .append(EMPTY_CAP.toSeconds())
                     .append("s wait ran out rather than ending: the proxy writes those counts, and"
                             + " a proxy that is not writing them is the one thing this wait cannot"
                             + " see past");
@@ -303,7 +312,8 @@ final class Choreography {
      *
      * @return one sentence per standby, for the report; empty when this run opened no window
      */
-    @NotNull List<String> close() {
+    @NotNull
+    List<String> close() {
         if (standing.isEmpty()) {
             return List.of();
         }
@@ -322,11 +332,12 @@ final class Choreography {
             }
             final RedeployResult stopped = containers.stop(id);
             standing.remove(standby);
-            said.add(stopped.triggered()
-                    ? standby + " was started for this run and has been stopped again"
-                            + (waited == null ? "" : " - " + waited)
-                    : standby + " was started for this run and could not be stopped again: "
-                            + stopped.message() + ". It is still running.");
+            said.add(
+                    stopped.triggered()
+                            ? standby + " was started for this run and has been stopped again"
+                                    + (waited == null ? "" : " - " + waited)
+                            : standby + " was started for this run and could not be stopped again: " + stopped.message()
+                                    + ". It is still running.");
         }
         return said;
     }
@@ -348,8 +359,8 @@ final class Choreography {
                 return null;
             }
             if (!now.isBefore(deadline)) {
-                return "stopped with " + players.getAsInt() + " still on it after "
-                        + STANDBY_DRAINS_WITHIN.toSeconds() + "s";
+                return "stopped with " + players.getAsInt() + " still on it after " + STANDBY_DRAINS_WITHIN.toSeconds()
+                        + "s";
             }
             if (!clock.sleep(EMPTY_POLL)) {
                 return "stopped while it still had " + players.getAsInt() + " on it";

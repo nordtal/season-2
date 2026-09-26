@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.nio.file.Path;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The file was written by somebody else since this save's form was drawn.
@@ -18,8 +17,7 @@ public final class StaleConfigException extends RuntimeException {
     private final String expected;
     private final String actual;
 
-    StaleConfigException(final @NotNull Path file, final @NotNull String expected,
-                         final @NotNull String actual) {
+    StaleConfigException(final @NotNull Path file, final @NotNull String expected, final @NotNull String actual) {
         super(file + " has been written since it was read (" + expected + " -> " + actual + ")");
         this.file = file;
         this.expected = expected;

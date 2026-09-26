@@ -24,8 +24,7 @@ describe("which modifier to print", () => {
   it("prefers the user-agent hint where there is one", () => {
     // `navigator.platform` is deprecated; a browser that has stopped answering it must not turn
     // every Mac into a Ctrl.
-    expect(usesCommandKey(navigatorWith({ platform: "", userAgentData: { platform: "macOS" } })))
-      .toBe(true)
+    expect(usesCommandKey(navigatorWith({ platform: "", userAgentData: { platform: "macOS" } }))).toBe(true)
   })
 
   it("falls back to Ctrl rather than throwing where there is no navigator at all", () => {

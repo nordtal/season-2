@@ -1,16 +1,15 @@
 package eu.nordtal.s2.common.metric;
 
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.postgres.PostgresPlugin;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
  * The only implementation of {@link MetricDirectory}. Package-private: consumers get it from the
@@ -45,15 +44,13 @@ final class JdbiMetrics implements MetricDirectory {
         final List<MetricDao.BoundSample> bound = new ArrayList<>(samples.size());
         for (final MetricSample sample : samples) {
             Objects.requireNonNull(sample, "sample");
-            bound.add(new MetricDao.BoundSample(
-                    sample.subject(), sample.metric(), utc(sample.at()), sample.value()));
+            bound.add(new MetricDao.BoundSample(sample.subject(), sample.metric(), utc(sample.at()), sample.value()));
         }
         dao.record(bound);
     }
 
     @Override
-    public List<MetricPoint> range(final String subject, final String metric,
-                                   final Instant from, final Instant to) {
+    public List<MetricPoint> range(final String subject, final String metric, final Instant from, final Instant to) {
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(metric, "metric");
         Objects.requireNonNull(from, "from");

@@ -5,7 +5,6 @@ import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,18 +14,17 @@ import java.util.Optional;
 /** An in-memory {@link UpdateDirectory}: remembers what was submitted, answers what it is told. */
 final class FakeUpdateDirectory implements UpdateDirectory {
 
-    record Submitted(UpdateKind kind, UpdateSource source, String requestedBy, Duration delay,
-                     List<String> services) {
-    }
+    record Submitted(UpdateKind kind, UpdateSource source, String requestedBy, Duration delay, List<String> services) {}
 
     final List<Submitted> submitted = new ArrayList<>();
     /** When set, every submit is refused with it, the way the real directory refuses a second run. */
     eu.nordtal.s2.common.update.RunRefused refusing;
+
     private long nextId = 1L;
 
     @Override
-    public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
-                                final String requestedBy, final Duration delay) {
+    public UpdateRequest submit(
+            final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
         return submit(kind, source, requestedBy, delay, List.of());
     }
 
@@ -37,16 +35,19 @@ final class FakeUpdateDirectory implements UpdateDirectory {
      * network held down.
      */
     @Override
-    public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
-                                final String requestedBy, final Duration delay,
-                                final List<String> services) {
+    public UpdateRequest submit(
+            final UpdateKind kind,
+            final UpdateSource source,
+            final String requestedBy,
+            final Duration delay,
+            final List<String> services) {
         if (refusing != null) {
             throw refusing;
         }
         submitted.add(new Submitted(kind, source, requestedBy, delay, List.copyOf(services)));
         final Instant now = Instant.now();
-        return new UpdateRequest(nextId++, kind, UpdateStatus.PENDING, source, requestedBy, now,
-                now.plus(delay), null, null, null);
+        return new UpdateRequest(
+                nextId++, kind, UpdateStatus.PENDING, source, requestedBy, now, now.plus(delay), null, null, null);
     }
 
     @Override
@@ -60,8 +61,7 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public Optional<UpdateRequest> finish(final long id, final UpdateStatus status,
-                                          final String result) {
+    public Optional<UpdateRequest> finish(final long id, final UpdateStatus status, final String result) {
         throw new UnsupportedOperationException("only steward-worker finishes");
     }
 
@@ -124,11 +124,11 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     public java.util.Optional<eu.nordtal.s2.common.update.UpdateRequest> running() {
         return java.util.Optional.empty();
     }
+
     @Override
     public java.util.List<UpdateRequest> recent(final int limit) {
         // Nothing in this fake ever lists: the list is a page in the interface, not a decision
         // anything here makes.
         return java.util.List.of();
     }
-
 }

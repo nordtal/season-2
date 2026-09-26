@@ -21,6 +21,7 @@ public final class GameState {
     private volatile UUID gameId;
     /** {@code true} only from release (end of countdown) onward - see {@link #release()}. */
     private volatile boolean running;
+
     private volatile int effectiveParticipants;
     private volatile double borderStep;
 

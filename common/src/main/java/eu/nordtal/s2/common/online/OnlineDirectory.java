@@ -1,8 +1,8 @@
 package eu.nordtal.s2.common.online;
 
-import javax.sql.DataSource;
 import java.time.Duration;
 import java.util.Map;
+import javax.sql.DataSource;
 
 /**
  * How many players are on each Minecraft-facing subject, right now - written by the proxy,

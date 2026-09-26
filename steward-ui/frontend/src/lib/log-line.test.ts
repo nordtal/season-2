@@ -58,9 +58,11 @@ describe("parseLogLine", () => {
       source: "AccessBot",
       text: "access-bot is up",
     })
-    expect(
-      parseLogLine("01:29:28.846 ERROR e.n.s.s.worker.serve.UpdateServer - Listening failed"),
-    ).toMatchObject({ level: "ERROR", source: "UpdateServer", text: "Listening failed" })
+    expect(parseLogLine("01:29:28.846 ERROR e.n.s.s.worker.serve.UpdateServer - Listening failed")).toMatchObject({
+      level: "ERROR",
+      source: "UpdateServer",
+      text: "Listening failed",
+    })
   })
 
   it("leaves a stack trace raw and lets it carry on the error above", () => {
@@ -80,7 +82,7 @@ describe("parseLogLine", () => {
       parseLogLine("2026-09-24T09:29:30.941Z 2026-09-24 11:29:30.941 CEST [29] LOG:  checkpoint starting: time"),
     ).toEqual({ kind: "parsed", time: "11:29:30", level: "INFO", source: "", text: "checkpoint starting: time" })
     expect(
-      parseLogLine("2026-09-24 11:29:31.002 CEST [812] FATAL:  password authentication failed for user \"x\""),
+      parseLogLine('2026-09-24 11:29:31.002 CEST [812] FATAL:  password authentication failed for user "x"'),
     ).toMatchObject({ level: "ERROR", source: "", text: 'password authentication failed for user "x"' })
     expect(parseLogLine("2026-09-24 11:29:31.002 CEST [812] WARNING:  no usable system locales")).toMatchObject({
       level: "WARN",

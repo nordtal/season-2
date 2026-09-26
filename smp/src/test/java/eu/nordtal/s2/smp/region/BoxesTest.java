@@ -1,13 +1,12 @@
 package eu.nordtal.s2.smp.region;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 /**
  * The box arithmetic behind both the spawn protection and the balloons.
@@ -44,18 +43,14 @@ class BoxesTest {
     void aBoxBelongsToExactlyOneWorld() {
         final Box box = new Box(WORLD, 0, 60, 0, 4, 70, 4);
 
-        assertFalse(box.contains("farm", 2, 65, 2),
-                "the same coordinates in another world are not the same place");
+        assertFalse(box.contains("farm", 2, 65, 2), "the same coordinates in another world are not the same place");
     }
 
     @Test
     void anInvertedBoxIsRefusedAtConstruction() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new Box(WORLD, 10, 60, 0, 0, 70, 4));
-        assertThrows(IllegalArgumentException.class,
-                () -> new Box(WORLD, 0, 80, 0, 4, 70, 4));
-        assertThrows(IllegalArgumentException.class,
-                () -> new Box("", 0, 60, 0, 4, 70, 4));
+        assertThrows(IllegalArgumentException.class, () -> new Box(WORLD, 10, 60, 0, 0, 70, 4));
+        assertThrows(IllegalArgumentException.class, () -> new Box(WORLD, 0, 80, 0, 4, 70, 4));
+        assertThrows(IllegalArgumentException.class, () -> new Box("", 0, 60, 0, 4, 70, 4));
     }
 
     @Test
@@ -64,7 +59,9 @@ class BoxesTest {
         final Box outer = new Box(WORLD, -10, 50, -10, 10, 80, 10);
         final Boxes boxes = new Boxes(List.of(inner, outer));
 
-        assertEquals(inner, boxes.at(WORLD, 1, 61, 1).orElseThrow(),
+        assertEquals(
+                inner,
+                boxes.at(WORLD, 1, 61, 1).orElseThrow(),
                 "configuration order is what makes a carve-out possible");
         assertEquals(outer, boxes.at(WORLD, 8, 61, 8).orElseThrow());
     }
@@ -72,9 +69,7 @@ class BoxesTest {
     @Test
     void boxesAreFilteredByWorld() {
         final Boxes boxes = new Boxes(List.of(
-                new Box(WORLD, 0, 0, 0, 1, 1, 1),
-                new Box("farm", 0, 0, 0, 1, 1, 1),
-                new Box(WORLD, 5, 0, 5, 6, 1, 6)));
+                new Box(WORLD, 0, 0, 0, 1, 1, 1), new Box("farm", 0, 0, 0, 1, 1, 1), new Box(WORLD, 5, 0, 5, 6, 1, 6)));
 
         assertEquals(2, boxes.in(WORLD).size());
         assertEquals(1, boxes.in("farm").size());
@@ -94,11 +89,13 @@ class BoxesTest {
         assertEquals(15.0, balloon.horizontalDistanceFrom(106, 88), 0.0001);
 
         final Box tooClose = new Box(WORLD, 104, 64, 86, 108, 68, 90);
-        assertTrue(tooClose.horizontalDistanceFrom(106, 88) <= 10.0,
+        assertTrue(
+                tooClose.horizontalDistanceFrom(106, 88) <= 10.0,
                 "a balloon this close is inside the opening border and hands travel over for free");
 
         final Box tooFar = new Box(WORLD, 130, 64, 86, 134, 68, 90);
-        assertTrue(tooFar.horizontalDistanceFrom(106, 88) >= 21.5,
+        assertTrue(
+                tooFar.horizontalDistanceFrom(106, 88) >= 21.5,
                 "a balloon this far is still outside the border after the first expansion");
     }
 }

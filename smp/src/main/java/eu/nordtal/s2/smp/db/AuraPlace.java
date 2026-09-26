@@ -8,5 +8,4 @@ package eu.nordtal.s2.smp.db;
  * @param total how many people have an aura row and a linked account, which is the same population
  *              the board in the world draws from
  */
-public record AuraPlace(int place, int total) {
-}
+public record AuraPlace(int place, int total) {}

@@ -1,12 +1,10 @@
 package eu.nordtal.s2.common.command;
 
+import java.util.Objects;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
-
-import java.util.Objects;
 
 /**
  * The one command allowlist, as the network's five processes share it.

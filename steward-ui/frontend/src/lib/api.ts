@@ -173,9 +173,7 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
     // did not answer, which is the only way this end can tell "the daemon did not answer" from
     // "this service threw".
     const where: Where =
-      body?.where === "steward-worker" || body?.where === "steward-deployer"
-        ? body.where
-        : "steward-ui"
+      body?.where === "steward-worker" || body?.where === "steward-deployer" ? body.where : "steward-ui"
     const message = (body && messageOf(body)) ?? `${response.status} ${response.statusText}`
     const detail = body ? String(body.detail ?? "") : text
     const code = typeof body?.code === "string" ? body.code : ""
@@ -638,7 +636,6 @@ export type Season = {
   smpStart?: string
 }
 
-
 /**
  * One person the bot knows.
  *
@@ -983,14 +980,7 @@ export type CommandArgument = {
    * `/api/people` and `/api/payments/open`. Both are declared kinds and not names, so a command
    * added later gets the picker without anybody remembering to wire it.
    */
-  kind:
-    | "WORD"
-    | "GREEDY_STRING"
-    | "INTEGER"
-    | "PLAYER"
-    | "CHOICE"
-    | "ACCOUNT"
-    | "REFERENCE"
+  kind: "WORD" | "GREEDY_STRING" | "INTEGER" | "PLAYER" | "CHOICE" | "ACCOUNT" | "REFERENCE"
   required: boolean
   min?: number
   max?: number

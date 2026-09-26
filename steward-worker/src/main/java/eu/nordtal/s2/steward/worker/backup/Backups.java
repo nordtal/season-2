@@ -26,9 +26,11 @@ public record Backups(@NotNull Snapshots volumes, @Nullable DatabaseDump databas
     /** The dump, or a failure that says the database was deliberately left out. */
     public @NotNull SnapshotResult saveDatabase() {
         if (database == null) {
-            return SnapshotResult.failed(DatabaseDump.NAME, java.time.Duration.ZERO,
+            return SnapshotResult.failed(
+                    DatabaseDump.NAME,
+                    java.time.Duration.ZERO,
                     "backup.database-service is empty, so no database dump was taken. Nothing is "
-                    + "wrong with the database; nothing was saved of it either.");
+                            + "wrong with the database; nothing was saved of it either.");
         }
         return database.save();
     }

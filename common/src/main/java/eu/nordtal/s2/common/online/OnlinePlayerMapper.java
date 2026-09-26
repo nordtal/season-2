@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.online;
 
-import org.jdbi.v3.core.mapper.RowMapper;
-import org.jdbi.v3.core.statement.StatementContext;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 /**
  * Maps a row of {@code online_player}.
@@ -28,7 +27,6 @@ public final class OnlinePlayerMapper implements RowMapper<OnlinePlayer> {
         final OffsetDateTime updated = rs.getObject("updated", OffsetDateTime.class);
         // A NULL subject is a value here, not a missing one: the proxy has this player and no
         // backend does yet. getString already answers null for it; nothing is defaulted.
-        return new OnlinePlayer(uuid, rs.getString("mc_name"), rs.getString("subject"),
-                updated.toInstant());
+        return new OnlinePlayer(uuid, rs.getString("mc_name"), rs.getString("subject"), updated.toInstant());
     }
 }

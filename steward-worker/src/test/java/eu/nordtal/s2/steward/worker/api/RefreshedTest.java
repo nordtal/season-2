@@ -1,7 +1,8 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -9,10 +10,8 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Nobody waits for a refresh they did not ask for.
@@ -61,8 +60,8 @@ class RefreshedTest {
     void theFirstOneBlocks() {
         final AtomicInteger reads = new AtomicInteger();
         final Later later = new Later();
-        final Refreshed<String> value = new Refreshed<>(
-                () -> "read " + reads.incrementAndGet(), Duration.ofMinutes(1), later, now::get);
+        final Refreshed<String> value =
+                new Refreshed<>(() -> "read " + reads.incrementAndGet(), Duration.ofMinutes(1), later, now::get);
 
         assertEquals("read 1", value.get());
         assertEquals(1, reads.get());
@@ -74,8 +73,8 @@ class RefreshedTest {
     void staleIsServedAndRefreshed() {
         final AtomicInteger reads = new AtomicInteger();
         final Later later = new Later();
-        final Refreshed<String> value = new Refreshed<>(
-                () -> "read " + reads.incrementAndGet(), Duration.ofMinutes(1), later, now::get);
+        final Refreshed<String> value =
+                new Refreshed<>(() -> "read " + reads.incrementAndGet(), Duration.ofMinutes(1), later, now::get);
 
         assertEquals("read 1", value.get());
         tick(Duration.ofMinutes(2));
@@ -94,8 +93,7 @@ class RefreshedTest {
     @DisplayName("ten readers arriving at once ask for one refresh between them")
     void onlyOneRefreshIsInFlight() {
         final Later later = new Later();
-        final Refreshed<String> value = new Refreshed<>(
-                () -> "a value", Duration.ofMinutes(1), later, now::get);
+        final Refreshed<String> value = new Refreshed<>(() -> "a value", Duration.ofMinutes(1), later, now::get);
 
         value.get();
         tick(Duration.ofMinutes(2));
@@ -114,13 +112,17 @@ class RefreshedTest {
         // readable as stale rather than as current.
         final AtomicInteger reads = new AtomicInteger();
         final Later later = new Later();
-        final Refreshed<String> value = new Refreshed<>(() -> {
-            final int read = reads.incrementAndGet();
-            if (read == 2) {
-                throw new IllegalStateException("the registry is not answering");
-            }
-            return "read " + read;
-        }, Duration.ofMinutes(1), later, now::get);
+        final Refreshed<String> value = new Refreshed<>(
+                () -> {
+                    final int read = reads.incrementAndGet();
+                    if (read == 2) {
+                        throw new IllegalStateException("the registry is not answering");
+                    }
+                    return "read " + read;
+                },
+                Duration.ofMinutes(1),
+                later,
+                now::get);
 
         assertEquals("read 1", value.get());
         tick(Duration.ofMinutes(2));
@@ -136,9 +138,13 @@ class RefreshedTest {
     @Test
     @DisplayName("a first read that fails is thrown, because there is nothing else to say")
     void theFirstFailureIsAnError() {
-        final Refreshed<String> value = new Refreshed<>(() -> {
-            throw new IllegalStateException("the registry is not answering");
-        }, Duration.ofMinutes(1), new Later(), now::get);
+        final Refreshed<String> value = new Refreshed<>(
+                () -> {
+                    throw new IllegalStateException("the registry is not answering");
+                },
+                Duration.ofMinutes(1),
+                new Later(),
+                now::get);
 
         assertThrows(IllegalStateException.class, value::get);
     }
@@ -147,8 +153,7 @@ class RefreshedTest {
     @DisplayName("it says how old the answer it handed over is")
     void theAgeIsReadable() {
         final Later later = new Later();
-        final Refreshed<String> value = new Refreshed<>(
-                () -> "a value", Duration.ofMinutes(1), later, now::get);
+        final Refreshed<String> value = new Refreshed<>(() -> "a value", Duration.ofMinutes(1), later, now::get);
 
         value.get();
         assertEquals(now.get(), value.refreshedAt());

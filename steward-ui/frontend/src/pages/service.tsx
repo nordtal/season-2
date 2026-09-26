@@ -11,12 +11,7 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 
 import { bytes, percent, relative, since } from "@/lib/format"
-import {
-  useConfigs,
-  useMessageBundles,
-  useMetrics,
-  useService,
-} from "@/lib/queries"
+import { useConfigs, useMessageBundles, useMetrics, useService } from "@/lib/queries"
 import { ServiceConsole } from "@/components/steward/console"
 import { ServiceSettings } from "@/components/steward/settings"
 import { ServicePlugins } from "@/components/steward/plugins"
@@ -33,12 +28,7 @@ import { touches, useRunLock } from "@/lib/run-lock"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Sparkline } from "@/components/steward/sparkline"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 /** What `/services/$name` keeps in its URL (steward/140). Console is the default and never written. */
@@ -69,9 +59,7 @@ export function useServiceTabs(name: string): Tab[] | undefined {
   const settings =
     configs.isError ||
     bundles.isError ||
-    (configs.data ?? []).some(
-      (file) => file.service === name || (file.service === "" && name === "steward-ui"),
-    ) ||
+    (configs.data ?? []).some((file) => file.service === name || (file.service === "" && name === "steward-ui")) ||
     (bundles.data ?? []).some((bundle) => bundle.service === name)
   return [
     "console",
@@ -269,13 +257,7 @@ function ServiceActions({
       {hold || recreatable ? (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="sm:hidden"
-              aria-label="More actions"
-            >
+            <Button type="button" variant="outline" size="icon-sm" className="sm:hidden" aria-label="More actions">
               <DotsThreeIcon aria-hidden />
             </Button>
           </DropdownMenuTrigger>
@@ -309,10 +291,7 @@ export function ActiveRunLine({ run, name }: { run: Run | null; name: string }) 
   const elsewhere = run.scope.length > 0 && !(run.scope.length === 1 && run.scope[0] === name)
   return (
     <div role="status" className="flex flex-wrap items-center gap-2 text-sm">
-      <Link
-        {...runPath(run)}
-        className="font-medium underline-offset-4 hover:text-primary hover:underline"
-      >
+      <Link {...runPath(run)} className="font-medium underline-offset-4 hover:text-primary hover:underline">
         {RUN_KIND[run.kind] ?? run.kind} #{run.id}
       </Link>
       {elsewhere ? <span className="text-muted-foreground">{run.scope.join(", ")}</span> : null}
@@ -364,7 +343,11 @@ export function ServiceHead({
         </div>
         <span className="text-2xl font-semibold tabular-nums">
           {service ? (
-            service.startedAt ? since(service.startedAt) : "–"
+            service.startedAt ? (
+              since(service.startedAt)
+            ) : (
+              "–"
+            )
           ) : (
             <SkeletonText width="short" className="h-[1lh]" />
           )}
@@ -381,11 +364,7 @@ export function ServiceHead({
       {/* Only the four services with a volume here have a number; the rest get no field, because
           0 bytes would be a claim. A measurement older than two minutes says how old it is. */}
       {service?.diskBytes === undefined ? null : (
-        <Stat
-          label="Disk"
-          value={bytes(service.diskBytes)}
-          hint={diskAge(service.diskMeasuredAt)}
-        />
+        <Stat label="Disk" value={bytes(service.diskBytes)} hint={diskAge(service.diskMeasuredAt)} />
       )}
     </section>
   )

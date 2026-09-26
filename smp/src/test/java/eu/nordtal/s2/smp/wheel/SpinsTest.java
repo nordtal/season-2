@@ -1,13 +1,12 @@
 package eu.nordtal.s2.smp.wheel;
 
-import org.junit.jupiter.api.Test;
-
-import java.time.LocalDate;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.LocalDate;
+import org.junit.jupiter.api.Test;
 
 /**
  * When the free spin comes back.
@@ -61,7 +60,9 @@ class SpinsTest {
 
     @Test
     void columnsThatDisagreeNeverProduceNegativeSpins() {
-        assertEquals(0, new Spins(2, 5, TODAY).extras(),
+        assertEquals(
+                0,
+                new Spins(2, 5, TODAY).extras(),
                 "the schema forbids it, but a caller must not be able to produce a negative either");
         assertEquals(0, new Spins(2, 5, TODAY).available(TODAY));
     }

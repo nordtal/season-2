@@ -201,7 +201,12 @@ describe("RecreateButton - while the job is read", () => {
       "fetch",
       backend({
         job: () => ({
-          body: { id: "j1", state: "DONE", exitCode: 0, lines: ["Container nordtal-s2-smp-1  Recreated", "Container nordtal-s2-smp-1  Started"] },
+          body: {
+            id: "j1",
+            state: "DONE",
+            exitCode: 0,
+            lines: ["Container nordtal-s2-smp-1  Recreated", "Container nordtal-s2-smp-1  Started"],
+          },
         }),
       }),
     )
@@ -269,42 +274,39 @@ describe("RecreateButton - while the job is read", () => {
 })
 
 describe("RecreateButton - the footer while the job is unreadable", () => {
-  it(
-    "lets the operator out again after a poll that failed",
-    async () => {
-      /*
-       * This was a defect when it was written. `running` was
-       * `recreate.isPending || job.data?.state === "RUNNING"`, and `job.data` survives a failed
-       * poll - which is exactly what the body of the dialog had just been corrected for. So once
-       * one poll had answered RUNNING and the next one failed, the body correctly said the deployer
-       * is not answering while the footer said "Running…", the close button was disabled, and
-       * `onOpenChange` refused Escape and the overlay too: shut in a dialog that had just announced
-       * nothing more is coming. `running` now carries the same `!job.error` guard that
-       * `refetchInterval` uses in queries.ts.
-       */
-      let broken = false
-      vi.stubGlobal(
-        "fetch",
-        backend({
-          job: () =>
-            broken
-              ? { status: 502, body: { error: "steward-deployer is not answering.", where: "steward-deployer" } }
-              : { body: { id: "j1", state: "RUNNING", lines: ["Container nordtal-s2-smp-1  Recreating"] } },
-        }),
-      )
-      draw(<RecreateButton service="smp" />)
-      const dialog = await start()
+  it("lets the operator out again after a poll that failed", async () => {
+    /*
+     * This was a defect when it was written. `running` was
+     * `recreate.isPending || job.data?.state === "RUNNING"`, and `job.data` survives a failed
+     * poll - which is exactly what the body of the dialog had just been corrected for. So once
+     * one poll had answered RUNNING and the next one failed, the body correctly said the deployer
+     * is not answering while the footer said "Running…", the close button was disabled, and
+     * `onOpenChange` refused Escape and the overlay too: shut in a dialog that had just announced
+     * nothing more is coming. `running` now carries the same `!job.error` guard that
+     * `refetchInterval` uses in queries.ts.
+     */
+    let broken = false
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        job: () =>
+          broken
+            ? { status: 502, body: { error: "steward-deployer is not answering.", where: "steward-deployer" } }
+            : { body: { id: "j1", state: "RUNNING", lines: ["Container nordtal-s2-smp-1  Recreating"] } },
+      }),
+    )
+    draw(<RecreateButton service="smp" />)
+    const dialog = await start()
 
-      await waitFor(() => expect(dialog.textContent).toContain("Recreating"))
-      broken = true
-      await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeNull(), { timeout: 3000 })
+    await waitFor(() => expect(dialog.textContent).toContain("Recreating"))
+    broken = true
+    await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeNull(), { timeout: 3000 })
 
-      // The body is right and the footer is not. Scoped to the footer on purpose: Radix's own
-      // dismiss icon carries the sr-only name "Close" too, so an unscoped query by that name finds
-      // two buttons and the one this assertion is about is the second.
-      const footer = dialog.querySelector('[data-slot="dialog-footer"]') as HTMLElement
-      const close = within(footer).getByRole("button", { name: /Close|Running/ }) as HTMLButtonElement
-      expect([close.textContent, close.disabled]).toEqual(["Close", false])
-    },
-  )
+    // The body is right and the footer is not. Scoped to the footer on purpose: Radix's own
+    // dismiss icon carries the sr-only name "Close" too, so an unscoped query by that name finds
+    // two buttons and the one this assertion is about is the second.
+    const footer = dialog.querySelector('[data-slot="dialog-footer"]') as HTMLElement
+    const close = within(footer).getByRole("button", { name: /Close|Running/ }) as HTMLButtonElement
+    expect([close.textContent, close.disabled]).toEqual(["Close", false])
+  })
 })

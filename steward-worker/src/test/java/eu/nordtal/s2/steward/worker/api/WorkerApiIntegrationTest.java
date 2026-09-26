@@ -1,5 +1,10 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -8,11 +13,6 @@ import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerOps;
 import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -21,12 +21,10 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The API steward-ui will call, answered by the daemon that is actually running here.
@@ -50,11 +48,21 @@ class WorkerApiIntegrationTest {
         final DockerSocket socket = new DockerSocket();
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
-        api = new WorkerApi(docker, new DockerOps(docker, PROJECT), new Console(docker, PROJECT),
-                new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN, Path.of("/tmp"),
-                FakeDirectories.updates(), FakeDirectories.audit(),
-                new WorkerApi.Nightly("04:45", List.of("MONDAY", "TUESDAY", "WEDNESDAY",
-                        "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"), ZoneId.of("Europe/Berlin")));
+        api = new WorkerApi(
+                docker,
+                new DockerOps(docker, PROJECT),
+                new Console(docker, PROJECT),
+                new HostMetrics(),
+                PROJECT,
+                Path.of("/tmp"),
+                TOKEN,
+                Path.of("/tmp"),
+                FakeDirectories.updates(),
+                FakeDirectories.audit(),
+                new WorkerApi.Nightly(
+                        "04:45",
+                        List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"),
+                        ZoneId.of("Europe/Berlin")));
         api.start(PORT);
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }
@@ -70,7 +78,9 @@ class WorkerApiIntegrationTest {
     @DisplayName("without the token nothing but health answers")
     void theTokenIsTheDoor() throws Exception {
         assertEquals(401, raw("/api/services", false).statusCode());
-        assertEquals(200, raw("/api/health", false).statusCode(),
+        assertEquals(
+                200,
+                raw("/api/health", false).statusCode(),
                 "health has to answer without a token, or a healthcheck would need the secret");
     }
 
@@ -81,7 +91,7 @@ class WorkerApiIntegrationTest {
         assumeTrue(!services.isEmpty(), "nothing of the stack is running - skipping");
 
         final JsonObject first = services.get(0).getAsJsonObject();
-        for (final String column : new String[]{"service", "state", "hasConsole", "drift"}) {
+        for (final String column : new String[] {"service", "state", "hasConsole", "drift"}) {
             assertTrue(first.has(column), column + " is missing from " + first);
         }
 
@@ -97,8 +107,7 @@ class WorkerApiIntegrationTest {
                 sawNone = true;
             }
         }
-        assertTrue(sawConsole && sawNone,
-                "every service answered the same way about its console: " + services);
+        assertTrue(sawConsole && sawNone, "every service answered the same way about its console: " + services);
     }
 
     @Test
@@ -116,7 +125,9 @@ class WorkerApiIntegrationTest {
         // the failure this column was added for (A24). A second call inside the TTL must therefore
         // report the SAME instant, not a fresh one.
         final JsonObject again = GSON.fromJson(get("/api/services"), JsonObject.class);
-        assertEquals(drift.get("checkedAt"), again.getAsJsonObject("drift").get("checkedAt"),
+        assertEquals(
+                drift.get("checkedAt"),
+                again.getAsJsonObject("drift").get("checkedAt"),
                 "two calls a moment apart must share one comparison, or nothing is being cached");
     }
 
@@ -125,12 +136,14 @@ class WorkerApiIntegrationTest {
     void aFollowKeepsItsConnectionAlive() throws Exception {
         final String name = aRunningService();
 
-        final HttpResponse<java.io.InputStream> follow = http.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name
-                                + "/logs?tail=0"))
-                .header("X-Steward-Token", TOKEN)
-                .header("Accept", "text/event-stream")
-                .GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+        final HttpResponse<java.io.InputStream> follow = http.send(
+                HttpRequest.newBuilder(
+                                URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name + "/logs?tail=0"))
+                        .header("X-Steward-Token", TOKEN)
+                        .header("Accept", "text/event-stream")
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofInputStream());
         assertEquals(200, follow.statusCode());
 
         // Jetty drops a connection nothing has been written on for thirty seconds - measured on
@@ -139,8 +152,8 @@ class WorkerApiIntegrationTest {
         // view closed under whoever was watching it, which looks exactly like a server that has
         // stopped. The same comment is what lets steward-ui's end notice a browser that left:
         // the JDK's client only tears down a cancelled stream when something next arrives on it.
-        try (var lines = new java.io.BufferedReader(new java.io.InputStreamReader(
-                follow.body(), java.nio.charset.StandardCharsets.UTF_8))) {
+        try (var lines = new java.io.BufferedReader(
+                new java.io.InputStreamReader(follow.body(), java.nio.charset.StandardCharsets.UTF_8))) {
             // A DAEMON thread, and that is not a detail: closing the response body does not
             // unblock a read already sitting in it - the very JDK behaviour this heartbeat exists
             // to work around - so a plain executor thread would still be parked in readLine() when
@@ -151,15 +164,18 @@ class WorkerApiIntegrationTest {
                 return thread;
             });
             try {
-                assertTrue(one.submit(() -> {
-                    String line;
-                    while ((line = lines.readLine()) != null) {
-                        if (line.startsWith(":") && line.contains(name)) {
-                            return true;
-                        }
-                    }
-                    return false;
-                }).get(25, java.util.concurrent.TimeUnit.SECONDS), "no heartbeat inside 25 seconds");
+                assertTrue(
+                        one.submit(() -> {
+                                    String line;
+                                    while ((line = lines.readLine()) != null) {
+                                        if (line.startsWith(":") && line.contains(name)) {
+                                            return true;
+                                        }
+                                    }
+                                    return false;
+                                })
+                                .get(25, java.util.concurrent.TimeUnit.SECONDS),
+                        "no heartbeat inside 25 seconds");
             } catch (final java.util.concurrent.TimeoutException never) {
                 throw new AssertionError("the follow said nothing at all for 25 seconds");
             } finally {
@@ -178,8 +194,8 @@ class WorkerApiIntegrationTest {
         // An offset, not a local time: the browser has to be able to turn it into an instant, and
         // "04:45" on its own is a number that means something different in every time zone - which
         // is the defect this endpoint exists to end.
-        final java.time.ZonedDateTime next = java.time.ZonedDateTime.parse(
-                schedule.get("nextBackupAt").getAsString());
+        final java.time.ZonedDateTime next =
+                java.time.ZonedDateTime.parse(schedule.get("nextBackupAt").getAsString());
         assertTrue(next.isAfter(java.time.ZonedDateTime.now()), "it has already been: " + next);
         assertEquals(45, next.getMinute());
         assertEquals(4, next.getHour(), "read in the zone the worker was given, not this JVM's");
@@ -235,8 +251,7 @@ class WorkerApiIntegrationTest {
     @Test
     @DisplayName("the console refuses a service that has none, with the reason")
     void theConsoleKeepsItsBoundary() throws Exception {
-        final HttpResponse<String> refused = post("/api/services/postgres/console",
-                "{\"command\":\"list\"}");
+        final HttpResponse<String> refused = post("/api/services/postgres/console", "{\"command\":\"list\"}");
 
         assertEquals(400, refused.statusCode());
         assertTrue(refused.body().contains("postgres"), refused.body());
@@ -245,7 +260,8 @@ class WorkerApiIntegrationTest {
     @Test
     @DisplayName("an empty console line is refused before it reaches a container")
     void nothingIsNotACommand() throws Exception {
-        assertEquals(400, post("/api/services/smp/console", "{\"command\":\"  \"}").statusCode());
+        assertEquals(
+                400, post("/api/services/smp/console", "{\"command\":\"  \"}").statusCode());
     }
 
     @Test
@@ -255,7 +271,8 @@ class WorkerApiIntegrationTest {
 
         assertTrue(host.get("memoryTotalBytes").getAsLong() > 0);
         assertTrue(host.get("diskTotalBytes").getAsLong() > 0);
-        assertTrue(host.get("containerLimits").getAsString().contains("share of the whole host"),
+        assertTrue(
+                host.get("containerLimits").getAsString().contains("share of the whole host"),
                 "a percentage without that sentence is a number that means something else");
     }
 
@@ -267,17 +284,26 @@ class WorkerApiIntegrationTest {
         final byte[] body = "not a real archive, just some bytes to compare".getBytes();
         java.nio.file.Files.write(file, body);
         try {
-            final HttpResponse<byte[]> response = http.send(HttpRequest.newBuilder()
-                    .uri(URI.create("http://127.0.0.1:" + PORT + "/api/backups/" + name + "/download"))
-                    .header("X-Steward-Token", TOKEN)
-                    .GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+            final HttpResponse<byte[]> response = http.send(
+                    HttpRequest.newBuilder()
+                            .uri(URI.create("http://127.0.0.1:" + PORT + "/api/backups/" + name + "/download"))
+                            .header("X-Steward-Token", TOKEN)
+                            .GET()
+                            .build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
 
             assertEquals(200, response.statusCode());
-            assertTrue(response.body().length == body.length
-                            && java.util.Arrays.equals(body, response.body()),
+            assertTrue(
+                    response.body().length == body.length && java.util.Arrays.equals(body, response.body()),
                     "the streamed body must be exactly the file's bytes");
-            assertEquals("application/octet-stream", response.headers().firstValue("content-type").orElse(""));
-            assertTrue(response.headers().firstValue("content-disposition").orElse("").contains(name),
+            assertEquals(
+                    "application/octet-stream",
+                    response.headers().firstValue("content-type").orElse(""));
+            assertTrue(
+                    response.headers()
+                            .firstValue("content-disposition")
+                            .orElse("")
+                            .contains(name),
                     "the download must name the file it is, so a browser's save dialog is not \"download\"");
         } finally {
             java.nio.file.Files.deleteIfExists(file);
@@ -288,15 +314,19 @@ class WorkerApiIntegrationTest {
     @DisplayName("steward/95: a name that is not a finished backup is refused before any path is resolved")
     void downloadRefusesAnyNameThatIsNotAFinishedBackup() throws Exception {
         assertEquals(400, raw("/api/backups/not-a-backup.txt/download", true).statusCode());
-        assertEquals(400, raw("/api/backups/still-running-20260913T044507Z.tar.zst.partial/download", true)
-                .statusCode());
+        assertEquals(
+                400,
+                raw("/api/backups/still-running-20260913T044507Z.tar.zst.partial/download", true)
+                        .statusCode());
     }
 
     @Test
     @DisplayName("steward/95: a well-formed name that is not actually on disk is a 404, not a 400")
     void downloadOfAMissingArchiveIs404() throws Exception {
-        assertEquals(404, raw("/api/backups/never-written-20260913T044507Z.tar.zst/download", true)
-                .statusCode());
+        assertEquals(
+                404,
+                raw("/api/backups/never-written-20260913T044507Z.tar.zst/download", true)
+                        .statusCode());
     }
 
     @Test
@@ -321,8 +351,10 @@ class WorkerApiIntegrationTest {
     @Test
     @DisplayName("steward/95: the download needs the worker token, same as every other route here")
     void downloadNeedsTheToken() throws Exception {
-        assertEquals(401, raw("/api/backups/never-written-20260913T044507Z.tar.zst/download", false)
-                .statusCode());
+        assertEquals(
+                401,
+                raw("/api/backups/never-written-20260913T044507Z.tar.zst/download", false)
+                        .statusCode());
     }
 
     private static String get(final String path) throws Exception {
@@ -331,10 +363,8 @@ class WorkerApiIntegrationTest {
         return response.body();
     }
 
-    private static HttpResponse<String> raw(final String path, final boolean withToken)
-            throws Exception {
-        final HttpRequest.Builder request = HttpRequest.newBuilder()
-                .uri(URI.create("http://127.0.0.1:" + PORT + path));
+    private static HttpResponse<String> raw(final String path, final boolean withToken) throws Exception {
+        final HttpRequest.Builder request = HttpRequest.newBuilder().uri(URI.create("http://127.0.0.1:" + PORT + path));
         if (withToken) {
             request.header("X-Steward-Token", TOKEN);
         }
@@ -342,11 +372,13 @@ class WorkerApiIntegrationTest {
     }
 
     private static HttpResponse<String> post(final String path, final String body) throws Exception {
-        return http.send(HttpRequest.newBuilder()
-                .uri(URI.create("http://127.0.0.1:" + PORT + path))
-                .header("X-Steward-Token", TOKEN)
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build(), HttpResponse.BodyHandlers.ofString());
+        return http.send(
+                HttpRequest.newBuilder()
+                        .uri(URI.create("http://127.0.0.1:" + PORT + path))
+                        .header("X-Steward-Token", TOKEN)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
     }
 }

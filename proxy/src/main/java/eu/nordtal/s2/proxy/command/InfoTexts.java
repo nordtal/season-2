@@ -1,12 +1,12 @@
 package eu.nordtal.s2.proxy.command;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
-
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
-
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
@@ -14,12 +14,9 @@ import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /discord} and {@code /rules}: two commands that print one line each.
@@ -67,8 +64,8 @@ public final class InfoTexts {
     }
 
     private BrigadierCommand command(final String literal, final Function<Object, MessageRef> text) {
-        return new BrigadierCommand(BrigadierCommand.literalArgumentBuilder(literal)
-                .executes(context -> print(context, text)));
+        return new BrigadierCommand(
+                BrigadierCommand.literalArgumentBuilder(literal).executes(context -> print(context, text)));
     }
 
     /**
@@ -87,8 +84,8 @@ public final class InfoTexts {
                     .reply(MESSAGES.command().notFromConsole(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
-        player.sendMessage(MessageRenderer.of(messages)
-                .format(roster.localeOf(player.getUniqueId()), text.apply(invite)));
+        player.sendMessage(
+                MessageRenderer.of(messages).format(roster.localeOf(player.getUniqueId()), text.apply(invite)));
         return Command.SINGLE_SUCCESS;
     }
 }

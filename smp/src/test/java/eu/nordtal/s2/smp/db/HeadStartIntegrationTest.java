@@ -1,5 +1,15 @@
 package eu.nordtal.s2.smp.db;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Optional;
 import org.flywaydb.core.Flyway;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
@@ -13,17 +23,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The start event winner's head start, against a real PostgreSQL running the real migrations.
@@ -57,7 +56,8 @@ class HeadStartIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed head start tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -90,8 +90,7 @@ class HeadStartIntegrationTest {
     @BeforeEach
     void freshSeason() {
         execute("TRUNCATE TABLE hg_game, smp_player, smp_aura_event, discord_user CASCADE");
-        execute("INSERT INTO discord_user (discord_id) VALUES ('" + WINNER + "'), ('"
-                + SOMEBODY_ELSE + "')");
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + WINNER + "'), ('" + SOMEBODY_ELSE + "')");
 
         dao = Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
@@ -106,7 +105,9 @@ class HeadStartIntegrationTest {
     void anUndecidedGameYieldsNobody() {
         game("RUNNING", WINNER, "2026-09-01", true);
 
-        assertEquals(Optional.empty(), dao.startEventWinner(),
+        assertEquals(
+                Optional.empty(),
+                dao.startEventWinner(),
                 "the head start is paid from a DECIDED game; anything else is a game in progress");
     }
 
@@ -117,7 +118,9 @@ class HeadStartIntegrationTest {
         // dead with no simultaneous pair. Both write DECIDED with winner_member_id left null.
         game("DECIDED", WINNER, "2026-09-01", false);
 
-        assertEquals(Optional.empty(), dao.startEventWinner(),
+        assertEquals(
+                Optional.empty(),
+                dao.startEventWinner(),
                 "winner_member_id IS NULL has to drop out of the join, not come back as a row");
     }
 
@@ -138,7 +141,9 @@ class HeadStartIntegrationTest {
         // Ordering the other way round would hand the prize to whoever won the most recent game -
         // months after the real one was very likely already paid out, and there is no way to take
         // one back. The start event is the first hunger games this season plays.
-        assertEquals(Optional.of(WINNER), dao.startEventWinner(),
+        assertEquals(
+                Optional.of(WINNER),
+                dao.startEventWinner(),
                 "the start event is the FIRST decided game, not the newest");
     }
 
@@ -165,7 +170,8 @@ class HeadStartIntegrationTest {
     void theClaimIsTakenExactlyOnce() {
         assertTrue(dao.grantHeadStart(WINNER, AURA, REASON));
 
-        assertFalse(dao.grantHeadStart(WINNER, AURA, REASON),
+        assertFalse(
+                dao.grantHeadStart(WINNER, AURA, REASON),
                 "the flag is the gate: a row already carrying true matches nothing in the ON"
                         + " CONFLICT ... WHERE, so the statement affects no rows");
 
@@ -202,17 +208,15 @@ class HeadStartIntegrationTest {
     // ---------------------------------------------------------------- seeding and reading
 
     /** One game with one team and one member, optionally decided in that member's favour. */
-    private void game(final String state, final String discordId, final String created,
-                      final boolean withWinner) {
-        final String gameId = query("INSERT INTO hg_game (state, created) VALUES ('" + state
-                + "', '" + created + "') RETURNING id");
-        final String teamId = query("INSERT INTO hg_team (game_id, name) VALUES ('" + gameId
-                + "', 'Team') RETURNING id");
-        final String memberId = query("INSERT INTO hg_member (team_id, game_id, discord_id)"
-                + " VALUES ('" + teamId + "', '" + gameId + "', '" + discordId + "') RETURNING id");
+    private void game(final String state, final String discordId, final String created, final boolean withWinner) {
+        final String gameId =
+                query("INSERT INTO hg_game (state, created) VALUES ('" + state + "', '" + created + "') RETURNING id");
+        final String teamId =
+                query("INSERT INTO hg_team (game_id, name) VALUES ('" + gameId + "', 'Team') RETURNING id");
+        final String memberId = query("INSERT INTO hg_member (team_id, game_id, discord_id)" + " VALUES ('" + teamId
+                + "', '" + gameId + "', '" + discordId + "') RETURNING id");
         if (withWinner) {
-            execute("UPDATE hg_game SET winner_member_id = '" + memberId + "' WHERE id = '"
-                    + gameId + "'");
+            execute("UPDATE hg_game SET winner_member_id = '" + memberId + "' WHERE id = '" + gameId + "'");
         }
     }
 
@@ -225,9 +229,9 @@ class HeadStartIntegrationTest {
      */
     private boolean granted(final String discordId) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rows = statement.executeQuery("SELECT hg_winner_reward_granted FROM"
-                     + " smp_player WHERE discord_id = '" + discordId + "'")) {
+                Statement statement = connection.createStatement();
+                ResultSet rows = statement.executeQuery("SELECT hg_winner_reward_granted FROM"
+                        + " smp_player WHERE discord_id = '" + discordId + "'")) {
             return rows.next() && rows.getBoolean(1);
         } catch (final SQLException failure) {
             throw new IllegalStateException(failure);
@@ -235,13 +239,12 @@ class HeadStartIntegrationTest {
     }
 
     private int aura(final String discordId) {
-        return Integer.parseInt(query("SELECT aura FROM smp_player WHERE discord_id = '"
-                + discordId + "'"));
+        return Integer.parseInt(query("SELECT aura FROM smp_player WHERE discord_id = '" + discordId + "'"));
     }
 
     private int auraEvents(final String discordId) {
-        return Integer.parseInt(query("SELECT count(*) FROM smp_aura_event WHERE discord_id = '"
-                + discordId + "' AND reason = '" + REASON + "'"));
+        return Integer.parseInt(query("SELECT count(*) FROM smp_aura_event WHERE discord_id = '" + discordId
+                + "' AND reason = '" + REASON + "'"));
     }
 
     private int playerRows() {
@@ -250,7 +253,7 @@ class HeadStartIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException failure) {
             throw new IllegalStateException(sql, failure);
@@ -260,8 +263,8 @@ class HeadStartIntegrationTest {
     /** The first column of the first row, as text - enough for an id, a count or a boolean. */
     private static String query(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rows = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet rows = statement.executeQuery(sql)) {
             if (!rows.next()) {
                 throw new IllegalStateException("no row from: " + sql);
             }

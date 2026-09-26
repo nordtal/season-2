@@ -6,11 +6,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import eu.nordtal.s2.steward.worker.plan.JarName;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -38,6 +33,10 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reads the message bundles a module ships in its jar, merged with whatever an operator has
@@ -104,8 +103,7 @@ public final class MessageBundles {
      */
     static final String DIRECTORY = "messages";
 
-    private MessageBundles() {
-    }
+    private MessageBundles() {}
 
     // -----------------------------------------------------------------------------------------
     // Discovery
@@ -125,8 +123,8 @@ public final class MessageBundles {
      * @return every bundle found, by service then module. <b>Empty if {@code configsRoot} does not
      *         exist</b>
      */
-    public static @NotNull List<MessageBundleLocation> discover(final @NotNull Path configsRoot,
-                                                                 final @Nullable Path volumesRoot) {
+    public static @NotNull List<MessageBundleLocation> discover(
+            final @NotNull Path configsRoot, final @Nullable Path volumesRoot) {
         if (!Files.isDirectory(configsRoot)) {
             return List.of();
         }
@@ -144,9 +142,8 @@ public final class MessageBundles {
         }
     }
 
-    private static @Nullable MessageBundleLocation locationOf(final Path configsRoot,
-                                                              final @Nullable Path volumesRoot,
-                                                              final Path messagesDirectory) {
+    private static @Nullable MessageBundleLocation locationOf(
+            final Path configsRoot, final @Nullable Path volumesRoot, final Path messagesDirectory) {
         final Path relative = configsRoot.relativize(messagesDirectory);
         if (relative.getNameCount() < 2) {
             // "messages" lying directly at the mount's root, with no service directory above it -
@@ -164,17 +161,20 @@ public final class MessageBundles {
         final String prefix = module.isEmpty() ? service : module.toString();
         final Path jar = findJar(configsRoot, volumesRoot, service, prefix);
         if (jar == null) {
-            LOG.warn("{}: no jar named like \"{}\" under {}{} - this bundle cannot be shown yet",
-                    messagesDirectory, prefix, configsRoot.resolve(service),
+            LOG.warn(
+                    "{}: no jar named like \"{}\" under {}{} - this bundle cannot be shown yet",
+                    messagesDirectory,
+                    prefix,
+                    configsRoot.resolve(service),
                     volumesRoot == null ? "" : " or " + volumesRoot.resolve(service));
             return null;
         }
-        return new MessageBundleLocation(service, module.toString(), jar, messagesDirectory,
-                Files.isWritable(messagesDirectory));
+        return new MessageBundleLocation(
+                service, module.toString(), jar, messagesDirectory, Files.isWritable(messagesDirectory));
     }
 
-    private static @Nullable Path findJar(final Path configsRoot, final @Nullable Path volumesRoot,
-                                          final String service, final String prefix) {
+    private static @Nullable Path findJar(
+            final Path configsRoot, final @Nullable Path volumesRoot, final String service, final String prefix) {
         final Path fromConfigs = jarWithPrefix(configsRoot.resolve(service), prefix);
         if (fromConfigs != null) {
             return fromConfigs;
@@ -231,8 +231,7 @@ public final class MessageBundles {
                 if (!matcher.matches()) {
                     continue;
                 }
-                final Map<String, String> target =
-                        "en".equals(matcher.group(2)) ? packagedEnglish : packagedGerman;
+                final Map<String, String> target = "en".equals(matcher.group(2)) ? packagedEnglish : packagedGerman;
                 try (InputStream in = jar.getInputStream(entry)) {
                     target.putAll(readProperties(in));
                 }
@@ -258,8 +257,12 @@ public final class MessageBundles {
         final List<MessageEntry> entries = new ArrayList<>(keys.size());
         for (final String key : keys) {
             final SchemaEntry schema = described.get(key);
-            entries.add(new MessageEntry(key, packagedEnglish.get(key), packagedGerman.get(key),
-                    overrideEnglish.get(key), overrideGerman.get(key),
+            entries.add(new MessageEntry(
+                    key,
+                    packagedEnglish.get(key),
+                    packagedGerman.get(key),
+                    overrideEnglish.get(key),
+                    overrideGerman.get(key),
                     packagedEnglish.containsKey(key) || packagedGerman.containsKey(key),
                     schema == null ? null : schema.name(),
                     schema == null ? null : schema.description(),
@@ -271,17 +274,22 @@ public final class MessageBundles {
         return new MessageBundle(location.service(), location.module(), location.writable(), entries);
     }
 
-    private record SchemaEntry(String key, String name, String description, List<MessageArg> args,
-                               List<String> section, String format, String shown) {
-    }
+    private record SchemaEntry(
+            String key,
+            String name,
+            String description,
+            List<MessageArg> args,
+            List<String> section,
+            String format,
+            String shown) {}
 
     /**
      * One {@code schema.json}. A file this process cannot make sense of is logged and read as empty:
      * the texts are still worth showing without their names, and refusing the whole bundle over it
      * would hide the texts as well.
      */
-    private static List<SchemaEntry> readSchema(final MessageBundleLocation location, final String name,
-                                                final InputStream in) throws IOException {
+    private static List<SchemaEntry> readSchema(
+            final MessageBundleLocation location, final String name, final InputStream in) throws IOException {
         final String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         try {
             final JsonObject root = JsonParser.parseString(text).getAsJsonObject();
@@ -292,8 +300,12 @@ public final class MessageBundles {
             if (declaredGlobals != null) {
                 for (final JsonElement global : declaredGlobals) {
                     final JsonObject object = global.getAsJsonObject();
-                    expand(object.get("name").getAsString(), object.get("context").getAsString(), properties,
-                            true, globals);
+                    expand(
+                            object.get("name").getAsString(),
+                            object.get("context").getAsString(),
+                            properties,
+                            true,
+                            globals);
                 }
             }
             final List<SchemaEntry> answer = new ArrayList<>();
@@ -323,15 +335,25 @@ public final class MessageBundles {
                 for (final JsonElement part : message.getAsJsonArray("section")) {
                     section.add(part.isJsonNull() ? null : part.getAsString());
                 }
-                answer.add(new SchemaEntry(message.get("key").getAsString(), stringOf(message, "name"),
-                        stringOf(message, "description"), args, section, stringOf(message, "format"),
+                answer.add(new SchemaEntry(
+                        message.get("key").getAsString(),
+                        stringOf(message, "name"),
+                        stringOf(message, "description"),
+                        args,
+                        section,
+                        stringOf(message, "format"),
                         stringOf(message, "shown")));
             }
             return answer;
-        } catch (final JsonParseException | IllegalStateException | NullPointerException
-                       | UnsupportedOperationException e) {
-            LOG.warn("{}: {} is not a message schema this worker can read, so its names are left out: {}",
-                    location.jar(), name, e.toString());
+        } catch (final JsonParseException
+                | IllegalStateException
+                | NullPointerException
+                | UnsupportedOperationException e) {
+            LOG.warn(
+                    "{}: {} is not a message schema this worker can read, so its names are left out: {}",
+                    location.jar(),
+                    name,
+                    e.toString());
             return List.of();
         }
     }
@@ -345,7 +367,9 @@ public final class MessageBundles {
         }
         for (final Map.Entry<String, JsonElement> type : contexts.entrySet()) {
             final List<String> names = new ArrayList<>();
-            type.getValue().getAsJsonObject().getAsJsonArray("properties")
+            type.getValue()
+                    .getAsJsonObject()
+                    .getAsJsonArray("properties")
                     .forEach(property -> names.add(property.getAsString()));
             answer.put(type.getKey(), names);
         }
@@ -353,12 +377,16 @@ public final class MessageBundles {
     }
 
     /** One placeholder per property of {@code type}, {@code role.property}, into {@code into}. */
-    private static void expand(final String role, final String type, final Map<String, List<String>> properties,
-                               final boolean global, final List<MessageArg> into) {
+    private static void expand(
+            final String role,
+            final String type,
+            final Map<String, List<String>> properties,
+            final boolean global,
+            final List<MessageArg> into) {
         final List<String> names = properties.get(type);
         if (names == null) {
-            throw new IllegalStateException("the role " + role + " has the type " + type
-                    + ", which the schema does not describe");
+            throw new IllegalStateException(
+                    "the role " + role + " has the type " + type + ", which the schema does not describe");
         }
         for (final String property : names) {
             into.add(new MessageArg(role + "." + property, false, type, global));
@@ -371,8 +399,7 @@ public final class MessageBundles {
     }
 
     /** {@code <directory>/<language>.properties}, or an empty map when there is no override yet. */
-    private static Map<String, String> readOverride(final Path directory, final String language)
-            throws IOException {
+    private static Map<String, String> readOverride(final Path directory, final String language) throws IOException {
         final Path file = directory.resolve(language + ".properties");
         if (!Files.isRegularFile(file)) {
             return Map.of();
@@ -422,11 +449,13 @@ public final class MessageBundles {
      * @throws IllegalArgumentException if {@code language} is anything but {@code "en"} or {@code "de"}
      * @throws IOException              if the directory or the file cannot be written
      */
-    public static void write(final @NotNull MessageBundleLocation location, final @NotNull String language,
-                             final @NotNull Map<String, String> changes) throws IOException {
+    public static void write(
+            final @NotNull MessageBundleLocation location,
+            final @NotNull String language,
+            final @NotNull Map<String, String> changes)
+            throws IOException {
         if (!"en".equals(language) && !"de".equals(language)) {
-            throw new IllegalArgumentException(
-                    "language has to be \"en\" or \"de\", not \"" + language + "\"");
+            throw new IllegalArgumentException("language has to be \"en\" or \"de\", not \"" + language + "\"");
         }
         Files.createDirectories(location.overrideDirectory());
         final Path file = location.overrideDirectory().resolve(language + ".properties");
@@ -441,11 +470,12 @@ public final class MessageBundles {
         writeAtomically(file, content);
     }
 
-    private static void writeAtomically(final Path file, final Map<String, String> sortedContent)
-            throws IOException {
+    private static void writeAtomically(final Path file, final Map<String, String> sortedContent) throws IOException {
         final StringBuilder text = new StringBuilder();
         for (final Map.Entry<String, String> entry : sortedContent.entrySet()) {
-            text.append(escapeKey(entry.getKey())).append('=').append(escapeValue(entry.getValue()))
+            text.append(escapeKey(entry.getKey()))
+                    .append('=')
+                    .append(escapeValue(entry.getValue()))
                     .append('\n');
         }
 
@@ -536,8 +566,8 @@ public final class MessageBundles {
      * argument's own tag ({@code <player>}) is indistinguishable from one without a list of every
      * tag Adventure knows. An entry the schema does not describe is never checked.</p>
      */
-    public static @NotNull List<String> unknownPlaceholders(final @NotNull MessageEntry entry,
-                                                             final @Nullable String edited) {
+    public static @NotNull List<String> unknownPlaceholders(
+            final @NotNull MessageEntry entry, final @Nullable String edited) {
         if (!entry.described() || edited == null || edited.isEmpty()) {
             return List.of();
         }
@@ -580,8 +610,8 @@ public final class MessageBundles {
      * @return the missing tokens, each once, in the order {@code original} has them; empty if none
      *         are missing or {@code original} names none at all
      */
-    public static @NotNull List<String> missingPlaceholders(final @Nullable String original,
-                                                             final @Nullable String edited) {
+    public static @NotNull List<String> missingPlaceholders(
+            final @Nullable String original, final @Nullable String edited) {
         final List<String> before = placeholdersOf(original);
         if (before.isEmpty()) {
             return List.of();

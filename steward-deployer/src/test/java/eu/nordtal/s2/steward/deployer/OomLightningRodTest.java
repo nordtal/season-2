@@ -1,7 +1,9 @@
 package eu.nordtal.s2.steward.deployer;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -12,11 +14,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Which container the kernel is told to take first when this host runs out of memory.
@@ -80,19 +79,25 @@ class OomLightningRodTest {
         for (final Map.Entry<String, Boolean> service : EXPECTED.entrySet()) {
             final Integer adjustment = oomScoreAdj(service.getKey());
             if (service.getValue()) {
-                assertNotNull(adjustment, service.getKey() + " has no oom_score_adj, and it is"
-                        + " one of the services the kernel is supposed to take first"
-                        + " (season-2-ops/115 for the pair, /119 for their standbys). Without the"
-                        + " line the kernel is back to choosing by size, which is how the SMP"
-                        + " server died on 2026-09-18.");
-                assertTrue(adjustment > 0, service.getKey() + " has oom_score_adj " + adjustment
-                        + ", which does not make it a lightning rod. Only a POSITIVE value moves a"
-                        + " process up the kernel's list.");
+                assertNotNull(
+                        adjustment,
+                        service.getKey() + " has no oom_score_adj, and it is"
+                                + " one of the services the kernel is supposed to take first"
+                                + " (season-2-ops/115 for the pair, /119 for their standbys). Without the"
+                                + " line the kernel is back to choosing by size, which is how the SMP"
+                                + " server died on 2026-09-18.");
+                assertTrue(
+                        adjustment > 0,
+                        service.getKey() + " has oom_score_adj " + adjustment
+                                + ", which does not make it a lightning rod. Only a POSITIVE value moves a"
+                                + " process up the kernel's list.");
             } else {
-                assertNull(adjustment, service.getKey() + " has an oom_score_adj of its own."
-                        + " Giving every service one is the same as giving none of them one - the"
-                        + " kernel goes back to choosing by size, and this service is one of the"
-                        + " two that hold something which cannot simply be made again.");
+                assertNull(
+                        adjustment,
+                        service.getKey() + " has an oom_score_adj of its own."
+                                + " Giving every service one is the same as giving none of them one - the"
+                                + " kernel goes back to choosing by size, and this service is one of the"
+                                + " two that hold something which cannot simply be made again.");
             }
         }
     }
@@ -106,9 +111,12 @@ class OomLightningRodTest {
         final Integer first = oomScoreAdj("limbo");
         EXPECTED.forEach((service, isLightningRod) -> {
             if (isLightningRod) {
-                assertEquals(first, oomScoreAdj(service), service + " carries a different"
-                        + " oom_score_adj from limbo. That is a ranking among the services the"
-                        + " kernel should take first, and nobody decided one.");
+                assertEquals(
+                        first,
+                        oomScoreAdj(service),
+                        service + " carries a different"
+                                + " oom_score_adj from limbo. That is a ranking among the services the"
+                                + " kernel should take first, and nobody decided one.");
             }
         });
     }
@@ -123,18 +131,20 @@ class OomLightningRodTest {
      * mistake the negative half above exists to catch.</p>
      */
     private Integer oomScoreAdj(final String service) {
-        final Matcher start = Pattern.compile("^  " + Pattern.quote(service) + ":\\s*$",
-                Pattern.MULTILINE).matcher(compose);
-        assertTrue(start.find(), "compose.yml declares no service `" + service + "`. If it was"
-                + " renamed, rename it here too: a check that cannot find its subject silently"
-                + " stops running.");
+        final Matcher start = Pattern.compile("^  " + Pattern.quote(service) + ":\\s*$", Pattern.MULTILINE)
+                .matcher(compose);
+        assertTrue(
+                start.find(),
+                "compose.yml declares no service `" + service + "`. If it was"
+                        + " renamed, rename it here too: a check that cannot find its subject silently"
+                        + " stops running.");
 
-        final Matcher next = Pattern.compile("^  [A-Za-z0-9][A-Za-z0-9._-]*:\\s*$",
-                Pattern.MULTILINE).matcher(compose);
+        final Matcher next = Pattern.compile("^  [A-Za-z0-9][A-Za-z0-9._-]*:\\s*$", Pattern.MULTILINE)
+                .matcher(compose);
         final int end = next.find(start.end()) ? next.start() : compose.length();
 
-        final Matcher value = Pattern.compile("^    oom_score_adj:\\s*(-?\\d+)\\s*$",
-                Pattern.MULTILINE).matcher(compose.substring(start.end(), end));
+        final Matcher value = Pattern.compile("^    oom_score_adj:\\s*(-?\\d+)\\s*$", Pattern.MULTILINE)
+                .matcher(compose.substring(start.end(), end));
         return value.find() ? Integer.valueOf(value.group(1)) : null;
     }
 

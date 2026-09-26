@@ -52,9 +52,7 @@ export const centre = (box: Box): Point => ({ x: box.x + box.width / 2, y: box.y
 
 /** Do two cards share any area? The one question a hand-placed arrangement has to answer. */
 export function overlaps(a: Box, b: Box): boolean {
-  return (
-    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
-  )
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 }
 
 /** Is a point inside a card, with `pad` of slack around it? Used to check a drawn line. */
@@ -158,8 +156,12 @@ export function samplePath(d: string, steps = 40): Point[] {
       at = to
     } else if (command === "C") {
       if (!at) return []
-      const x1 = number(), y1 = number(), x2 = number(), y2 = number()
-      const x3 = number(), y3 = number()
+      const x1 = number(),
+        y1 = number(),
+        x2 = number(),
+        y2 = number()
+      const x3 = number(),
+        y3 = number()
       for (let step = 1; step <= steps; step++) {
         const t = step / steps
         const u = 1 - t
@@ -265,11 +267,7 @@ const LANE_OFFSET = 28
  * wrong: it has to sit in a row no card occupies, and every source's lane has to be clear between
  * the source and that row. `geometry.test.ts` checks both, at several widths, with nothing excluded.
  */
-export function bundle(
-  sources: readonly Box[],
-  sink: Box,
-  junction: Point,
-): { feet: string[]; trunk: string } {
+export function bundle(sources: readonly Box[], sink: Box, junction: Point): { feet: string[]; trunk: string } {
   if (sources.length === 0) return { feet: [], trunk: "" }
   const feet = sources.map((box) => {
     const from = centre(box)
@@ -329,10 +327,7 @@ function resolveEndpoint(id: string, geometry: Geometry): { key: string; box: Bo
  * as well as the box, to know which of the resolved boxes a given foot in `bundle`'s output
  * belongs to.
  */
-export function resolvedSources(
-  ids: readonly string[],
-  geometry: Geometry,
-): Array<{ key: string; box: Box }> {
+export function resolvedSources(ids: readonly string[], geometry: Geometry): Array<{ key: string; box: Box }> {
   const seen = new Set<string>()
   const resolved: Array<{ key: string; box: Box }> = []
   for (const id of ids) {

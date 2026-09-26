@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 /**
  * The one mapping in {@link Glyphs} that is a decision rather than a constant.
@@ -27,7 +26,9 @@ class GlyphsFlagTest {
     void englishIsBritishUnlessItSaysAmerican() {
         assertEquals(Glyphs.FLAG_UNITED_KINGDOM, Glyphs.flagFor(Locale.ENGLISH));
         assertEquals(Glyphs.FLAG_UNITED_KINGDOM, Glyphs.flagFor(Locale.UK));
-        assertEquals(Glyphs.FLAG_UNITED_KINGDOM, Glyphs.flagFor(Locale.of("en", "AU")),
+        assertEquals(
+                Glyphs.FLAG_UNITED_KINGDOM,
+                Glyphs.flagFor(Locale.of("en", "AU")),
                 "no flag is drawn for Australia, and the British one is the closer of the two");
         assertEquals(Glyphs.FLAG_UNITED_STATES, Glyphs.flagFor(Locale.US));
     }

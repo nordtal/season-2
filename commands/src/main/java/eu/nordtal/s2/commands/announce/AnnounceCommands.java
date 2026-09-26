@@ -5,7 +5,6 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
-
 import java.util.List;
 import java.util.Set;
 
@@ -21,8 +20,7 @@ import java.util.Set;
  */
 public final class AnnounceCommands {
 
-    private AnnounceCommands() {
-    }
+    private AnnounceCommands() {}
 
     public static final Declaration ANNOUNCE = new Declaration(
             // SYSTEM because the SMP writes these rows by itself at a milestone, WEB because an
@@ -33,7 +31,11 @@ public final class AnnounceCommands {
             // check, at the moment the inbox runs the row rather than at the moment the browser
             // submitted it - so a WEB row queued by somebody whose admin role has since been taken
             // away does not still post into an announcement channel.
-            List.of("announce"), Target.BOT, Set.of(Surface.SYSTEM, Surface.WEB), true, false,
+            List.of("announce"),
+            Target.BOT,
+            Set.of(Surface.SYSTEM, Surface.WEB),
+            true,
+            false,
             List.of(Argument.word("language"), Argument.greedy("text")));
 
     public static List<NordtalCommand<AnnounceEffects>> all() {

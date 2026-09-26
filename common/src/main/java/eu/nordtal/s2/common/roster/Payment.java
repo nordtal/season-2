@@ -46,5 +46,4 @@ public record Payment(
         String shareUrl,
         Instant created,
         Instant expires,
-        Instant settled) {
-}
+        Instant settled) {}

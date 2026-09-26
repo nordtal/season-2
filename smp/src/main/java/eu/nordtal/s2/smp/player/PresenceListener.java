@@ -5,7 +5,6 @@ import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.smp.welcome.SeasonWelcome;
-
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -13,7 +12,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
-
 
 /**
  * Join and quit: the operator grant, the surfaces, and the language the join line waits for.
@@ -36,10 +34,14 @@ public final class PresenceListener implements Listener {
     private final SystemLines lines;
     private final SeasonWelcome welcome;
 
-    public PresenceListener(final Plugin plugin, final Identities identities,
-                            final PlayerSurfaces surfaces, final PlayerLocales locales,
-                            final AdminOperators operators, final SystemLines lines,
-                            final SeasonWelcome welcome) {
+    public PresenceListener(
+            final Plugin plugin,
+            final Identities identities,
+            final PlayerSurfaces surfaces,
+            final PlayerLocales locales,
+            final AdminOperators operators,
+            final SystemLines lines,
+            final SeasonWelcome welcome) {
         this.plugin = plugin;
         this.identities = identities;
         this.surfaces = surfaces;
@@ -54,7 +56,8 @@ public final class PresenceListener implements Listener {
         final Player player = event.getPlayer();
         // Identities is already filled for this player - JoinGate reads it at pre-login, on the
         // thread that is allowed to wait - so this is a map read and not a query.
-        operators.onJoin(player.getUniqueId(), identities.of(player.getUniqueId()).admin());
+        operators.onJoin(
+                player.getUniqueId(), identities.of(player.getUniqueId()).admin());
         surfaces.refresh(player);
 
         // Everybody else's ordering depends on who is online, and this player is new to that set.
@@ -71,8 +74,7 @@ public final class PresenceListener implements Listener {
      * which is why {@code refresh} runs again once the value has landed.</p>
      */
     private void loadLanguage(final Player player) {
-        locales.joinAsync(player.getUniqueId(), task -> Bukkit.getScheduler()
-                        .runTaskAsynchronously(plugin, task))
+        locales.joinAsync(player.getUniqueId(), task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task))
                 // whenComplete rather than thenRun: a load that fails still has to let the join
                 // line through, in English, rather than swallow it.
                 .whenComplete((locale, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {

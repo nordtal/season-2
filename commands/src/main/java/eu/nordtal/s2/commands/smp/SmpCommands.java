@@ -5,7 +5,6 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
-
 import java.util.List;
 import java.util.Set;
 
@@ -41,8 +40,7 @@ import java.util.Set;
  */
 public final class SmpCommands {
 
-    private SmpCommands() {
-    }
+    private SmpCommands() {}
 
     /**
      * {@code reload}, {@code aura} and {@code access}: console only, 2026-09-15 (ops/18).
@@ -66,17 +64,25 @@ public final class SmpCommands {
     private static final Set<Surface> CONSOLE_AND_WEB = Set.of(Surface.CONSOLE, Surface.WEB);
 
     /** {@code /smp reload} - the sounds, the milestone track and the message bundles. */
-    public static final Declaration RELOAD = new Declaration(
-            List.of("smp", "reload"), Target.SMP, CONSOLE_ONLY, true, false, List.of());
+    public static final Declaration RELOAD =
+            new Declaration(List.of("smp", "reload"), Target.SMP, CONSOLE_ONLY, true, false, List.of());
 
     /** {@code /smp objective complete <key>} - closes one objective, paying out what was collected. */
     public static final Declaration COMPLETE_OBJECTIVE = new Declaration(
-            List.of("smp", "objective", "complete"), Target.SMP, CONSOLE_AND_WEB, true, true,
+            List.of("smp", "objective", "complete"),
+            Target.SMP,
+            CONSOLE_AND_WEB,
+            true,
+            true,
             List.of(Argument.word("key")));
 
     /** {@code /smp milestone unlock <key>} - unlocks a whole milestone by hand. */
     public static final Declaration UNLOCK_MILESTONE = new Declaration(
-            List.of("smp", "milestone", "unlock"), Target.SMP, CONSOLE_AND_WEB, true, true,
+            List.of("smp", "milestone", "unlock"),
+            Target.SMP,
+            CONSOLE_AND_WEB,
+            true,
+            true,
             List.of(Argument.word("key")));
 
     /**
@@ -88,18 +94,21 @@ public final class SmpCommands {
      * build.</p>
      */
     public static final Declaration AURA = new Declaration(
-            List.of("smp", "aura"), Target.SMP, CONSOLE_ONLY, true, false,
+            List.of("smp", "aura"),
+            Target.SMP,
+            CONSOLE_ONLY,
+            true,
+            false,
             List.of(Argument.player("player"), Argument.integer("delta", -10_000, 10_000)));
 
     /** {@code /smp access <player>} - is this person linked, do they have access, are they paying? */
     public static final Declaration ACCESS = new Declaration(
-            List.of("smp", "access"), Target.SMP, CONSOLE_ONLY, true, false,
-            List.of(Argument.player("player")));
+            List.of("smp", "access"), Target.SMP, CONSOLE_ONLY, true, false, List.of(Argument.player("player")));
 
     /** Every {@code /smp} command, for an adapter to register and for the catalogue. */
     public static List<NordtalCommand<SmpEffects>> all() {
-        return List.of(new ReloadSmp(), new CompleteObjective(), new UnlockMilestone(),
-                new ChangeAura(), new ShowAccess());
+        return List.of(
+                new ReloadSmp(), new CompleteObjective(), new UnlockMilestone(), new ChangeAura(), new ShowAccess());
     }
 
     /** Every {@code /smp} declaration. */

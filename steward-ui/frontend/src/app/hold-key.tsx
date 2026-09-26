@@ -1,4 +1,3 @@
-
 import { FingerprintIcon, ShieldWarningIcon, SignOutIcon } from "@phosphor-icons/react"
 import type { Me } from "@/lib/api"
 import { api } from "@/lib/api"
@@ -55,8 +54,8 @@ export function HoldKeyPage({ me }: { me: Me }) {
                 <ShieldWarningIcon aria-hidden />
                 <AlertTitle>This browser cannot use security keys.</AlertTitle>
                 <AlertDescription>
-                  Every current browser can. A private window, an in-app browser or an old WebView
-                  may not - open Steward in Safari, Chrome or Firefox directly.
+                  Every current browser can. A private window, an in-app browser or an old WebView may not - open
+                  Steward in Safari, Chrome or Firefox directly.
                 </AlertDescription>
               </Alert>
             )}
@@ -65,12 +64,7 @@ export function HoldKeyPage({ me }: { me: Me }) {
               Please provide your security key in order to sign into your Nordtal admin account.
             </p>
 
-            <Button
-              type="button"
-              size="lg"
-              disabled={!supported || hold.isPending}
-              onClick={() => hold.mutate()}
-            >
+            <Button type="button" size="lg" disabled={!supported || hold.isPending} onClick={() => hold.mutate()}>
               <FingerprintIcon aria-hidden />
               {hold.isPending ? "Waiting for the key…" : "Use my key"}
             </Button>

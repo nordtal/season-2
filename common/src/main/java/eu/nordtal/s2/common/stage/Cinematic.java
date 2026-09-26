@@ -1,12 +1,10 @@
 package eu.nordtal.s2.common.stage;
 
 import eu.nordtal.s2.common.feedback.Feedback;
-
-import net.kyori.adventure.text.Component;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import net.kyori.adventure.text.Component;
 
 /**
  * One staged moment, described rather than performed: a run of images shown one after another in the
@@ -58,15 +56,13 @@ public final class Cinematic {
                         + " effect out of the staging instead of naming a blank one");
             }
             if (amplifier < 0) {
-                throw new IllegalArgumentException("a potion amplifier starts at 0, not "
-                        + amplifier);
+                throw new IllegalArgumentException("a potion amplifier starts at 0, not " + amplifier);
             }
         }
     }
 
     /** Which image is on screen at which tick. What {@link Cinematics} schedules, one each. */
-    public record Cue(int atTick, Frame frame) {
-    }
+    public record Cue(int atTick, Frame frame) {}
 
     private final List<Frame> frames;
     private final Component subtitle;
@@ -138,8 +134,7 @@ public final class Cinematic {
         private Effect effect;
         private Feedback sound;
 
-        private Builder() {
-        }
+        private Builder() {}
 
         /** Adds one image, shown for {@code ticks} after everything already added. */
         public Builder frame(final Component image, final int ticks) {

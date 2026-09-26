@@ -1,6 +1,8 @@
 package eu.nordtal.s2.common.message;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.Locale;
 import java.util.Map;
@@ -8,10 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import org.junit.jupiter.api.Test;
 
 /**
  * The caching contract of {@link PlayerLocales}, which is the part of it that is a decision rather
@@ -53,7 +52,9 @@ class PlayerLocalesTest {
             assertEquals(Locale.GERMAN, locales.of(PLAYER));
         }
 
-        assertEquals(1, lookups.get(),
+        assertEquals(
+                1,
+                lookups.get(),
                 "of() is called from boss bars and boards; one query per rendered message is exactly "
                         + "what holding the value for the session buys");
     }
@@ -122,8 +123,7 @@ class PlayerLocalesTest {
         stored.put(PLAYER, Locale.GERMAN);
         final java.util.concurrent.atomic.AtomicReference<Thread> ranOn =
                 new java.util.concurrent.atomic.AtomicReference<>();
-        final java.util.concurrent.ExecutorService executor =
-                java.util.concurrent.Executors.newSingleThreadExecutor();
+        final java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
 
         final PlayerLocales locales = new PlayerLocales(uuid -> {
             ranOn.set(Thread.currentThread());
@@ -146,8 +146,7 @@ class PlayerLocalesTest {
         // German player may therefore see one English line at the start of a session.
         stored.put(PLAYER, Locale.GERMAN);
         final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
-        final java.util.concurrent.ExecutorService executor =
-                java.util.concurrent.Executors.newSingleThreadExecutor();
+        final java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
 
         final PlayerLocales locales = new PlayerLocales(uuid -> {
             try {
@@ -175,8 +174,7 @@ class PlayerLocalesTest {
         // join() swallows its own failures and answers English; joinAsync adds nothing on top. A
         // future that completed exceptionally would put an unhandled failure on a scheduler thread
         // on a login path, which is the one place it must not be.
-        final java.util.concurrent.ExecutorService executor =
-                java.util.concurrent.Executors.newSingleThreadExecutor();
+        final java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
         final PlayerLocales locales = new PlayerLocales(uuid -> {
             throw new IllegalStateException("the database is gone");
         });

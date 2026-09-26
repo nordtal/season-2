@@ -6,5 +6,4 @@ package eu.nordtal.s2.common.message.context;
  * @param name its name
  */
 @ContextType(value = "player", name = "Player")
-public record PlayerContext(String name) implements MessageContext {
-}
+public record PlayerContext(String name) implements MessageContext {}

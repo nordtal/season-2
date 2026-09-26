@@ -6,13 +6,13 @@ import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.common.message.context.ServiceContext;
 import eu.nordtal.s2.common.message.context.TeamContext;
-import eu.nordtal.s2.common.update.UpdateKind;
-import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.message.spec.Arg;
 import eu.nordtal.s2.common.message.spec.Key;
 import eu.nordtal.s2.common.message.spec.MessageSpec;
 import eu.nordtal.s2.common.message.spec.MessageSpecs;
 import eu.nordtal.s2.common.message.spec.Name;
+import eu.nordtal.s2.common.update.UpdateKind;
+import eu.nordtal.s2.common.update.UpdateReport;
 
 /**
  * Every message of the commands bundle, one method per key.
@@ -41,7 +41,8 @@ public interface CommandMessages {
         MessageRef playerOffline();
 
         @Name("Not a choice")
-        MessageRef notAChoice(@Arg("typed") Object typed, @Arg("argument") Object argument, @Arg("choices") Object choices);
+        MessageRef notAChoice(
+                @Arg("typed") Object typed, @Arg("argument") Object argument, @Arg("choices") Object choices);
 
         @Name("Not from console")
         MessageRef notFromConsole();
@@ -394,13 +395,18 @@ public interface CommandMessages {
             MessageRef noPayment();
 
             @Name("Payment")
-            MessageRef payment(@Arg("reference") Object reference, @Arg("days") Object days, @Arg("amount") Object amount, @Arg("since") Object since);
+            MessageRef payment(
+                    @Arg("reference") Object reference,
+                    @Arg("days") Object days,
+                    @Arg("amount") Object amount,
+                    @Arg("since") Object since);
 
             @Name("Payment unknown")
             MessageRef paymentUnknown();
 
             @Name("Payment unstarted")
-            MessageRef paymentUnstarted(@Arg("reference") Object reference, @Arg("days") Object days, @Arg("since") Object since);
+            MessageRef paymentUnstarted(
+                    @Arg("reference") Object reference, @Arg("days") Object days, @Arg("since") Object since);
 
             @Name("Unlinked")
             MessageRef unlinked(@Arg("player") PlayerContext player);
@@ -473,7 +479,10 @@ public interface CommandMessages {
         MessageRef failed();
 
         @Name("Confirm")
-        MessageRef confirm(@Arg("previous") Object previous, @Arg("current") Object current, @Arg("consequence") Object consequence);
+        MessageRef confirm(
+                @Arg("previous") Object previous,
+                @Arg("current") Object current,
+                @Arg("consequence") Object consequence);
 
         @Key("current")
         Current currentSection();
@@ -649,7 +658,8 @@ public interface CommandMessages {
             MessageRef belowHardMinimum(@Arg("minimum") Object minimum, @Arg("count") Object count);
 
             @Name("Below soft minimum")
-            MessageRef belowSoftMinimum(@Arg("count") Object count, @Arg("minimum") Object minimum, @Arg("seconds") Object seconds);
+            MessageRef belowSoftMinimum(
+                    @Arg("count") Object count, @Arg("minimum") Object minimum, @Arg("seconds") Object seconds);
 
             @Name("Confirm expired")
             MessageRef confirmExpired();
@@ -781,7 +791,11 @@ public interface CommandMessages {
             MessageRef none();
 
             @Name("Line")
-            MessageRef line(@Arg("reference") Object reference, @Arg("days") Object days, @Arg("amount") Object amount, @Arg("status") Object status);
+            MessageRef line(
+                    @Arg("reference") Object reference,
+                    @Arg("days") Object days,
+                    @Arg("amount") Object amount,
+                    @Arg("status") Object status);
         }
 
         @Key("revoked")

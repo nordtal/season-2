@@ -1,18 +1,15 @@
 package eu.nordtal.s2.proxy.feedback;
 
 import com.velocitypowered.api.proxy.Player;
-
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.feedback.FeedbackSound;
 import eu.nordtal.s2.common.feedback.FeedbackSounds;
 import eu.nordtal.s2.proxy.command.CommandGate;
-
-import net.kyori.adventure.key.Key;
-import net.kyori.adventure.sound.Sound;
-
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.sound.Sound;
 
 /**
  * The one place in {@code proxy} that names a sound to Velocity.
@@ -57,8 +54,7 @@ public final class ProxySounds implements CommandGate.Chime {
      */
     public static ProxySounds defaults(final Consumer<String> problems) {
         final Map<Feedback, FeedbackSound> declared = new EnumMap<>(Feedback.class);
-        declared.put(Feedback.REFUSED,
-                new FeedbackSound("minecraft:block.note_block.bass", 1.0f, 0.7f));
+        declared.put(Feedback.REFUSED, new FeedbackSound("minecraft:block.note_block.bass", 1.0f, 0.7f));
         return new ProxySounds(FeedbackSounds.parse(declared, problems), problems);
     }
 
@@ -73,8 +69,7 @@ public final class ProxySounds implements CommandGate.Chime {
             // MASTER rather than a themed category, same reasoning as SmpSounds: whether the server
             // may answer a refused command is not the kind of ambience a client's volume sliders
             // are for.
-            player.playSound(Sound.sound(Key.key(sound.key()), Sound.Source.MASTER, sound.volume(),
-                    sound.pitch()));
+            player.playSound(Sound.sound(Key.key(sound.key()), Sound.Source.MASTER, sound.volume(), sound.pitch()));
         } catch (final RuntimeException exception) {
             // A malformed key is refused at load, so reaching here means the platform disagreed
             // with us about something. Silence the category and say so once - the same rule

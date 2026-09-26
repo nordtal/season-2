@@ -1,5 +1,21 @@
 package eu.nordtal.s2.smp.db;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.flywaydb.core.Flyway;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
@@ -13,23 +29,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The season's opening moment happens exactly once per player, against a real PostgreSQL.
@@ -65,7 +64,8 @@ class WelcomeIsOnceIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed welcome tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -98,8 +98,7 @@ class WelcomeIsOnceIntegrationTest {
     @BeforeEach
     void freshSeason() {
         execute("TRUNCATE TABLE smp_player, smp_aura_event, discord_user CASCADE");
-        execute("INSERT INTO discord_user (discord_id) VALUES ('" + PLAYER + "'), ('"
-                + SOMEBODY_ELSE + "')");
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + PLAYER + "'), ('" + SOMEBODY_ELSE + "')");
 
         dao = Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
@@ -113,8 +112,10 @@ class WelcomeIsOnceIntegrationTest {
         assertTrue(dao.claimWelcome(PLAYER), "the first join of the season is the moment");
         assertFalse(dao.claimWelcome(PLAYER), "the second join must not be");
         assertFalse(dao.claimWelcome(PLAYER));
-        assertTrue(flag(PLAYER), "the flag is what survives a restart; without it every start of"
-                + " the server is somebody's first join again");
+        assertTrue(
+                flag(PLAYER),
+                "the flag is what survives a restart; without it every start of"
+                        + " the server is somebody's first join again");
     }
 
     @Test
@@ -136,7 +137,9 @@ class WelcomeIsOnceIntegrationTest {
 
         assertTrue(dao.claimWelcome(PLAYER));
 
-        assertEquals(40, dao.auraOf(PLAYER).orElseThrow(),
+        assertEquals(
+                40,
+                dao.auraOf(PLAYER).orElseThrow(),
                 "the claim upserts, so the ON CONFLICT branch must set the flag and nothing else -"
                         + " an INSERT that overwrote the row would zero somebody's season");
     }
@@ -146,7 +149,8 @@ class WelcomeIsOnceIntegrationTest {
     void theClaimIsPerPlayer() {
         assertTrue(dao.claimWelcome(PLAYER));
 
-        assertTrue(dao.claimWelcome(SOMEBODY_ELSE),
+        assertTrue(
+                dao.claimWelcome(SOMEBODY_ELSE),
                 "the claim is keyed by discord_id; anything table-wide would welcome the first"
                         + " player of the season and nobody else, ever");
     }
@@ -175,8 +179,11 @@ class WelcomeIsOnceIntegrationTest {
                     won++;
                 }
             }
-            assertEquals(1, won, "exactly one of " + racers + " simultaneous joins may be told it"
-                    + " is the first one - the others have to get zero rows back and show nothing");
+            assertEquals(
+                    1,
+                    won,
+                    "exactly one of " + racers + " simultaneous joins may be told it"
+                            + " is the first one - the others have to get zero rows back and show nothing");
         } finally {
             pool.shutdownNow();
         }
@@ -192,8 +199,8 @@ class WelcomeIsOnceIntegrationTest {
 
     private static boolean query(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             return result.next() && result.getBoolean(1);
         } catch (final SQLException failure) {
             throw new IllegalStateException(sql, failure);
@@ -202,8 +209,8 @@ class WelcomeIsOnceIntegrationTest {
 
     private static int count(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             return result.next() ? result.getInt(1) : 0;
         } catch (final SQLException failure) {
             throw new IllegalStateException(sql, failure);
@@ -212,7 +219,7 @@ class WelcomeIsOnceIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException failure) {
             throw new IllegalStateException(sql, failure);

@@ -1,8 +1,8 @@
 package eu.nordtal.s2.common.roster;
 
-import javax.sql.DataSource;
 import java.util.List;
 import java.util.Optional;
+import javax.sql.DataSource;
 
 /**
  * The access schema as a list: everyone, every payment, every grant of one person.

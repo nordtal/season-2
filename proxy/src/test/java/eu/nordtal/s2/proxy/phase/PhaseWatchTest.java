@@ -1,21 +1,19 @@
 package eu.nordtal.s2.proxy.phase;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.phase.DateChange;
 import eu.nordtal.s2.common.phase.PhaseChange;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
-
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@link PhaseWatch} against a fake {@link PhaseDirectory} - the poll's arithmetic without a
@@ -39,15 +37,14 @@ class PhaseWatchTest {
     void freshWatch() {
         directory = new FakeDirectory(SeasonPhase.PRE_EVENT);
         changes = new ArrayList<>();
-        watch = new PhaseWatch(directory, LOGGER, (previous, current) ->
-                changes.add(previous + " -> " + current));
+        watch = new PhaseWatch(directory, LOGGER, (previous, current) -> changes.add(previous + " -> " + current));
     }
 
     @Test
     void aProcessThatHasNeverReadTheRowAssumesMaintenance() {
         assertFalse(watch.everRead());
-        assertEquals(SeasonPhase.MAINTENANCE, watch.lastKnown(),
-                "the state that lets nobody in is the safe one to guess");
+        assertEquals(
+                SeasonPhase.MAINTENANCE, watch.lastKnown(), "the state that lets nobody in is the safe one to guess");
     }
 
     @Test
@@ -56,7 +53,9 @@ class PhaseWatchTest {
 
         assertTrue(watch.everRead());
         assertEquals(SeasonPhase.PRE_EVENT, watch.lastKnown());
-        assertEquals(List.of("null -> PRE_EVENT"), changes,
+        assertEquals(
+                List.of("null -> PRE_EVENT"),
+                changes,
                 "the callback gets a null previous so a listener can tell 'we just learned it' from "
                         + "'it changed under us'");
     }
@@ -94,8 +93,8 @@ class PhaseWatchTest {
         directory.failing = true;
         assertFalse(watch.refresh(), "a failed read says so");
 
-        assertEquals(SeasonPhase.SMP, watch.lastKnown(),
-                "a phase that cannot be read falls back to the last known one");
+        assertEquals(
+                SeasonPhase.SMP, watch.lastKnown(), "a phase that cannot be read falls back to the last known one");
         assertTrue(watch.everRead());
     }
 
@@ -106,8 +105,7 @@ class PhaseWatchTest {
         assertFalse(watch.refresh());
 
         assertFalse(watch.everRead());
-        assertEquals(SeasonPhase.MAINTENANCE, watch.lastKnown(),
-                "...and if there is no last known phase, MAINTENANCE");
+        assertEquals(SeasonPhase.MAINTENANCE, watch.lastKnown(), "...and if there is no last known phase, MAINTENANCE");
     }
 
     @Test
@@ -121,7 +119,9 @@ class PhaseWatchTest {
         assertTrue(watch.refresh());
 
         assertEquals(SeasonPhase.MAINTENANCE, watch.lastKnown());
-        assertEquals(List.of("null -> PRE_EVENT", "PRE_EVENT -> MAINTENANCE"), changes,
+        assertEquals(
+                List.of("null -> PRE_EVENT", "PRE_EVENT -> MAINTENANCE"),
+                changes,
                 "the outage produced no phantom change on the way in or out");
     }
 
@@ -132,7 +132,9 @@ class PhaseWatchTest {
         });
 
         assertTrue(throwing.refresh());
-        assertEquals(SeasonPhase.PRE_EVENT, throwing.lastKnown(),
+        assertEquals(
+                SeasonPhase.PRE_EVENT,
+                throwing.lastKnown(),
                 "the phase is already swapped by the time a listener runs; a broken listener must "
                         + "not make the proxy forget what the row said");
     }
@@ -162,7 +164,6 @@ class PhaseWatchTest {
         public DateChange setSmpStart(final java.time.Instant at, final String actor) {
             throw new UnsupportedOperationException("this fake only reads the row");
         }
-
 
         private SeasonPhase phase;
         private boolean failing;

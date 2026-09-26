@@ -51,8 +51,7 @@ public interface NordtalCommand<E> {
      * @return the message naming the problem - or empty when
      *         the arguments are usable
      */
-    default java.util.Optional<MessageRef> problem(
-            final Values values) {
+    default java.util.Optional<MessageRef> problem(final Values values) {
         return java.util.Optional.empty();
     }
 
@@ -63,8 +62,7 @@ public interface NordtalCommand<E> {
      * has no enum type - both chat adapters type a choice as a plain word and would accept anything
      * typed.</p>
      */
-    default java.util.Optional<MessageRef> check(
-            final Values values) {
+    default java.util.Optional<MessageRef> check(final Values values) {
         for (final Argument argument : declaration().arguments()) {
             if (argument.kind() != Argument.Kind.CHOICE) {
                 continue;
@@ -72,9 +70,14 @@ public interface NordtalCommand<E> {
             final java.util.Optional<Object> supplied = values.raw(argument.name());
             // Values has already normalised a recognised choice, so this only asks whether it is
             // one at all - through the same match(), so the two cannot disagree.
-            if (supplied.isPresent() && argument.match(String.valueOf(supplied.get())).isEmpty()) {
-                return java.util.Optional.of(CommandMessages.MESSAGES.command().notAChoice(
-                        String.valueOf(supplied.get()), argument.name(), String.join(", ", argument.choices())));
+            if (supplied.isPresent()
+                    && argument.match(String.valueOf(supplied.get())).isEmpty()) {
+                return java.util.Optional.of(CommandMessages.MESSAGES
+                        .command()
+                        .notAChoice(
+                                String.valueOf(supplied.get()),
+                                argument.name(),
+                                String.join(", ", argument.choices())));
             }
         }
         return problem(values);

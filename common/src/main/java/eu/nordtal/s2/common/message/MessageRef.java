@@ -23,9 +23,7 @@ public record MessageRef(String key, Map<String, Object> args) {
 
     public MessageRef {
         Objects.requireNonNull(key, "key");
-        args = args == null || args.isEmpty()
-                ? Map.of()
-                : Collections.unmodifiableMap(new LinkedHashMap<>(args));
+        args = args == null || args.isEmpty() ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(args));
     }
 
     /** A message without placeholders. */

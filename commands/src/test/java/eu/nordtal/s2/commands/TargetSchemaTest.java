@@ -1,7 +1,8 @@
 package eu.nordtal.s2.commands;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,10 +13,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link Target} and the {@code CHECK} on {@code command_request.target} are one fact in two places.
@@ -39,10 +38,11 @@ class TargetSchemaTest {
     private static final String MIGRATION = "db/migration/V11__command_request.sql";
 
     private static String sql() throws IOException {
-        try (InputStream stream = TargetSchemaTest.class.getClassLoader()
-                .getResourceAsStream(MIGRATION)) {
-            assertNotNull(stream, MIGRATION + " is not on the classpath - :common's resources are"
-                    + " what put it there, so either the migration moved or the dependency did");
+        try (InputStream stream = TargetSchemaTest.class.getClassLoader().getResourceAsStream(MIGRATION)) {
+            assertNotNull(
+                    stream,
+                    MIGRATION + " is not on the classpath - :common's resources are"
+                            + " what put it there, so either the migration moved or the dependency did");
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
@@ -50,8 +50,7 @@ class TargetSchemaTest {
     @Test
     @DisplayName("every Target is permitted by the CHECK, and the CHECK permits nothing else")
     void theEnumAndTheConstraintAgree() throws IOException {
-        final Matcher check = Pattern.compile(
-                        "CHECK\\s*\\(target IN \\(([^)]*)\\)\\)", Pattern.CASE_INSENSITIVE)
+        final Matcher check = Pattern.compile("CHECK\\s*\\(target IN \\(([^)]*)\\)\\)", Pattern.CASE_INSENSITIVE)
                 .matcher(sql());
         assertTrue(check.find(), "no CHECK on command_request.target in " + MIGRATION);
 
@@ -65,7 +64,9 @@ class TargetSchemaTest {
                 .filter(name -> !Target.LOCAL.name().equals(name))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        assertEquals(declared, permitted,
+        assertEquals(
+                declared,
+                permitted,
                 "Target and command_request's CHECK disagree. A target the database refuses is a"
                         + " constraint violation inside an adapter at the moment somebody types a"
                         + " command; one the database permits and the enum does not is a row"
@@ -81,7 +82,8 @@ class TargetSchemaTest {
         // claim it, and the asker would wait out the timeout being told that "this process" is
         // down. Adding it to the CHECK to make the set above tidy is the exact mistake this case
         // exists to refuse.
-        assertTrue(!sql().contains("'LOCAL'"),
+        assertTrue(
+                !sql().contains("'LOCAL'"),
                 "command_request's CHECK permits LOCAL. It must not: a LOCAL command never"
                         + " travels, so such a row can only be a mistake, and the database is the"
                         + " last place that can still say so.");
@@ -97,16 +99,16 @@ class TargetSchemaTest {
         final String de = bundle("messages/commands/de.properties");
 
         for (final Target target : Target.values()) {
-            assertTrue(en.contains(target.message().key() + "="),
+            assertTrue(
+                    en.contains(target.message().key() + "="),
                     target.message().key() + " is not in the English bundle");
-            assertTrue(de.contains(target.message().key() + "="),
-                    target.message().key() + " is not in the German bundle");
+            assertTrue(
+                    de.contains(target.message().key() + "="), target.message().key() + " is not in the German bundle");
         }
     }
 
     private static String bundle(final String path) throws IOException {
-        try (InputStream stream = TargetSchemaTest.class.getClassLoader()
-                .getResourceAsStream(path)) {
+        try (InputStream stream = TargetSchemaTest.class.getClassLoader().getResourceAsStream(path)) {
             assertNotNull(stream, path + " is not on the classpath");
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }

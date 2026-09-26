@@ -1,13 +1,11 @@
 package eu.nordtal.s2.common.hud;
 
 import eu.nordtal.s2.common.Glyphs;
-
+import java.util.List;
+import java.util.Objects;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.ShadowColor;
-
-import java.util.List;
-import java.util.Objects;
 
 /**
  * One HUD line: a row of pills, each drawn as wide as what it holds, in {@code nordtal:bossbar}.
@@ -45,8 +43,7 @@ public final class BossBarLine {
     /** Between an icon and the text after it - the ordinary space, which this font draws 3 wide. */
     public static final String ICON_GAP = Glyphs.BOSSBAR_SPACE_PLUS_3;
 
-    private BossBarLine() {
-    }
+    private BossBarLine() {}
 
     /**
      * One pill's content: an optional icon glyph and the text after it.
@@ -79,9 +76,7 @@ public final class BossBarLine {
 
     /** @return the line as the component a {@code BossBar#name} takes */
     public static Component render(final List<Pill> pills) {
-        return Component.text(compose(pills))
-                .font(Key.key(Glyphs.FONT_BOSSBAR))
-                .shadowColor(ShadowColor.none());
+        return Component.text(compose(pills)).font(Key.key(Glyphs.FONT_BOSSBAR)).shadowColor(ShadowColor.none());
     }
 
     /** The same, as the raw glyph string - for a test to walk with a cursor. */
@@ -126,18 +121,18 @@ public final class BossBarLine {
 
     private static final int[] LEFT_WIDTHS = {128, 64, 32, 16, 8, 4, 2, 1};
     private static final String[] LEFT_GLYPHS = {
-            Glyphs.BOSSBAR_SPACE_MINUS_128, Glyphs.BOSSBAR_SPACE_MINUS_64,
-            Glyphs.BOSSBAR_SPACE_MINUS_32, Glyphs.BOSSBAR_SPACE_MINUS_16,
-            Glyphs.BOSSBAR_SPACE_MINUS_8, Glyphs.BOSSBAR_SPACE_MINUS_4,
-            Glyphs.BOSSBAR_SPACE_MINUS_2, Glyphs.BOSSBAR_SPACE_MINUS_1,
+        Glyphs.BOSSBAR_SPACE_MINUS_128, Glyphs.BOSSBAR_SPACE_MINUS_64,
+        Glyphs.BOSSBAR_SPACE_MINUS_32, Glyphs.BOSSBAR_SPACE_MINUS_16,
+        Glyphs.BOSSBAR_SPACE_MINUS_8, Glyphs.BOSSBAR_SPACE_MINUS_4,
+        Glyphs.BOSSBAR_SPACE_MINUS_2, Glyphs.BOSSBAR_SPACE_MINUS_1,
     };
 
     // No +64 or +128 exists in the font; nothing on a HUD line moves that far to the right.
     private static final int[] RIGHT_WIDTHS = {32, 16, 8, 4, 2, 1};
     private static final String[] RIGHT_GLYPHS = {
-            Glyphs.BOSSBAR_SPACE_PLUS_32, Glyphs.BOSSBAR_SPACE_PLUS_16,
-            Glyphs.BOSSBAR_SPACE_PLUS_8, Glyphs.BOSSBAR_SPACE_PLUS_4,
-            Glyphs.BOSSBAR_SPACE_PLUS_2, Glyphs.BOSSBAR_SPACE_PLUS_1,
+        Glyphs.BOSSBAR_SPACE_PLUS_32, Glyphs.BOSSBAR_SPACE_PLUS_16,
+        Glyphs.BOSSBAR_SPACE_PLUS_8, Glyphs.BOSSBAR_SPACE_PLUS_4,
+        Glyphs.BOSSBAR_SPACE_PLUS_2, Glyphs.BOSSBAR_SPACE_PLUS_1,
     };
 
     private static String shift(final int pixels, final int[] widths, final String[] glyphs) {

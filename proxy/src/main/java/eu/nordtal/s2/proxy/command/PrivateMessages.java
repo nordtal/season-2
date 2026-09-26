@@ -1,17 +1,17 @@
 package eu.nordtal.s2.proxy.command;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.feedback.Feedback;
@@ -23,11 +23,6 @@ import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
-import net.kyori.adventure.text.Component;
-
-import org.slf4j.Logger;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -35,8 +30,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import net.kyori.adventure.text.Component;
+import org.slf4j.Logger;
 
 /**
  * The network's own private messages: {@code /msg}, {@code /whisper} and {@code /r}.
@@ -107,9 +102,12 @@ public final class PrivateMessages {
      */
     private final ConcurrentHashMap<UUID, UUID> partners = new ConcurrentHashMap<>();
 
-    public PrivateMessages(final ProxyServer proxy, final LoginRoster roster,
-                           final Messages messages, final Supplier<ToneColours> colours,
-                           final Logger logger) {
+    public PrivateMessages(
+            final ProxyServer proxy,
+            final LoginRoster roster,
+            final Messages messages,
+            final Supplier<ToneColours> colours,
+            final Logger logger) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.messages = Objects.requireNonNull(messages, "messages");
@@ -124,7 +122,8 @@ public final class PrivateMessages {
 
     private BrigadierCommand whisper(final String literal) {
         final String usage = "/" + literal + " <" + PLAYER + "> <" + MESSAGE + ">";
-        final ProxyMessages.Command.DescribeMessages describes = ProxyMessages.MESSAGES.command().describe();
+        final ProxyMessages.Command.DescribeMessages describes =
+                ProxyMessages.MESSAGES.command().describe();
         final MessageRef describe = "msg".equals(literal) ? describes.msg() : describes.whisper();
 
         final RequiredArgumentBuilder<CommandSource, ?> text =
@@ -153,7 +152,9 @@ public final class PrivateMessages {
         text.executes(this::runReply);
         return new BrigadierCommand(BrigadierCommand.literalArgumentBuilder("r")
                 .then(text)
-                .executes(context -> usage(context, "/r <" + MESSAGE + ">",
+                .executes(context -> usage(
+                        context,
+                        "/r <" + MESSAGE + ">",
                         ProxyMessages.MESSAGES.command().describe().r())));
     }
 
@@ -205,8 +206,7 @@ public final class PrivateMessages {
         return Command.SINGLE_SUCCESS;
     }
 
-    private void deliverSafely(final Player from, final Player to, final String text,
-                               final String what) {
+    private void deliverSafely(final Player from, final Player to, final String text, final String what) {
         try {
             deliver(from, to, text);
         } catch (final RuntimeException failure) {
@@ -246,10 +246,15 @@ public final class PrivateMessages {
         // parser: somebody called <red> cannot colour a line about themselves.
         final Component message = Component.text(text);
         final ProxyMessages.Chat.Msg msg = ProxyMessages.MESSAGES.chat().msg();
-        return MessageRenderer.of(messages).format(reader, switch (half) {
-            case SENT -> msg.sent(flag, new PlayerContext(about.getUsername()), adminTag(about), message);
-            case RECEIVED -> msg.received(flag, new PlayerContext(about.getUsername()), adminTag(about), message);
-        });
+        return MessageRenderer.of(messages)
+                .format(
+                        reader,
+                        switch (half) {
+                            case SENT ->
+                                msg.sent(flag, new PlayerContext(about.getUsername()), adminTag(about), message);
+                            case RECEIVED ->
+                                msg.received(flag, new PlayerContext(about.getUsername()), adminTag(about), message);
+                        });
     }
 
     /**
@@ -299,8 +304,7 @@ public final class PrivateMessages {
      * is the one thing this move costs. {@code PrivateMessagesTest} parses each tree and asserts the
      * two agree, so the derivation is replaced by a check rather than by trust.</p>
      */
-    private int usage(final CommandContext<CommandSource> context, final String usage,
-                      final MessageRef describe) {
+    private int usage(final CommandContext<CommandSource> context, final String usage, final MessageRef describe) {
         final NordtalUser who = context.getSource() instanceof Player player
                 ? user(player)
                 : new ConsoleUser(messages, context.getSource());

@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.network;
 
-import org.jdbi.v3.core.mapper.RowMapper;
-import org.jdbi.v3.core.statement.StatementContext;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 /**
  * Maps the single row {@link SnapshotDao#snapshot()} returns.

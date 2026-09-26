@@ -1,7 +1,6 @@
 package eu.nordtal.s2.common.message;
 
 import eu.nordtal.s2.common.Glyphs;
-
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.Tag;
@@ -30,6 +29,5 @@ public final class GlyphTag {
         return Tag.selfClosingInserting(Component.text(glyph).font(DEFAULT_FONT));
     });
 
-    private GlyphTag() {
-    }
+    private GlyphTag() {}
 }

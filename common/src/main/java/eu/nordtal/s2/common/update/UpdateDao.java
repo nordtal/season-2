@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.update;
 
+import java.util.List;
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.List;
-import java.util.Optional;
 
 /**
  * The whole SQL surface of steward-worker's inbox, as a JDBI SqlObject interface - the same style
@@ -57,10 +56,11 @@ interface UpdateDao {
             SELECT inserted.*, pg_notify('nordtal_update', '') AS notified
             FROM inserted
             """)
-    UpdateRequest submit(@Bind("kind") String kind,
-                         @Bind("source") String source,
-                         @Bind("requestedBy") String requestedBy,
-                         @Bind("delaySeconds") long delaySeconds);
+    UpdateRequest submit(
+            @Bind("kind") String kind,
+            @Bind("source") String source,
+            @Bind("requestedBy") String requestedBy,
+            @Bind("delaySeconds") long delaySeconds);
 
     /**
      * The same insert, with the services this run is for (season-2-ops/127).
@@ -83,11 +83,12 @@ interface UpdateDao {
             SELECT inserted.*, pg_notify('nordtal_update', '') AS notified
             FROM inserted
             """)
-    UpdateRequest submitScoped(@Bind("kind") String kind,
-                               @Bind("source") String source,
-                               @Bind("requestedBy") String requestedBy,
-                               @Bind("delaySeconds") long delaySeconds,
-                               @Bind("scope") String scope);
+    UpdateRequest submitScoped(
+            @Bind("kind") String kind,
+            @Bind("source") String source,
+            @Bind("requestedBy") String requestedBy,
+            @Bind("delaySeconds") long delaySeconds,
+            @Bind("scope") String scope);
 
     /** The oldest run that is pending or running, which is what refuses a new one. */
     @SqlQuery("""
@@ -151,9 +152,7 @@ interface UpdateDao {
             WHERE id = :id AND status = 'RUNNING'
             RETURNING *
             """)
-    Optional<UpdateRequest> finish(@Bind("id") long id,
-                                   @Bind("status") String status,
-                                   @Bind("result") String result);
+    Optional<UpdateRequest> finish(@Bind("id") long id, @Bind("status") String status, @Bind("result") String result);
 
     /**
      * Rewrites a running request's report and leaves its status alone.
@@ -495,9 +494,7 @@ interface UpdateDao {
             ON CONFLICT (service) DO UPDATE
                 SET since = now(), held_by = EXCLUDED.held_by, request_id = EXCLUDED.request_id
             """)
-    void hold(@Bind("service") String service,
-              @Bind("heldBy") String heldBy,
-              @Bind("requestId") Long requestId);
+    void hold(@Bind("service") String service, @Bind("heldBy") String heldBy, @Bind("requestId") Long requestId);
 
     /** @return how many rows went away; zero when it was not being held, which is not an error */
     @SqlUpdate("DELETE FROM service_hold WHERE service = :service")

@@ -6,9 +6,6 @@ import com.google.gson.JsonParser;
 import eu.nordtal.s2.commands.announce.AnnounceCommands;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import org.jetbrains.annotations.NotNull;
-
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -18,6 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import javax.sql.DataSource;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Announcements an admin writes by hand, one text per language.
@@ -52,7 +51,7 @@ final class Announcements {
     void recent(final @NotNull Context ctx) {
         final List<Map<String, Object>> recent = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement("""
+                PreparedStatement statement = connection.prepareStatement("""
                      SELECT id, arguments, source, requested_by, requested, status, result
                      FROM command_request
                      WHERE target = 'BOT' AND command = 'announce'
@@ -70,7 +69,9 @@ final class Announcements {
                     line.put("text", space < 0 ? "" : arguments.substring(space + 1));
                     line.put("source", rows.getString("source"));
                     line.put("requestedBy", rows.getString("requested_by"));
-                    line.put("requested", rows.getTimestamp("requested").toInstant().toString());
+                    line.put(
+                            "requested",
+                            rows.getTimestamp("requested").toInstant().toString());
                     line.put("status", rows.getString("status"));
                     final String result = rows.getString("result");
                     if (result != null) line.put("result", result);
@@ -102,7 +103,8 @@ final class Announcements {
             throw new BadRequestResponse("texts is one text per language.");
         }
         final Map<String, String> checked = new LinkedHashMap<>();
-        for (final Map.Entry<String, JsonElement> entry : texts.getAsJsonObject().entrySet()) {
+        for (final Map.Entry<String, JsonElement> entry :
+                texts.getAsJsonObject().entrySet()) {
             final String tag = entry.getKey();
             if (!TAG.matcher(tag).matches()) {
                 throw new BadRequestResponse(tag + " is not a language tag.");
@@ -113,8 +115,8 @@ final class Announcements {
             }
             final String stripped = text.getAsString().strip();
             if (stripped.length() > MAX_LENGTH) {
-                throw new BadRequestResponse("The " + tag + " text is longer than Discord takes ("
-                        + MAX_LENGTH + " characters).");
+                throw new BadRequestResponse(
+                        "The " + tag + " text is longer than Discord takes (" + MAX_LENGTH + " characters).");
             }
             checked.put(tag, stripped);
         }

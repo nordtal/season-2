@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.smp;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -7,10 +9,7 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.context.MilestoneContext;
-
 import java.util.Optional;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /smp objective complete <key>} - close one objective of the active milestone by hand.
@@ -63,7 +62,9 @@ public final class CompleteObjective implements NordtalCommand<SmpEffects> {
                 user.reply(MESSAGES.smp().admin().readFailed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
-            user.reply(MESSAGES.smp().admin().objectiveCompleted(key, new MilestoneContext(active.get())), Feedback.BIG_SUCCESS,
+            user.reply(
+                    MESSAGES.smp().admin().objectiveCompleted(key, new MilestoneContext(active.get())),
+                    Feedback.BIG_SUCCESS,
                     Tone.GOOD);
         });
     }

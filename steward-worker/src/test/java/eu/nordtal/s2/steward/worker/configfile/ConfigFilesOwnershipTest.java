@@ -1,11 +1,9 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
@@ -16,8 +14,9 @@ import java.nio.file.attribute.PosixFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * steward/104: the worker runs as root and edits other services' config volumes through
@@ -60,8 +59,7 @@ class ConfigFilesOwnershipTest {
         // running the JVM.
         owner = fs.getUserPrincipalLookupService().lookupPrincipalByName("10001");
         group = fs.getUserPrincipalLookupService().lookupPrincipalByGroupName("10001");
-        final PosixFileAttributeView view =
-                Files.getFileAttributeView(file, PosixFileAttributeView.class);
+        final PosixFileAttributeView view = Files.getFileAttributeView(file, PosixFileAttributeView.class);
         view.setOwner(owner);
         view.setGroup(group);
         Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
@@ -76,8 +74,7 @@ class ConfigFilesOwnershipTest {
     void aSaveLeavesTheFileOwnedByWhoeverItBelongedToBefore() throws IOException {
         ConfigFiles.write(file, Map.of("port", ConfigChange.of("9090")));
 
-        final PosixFileAttributes after =
-                Files.readAttributes(file, PosixFileAttributes.class);
+        final PosixFileAttributes after = Files.readAttributes(file, PosixFileAttributes.class);
         assertEquals(owner.getName(), after.owner().getName());
         assertEquals(group.getName(), after.group().getName());
         assertEquals(PosixFilePermissions.fromString("rw-------"), after.permissions());

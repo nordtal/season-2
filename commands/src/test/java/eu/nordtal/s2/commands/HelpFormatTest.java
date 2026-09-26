@@ -1,10 +1,10 @@
 package eu.nordtal.s2.commands;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.message.Messages;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -12,10 +12,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The help output's shape, which is four message keys and no code.
@@ -31,8 +29,8 @@ class HelpFormatTest {
 
     private static final String ROOT = "messages/commands";
 
-    private final Messages messages = Messages.load(HelpFormatTest.class.getClassLoader(),
-            ROOT, Locale.ENGLISH, Locale.GERMAN);
+    private final Messages messages =
+            Messages.load(HelpFormatTest.class.getClassLoader(), ROOT, Locale.ENGLISH, Locale.GERMAN);
 
     /** What {@code PaperCommands} actually fills in, per key. */
     private static final Map<String, List<String>> SUPPLIED = Map.of(
@@ -47,7 +45,8 @@ class HelpFormatTest {
     void theFormatIsComplete() {
         for (final String key : SUPPLIED.keySet()) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-                assertTrue(messages.hasTranslation(locale, key),
+                assertTrue(
+                        messages.hasTranslation(locale, key),
                         key + " is missing in " + locale.getLanguage()
                                 + " - the help output would print the key itself at somebody who has"
                                 + " just mistyped a command");
@@ -62,7 +61,8 @@ class HelpFormatTest {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
                 final String text = messages.get(locale, entry.getKey());
                 for (final String placeholder : placeholders(text)) {
-                    assertTrue(entry.getValue().contains(placeholder),
+                    assertTrue(
+                            entry.getValue().contains(placeholder),
                             entry.getKey() + " (" + locale.getLanguage() + ") names {" + placeholder
                                     + "}, which nothing fills - it would reach a reader verbatim");
                 }
@@ -78,12 +78,13 @@ class HelpFormatTest {
         // exactly the shape of the continuation bug BundleContinuationTest was written for.
         for (final String lang : List.of("en", "de")) {
             final Properties properties = new Properties();
-            try (InputStream stream = HelpFormatTest.class.getClassLoader()
-                    .getResourceAsStream(ROOT + "/" + lang + ".properties")) {
+            try (InputStream stream =
+                    HelpFormatTest.class.getClassLoader().getResourceAsStream(ROOT + "/" + lang + ".properties")) {
                 assertNotNull(stream, lang);
                 properties.load(new java.io.InputStreamReader(stream, StandardCharsets.UTF_8));
             }
-            assertTrue(properties.getProperty("command.help.line").startsWith("  "),
+            assertTrue(
+                    properties.getProperty("command.help.line").startsWith("  "),
                     "command.help.line lost its indent in " + lang + " - escape the leading spaces"
                             + " as \\ \\ , or every command in the list starts at column zero");
         }

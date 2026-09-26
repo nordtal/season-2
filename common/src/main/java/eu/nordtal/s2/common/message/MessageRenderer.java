@@ -1,16 +1,14 @@
 package eu.nordtal.s2.common.message;
 
 import eu.nordtal.s2.common.message.context.Contexts;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
-
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 /**
  * Renders a {@link Messages} bundle's values as <b>MiniMessage</b>.
@@ -127,8 +125,11 @@ public final class MessageRenderer {
      * @param parameters the ordinary alternating name/value pairs, escaped as always
      * @return the formatted message, parsed as MiniMessage
      */
-    public Component format(final Locale locale, final String key,
-                            final Map<String, Component> components, final Object... parameters) {
+    public Component format(
+            final Locale locale,
+            final String key,
+            final Map<String, Component> components,
+            final Object... parameters) {
         if (parameters.length % 2 != 0) {
             // A whole Map where the pairs belong is worth its own sentence rather than a count.
             // See the note on the other overload: this is the mistake that cost season-2-ops/15,
@@ -142,8 +143,7 @@ public final class MessageRenderer {
                                 + " and ConsoleUser each do), or call Messages#format, which does take"
                                 + " a Map.");
             }
-            throw new IllegalArgumentException(
-                    "parameters must alternate name and value, got " + parameters.length);
+            throw new IllegalArgumentException("parameters must alternate name and value, got " + parameters.length);
         }
         final Map<String, Object> escaped = new LinkedHashMap<>();
         for (int i = 0; i < parameters.length; i += 2) {

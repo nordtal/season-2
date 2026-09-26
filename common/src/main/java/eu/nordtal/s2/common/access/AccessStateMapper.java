@@ -2,13 +2,11 @@ package eu.nordtal.s2.common.access;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.Locales;
-
-import org.jdbi.v3.core.mapper.RowMapper;
-import org.jdbi.v3.core.statement.StatementContext;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 /**
  * Maps the single row the login query returns. See {@link AccessDao#accessState(UUID)}.

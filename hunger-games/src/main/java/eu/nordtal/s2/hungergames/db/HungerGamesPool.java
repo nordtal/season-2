@@ -2,7 +2,6 @@ package eu.nordtal.s2.hungergames.db;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-
 import eu.nordtal.s2.hungergames.config.DatabaseSpec;
 
 /**
@@ -13,8 +12,7 @@ import eu.nordtal.s2.hungergames.config.DatabaseSpec;
  */
 public final class HungerGamesPool {
 
-    private HungerGamesPool() {
-    }
+    private HungerGamesPool() {}
 
     public static HikariDataSource open(final DatabaseSpec config) {
         final HikariConfig hikari = new HikariConfig();

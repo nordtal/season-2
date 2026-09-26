@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.duel;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
@@ -14,8 +16,13 @@ import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
-
-import net.kyori.adventure.text.Component;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -25,16 +32,6 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * Duels: two 3 x 3 platforms at the spawn, an arena that appears above it, and one short fight.
@@ -105,8 +102,7 @@ public final class Duels {
      * <p>Longer than the ceremony's fade-in and shorter than its hold.</p>
      */
     private static final Title.Times OUTCOME = Title.Times.times(
-            java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(2),
-            java.time.Duration.ofMillis(600));
+            java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(2), java.time.Duration.ofMillis(600));
 
     /**
      * Where a duel ends, for both fighters.
@@ -123,9 +119,16 @@ public final class Duels {
     /** Every block this plugin placed for an arena, so a teardown removes exactly those. */
     private final Map<Integer, List<Location>> placed = new HashMap<>();
 
-    public Duels(final Plugin plugin, final SmpDao dao, final SmpSpec config, final Worlds worlds,
-                 final Identities identities, final Messages messages, final PlayerLocales locales,
-                 final SmpSounds sounds, final WorldEffects effects) {
+    public Duels(
+            final Plugin plugin,
+            final SmpDao dao,
+            final SmpSpec config,
+            final Worlds worlds,
+            final Identities identities,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds,
+            final WorldEffects effects) {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
@@ -135,13 +138,11 @@ public final class Duels {
         this.locales = locales;
         this.sounds = sounds;
         this.effects = effects;
-        this.slots = new ArenaSlots(config.concurrentDuelLimit(), config.duelArenaBaseY(),
-                config.duelArenaSpacing());
+        this.slots = new ArenaSlots(config.concurrentDuelLimit(), config.duelArenaBaseY(), config.duelArenaSpacing());
     }
 
     /** A pair that stepped on while every arena was busy. The type has to travel with them. */
-    private record Queued(UUID first, UUID second, DuelType type) {
-    }
+    private record Queued(UUID first, UUID second, DuelType type) {}
 
     /**
      * One running duel.
@@ -153,9 +154,14 @@ public final class Duels {
      * <p>Capturing rather than reordering the two listeners: a duel's participants cannot change
      * once it is running, and the alternative makes the aura depend on registration order.</p>
      */
-    private record ActiveDuel(UUID first, UUID second, DuelType type, int slot,
-                              Map<UUID, SavedState> saved, Map<UUID, String> discordIds,
-                              long startedAt) {
+    private record ActiveDuel(
+            UUID first,
+            UUID second,
+            DuelType type,
+            int slot,
+            Map<UUID, SavedState> saved,
+            Map<UUID, String> discordIds,
+            long startedAt) {
 
         UUID opponentOf(final UUID player) {
             return player.equals(first) ? second : first;
@@ -254,8 +260,8 @@ public final class Duels {
             return;
         }
 
-        final Location centre = new Location(world, config.borderCentreX() + 0.5,
-                slots.yOf(slot.get()), config.borderCentreZ() + 0.5);
+        final Location centre =
+                new Location(world, config.borderCentreX() + 0.5, slots.yOf(slot.get()), config.borderCentreZ() + 0.5);
         build(slot.get(), centre);
 
         final Map<UUID, SavedState> saved = new HashMap<>();
@@ -264,13 +270,17 @@ public final class Duels {
 
         // Read now, while both fighters are online - see ActiveDuel#discordIds.
         final Map<UUID, String> discordIds = new HashMap<>();
-        identities.discordIdOf(first.getUniqueId())
-                .ifPresent(id -> discordIds.put(first.getUniqueId(), id));
-        identities.discordIdOf(second.getUniqueId())
-                .ifPresent(id -> discordIds.put(second.getUniqueId(), id));
+        identities.discordIdOf(first.getUniqueId()).ifPresent(id -> discordIds.put(first.getUniqueId(), id));
+        identities.discordIdOf(second.getUniqueId()).ifPresent(id -> discordIds.put(second.getUniqueId(), id));
 
-        final ActiveDuel duel = new ActiveDuel(first.getUniqueId(), second.getUniqueId(), type,
-                slot.get(), saved, discordIds, System.currentTimeMillis());
+        final ActiveDuel duel = new ActiveDuel(
+                first.getUniqueId(),
+                second.getUniqueId(),
+                type,
+                slot.get(),
+                saved,
+                discordIds,
+                System.currentTimeMillis());
         byPlayer.put(first.getUniqueId(), duel);
         byPlayer.put(second.getUniqueId(), duel);
 
@@ -309,8 +319,9 @@ public final class Duels {
     private boolean enter(final Player player, final Location at, final DuelType type) {
         SavedState.clear(player);
         if (!player.teleport(at)) {
-            plugin.getLogger().warning(player.getName() + " could not be moved into the duel arena; "
-                    + "the duel is called off rather than fought outside it");
+            plugin.getLogger()
+                    .warning(player.getName() + " could not be moved into the duel arena; "
+                            + "the duel is called off rather than fought outside it");
             return false;
         }
         player.setGameMode(GameMode.ADVENTURE);
@@ -321,15 +332,15 @@ public final class Duels {
     }
 
     private void giveLoadout(final Player player, final DuelType type) {
-        final List<SmpSpec.WheelPrizeSpec> loadout = type == DuelType.SWORD
-                ? config.duelLoadoutSword() : config.duelLoadoutBow();
+        final List<SmpSpec.WheelPrizeSpec> loadout =
+                type == DuelType.SWORD ? config.duelLoadoutSword() : config.duelLoadoutBow();
 
         for (final SmpSpec.WheelPrizeSpec entry : loadout) {
-            final Material material = Material.matchMaterial(
-                    entry.item().trim().toUpperCase(Locale.ROOT));
+            final Material material = Material.matchMaterial(entry.item().trim().toUpperCase(Locale.ROOT));
             if (material == null) {
-                plugin.getLogger().warning("a duel loadout names '" + entry.item()
-                        + "', which is not a material - that piece is missing from the fight");
+                plugin.getLogger()
+                        .warning("a duel loadout names '" + entry.item()
+                                + "', which is not a material - that piece is missing from the fight");
                 continue;
             }
             final ItemStack stack = new ItemStack(material, Math.max(1, entry.amount()));
@@ -341,8 +352,7 @@ public final class Duels {
         }
     }
 
-    private static boolean equipIfArmour(final Player player, final Material material,
-                                         final ItemStack stack) {
+    private static boolean equipIfArmour(final Player player, final Material material, final ItemStack stack) {
         final String name = material.name();
         if (name.endsWith("_HELMET")) {
             player.getInventory().setHelmet(stack);
@@ -364,11 +374,16 @@ public final class Duels {
         }
         forBoth(duel, player -> {
             player.setGameMode(remaining > 0 ? GameMode.ADVENTURE : GameMode.SURVIVAL);
-            player.sendMessage(remaining > 0
-                    ? MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
-                            MESSAGES.smp().duel().countdown(remaining))
-                    : MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
-                            MESSAGES.smp().duel().go()));
+            player.sendMessage(
+                    remaining > 0
+                            ? MessageRenderer.of(messages)
+                                    .format(
+                                            locales.of(player.getUniqueId()),
+                                            MESSAGES.smp().duel().countdown(remaining))
+                            : MessageRenderer.of(messages)
+                                    .format(
+                                            locales.of(player.getUniqueId()),
+                                            MESSAGES.smp().duel().go()));
             // Four evenly spaced ticks, 3-2-1-Go: the last lands on the moment the fight starts.
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         });
@@ -433,17 +448,27 @@ public final class Duels {
         final java.util.Locale locale = locales.of(playerId);
         final SmpMessages.Smp.Duel lines = MESSAGES.smp().duel();
         final int stake = config.duelStake();
-        player.sendMessage(renderer.format(locale, feedback == null ? lines.interrupted()
-                : feedback == Feedback.BIG_SUCCESS ? lines.won(stake) : lines.lost(stake)));
+        player.sendMessage(renderer.format(
+                locale,
+                feedback == null
+                        ? lines.interrupted()
+                        : feedback == Feedback.BIG_SUCCESS ? lines.won(stake) : lines.lost(stake)));
         // A title as well as the chat line: the line carries the number and can be scrolled back
         // to, the title is what somebody who has just been hit reads. Nothing is sent for the
         // interrupted case, which is what a null feedback means throughout this class.
         if (feedback != null) {
             final boolean won = feedback == Feedback.BIG_SUCCESS;
             player.showTitle(Title.title(
-                    renderer.format(locale, won ? lines.wonSection().title() : lines.lostSection().title()),
-                    renderer.format(locale, won ? lines.wonSection().subtitle(stake)
-                            : lines.lostSection().subtitle(stake)),
+                    renderer.format(
+                            locale,
+                            won
+                                    ? lines.wonSection().title()
+                                    : lines.lostSection().title()),
+                    renderer.format(
+                            locale,
+                            won
+                                    ? lines.wonSection().subtitle(stake)
+                                    : lines.lostSection().subtitle(stake)),
                     OUTCOME));
         }
         if (feedback != null) {
@@ -521,8 +546,7 @@ public final class Duels {
      * to overwrite means the worst case is an arena with a hole in it, not a hole in somebody's
      * tower.
      */
-    private Location place(final World world, final Location centre, final int dx, final int dy,
-                           final int dz) {
+    private Location place(final World world, final Location centre, final int dx, final int dy, final int dz) {
         final Location at = centre.clone().add(dx, dy, dz);
         if (!at.getBlock().getType().isAir()) {
             return null;

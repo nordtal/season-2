@@ -1,18 +1,16 @@
 package eu.nordtal.s2.limbo.config;
 
-import eu.nordtal.jcore.config.exception.ConfigValidationException;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.jcore.config.exception.ConfigValidationException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The fail-fast for {@code limbo}'s two config files.
@@ -52,8 +50,8 @@ class ConfigsTest {
                 blindness: true
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.load(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.load(directory, LOGGER));
         assertTrue(error.getMessage().contains("title-refresh-seconds"), error.getMessage());
     }
 
@@ -79,8 +77,8 @@ class ConfigsTest {
                 blindness: true
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.load(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.load(directory, LOGGER));
         assertTrue(error.getMessage().contains("spawn-y"), error.getMessage());
     }
 
@@ -92,7 +90,9 @@ class ConfigsTest {
         final DatabaseSpec config = Configs.database(directory, LOGGER).get();
 
         assertEquals(3, config.queryTimeoutSeconds());
-        assertEquals(3, config.maximumPoolSize(),
+        assertEquals(
+                3,
+                config.maximumPoolSize(),
                 "one indexed lookup per join needs no more, and every process has its own pool");
     }
 
@@ -106,8 +106,8 @@ class ConfigsTest {
                 query-timeout-seconds: 3
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.database(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.database(directory, LOGGER));
         assertTrue(error.getMessage().contains("jdbc-url"), error.getMessage());
     }
 
@@ -121,8 +121,8 @@ class ConfigsTest {
                 query-timeout-seconds: 0
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.database(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.database(directory, LOGGER));
         assertTrue(error.getMessage().contains("query-timeout-seconds"), error.getMessage());
     }
 

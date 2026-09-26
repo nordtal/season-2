@@ -43,8 +43,7 @@ public final class BossBarAdvances {
 
     private static final Map<Integer, Integer> TABLE = load();
 
-    private BossBarAdvances() {
-    }
+    private BossBarAdvances() {}
 
     /** @return how far {@code codePoint} moves the cursor, or {@link #MISSING} if the font lacks it */
     public static int advance(final int codePoint) {
@@ -80,9 +79,9 @@ public final class BossBarAdvances {
             throw new UncheckedIOException("cannot read " + RESOURCE, e);
         }
         final Map<Integer, Integer> table = new HashMap<>();
-        properties.forEach((key, value) ->
-                table.put(Integer.parseInt(String.valueOf(key), 16),
-                        Integer.parseInt(String.valueOf(value).trim())));
+        properties.forEach((key, value) -> table.put(
+                Integer.parseInt(String.valueOf(key), 16),
+                Integer.parseInt(String.valueOf(value).trim())));
         return table;
     }
 }

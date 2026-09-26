@@ -1,9 +1,8 @@
 package eu.nordtal.s2.common.plugin;
 
+import java.time.Instant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.time.Instant;
 
 /**
  * One plugin an admin added to a service from the interface (season-2-ops/129).
@@ -30,13 +29,13 @@ import java.time.Instant;
  * @param addedBy    who asked for it, in the shape {@code update_request.requested_by} uses, or
  *                   {@code null} when it was not a person
  */
-public record ManagedPlugin(@NotNull String service,
-                            @NotNull String artifact,
-                            @NotNull String projectId,
-                            @NotNull String filePrefix,
-                            @NotNull String title,
-                            @Nullable String iconUrl,
-                            @Nullable String pageUrl,
-                            @NotNull Instant added,
-                            @Nullable String addedBy) {
-}
+public record ManagedPlugin(
+        @NotNull String service,
+        @NotNull String artifact,
+        @NotNull String projectId,
+        @NotNull String filePrefix,
+        @NotNull String title,
+        @Nullable String iconUrl,
+        @Nullable String pageUrl,
+        @NotNull Instant added,
+        @Nullable String addedBy) {}

@@ -4,15 +4,13 @@ import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
-
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Pattern;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
 
 /**
  * Where {@code steward-worker}'s config files live, and every rule about what a valid value is.
@@ -26,8 +24,7 @@ public final class Configs {
     /** A Modrinth id is eight characters of its own base62 alphabet. */
     private static final Pattern MODRINTH_ID = Pattern.compile("[A-Za-z0-9]{8}");
 
-    private Configs() {
-    }
+    private Configs() {}
 
     public static @NotNull ConfigHandle<DatabaseSpec> database(final Path directory, final Logger logger)
             throws ConfigException {
@@ -51,8 +48,9 @@ public final class Configs {
         // This config has no usable default: localhost:5432 is not where the database is from
         // inside a container, and the alternative to saying so is a connection refused.
         if (fresh) {
-            logger.warn("No config existed at {} - defaults were written and are almost certainly"
-                    + " not what you want", file.toAbsolutePath());
+            logger.warn(
+                    "No config existed at {} - defaults were written and are almost certainly" + " not what you want",
+                    file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
         return handle;
@@ -80,8 +78,8 @@ public final class Configs {
 
         // A fresh steward.yml is usable as written: the defaults are the real nordtal.eu values.
         if (fresh) {
-            logger.info("No config existed at {} - it was written with this project's own defaults",
-                    file.toAbsolutePath());
+            logger.info(
+                    "No config existed at {} - it was written with this project's own defaults", file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
         return handle;
@@ -97,8 +95,7 @@ public final class Configs {
         try {
             EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
         } catch (final IOException e) {
-            logger.warn("Could not write the environment-override marker beside {}: {}",
-                    handle.file(), e.getMessage());
+            logger.warn("Could not write the environment-override marker beside {}: {}", handle.file(), e.getMessage());
         }
     }
 
@@ -130,8 +127,7 @@ public final class Configs {
             try {
                 Long.parseLong(bunq.accountId().trim());
             } catch (final NumberFormatException e) {
-                throw new IllegalArgumentException("bunq.account-id must be a number, was '"
-                        + bunq.accountId() + "'");
+                throw new IllegalArgumentException("bunq.account-id must be a number, was '" + bunq.accountId() + "'");
             }
         }
 

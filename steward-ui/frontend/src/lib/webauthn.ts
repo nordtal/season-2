@@ -85,9 +85,7 @@ export function fromCredential(credential: PublicKeyCredential): string {
       clientDataJSON: toBase64Url(response.clientDataJSON),
       attestationObject: toBase64Url(response.attestationObject),
       // Not every browser has it, and an absent list is not an empty one.
-      ...(typeof response.getTransports === "function"
-        ? { transports: response.getTransports() }
-        : {}),
+      ...(typeof response.getTransports === "function" ? { transports: response.getTransports() } : {}),
     },
     clientExtensionResults: credential.getClientExtensionResults(),
   }
@@ -127,16 +125,22 @@ export function whyTheKeyFailed(error: unknown): string {
     case "NotAllowedError":
       return "The dialog was cancelled, or it waited too long. Nothing was registered - try again."
     case "InvalidStateError":
-      return "That key is already registered on this account. Use a different one, or sign in with"
-        + " the one you are holding."
+      return (
+        "That key is already registered on this account. Use a different one, or sign in with" +
+        " the one you are holding."
+      )
     case "AbortError":
       return "The dialog was closed before the key answered. Nothing happened - try again."
     case "SecurityError":
-      return "The browser refused because this page's address does not match the domain the key"
-        + " would be registered to. That is a configuration fault on this server, not on your key."
+      return (
+        "The browser refused because this page's address does not match the domain the key" +
+        " would be registered to. That is a configuration fault on this server, not on your key."
+      )
     case "NotSupportedError":
-      return "This authenticator cannot do what Steward asked for. A different key or your phone's"
-        + " own unlock will work."
+      return (
+        "This authenticator cannot do what Steward asked for. A different key or your phone's" +
+        " own unlock will work."
+      )
     default:
       return error instanceof Error && error.message
         ? error.message

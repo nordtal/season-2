@@ -27,8 +27,7 @@ public final class BossBarWidth {
     /** Segment widths this class can compose with, largest first - mirrors {@code Glyphs.BOSSBAR_BG_*}. */
     private static final int[] SEGMENT_WIDTHS = {128, 64, 32, 16, 8, 4, 2, 1};
 
-    private BossBarWidth() {
-    }
+    private BossBarWidth() {}
 
     /**
      * A whole pill: left cap, {@code inner} pixels of body, right cap - advancing the cursor by

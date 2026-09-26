@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.message;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -21,9 +20,8 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Every message bundle in the repository, in both languages, complete.
@@ -70,7 +68,8 @@ class EveryBundleIsCompleteTest {
     @Test
     @DisplayName("the walk finds every bundle this repository had when the test was written")
     void theWalkStillFindsTheBundlesItWasWrittenFor() {
-        assertTrue(bundles().keySet().containsAll(KNOWN),
+        assertTrue(
+                bundles().keySet().containsAll(KNOWN),
                 "the walk lost sight of a bundle it used to find. Missing: "
                         + missingFrom(bundles().keySet()));
     }
@@ -84,8 +83,8 @@ class EveryBundleIsCompleteTest {
                 incomplete.put(name, languages);
             }
         });
-        assertEquals(Map.of(), incomplete,
-                "the season ships two languages, and a bundle with one of them is half a bundle");
+        assertEquals(
+                Map.of(), incomplete, "the season ships two languages, and a bundle with one of them is half a bundle");
     }
 
     @Test
@@ -108,7 +107,9 @@ class EveryBundleIsCompleteTest {
                 untranslated.put(name + " has German with no English original for", onlyGerman);
             }
         }
-        assertEquals(Map.of(), untranslated,
+        assertEquals(
+                Map.of(),
+                untranslated,
                 "a key with no translation is not an error anybody sees - English is the fallback,"
                         + " so it is answered in English and nothing anywhere says so");
     }
@@ -128,13 +129,11 @@ class EveryBundleIsCompleteTest {
                 }
                 final Set<String> original = placeholders(english.getProperty(key));
                 if (!original.equals(placeholders(translation))) {
-                    wrong.put(name + "/" + key,
-                            "en " + original + " vs de " + placeholders(translation));
+                    wrong.put(name + "/" + key, "en " + original + " vs de " + placeholders(translation));
                 }
             }
         }
-        assertEquals(Map.of(), wrong,
-                "one of these prints a literal {name} to somebody, and the other does not");
+        assertEquals(Map.of(), wrong, "one of these prints a literal {name} to somebody, and the other does not");
     }
 
     /**

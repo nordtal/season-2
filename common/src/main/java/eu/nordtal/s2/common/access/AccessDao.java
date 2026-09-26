@@ -1,13 +1,12 @@
 package eu.nordtal.s2.common.access;
 
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.time.Instant;
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * The whole SQL surface of the access system, as a JDBI SqlObject interface. Package-private on
@@ -94,10 +93,11 @@ interface AccessDao {
                               discord_avatar_url_updated = now(),
                               updated = now()
             """)
-    void setDiscordProfile(@Bind("discordId") String discordId,
-                           @Bind("username") String username,
-                           @Bind("displayName") String displayName,
-                           @Bind("avatarUrl") String avatarUrl);
+    void setDiscordProfile(
+            @Bind("discordId") String discordId,
+            @Bind("username") String username,
+            @Bind("displayName") String displayName,
+            @Bind("avatarUrl") String avatarUrl);
 
     /**
      * Clears {@code discord_display_name} and {@code discord_avatar_url} for an account that just
@@ -254,10 +254,11 @@ interface AccessDao {
             RETURNING id, discord_id, valid_from, valid_until, source, payment_request_id, revoked, created
             """)
     @RegisterRowMapper(AccessGrantMapper.class)
-    AccessGrant grantAccess(@Bind("discordId") String discordId,
-                            @Bind("days") int days,
-                            @Bind("source") String source,
-                            @Bind("paymentRequestId") UUID paymentRequestId);
+    AccessGrant grantAccess(
+            @Bind("discordId") String discordId,
+            @Bind("days") int days,
+            @Bind("source") String source,
+            @Bind("paymentRequestId") UUID paymentRequestId);
 
     /**
      * Revokes the whole remaining run of access, not one grant. That is what lets

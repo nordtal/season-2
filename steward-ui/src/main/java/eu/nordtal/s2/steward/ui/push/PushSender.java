@@ -21,5 +21,6 @@ interface PushSender {
         FAILED
     }
 
-    @NotNull Result send(@NotNull PushSubscriptions.Subscription subscription, @NotNull String payload);
+    @NotNull
+    Result send(@NotNull PushSubscriptions.Subscription subscription, @NotNull String payload);
 }

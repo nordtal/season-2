@@ -2,12 +2,7 @@ import { PlusIcon, TrashIcon, WarningCircleIcon } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
 
 import type { ConfigEntry, GuildList } from "@/lib/api"
-import {
-  ListControl,
-  ScalarControl,
-  explanationOf,
-  isRequiredChannel,
-} from "@/components/steward/config-controls"
+import { ListControl, ScalarControl, explanationOf, isRequiredChannel } from "@/components/steward/config-controls"
 import {
   ResponsiveAlertDialog,
   ResponsiveAlertDialogAction,
@@ -114,10 +109,7 @@ export function RepeatableCards({
   // Which of a section's fields are a channel the schema does not call optional (steward/61's
   // "missing a channel is visibly incomplete") - computed once per template, not per section, since
   // it only reads field shape and never a value.
-  const requiredChannelFields = useMemo(
-    () => template.filter((field) => isRequiredChannel(field)),
-    [template],
-  )
+  const requiredChannelFields = useMemo(() => template.filter((field) => isRequiredChannel(field)), [template])
 
   // Removing is a two-step action: the trash icon arms it, and only the dialog's own confirmation
   // splices the draft. `null` is "nothing armed". Every removal still gets the same dialog, and
@@ -132,9 +124,7 @@ export function RepeatableCards({
   // this is a courtesy: greying the button out up front is a better answer than letting somebody
   // confirm a removal that only fails once the save reaches the worker.
   const protectedIndex = entry.protectedEntry
-    ? value.findIndex(
-        (section) => textOf(section, entry.protectedEntry!.field) === entry.protectedEntry!.value,
-      )
+    ? value.findIndex((section) => textOf(section, entry.protectedEntry!.field) === entry.protectedEntry!.value)
     : -1
 
   // The ticket's own escape hatch: a schema that could not describe one shape for every entry sends
@@ -144,8 +134,8 @@ export function RepeatableCards({
     return (
       <div className="flex flex-col gap-2">
         <p className="text-sm text-muted-foreground">
-          These entries are not uniform enough for one card each - no card fits, so this list stays
-          raw text and is not editable here.
+          These entries are not uniform enough for one card each - no card fits, so this list stays raw text and is not
+          editable here.
         </p>
         {value.map((section, index) => (
           <Textarea
@@ -171,9 +161,7 @@ export function RepeatableCards({
 
   return (
     <div className="flex flex-col gap-3">
-      {value.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No entries yet.</p>
-      ) : null}
+      {value.length === 0 ? <p className="text-sm text-muted-foreground">No entries yet.</p> : null}
       {value.map((section, index) => {
         const missing = requiredChannelFields.filter((field) => !textOf(section, field.key).trim())
         const isProtected = index === protectedIndex
@@ -189,7 +177,7 @@ export function RepeatableCards({
                 variant="ghost"
                 size="icon"
                 disabled={disabled || isProtected}
-                title={isProtected ? listExplanation ?? "This entry cannot be removed." : undefined}
+                title={isProtected ? (listExplanation ?? "This entry cannot be removed.") : undefined}
                 aria-label={
                   isProtected
                     ? `Entry ${index + 1} cannot be removed`
@@ -205,9 +193,7 @@ export function RepeatableCards({
             {missing.length > 0 ? (
               <p className="flex items-start gap-1.5 text-sm text-amber-600 dark:text-amber-500">
                 <WarningCircleIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
-                <span>
-                  Incomplete - missing {missing.map((field) => field.label).join(", ")}.
-                </span>
+                <span>Incomplete - missing {missing.map((field) => field.label).join(", ")}.</span>
               </p>
             ) : null}
             {template.map((field) => {
@@ -259,9 +245,7 @@ export function RepeatableCards({
                   <Label htmlFor={id} className="text-sm font-medium">
                     {field.label}
                   </Label>
-                  {explanation ? (
-                    <p className="text-sm text-muted-foreground">{explanation}</p>
-                  ) : null}
+                  {explanation ? <p className="text-sm text-muted-foreground">{explanation}</p> : null}
                   {control}
                 </div>
               )
@@ -292,20 +276,14 @@ export function RepeatableCards({
         </Button>
       </div>
 
-      <ResponsiveAlertDialog
-        open={pendingRemoval !== null}
-        onOpenChange={(open) => open || setPendingRemoval(null)}
-      >
+      <ResponsiveAlertDialog open={pendingRemoval !== null} onOpenChange={(open) => open || setPendingRemoval(null)}>
         <ResponsiveAlertDialogContent>
           <ResponsiveAlertDialogHeader>
             <ResponsiveAlertDialogTitle>
-              Remove {pendingRemoval !== null
-                ? `"${titleOf(value[pendingRemoval], pendingRemoval)}"`
-                : "entry"}?
+              Remove {pendingRemoval !== null ? `"${titleOf(value[pendingRemoval], pendingRemoval)}"` : "entry"}?
             </ResponsiveAlertDialogTitle>
             <ResponsiveAlertDialogDescription className="whitespace-pre-wrap text-left">
-              {listExplanation ??
-                "This only changes the draft - nothing is written to the file until Save."}
+              {listExplanation ?? "This only changes the draft - nothing is written to the file until Save."}
             </ResponsiveAlertDialogDescription>
           </ResponsiveAlertDialogHeader>
           <ResponsiveAlertDialogFooter>

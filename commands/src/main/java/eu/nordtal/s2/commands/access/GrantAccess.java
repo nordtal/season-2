@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.access;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -7,10 +9,7 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.SeasonDates;
-
 import java.time.Instant;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /access grant <member> <days>} - days on top of whatever is already running.
@@ -47,8 +46,7 @@ public final class GrantAccess implements NordtalCommand<AccessEffects> {
                 user.reply(MESSAGES.access().failed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
-            user.reply(MESSAGES.access().granted(days, SeasonDates.format(until)),
-                    Feedback.BIG_SUCCESS, Tone.GOOD);
+            user.reply(MESSAGES.access().granted(days, SeasonDates.format(until)), Feedback.BIG_SUCCESS, Tone.GOOD);
         });
     }
 }

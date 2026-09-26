@@ -1,25 +1,23 @@
 package eu.nordtal.s2.smp.npc;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.menu.SlotGeometry;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.papercommon.menu.BlankItem;
 import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.milestone.Objective;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 
 /**
  * The deposit screen: put items in, press confirm, and only then does anything happen.
@@ -38,29 +36,35 @@ public final class HandInGui implements Surface {
     private final long stillNeeded;
     private final Set<String> wanted;
 
-    public HandInGui(final Messages messages, final Locale locale, final Objective objective,
-                     final long amount, final long target) {
+    public HandInGui(
+            final Messages messages,
+            final Locale locale,
+            final Objective objective,
+            final long amount,
+            final long target) {
         this.objective = objective;
         this.stillNeeded = Math.max(0L, target - amount);
         this.wanted = new LinkedHashSet<>(objective.items() == null ? List.of() : objective.items());
 
-        this.inventory = Bukkit.createInventory(this,
+        this.inventory = Bukkit.createInventory(
+                this,
                 HandInPanel.ROWS * SlotGeometry.COLUMNS,
                 HandInPanel.title(
-                        MessageRenderer.of(messages).format(locale, MESSAGES.smp().handin().title()),
+                        MessageRenderer.of(messages)
+                                .format(locale, MESSAGES.smp().handin().title()),
                         messages.format(locale, MESSAGES.smp().handin().stillNeeded(stillNeeded)),
                         messages.format(locale, MESSAGES.smp().handin().confirmButton())));
 
         // A sample of the first wanted material, so the window says what it wants without a
         // sentence. Not takeable - every click outside the tray is cancelled - and it carries the
         // full list, which a single icon cannot show.
-        sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT,
-                describe(messages, locale, item)));
+        sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT, describe(messages, locale, item)));
 
         final ItemStack confirm = BlankItem.of(
-                MessageRenderer.of(messages).format(locale, MESSAGES.smp().handin().confirm()),
-                List.of(MessageRenderer.of(messages).format(locale,
-                        MESSAGES.smp().handin().needed(stillNeeded, String.join(", ", wanted)))));
+                MessageRenderer.of(messages)
+                        .format(locale, MESSAGES.smp().handin().confirm()),
+                List.of(MessageRenderer.of(messages)
+                        .format(locale, MESSAGES.smp().handin().needed(stillNeeded, String.join(", ", wanted)))));
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, confirm));
     }
 
@@ -78,11 +82,11 @@ public final class HandInGui implements Surface {
                 .findFirst();
     }
 
-    private ItemStack describe(final Messages messages, final Locale locale,
-                               final Material material) {
+    private ItemStack describe(final Messages messages, final Locale locale, final Material material) {
         final ItemStack stack = new ItemStack(material);
         stack.editMeta(meta -> {
-            meta.displayName(MessageRenderer.of(messages).format(locale, MESSAGES.smp().handin().wanted())
+            meta.displayName(MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.smp().handin().wanted())
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
             meta.lore(List.of(MessageRenderer.of(messages)
                     .format(locale, MESSAGES.smp().handin().needed(stillNeeded, String.join(", ", wanted)))
@@ -192,7 +196,9 @@ public final class HandInGui implements Surface {
 
     /** Into the inventory, and on the floor at their feet if it does not fit. Never nowhere. */
     private static void give(final Player player, final ItemStack stack) {
-        player.getInventory().addItem(stack).values()
+        player.getInventory()
+                .addItem(stack)
+                .values()
                 .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
     }
 }

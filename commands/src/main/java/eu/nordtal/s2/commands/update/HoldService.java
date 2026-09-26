@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.update;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -10,10 +12,7 @@ import eu.nordtal.s2.common.message.context.ServiceContext;
 import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
-
 import java.util.List;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /update down <service>} and {@code /update start [service]} - the two halves of one switch
@@ -56,8 +55,8 @@ public final class HoldService implements NordtalCommand<UpdateEffects> {
     public void run(final NordtalUser user, final Values values, final UpdateEffects effects) {
         final boolean down = declaration == UpdateCommands.DOWN;
         final UpdateKind kind = down ? UpdateKind.DOWN : UpdateKind.START;
-        final List<String> services = values.optionalString("service")
-                .map(List::of).orElseGet(List::of);
+        final List<String> services =
+                values.optionalString("service").map(List::of).orElseGet(List::of);
 
         effects.async(() -> {
             try {
@@ -65,12 +64,15 @@ public final class HoldService implements NordtalCommand<UpdateEffects> {
                 effects.watch(id, user);
                 if (down) {
                     user.reply(
-                            MESSAGES.update().down().asked(new ServiceContext(services.isEmpty() ? "" : services.getFirst()),
-                                    UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
-                            Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
+                            MESSAGES.update()
+                                    .down()
+                                    .asked(
+                                            new ServiceContext(services.isEmpty() ? "" : services.getFirst()),
+                                            UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
+                            Feedback.SMALL_SUCCESS,
+                            Tone.NEUTRAL);
                 } else {
-                    user.reply(MESSAGES.update().start().asked(),
-                            Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
+                    user.reply(MESSAGES.update().start().asked(), Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
                 }
             } catch (final RunRefused refused) {
                 user.reply(Refusals.of(refused), Feedback.REFUSED, Tone.BAD);

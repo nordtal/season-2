@@ -12,8 +12,7 @@ package eu.nordtal.s2.common;
  */
 public final class Glyphs {
 
-    private Glyphs() {
-    }
+    private Glyphs() {}
 
     /**
      * A code point as a string, so the constants below can be read as hex instead of as
@@ -57,8 +56,8 @@ public final class Glyphs {
      * one draws the right picture on the wrong row.
      */
     public static final String[] FONT_GUI_ROWS = {
-            "nordtal:gui_r0", "nordtal:gui_r1", "nordtal:gui_r2",
-            "nordtal:gui_r3", "nordtal:gui_r4", "nordtal:gui_r5",
+        "nordtal:gui_r0", "nordtal:gui_r1", "nordtal:gui_r2",
+        "nordtal:gui_r3", "nordtal:gui_r4", "nordtal:gui_r5",
     };
 
     // === minecraft:default ===
@@ -122,10 +121,10 @@ public final class Glyphs {
      * {@code player_playtime.seconds} thresholds.
      */
     public static final String[] PRESTIGE_CRESTS = {
-            PRESTIGE_CREST_01, PRESTIGE_CREST_02, PRESTIGE_CREST_03, PRESTIGE_CREST_04,
-            PRESTIGE_CREST_05, PRESTIGE_CREST_06, PRESTIGE_CREST_07, PRESTIGE_CREST_08,
-            PRESTIGE_CREST_09, PRESTIGE_CREST_10, PRESTIGE_CREST_11, PRESTIGE_CREST_12,
-            PRESTIGE_CREST_13,
+        PRESTIGE_CREST_01, PRESTIGE_CREST_02, PRESTIGE_CREST_03, PRESTIGE_CREST_04,
+        PRESTIGE_CREST_05, PRESTIGE_CREST_06, PRESTIGE_CREST_07, PRESTIGE_CREST_08,
+        PRESTIGE_CREST_09, PRESTIGE_CREST_10, PRESTIGE_CREST_11, PRESTIGE_CREST_12,
+        PRESTIGE_CREST_13,
     };
 
     // System-line icons - U+FE080..U+FE085, height 7 / ascent 7, minecraft:default. The markers in
@@ -164,8 +163,8 @@ public final class Glyphs {
                 if (in == null) {
                     throw new IllegalStateException("glyph-names.txt is missing beside Glyphs");
                 }
-                for (final String line : new String(in.readAllBytes(),
-                        java.nio.charset.StandardCharsets.UTF_8).split("\n")) {
+                for (final String line :
+                        new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).split("\n")) {
                     final String trimmed = line.strip();
                     if (trimmed.isEmpty() || trimmed.startsWith("#")) {
                         continue;
@@ -322,10 +321,10 @@ public final class Glyphs {
      * / 22.5), 16)}.
      */
     public static final String[] BOSSBAR_ARROWS = {
-            BOSSBAR_ARROW_000_0, BOSSBAR_ARROW_022_5, BOSSBAR_ARROW_045_0, BOSSBAR_ARROW_067_5,
-            BOSSBAR_ARROW_090_0, BOSSBAR_ARROW_112_5, BOSSBAR_ARROW_135_0, BOSSBAR_ARROW_157_5,
-            BOSSBAR_ARROW_180_0, BOSSBAR_ARROW_202_5, BOSSBAR_ARROW_225_0, BOSSBAR_ARROW_247_5,
-            BOSSBAR_ARROW_270_0, BOSSBAR_ARROW_292_5, BOSSBAR_ARROW_315_0, BOSSBAR_ARROW_337_5,
+        BOSSBAR_ARROW_000_0, BOSSBAR_ARROW_022_5, BOSSBAR_ARROW_045_0, BOSSBAR_ARROW_067_5,
+        BOSSBAR_ARROW_090_0, BOSSBAR_ARROW_112_5, BOSSBAR_ARROW_135_0, BOSSBAR_ARROW_157_5,
+        BOSSBAR_ARROW_180_0, BOSSBAR_ARROW_202_5, BOSSBAR_ARROW_225_0, BOSSBAR_ARROW_247_5,
+        BOSSBAR_ARROW_270_0, BOSSBAR_ARROW_292_5, BOSSBAR_ARROW_315_0, BOSSBAR_ARROW_337_5,
     };
 
     // === nordtal:gui ===
@@ -369,7 +368,7 @@ public final class Glyphs {
 
     /** The six panels, one row first, for {@code rows - 1} indexing. */
     public static final String[] GUI_PANELS = {
-            GUI_PANEL_1, GUI_PANEL_2, GUI_PANEL_3, GUI_PANEL_4, GUI_PANEL_5, GUI_PANEL_6,
+        GUI_PANEL_1, GUI_PANEL_2, GUI_PANEL_3, GUI_PANEL_4, GUI_PANEL_5, GUI_PANEL_6,
     };
 
     // The balloon's travel panel and its two state overlays - U+FE066..U+FE06A. The panel is a
@@ -395,8 +394,8 @@ public final class Glyphs {
 
     /** The six recess-free panels, one row first, for {@code rows - 1} indexing. */
     public static final String[] GUI_PANELS_PLAIN = {
-            GUI_PANEL_PLAIN_1, GUI_PANEL_PLAIN_2, GUI_PANEL_PLAIN_3,
-            GUI_PANEL_PLAIN_4, GUI_PANEL_PLAIN_5, GUI_PANEL_PLAIN_6,
+        GUI_PANEL_PLAIN_1, GUI_PANEL_PLAIN_2, GUI_PANEL_PLAIN_3,
+        GUI_PANEL_PLAIN_4, GUI_PANEL_PLAIN_5, GUI_PANEL_PLAIN_6,
     };
     // U+FE071..U+FE07F is this font's room to grow.
 
@@ -492,7 +491,7 @@ public final class Glyphs {
      * into the card, so an empty bar draws nothing.
      */
     public static final String[] GUI_BAR_FILL_TOP = {
-            cp(0xFE210), cp(0xFE211), cp(0xFE212), cp(0xFE213), cp(0xFE214), cp(0xFE215),
+        cp(0xFE210), cp(0xFE211), cp(0xFE212), cp(0xFE213), cp(0xFE214), cp(0xFE215),
     };
 
     /**
@@ -507,7 +506,7 @@ public final class Glyphs {
      * be, because a player carries at most forty-one stacks and the sixth row is the footer.
      */
     public static final String[] GUI_GRAVE_SLAB = {
-            cp(0xFE205), cp(0xFE206), cp(0xFE207), cp(0xFE208), cp(0xFE209),
+        cp(0xFE205), cp(0xFE206), cp(0xFE207), cp(0xFE208), cp(0xFE209),
     };
 
     /**
@@ -519,7 +518,7 @@ public final class Glyphs {
 
     /** The same six, for the lower card row. */
     public static final String[] GUI_BAR_FILL_BOTTOM = {
-            cp(0xFE218), cp(0xFE219), cp(0xFE21A), cp(0xFE21B), cp(0xFE21C), cp(0xFE21D),
+        cp(0xFE218), cp(0xFE219), cp(0xFE21A), cp(0xFE21B), cp(0xFE21C), cp(0xFE21D),
     };
 
     /** The widths {@link #GUI_BAR_FILL_TOP} draws, in the same order. */

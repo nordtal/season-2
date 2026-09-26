@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.travel;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -17,20 +19,16 @@ import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The travel GUI a balloon opens.
@@ -63,9 +61,16 @@ public final class BalloonGui implements Surface {
     private final List<BalloonMenu.Entry> entries;
     private final Inventory inventory;
 
-    public BalloonGui(final Messages messages, final PlayerLocales locales, final Worlds worlds,
-                      final SeasonState season, final MilestoneTrack track, final SmpSounds sounds,
-                      final WorldEffects effects, final Player viewer, final WorldRole here) {
+    public BalloonGui(
+            final Messages messages,
+            final PlayerLocales locales,
+            final Worlds worlds,
+            final SeasonState season,
+            final MilestoneTrack track,
+            final SmpSounds sounds,
+            final WorldEffects effects,
+            final Player viewer,
+            final WorldRole here) {
         this.messages = messages;
         this.locales = locales;
         this.worlds = worlds;
@@ -77,8 +82,7 @@ public final class BalloonGui implements Surface {
         this.entries = BalloonMenu.of(here, season.unlocked());
 
         final Locale locale = locales.of(viewer.getUniqueId());
-        this.inventory = Bukkit.createInventory(this, BalloonMenu.ROWS * 9,
-                TravelPanel.title(entries));
+        this.inventory = Bukkit.createInventory(this, BalloonMenu.ROWS * 9, TravelPanel.title(entries));
         draw(locale);
     }
 
@@ -104,17 +108,24 @@ public final class BalloonGui implements Surface {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         final boolean locked = entry.state() == BalloonMenu.State.LOCKED;
         final String destination = messages.format(locale, MESSAGES.smp().world(entry.destination()));
-        final Component name = renderer.format(locale, locked
-                ? MESSAGES.smp().balloon().cardLocked(destination)
-                : MESSAGES.smp().balloon().card(destination));
+        final Component name = renderer.format(
+                locale,
+                locked
+                        ? MESSAGES.smp().balloon().cardLocked(destination)
+                        : MESSAGES.smp().balloon().card(destination));
 
         final List<Component> lore = new ArrayList<>();
         switch (entry.state()) {
-            case HERE -> lore.add(renderer.format(locale, MESSAGES.smp().balloon().here()));
-            case OPEN -> lore.add(renderer.format(locale, MESSAGES.smp().balloon().open()));
+            case HERE ->
+                lore.add(renderer.format(locale, MESSAGES.smp().balloon().here()));
+            case OPEN ->
+                lore.add(renderer.format(locale, MESSAGES.smp().balloon().open()));
             case LOCKED -> {
-                lore.add(renderer.format(locale,
-                        MESSAGES.smp().balloon().locked(new MilestoneContext(milestoneName(entry.destination(), locale)))));
+                lore.add(renderer.format(
+                        locale,
+                        MESSAGES.smp()
+                                .balloon()
+                                .locked(new MilestoneContext(milestoneName(entry.destination(), locale)))));
                 lore.add(renderer.format(locale, MESSAGES.smp().balloon().lockedHint()));
             }
         }
@@ -153,8 +164,12 @@ public final class BalloonGui implements Surface {
         final BalloonMenu.Entry entry = clicked.get();
         if (!entry.travellable()) {
             if (entry.state() == BalloonMenu.State.LOCKED) {
-                player.sendMessage(MessageRenderer.of(messages).format(locale,
-                        MESSAGES.smp().balloon().locked(new MilestoneContext(milestoneName(entry.destination(), locale)))));
+                player.sendMessage(MessageRenderer.of(messages)
+                        .format(
+                                locale,
+                                MESSAGES.smp()
+                                        .balloon()
+                                        .locked(new MilestoneContext(milestoneName(entry.destination(), locale)))));
                 sounds.play(player, Feedback.REFUSED);
             }
             return false;
@@ -162,8 +177,8 @@ public final class BalloonGui implements Surface {
 
         final World destination = worlds.world(entry.destination()).orElse(null);
         if (destination == null) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale,
-                    MESSAGES.smp().balloon().unavailable()));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.smp().balloon().unavailable()));
             sounds.play(player, Feedback.REFUSED);
             return false;
         }
@@ -198,22 +213,25 @@ public final class BalloonGui implements Surface {
         // arrived somewhere they cannot survive. The balloon is the one caller that is allowed to
         // say no, because it already has the sentence for it (CodeRabbit, PR #8).
         final SmpSpec.SpawnPointSpec point = worlds.balloonSpawnPoint(entry.destination());
-        final org.bukkit.Location target = new org.bukkit.Location(destination, point.x(), point.y(),
-                point.z(), point.yaw(), point.pitch());
-        final org.bukkit.Location landing = eu.nordtal.s2.smp.world.LandingSite
-                .findSafeAt(destination, target)
+        final org.bukkit.Location target =
+                new org.bukkit.Location(destination, point.x(), point.y(), point.z(), point.yaw(), point.pitch());
+        final org.bukkit.Location landing = eu.nordtal.s2.smp.world.LandingSite.findSafeAt(destination, target)
                 .orElse(null);
         if (landing == null || !player.teleport(landing)) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale,
-                    MESSAGES.smp().balloon().unavailable()));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.smp().balloon().unavailable()));
             sounds.play(player, Feedback.REFUSED);
             return false;
         }
         effects.travelled(from);
         effects.travelled(landing);
-        player.sendMessage(MessageRenderer.of(messages).format(locale,
-                MESSAGES.smp().balloon().travelled(
-                        messages.format(locale, MESSAGES.smp().world(entry.destination())))));
+        player.sendMessage(MessageRenderer.of(messages)
+                .format(
+                        locale,
+                        MESSAGES.smp()
+                                .balloon()
+                                .travelled(
+                                        messages.format(locale, MESSAGES.smp().world(entry.destination())))));
         sounds.play(player, Feedback.TRAVEL);
         return true;
     }

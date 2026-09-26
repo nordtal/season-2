@@ -1,14 +1,13 @@
 package eu.nordtal.s2.commands.network;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
-
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /** {@code /network reload} - re-read the MOTD and every disconnect screen without dropping anybody. */
 public final class ReloadNetwork implements NordtalCommand<NetworkEffects> {
@@ -25,7 +24,10 @@ public final class ReloadNetwork implements NordtalCommand<NetworkEffects> {
             // reload with the success sound until 2026-09-05, which is the one thing an
             // operator hears without reading.
             final boolean reloaded = effects.reloadMessages();
-            user.reply(reloaded ? MESSAGES.network().reloaded() : MESSAGES.network().reloadFailed(),
+            user.reply(
+                    reloaded
+                            ? MESSAGES.network().reloaded()
+                            : MESSAGES.network().reloadFailed(),
                     reloaded ? Feedback.SMALL_SUCCESS : Feedback.REFUSED,
                     reloaded ? Tone.GOOD : Tone.BAD);
         });

@@ -1,12 +1,11 @@
 package eu.nordtal.s2.steward.ui.push;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Where the worker's raw reading meets this service's own thresholds, and becomes one alert per
@@ -32,8 +31,7 @@ import java.util.Map;
 final class Alerts {
 
     /** The three configured numbers, out of {@code UiSpec.AlertSpec}. */
-    record Thresholds(int diskPercent, int memoryPercent, int backupAgeHours) {
-    }
+    record Thresholds(int diskPercent, int memoryPercent, int backupAgeHours) {}
 
     /**
      * One notification-sized fact.
@@ -42,15 +40,16 @@ final class Alerts {
      *              from the map rather than present and green, so that {@link AlertWatch} can tell
      *              "still wrong, differently" from "no longer wrong" by presence alone.
      */
-    record Alert(@NotNull AlertType type, @NotNull String level, @NotNull String subject,
-                 @NotNull String path) {
-    }
+    record Alert(
+            @NotNull AlertType type,
+            @NotNull String level,
+            @NotNull String subject,
+            @NotNull String path) {}
 
-    private Alerts() {
-    }
+    private Alerts() {}
 
-    static @NotNull Map<AlertType, Alert> of(final @NotNull AlertReading reading,
-                                             final @NotNull Thresholds thresholds) {
+    static @NotNull Map<AlertType, Alert> of(
+            final @NotNull AlertReading reading, final @NotNull Thresholds thresholds) {
         final Map<AlertType, List<AlertReading.Trigger>> byType = new EnumMap<>(AlertType.class);
         for (final AlertReading.Trigger trigger : reading.triggers()) {
             final AlertType type = AlertType.of(trigger.kind());
@@ -67,21 +66,23 @@ final class Alerts {
         // AlertType's own note on why that is one switch and not two. A presence trigger already in
         // the list wins: "there is no database dump" is the more specific sentence, and both are
         // red, so nothing is lost by not saying the second one as well.
-        if (!byType.containsKey(AlertType.BACKUP) && reading.backupAgeHours() != null
+        if (!byType.containsKey(AlertType.BACKUP)
+                && reading.backupAgeHours() != null
                 && reading.backupAgeHours() > thresholds.backupAgeHours()) {
-            byType.put(AlertType.BACKUP, List.of(new AlertReading.Trigger(
-                    AlertType.BACKUP.key(), "down", "backups", "/operations/backups")));
+            byType.put(
+                    AlertType.BACKUP,
+                    List.of(new AlertReading.Trigger(
+                            AlertType.BACKUP.key(), "down", "backups", "/operations/backups")));
         }
 
         // Disk and memory. `/` and not `/operations`: the host numbers are on the start page, which
         // is also the page somebody opening Steward from a lock screen at night wants first.
         if (over(reading.diskPercent(), thresholds.diskPercent())) {
-            byType.put(AlertType.DISK, List.of(new AlertReading.Trigger(
-                    AlertType.DISK.key(), "warn", "disk", "/")));
+            byType.put(AlertType.DISK, List.of(new AlertReading.Trigger(AlertType.DISK.key(), "warn", "disk", "/")));
         }
         if (over(reading.memoryPercent(), thresholds.memoryPercent())) {
-            byType.put(AlertType.MEMORY, List.of(new AlertReading.Trigger(
-                    AlertType.MEMORY.key(), "warn", "memory", "/")));
+            byType.put(
+                    AlertType.MEMORY, List.of(new AlertReading.Trigger(AlertType.MEMORY.key(), "warn", "memory", "/")));
         }
 
         final Map<AlertType, Alert> alerts = new EnumMap<>(AlertType.class);

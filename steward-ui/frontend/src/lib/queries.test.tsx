@@ -251,9 +251,7 @@ describe("useDeployerJob - when the polling stops", () => {
 
     fetched.mockImplementation(async () => answer(200, { id: "j1", state: "DONE", lines: [], exitCode: 0 }))
     await result.current.refetch()
-    await waitFor(() =>
-      expect(stateOf(queryClient, keys.deployerJob("j1")).data).toMatchObject({ state: "DONE" }),
-    )
+    await waitFor(() => expect(stateOf(queryClient, keys.deployerJob("j1")).data).toMatchObject({ state: "DONE" }))
 
     expect(invalidated.mock.calls.map(([argument]) => argument)).toEqual([
       { queryKey: keys.services },

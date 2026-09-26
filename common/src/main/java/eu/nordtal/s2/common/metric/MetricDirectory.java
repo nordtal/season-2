@@ -1,9 +1,9 @@
 package eu.nordtal.s2.common.metric;
 
-import javax.sql.DataSource;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import javax.sql.DataSource;
 
 /**
  * The time series behind Steward's start page - written by steward-worker, read by steward-ui.

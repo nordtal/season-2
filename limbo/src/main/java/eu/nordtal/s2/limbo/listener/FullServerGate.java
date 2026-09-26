@@ -1,17 +1,16 @@
 package eu.nordtal.s2.limbo.listener;
 
-import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.access.FullServerAdmission;
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
+import java.util.Objects;
+import java.util.UUID;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.slf4j.Logger;
-
-import java.util.Objects;
-import java.util.UUID;
 
 /**
  * Lets an admin onto this server when it is already full.
@@ -46,8 +45,7 @@ public final class FullServerGate implements Listener {
     private final FullServerAdmission admission;
     private final Logger logger;
 
-    public FullServerGate(final AccessDirectory access, final FullServerAdmission admission,
-                          final Logger logger) {
+    public FullServerGate(final AccessDirectory access, final FullServerAdmission admission, final Logger logger) {
         this.access = Objects.requireNonNull(access, "access");
         this.admission = Objects.requireNonNull(admission, "admission");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -87,8 +85,11 @@ public final class FullServerGate implements Listener {
         try {
             admin = access.accessState(event.getUniqueId()).admin();
         } catch (final RuntimeException exception) {
-            logger.warn("could not read whether {} is an admin, so they get neither operator nor a"
-                    + " place on a full server", event.getUniqueId(), exception);
+            logger.warn(
+                    "could not read whether {} is an admin, so they get neither operator nor a"
+                            + " place on a full server",
+                    event.getUniqueId(),
+                    exception);
         }
         admission.remember(event.getUniqueId(), admin);
     }

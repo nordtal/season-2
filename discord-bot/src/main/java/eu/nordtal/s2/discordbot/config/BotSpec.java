@@ -3,9 +3,9 @@ package eu.nordtal.s2.discordbot.config;
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
-import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
@@ -29,24 +29,25 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
  * steward-worker's start line - and the bot repeats it, through {@code bot_setting}, in
  * {@link Configured#report}.</p>
  */
-@ConfigSpec(header = {
-        "-------------------------------------------------------------------",
-        "  access-bot - credentials",
-        "-------------------------------------------------------------------",
-        "LEAVE THIS EMPTY. Supply it through the environment instead:",
-        "",
-        "  NORDTAL_BOT_TOKEN   the Discord bot token",
-        "",
-        "An environment value is never written back into this file. Anything",
-        "written here does end up in the config volume, so only do that for a",
-        "local checkout.",
-        "",
-        "The bot will not start while it is empty.",
-        "",
-        "The bunq key is NOT here any more. It belongs to steward-worker as",
-        "NORDTAL_STEWARD_BUNQ_API_KEY / NORDTAL_STEWARD_BUNQ_ACCOUNT_ID, and",
-        "that container is the only one in the network that holds it."
-})
+@ConfigSpec(
+        header = {
+            "-------------------------------------------------------------------",
+            "  access-bot - credentials",
+            "-------------------------------------------------------------------",
+            "LEAVE THIS EMPTY. Supply it through the environment instead:",
+            "",
+            "  NORDTAL_BOT_TOKEN   the Discord bot token",
+            "",
+            "An environment value is never written back into this file. Anything",
+            "written here does end up in the config volume, so only do that for a",
+            "local checkout.",
+            "",
+            "The bot will not start while it is empty.",
+            "",
+            "The bunq key is NOT here any more. It belongs to steward-worker as",
+            "NORDTAL_STEWARD_BUNQ_API_KEY / NORDTAL_STEWARD_BUNQ_ACCOUNT_ID, and",
+            "that container is the only one in the network that holds it."
+        })
 public interface BotSpec {
 
     @Order(1)

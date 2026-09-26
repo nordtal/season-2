@@ -1,5 +1,12 @@
 package eu.nordtal.s2.smp.db;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
@@ -13,14 +20,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The arithmetic behind {@code /aura}, against a real PostgreSQL running the real migrations.
@@ -50,7 +49,8 @@ class AuraPlaceIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed aura place tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -135,8 +135,7 @@ class AuraPlaceIntegrationTest {
         assertEquals(2, dao.auraPlace(200, "100000000000000002").place());
         assertEquals(2, dao.auraPlace(200, "100000000000000003").place());
         assertEquals(4, dao.auraPlace(10, "100000000000000004").place());
-        assertEquals(4, dao.auraPlace(10, "100000000000000004").total(),
-                "the total is everybody on the board");
+        assertEquals(4, dao.auraPlace(10, "100000000000000004").total(), "the total is everybody on the board");
     }
 
     @Test
@@ -150,7 +149,9 @@ class AuraPlaceIntegrationTest {
         execute("INSERT INTO smp_player (discord_id, aura) VALUES ('100000000000000009', 999)");
 
         assertEquals(2, dao.auraPlace(400, "100000000000000001").total());
-        assertEquals(1, dao.auraPlace(400, "100000000000000001").place(),
+        assertEquals(
+                1,
+                dao.auraPlace(400, "100000000000000001").place(),
                 "the unlinked account has more aura than anybody and must not push a real player"
                         + " down a place they cannot see");
         assertEquals(2, dao.topAura(10).size(), "the list this sentence sits above");
@@ -171,7 +172,7 @@ class AuraPlaceIntegrationTest {
 
     private void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException failure) {
             throw new IllegalStateException(sql, failure);

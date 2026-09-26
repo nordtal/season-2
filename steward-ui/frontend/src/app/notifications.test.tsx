@@ -1,10 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 
@@ -149,9 +144,7 @@ function backend(
     }
     if (url === "/api/web-push/test") return new Response(null, { status: 204 })
     if (url === "/api/config") {
-      return json(200, over.noAlertsFile ? [] : [
-        { ...alertsFile(), writable: over.writable ?? true },
-      ])
+      return json(200, over.noAlertsFile ? [] : [{ ...alertsFile(), writable: over.writable ?? true }])
     }
     if (url === `/api/config/${ALERTS}`) {
       if (method === "PUT") {
@@ -281,9 +274,7 @@ describe("the devices of this account", () => {
     vi.stubGlobal("fetch", fetcher)
     await open()
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }),
-    )
+    fireEvent.click(await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }))
     fireEvent.click(await screen.findByRole("button", { name: "Backup missing" }))
 
     await waitFor(() => expect(calls.some((call) => call.url === "/api/web-push/test")).toBe(true))
@@ -348,9 +339,7 @@ describe("the test send hangs off the paper plane", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }),
-    )
+    fireEvent.click(await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }))
 
     expect(await screen.findByText("Test notifications")).toBeTruthy()
     // Every one of the five, in the words `AlertWatch#sample` really sends. "Services" is the
@@ -379,9 +368,7 @@ describe("the test send hangs off the paper plane", () => {
     await open()
 
     const switches = await screen.findAllByRole("switch")
-    fireEvent.click(
-      screen.getByRole("button", { name: "Send a test notification to iPhone, Safari" }),
-    )
+    fireEvent.click(screen.getByRole("button", { name: "Send a test notification to iPhone, Safari" }))
     const popover = (await screen.findByText("Test notifications")).parentElement as HTMLElement
 
     // One row per switch: a type that cannot be tested honestly would be a button that sends
@@ -399,9 +386,7 @@ describe("the thresholds the notifications fire on", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    expect(
-      ((await screen.findByLabelText("Disk in use")) as HTMLInputElement).value,
-    ).toBe("85")
+    expect(((await screen.findByLabelText("Disk in use")) as HTMLInputElement).value).toBe("85")
     expect((screen.getByLabelText("Memory in use") as HTMLInputElement).value).toBe("90")
     expect((screen.getByLabelText("Newest backup") as HTMLInputElement).value).toBe("30")
   })
@@ -414,7 +399,9 @@ describe("the thresholds the notifications fire on", () => {
     fireEvent.change(await screen.findByLabelText("Disk in use"), { target: { value: "70" } })
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
-    await waitFor(() => expect(calls.some((call) => call.method === "PUT" && call.url.startsWith("/api/config/"))).toBe(true))
+    await waitFor(() =>
+      expect(calls.some((call) => call.method === "PUT" && call.url.startsWith("/api/config/"))).toBe(true),
+    )
     expect(calls.filter((call) => call.method === "PUT" && call.url.startsWith("/api/config/"))).toEqual([
       {
         url: `/api/config/${ALERTS}`,

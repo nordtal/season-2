@@ -1,13 +1,12 @@
 package eu.nordtal.s2.steward.worker.docker;
 
 import eu.nordtal.s2.steward.worker.plan.Topology;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The console of §10a.2: one line, typed into one server.
@@ -33,8 +32,8 @@ public final class Console {
     private static final Logger log = LoggerFactory.getLogger(Console.class);
 
     /** The four that have a console. Everything else is refused by name. */
-    public static final Set<String> WITH_A_CONSOLE = Set.of(
-            Topology.PROXY, Topology.LIMBO, Topology.HUNGER_GAMES, Topology.SMP);
+    public static final Set<String> WITH_A_CONSOLE =
+            Set.of(Topology.PROXY, Topology.LIMBO, Topology.HUNGER_GAMES, Topology.SMP);
 
     private final Docker docker;
     private final String project;
@@ -67,8 +66,9 @@ public final class Console {
         if (command.isBlank()) {
             throw new IllegalArgumentException("an empty line is not a command");
         }
-        final String containerId = containerOf(service).orElseThrow(() -> new DockerException(
-                "no running container for " + service + ", so there is no console to type into"));
+        final String containerId = containerOf(service)
+                .orElseThrow(() -> new DockerException(
+                        "no running container for " + service + ", so there is no console to type into"));
 
         // `mc` is in the image and is the supported way in - see deploy/minecraft/Dockerfile. It
         // exits as soon as tmux has the line, so an empty answer here is success, not silence.
@@ -77,8 +77,8 @@ public final class Console {
             // `mc` failing is not the server refusing the command - the server never sees a line
             // that `mc` could not hand to tmux. Saying "sent" here would be a lie with a
             // convincing shape.
-            throw new DockerException("`mc " + command + "` in " + service + " exited "
-                    + answer.exitCode() + ": " + answer.output().strip());
+            throw new DockerException("`mc " + command + "` in " + service + " exited " + answer.exitCode() + ": "
+                    + answer.output().strip());
         }
         if (!answer.output().isBlank()) {
             // Only `mc` itself talks here, and only when it is unhappy about something it survived.
@@ -98,8 +98,9 @@ public final class Console {
         return switch (service) {
             case Topology.DISCORD_BOT -> "its console is Discord";
             case Topology.STEWARD_WORKER -> "its console is this interface";
-            case "postgres" -> "a database is not driven by typing into a terminal, and `psql` on "
-                    + "the host is the tool for the times when it is";
+            case "postgres" ->
+                "a database is not driven by typing into a terminal, and `psql` on "
+                        + "the host is the tool for the times when it is";
             // caddy, and it says "reverse proxy" rather than naming the service because that is
             // what it is. NOT the Velocity proxy: since season-2-ops/117 the service called
             // `proxy` is a Minecraft server and is in WITH_A_CONSOLE, so this branch is

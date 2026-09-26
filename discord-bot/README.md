@@ -8,7 +8,7 @@ any Paper backend exists.
 from a member's side; what changed is who makes the call. The bot writes a row asking for a payment
 link, `steward-worker` — the only container in the network that holds a bank credential — creates the
 bunq.me tab and writes the link back, and `nordtal_payment` wakes the bot so the waiting message
-fills itself in. Money that arrives is found by the worker and *booked* here: the tier, the grant,
+fills itself in. Money that arrives is found by the worker and _booked_ here: the tier, the grant,
 the role, the DM and the public thank-you are all Discord's business and stayed.
 
 It does not apply the schema — the `steward-worker` container does, because a release that adds a table is a
@@ -38,7 +38,7 @@ This file is only about starting the container; the deployment as a whole is
 ## Configuration is environment variables only
 
 `compose.yml` carries no values. Every setting in `bot.yml`, `database.yml` and `access.yml` arrives
-as an environment variable; jcore applies the environment *after* writing the file and *before*
+as an environment variable; jcore applies the environment _after_ writing the file and _before_
 validating, so a container that has never seen a config file starts correctly from the environment
 alone, and an overridden value is never written back into the config volume.
 
@@ -90,7 +90,7 @@ so a local build cannot pick up a jar from an older run of it. `BOT_VERSION` did
 
 **The image tag is a floor, not the version.** The bot runs whatever `discord-bot-*.jar` is in the
 `bot-jar` volume, which steward-worker fills exactly as it fills every `plugins/` folder — so the bot
-moves by the same mechanism as every other module. It does not roll *back* by any mechanism: nothing
+moves by the same mechanism as every other module. It does not roll _back_ by any mechanism: nothing
 pins a release any more, and the way out of a bad one is to publish a better one. The jar baked into
 the image is used only while that volume is empty, which is a first deployment and nothing else, and
 reading it as "what is running" is wrong: the entrypoint prints the jar it picked on every start, and
@@ -121,7 +121,7 @@ The same compose file. What changes is `.env`:
 
 - **`NORDTAL_ACCESS_PAYMENT_WATERMARK` and `NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT` are gone**
   (steward/109). They are `NORDTAL_STEWARD_BUNQ_WATERMARK` and
-  `NORDTAL_STEWARD_BUNQ_RECENT_PAYMENT_COUNT` on the worker. The watermark is the *same row* in
+  `NORDTAL_STEWARD_BUNQ_RECENT_PAYMENT_COUNT` on the worker. The watermark is the _same row_ in
   `bot_setting`, so a deployment that has already stamped one keeps it across the move. A file that
   still carries the old names loses those two lines with a WARN and a `.bak`, and the bot starts.
 - **`payment.request-ttl-hours` deliberately did not move.** The bot writes the `payment_request`

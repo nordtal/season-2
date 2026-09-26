@@ -1,8 +1,8 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 class LabelsTest {
 

@@ -101,7 +101,10 @@ public interface HungerGamesMessages {
             MessageRef player(@Arg("icon") Object icon, @Arg("winner") PlayerContext winner);
 
             @Name("Tie broken")
-            MessageRef tieBroken(@Arg("winner") PlayerContext winner, @Arg("winnerKills") Object winnerKills, @Arg("loserKills") Object loserKills);
+            MessageRef tieBroken(
+                    @Arg("winner") PlayerContext winner,
+                    @Arg("winnerKills") Object winnerKills,
+                    @Arg("loserKills") Object loserKills);
 
             @Name("No winner")
             MessageRef noWinner(@Arg("kills") Object kills);
@@ -165,7 +168,8 @@ public interface HungerGamesMessages {
             interface Body {
 
                 @Name("By")
-                MessageRef by(@Arg("icon") Object icon, @Arg("_player") Component player, @Arg("_killer") Component killer);
+                MessageRef by(
+                        @Arg("icon") Object icon, @Arg("_player") Component player, @Arg("_killer") Component killer);
             }
         }
     }

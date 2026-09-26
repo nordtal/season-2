@@ -1,8 +1,14 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
-
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,14 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * {@link Teams} against a real PostgreSQL, running the real {@code V5__hunger_games.sql}
@@ -50,7 +48,8 @@ class TeamsIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -59,8 +58,8 @@ class TeamsIntegrationTest {
                 .withPassword("hungergames");
         postgres.start();
 
-        database = Database.create(DatabaseConfig.of(
-                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
+        database = Database.create(
+                DatabaseConfig.of(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
         database.migrate();
     }
 
@@ -77,18 +76,20 @@ class TeamsIntegrationTest {
     @BeforeEach
     void clean() {
         assumeTrue(database != null);
-        database.jdbi().useHandle(handle -> handle.execute(
-                "TRUNCATE hg_event, hg_member, hg_team, hg_game, discord_user CASCADE"));
+        database.jdbi()
+                .useHandle(handle ->
+                        handle.execute("TRUNCATE hg_event, hg_member, hg_team, hg_game, discord_user CASCADE"));
         teams = new Teams(database.jdbi());
     }
 
     @Test
     @DisplayName("the migration applies and creates the hunger games tables")
     void migrationCreatesEverything() {
-        final List<String> tables = database.jdbi().withHandle(handle -> handle
-                .createQuery("SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename")
-                .mapTo(String.class)
-                .list());
+        final List<String> tables = database.jdbi()
+                .withHandle(handle -> handle.createQuery(
+                                "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename")
+                        .mapTo(String.class)
+                        .list());
 
         assertTrue(tables.containsAll(List.of("hg_game", "hg_team", "hg_member", "hg_event")), tables.toString());
     }
@@ -106,7 +107,9 @@ class TeamsIntegrationTest {
     void secondRegistrationByTheSameAccountIsRefused() {
         teams.register(OWNER, "Foxes");
 
-        assertEquals(RegistrationResult.Status.ALREADY_REGISTERED, teams.register(OWNER, "Wolves").status());
+        assertEquals(
+                RegistrationResult.Status.ALREADY_REGISTERED,
+                teams.register(OWNER, "Wolves").status());
     }
 
     @Test
@@ -114,7 +117,9 @@ class TeamsIntegrationTest {
     void teamNameIsTakenCaseInsensitively() {
         teams.register(OWNER, "Foxes");
 
-        assertEquals(RegistrationResult.Status.NAME_TAKEN, teams.register(OTHER, "foxes").status());
+        assertEquals(
+                RegistrationResult.Status.NAME_TAKEN,
+                teams.register(OTHER, "foxes").status());
     }
 
     @Test
@@ -128,11 +133,11 @@ class TeamsIntegrationTest {
         final AnswerResult accepted = teams.accept(invited.memberId(), PARTNER);
         assertAll(
                 () -> assertEquals(AnswerResult.Status.ANSWERED, accepted.status()),
-                () -> assertEquals("Foxes", accepted.teamName())
-        );
+                () -> assertEquals("Foxes", accepted.teamName()));
 
         // The team is full now - a third, otherwise uninvolved account cannot be invited too.
-        assertEquals(InviteResult.Status.TEAM_FULL, teams.invite(OWNER, UNREGISTERED).status());
+        assertEquals(
+                InviteResult.Status.TEAM_FULL, teams.invite(OWNER, UNREGISTERED).status());
     }
 
     @Test
@@ -154,7 +159,8 @@ class TeamsIntegrationTest {
         teams.register(OWNER, "Foxes");
         final UUID memberId = teams.invite(OWNER, PARTNER).memberId();
 
-        assertEquals(AnswerResult.Status.NOT_PENDING, teams.accept(memberId, OTHER).status());
+        assertEquals(
+                AnswerResult.Status.NOT_PENDING, teams.accept(memberId, OTHER).status());
     }
 
     @Test
@@ -163,7 +169,8 @@ class TeamsIntegrationTest {
         teams.register(OWNER, "Foxes");
         teams.invite(OWNER, PARTNER);
 
-        assertEquals(InviteResult.Status.INVITE_PENDING, teams.invite(OWNER, OTHER).status());
+        assertEquals(
+                InviteResult.Status.INVITE_PENDING, teams.invite(OWNER, OTHER).status());
     }
 
     @Test
@@ -172,7 +179,9 @@ class TeamsIntegrationTest {
         teams.register(OWNER, "Foxes");
         teams.register(PARTNER, "Wolves");
 
-        assertEquals(InviteResult.Status.TARGET_UNAVAILABLE, teams.invite(OWNER, PARTNER).status());
+        assertEquals(
+                InviteResult.Status.TARGET_UNAVAILABLE,
+                teams.invite(OWNER, PARTNER).status());
     }
 
     @Test
@@ -197,20 +206,23 @@ class TeamsIntegrationTest {
     @DisplayName("once the open game is DECIDED, the next registration opens a new one")
     void aNewGameOpensOnceThePreviousOneIsDecided() {
         final UUID first = teams.openGame();
-        database.jdbi().useHandle(handle -> handle
-                .createUpdate("UPDATE hg_game SET state = 'DECIDED' WHERE id = :id")
-                .bind("id", first)
-                .execute());
+        database.jdbi()
+                .useHandle(handle -> handle.createUpdate("UPDATE hg_game SET state = 'DECIDED' WHERE id = :id")
+                        .bind("id", first)
+                        .execute());
 
         final UUID second = teams.openGame();
         assertTrue(!first.equals(second), "a DECIDED game must not be reused");
 
         // The old game's team name is free again in the new game - a rehearsal and the real event
         // do not fight over "Foxes".
-        database.jdbi().useHandle(handle -> handle
-                .createUpdate("INSERT INTO hg_team (game_id, name) VALUES (:gameId, 'Foxes')")
-                .bind("gameId", first)
-                .execute());
-        assertEquals(RegistrationResult.Status.REGISTERED, teams.register(OWNER, "Foxes").status());
+        database.jdbi()
+                .useHandle(
+                        handle -> handle.createUpdate("INSERT INTO hg_team (game_id, name) VALUES (:gameId, 'Foxes')")
+                                .bind("gameId", first)
+                                .execute());
+        assertEquals(
+                RegistrationResult.Status.REGISTERED,
+                teams.register(OWNER, "Foxes").status());
     }
 }

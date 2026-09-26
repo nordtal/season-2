@@ -1,13 +1,12 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import eu.nordtal.s2.steward.worker.configfile.ConfigLocation;
-import org.junit.jupiter.api.Test;
-
-import java.nio.file.Path;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+
+import eu.nordtal.s2.steward.worker.configfile.ConfigLocation;
+import java.nio.file.Path;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 class ConfigApiOriginTest {
 
@@ -33,6 +32,8 @@ class ConfigApiOriginTest {
     void anyOtherFolderIsThirdPartyAndKeepsItsOwnName() {
         assertEquals("third-party", row("smp", "bStats/config.yml").get("origin"));
         assertEquals("bStats", row("smp", "bStats/config.yml").get("plugin"));
-        assertEquals("third-party", row("proxy", "voicechat/voicechat-proxy.properties").get("origin"));
+        assertEquals(
+                "third-party",
+                row("proxy", "voicechat/voicechat-proxy.properties").get("origin"));
     }
 }

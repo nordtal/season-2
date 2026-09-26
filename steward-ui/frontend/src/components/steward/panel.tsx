@@ -14,15 +14,7 @@ import { cn } from "cn"
  * This is deliberately not a second card component with fewer props: a `Panel` never gets a border
  * or a shadow, because the day it grows one is the day it was a `Card` that took the scenic route.
  */
-export function Panel({
-  title,
-  children,
-  className,
-}: {
-  title: string
-  children: ReactNode
-  className?: string
-}) {
+export function Panel({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   return (
     <section className={cn("flex flex-col gap-3", className)}>
       <h2 className="text-xs font-medium text-muted-foreground">{title}</h2>

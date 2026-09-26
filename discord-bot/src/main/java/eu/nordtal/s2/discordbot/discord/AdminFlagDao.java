@@ -1,9 +1,8 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
-
-import java.util.Optional;
 
 /**
  * Reads {@code discord_user.admin} for one Discord account. {@code :common}'s access API asks by

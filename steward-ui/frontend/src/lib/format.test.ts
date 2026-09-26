@@ -172,9 +172,7 @@ describe("parseInstant", () => {
   })
 
   it("reads an offset as an offset and not as local time", () => {
-    expect(parseInstant("2026-09-12T06:45:00+02:00")?.getTime()).toBe(
-      Date.UTC(2026, 8, 12, 4, 45, 0),
-    )
+    expect(parseInstant("2026-09-12T06:45:00+02:00")?.getTime()).toBe(Date.UTC(2026, 8, 12, 4, 45, 0))
   })
 })
 

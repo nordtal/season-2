@@ -1,10 +1,9 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
+import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
-
-import java.util.List;
 
 /**
  * One key of a jcore-written config file, as the interface needs to draw it.
@@ -190,8 +189,7 @@ public record ConfigEntry(
      * @param field the field key within one section to match against, e.g. {@code tag}
      * @param value the value that field must equal for that section to be the protected one
      */
-    public record Protected(@NotNull String field, @NotNull String value) {
-    }
+    public record Protected(@NotNull String field, @NotNull String value) {}
 
     /** Defensive copies, so a document cannot be edited through an entry. */
     public ConfigEntry {

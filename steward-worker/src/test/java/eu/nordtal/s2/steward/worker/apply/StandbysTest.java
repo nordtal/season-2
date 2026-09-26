@@ -1,20 +1,18 @@
 package eu.nordtal.s2.steward.worker.apply;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.steward.worker.plan.Topology;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * What a standby's {@code plugins/} holds after a run (season-2-ops/119).
@@ -35,16 +33,18 @@ class StandbysTest {
         write("proxy/plugins/proxy/pack.yml", "url: https://example.invalid/pack.zip\nsha1: abc\n");
         mounted(Topology.standbyOf(Topology.PROXY));
 
-        final List<ApplyResult.Outcome> outcomes =
-                Standbys.fill(volumes, List.of(Topology.PROXY));
+        final List<ApplyResult.Outcome> outcomes = Standbys.fill(volumes, List.of(Topology.PROXY));
 
         assertEquals(1, outcomes.size(), "one row per mounted standby: " + outcomes);
         assertEquals(ApplyResult.Status.DONE, outcomes.getFirst().status(), detail(outcomes));
-        assertEquals("proxy-standby", outcomes.getFirst().service(),
+        assertEquals(
+                "proxy-standby",
+                outcomes.getFirst().service(),
                 "the row is filed under the standby's own compose service name, or a failure here"
                         + " would read as a failure of the proxy update itself");
         assertEquals("new", read("proxy-standby/plugins/proxy-0.9.3.jar"));
-        assertEquals("url: https://example.invalid/pack.zip\nsha1: abc\n",
+        assertEquals(
+                "url: https://example.invalid/pack.zip\nsha1: abc\n",
                 read("proxy-standby/plugins/proxy/pack.yml"),
                 "the standby hands a transferred player a different resource pack to download");
     }
@@ -58,7 +58,8 @@ class StandbysTest {
         Standbys.fill(volumes, List.of(Topology.LIMBO));
 
         assertTrue(Files.isRegularFile(volumes.resolve("limbo-standby/plugins/limbo-0.9.3.jar")));
-        assertFalse(Files.exists(volumes.resolve("limbo-standby/plugins/limbo-0.9.2.jar")),
+        assertFalse(
+                Files.exists(volumes.resolve("limbo-standby/plugins/limbo-0.9.2.jar")),
                 "the standby still carries the superseded jar, so it would start on two versions of"
                         + " the same plugin - which is a server that does not start at all");
     }
@@ -93,7 +94,8 @@ class StandbysTest {
         write("proxy/plugins/proxy/pack.yml", "url: https://example.invalid/p.zip\nsha1: bbbb\n");
         final List<ApplyResult.Outcome> second = Standbys.fill(volumes, List.of(Topology.PROXY));
 
-        assertEquals("url: https://example.invalid/p.zip\nsha1: bbbb\n",
+        assertEquals(
+                "url: https://example.invalid/p.zip\nsha1: bbbb\n",
                 read("proxy-standby/plugins/proxy/pack.yml"),
                 "the standby kept the old pack.yml, so a transferred player is told to download a"
                         + " pack under a hash that no longer matches it");
@@ -122,9 +124,11 @@ class StandbysTest {
 
         final List<ApplyResult.Outcome> outcomes = Standbys.fill(volumes, List.of(Topology.LIMBO));
 
-        assertEquals(List.of("limbo-standby"), outcomes.stream()
-                .map(ApplyResult.Outcome::service).toList());
-        assertFalse(Files.exists(volumes.resolve("proxy-standby/plugins/proxy-0.9.3.jar")),
+        assertEquals(
+                List.of("limbo-standby"),
+                outcomes.stream().map(ApplyResult.Outcome::service).toList());
+        assertFalse(
+                Files.exists(volumes.resolve("proxy-standby/plugins/proxy-0.9.3.jar")),
                 "a run scoped to limbo wrote into the proxy's standby");
     }
 
@@ -139,9 +143,11 @@ class StandbysTest {
         // The status alone would be reached by an unhandled exception too. What the row has to say
         // is which directory was empty and what it costs, because the only other place this shows
         // up is a container refusing to start in the middle of a swap.
-        assertTrue(String.valueOf(outcomes.getFirst().detail()).contains("refuse to start"),
+        assertTrue(
+                String.valueOf(outcomes.getFirst().detail()).contains("refuse to start"),
                 "the failure does not say what an empty standby costs: " + detail(outcomes));
-        assertTrue(String.valueOf(outcomes.getFirst().detail()).contains("plugins"),
+        assertTrue(
+                String.valueOf(outcomes.getFirst().detail()).contains("plugins"),
                 "the failure does not name the directory it could not read: " + detail(outcomes));
     }
 

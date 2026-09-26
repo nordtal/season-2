@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.hungergames;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Confirmations;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
@@ -7,10 +9,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
-
 import java.util.Optional;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /hg start} - the one command that decides the whole event.
@@ -42,16 +41,14 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
     }
 
     @Override
-    public void run(final NordtalUser user, final Values values,
-                    final HungerGamesEffects effects) {
+    public void run(final NordtalUser user, final Values values, final HungerGamesEffects effects) {
         // The optional trailing word IS the second step. `/hg start confirm` in chat, a dropdown
         // with one value in Discord - one command either way, which is what stops the two halves
         // from having two confirmation maps between them.
         attempt(user, effects, values.optionalString("confirm").isPresent());
     }
 
-    private void attempt(final NordtalUser user, final HungerGamesEffects effects,
-                         final boolean isConfirmation) {
+    private void attempt(final NordtalUser user, final HungerGamesEffects effects, final boolean isConfirmation) {
         effects.async(() -> {
             final Optional<HungerGamesEffects.Registration> registration;
             try {
@@ -68,15 +65,16 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
             }
             final HungerGamesEffects.Registration game = registration.get();
             if (!"REGISTRATION".equals(game.state())) {
-                user.reply(MESSAGES.hg().start().wrongState(game.state()),
-                        Feedback.REFUSED, Tone.WARN);
+                user.reply(MESSAGES.hg().start().wrongState(game.state()), Feedback.REFUSED, Tone.WARN);
                 return;
             }
             if (game.participants() < HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS) {
                 user.reply(
-                        MESSAGES.hg().start().belowHardMinimum(HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS,
-                                game.participants()),
-                        Feedback.REFUSED, Tone.BAD);
+                        MESSAGES.hg()
+                                .start()
+                                .belowHardMinimum(HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS, game.participants()),
+                        Feedback.REFUSED,
+                        Tone.BAD);
                 return;
             }
 
@@ -84,8 +82,7 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
             // the second step must not be refused on a game that never needed one. Until 2026-09-05
             // `/hg start confirm` on a healthy registration answered "that confirmation expired" -
             // nothing had expired, nothing had ever been armed, and the game did not start.
-            final boolean needsConfirming =
-                    game.participants() < effects.softMinimumParticipants();
+            final boolean needsConfirming = game.participants() < effects.softMinimumParticipants();
             if (isConfirmation && needsConfirming) {
                 if (!confirmations.consume(user, KEY)) {
                     user.reply(MESSAGES.hg().start().confirmExpired(), Feedback.REFUSED, Tone.WARN);
@@ -97,11 +94,16 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
                 // the one place an admin about to start the season's flagship event should stop and
                 // read rather than type the next thing.
                 user.reply(
-                        MESSAGES.hg().start().belowSoftMinimum(game.participants(),
-                                effects.softMinimumParticipants(), Confirmations.WINDOW.toSeconds()),
+                        MESSAGES.hg()
+                                .start()
+                                .belowSoftMinimum(
+                                        game.participants(),
+                                        effects.softMinimumParticipants(),
+                                        Confirmations.WINDOW.toSeconds()),
                         // The confirmation question, which is neither a refusal nor a success -
                         // it is the one line the admin has to read before typing it again.
-                        Feedback.REFUSED, Tone.WARN);
+                        Feedback.REFUSED,
+                        Tone.WARN);
                 return;
             } else {
                 // A start that needed no confirmation clears any stale one, so a warning from a
@@ -124,12 +126,10 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
             }
             // Said afterwards, and that ordering is the whole point: the reply used to go out first,
             // so a start that threw told the admin the event had begun.
-            user.reply(MESSAGES.hg().start().started(game.participants()),
-                    Feedback.SMALL_SUCCESS, Tone.GOOD);
+            user.reply(MESSAGES.hg().start().started(game.participants()), Feedback.SMALL_SUCCESS, Tone.GOOD);
         });
     }
 
     /** What the confirmation is keyed on - the command, not the exact line somebody typed. */
     private static final String KEY = "/hg start";
-
 }

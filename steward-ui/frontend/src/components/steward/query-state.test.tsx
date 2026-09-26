@@ -30,18 +30,14 @@ const row = (data: string | undefined) => <span>{data ?? "…"}</span>
 describe("QueryState", () => {
   it("draws the waiting shape while a query is actually running", () => {
     render(
-      <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "fetching" }}>
-        {row}
-      </QueryState>,
+      <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "fetching" }}>{row}</QueryState>,
     )
     expect(screen.getByText("…")).toBeTruthy()
   })
 
   it("says so when a query is switched off, rather than waiting for ever", () => {
     render(
-      <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "idle" }}>
-        {row}
-      </QueryState>,
+      <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "idle" }}>{row}</QueryState>,
     )
     expect(screen.queryByRole("status")).toBeNull()
     expect(screen.getByText(/nothing was requested/i)).toBeTruthy()
@@ -49,18 +45,12 @@ describe("QueryState", () => {
 
   it("still draws the waiting shape when nothing said which it is", () => {
     // `fetchStatus` is optional, because a page may hand in a plain object rather than a query.
-    render(
-      <QueryState query={{ data: undefined, error: null, isPending: true }}>{row}</QueryState>,
-    )
+    render(<QueryState query={{ data: undefined, error: null, isPending: true }}>{row}</QueryState>)
     expect(screen.getByText("…")).toBeTruthy()
   })
 
   it("hands the data to the child once it is there", () => {
-    render(
-      <QueryState query={{ data: "smp", error: null, isPending: false, fetchStatus: "idle" }}>
-        {row}
-      </QueryState>,
-    )
+    render(<QueryState query={{ data: "smp", error: null, isPending: false, fetchStatus: "idle" }}>{row}</QueryState>)
     expect(screen.getByText("smp")).toBeTruthy()
   })
 
@@ -73,19 +63,14 @@ describe("QueryState", () => {
    */
   it("calls the child while waiting, so the child can draw its own shape", () => {
     render(
-      <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "fetching" }}>
-        {row}
-      </QueryState>,
+      <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "fetching" }}>{row}</QueryState>,
     )
     expect(screen.getByText("…")).toBeTruthy()
   })
 
   it("draws flat bars instead when a view asked for them with `rows`", () => {
     render(
-      <QueryState
-        query={{ data: undefined, error: null, isPending: true, fetchStatus: "fetching" }}
-        rows={3}
-      >
+      <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "fetching" }} rows={3}>
         {(data: string) => <span>{data}</span>}
       </QueryState>,
     )
@@ -96,11 +81,7 @@ describe("QueryState", () => {
   })
 
   it("shows a failure in place rather than a skeleton that keeps shimmering", () => {
-    render(
-      <QueryState query={{ data: undefined, error: new Error("nope"), isPending: false }}>
-        {row}
-      </QueryState>,
-    )
+    render(<QueryState query={{ data: undefined, error: new Error("nope"), isPending: false }}>{row}</QueryState>)
     expect(screen.getByRole("alert")).toBeTruthy()
     expect(screen.queryByRole("status")).toBeNull()
   })
@@ -112,11 +93,7 @@ describe("QueryState", () => {
    */
   it("leaves the old data standing while the next answer is fetched", () => {
     render(
-      <QueryState
-        query={{ data: "smp", error: null, isPending: false, fetchStatus: "fetching" }}
-      >
-        {row}
-      </QueryState>,
+      <QueryState query={{ data: "smp", error: null, isPending: false, fetchStatus: "fetching" }}>{row}</QueryState>,
     )
     expect(screen.getByText("smp")).toBeTruthy()
     expect(screen.queryByRole("status")).toBeNull()
@@ -129,13 +106,17 @@ describe("a gateway that blinked", () => {
 
   it("keeps recent data standing through a 502, 503 or 504", () => {
     for (const status of [502, 503, 504]) {
-      expect(transient({ data: "x", error: gateway(status), isPending: false, dataUpdatedAt: now - 5_000 }, now)).toBe(true)
+      expect(transient({ data: "x", error: gateway(status), isPending: false, dataUpdatedAt: now - 5_000 }, now)).toBe(
+        true,
+      )
     }
   })
 
   it("does not for another status, data that is too old, or no data at all", () => {
     expect(transient({ data: "x", error: gateway(500), isPending: false, dataUpdatedAt: now }, now)).toBe(false)
-    expect(transient({ data: "x", error: gateway(502), isPending: false, dataUpdatedAt: now - TRANSIENT_GRACE_MS }, now)).toBe(false)
+    expect(
+      transient({ data: "x", error: gateway(502), isPending: false, dataUpdatedAt: now - TRANSIENT_GRACE_MS }, now),
+    ).toBe(false)
     expect(transient({ data: undefined, error: gateway(502), isPending: false, dataUpdatedAt: now }, now)).toBe(false)
   })
 

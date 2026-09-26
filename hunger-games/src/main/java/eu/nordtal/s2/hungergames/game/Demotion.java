@@ -1,7 +1,6 @@
 package eu.nordtal.s2.hungergames.game;
 
 import eu.nordtal.s2.hungergames.db.RosterEntry;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,8 +18,7 @@ import java.util.UUID;
  */
 public final class Demotion {
 
-    private Demotion() {
-    }
+    private Demotion() {}
 
     /**
      * @param roster every active membership of the game, as returned by
@@ -38,13 +36,19 @@ public final class Demotion {
 
         final List<Participant> participants = new ArrayList<>();
         for (final List<RosterEntry> team : byTeam.values()) {
-            final List<RosterEntry> linked = team.stream().filter(entry -> entry.mcUuid() != null).toList();
+            final List<RosterEntry> linked =
+                    team.stream().filter(entry -> entry.mcUuid() != null).toList();
             final boolean demoted = team.size() == 2 && linked.size() == 1;
 
             for (final RosterEntry entry : linked) {
                 participants.add(new Participant(
-                        entry.memberId(), entry.teamId(), entry.teamName(), entry.discordId(),
-                        entry.mcUuid(), true, demoted));
+                        entry.memberId(),
+                        entry.teamId(),
+                        entry.teamName(),
+                        entry.discordId(),
+                        entry.mcUuid(),
+                        true,
+                        demoted));
             }
         }
         return participants;

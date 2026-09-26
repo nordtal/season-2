@@ -3,20 +3,20 @@ package eu.nordtal.s2.steward.worker;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.audit.AuditDirectory;
+import eu.nordtal.s2.common.command.CommandRequests;
+import eu.nordtal.s2.common.metric.MetricDirectory;
 import eu.nordtal.s2.common.online.OnlineDirectory;
 import eu.nordtal.s2.common.online.OnlineRoster;
 import eu.nordtal.s2.common.payment.PaymentGateway;
 import eu.nordtal.s2.common.payment.PaymentRequests;
 import eu.nordtal.s2.common.payment.Watermark;
-import eu.nordtal.s2.common.audit.AuditDirectory;
-import eu.nordtal.s2.common.command.CommandRequests;
-import eu.nordtal.s2.common.metric.MetricDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.api.WorkerApi;
+import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.backup.Backups;
-import eu.nordtal.s2.steward.worker.backup.Schedules;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
+import eu.nordtal.s2.steward.worker.backup.Schedules;
 import eu.nordtal.s2.steward.worker.backup.TarSnapshots;
 import eu.nordtal.s2.steward.worker.bunq.BunqGateway;
 import eu.nordtal.s2.steward.worker.bunq.PaymentLoop;
@@ -42,10 +42,6 @@ import eu.nordtal.s2.steward.worker.schema.ServeLock;
 import eu.nordtal.s2.steward.worker.serve.PostgresNotifications;
 import eu.nordtal.s2.steward.worker.serve.Runner;
 import eu.nordtal.s2.steward.worker.serve.UpdateServer;
-
-import lombok.extern.slf4j.Slf4j;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -55,6 +51,8 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.LoggerFactory;
 
 /**
  * Entry point.
@@ -181,12 +179,11 @@ public final class StewardWorker {
      */
     private static final Path READY_MARKER = Path.of("/tmp/steward-worker-ready");
 
-    private StewardWorker() {
-    }
+    private StewardWorker() {}
 
     public static void main(final String[] args) {
-        final Path configDirectory = Path.of(
-                System.getenv().getOrDefault("NORDTAL_STEWARD_CONFIG_DIR", DEFAULT_CONFIG_DIR));
+        final Path configDirectory =
+                Path.of(System.getenv().getOrDefault("NORDTAL_STEWARD_CONFIG_DIR", DEFAULT_CONFIG_DIR));
 
         final int status = switch (command(args)) {
             // The schema, on its own. Nothing else is read - not steward.yml, not the network - so
@@ -255,7 +252,7 @@ public final class StewardWorker {
      * a fresh deployment the table does not exist until the migration this run performs, so a
      * request row would have to be written half way through its own run. The daemon's requests are
      * recorded; this one is recorded in whoever's shell history it was typed into.</p>
-
+     *
      * <p><b>Only what is missing.</b> It was the manual escape hatch too until 2026-09-07, and that
      * is what made it dangerous - the same command that fills a fresh volume would happily replace
      * a jar under a running server. It now installs into gaps only, so the worst it can do on a
@@ -277,8 +274,9 @@ public final class StewardWorker {
             try {
                 lock = RunLock.tryAcquire(database.dataSource());
             } catch (final java.sql.SQLException failure) {
-                log.error("Could not reach the database to take the steward-worker lock. Nothing"
-                        + " was done.", failure);
+                log.error(
+                        "Could not reach the database to take the steward-worker lock. Nothing" + " was done.",
+                        failure);
                 return 1;
             }
             if (lock.isEmpty()) {
@@ -289,8 +287,8 @@ public final class StewardWorker {
             }
 
             try (RunLock held = lock.get()) {
-                final UpdatePlan resolved = Runs.resolve(config,
-                        eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource()));
+                final UpdatePlan resolved =
+                        Runs.resolve(config, eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource()));
                 final UpdatePlan plan = resolved.onlyMissing();
                 System.out.println(Report.render(resolved));
                 // Whenever the executed plan is smaller than the resolved one, not only when it
@@ -298,12 +296,16 @@ public final class StewardWorker {
                 // above and said nothing about them; the second report then listed only the one
                 // install, which reads as a partial failure rather than as a deliberate skip.
                 final int skipped = resolved.changes().stream()
-                        .filter(change -> change.status().isWork()).toList().size()
+                                .filter(change -> change.status().isWork())
+                                .toList()
+                                .size()
                         - plan.changes().stream()
-                        .filter(change -> change.status().isWork()).toList().size();
+                                .filter(change -> change.status().isWork())
+                                .toList()
+                                .size();
                 if (skipped > 0) {
-                    System.out.println("\n" + skipped + " of the entries above " + (skipped == 1
-                            ? "is an upgrade" : "are upgrades") + " rather than something missing,"
+                    System.out.println("\n" + skipped + " of the entries above "
+                            + (skipped == 1 ? "is an upgrade" : "are upgrades") + " rather than something missing,"
                             + " and this command does not perform upgrades - only what is absent is"
                             + " installed below. Ask for an update from Discord or in game: it"
                             + " stops each server before its jars move, which is the whole"
@@ -317,8 +319,7 @@ public final class StewardWorker {
                 try {
                     Schema.migrate(database);
                 } catch (final RuntimeException failure) {
-                    log.error("The database schema could not be applied. Nothing else was done.",
-                            failure);
+                    log.error("The database schema could not be applied. Nothing else was done.", failure);
                     return 1;
                 }
 
@@ -357,8 +358,10 @@ public final class StewardWorker {
             try {
                 serveLock = ServeLock.acquire(database.dataSource());
             } catch (final java.sql.SQLException failure) {
-                log.error("Could not reach the database to take the serve lock, so this container"
-                        + " will not become ready.", failure);
+                log.error(
+                        "Could not reach the database to take the serve lock, so this container"
+                                + " will not become ready.",
+                        failure);
                 return 1;
             }
             if (serveLock.isEmpty()) {
@@ -378,8 +381,10 @@ public final class StewardWorker {
                     // the readiness marker below, so a server that would have started against a schema
                     // this build does not know simply does not start - which is the outcome the whole
                     // arrangement exists to produce.
-                    log.error("The database schema could not be applied, so this container will not"
-                            + " become ready. Nothing else in the stack starts until it does.", failure);
+                    log.error(
+                            "The database schema could not be applied, so this container will not"
+                                    + " become ready. Nothing else in the stack starts until it does.",
+                            failure);
                     return 1;
                 }
 
@@ -393,19 +398,19 @@ public final class StewardWorker {
                 // typed and what they were told. V11 calls a request "a message in flight"; this is
                 // what makes that true. Volume was never the argument - a season is a few dozen
                 // admin commands - the identifiers were.
-                try (CommandRequests requests =
-                             CommandRequests.borrowing(database.dataSource())) {
+                try (CommandRequests requests = CommandRequests.borrowing(database.dataSource())) {
                     final int gone = requests.deleteSettledOlderThan(COMMAND_REQUEST_RETENTION_DAYS);
                     if (gone > 0) {
-                        log.info("Removed {} settled command requests older than {} days.",
-                                gone, COMMAND_REQUEST_RETENTION_DAYS);
+                        log.info(
+                                "Removed {} settled command requests older than {} days.",
+                                gone,
+                                COMMAND_REQUEST_RETENTION_DAYS);
                     }
                 } catch (final RuntimeException failure) {
                     // Not fatal, and deliberately so: this container is what every other service in
                     // the stack waits for, and a network that will not come up because some old
                     // rows could not be deleted is a far worse outcome than the rows staying.
-                    log.warn("Could not clear out old command requests; they stay where they are.",
-                            failure);
+                    log.warn("Could not clear out old command requests; they stay where they are.", failure);
                 }
 
                 // Fill empty volumes before anything is told this container is ready. See below for
@@ -422,13 +427,14 @@ public final class StewardWorker {
                 // on this container. Without the socket it does not start at all and says so once -
                 // an interface with no curves is a smaller problem than a worker that will not
                 // come up because a chart could not be drawn.
-                final Docker docker = new Docker(new DockerSocket(
-                        Path.of(config.docker().socket()), Duration.ofSeconds(30)));
+                final Docker docker =
+                        new Docker(new DockerSocket(Path.of(config.docker().socket()), Duration.ofSeconds(30)));
                 // One instance, shared by the internal API and by every update run: they ask the
                 // same daemon about the same compose project, and a second one would be a second
                 // answer to the same question. WorkerApi keeps this one, undecorated - it only
                 // ever calls images(), never recreate().
-                final DockerOps dockerOps = new DockerOps(docker, config.docker().project());
+                final DockerOps dockerOps =
+                        new DockerOps(docker, config.docker().project());
                 // The one thing DockerOps refuses (season-2-ops/22): recreating a container needs
                 // the compose file, and only steward-deployer has it. An empty token leaves this
                 // exactly as it always was - DockerOps' own refusal, named - because a container
@@ -442,151 +448,181 @@ public final class StewardWorker {
                 }
                 final ContainerOps containers = config.deployer().token().isBlank()
                         ? dockerOps
-                        : new DeployerRecreate(dockerOps, config.deployer().url(),
-                                config.deployer().token(), Duration.ofSeconds(config.httpTimeoutSeconds()),
+                        : new DeployerRecreate(
+                                dockerOps,
+                                config.deployer().url(),
+                                config.deployer().token(),
+                                Duration.ofSeconds(config.httpTimeoutSeconds()),
                                 Duration.ofSeconds(config.deployer().timeoutSeconds()));
                 if (!docker.isReachable()) {
                     // The one that matters: without the socket an update, a restart or a backup
                     // refuses at its first step rather than half way through. Said once, here,
                     // where the daemon is first opened.
-                    log.warn("No docker socket at {}, so nothing here can stop or start a"
-                            + " container: an update, a restart or a backup refuses before it"
-                            + " touches anything, and there is no image drift check and no start"
-                            + " page curve. Everything else works.", config.docker().socket());
+                    log.warn(
+                            "No docker socket at {}, so nothing here can stop or start a"
+                                    + " container: an update, a restart or a backup refuses before it"
+                                    + " touches anything, and there is no image drift check and no start"
+                                    + " page curve. Everything else works.",
+                            config.docker().socket());
                 }
-                try (Sampler sampler = new Sampler(docker, new HostMetrics(),
-                        MetricDirectory.using(database.dataSource()), config.docker().project())) {
+                try (Sampler sampler = new Sampler(
+                        docker,
+                        new HostMetrics(),
+                        MetricDirectory.using(database.dataSource()),
+                        config.docker().project())) {
                     if (!config.docker().metrics()) {
-                        log.info("Metric sampling is off in steward.yml, so the start page will"
-                                + " have no curves.");
+                        log.info("Metric sampling is off in steward.yml, so the start page will" + " have no curves.");
                     } else if (docker.isReachable()) {
                         sampler.start();
                     }
 
-                // What a BACKUP run saves with. The volumes are tarred from their read-only
-                // mounts; the database is dumped inside the postgres container, because a pg_dump
-                // older than its server is refused outright and running the one that is already
-                // in that image makes the version match by construction.
-                final String databaseService = config.backup().databaseService();
-                final Backups backups = new Backups(
-                        new TarSnapshots(Path.of(config.backup().sourcesRoot()),
-                                Path.of(config.backup().outputRoot()), Clock.systemUTC(),
-                                Duration.ofMinutes(Math.max(1, config.backup().patienceMinutes()))),
-                        databaseService == null || databaseService.isBlank() ? null
-                                : new DatabaseDump(docker, config.docker().project(),
-                                        databaseService, config.backup().outputRoot(),
-                                        Clock.systemUTC()));
+                    // What a BACKUP run saves with. The volumes are tarred from their read-only
+                    // mounts; the database is dumped inside the postgres container, because a pg_dump
+                    // older than its server is refused outright and running the one that is already
+                    // in that image makes the version match by construction.
+                    final String databaseService = config.backup().databaseService();
+                    final Backups backups = new Backups(
+                            new TarSnapshots(
+                                    Path.of(config.backup().sourcesRoot()),
+                                    Path.of(config.backup().outputRoot()),
+                                    Clock.systemUTC(),
+                                    Duration.ofMinutes(
+                                            Math.max(1, config.backup().patienceMinutes()))),
+                            databaseService == null || databaseService.isBlank()
+                                    ? null
+                                    : new DatabaseDump(
+                                            docker,
+                                            config.docker().project(),
+                                            databaseService,
+                                            config.backup().outputRoot(),
+                                            Clock.systemUTC()));
 
-                // One directory, shared: the server claims and settles rows through it and the
-                // runner starts and commits the countdown on the row it is running. Two would be
-                // two pools for one table.
-                final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
-                // season-2-ops/129: the plugins an admin added from the interface. One directory
-                // for the three readers that need it - the runner's resolve, the API's "what would
-                // a run do", and the API's own add and remove - because three would be three pools
-                // for one table.
-                final eu.nordtal.s2.common.plugin.PluginDirectory addedPlugins =
-                        eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource());
-                // Read-only, for ActionsApi's feed (steward/82) - the run loop above never touches
-                // audit_log, so this is the one directory this method opens purely for the API.
-                final AuditDirectory audit = AuditDirectory.using(database.dataSource());
-                // What steward-ui reads this container through (§3). It is started after the
-                // readiness marker for the same reason the sampler is: nothing in the stack waits
-                // for this API, and a container that would not come up because a web layer failed
-                // would take four Minecraft servers with it.
-                try (Schedules schedules = new Schedules(updates, config, ZoneId.systemDefault());
-                     WorkerApi api = new WorkerApi(docker, dockerOps,
-                        new Console(docker, config.docker().project()), new HostMetrics(),
-                        config.docker().project(), Path.of(config.backup().outputRoot()),
-                        config.api().token(), Path.of(config.api().configsRoot()),
-                        Path.of(config.volumesRoot()), updates, audit,
-                        () -> new WorkerApi.Nightly(config.backup().at(), config.backup().days(),
-                                config.update().at(), config.update().days(), ZoneId.systemDefault()),
-                        // The player counts proxy writes (steward/86) and, since
-                        // steward/111, the player list next to them. Same pool again - two small
-                        // reads per service table, and no second connection for either.
-                        new eu.nordtal.s2.steward.worker.api.ServicesApi(
-                                OnlineDirectory.using(database.dataSource()),
-                                OnlineRoster.using(database.dataSource())),
-                        // season-2-ops/128: the same resolve a run starts with, handed to the API
-                        // as a supplier so the page can ask "what is newest" without a run. It
-                        // writes nothing - see Runs#resolve - and it is the same call, not a
-                        // second one: two programs answering "what would an update do" differently
-                        // is exactly what Runs exists to prevent.
-                        () -> Runs.resolve(config, addedPlugins),
-                        // season-2-ops/129: the plugin list, the search and the two buttons. It
-                        // gets its own Modrinth rather than sharing the resolver's, because the
-                        // resolver builds one per run and this one lives as long as the API does.
-                        new eu.nordtal.s2.steward.worker.api.PluginsApi(
-                                addedPlugins,
-                                new eu.nordtal.s2.steward.worker.source.Modrinth(
-                                        new eu.nordtal.s2.steward.worker.http.JdkHttp(
-                                                Duration.ofSeconds(config.httpTimeoutSeconds()),
-                                                config.githubToken())),
-                                Path.of(config.volumesRoot()),
-                                eu.nordtal.s2.common.Platform.MINECRAFT,
-                                java.util.Map.of(
-                                        eu.nordtal.s2.steward.worker.plan.Topology.PACKETEVENTS, config.packetEventsProject(),
-                                        eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT, config.voiceChatProject(),
-                                        eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT_PROXY, config.voiceChatProject(),
-                                        eu.nordtal.s2.steward.worker.plan.Topology.CORE_PROTECT, config.coreProtectProject())),
-                        // season-2-community/09: the bot's inbox, so that saving one of its
-                        // messages can ask it to re-read the file instead of quietly waiting for
-                        // the next restart of the container. Same pool once more - a reload writes
-                        // one row and reads it back a few times.
-                        eu.nordtal.s2.common.access.AccessRequests.on(database.dataSource()),
-                        // A save of this worker's own steward.yml: read it again and re-arm the
-                        // clocks, so a schedule changed in Steward does not wait for a restart.
-                        () -> {
-                            try {
-                                handle.reload();
-                            } catch (final ConfigException broken) {
-                                throw new IllegalStateException(broken.getMessage(), broken);
+                    // One directory, shared: the server claims and settles rows through it and the
+                    // runner starts and commits the countdown on the row it is running. Two would be
+                    // two pools for one table.
+                    final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
+                    // season-2-ops/129: the plugins an admin added from the interface. One directory
+                    // for the three readers that need it - the runner's resolve, the API's "what would
+                    // a run do", and the API's own add and remove - because three would be three pools
+                    // for one table.
+                    final eu.nordtal.s2.common.plugin.PluginDirectory addedPlugins =
+                            eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource());
+                    // Read-only, for ActionsApi's feed (steward/82) - the run loop above never touches
+                    // audit_log, so this is the one directory this method opens purely for the API.
+                    final AuditDirectory audit = AuditDirectory.using(database.dataSource());
+                    // What steward-ui reads this container through (§3). It is started after the
+                    // readiness marker for the same reason the sampler is: nothing in the stack waits
+                    // for this API, and a container that would not come up because a web layer failed
+                    // would take four Minecraft servers with it.
+                    try (Schedules schedules = new Schedules(updates, config, ZoneId.systemDefault());
+                            WorkerApi api = new WorkerApi(
+                                    docker,
+                                    dockerOps,
+                                    new Console(docker, config.docker().project()),
+                                    new HostMetrics(),
+                                    config.docker().project(),
+                                    Path.of(config.backup().outputRoot()),
+                                    config.api().token(),
+                                    Path.of(config.api().configsRoot()),
+                                    Path.of(config.volumesRoot()),
+                                    updates,
+                                    audit,
+                                    () -> new WorkerApi.Nightly(
+                                            config.backup().at(),
+                                            config.backup().days(),
+                                            config.update().at(),
+                                            config.update().days(),
+                                            ZoneId.systemDefault()),
+                                    // The player counts proxy writes (steward/86) and, since
+                                    // steward/111, the player list next to them. Same pool again - two small
+                                    // reads per service table, and no second connection for either.
+                                    new eu.nordtal.s2.steward.worker.api.ServicesApi(
+                                            OnlineDirectory.using(database.dataSource()),
+                                            OnlineRoster.using(database.dataSource())),
+                                    // season-2-ops/128: the same resolve a run starts with, handed to the API
+                                    // as a supplier so the page can ask "what is newest" without a run. It
+                                    // writes nothing - see Runs#resolve - and it is the same call, not a
+                                    // second one: two programs answering "what would an update do" differently
+                                    // is exactly what Runs exists to prevent.
+                                    () -> Runs.resolve(config, addedPlugins),
+                                    // season-2-ops/129: the plugin list, the search and the two buttons. It
+                                    // gets its own Modrinth rather than sharing the resolver's, because the
+                                    // resolver builds one per run and this one lives as long as the API does.
+                                    new eu.nordtal.s2.steward.worker.api.PluginsApi(
+                                            addedPlugins,
+                                            new eu.nordtal.s2.steward.worker.source.Modrinth(
+                                                    new eu.nordtal.s2.steward.worker.http.JdkHttp(
+                                                            Duration.ofSeconds(config.httpTimeoutSeconds()),
+                                                            config.githubToken())),
+                                            Path.of(config.volumesRoot()),
+                                            eu.nordtal.s2.common.Platform.MINECRAFT,
+                                            java.util.Map.of(
+                                                    eu.nordtal.s2.steward.worker.plan.Topology.PACKETEVENTS,
+                                                            config.packetEventsProject(),
+                                                    eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT,
+                                                            config.voiceChatProject(),
+                                                    eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT_PROXY,
+                                                            config.voiceChatProject(),
+                                                    eu.nordtal.s2.steward.worker.plan.Topology.CORE_PROTECT,
+                                                            config.coreProtectProject())),
+                                    // season-2-community/09: the bot's inbox, so that saving one of its
+                                    // messages can ask it to re-read the file instead of quietly waiting for
+                                    // the next restart of the container. Same pool once more - a reload writes
+                                    // one row and reads it back a few times.
+                                    eu.nordtal.s2.common.access.AccessRequests.on(database.dataSource()),
+                                    // A save of this worker's own steward.yml: read it again and re-arm the
+                                    // clocks, so a schedule changed in Steward does not wait for a restart.
+                                    () -> {
+                                        try {
+                                            handle.reload();
+                                        } catch (final ConfigException broken) {
+                                            throw new IllegalStateException(broken.getMessage(), broken);
+                                        }
+                                        schedules.arm();
+                                    })) {
+                        if (config.api().token().isBlank()) {
+                            log.warn("api.token is empty, so the internal API is not listening and"
+                                    + " steward-ui cannot read this container. Updates and backups are"
+                                    + " unaffected - they go through the database.");
+                        } else if (!docker.isReachable()) {
+                            log.warn("No docker socket, so the internal API would answer every question"
+                                    + " with `could not look`. It is not listening.");
+                        } else {
+                            api.start(config.api().port());
+                        }
+
+                        // §9a: the nightly backup is asked for here now, not by `smp`, and the optional
+                        // scheduled update beside it. Each writes a row and nothing else - see
+                        // NightlyClock for why that keeps the protection that mattered.
+                        schedules.arm();
+
+                        // §10d / steward/109: THE BANK. This container is the only one in the network that
+                        // holds a bunq credential and the only one that calls bunq; the bot asks for a
+                        // payment link by writing a row and reads back what happened.
+                        //
+                        // The line below is the whole of the evidence that it works, and it is written
+                        // whichever way the answer falls. Both variables are deliberately optional in
+                        // compose.yml, so an environment file carrying the pre-move NORDTAL_BOT_BUNQ_*
+                        // names produces a healthy stack that silently never notices a payment again -
+                        // there is no error to look for, only an absence. steward/101 is the checklist that
+                        // reads this line after a rollout.
+                        try (PaymentLoop paymentLoop = startPayments(config, databaseConfig, database)) {
+
+                            try (UpdateServer server = new UpdateServer(
+                                    updates,
+                                    new Runner(config, database, containers, backups, updates, addedPlugins),
+                                    PostgresNotifications.connector(databaseConfig),
+                                    Duration.ofSeconds(config.pollIntervalSeconds()),
+                                    Clock.systemUTC())) {
+
+                                // SIGTERM is how a redeploy asks; without this the container is killed after the
+                                // grace period instead of putting its pool down.
+                                Runtime.getRuntime()
+                                        .addShutdownHook(new Thread(server::close, "steward-worker-shutdown"));
+                                server.serve();
                             }
-                            schedules.arm();
-                        })) {
-                    if (config.api().token().isBlank()) {
-                        log.warn("api.token is empty, so the internal API is not listening and"
-                                + " steward-ui cannot read this container. Updates and backups are"
-                                + " unaffected - they go through the database.");
-                    } else if (!docker.isReachable()) {
-                        log.warn("No docker socket, so the internal API would answer every question"
-                                + " with `could not look`. It is not listening.");
-                    } else {
-                        api.start(config.api().port());
+                        }
                     }
-
-                // §9a: the nightly backup is asked for here now, not by `smp`, and the optional
-                // scheduled update beside it. Each writes a row and nothing else - see
-                // NightlyClock for why that keeps the protection that mattered.
-                schedules.arm();
-
-                // §10d / steward/109: THE BANK. This container is the only one in the network that
-                // holds a bunq credential and the only one that calls bunq; the bot asks for a
-                // payment link by writing a row and reads back what happened.
-                //
-                // The line below is the whole of the evidence that it works, and it is written
-                // whichever way the answer falls. Both variables are deliberately optional in
-                // compose.yml, so an environment file carrying the pre-move NORDTAL_BOT_BUNQ_*
-                // names produces a healthy stack that silently never notices a payment again -
-                // there is no error to look for, only an absence. steward/101 is the checklist that
-                // reads this line after a rollout.
-                try (PaymentLoop paymentLoop = startPayments(config, databaseConfig, database)) {
-
-                try (UpdateServer server = new UpdateServer(
-                        updates,
-                        new Runner(config, database, containers, backups, updates, addedPlugins),
-                        PostgresNotifications.connector(databaseConfig),
-                        Duration.ofSeconds(config.pollIntervalSeconds()),
-                        Clock.systemUTC())) {
-
-                    // SIGTERM is how a redeploy asks; without this the container is killed after the
-                    // grace period instead of putting its pool down.
-                    Runtime.getRuntime().addShutdownHook(new Thread(server::close, "steward-worker-shutdown"));
-                    server.serve();
-                }
-                }
-                }
                 }
             }
         }
@@ -612,9 +648,8 @@ public final class StewardWorker {
      * @return the running loop, or {@code null} when there is no bunq to poll - which
      *         try-with-resources handles by not closing anything
      */
-    private static PaymentLoop startPayments(final StewardSpec config,
-                                             final DatabaseSpec databaseConfig,
-                                             final Database database) {
+    private static PaymentLoop startPayments(
+            final StewardSpec config, final DatabaseSpec databaseConfig, final Database database) {
         final BunqGateway bunq = new BunqGateway(config.bunq());
         final Duration poll = Duration.ofSeconds(config.bunq().pollIntervalSeconds());
 
@@ -623,8 +658,10 @@ public final class StewardWorker {
         } catch (final RuntimeException failure) {
             // One row in bot_setting, for one log line in another container. Not a reason to refuse
             // to serve four Minecraft servers.
-            log.warn("Could not record whether bunq is configured; the bot will say it does not"
-                    + " know rather than saying it is off.", failure);
+            log.warn(
+                    "Could not record whether bunq is configured; the bot will say it does not"
+                            + " know rather than saying it is off.",
+                    failure);
         }
 
         // THE LINE IS WRITTEN ON BOTH BRANCHES, at WARN when there is no bunq and INFO when there
@@ -643,7 +680,10 @@ public final class StewardWorker {
                 Watermark.resolve(database.jdbi(), config.bunq().watermark());
 
         return PaymentLoop.start(
-                new Payments(bunq, new PaymentRequests(database.jdbi()), watermark,
+                new Payments(
+                        bunq,
+                        new PaymentRequests(database.jdbi()),
+                        watermark,
                         config.bunq().recentPaymentCount()),
                 eu.nordtal.s2.common.notify.PostgresNotifications.connector(
                         databaseConfig.jdbcUrl(),
@@ -689,9 +729,11 @@ public final class StewardWorker {
         try {
             lock = RunLock.tryAcquire(database.dataSource());
         } catch (final java.sql.SQLException failure) {
-            log.error("Bootstrap: could not take the steward-worker lock, so no missing file was"
-                    + " installed. Any server whose plugins folder is empty will refuse to start"
-                    + " and say so.", failure);
+            log.error(
+                    "Bootstrap: could not take the steward-worker lock, so no missing file was"
+                            + " installed. Any server whose plugins folder is empty will refuse to start"
+                            + " and say so.",
+                    failure);
             return;
         }
         if (lock.isEmpty()) {
@@ -703,13 +745,14 @@ public final class StewardWorker {
         try (RunLock held = lock.get()) {
             final UpdatePlan missing;
             try {
-                missing = Runs.resolve(config,
-                        eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource()))
+                missing = Runs.resolve(config, eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource()))
                         .onlyMissing();
             } catch (final RuntimeException failure) {
-                log.error("Bootstrap: nothing could be resolved, so no missing file was installed."
-                        + " Any server whose plugins folder is empty will refuse to start and say"
-                        + " so.", failure);
+                log.error(
+                        "Bootstrap: nothing could be resolved, so no missing file was installed."
+                                + " Any server whose plugins folder is empty will refuse to start and say"
+                                + " so.",
+                        failure);
                 return;
             }
 
@@ -718,9 +761,10 @@ public final class StewardWorker {
                     // NOT the normal case, and it must not be logged as one. Nothing is missing
                     // among the artefacts that could be checked, and some could not be checked at
                     // all - which is exactly the difference this module refuses to blur.
-                    log.warn("Bootstrap: nothing is missing among the artefacts that could be"
-                            + " checked, but {} could not be checked at all. That is not the same as"
-                            + " a full set of volumes. Nothing was installed:\n{}",
+                    log.warn(
+                            "Bootstrap: nothing is missing among the artefacts that could be"
+                                    + " checked, but {} could not be checked at all. That is not the same as"
+                                    + " a full set of volumes. Nothing was installed:\n{}",
                             missing.withStatus(Change.Status.UNRESOLVED).size(),
                             Report.render(missing));
                 } else {
@@ -731,16 +775,19 @@ public final class StewardWorker {
                 return;
             }
 
-            log.info("Bootstrap: {} artefact(s) have nothing installed at all. Installing those, and"
+            log.info(
+                    "Bootstrap: {} artefact(s) have nothing installed at all. Installing those, and"
                             + " only those, before this container reports ready.",
                     missing.withStatus(Change.Status.MISSING).size());
             final ApplyResult result;
             try {
                 result = Runs.apply(config, missing);
             } catch (final RuntimeException failure) {
-                log.error("Bootstrap: the install failed part way through. Some volumes may still be"
-                        + " empty, and a server whose plugins folder is one of them will refuse to"
-                        + " start and say so.", failure);
+                log.error(
+                        "Bootstrap: the install failed part way through. Some volumes may still be"
+                                + " empty, and a server whose plugins folder is one of them will refuse to"
+                                + " start and say so.",
+                        failure);
                 return;
             }
 
@@ -753,9 +800,11 @@ public final class StewardWorker {
                 // all-or-nothing rule - so this is the outage case, and its servers will refuse to
                 // start on the empty folders it leaves. Loud, because the alternative is the line
                 // that started all this: "Everything asked for was done."
-                log.warn("Bootstrap could not install everything, and what it skipped it skipped"
-                        + " entirely. A server whose plugins folder is still empty will refuse to"
-                        + " start and say so:\n{}", Report.render(result));
+                log.warn(
+                        "Bootstrap could not install everything, and what it skipped it skipped"
+                                + " entirely. A server whose plugins folder is still empty will refuse to"
+                                + " start and say so:\n{}",
+                        Report.render(result));
             } else {
                 log.info("Bootstrap finished:\n{}", Report.render(result));
             }
@@ -767,8 +816,10 @@ public final class StewardWorker {
             Files.writeString(READY_MARKER, "ready\n");
         } catch (final IOException failure) {
             // Not fatal to this process, but fatal to everything waiting on it - so it is loud.
-            log.error("Could not write the readiness marker {}. The rest of the stack will not"
-                    + " start, because its healthcheck is a test for this file.", READY_MARKER,
+            log.error(
+                    "Could not write the readiness marker {}. The rest of the stack will not"
+                            + " start, because its healthcheck is a test for this file.",
+                    READY_MARKER,
                     failure);
         }
     }
@@ -844,20 +895,27 @@ public final class StewardWorker {
                 return Schema.open(config);
             } catch (final RuntimeException unreachable) {
                 if (System.nanoTime() >= deadline) {
-                    log.error("The database at {} did not answer within {}: {}. Check"
+                    log.error(
+                            "The database at {} did not answer within {}: {}. Check"
                                     + " POSTGRES_PASSWORD and that the `db` profile is in"
                                     + " COMPOSE_PROFILES; the restart policy will try again.",
-                            config.jdbcUrl(), wait, rootCauseOf(unreachable));
+                            config.jdbcUrl(),
+                            wait,
+                            rootCauseOf(unreachable));
                     return null;
                 }
                 if (!announced) {
                     // Once, not once per attempt: on a first deployment this is the normal path and
                     // ninety copies of it would bury the line that says the schema was applied.
-                    log.info("The database at {} is not answering yet ({}). That is expected on a"
+                    log.info(
+                            "The database at {} is not answering yet ({}). That is expected on a"
                                     + " first deployment - PostgreSQL is still initialising and this"
                                     + " container has no depends_on for it, deliberately. Asking"
                                     + " again every {} for up to {}.",
-                            config.jdbcUrl(), rootCauseOf(unreachable), between, wait);
+                            config.jdbcUrl(),
+                            rootCauseOf(unreachable),
+                            between,
+                            wait);
                     announced = true;
                 }
                 try {
@@ -883,10 +941,10 @@ public final class StewardWorker {
 
     private static DatabaseSpec databaseConfig(final Path configDirectory) {
         try {
-            return Configs.database(configDirectory, LoggerFactory.getLogger(Configs.class)).get();
+            return Configs.database(configDirectory, LoggerFactory.getLogger(Configs.class))
+                    .get();
         } catch (final ConfigException broken) {
-            log.error("Refusing to touch the database on a config that cannot be read: {}",
-                    broken.getMessage());
+            log.error("Refusing to touch the database on a config that cannot be read: {}", broken.getMessage());
             return null;
         }
     }

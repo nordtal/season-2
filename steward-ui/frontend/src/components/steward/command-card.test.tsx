@@ -48,11 +48,13 @@ const IRREVERSIBLE: AdminCommand = {
  * The three routes the card uses. POST and GET share a prefix, so they are told apart by method -
  * `/api/commands/{id}` is the poll and `/api/commands` is the request.
  */
-function backend(over: {
-  commands?: AdminCommand[]
-  ask?: () => { status: number; body: unknown }
-  run?: () => { status: number; body: unknown }
-} = {}) {
+function backend(
+  over: {
+    commands?: AdminCommand[]
+    ask?: () => { status: number; body: unknown }
+    run?: () => { status: number; body: unknown }
+  } = {},
+) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/commands" && init?.method === "POST") {
       const answer = over.ask?.() ?? { status: 202, body: { id: "r1", status: "PENDING" } }

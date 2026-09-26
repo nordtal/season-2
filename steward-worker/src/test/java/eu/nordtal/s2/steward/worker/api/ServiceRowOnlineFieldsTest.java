@@ -1,19 +1,17 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.online.OnlinePlayer;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The one rule {@code /api/services} has about these two fields, held where it can be held without
@@ -43,8 +41,7 @@ class ServiceRowOnlineFieldsTest {
     @Test
     @DisplayName("a genuine zero is written as a zero, and still carries no roster")
     void aQuietServiceHasACountAndNoList() {
-        final Map<String, Object> row = row("smp",
-                new ServicesApi.Online(Map.of("smp", 0), Map.of()));
+        final Map<String, Object> row = row("smp", new ServicesApi.Online(Map.of("smp", 0), Map.of()));
 
         assertEquals(0, row.get("players"), "nobody connected is a fact, and it is a number");
         assertFalse(row.containsKey("roster"), "there is nobody to list, so there is no list");
@@ -53,28 +50,39 @@ class ServiceRowOnlineFieldsTest {
     @Test
     @DisplayName("the list rides along as uuid and name, in the order it was given")
     void aBusyServiceCarriesItsPeople() {
-        final Map<String, Object> row = row("smp", new ServicesApi.Online(
-                Map.of("smp", 2),
-                Map.of("smp", List.of(new OnlinePlayer(ADA, "Ada", "smp", WHENEVER),
-                        new OnlinePlayer(BEN, "Ben", "smp", WHENEVER)))));
+        final Map<String, Object> row = row(
+                "smp",
+                new ServicesApi.Online(
+                        Map.of("smp", 2),
+                        Map.of(
+                                "smp",
+                                List.of(
+                                        new OnlinePlayer(ADA, "Ada", "smp", WHENEVER),
+                                        new OnlinePlayer(BEN, "Ben", "smp", WHENEVER)))));
 
         assertEquals(2, row.get("players"));
         @SuppressWarnings("unchecked")
         final List<Map<String, Object>> roster = (List<Map<String, Object>>) row.get("roster");
         assertEquals(2, roster.size());
-        assertEquals(ADA.toString(), roster.getFirst().get("uuid"),
+        assertEquals(
+                ADA.toString(),
+                roster.getFirst().get("uuid"),
                 "the canonical 8-4-4-4-12 text, which is what a head service is asked with");
         assertEquals("Ada", roster.getFirst().get("name"));
-        assertEquals(Map.of("uuid", BEN.toString(), "name", "Ben"), roster.get(1),
+        assertEquals(
+                Map.of("uuid", BEN.toString(), "name", "Ben"),
+                roster.get(1),
                 "two fields and no others - `updated` and `subject` have both already been used");
     }
 
     @Test
     @DisplayName("the roster of one service does not leak into another's row")
     void anotherServicesPeopleStayThere() {
-        final Map<String, Object> row = row("limbo", new ServicesApi.Online(
-                Map.of("smp", 1, "limbo", 0),
-                Map.of("smp", List.of(new OnlinePlayer(ADA, "Ada", "smp", WHENEVER)))));
+        final Map<String, Object> row = row(
+                "limbo",
+                new ServicesApi.Online(
+                        Map.of("smp", 1, "limbo", 0),
+                        Map.of("smp", List.of(new OnlinePlayer(ADA, "Ada", "smp", WHENEVER)))));
 
         assertEquals(0, row.get("players"));
         assertFalse(row.containsKey("roster"));

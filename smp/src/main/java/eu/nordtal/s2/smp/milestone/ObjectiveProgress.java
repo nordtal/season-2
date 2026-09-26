@@ -12,8 +12,7 @@ package eu.nordtal.s2.smp.milestone;
  */
 public final class ObjectiveProgress {
 
-    private ObjectiveProgress() {
-    }
+    private ObjectiveProgress() {}
 
     /**
      * The result of adding to an objective.
@@ -25,8 +24,7 @@ public final class ObjectiveProgress {
      *                  once</b>: an objective already at or over its target does not complete
      *                  again, because completing is what pays the pot out
      */
-    public record Advance(long amount, long credited, boolean completes) {
-    }
+    public record Advance(long amount, long credited, boolean completes) {}
 
     /**
      * @param amount the objective's current {@code smp_objective.amount}

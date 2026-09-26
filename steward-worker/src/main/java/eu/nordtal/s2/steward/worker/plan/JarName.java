@@ -30,8 +30,7 @@ public final class JarName {
 
     private static final String SUFFIX = ".jar";
 
-    private JarName() {
-    }
+    private JarName() {}
 
     /** Whether a directory entry is a jar at all. Case-sensitive: so is every filesystem we run on. */
     public static boolean isJar(final @NotNull String fileName) {

@@ -1,5 +1,10 @@
 package eu.nordtal.s2.papercommon.command;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.mojang.brigadier.tree.CommandNode;
+import com.mojang.brigadier.tree.LiteralCommandNode;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.access.AccessCommands;
@@ -8,29 +13,20 @@ import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.ToneColours;
-
-import com.mojang.brigadier.tree.CommandNode;
-import com.mojang.brigadier.tree.LiteralCommandNode;
-
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.ConsoleCommandSender;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@code steward/106}: a command that is not {@link eu.nordtal.s2.commands.Surface#GAME} is not in
@@ -77,8 +73,7 @@ class AdminCommandsAreGoneFromTheGameTest {
     /** An admin: the source that passed the old gate and is the whole point of the new one. */
     private static final UUID ADMIN = UUID.fromString("00000000-0000-4000-8000-00000000002a");
 
-    private final Messages messages = Messages.load(getClass().getClassLoader(),
-            "messages/commands", Locale.ENGLISH);
+    private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locale.ENGLISH);
 
     @Test
     @DisplayName("an admin player has no /access in their tree at all")
@@ -89,10 +84,12 @@ class AdminCommandsAreGoneFromTheGameTest {
         }
         final LiteralCommandNode<CommandSourceStack> access = root(commands.build(), "access");
 
-        assertFalse(access.getRequirement().test(source(player())),
+        assertFalse(
+                access.getRequirement().test(source(player())),
                 "/access carries no Surface.GAME on any of its five commands, so an admin standing"
                         + " in the world must not have the root in their tree");
-        assertTrue(access.getRequirement().test(source(sender(ConsoleCommandSender.class))),
+        assertTrue(
+                access.getRequirement().test(source(sender(ConsoleCommandSender.class))),
                 "the console keeps every one of them - that surface is never taken away");
     }
 
@@ -109,21 +106,28 @@ class AdminCommandsAreGoneFromTheGameTest {
         final Predicate<CommandSourceStack> reload = child(smp, "reload").getRequirement();
         final Predicate<CommandSourceStack> status = child(smp, "status").getRequirement();
 
-        assertFalse(reload.test(source(player())),
-                "/smp reload is CONSOLE only, so it is not in a player's tree");
-        assertTrue(reload.test(source(sender(ConsoleCommandSender.class))),
-                "the console keeps it");
-        assertTrue(status.test(source(player())),
+        assertFalse(reload.test(source(player())), "/smp reload is CONSOLE only, so it is not in a player's tree");
+        assertTrue(reload.test(source(sender(ConsoleCommandSender.class))), "the console keeps it");
+        assertTrue(
+                status.test(source(player())),
                 "/smp status is the one /smp command a player may type - cutting it would be"
                         + " this change reaching past what it was asked to do");
-        assertTrue(smp.getRequirement().test(source(player())),
+        assertTrue(
+                smp.getRequirement().test(source(player())),
                 "and the root stays open, because /smp status hangs off it");
     }
 
     private PaperCommands adapter(final Target here) {
-        return new PaperCommands(silent(Plugin.class), messages, here, null,
-                uuid -> Locale.ENGLISH, uuid -> true, uuid -> Optional.empty(),
-                PaperUser.Chime.silent(), () -> ToneColours.DEFAULTS);
+        return new PaperCommands(
+                silent(Plugin.class),
+                messages,
+                here,
+                null,
+                uuid -> Locale.ENGLISH,
+                uuid -> true,
+                uuid -> Optional.empty(),
+                PaperUser.Chime.silent(),
+                () -> ToneColours.DEFAULTS);
     }
 
     private static LiteralCommandNode<CommandSourceStack> root(
@@ -147,16 +151,16 @@ class AdminCommandsAreGoneFromTheGameTest {
 
     @SuppressWarnings("unchecked")
     private static <T> T silent(final Class<T> type) {
-        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                (proxy, method, args) -> {
-                    throw new UnsupportedOperationException("building a tree must not call "
-                            + type.getSimpleName() + "#" + method.getName());
-                });
+        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
+            throw new UnsupportedOperationException(
+                    "building a tree must not call " + type.getSimpleName() + "#" + method.getName());
+        });
     }
 
     private static CommandSourceStack source(final CommandSender sender) {
         return (CommandSourceStack) Proxy.newProxyInstance(
-                CommandSourceStack.class.getClassLoader(), new Class<?>[]{CommandSourceStack.class},
+                CommandSourceStack.class.getClassLoader(),
+                new Class<?>[] {CommandSourceStack.class},
                 (proxy, method, args) -> {
                     if ("getSender".equals(method.getName())) {
                         return sender;
@@ -166,15 +170,15 @@ class AdminCommandsAreGoneFromTheGameTest {
     }
 
     private static CommandSender sender(final Class<? extends CommandSender> type) {
-        return (CommandSender) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                (proxy, method, args) -> {
+        return (CommandSender)
+                Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
                     throw new UnsupportedOperationException(method.getName());
                 });
     }
 
     private static CommandSender player() {
-        return (CommandSender) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[]{Player.class}, (proxy, method, args) -> {
+        return (CommandSender) Proxy.newProxyInstance(
+                Player.class.getClassLoader(), new Class<?>[] {Player.class}, (proxy, method, args) -> {
                     if ("getUniqueId".equals(method.getName())) {
                         return ADMIN;
                     }

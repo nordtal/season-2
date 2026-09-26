@@ -1,17 +1,15 @@
 package eu.nordtal.s2.smp.prestige;
 
-import net.kyori.adventure.text.format.TextColor;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import java.util.List;
+import net.kyori.adventure.text.format.TextColor;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * season-2-ingame/23: thirteen prestige colours plus the one that overrides them all, a bad hex
@@ -44,7 +42,9 @@ class PrestigeColoursTest {
             assertNotEquals(null, colours.tier(tier));
         }
         assertNotEquals(null, colours.admin());
-        assertEquals(List.of(), problems,
+        assertEquals(
+                List.of(),
+                problems,
                 "a blank declaration is what a freshly written file with a tone not yet filled in"
                         + " looks like, and it must not be reported");
     }
@@ -58,12 +58,15 @@ class PrestigeColoursTest {
         final List<String> problems = new ArrayList<>();
         final PrestigeColours colours = PrestigeColours.parse(declared, "#ff5555", problems::add);
 
-        assertEquals(PrestigeColours.DEFAULTS.tier(8), colours.tier(8),
+        assertEquals(
+                PrestigeColours.DEFAULTS.tier(8),
+                colours.tier(8),
                 "a colour that cannot be parsed must fall back to the default rather than leaving the"
                         + " name uncoloured - an unpainted name is invisible in exactly the way this"
                         + " ticket exists to fix");
         assertEquals(1, problems.size(), "the bad value has to be reported exactly once");
-        assertTrue(problems.get(0).contains("tier 8") && problems.get(0).contains("not-a-colour"),
+        assertTrue(
+                problems.get(0).contains("tier 8") && problems.get(0).contains("not-a-colour"),
                 "the report has to name which tier and which value were rejected, or nobody reading"
                         + " the log can find the line to fix: " + problems);
     }
@@ -72,8 +75,7 @@ class PrestigeColoursTest {
     @DisplayName("an invalid admin hex value falls back to the default and is reported")
     void invalidAdminHexFallsBackAndReports() {
         final List<String> problems = new ArrayList<>();
-        final PrestigeColours colours =
-                PrestigeColours.parse(defaultTierHexes(), "also-not-a-colour", problems::add);
+        final PrestigeColours colours = PrestigeColours.parse(defaultTierHexes(), "also-not-a-colour", problems::add);
 
         assertEquals(PrestigeColours.DEFAULTS.admin(), colours.admin());
         assertEquals(1, problems.size());
@@ -96,8 +98,9 @@ class PrestigeColoursTest {
     @Test
     @DisplayName("a table that is not exactly thirteen entries is refused")
     void wrongCountIsRefused() {
-        assertThrows(IllegalArgumentException.class,
-                () -> PrestigeColours.parse(List.of("#5fbfae", "#5ea9d6"), "#ff5555", problem -> { }));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> PrestigeColours.parse(List.of("#5fbfae", "#5ea9d6"), "#ff5555", problem -> {}));
     }
 
     @Test
@@ -105,7 +108,9 @@ class PrestigeColoursTest {
     void allThirteenDefaultsDiffer() {
         for (int a = 1; a <= Prestige.TIER_COUNT; a++) {
             for (int b = a + 1; b <= Prestige.TIER_COUNT; b++) {
-                assertNotEquals(PrestigeColours.DEFAULTS.tier(a), PrestigeColours.DEFAULTS.tier(b),
+                assertNotEquals(
+                        PrestigeColours.DEFAULTS.tier(a),
+                        PrestigeColours.DEFAULTS.tier(b),
                         "tier " + a + " and tier " + b + " default to the same colour");
             }
         }
@@ -116,7 +121,9 @@ class PrestigeColoursTest {
     void adminDefaultIsNotATierDefault() {
         final TextColor admin = PrestigeColours.DEFAULTS.admin();
         for (int tier = 1; tier <= Prestige.TIER_COUNT; tier++) {
-            assertNotEquals(admin, PrestigeColours.DEFAULTS.tier(tier),
+            assertNotEquals(
+                    admin,
+                    PrestigeColours.DEFAULTS.tier(tier),
                     "the admin colour must never equal a prestige tier's default, or an admin's"
                             + " colour would be mistaken for a real tier");
         }
@@ -126,7 +133,6 @@ class PrestigeColoursTest {
     @DisplayName("a tier outside 1..13 is refused")
     void outOfRangeTierIsRefused() {
         assertThrows(IllegalArgumentException.class, () -> PrestigeColours.DEFAULTS.tier(0));
-        assertThrows(IllegalArgumentException.class,
-                () -> PrestigeColours.DEFAULTS.tier(Prestige.TIER_COUNT + 1));
+        assertThrows(IllegalArgumentException.class, () -> PrestigeColours.DEFAULTS.tier(Prestige.TIER_COUNT + 1));
     }
 }

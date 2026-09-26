@@ -1,18 +1,22 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
-import eu.nordtal.s2.discordbot.discord.Ids;
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.s2.discordbot.discord.ManagedMessageDao;
-
+import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.payment.Money;
-import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.access.payment.Tier;
 import eu.nordtal.s2.discordbot.access.payment.Tiers;
-import eu.nordtal.s2.common.message.Messages;
-
-import lombok.extern.slf4j.Slf4j;
+import eu.nordtal.s2.discordbot.config.Configured;
+import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.discord.Card;
+import eu.nordtal.s2.discordbot.discord.Ids;
+import eu.nordtal.s2.discordbot.discord.ManagedMessageDao;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -21,14 +25,6 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.jdbi.v3.core.Jdbi;
-
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-
-import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 /**
  * The bot-maintained messages: a contribution message and a link message per configured language.
@@ -61,8 +57,8 @@ public final class ManagedMessages {
     private final Messages messages;
     private final ManagedMessageDao dao;
 
-    public ManagedMessages(final JDA jda, final Languages languages, final Tiers tiers,
-                           final Messages messages, final Jdbi jdbi) {
+    public ManagedMessages(
+            final JDA jda, final Languages languages, final Tiers tiers, final Messages messages, final Jdbi jdbi) {
         this.jda = jda;
         this.languages = languages;
         this.tiers = tiers;
@@ -82,8 +78,7 @@ public final class ManagedMessages {
         }
     }
 
-    private void publish(final String kind, final boolean contribution, final String channelId,
-                         final Locale locale) {
+    private void publish(final String kind, final boolean contribution, final String channelId, final Locale locale) {
         // A language with no channel for this message is a language that does not get it. Checked
         // before the lookup because getChannelById throws on an empty id rather than answering null.
         if (!Configured.isSet(channelId)) {
@@ -91,16 +86,24 @@ public final class ManagedMessages {
         }
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
-            log.error("Channel {} for the {} message does not exist, or the bot cannot see it. "
-                    + "That message is not being maintained.", channelId, kind);
+            log.error(
+                    "Channel {} for the {} message does not exist, or the bot cannot see it. "
+                            + "That message is not being maintained.",
+                    channelId,
+                    kind);
             return;
         }
 
         final MessageEmbed embed = contribution ? contributionEmbed(locale) : linkEmbed(locale);
-        final List<ActionRow> components = List.of(ActionRow.of(contribution
-                ? Button.primary(Ids.BUY, messages.format(locale, MESSAGES.contribution().button()))
-                // Stage C: opens a modal for the code the proxy showed on the login screen.
-                : Button.primary(Ids.LINK, messages.format(locale, MESSAGES.link().button()))));
+        final List<ActionRow> components = List.of(ActionRow.of(
+                contribution
+                        ? Button.primary(
+                                Ids.BUY,
+                                messages.format(locale, MESSAGES.contribution().button()))
+                        // Stage C: opens a modal for the code the proxy showed on the login screen.
+                        : Button.primary(
+                                Ids.LINK,
+                                messages.format(locale, MESSAGES.link().button()))));
         final String banner = contribution ? CONTRIBUTION_BANNER : LINK_BANNER;
 
         try {
@@ -124,22 +127,32 @@ public final class ManagedMessages {
      * @return {@code false} when the remembered message is gone - it was deleted by hand, or the
      *         channel was cleared - so the caller posts a fresh one
      */
-    private boolean edit(final MessageChannel channel, final String messageId, final MessageEmbed embed,
-                         final List<ActionRow> components, final String banner) {
+    private boolean edit(
+            final MessageChannel channel,
+            final String messageId,
+            final MessageEmbed embed,
+            final List<ActionRow> components,
+            final String banner) {
         try {
             // setReplace(true) so the attachment is re-uploaded rather than inherited: the embed
             // points at attachment://<banner>, and an edit that leaves the old attachment in place
             // would keep whatever image was there before the artwork was swapped.
-            channel.editMessageById(messageId, new MessageEditBuilder()
-                    .setReplace(true)
-                    .setEmbeds(embed)
-                    .setComponents(components)
-                    .setFiles(FileUpload.fromData(banner(banner), banner))
-                    .build()).complete();
+            channel.editMessageById(
+                            messageId,
+                            new MessageEditBuilder()
+                                    .setReplace(true)
+                                    .setEmbeds(embed)
+                                    .setComponents(components)
+                                    .setFiles(FileUpload.fromData(banner(banner), banner))
+                                    .build())
+                    .complete();
             return true;
         } catch (final RuntimeException exception) {
-            log.info("The remembered message {} in {} could not be edited ({}); posting a new one",
-                    messageId, channel.getId(), exception.toString());
+            log.info(
+                    "The remembered message {} in {} could not be edited ({}); posting a new one",
+                    messageId,
+                    channel.getId(),
+                    exception.toString());
             return false;
         }
     }
@@ -149,14 +162,16 @@ public final class ManagedMessages {
     private MessageEmbed contributionEmbed(final Locale locale) {
         final List<String> prices = new ArrayList<>();
         for (final Tier tier : tiers.all()) {
-            prices.add(messages.format(locale,
-                    MESSAGES.contribution().tierLine(tier.days(), Money.format(tier.priceCents()))));
+            prices.add(messages.format(
+                    locale, MESSAGES.contribution().tierLine(tier.days(), Money.format(tier.priceCents()))));
         }
         return Card.of(messages.format(locale, MESSAGES.contribution().title()), Card.Accent.NORDTAL)
                 .block(messages.format(locale, MESSAGES.contribution().prices()), prices, count -> "+" + count)
-                .field(messages.format(locale, MESSAGES.contribution().donationHeading()),
+                .field(
+                        messages.format(locale, MESSAGES.contribution().donationHeading()),
                         messages.format(locale, MESSAGES.contribution().donation(Money.format(tiers.donationCents()))))
-                .field(messages.format(locale, MESSAGES.contribution().renewHeading()),
+                .field(
+                        messages.format(locale, MESSAGES.contribution().renewHeading()),
                         messages.format(locale, MESSAGES.contribution().renew()))
                 .image("attachment://" + CONTRIBUTION_BANNER)
                 .build();
@@ -164,9 +179,15 @@ public final class ManagedMessages {
 
     private MessageEmbed linkEmbed(final Locale locale) {
         return Card.of(messages.format(locale, MESSAGES.link().title()), Card.Accent.NORDTAL)
-                .wide(messages.format(locale, MESSAGES.link().stepsHeading()),
-                        messages.format(locale, MESSAGES.link().steps(messages.format(locale, MESSAGES.link().button()))))
-                .field(messages.format(locale, MESSAGES.link().switchHeading()),
+                .wide(
+                        messages.format(locale, MESSAGES.link().stepsHeading()),
+                        messages.format(
+                                locale,
+                                MESSAGES.link()
+                                        .steps(messages.format(
+                                                locale, MESSAGES.link().button()))))
+                .field(
+                        messages.format(locale, MESSAGES.link().switchHeading()),
                         messages.format(locale, MESSAGES.link().switchAccount()))
                 .image("attachment://" + LINK_BANNER)
                 .build();

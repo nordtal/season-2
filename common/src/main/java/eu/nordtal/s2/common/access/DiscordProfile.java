@@ -29,9 +29,12 @@ import java.time.Instant;
  * @param avatarUrlUpdated   when {@code avatarUrl} was last written, {@code null} together with it
  */
 public record DiscordProfile(
-        String username, Instant usernameUpdated,
-        String displayName, Instant displayNameUpdated,
-        String avatarUrl, Instant avatarUrlUpdated) {
+        String username,
+        Instant usernameUpdated,
+        String displayName,
+        Instant displayNameUpdated,
+        String avatarUrl,
+        Instant avatarUrlUpdated) {
 
     /**
      * All six fields empty - what an account nobody has ever mirrored a Discord profile onto reads

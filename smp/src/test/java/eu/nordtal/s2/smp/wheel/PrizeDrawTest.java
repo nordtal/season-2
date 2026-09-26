@@ -1,13 +1,12 @@
 package eu.nordtal.s2.smp.wheel;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Random;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Random;
+import org.junit.jupiter.api.Test;
 
 /**
  * The wheel's weighted draw, and the thresholds that earn extra spins.
@@ -52,8 +51,7 @@ class PrizeDrawTest {
     void aPoolWithNothingInItIsRefusedRatherThanSpun() {
         assertThrows(IllegalArgumentException.class, () -> PrizeDraw.draw(List.of(), new Random()));
         assertThrows(IllegalArgumentException.class, () -> PrizeDraw.draw(null, new Random()));
-        assertThrows(IllegalArgumentException.class,
-                () -> PrizeDraw.draw(List.of(0, 0), new Random()));
+        assertThrows(IllegalArgumentException.class, () -> PrizeDraw.draw(List.of(0, 0), new Random()));
     }
 
     /** One rule for the aura share and the extra spins, so there is one place to change it. */

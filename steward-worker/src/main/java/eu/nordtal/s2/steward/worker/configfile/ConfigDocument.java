@@ -1,10 +1,9 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * One config file, read as a form rather than as an object.
@@ -47,6 +46,9 @@ public record ConfigDocument(
      * @return the paths of every entry that {@link ConfigFiles#write} would accept a change to
      */
     public @NotNull List<String> editablePaths() {
-        return entries.stream().filter(ConfigEntry::editable).map(ConfigEntry::path).toList();
+        return entries.stream()
+                .filter(ConfigEntry::editable)
+                .map(ConfigEntry::path)
+                .toList();
     }
 }

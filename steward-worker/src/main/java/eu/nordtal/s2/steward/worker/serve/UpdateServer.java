@@ -2,15 +2,13 @@ package eu.nordtal.s2.steward.worker.serve;
 
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateRequest;
-
-import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * {@code steward-worker serve}: the loop that turns rows in {@code update_request} into runs.
@@ -72,21 +70,23 @@ public final class UpdateServer implements AutoCloseable {
 
     private volatile boolean running = true;
 
-    public UpdateServer(final @NotNull UpdateDirectory directory,
-                        final @NotNull RequestRunner runner,
-                        final @NotNull Notifications.Connector connector,
-                        final @NotNull Duration pollInterval,
-                        final @NotNull Clock clock) {
+    public UpdateServer(
+            final @NotNull UpdateDirectory directory,
+            final @NotNull RequestRunner runner,
+            final @NotNull Notifications.Connector connector,
+            final @NotNull Duration pollInterval,
+            final @NotNull Clock clock) {
         this(directory, runner, connector, pollInterval, clock, RECONNECT_BACKOFF);
     }
 
     /** Package-visible so a test can watch several reconnects without waiting seconds for each. */
-    UpdateServer(final @NotNull UpdateDirectory directory,
-                 final @NotNull RequestRunner runner,
-                 final @NotNull Notifications.Connector connector,
-                 final @NotNull Duration pollInterval,
-                 final @NotNull Clock clock,
-                 final @NotNull Duration reconnectBackoff) {
+    UpdateServer(
+            final @NotNull UpdateDirectory directory,
+            final @NotNull RequestRunner runner,
+            final @NotNull Notifications.Connector connector,
+            final @NotNull Duration pollInterval,
+            final @NotNull Clock clock,
+            final @NotNull Duration reconnectBackoff) {
         this.directory = directory;
         this.runner = runner;
         this.connector = connector;
@@ -116,16 +116,17 @@ public final class UpdateServer implements AutoCloseable {
                 if (!running) {
                     return;
                 }
-                log.warn("The update listener connection failed; reconnecting in {}s",
-                        reconnectBackoff.toSeconds(), failure);
+                log.warn(
+                        "The update listener connection failed; reconnecting in {}s",
+                        reconnectBackoff.toSeconds(),
+                        failure);
                 sleep(reconnectBackoff);
             } catch (final RuntimeException failure) {
                 // A bug in the loop itself must not turn into a container that is up and deaf.
                 if (!running) {
                     return;
                 }
-                log.error("The update loop threw; restarting it in {}s", reconnectBackoff.toSeconds(),
-                        failure);
+                log.error("The update loop threw; restarting it in {}s", reconnectBackoff.toSeconds(), failure);
                 sleep(reconnectBackoff);
             }
         }
@@ -143,8 +144,12 @@ public final class UpdateServer implements AutoCloseable {
         Optional<UpdateRequest> claimed;
         while (running && (claimed = directory.claimNext()).isPresent()) {
             final UpdateRequest request = claimed.get();
-            log.info("Running request {}: {} asked for by {} from {}",
-                    request.id(), request.kind(), request.requestedBy(), request.source());
+            log.info(
+                    "Running request {}: {} asked for by {} from {}",
+                    request.id(),
+                    request.kind(),
+                    request.requestedBy(),
+                    request.source());
 
             // The row is the progress bar. Every stage the run reaches is written back to it, so
             // the Discord embed and the chat line watching this request redraw while it works -
@@ -157,17 +162,17 @@ public final class UpdateServer implements AutoCloseable {
                 // every service the run had already stopped stopped for good. A transient database
                 // error during a decorative write would turn an update into an outage.
                 try {
-                    if (!directory.progress(request.id(),
-                            eu.nordtal.s2.common.update.UpdateReports.toJson(report))) {
+                    if (!directory.progress(request.id(), eu.nordtal.s2.common.update.UpdateReports.toJson(report))) {
                         // The row is no longer RUNNING - cancelled, or settled by somebody else.
                         // Worth a line because the run carries on regardless and its answer will
                         // then land nowhere.
-                        log.warn("Request {} is no longer RUNNING, so its progress was not"
-                                + " recorded; the run itself continues", request.id());
+                        log.warn(
+                                "Request {} is no longer RUNNING, so its progress was not"
+                                        + " recorded; the run itself continues",
+                                request.id());
                     }
                 } catch (final RuntimeException failure) {
-                    log.warn("Could not record progress for request {}; the run continues",
-                            request.id(), failure);
+                    log.warn("Could not record progress for request {}; the run continues", request.id(), failure);
                 }
             });
 
@@ -175,9 +180,12 @@ public final class UpdateServer implements AutoCloseable {
             // cause: somebody stopped the countdown while the run was waiting it out. The run
             // stopped nothing and installed nothing, and the cancellation is the answer that
             // belongs in the row - so this must not overwrite it.
-            if (directory.finish(request.id(), outcome.status(), outcome.report()).isEmpty()) {
-                log.info("Request {} was settled by somebody else while it ran - most likely"
-                        + " cancelled during its countdown - so its report was not written",
+            if (directory
+                    .finish(request.id(), outcome.status(), outcome.report())
+                    .isEmpty()) {
+                log.info(
+                        "Request {} was settled by somebody else while it ran - most likely"
+                                + " cancelled during its countdown - so its report was not written",
                         request.id());
             } else {
                 log.info("Request {} finished as {}", request.id(), outcome.status());
@@ -194,9 +202,8 @@ public final class UpdateServer implements AutoCloseable {
      */
     Duration waitFor() {
         final Instant now = clock.instant();
-        final Duration untilDue = directory.nextDue()
-                .map(due -> Duration.between(now, due))
-                .orElse(pollInterval);
+        final Duration untilDue =
+                directory.nextDue().map(due -> Duration.between(now, due)).orElse(pollInterval);
 
         final Duration wait = untilDue.compareTo(pollInterval) < 0 ? untilDue : pollInterval;
         return wait.compareTo(MINIMUM_WAIT) < 0 ? MINIMUM_WAIT : wait;

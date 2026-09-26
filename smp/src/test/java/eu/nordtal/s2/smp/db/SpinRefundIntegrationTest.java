@@ -1,7 +1,15 @@
 package eu.nordtal.s2.smp.db;
 
-import eu.nordtal.s2.smp.wheel.Spins;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.smp.wheel.Spins;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.LocalDate;
 import org.flywaydb.core.Flyway;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
@@ -15,16 +23,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.LocalDate;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Putting a wheel spin back, against a real PostgreSQL running the real migrations.
@@ -64,7 +62,8 @@ class SpinRefundIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed spin refund tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -172,7 +171,8 @@ class SpinRefundIntegrationTest {
         dao.restoreEarnedSpin(DISCORD_ID);
 
         assertEquals(2, spins().extras(), "the earned pool is where an earned spin belongs");
-        assertFalse(spins().hasFree(TODAY),
+        assertFalse(
+                spins().hasFree(TODAY),
                 "and the free spin stays taken - refunding the wrong kind would be a free spin a day");
     }
 
@@ -191,13 +191,13 @@ class SpinRefundIntegrationTest {
     // --- helpers ---------------------------------------------------------------------------
 
     private Spins spins() {
-        return dao.spinsOf(DISCORD_ID).orElseThrow(
-                () -> new AssertionError("the row disappeared, which no statement here can do"));
+        return dao.spinsOf(DISCORD_ID)
+                .orElseThrow(() -> new AssertionError("the row disappeared, which no statement here can do"));
     }
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException e) {
             throw new IllegalStateException("cannot run " + sql, e);

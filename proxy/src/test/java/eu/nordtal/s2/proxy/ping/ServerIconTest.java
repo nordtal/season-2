@@ -1,20 +1,19 @@
 package eu.nordtal.s2.proxy.ping;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.LoggerFactory;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.imageio.ImageIO;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 /**
  * The built-in server icon is what Velocity accepts, and a fresh data folder gets a copy of it.
@@ -40,8 +39,10 @@ class ServerIconTest {
     @Test
     @DisplayName("a first start copies the icon into the data folder and serves it")
     void aFreshDataFolderIsSeeded(@TempDir final Path dataDirectory) {
-        assertTrue(ServerIcon.load(dataDirectory, LoggerFactory.getLogger("test")).isPresent());
-        assertTrue(Files.isRegularFile(dataDirectory.resolve(ServerIcon.FILE_NAME)),
+        assertTrue(
+                ServerIcon.load(dataDirectory, LoggerFactory.getLogger("test")).isPresent());
+        assertTrue(
+                Files.isRegularFile(dataDirectory.resolve(ServerIcon.FILE_NAME)),
                 "the operator has to find a file to replace, not a setting to discover");
     }
 
@@ -51,7 +52,9 @@ class ServerIconTest {
         final BufferedImage image = builtIn();
         for (int y = 0; y < image.getHeight(); y++) {
             for (int x = 0; x < image.getWidth(); x++) {
-                assertEquals(255, image.getRGB(x, y) >>> 24,
+                assertEquals(
+                        255,
+                        image.getRGB(x, y) >>> 24,
                         "the icon is transparent at " + x + "," + y + ". A server browser draws its"
                                 + " own background through that, so the logo sits in a hole rather"
                                 + " than on the dark square it was drawn on");
@@ -84,7 +87,8 @@ class ServerIconTest {
                 colours.add(image.getRGB(x, y));
             }
         }
-        assertTrue(colours.size() <= 64,
+        assertTrue(
+                colours.size() <= 64,
                 "the built-in icon carries " + colours.size() + " distinct colours, which is a"
                         + " smoothing resampler's signature rather than pixel art's. Reduce"
                         + " resource-pack/src/pack.png with nearest neighbour at 2:1 instead");
@@ -94,7 +98,8 @@ class ServerIconTest {
     @DisplayName("a file that is not a 64x64 PNG is a warning and no icon, never a failed start")
     void aBadFileIsAWarning(@TempDir final Path dataDirectory) throws IOException {
         Files.writeString(dataDirectory.resolve(ServerIcon.FILE_NAME), "not a png");
-        assertTrue(ServerIcon.load(dataDirectory, LoggerFactory.getLogger("test")).isEmpty());
+        assertTrue(
+                ServerIcon.load(dataDirectory, LoggerFactory.getLogger("test")).isEmpty());
     }
 
     /** The icon as it sits in the jar - the file every fresh data folder is seeded from. */

@@ -1,15 +1,12 @@
 package eu.nordtal.s2.common.command;
 
 import eu.nordtal.s2.common.audit.AuditLine;
-
+import java.util.Objects;
+import java.util.Optional;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
-
-import java.util.Objects;
-import java.util.Optional;
 
 /** {@link CommandRequests} over JDBI. Package-private: {@code CommandRequests} is the API. */
 final class JdbiCommandRequests implements CommandRequests {
@@ -30,21 +27,36 @@ final class JdbiCommandRequests implements CommandRequests {
     @Override
     public long submit(final NewCommandRequest request) {
         Objects.requireNonNull(request, "request");
-        return dao.submit(request.target(), request.command(), request.arguments(),
-                request.source(), request.requestedBy(),
-                request.discordId().orElse(null), request.minecraftId().orElse(null),
-                request.locale(), request.expires());
+        return dao.submit(
+                request.target(),
+                request.command(),
+                request.arguments(),
+                request.source(),
+                request.requestedBy(),
+                request.discordId().orElse(null),
+                request.minecraftId().orElse(null),
+                request.locale(),
+                request.expires());
     }
 
     @Override
     public long submit(final NewCommandRequest request, final AuditLine journal) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(journal, "journal");
-        return dao.submitJournalled(request.target(), request.command(), request.arguments(),
-                request.source(), request.requestedBy(),
-                request.discordId().orElse(null), request.minecraftId().orElse(null),
-                request.locale(), request.expires(),
-                journal.action(), journal.actor(), journal.subject(), journal.mcUuid(),
+        return dao.submitJournalled(
+                request.target(),
+                request.command(),
+                request.arguments(),
+                request.source(),
+                request.requestedBy(),
+                request.discordId().orElse(null),
+                request.minecraftId().orElse(null),
+                request.locale(),
+                request.expires(),
+                journal.action(),
+                journal.actor(),
+                journal.subject(),
+                journal.mcUuid(),
                 journal.detail());
     }
 
@@ -69,16 +81,16 @@ final class JdbiCommandRequests implements CommandRequests {
 
     @Override
     public Optional<CommandOutcome> outcome(final long id) {
-        return dao.outcome(id).map(row -> new CommandOutcome(
-                CommandOutcome.Status.valueOf(row.status()),
-                Optional.ofNullable(row.result())));
+        return dao.outcome(id)
+                .map(row -> new CommandOutcome(
+                        CommandOutcome.Status.valueOf(row.status()), Optional.ofNullable(row.result())));
     }
 
     @Override
     public int deleteSettledOlderThan(final int days) {
         if (days < 1) {
-            throw new IllegalArgumentException("a retention window of " + days + " days would reach"
-                    + " requests that were answered moments ago");
+            throw new IllegalArgumentException(
+                    "a retention window of " + days + " days would reach" + " requests that were answered moments ago");
         }
         return dao.deleteSettledOlderThan(days);
     }

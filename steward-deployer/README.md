@@ -3,7 +3,7 @@
 The one service allowed to create containers.
 
 Everything else in this stack can be updated without it: steward-worker replaces jars inside
-volumes, and a plugin or a server jar needs no new image. What needs a new *container* — a changed
+volumes, and a plugin or a server jar needs no new image. What needs a new _container_ — a changed
 `compose.yml`, a new image, a service that has to come back from scratch — goes through here, and
 through nothing else.
 
@@ -40,15 +40,15 @@ every jar in this repository that is already true.
 `up` is for the moment before anything exists — no interface, no session, nothing to click. `serve`
 never waits: a deployment is a job, and its output is read as it appears.
 
-| Endpoint | What it does |
-|---|---|
-| `GET /api/health` | the only route without the token |
-| `GET /api/state` | `docker compose ps --all --format json` |
-| `GET /api/services` | every service in the baked file, with the image it runs |
-| `POST /api/deploy` | `{"services": []}` — empty means the whole project. Answers `202` with a job |
-| `POST /api/recreate/{service}` | pull that one image, then `up -d --no-deps --force-recreate` |
-| `GET /api/jobs` · `/api/jobs/{id}` | what ran, and its output |
-| `GET /api/jobs/{id}/stream` | the same output as SSE, replayed from the start on connect |
+| Endpoint                           | What it does                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| `GET /api/health`                  | the only route without the token                                             |
+| `GET /api/state`                   | `docker compose ps --all --format json`                                      |
+| `GET /api/services`                | every service in the baked file, with the image it runs                      |
+| `POST /api/deploy`                 | `{"services": []}` — empty means the whole project. Answers `202` with a job |
+| `POST /api/recreate/{service}`     | pull that one image, then `up -d --no-deps --force-recreate`                 |
+| `GET /api/jobs` · `/api/jobs/{id}` | what ran, and its output                                                     |
+| `GET /api/jobs/{id}/stream`        | the same output as SSE, replayed from the start on connect                   |
 
 Every route but `/api/health` needs `X-Steward-Token`. **The service refuses to start without that
 secret** — a process that can recreate every container in the stack, reachable unauthenticated on a

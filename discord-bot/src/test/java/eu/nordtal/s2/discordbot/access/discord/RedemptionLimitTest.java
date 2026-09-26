@@ -1,7 +1,8 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -13,10 +14,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The cap that makes a four-character link code safe, against a clock that can be moved.
@@ -134,8 +133,7 @@ class RedemptionLimitTest {
             pool.shutdownNow();
         }
 
-        assertEquals(cap, admitted.get(),
-                "exactly the cap may reach the database, however many workers ask at once");
+        assertEquals(cap, admitted.get(), "exactly the cap may reach the database, however many workers ask at once");
     }
 
     @Test

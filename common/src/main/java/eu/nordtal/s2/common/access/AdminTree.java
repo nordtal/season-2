@@ -1,9 +1,9 @@
 package eu.nordtal.s2.common.access;
 
-import javax.sql.DataSource;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import javax.sql.DataSource;
 
 /**
  * Who is an admin, as a tree of grants decided in Steward.
@@ -78,8 +78,7 @@ public interface AdminTree {
      *
      * @param grantedBy null for the root
      */
-    record Admin(String discordId, String grantedBy, Instant grantedAt) {
-    }
+    record Admin(String discordId, String grantedBy, Instant grantedAt) {}
 
     /** The answer to {@link #grant(String, String)}. */
     enum Grant {

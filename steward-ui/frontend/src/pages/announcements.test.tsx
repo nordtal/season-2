@@ -130,9 +130,7 @@ describe("AnnouncementsPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Send" }))
 
     await waitFor(() =>
-      expect(sent).toEqual([
-        { texts: { en: "The end opens tonight.", de: "The second language, tonight." } },
-      ]),
+      expect(sent).toEqual([{ texts: { en: "The end opens tonight.", de: "The second language, tonight." } }]),
     )
     // Twice for the two rows just sent, once in the list of recent ones.
     await waitFor(() => expect(screen.getAllByText("Posted.")).toHaveLength(3))
@@ -168,7 +166,9 @@ describe("AnnouncementsPage", () => {
 
 describe("announcementTargets", () => {
   it("has nothing to say about a raw file", () => {
-    expect(announcementTargets({ raw: true, content: "", path: "x", name: "x" } as unknown as ConfigDocument)).toBeNull()
+    expect(
+      announcementTargets({ raw: true, content: "", path: "x", name: "x" } as unknown as ConfigDocument),
+    ).toBeNull()
   })
 
   it("reads each language's channel in file order", () => {

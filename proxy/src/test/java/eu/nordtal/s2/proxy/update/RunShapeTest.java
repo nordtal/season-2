@@ -1,24 +1,22 @@
 package eu.nordtal.s2.proxy.update;
 
-import eu.nordtal.s2.common.update.UpdateKind;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.update.UpdateKind;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.Set;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The rule behind every countdown line, and the lines themselves - season-2-ops/118.
@@ -52,7 +50,9 @@ class RunShapeTest {
 
         assertEquals(RunShape.Fate.WAITING_ROOM, shape.fateFor("hunger-games"));
         assertEquals(RunShape.Fate.NOTHING, shape.fateFor("smp"));
-        assertEquals(RunShape.Fate.NOTHING, shape.fateFor(null),
+        assertEquals(
+                RunShape.Fate.NOTHING,
+                shape.fateFor(null),
                 "a player mid-login is on this proxy, and this proxy is staying");
         assertEquals("hunger-games", shape.onlyService());
         assertTrue(shape.touchesAnybody());
@@ -94,7 +94,9 @@ class RunShapeTest {
             final RunShape shape = RunShape.of(kind, Set.of("smp", "limbo"), false, false);
             assertEquals(RunShape.Occasion.MAINTENANCE, shape.occasion(), kind.name());
             assertEquals(RunShape.Fate.DISCONNECT, shape.fateFor("smp"), kind.name());
-            assertEquals(RunShape.Fate.NOTHING, shape.fateFor("hunger-games"),
+            assertEquals(
+                    RunShape.Fate.NOTHING,
+                    shape.fateFor("hunger-games"),
                     "a server that is not in the run does not stop because the limbo did");
         }
     }
@@ -134,7 +136,8 @@ class RunShapeTest {
         // should really only come in the case where players are on the SMP via proxy-standby. If
         // the players are waiting in the limbo anyway, no message is needed."
         assertTrue(RunShape.losesVoice(RunShape.Fate.RECONNECT, false));
-        assertFalse(RunShape.losesVoice(RunShape.Fate.RECONNECT, true),
+        assertFalse(
+                RunShape.losesVoice(RunShape.Fate.RECONNECT, true),
                 "the waiting room has neither voice nor chat, so this would be noise there");
 
         // The other three fates are not a swap seen from a player's seat. Being disconnected is
@@ -151,11 +154,12 @@ class RunShapeTest {
         // sits a line above anything a test without a proxy, a roster and a locale can reach. With
         // sixty seconds of warning there are three chat lines, and a note about a side effect
         // repeated three times reads as the main event.
-        final String source = Files.readString(
-                Path.of("src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
-        assertTrue(source.contains("if (!saidVoice) {"),
+        final String source = Files.readString(Path.of("src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
+        assertTrue(
+                source.contains("if (!saidVoice) {"),
                 "the hint no longer has a guard, so it is said on every chat line: " + source);
-        assertTrue(source.contains("saidVoice = false;"),
+        assertTrue(
+                source.contains("saidVoice = false;"),
                 "nothing resets the guard, so the second run of a session says nothing at all");
     }
 
@@ -168,8 +172,7 @@ class RunShapeTest {
         final Properties german = load("de");
 
         for (final RunShape.Occasion occasion : RunShape.Occasion.values()) {
-            for (final String family : new String[] {"restart.countdown.", "restart.now.",
-                    "restart.occasion."}) {
+            for (final String family : new String[] {"restart.countdown.", "restart.now.", "restart.occasion."}) {
                 final String key = family + key(occasion);
                 assertTrue(english.containsKey(key), "no English line for " + key);
                 assertTrue(german.containsKey(key), "no German line for " + key);
@@ -184,9 +187,9 @@ class RunShapeTest {
 
         for (final RunShape.Occasion occasion : RunShape.Occasion.values()) {
             final String countdown = english.getProperty("restart.countdown." + key(occasion));
-            assertTrue(countdown.contains("{seconds}"),
-                    "a countdown that does not name the number is a line that never changes: "
-                            + countdown);
+            assertTrue(
+                    countdown.contains("{seconds}"),
+                    "a countdown that does not name the number is a line that never changes: " + countdown);
             // {what} is optional on purpose - MAINTENANCE says "nordtal", because there is no one
             // service a run with no waiting room is about.
             final String now = english.getProperty("restart.now." + key(occasion));
@@ -222,7 +225,8 @@ class RunShapeTest {
 
         assertTrue(english.containsKey("restart.voice"), "no English line for restart.voice");
         assertTrue(german.containsKey("restart.voice"), "no German line for restart.voice");
-        assertFalse(english.getProperty("restart.voice").contains("{"),
+        assertFalse(
+                english.getProperty("restart.voice").contains("{"),
                 "the hint takes no placeholder: this proxy knows no number to put in one");
     }
 
@@ -253,8 +257,8 @@ class RunShapeTest {
 
     private static Properties load(final String language) throws IOException {
         final Properties properties = new Properties();
-        try (InputStream stream = RunShapeTest.class.getClassLoader()
-                .getResourceAsStream(ROOT + "/" + language + ".properties")) {
+        try (InputStream stream =
+                RunShapeTest.class.getClassLoader().getResourceAsStream(ROOT + "/" + language + ".properties")) {
             assertTrue(stream != null, "no bundle for " + language);
             properties.load(new InputStreamReader(stream, StandardCharsets.UTF_8));
         }

@@ -7,5 +7,4 @@ package eu.nordtal.s2.common.message.context;
  * @param name its name
  */
 @ContextType(value = "service", name = "Service")
-public record ServiceContext(String name) implements MessageContext {
-}
+public record ServiceContext(String name) implements MessageContext {}

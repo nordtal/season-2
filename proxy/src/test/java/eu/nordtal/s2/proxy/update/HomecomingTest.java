@@ -1,10 +1,10 @@
 package eu.nordtal.s2.proxy.update;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.proxy.routing.PhaseServers;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -15,10 +15,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The way back, and who is told about it - season-2-ops/118, point 3.
@@ -30,14 +28,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class HomecomingTest {
 
-    private static final PhaseServers SERVERS =
-            new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     private final Homecoming homecoming = new Homecoming(
             org.slf4j.LoggerFactory.getLogger(HomecomingTest.class),
-            eu.nordtal.s2.common.message.Messages.load(HomecomingTest.class.getClassLoader(),
-                    "messages/proxy", java.util.Locale.ENGLISH, java.util.Locale.GERMAN),
-            new eu.nordtal.s2.proxy.gate.LoginRoster(), SERVERS);
+            eu.nordtal.s2.common.message.Messages.load(
+                    HomecomingTest.class.getClassLoader(),
+                    "messages/proxy",
+                    java.util.Locale.ENGLISH,
+                    java.util.Locale.GERMAN),
+            new eu.nordtal.s2.proxy.gate.LoginRoster(),
+            SERVERS);
 
     // ------------------------------------------------------------------ who is owed a sentence
 
@@ -54,7 +55,8 @@ class HomecomingTest {
         assertFalse(homecoming.claim(justLoggedIn));
 
         assertTrue(homecoming.claim(moved));
-        assertFalse(homecoming.claim(moved),
+        assertFalse(
+                homecoming.claim(moved),
                 "a release that failed and is retried every ten seconds must not say it again");
     }
 
@@ -66,7 +68,8 @@ class HomecomingTest {
         homecoming.owedNow(Set.of(lastRun));
         homecoming.owedNow(Set.of(thisRun));
 
-        assertFalse(homecoming.claim(lastRun),
+        assertFalse(
+                homecoming.claim(lastRun),
                 "somebody who never came back from the last run is not owed a line about this one");
         assertTrue(homecoming.claim(thisRun));
     }
@@ -91,8 +94,8 @@ class HomecomingTest {
     @Test
     @DisplayName("the notice is ten seconds and every one of them is counted out loud")
     void theNoticeIsCountedAllTheWay() {
-        final List<Countdown.Beat> beats = new Countdown()
-                .beats(1L, Homecoming.NOTICE).orElseThrow();
+        final List<Countdown.Beat> beats =
+                new Countdown().beats(1L, Homecoming.NOTICE).orElseThrow();
 
         // One chat line at ten, nine subtitles, and the transfer. The ten-second tick is dropped
         // because the chat line of that second draws the title itself - Countdown's own rule, and
@@ -101,13 +104,18 @@ class HomecomingTest {
         assertEquals(10L, beats.get(0).announcement().seconds());
         assertEquals(java.time.Duration.ZERO, beats.get(0).delay(), "the first word is said now");
         assertEquals(11, beats.size(), beats.toString());
-        assertEquals(Announcement.Kind.NOW, beats.get(beats.size() - 1).announcement().kind());
-        assertEquals(Homecoming.NOTICE, beats.get(beats.size() - 1).delay(),
+        assertEquals(
+                Announcement.Kind.NOW,
+                beats.get(beats.size() - 1).announcement().kind());
+        assertEquals(
+                Homecoming.NOTICE,
+                beats.get(beats.size() - 1).delay(),
                 "the transfer is the zero beat and nothing else moves anybody");
 
         // A notice longer than the stretch Countdown draws subtitles for would be silent seconds
         // at the front: a chat line, then nothing on screen, then a counter starting mid-wait.
-        assertTrue(Homecoming.NOTICE.toSeconds() <= Countdown.SUBTITLES_FROM,
+        assertTrue(
+                Homecoming.NOTICE.toSeconds() <= Countdown.SUBTITLES_FROM,
                 "the notice has grown past the seconds Countdown counts");
     }
 
@@ -118,14 +126,15 @@ class HomecomingTest {
         // order of two calls inside a scheduled beat. Getting it the other way round is silent -
         // the transfer succeeds, the message is written to a connection that has just gone - and
         // it is exactly the way round the countdown on the way OUT is deliberately built.
-        final String source = Files.readString(
-                Path.of("src/main/java/eu/nordtal/s2/proxy/update/StandbyReturn.java"));
+        final String source = Files.readString(Path.of("src/main/java/eu/nordtal/s2/proxy/update/StandbyReturn.java"));
         final int said = source.indexOf("voice.say(here, beat.announcement())");
         final int moved = source.indexOf("sendHome(here)");
 
         assertTrue(said > 0 && moved > 0, "StandbyReturn no longer speaks and transfers in one beat");
         assertTrue(said < moved, "the transfer is written before the sentence");
-        assertEquals(said, source.lastIndexOf("voice.say("),
+        assertEquals(
+                said,
+                source.lastIndexOf("voice.say("),
                 "the standby speaks in more than one place, so one of them is after the transfer");
     }
 
@@ -137,20 +146,22 @@ class HomecomingTest {
         final Properties english = load("en");
         final Properties german = load("de");
 
-        for (final String key : new String[] {"return.waiting-room", "return.countdown",
-                "return.now"}) {
+        for (final String key : new String[] {"return.waiting-room", "return.countdown", "return.now"}) {
             assertTrue(english.containsKey(key), "no English line for " + key);
             assertTrue(german.containsKey(key), "no German line for " + key);
         }
-        assertTrue(english.getProperty("return.countdown").contains("{seconds}"),
+        assertTrue(
+                english.getProperty("return.countdown").contains("{seconds}"),
                 "a countdown that does not name the number is a line that never changes");
-        assertTrue(english.getProperty("return.waiting-room").contains("{what}"),
+        assertTrue(
+                english.getProperty("return.waiting-room").contains("{what}"),
                 "the line out of the waiting room names the server it is about");
     }
 
     private static Properties load(final String language) throws IOException {
         final Properties properties = new Properties();
-        try (InputStream stream = HomecomingTest.class.getClassLoader()
+        try (InputStream stream = HomecomingTest.class
+                .getClassLoader()
                 .getResourceAsStream("messages/proxy/" + language + ".properties")) {
             assertTrue(stream != null, "no bundle for " + language);
             properties.load(new InputStreamReader(stream, StandardCharsets.UTF_8));

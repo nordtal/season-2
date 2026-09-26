@@ -23,8 +23,7 @@ import java.nio.file.Path;
  */
 public final class RepositoryRoot {
 
-    private RepositoryRoot() {
-    }
+    private RepositoryRoot() {}
 
     /** @return the directory holding {@code settings.gradle.kts} */
     public static Path path() {

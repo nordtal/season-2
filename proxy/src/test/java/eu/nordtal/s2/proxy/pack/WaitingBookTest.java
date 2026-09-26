@@ -1,24 +1,22 @@
 package eu.nordtal.s2.proxy.pack;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.limbo.WaitReason;
-import eu.nordtal.s2.proxy.routing.ProxyRole;
 import eu.nordtal.s2.proxy.MutableClock;
 import eu.nordtal.s2.proxy.pack.WaitingDecision.Action;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
+import eu.nordtal.s2.proxy.routing.ProxyRole;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The waiting room's release rule, asserted in every order the three facts can arrive in.
@@ -50,7 +48,8 @@ class WaitingBookTest {
     }
 
     private Action decide(final WaitingBook book) {
-        return book.decide(player, PLAYABLE, false, true, DESTINATION, false, false).action();
+        return book.decide(player, PLAYABLE, false, true, DESTINATION, false, false)
+                .action();
     }
 
     // ------------------------------------------------------------------ finding 38
@@ -68,8 +67,7 @@ class WaitingBookTest {
         book.claimOffer(player);
         book.packApplied(player);
 
-        assertEquals(Action.RELEASE, decide(book),
-                "the player must leave the waiting room, not sit in it for ever");
+        assertEquals(Action.RELEASE, decide(book), "the player must leave the waiting room, not sit in it for ever");
     }
 
     @Test
@@ -112,8 +110,9 @@ class WaitingBookTest {
             outcomes.add(decide(book));
         }
 
-        assertEquals(List.of(Action.RELEASE, Action.RELEASE, Action.RELEASE,
-                Action.RELEASE, Action.RELEASE, Action.RELEASE), outcomes,
+        assertEquals(
+                List.of(Action.RELEASE, Action.RELEASE, Action.RELEASE, Action.RELEASE, Action.RELEASE, Action.RELEASE),
+                outcomes,
                 "the release must not depend on which event Velocity dispatched first");
     }
 
@@ -122,8 +121,7 @@ class WaitingBookTest {
     void readyAfterArrivalIsOrdinary() {
         final WaitingBook book = book();
         book.entered(player);
-        assertFalse(book.ready(player),
-                "the ordinary order must not log the warning that names the race");
+        assertFalse(book.ready(player), "the ordinary order must not log the warning that names the race");
     }
 
     // ------------------------------------------------------------------ the grace period
@@ -141,8 +139,8 @@ class WaitingBookTest {
         assertEquals(Action.IDLE, decide(book), "one second short of the grace is still waiting");
 
         clock.advance(Duration.ofSeconds(1));
-        assertEquals(Action.RELEASE_UNCONFIRMED, decide(book),
-                "no single message may be able to strand a player for ever");
+        assertEquals(
+                Action.RELEASE_UNCONFIRMED, decide(book), "no single message may be able to strand a player for ever");
     }
 
     @Test
@@ -157,7 +155,9 @@ class WaitingBookTest {
         clock.advance(Duration.ofSeconds(2));
         book.ready(player);
 
-        assertEquals(Action.RELEASE, decide(book),
+        assertEquals(
+                Action.RELEASE,
+                decide(book),
                 "a READY that arrives late is still a READY, and must not be reported as missing");
     }
 
@@ -172,13 +172,16 @@ class WaitingBookTest {
 
         clock.advance(Duration.ofSeconds(4));
         // The phase's backend goes away: the wait is no longer down to READY alone.
-        assertEquals(Action.SHOW, book.decide(player, PLAYABLE, false, false, DESTINATION, false, false).action());
+        assertEquals(
+                Action.SHOW,
+                book.decide(player, PLAYABLE, false, false, DESTINATION, false, false)
+                        .action());
         clock.advance(Duration.ofSeconds(4));
 
         // Back up. Eight seconds have passed in total, which is more than the grace - but the wait
         // has only just come down to READY again, and the player has not been waiting on it.
-        assertEquals(Action.IDLE, decide(book),
-                "a release without READY must measure the wait it is actually excusing");
+        assertEquals(
+                Action.IDLE, decide(book), "a release without READY must measure the wait it is actually excusing");
     }
 
     // ------------------------------------------------------------------ releasing exactly once
@@ -193,7 +196,9 @@ class WaitingBookTest {
         book.ready(player);
 
         assertEquals(Action.RELEASE, decide(book));
-        assertEquals(Action.IDLE, decide(book),
+        assertEquals(
+                Action.IDLE,
+                decide(book),
                 "the sweep and a pack status arrive together often enough; a player must not be "
                         + "connected onward twice");
         assertFalse(book.isWaiting(player), "a released player is no longer held");
@@ -220,9 +225,13 @@ class WaitingBookTest {
         book.entered(player);
         book.claimOffer(player);
 
-        assertEquals(WaitingDecision.show(WaitReason.PACK), book.decide(player, PLAYABLE, false, true, DESTINATION, false, false),
+        assertEquals(
+                WaitingDecision.show(WaitReason.PACK),
+                book.decide(player, PLAYABLE, false, true, DESTINATION, false, false),
                 "the first look has to tell limbo what to draw");
-        assertEquals(Action.IDLE, decide(book),
+        assertEquals(
+                Action.IDLE,
+                decide(book),
                 "the sweep runs every few seconds; re-sending would re-issue the title on a loop");
     }
 
@@ -235,7 +244,8 @@ class WaitingBookTest {
         assertEquals(Action.SHOW, decide(book));
 
         book.packApplied(player);
-        assertEquals(WaitingDecision.show(WaitReason.MAINTENANCE),
+        assertEquals(
+                WaitingDecision.show(WaitReason.MAINTENANCE),
                 book.decide(player, SeasonPhase.MAINTENANCE, false, true, DESTINATION, false, false));
     }
 
@@ -252,10 +262,10 @@ class WaitingBookTest {
         assertEquals(Action.IDLE, decide(book), "nothing is decided about a player who is not held");
 
         book.entered(player);
-        assertFalse(book.claimOffer(player),
-                "a player bounced back into the waiting room is not asked for the pack twice");
-        assertEquals(Action.SHOW, decide(book),
-                "the second visit has to redraw: limbo shows whatever it was last told");
+        assertFalse(
+                book.claimOffer(player), "a player bounced back into the waiting room is not asked for the pack twice");
+        assertEquals(
+                Action.SHOW, decide(book), "the second visit has to redraw: limbo shows whatever it was last told");
     }
 
     // ------------------------------------------------------------------ the pack switch
@@ -268,7 +278,9 @@ class WaitingBookTest {
         book.ready(player);
         clock.advance(APPLY_TIMEOUT.multipliedBy(10));
 
-        assertEquals(Action.RELEASE, decide(book),
+        assertEquals(
+                Action.RELEASE,
+                decide(book),
                 "pack.yml#enabled false is a waiting room with one fewer thing in it, not a "
                         + "waiting room that disconnects everybody");
     }
@@ -289,7 +301,10 @@ class WaitingBookTest {
         applied.packApplied(player);
         applied.ready(player);
         second.advance(APPLY_TIMEOUT.multipliedBy(10));
-        assertEquals(Action.RELEASE, applied.decide(player, PLAYABLE, false, true, DESTINATION, false, false).action(),
+        assertEquals(
+                Action.RELEASE,
+                applied.decide(player, PLAYABLE, false, true, DESTINATION, false, false)
+                        .action(),
                 "the clock only runs against a client that never answered at all");
     }
 
@@ -306,10 +321,14 @@ class WaitingBookTest {
         book.packApplied(player);
         book.ready(player);
 
-        assertEquals(WaitingDecision.show(WaitReason.BACKEND),
+        assertEquals(
+                WaitingDecision.show(WaitReason.BACKEND),
                 book.decide(player, SeasonPhase.MAINTENANCE, true, false, DESTINATION, false, false),
                 "the SMP is not registered: the admin waits for it, and is told that");
-        assertEquals(Action.RELEASE, book.decide(player, SeasonPhase.MAINTENANCE, true, true, DESTINATION, false, false).action(),
+        assertEquals(
+                Action.RELEASE,
+                book.decide(player, SeasonPhase.MAINTENANCE, true, true, DESTINATION, false, false)
+                        .action(),
                 "the SMP is there: nothing is left to wait for");
     }
 
@@ -322,7 +341,8 @@ class WaitingBookTest {
         book.packApplied(player);
         book.ready(player);
 
-        assertEquals(WaitingDecision.show(WaitReason.MAINTENANCE),
+        assertEquals(
+                WaitingDecision.show(WaitReason.MAINTENANCE),
                 book.decide(player, SeasonPhase.MAINTENANCE, false, true, DESTINATION, false, false));
     }
 
@@ -341,7 +361,9 @@ class WaitingBookTest {
         assertEquals(Action.RELEASE, decide(book));
 
         book.releaseFailed(player, DESTINATION);
-        assertEquals(WaitingDecision.show(WaitReason.BACKEND), book.decide(player, PLAYABLE, false, true, DESTINATION, false, false),
+        assertEquals(
+                WaitingDecision.show(WaitReason.BACKEND),
+                book.decide(player, PLAYABLE, false, true, DESTINATION, false, false),
                 "back on the books, and told what they are waiting for");
         clock.advance(WaitingBook.RELEASE_RETRY.dividedBy(2));
         assertEquals(Action.IDLE, decide(book), "not retried before the window has passed");
@@ -365,10 +387,14 @@ class WaitingBookTest {
         assertEquals(Action.RELEASE, decide(book));
 
         book.releaseFailed(player, DESTINATION);
-        assertEquals(WaitingDecision.show(WaitReason.BACKEND), book.decide(player, PLAYABLE, false, true, DESTINATION, false, false),
+        assertEquals(
+                WaitingDecision.show(WaitReason.BACKEND),
+                book.decide(player, PLAYABLE, false, true, DESTINATION, false, false),
                 "the backend that refused is still refused");
-        assertEquals(Action.RELEASE,
-                book.decide(player, SeasonPhase.SMP, false, true, "smp", false, false).action(),
+        assertEquals(
+                Action.RELEASE,
+                book.decide(player, SeasonPhase.SMP, false, true, "smp", false, false)
+                        .action(),
                 "another backend is not held for a failure that was not its own");
     }
 

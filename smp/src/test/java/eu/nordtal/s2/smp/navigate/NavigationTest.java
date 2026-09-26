@@ -1,12 +1,11 @@
 package eu.nordtal.s2.smp.navigate;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 /**
  * Who is navigating where, and - more importantly - who has stopped.

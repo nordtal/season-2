@@ -4,7 +4,6 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
-
 import java.util.List;
 import java.util.Set;
 
@@ -20,8 +19,7 @@ import java.util.Set;
  */
 public final class NetworkCommands {
 
-    private NetworkCommands() {
-    }
+    private NetworkCommands() {}
 
     /**
      * {@code /network reload} - the wording, and nothing that is wired into a running proxy.
@@ -33,8 +31,7 @@ public final class NetworkCommands {
      * through, {@link Surface#CONSOLE} rather than one of three.
      */
     public static final Declaration RELOAD = new Declaration(
-            List.of("network", "reload"), Target.PROXY,
-            Set.of(Surface.CONSOLE), true, false, List.of());
+            List.of("network", "reload"), Target.PROXY, Set.of(Surface.CONSOLE), true, false, List.of());
 
     /** Every {@code /network} command. */
     public static List<NordtalCommand<NetworkEffects>> all() {

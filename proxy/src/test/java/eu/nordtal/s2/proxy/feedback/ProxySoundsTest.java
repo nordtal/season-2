@@ -1,21 +1,17 @@
 package eu.nordtal.s2.proxy.feedback;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.velocitypowered.api.proxy.Player;
-
 import eu.nordtal.s2.common.feedback.Feedback;
-
-import net.kyori.adventure.sound.Sound;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import net.kyori.adventure.sound.Sound;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The mapping table {@link ProxySounds} adds: {@link Feedback#REFUSED} plays a real
@@ -69,8 +65,8 @@ class ProxySoundsTest {
     }
 
     private static Player player(final List<Sound> played) {
-        return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[]{Player.class}, (proxy, method, args) -> {
+        return (Player) Proxy.newProxyInstance(
+                Player.class.getClassLoader(), new Class<?>[] {Player.class}, (proxy, method, args) -> {
                     if ("getUniqueId".equals(method.getName())) {
                         return SOMEBODY;
                     }

@@ -1,5 +1,7 @@
 package eu.nordtal.s2.hungergames.game;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -7,14 +9,6 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
-
-import net.kyori.adventure.text.Component;
-
-import org.bukkit.World;
-import org.bukkit.entity.Player;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -22,8 +16,10 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-
-import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tracks who is still alive and decides the game:
@@ -52,11 +48,15 @@ public final class WinTracker {
 
     /** memberId -> alive, for the current game. Removed once dead. */
     private final java.util.Map<UUID, Instant> aliveSince = new ConcurrentHashMap<>();
+
     private final ConcurrentLinkedQueue<UUID> recentDeaths = new ConcurrentLinkedQueue<>();
     private volatile Instant lastDeathAt;
 
-    public WinTracker(final HungerGamesDao dao, final Messages messages, final PlayerLocales locales,
-                      final HungerGamesSounds sounds) {
+    public WinTracker(
+            final HungerGamesDao dao,
+            final Messages messages,
+            final PlayerLocales locales,
+            final HungerGamesSounds sounds) {
         this.dao = dao;
         this.messages = messages;
         this.locales = locales;
@@ -90,8 +90,7 @@ public final class WinTracker {
      * @param killerMemberId  who killed them, if anyone (border/environment deaths have none)
      * @return the outcome, if the game just ended
      */
-    public Optional<Outcome> recordDeath(final UUID gameId, final UUID victimMemberId,
-                                          final UUID killerMemberId) {
+    public Optional<Outcome> recordDeath(final UUID gameId, final UUID victimMemberId, final UUID killerMemberId) {
         aliveSince.remove(victimMemberId);
         if (killerMemberId != null) {
             dao.recordEvent(gameId, "KILL", killerMemberId, victimMemberId, null);
@@ -99,8 +98,8 @@ public final class WinTracker {
         dao.recordEvent(gameId, "DEATH", null, victimMemberId, null);
 
         final Instant now = Instant.now();
-        final boolean simultaneous = lastDeathAt != null
-                && Duration.between(lastDeathAt, now).compareTo(SIMULTANEOUS_WINDOW) <= 0;
+        final boolean simultaneous =
+                lastDeathAt != null && Duration.between(lastDeathAt, now).compareTo(SIMULTANEOUS_WINDOW) <= 0;
         lastDeathAt = now;
 
         if (aliveSince.size() == 1) {
@@ -121,13 +120,12 @@ public final class WinTracker {
                 final int firstKills = dao.killCount(gameId, first);
                 final int secondKills = dao.killCount(gameId, second);
                 final Optional<UUID> winner = Tiebreak.resolve(first, firstKills, second, secondKills);
-                dao.recordEvent(gameId, "TIE", null, null,
-                        winner.map(UUID::toString).orElse("no-winner"));
+                dao.recordEvent(
+                        gameId, "TIE", null, null, winner.map(UUID::toString).orElse("no-winner"));
                 // The kill counts travel with the outcome because the ceremony prints them:
                 // "won on the tiebreaker, 3 kills to 2" is a different sentence from "won".
-                return Optional.of(winner
-                        .map(id -> Outcome.tieBroken(id, Math.max(firstKills, secondKills),
-                                Math.min(firstKills, secondKills)))
+                return Optional.of(winner.map(id -> Outcome.tieBroken(
+                                id, Math.max(firstKills, secondKills), Math.min(firstKills, secondKills)))
                         // Equal by definition in this branch - Tiebreak returns empty only then -
                         // so either count is "the" count.
                         .orElseGet(() -> Outcome.tieNoWinner(firstKills)));
@@ -140,8 +138,10 @@ public final class WinTracker {
         }
 
         if (aliveSince.isEmpty()) {
-            LOGGER.warn("hunger-games: all participants dead in game {} with no resolvable tiebreak "
-                    + "(deaths not simultaneous) - treating as no winner", gameId);
+            LOGGER.warn(
+                    "hunger-games: all participants dead in game {} with no resolvable tiebreak "
+                            + "(deaths not simultaneous) - treating as no winner",
+                    gameId);
             // Not a tie: nothing was compared. The ceremony must say "no winner", not invent a
             // simultaneous death that did not happen.
             return Optional.of(Outcome.noWinner());
@@ -159,8 +159,12 @@ public final class WinTracker {
             return;
         }
         final List<UUID> aliveIds = aliveSince.keySet().stream().toList();
-        final Optional<HgMember> first = activeMembers.stream().filter(m -> m.id().equals(aliveIds.get(0))).findFirst();
-        final Optional<HgMember> second = activeMembers.stream().filter(m -> m.id().equals(aliveIds.get(1))).findFirst();
+        final Optional<HgMember> first = activeMembers.stream()
+                .filter(m -> m.id().equals(aliveIds.get(0)))
+                .findFirst();
+        final Optional<HgMember> second = activeMembers.stream()
+                .filter(m -> m.id().equals(aliveIds.get(1)))
+                .findFirst();
         if (first.isEmpty() || second.isEmpty()) {
             return;
         }
@@ -168,8 +172,10 @@ public final class WinTracker {
             return;
         }
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
-                    MESSAGES.hg().win().sameTeamFinalTwo()));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(
+                            locales.of(player.getUniqueId()),
+                            MESSAGES.hg().win().sameTeamFinalTwo()));
             // NETWORK_EVENT: addressed to the whole server about two other people, once per game.
             // The two it is about are the least likely to be reading chat.
             sounds.play(player, Feedback.NETWORK_EVENT);

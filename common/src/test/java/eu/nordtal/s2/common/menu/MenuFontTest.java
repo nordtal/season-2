@@ -1,17 +1,15 @@
 package eu.nordtal.s2.common.menu;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.RepositoryRoot;
 import eu.nordtal.s2.common.pack.FontFile;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -19,10 +17,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.imageio.ImageIO;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Holds {@link MenuFont}'s advance table against the six row fonts it was exported from.
@@ -63,7 +60,9 @@ class MenuFontTest {
     @Test
     @DisplayName("the exported advance table is what the client would derive from the pack")
     void theTableIsThePack() {
-        assertEquals(new TreeMap<>(derive()), new TreeMap<>(MenuFont.table()),
+        assertEquals(
+                new TreeMap<>(derive()),
+                new TreeMap<>(MenuFont.table()),
                 "common/src/main/resources/nordtal/menu/gui-row-advances.properties disagrees with"
                         + " the row fonts it was exported from. Re-run"
                         + " resource-pack/tools/generate_gui_rows.py: a redrawn glyph whose"
@@ -75,11 +74,20 @@ class MenuFontTest {
     @DisplayName("every row glyph the code names has an advance, so it can be placed at all")
     void everyRowGlyphIsMeasurable() {
         for (final String glyph : new String[] {
-                Glyphs.GUI_ROW_PILL, Glyphs.GUI_ROW_FRAME, Glyphs.GUI_ROW_BUTTON_WIDE,
-                Glyphs.GUI_ROW_BUTTON_SMALL, Glyphs.GUI_ROW_BUTTON_SMALL_OFF,
-                Glyphs.GUI_ROW_ICON_SPAWN, Glyphs.GUI_ROW_ICON_DEATH, Glyphs.GUI_ROW_ICON_POI,
-                Glyphs.GUI_ROW_ICON_STOP, Glyphs.GUI_ROW_ICON_PREV, Glyphs.GUI_ROW_ICON_NEXT}) {
-            assertTrue(MenuFont.advance(glyph.codePointAt(0)) > 0,
+            Glyphs.GUI_ROW_PILL,
+            Glyphs.GUI_ROW_FRAME,
+            Glyphs.GUI_ROW_BUTTON_WIDE,
+            Glyphs.GUI_ROW_BUTTON_SMALL,
+            Glyphs.GUI_ROW_BUTTON_SMALL_OFF,
+            Glyphs.GUI_ROW_ICON_SPAWN,
+            Glyphs.GUI_ROW_ICON_DEATH,
+            Glyphs.GUI_ROW_ICON_POI,
+            Glyphs.GUI_ROW_ICON_STOP,
+            Glyphs.GUI_ROW_ICON_PREV,
+            Glyphs.GUI_ROW_ICON_NEXT
+        }) {
+            assertTrue(
+                    MenuFont.advance(glyph.codePointAt(0)) > 0,
                     "U+%X has no advance, so anything drawn after it lands on top of it"
                             .formatted(glyph.codePointAt(0)));
         }
@@ -114,7 +122,8 @@ class MenuFontTest {
         assertEquals(short_, MenuFont.fit(short_, 120));
         for (final int pixels : new int[] {8, 12, 20, 40, 120}) {
             final String fitted = MenuFont.fit("Baeckerei am Fluss", pixels);
-            assertTrue(MenuFont.width(fitted) <= pixels,
+            assertTrue(
+                    MenuFont.width(fitted) <= pixels,
                     "fit(..., " + pixels + ") came back " + MenuFont.width(fitted) + " wide as '"
                             + fitted + "' - a label wider than its pill runs over the number"
                             + " right-aligned beside it, and neither is readable then");
@@ -124,10 +133,9 @@ class MenuFontTest {
     @Test
     @DisplayName("a row font is refused for a row a chest does not have")
     void thereIsNoSeventhRow() {
-        assertThrows(IllegalArgumentException.class,
-                () -> MenuTitle.onPlain(6).rowText("X", 6, 9, null));
-        assertThrows(IllegalArgumentException.class,
-                () -> MenuTitle.onPlain(6).rowArt(Glyphs.GUI_ROW_PILL, -1, 9, null));
+        assertThrows(IllegalArgumentException.class, () -> MenuTitle.onPlain(6).rowText("X", 6, 9, null));
+        assertThrows(
+                IllegalArgumentException.class, () -> MenuTitle.onPlain(6).rowArt(Glyphs.GUI_ROW_PILL, -1, 9, null));
     }
 
     @Test
@@ -137,12 +145,16 @@ class MenuFontTest {
             final Map<Integer, JsonObject> providers = bitmaps("gui_r" + row + ".json");
             final int cell = SlotGeometry.y(row);
 
-            assertEquals(cell + INSET, top(providers.get(Glyphs.GUI_ROW_PILL.codePointAt(0))),
+            assertEquals(
+                    cell + INSET,
+                    top(providers.get(Glyphs.GUI_ROW_PILL.codePointAt(0))),
                     "row " + row + "'s pill is not drawn on row " + row + "'s slot cell");
-            assertEquals(cell + INSET + (FURNITURE_HEIGHT - 8) / 2,
+            assertEquals(
+                    cell + INSET + (FURNITURE_HEIGHT - 8) / 2,
                     top(providers.get(Glyphs.GUI_ROW_ICON_POI.codePointAt(0))),
                     "row " + row + "'s icons are not centred in its pill");
-            assertEquals(cell + INSET + (FURNITURE_HEIGHT - MenuFont.HEIGHT) / 2,
+            assertEquals(
+                    cell + INSET + (FURNITURE_HEIGHT - MenuFont.HEIGHT) / 2,
                     top(providers.get((int) 'A')),
                     "row " + row + "'s text is not centred in its pill - five rows centred in"
                             + " fourteen lands at +4 and not +3, and one pixel high on every line"
@@ -180,7 +192,8 @@ class MenuFontTest {
         // PNG the client will draw rather than on the generator's table.
         final Map<Character, boolean[]> sheet = sheetPixels();
         for (final String pair : new String[] {"0O", "08", "O8"}) {
-            assertTrue(distance(sheet.get(pair.charAt(0)), sheet.get(pair.charAt(1))) >= 3,
+            assertTrue(
+                    distance(sheet.get(pair.charAt(0)), sheet.get(pair.charAt(1))) >= 3,
                     "'" + pair.charAt(0) + "' and '" + pair.charAt(1) + "' differ in fewer than"
                             + " three pixels in ui/gui/row_text.png. They stand next to each other"
                             + " in every distance, every coordinate and every progress number this"
@@ -205,7 +218,9 @@ class MenuFontTest {
                 }
             }
         }
-        assertEquals(java.util.List.of(), twins,
+        assertEquals(
+                java.util.List.of(),
+                twins,
                 "these characters are the same picture, so one of them is unreadable wherever the"
                         + " other could stand. Either redraw one, or put the pair in LOOKALIKES"
                         + " with the reason it is acceptable - the point of the list is that the"
@@ -231,8 +246,8 @@ class MenuFontTest {
                 final boolean[] cell = new boolean[cellWidth * cellHeight];
                 for (int y = 0; y < cellHeight; y++) {
                     for (int x = 0; x < cellWidth; x++) {
-                        cell[y * cellWidth + x] = (image.getRGB(column * cellWidth + x,
-                                row * cellHeight + y) >>> 24) != 0;
+                        cell[y * cellWidth + x] =
+                                (image.getRGB(column * cellWidth + x, row * cellHeight + y) >>> 24) != 0;
                     }
                 }
                 out.put(line.charAt(column), cell);
@@ -260,17 +275,17 @@ class MenuFontTest {
     /** Code point to the bitmap provider that declares it, for one row font. */
     private static Map<Integer, JsonObject> bitmaps(final String file) {
         final Map<Integer, JsonObject> out = new LinkedHashMap<>();
-        final JsonObject root = JsonParser
-                .parseString(RepositoryRoot.read(ASSETS + "/nordtal/font/" + file))
+        final JsonObject root = JsonParser.parseString(RepositoryRoot.read(ASSETS + "/nordtal/font/" + file))
                 .getAsJsonObject();
         for (final JsonElement element : root.getAsJsonArray("providers")) {
             final JsonObject provider = element.getAsJsonObject();
             if (!"bitmap".equals(provider.get("type").getAsString())) {
                 continue;
             }
-            provider.getAsJsonArray("chars").forEach(chars ->
-                    chars.getAsString().codePoints().forEach(codePoint ->
-                            out.putIfAbsent(codePoint, provider)));
+            provider.getAsJsonArray("chars")
+                    .forEach(chars -> chars.getAsString()
+                            .codePoints()
+                            .forEach(codePoint -> out.putIfAbsent(codePoint, provider)));
         }
         return out;
     }
@@ -283,43 +298,49 @@ class MenuFontTest {
      */
     private static Map<Integer, Integer> derive() {
         final Map<Integer, Integer> table = new TreeMap<>();
-        final JsonObject root = JsonParser
-                .parseString(RepositoryRoot.read(ASSETS + "/nordtal/font/gui_r0.json"))
+        final JsonObject root = JsonParser.parseString(RepositoryRoot.read(ASSETS + "/nordtal/font/gui_r0.json"))
                 .getAsJsonObject();
         for (final JsonElement element : root.getAsJsonArray("providers")) {
             final JsonObject provider = element.getAsJsonObject();
             if ("space".equals(provider.get("type").getAsString())) {
-                provider.getAsJsonObject("advances").entrySet().forEach(entry ->
-                        entry.getKey().codePoints().forEach(codePoint ->
-                                table.putIfAbsent(codePoint, entry.getValue().getAsInt())));
+                provider.getAsJsonObject("advances")
+                        .entrySet()
+                        .forEach(entry -> entry.getKey()
+                                .codePoints()
+                                .forEach(codePoint -> table.putIfAbsent(
+                                        codePoint, entry.getValue().getAsInt())));
                 continue;
             }
             final BufferedImage image = read(provider.get("file").getAsString());
             final var rows = provider.getAsJsonArray("chars");
-            final int columns = rows.get(0).getAsString().codePointCount(0,
-                    rows.get(0).getAsString().length());
+            final int columns = rows.get(0)
+                    .getAsString()
+                    .codePointCount(0, rows.get(0).getAsString().length());
             final int cellWidth = image.getWidth() / columns;
             final int cellHeight = image.getHeight() / rows.size();
             final double scale = provider.get("height").getAsDouble() / cellHeight;
             for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
-                final int[] codePoints = rows.get(rowIndex).getAsString().codePoints().toArray();
+                final int[] codePoints =
+                        rows.get(rowIndex).getAsString().codePoints().toArray();
                 for (int column = 0; column < codePoints.length; column++) {
                     if (codePoints[column] == 0 || table.containsKey(codePoints[column])) {
                         continue;
                     }
-                    final int rightmost = rightmostDrawnColumn(image, column * cellWidth,
-                            rowIndex * cellHeight, cellWidth, cellHeight);
+                    final int rightmost = rightmostDrawnColumn(
+                            image, column * cellWidth, rowIndex * cellHeight, cellWidth, cellHeight);
                     table.put(codePoints[column], (int) (0.5 + (rightmost + 1) * scale) + 1);
                 }
             }
         }
-        assertEquals(new TreeSet<>(table.keySet()), new TreeSet<>(MenuFont.table().keySet()),
+        assertEquals(
+                new TreeSet<>(table.keySet()),
+                new TreeSet<>(MenuFont.table().keySet()),
                 "the exported table and the row font declare different code points");
         return table;
     }
 
-    private static int rightmostDrawnColumn(final BufferedImage image, final int x0, final int y0,
-                                            final int width, final int height) {
+    private static int rightmostDrawnColumn(
+            final BufferedImage image, final int x0, final int y0, final int width, final int height) {
         for (int x = x0 + width - 1; x >= x0; x--) {
             for (int y = y0; y < y0 + height; y++) {
                 if ((image.getRGB(x, y) >>> 24) != 0) {
@@ -332,7 +353,8 @@ class MenuFontTest {
 
     private static BufferedImage read(final String textureId) {
         try {
-            final BufferedImage image = ImageIO.read(FontFile.texturePath(textureId).toFile());
+            final BufferedImage image =
+                    ImageIO.read(FontFile.texturePath(textureId).toFile());
             if (image == null) {
                 throw new IllegalStateException(textureId + " is not an image ImageIO can read");
             }

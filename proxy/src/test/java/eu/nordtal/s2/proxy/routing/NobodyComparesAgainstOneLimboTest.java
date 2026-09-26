@@ -1,7 +1,6 @@
 package eu.nordtal.s2.proxy.routing;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -13,8 +12,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Nobody asks "is this the waiting room" by comparing against one name (season-2-ops/120).
@@ -52,8 +51,8 @@ class NobodyComparesAgainstOneLimboTest {
      * {@code ==} spellings. Deliberately broad: a near-miss that this does not catch is a near-miss
      * nobody catches.
      */
-    private static final Pattern FORBIDDEN = Pattern.compile(
-            "\\.equals\\(\\s*[A-Za-z0-9_.()]*servers\\(\\)\\.limbo\\(\\)\\s*\\)"
+    private static final Pattern FORBIDDEN =
+            Pattern.compile("\\.equals\\(\\s*[A-Za-z0-9_.()]*servers\\(\\)\\.limbo\\(\\)\\s*\\)"
                     + "|[A-Za-z0-9_.()]*servers\\(\\)\\.limbo\\(\\)\\s*\\.equals\\("
                     + "|==\\s*[A-Za-z0-9_.()]*servers\\(\\)\\.limbo\\(\\)");
 
@@ -73,14 +72,14 @@ class NobodyComparesAgainstOneLimboTest {
             if (EXEMPT.containsKey(relative)) {
                 continue;
             }
-            final Matcher matcher = FORBIDDEN.matcher(blankComments(
-                    Files.readString(file, StandardCharsets.UTF_8)));
+            final Matcher matcher = FORBIDDEN.matcher(blankComments(Files.readString(file, StandardCharsets.UTF_8)));
             while (matcher.find()) {
                 offences.add(relative + ": " + matcher.group().trim());
             }
         }
 
-        assertTrue(offences.isEmpty(),
+        assertTrue(
+                offences.isEmpty(),
                 "these lines ask whether a backend is THE waiting room, and since season-2-ops/120"
                         + " there are two. A player on 'limbo-standby' is, to each of them, somebody"
                         + " on an unrelated backend - so they are never released and sit there until"
@@ -117,14 +116,15 @@ class NobodyComparesAgainstOneLimboTest {
             if (MAY_READ_THE_CONFIG_KEY.containsKey(relative)) {
                 continue;
             }
-            final Matcher matcher = READS_THE_CONFIG_KEY.matcher(blankComments(
-                    Files.readString(file, StandardCharsets.UTF_8)));
+            final Matcher matcher =
+                    READS_THE_CONFIG_KEY.matcher(blankComments(Files.readString(file, StandardCharsets.UTF_8)));
             if (matcher.find()) {
                 offences.add(relative);
             }
         }
 
-        assertTrue(offences.isEmpty(),
+        assertTrue(
+                offences.isEmpty(),
                 "these files take the name of ONE waiting room straight out of gate.yml. That is"
                         + " how RouteIntents ended up refusing every evacuation into"
                         + " 'limbo-standby': not by comparing against one name, but by being"
@@ -148,12 +148,15 @@ class NobodyComparesAgainstOneLimboTest {
      */
     private static List<Path> proxySources() throws IOException {
         final Path sources = repositoryRoot().resolve("proxy/src/main");
-        assertTrue(Files.isDirectory(sources), sources + " does not exist - if the module moved,"
-                + " this path has to move with it, because a missing directory is a check that"
-                + " silently stops running");
+        assertTrue(
+                Files.isDirectory(sources),
+                sources + " does not exist - if the module moved,"
+                        + " this path has to move with it, because a missing directory is a check that"
+                        + " silently stops running");
         try (Stream<Path> tree = Files.walk(sources)) {
             return tree.filter(Files::isRegularFile)
-                    .filter(path -> path.toString().endsWith(".java")).toList();
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .toList();
         }
     }
 

@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.message;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link Locales} sits on the login path - it turns a database column into the language a

@@ -5,11 +5,6 @@ import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
 import eu.nordtal.s2.steward.worker.ops.ServiceRuntime;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -17,6 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * {@link ContainerOps} against the Docker daemon itself.
@@ -63,8 +62,8 @@ public final class DockerOps implements ContainerOps {
                 // Inspect rather than reading the list's Status string: "Up 19 hours (healthy)" is
                 // a sentence for a person, and parsing it is how a health check becomes a guess.
                 final Docker.Inspection inspection = docker.inspect(container.id());
-                services.add(new ServiceRuntime(container.service(), container.id(),
-                        inspection.state(), inspection.health()));
+                services.add(new ServiceRuntime(
+                        container.service(), container.id(), inspection.state(), inspection.health()));
             }
             return RuntimeResult.of(services);
         } catch (DockerException e) {
@@ -219,10 +218,12 @@ public final class DockerOps implements ContainerOps {
      * image no longer has a name - never a real {@code repo[:tag]}, because those carry a slash or a
      * colon and this is exactly the twelve lowercase hex characters at the front of {@code imageId}.
      */
-    private static boolean isOrphanedShortId(final @NotNull String reference,
-                                             final @Nullable String imageId) {
-        return imageId != null && imageId.startsWith("sha256:") && reference.length() == 12
-                && !reference.contains("/") && !reference.contains(":")
+    private static boolean isOrphanedShortId(final @NotNull String reference, final @Nullable String imageId) {
+        return imageId != null
+                && imageId.startsWith("sha256:")
+                && reference.length() == 12
+                && !reference.contains("/")
+                && !reference.contains(":")
                 && imageId.regionMatches(true, "sha256:".length(), reference, 0, reference.length());
     }
 
@@ -242,19 +243,22 @@ public final class DockerOps implements ContainerOps {
             // container runs, but often the reason it is unreadable in the first place.
             final Optional<Docker.ImageIdentity> current = docker.imageIdentity(reference);
             if (current.isPresent() && current.get().builtLocally()) {
-                return new ImageCheck(ImageResult.State.LOCAL,
+                return new ImageCheck(
+                        ImageResult.State.LOCAL,
                         reference + " no longer matches what this container runs: its tag was"
                                 + " rebuilt locally while the container was only restarted, not"
                                 + " recreated. The exact image this container runs cannot be read"
                                 + " any more, and a --force-recreate (or a real update run) replaces"
                                 + " it with that local build");
             }
-            return new ImageCheck(ImageResult.State.UNKNOWN,
+            return new ImageCheck(
+                    ImageResult.State.UNKNOWN,
                     reference + "'s image no longer exists in this daemon's store, and what its tag"
                             + " currently means could not be read either");
         }
         if (identity.get().builtLocally()) {
-            return new ImageCheck(ImageResult.State.LOCAL,
+            return new ImageCheck(
+                    ImageResult.State.LOCAL,
                     reference + " was built on this host and never published - the next real update"
                             + " run replaces it silently");
         }
@@ -262,24 +266,23 @@ public final class DockerOps implements ContainerOps {
         if (local.isEmpty()) {
             // No Identity.Build and no digest at all: what "built here, never pushed" looked like
             // under the classic graphdriver, before Identity existed to say so more directly.
-            return new ImageCheck(ImageResult.State.LOCAL,
+            return new ImageCheck(
+                    ImageResult.State.LOCAL,
                     reference + " carries no registry digest and was not pulled either - built on"
                             + " this host and never published, the next real update run replaces it"
                             + " silently");
         }
         final Optional<String> remote = docker.registryDigest(reference);
         if (remote.isEmpty()) {
-            return new ImageCheck(ImageResult.State.UNKNOWN,
-                    "the registry did not answer for " + reference);
+            return new ImageCheck(ImageResult.State.UNKNOWN, "the registry did not answer for " + reference);
         }
         final String wanted = remote.get();
         final boolean carriesIt = local.stream().anyMatch(digest -> digest.endsWith("@" + wanted));
-        return new ImageCheck(carriesIt ? ImageResult.State.UP_TO_DATE : ImageResult.State.OUTDATED,
-                null);
+        return new ImageCheck(carriesIt ? ImageResult.State.UP_TO_DATE : ImageResult.State.OUTDATED, null);
     }
 
     /** The state, and why it could not be established when that is the answer. */
-    public record ImageCheck(@NotNull ImageResult.State state, String reason) { }
+    public record ImageCheck(@NotNull ImageResult.State state, String reason) {}
 
     /**
      * Refused here, on purpose.

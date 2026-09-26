@@ -1,20 +1,17 @@
 package eu.nordtal.s2.smp.player;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.displaytags.api.DisplayTagsPlugin;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
-
 import eu.nordtal.s2.common.hud.TabList;
 import eu.nordtal.s2.common.message.MessageRenderer;
-
+import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-
-import java.util.List;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * Draws a player onto the two surfaces that are not chat: the tab list and the nametag above their
@@ -42,8 +39,11 @@ public final class PlayerSurfaces {
     private final PlayerComposition composition;
     private final MessageRenderer messages;
 
-    public PlayerSurfaces(final Plugin plugin, final Identities identities,
-                          final PlayerComposition composition, final MessageRenderer messages) {
+    public PlayerSurfaces(
+            final Plugin plugin,
+            final Identities identities,
+            final PlayerComposition composition,
+            final MessageRenderer messages) {
         this.plugin = plugin;
         this.identities = identities;
         this.composition = composition;
@@ -87,8 +87,8 @@ public final class PlayerSurfaces {
             // paper-plugin.yml declares DisplayTags required, so this is a plugin that failed its
             // own enable rather than one that is absent. Say so once per attempt and carry on: a
             // plain nametag is a cosmetic loss, and taking the server down for it is not.
-            plugin.getLogger().warning("DisplayTags is not available - " + player.getName()
-                    + " keeps the vanilla nametag");
+            plugin.getLogger()
+                    .warning("DisplayTags is not available - " + player.getName() + " keeps the vanilla nametag");
             return;
         }
 
@@ -142,7 +142,8 @@ public final class PlayerSurfaces {
     private void sendTabListFrame(final Player player, final Identity identity) {
         player.sendPlayerListHeaderAndFooter(
                 TabList.header(messages, identity.locale(), MESSAGES.tab()::header),
-                messages.format(identity.locale(), MESSAGES.tab().footer(
-                        Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers())));
+                messages.format(
+                        identity.locale(),
+                        MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers())));
     }
 }

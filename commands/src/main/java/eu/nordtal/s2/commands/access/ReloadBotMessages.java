@@ -1,15 +1,14 @@
 package eu.nordtal.s2.commands.access;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
-
 import java.util.List;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /access reload} - the bot's own wording.
@@ -37,10 +36,12 @@ public final class ReloadBotMessages implements NordtalCommand<AccessEffects> {
             if (unknown.isEmpty()) {
                 user.reply(MESSAGES.access().messages().reloaded(), Feedback.SMALL_SUCCESS, Tone.GOOD);
             } else {
-                user.reply(MESSAGES.access().messages().reloadedWithUnknown(String.join(", ", unknown)),
+                user.reply(
+                        MESSAGES.access().messages().reloadedWithUnknown(String.join(", ", unknown)),
                         // The reload worked; some override keys name nothing. WARN rather than
                         // BAD, because the bot is now running the new file either way.
-                        Feedback.REFUSED, Tone.WARN);
+                        Feedback.REFUSED,
+                        Tone.WARN);
             }
         });
     }

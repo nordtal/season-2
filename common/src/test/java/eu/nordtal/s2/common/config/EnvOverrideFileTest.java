@@ -1,8 +1,8 @@
 package eu.nordtal.s2.common.config;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -10,10 +10,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * steward/76: the neighbour file a service writes beside its own config, naming the paths the
@@ -47,7 +46,8 @@ class EnvOverrideFileTest {
     void keepsTheWholeNameWhenThereIsNoKnownExtension() {
         final Path properties = directory.resolve("voicechat-server.properties");
 
-        assertEquals(directory.resolve("voicechat-server.properties.env-overrides.txt"),
+        assertEquals(
+                directory.resolve("voicechat-server.properties.env-overrides.txt"),
                 EnvOverrideFile.fileFor(properties));
     }
 
@@ -106,8 +106,7 @@ class EnvOverrideFileTest {
     @DisplayName("a blank line in a hand-edited neighbour file is skipped rather than read as a path")
     void blankLinesAreSkipped() throws IOException {
         final Path yml = directory.resolve("access.yml");
-        Files.writeString(EnvOverrideFile.fileFor(yml), "guild-id\n\n  \nlanguages\n",
-                StandardCharsets.UTF_8);
+        Files.writeString(EnvOverrideFile.fileFor(yml), "guild-id\n\n  \nlanguages\n", StandardCharsets.UTF_8);
 
         assertEquals(Optional.of(List.of("guild-id", "languages")), EnvOverrideFile.read(yml));
     }

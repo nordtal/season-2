@@ -1,9 +1,8 @@
 package eu.nordtal.s2.common.update;
 
+import java.time.Instant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.time.Instant;
 
 /**
  * One service that was deliberately stopped and must stay stopped (season-2-ops/125).
@@ -20,8 +19,8 @@ import java.time.Instant;
  * @param requestId the DOWN run that put it there, or {@code null} when that row has been deleted
  *                  since - the hold outliving its explanation is the safer of the two directions
  */
-public record ServiceHold(@NotNull String service,
-                          @NotNull Instant since,
-                          @Nullable String heldBy,
-                          @Nullable Long requestId) {
-}
+public record ServiceHold(
+        @NotNull String service,
+        @NotNull Instant since,
+        @Nullable String heldBy,
+        @Nullable Long requestId) {}

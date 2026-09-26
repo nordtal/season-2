@@ -1,10 +1,10 @@
 package eu.nordtal.s2.proxy.routing;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * A player being evacuated into the standby waiting room is not refused (season-2-ops/120).
@@ -18,8 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RouteIntentsAllowTest {
 
-    private static final PhaseServers SERVERS =
-            new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     @Test
     @DisplayName("an evacuation into the standby needs no intent, exactly like one into the limbo")

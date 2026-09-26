@@ -5,11 +5,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
-
+import java.io.IOException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.io.IOException;
 
 /**
  * Reading the three APIs' JSON, with the field name in the message when it is not there.
@@ -24,8 +22,7 @@ import java.io.IOException;
  */
 final class Json {
 
-    private Json() {
-    }
+    private Json() {}
 
     static @NotNull JsonObject object(final @NotNull String body, final @NotNull String what) throws IOException {
         return element(body, what).getAsJsonObject();
@@ -34,7 +31,8 @@ final class Json {
     static @NotNull JsonArray array(final @NotNull String body, final @NotNull String what) throws IOException {
         final JsonElement element = element(body, what);
         if (!element.isJsonArray()) {
-            throw new IOException(what + ": expected a JSON array, got " + element.getClass().getSimpleName());
+            throw new IOException(
+                    what + ": expected a JSON array, got " + element.getClass().getSimpleName());
         }
         return element.getAsJsonArray();
     }
@@ -48,8 +46,9 @@ final class Json {
         }
     }
 
-    static @NotNull String string(final @NotNull JsonObject object, final @NotNull String field,
-                                  final @NotNull String what) throws IOException {
+    static @NotNull String string(
+            final @NotNull JsonObject object, final @NotNull String field, final @NotNull String what)
+            throws IOException {
         final String value = optionalString(object, field);
         if (value == null) {
             throw new IOException(what + ": no '" + field + "' in the response. The API's shape has"

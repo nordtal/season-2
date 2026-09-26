@@ -1,16 +1,14 @@
 package eu.nordtal.s2.commands.limbo;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
-
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The waiting room's one command.
@@ -33,8 +31,7 @@ class LimboCommandsTest {
         }
 
         @Override
-        public void warn(final String what, final Throwable failure) {
-        }
+        public void warn(final String what, final Throwable failure) {}
 
         @Override
         public boolean reloadMessages() {

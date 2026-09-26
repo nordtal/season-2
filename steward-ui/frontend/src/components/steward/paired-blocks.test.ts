@@ -34,9 +34,7 @@ function field(over: Partial<ConfigEntry> & { key: string; path: string }): Conf
 function block(name: string, keys: string[], values: string[] = []): ConfigEntry[] {
   return [
     field({ key: name, path: name, kind: "MAP", editable: false }),
-    ...keys.map((key, at) =>
-      field({ key, path: `${name}.${key}`, value: values[at] ?? "" }),
-    ),
+    ...keys.map((key, at) => field({ key, path: `${name}.${key}`, value: values[at] ?? "" })),
   ]
 }
 
@@ -62,10 +60,7 @@ describe("pairedBlocks", () => {
   })
 
   it("refuses two blocks whose keys differ, rather than dropping the odd one out", () => {
-    const wrong = [
-      ...block("hours", ["tier-01", "tier-02", "tier-03"]),
-      ...block("colours", ["tier-01", "tier-02"]),
-    ]
+    const wrong = [...block("hours", ["tier-01", "tier-02", "tier-03"]), ...block("colours", ["tier-01", "tier-02"])]
 
     expect(pairedBlocks(wrong)).toEqual([])
   })
@@ -113,11 +108,7 @@ describe("pairedBlocks", () => {
   })
 
   it("never lets one block be the right of one pair and the left of the next", () => {
-    const three = [
-      ...block("a", ["one"]),
-      ...block("b", ["one"]),
-      ...block("c", ["one"]),
-    ]
+    const three = [...block("a", ["one"]), ...block("b", ["one"]), ...block("c", ["one"])]
 
     const pairs = pairedBlocks(three)
     expect(pairs).toHaveLength(1)

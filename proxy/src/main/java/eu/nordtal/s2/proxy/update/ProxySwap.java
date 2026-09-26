@@ -1,22 +1,19 @@
 package eu.nordtal.s2.proxy.update;
 
+import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.proxy.online.OnlineCounts;
 import eu.nordtal.s2.proxy.routing.ProxyRole;
-
-import com.velocitypowered.api.proxy.Player;
-import com.velocitypowered.api.proxy.ProxyServer;
-
-import org.slf4j.Logger;
-
 import java.net.InetSocketAddress;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Optional;
-import java.util.function.BooleanSupplier;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
+import org.slf4j.Logger;
 
 /**
  * The live proxy's half of a proxy swap: it parks the whole network on the standby before it stops
@@ -109,9 +106,14 @@ public final class ProxySwap {
      *                {@code null} when this deployment has no public address configured and
      *                therefore does not swap proxies
      */
-    public ProxySwap(final ProxyServer proxy, final Logger logger, final UpdateDirectory updates,
-                     final SwapStore seats, final ProxyRole role, final InetSocketAddress standby,
-                     final Clock clock) {
+    public ProxySwap(
+            final ProxyServer proxy,
+            final Logger logger,
+            final UpdateDirectory updates,
+            final SwapStore seats,
+            final ProxyRole role,
+            final InetSocketAddress standby,
+            final Clock clock) {
         this(proxy, logger, updates, seats, role, standby, clock, StandbyReturn::connects);
     }
 
@@ -121,9 +123,15 @@ public final class ProxySwap {
      *              worth asserting, and asserting it against a real socket would mean binding a
      *              port in a unit test
      */
-    ProxySwap(final ProxyServer proxy, final Logger logger, final UpdateDirectory updates,
-              final SwapStore seats, final ProxyRole role, final InetSocketAddress standby,
-              final Clock clock, final StandbyReturn.Probe probe) {
+    ProxySwap(
+            final ProxyServer proxy,
+            final Logger logger,
+            final UpdateDirectory updates,
+            final SwapStore seats,
+            final ProxyRole role,
+            final InetSocketAddress standby,
+            final Clock clock,
+            final StandbyReturn.Probe probe) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
@@ -191,23 +199,23 @@ public final class ProxySwap {
             return;
         }
         final Set<String> next = Evacuation.imminent(running);
-        final boolean alreadyMoved = running
-                .map(request -> hasBeenThroughMe(startedAt, request.notBefore()))
+        final boolean alreadyMoved = running.map(request -> hasBeenThroughMe(startedAt, request.notBefore()))
                 .orElse(false);
 
-        final Pass pass = decide(next, parked, alreadyMoved,
-                () -> probe.answers(standby, STANDBY_ANSWERS_WITHIN));
+        final Pass pass = decide(next, parked, alreadyMoved, () -> probe.answers(standby, STANDBY_ANSWERS_WITHIN));
         // THE DOOR FIRST, AND SEPARATELY FROM THE ACTION. `park()` happens once; being shut lasts
         // as long as the run does (season-2-ops/151).
         parked = doorAfter(pass, parked);
         switch (pass) {
-            case IDLE, ALREADY_DONE, ALREADY_MOVED -> { }
+            case IDLE, ALREADY_DONE, ALREADY_MOVED -> {}
             case STANDBY_MISSING ->
-                logger.warn("The proxy is about to stop and {}:{} does not answer, so nobody can "
+                logger.warn(
+                        "The proxy is about to stop and {}:{} does not answer, so nobody can "
                                 + "be parked - this update takes the network down the way it "
                                 + "always did. The standby has to be running BEFORE the run "
                                 + "reaches this proxy.",
-                        standby.getHostString(), standby.getPort());
+                        standby.getHostString(),
+                        standby.getPort());
             case PARK -> park();
         }
     }
@@ -292,8 +300,11 @@ public final class ProxySwap {
      * @param standbyAnswers asked <b>last</b> and never otherwise: it opens a socket, and a pass
      *                       that has nothing to do must cost nothing
      */
-    static Pass decide(final Set<String> imminent, final boolean alreadyParked,
-                       final boolean alreadyMoved, final BooleanSupplier standbyAnswers) {
+    static Pass decide(
+            final Set<String> imminent,
+            final boolean alreadyParked,
+            final boolean alreadyMoved,
+            final BooleanSupplier standbyAnswers) {
         if (!imminent.contains(OWN_SERVICE)) {
             // Including every ordinary backend run. Reported as IDLE rather than handled on a timer
             // so that a second proxy run in the same session parks again.
@@ -326,8 +337,11 @@ public final class ProxySwap {
             return;
         }
 
-        logger.info("The update moves this proxy: parking {} player(s) on {}:{} until it is back",
-                players.size(), standby.getHostString(), standby.getPort());
+        logger.info(
+                "The update moves this proxy: parking {} player(s) on {}:{} until it is back",
+                players.size(),
+                standby.getHostString(),
+                standby.getPort());
         for (final Player player : players) {
             park(player);
         }
@@ -354,8 +368,11 @@ public final class ProxySwap {
             try {
                 seats.seat(player.getUniqueId(), on, clock.instant());
             } catch (final RuntimeException failure) {
-                logger.warn("Could not record where {} was standing; they will be routed by the"
-                        + " phase when they come back", player.getUsername(), failure);
+                logger.warn(
+                        "Could not record where {} was standing; they will be routed by the"
+                                + " phase when they come back",
+                        player.getUsername(),
+                        failure);
             }
         }
         try {

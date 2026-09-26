@@ -9,5 +9,4 @@ import java.util.UUID;
  * names: they are the server's to resolve and the player's to change. The board looks the name up
  * at render time.
  */
-public record AuraRow(UUID mcUuid, int aura) {
-}
+public record AuraRow(UUID mcUuid, int aura) {}

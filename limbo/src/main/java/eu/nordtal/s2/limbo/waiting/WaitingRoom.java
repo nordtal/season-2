@@ -7,23 +7,19 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.limbo.LimboMessages;
 import eu.nordtal.s2.limbo.config.LimboSpec;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.title.Title;
-
-import org.bukkit.GameMode;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
-import org.bukkit.scheduler.BukkitTask;
-
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import net.kyori.adventure.title.Title;
+import org.bukkit.GameMode;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitTask;
 
 /**
  * The waiting room's entire interface: one title per player, in that player's language, saying what
@@ -65,8 +61,12 @@ public final class WaitingRoom {
 
     private BukkitTask refresh;
 
-    public WaitingRoom(final Plugin plugin, final LimboSpec config, final Messages messages,
-                       final PlayerLocales locales, final WaitingWorld world) {
+    public WaitingRoom(
+            final Plugin plugin,
+            final LimboSpec config,
+            final Messages messages,
+            final PlayerLocales locales,
+            final WaitingWorld world) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.config = Objects.requireNonNull(config, "config");
         this.messages = Objects.requireNonNull(messages, "messages");
@@ -88,16 +88,16 @@ public final class WaitingRoom {
         player.setFoodLevel(20);
         player.setSaturation(20.0f);
         player.setFireTicks(0);
-        player.setHealth(Objects.requireNonNull(player.getAttribute(
-                org.bukkit.attribute.Attribute.MAX_HEALTH)).getValue());
+        player.setHealth(Objects.requireNonNull(player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH))
+                .getValue());
         player.setExp(0.0f);
         player.setLevel(0);
         player.getInventory().clear();
         player.teleport(world.spawn());
 
         if (config.blindness()) {
-            player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS,
-                    PotionEffect.INFINITE_DURATION, 0, false, false, false));
+            player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.BLINDNESS, PotionEffect.INFINITE_DURATION, 0, false, false, false));
         }
 
         // No reason yet - the proxy's WAIT arrives moments from now. Something has to be on screen
@@ -124,7 +124,8 @@ public final class WaitingRoom {
                 ? Title.Times.times(Duration.ofMillis(300), stay, Duration.ofMillis(200))
                 : Title.Times.times(Duration.ZERO, stay, Duration.ZERO);
 
-        final LimboMessages.Limbo.Screen screen = LimboMessages.MESSAGES.limbo().waiting().of(reason);
+        final LimboMessages.Limbo.Screen screen =
+                LimboMessages.MESSAGES.limbo().waiting().of(reason);
         player.showTitle(Title.title(
                 MessageRenderer.of(messages).format(locale, screen.title()),
                 MessageRenderer.of(messages).format(locale, screen.subtitle()),

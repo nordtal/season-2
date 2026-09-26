@@ -13,5 +13,4 @@ import org.bukkit.inventory.InventoryHolder;
  * <p>The grave inventory is the one surface that cannot implement this: it is created with a null
  * holder and looked up by identity in {@code Graves}, so the listener takes a predicate for it.
  */
-public interface Surface extends InventoryHolder {
-}
+public interface Surface extends InventoryHolder {}

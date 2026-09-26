@@ -1,11 +1,4 @@
-import {
-  BellIcon,
-  BellSlashIcon,
-  PaperPlaneTiltIcon,
-  TrashIcon,
-  WarningIcon,
-  XCircleIcon,
-} from "@phosphor-icons/react"
+import { BellIcon, BellSlashIcon, PaperPlaneTiltIcon, TrashIcon, WarningIcon, XCircleIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
@@ -145,9 +138,7 @@ export function NotificationsDialog({ state }: { state: NotificationActions }) {
             <Devices state={state} />
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            This browser cannot receive push notifications.
-          </p>
+          <p className="text-sm text-muted-foreground">This browser cannot receive push notifications.</p>
         )}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
@@ -221,9 +212,7 @@ function Types({ state }: { state: NotificationActions }) {
               // the one reading this dialog must never give by accident.
               checked={chosen?.[type.key] ?? false}
               disabled={!chosen}
-              onCheckedChange={(enabled) =>
-                state.choose.mutate({ type: type.key, enabled })
-              }
+              onCheckedChange={(enabled) => state.choose.mutate({ type: type.key, enabled })}
             />
           </li>
         ))}
@@ -265,9 +254,7 @@ const ALERTS_FILE = "steward-ui.yml"
 function Thresholds({ state }: { state: NotificationActions }) {
   const client = useQueryClient()
   const configs = useConfigs(state.open)
-  const file = configs.data?.find(
-    (location) => location.service === ALERTS_SERVICE && location.name === ALERTS_FILE,
-  )
+  const file = configs.data?.find((location) => location.service === ALERTS_SERVICE && location.name === ALERTS_FILE)
   const document = useConfig(file?.path ?? "", Boolean(file))
   const save = useSaveConfig(file?.path ?? "")
   const [edited, setEdited] = useState<Record<string, string>>({})
@@ -319,9 +306,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
                 // that pushes the row past the screen.
                 className="h-8 w-16 text-right"
                 value={edited[row.path] ?? row.entry?.value ?? ""}
-                onChange={(event) =>
-                  setEdited((before) => ({ ...before, [row.path]: event.target.value }))
-                }
+                onChange={(event) => setEdited((before) => ({ ...before, [row.path]: event.target.value }))}
               />
               <span className="w-6 text-xs text-muted-foreground">{row.unit}</span>
             </div>
@@ -404,8 +389,8 @@ function ReadOnlyThresholds({
         </ul>
       ) : null}
       <p className="text-xs break-words text-muted-foreground">
-        This deployment does not let Steward write its own{" "}
-        <span className="font-mono">{ALERTS_FILE}</span>. They are changed on the{" "}
+        This deployment does not let Steward write its own <span className="font-mono">{ALERTS_FILE}</span>. They are
+        changed on the{" "}
         <Link
           to="/services/$name"
           params={{ name: ALERTS_SERVICE }}
@@ -462,12 +447,7 @@ function Devices({ state }: { state: NotificationActions }) {
       ) : (
         <ul className="flex flex-col">
           {devices.map((device) => (
-            <DeviceRow
-              key={device.endpoint}
-              device={device}
-              isThisOne={device.endpoint === mine}
-              state={state}
-            />
+            <DeviceRow key={device.endpoint} device={device} isThisOne={device.endpoint === mine} state={state} />
           ))}
         </ul>
       )}

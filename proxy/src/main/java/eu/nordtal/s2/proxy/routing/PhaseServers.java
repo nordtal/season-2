@@ -2,7 +2,6 @@ package eu.nordtal.s2.proxy.routing;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.proxy.config.GateSpec;
-
 import java.util.Objects;
 
 /**
@@ -30,8 +29,7 @@ public final class PhaseServers {
     private final String hungerGames;
     private final String smp;
 
-    public PhaseServers(final String limbo, final String limboStandby,
-                        final String hungerGames, final String smp) {
+    public PhaseServers(final String limbo, final String limboStandby, final String hungerGames, final String smp) {
         this.limbo = requireName("limbo", limbo);
         this.limboStandby = requireName("limboStandby", limboStandby);
         this.hungerGames = requireName("hungerGames", hungerGames);
@@ -44,8 +42,8 @@ public final class PhaseServers {
      */
     public static PhaseServers from(final GateSpec config) {
         Objects.requireNonNull(config, "config");
-        return new PhaseServers(config.serverLimbo(), config.serverLimboStandby(),
-                config.serverHungerGames(), config.serverSmp());
+        return new PhaseServers(
+                config.serverLimbo(), config.serverLimboStandby(), config.serverHungerGames(), config.serverSmp());
     }
 
     /**

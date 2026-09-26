@@ -53,9 +53,7 @@ export function ServiceConsole({
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase()
     if (!needle) return stream.entries
-    return stream.entries.filter(
-      (entry) => entry.kind === "line" && entry.text.toLowerCase().includes(needle),
-    )
+    return stream.entries.filter((entry) => entry.kind === "line" && entry.text.toLowerCase().includes(needle))
   }, [stream.entries, query])
 
   const closeFind = () => {
@@ -147,7 +145,10 @@ export function ServiceConsole({
       {hasConsole ? <ConsoleLine name={name} /> : null}
 
       {stream.failure && offline ? (
-        <div role="status" className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans">
+        <div
+          role="status"
+          className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans"
+        >
           <PowerIcon className="mb-1 size-5 text-white/60" aria-hidden />
           <p className="text-sm text-white/85">{offline === "going" ? "Going offline" : "Offline"}</p>
         </div>

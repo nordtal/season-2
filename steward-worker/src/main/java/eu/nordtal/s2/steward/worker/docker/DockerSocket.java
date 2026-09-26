@@ -1,10 +1,5 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -24,6 +19,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * HTTP/1.1 over the Docker socket, written out by hand.
@@ -106,13 +105,13 @@ public final class DockerSocket {
      * <p>Everything that is not a stream: the container list, an inspect, one stats sample, a
      * registry digest. The connection is closed before this returns.</p>
      */
-    public @NotNull String send(final @NotNull String method, final @NotNull String path,
-                                final @Nullable String jsonBody) {
+    public @NotNull String send(
+            final @NotNull String method, final @NotNull String path, final @Nullable String jsonBody) {
         try (Stream stream = open(method, path, jsonBody, timeout)) {
             final String body = new String(stream.body().readAllBytes(), StandardCharsets.UTF_8);
             if (stream.status() >= 400) {
-                throw new DockerException(method + " " + path + " answered " + stream.status(),
-                        stream.status(), body, null);
+                throw new DockerException(
+                        method + " " + path + " answered " + stream.status(), stream.status(), body, null);
             }
             return body;
         } catch (IOException e) {
@@ -126,8 +125,8 @@ public final class DockerSocket {
      * <p>The caller closes the returned stream, and closing it is what ends a log follow. No
      * watchdog: see the class comment.</p>
      */
-    public @NotNull Stream stream(final @NotNull String method, final @NotNull String path,
-                                  final @Nullable String jsonBody) {
+    public @NotNull Stream stream(
+            final @NotNull String method, final @NotNull String path, final @Nullable String jsonBody) {
         return stream(method, path, jsonBody, null);
     }
 
@@ -139,8 +138,11 @@ public final class DockerSocket {
      * tmux socket, a container in the middle of stopping - and without a deadline that hangs
      * whoever asked, which after §10a.2 is somebody waiting in a browser.</p>
      */
-    public @NotNull Stream stream(final @NotNull String method, final @NotNull String path,
-                                  final @Nullable String jsonBody, final @Nullable Duration deadline) {
+    public @NotNull Stream stream(
+            final @NotNull String method,
+            final @NotNull String path,
+            final @Nullable String jsonBody,
+            final @Nullable Duration deadline) {
         final Stream stream = open(method, path, jsonBody, deadline);
         if (stream.status() >= 400) {
             String body = "";
@@ -149,14 +151,17 @@ public final class DockerSocket {
             } catch (IOException ignored) {
                 // The status is the diagnosis; a body we could not read does not change it.
             }
-            throw new DockerException(method + " " + path + " answered " + stream.status(),
-                    stream.status(), body, null);
+            throw new DockerException(
+                    method + " " + path + " answered " + stream.status(), stream.status(), body, null);
         }
         return stream;
     }
 
-    private Stream open(final String method, final String path, final @Nullable String jsonBody,
-                        final @Nullable Duration deadline) {
+    private Stream open(
+            final String method,
+            final String path,
+            final @Nullable String jsonBody,
+            final @Nullable Duration deadline) {
         SocketChannel channel = null;
         ScheduledFuture<?> alarm = null;
         try {
@@ -171,13 +176,12 @@ public final class DockerSocket {
             // watched only until the headers are in, and the cancellation is below.
             final Duration untilItAnswers = deadline == null ? timeout : deadline;
             final SocketChannel toClose = channel;
-            alarm = watchdog.schedule(() -> closeQuietly(toClose, method + " " + path),
-                    untilItAnswers.toMillis(), TimeUnit.MILLISECONDS);
+            alarm = watchdog.schedule(
+                    () -> closeQuietly(toClose, method + " " + path), untilItAnswers.toMillis(), TimeUnit.MILLISECONDS);
             channel.connect(UnixDomainSocketAddress.of(socket));
             write(channel, method, path, jsonBody);
 
-            final BufferedInputStream raw = new BufferedInputStream(
-                    Channels.newInputStream(channel), 16 * 1024);
+            final BufferedInputStream raw = new BufferedInputStream(Channels.newInputStream(channel), 16 * 1024);
             final StatusLine statusLine = readStatusLine(raw, method, path);
             final Map<String, String> headers = readHeaders(raw);
             final InputStream body = bodyOf(raw, headers);
@@ -192,8 +196,7 @@ public final class DockerSocket {
             if (alarm != null) {
                 alarm.cancel(false);
             }
-            throw new DockerException("talking to the docker socket at " + socket
-                    + " for " + method + " " + path, e);
+            throw new DockerException("talking to the docker socket at " + socket + " for " + method + " " + path, e);
         } catch (RuntimeException e) {
             closeQuietly(channel, method + " " + path);
             if (alarm != null) {
@@ -203,18 +206,25 @@ public final class DockerSocket {
         }
     }
 
-    private void write(final SocketChannel channel, final String method, final String path,
-                       final @Nullable String jsonBody) throws IOException {
+    private void write(
+            final SocketChannel channel, final String method, final String path, final @Nullable String jsonBody)
+            throws IOException {
         final StringBuilder request = new StringBuilder()
-                .append(method).append(' ').append(path).append(" HTTP/1.1\r\n")
-                .append("Host: ").append(HOST_HEADER).append("\r\n")
+                .append(method)
+                .append(' ')
+                .append(path)
+                .append(" HTTP/1.1\r\n")
+                .append("Host: ")
+                .append(HOST_HEADER)
+                .append("\r\n")
                 .append("Accept: application/json\r\n")
                 .append("Connection: close\r\n");
-        final byte[] payload = jsonBody == null
-                ? new byte[0] : jsonBody.getBytes(StandardCharsets.UTF_8);
+        final byte[] payload = jsonBody == null ? new byte[0] : jsonBody.getBytes(StandardCharsets.UTF_8);
         if (jsonBody != null) {
             request.append("Content-Type: application/json\r\n")
-                   .append("Content-Length: ").append(payload.length).append("\r\n");
+                    .append("Content-Length: ")
+                    .append(payload.length)
+                    .append("\r\n");
         }
         request.append("\r\n");
 
@@ -226,12 +236,11 @@ public final class DockerSocket {
         out.flush();
     }
 
-    private StatusLine readStatusLine(final InputStream in, final String method, final String path)
-            throws IOException {
+    private StatusLine readStatusLine(final InputStream in, final String method, final String path) throws IOException {
         final String line = readLine(in);
         if (line == null || !line.startsWith("HTTP/")) {
-            throw new DockerException("the socket answered something that is not HTTP for "
-                    + method + " " + path + ": " + line);
+            throw new DockerException(
+                    "the socket answered something that is not HTTP for " + method + " " + path + ": " + line);
         }
         final String[] parts = line.split(" ", 3);
         if (parts.length < 2) {
@@ -246,7 +255,8 @@ public final class DockerSocket {
         while ((line = readLine(in)) != null && !line.isEmpty()) {
             final int colon = line.indexOf(':');
             if (colon > 0) {
-                headers.put(line.substring(0, colon).trim().toLowerCase(Locale.ROOT),
+                headers.put(
+                        line.substring(0, colon).trim().toLowerCase(Locale.ROOT),
                         line.substring(colon + 1).trim());
             }
         }
@@ -305,7 +315,7 @@ public final class DockerSocket {
         }
     }
 
-    private record StatusLine(int status) { }
+    private record StatusLine(int status) {}
 
     /** One open response: the status, the headers, and a body that is read until it is closed. */
     public static final class Stream implements AutoCloseable {
@@ -316,8 +326,12 @@ public final class DockerSocket {
         private final SocketChannel channel;
         private final @Nullable ScheduledFuture<?> alarm;
 
-        Stream(final int status, final Map<String, String> headers, final InputStream body,
-               final SocketChannel channel, final @Nullable ScheduledFuture<?> alarm) {
+        Stream(
+                final int status,
+                final Map<String, String> headers,
+                final InputStream body,
+                final SocketChannel channel,
+                final @Nullable ScheduledFuture<?> alarm) {
             this.status = status;
             this.headers = headers;
             this.body = body;
@@ -392,12 +406,11 @@ public final class DockerSocket {
                 finished = true;
                 return false;
             }
-            final String size = header.contains(";")
-                    ? header.substring(0, header.indexOf(';')) : header;
+            final String size = header.contains(";") ? header.substring(0, header.indexOf(';')) : header;
             final long length = Long.parseLong(size.trim(), 16);
             if (length == 0) {
                 finished = true;
-                readLine(in);   // the trailer's empty line
+                readLine(in); // the trailer's empty line
                 return false;
             }
             remaining = length;

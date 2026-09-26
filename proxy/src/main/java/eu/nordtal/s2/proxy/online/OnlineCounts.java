@@ -22,8 +22,7 @@ public final class OnlineCounts {
      */
     public static final String PROXY = "proxy";
 
-    private OnlineCounts() {
-    }
+    private OnlineCounts() {}
 
     /**
      * @param total           {@code ProxyServer.getPlayerCount()} - every player on the network,

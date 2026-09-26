@@ -1,7 +1,6 @@
 package eu.nordtal.s2.common.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
-
 import java.time.Instant;
 
 /**

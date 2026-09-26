@@ -1,18 +1,17 @@
 package eu.nordtal.s2.steward.ui.config;
 
-import eu.nordtal.jcore.config.ConfigLoader;
-import eu.nordtal.jcore.config.exception.ConfigException;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.jcore.config.ConfigLoader;
+import eu.nordtal.jcore.config.exception.ConfigException;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * What happens to the deployment's {@code steward-ui.yml} when a whole SECTION is added to the spec.
@@ -51,14 +50,18 @@ class AddedSectionTest {
 
         final UiSpec config = ConfigLoader.builder(file, UiSpec.class).load().get();
 
-        assertNotNull(config.webauthn(),
+        assertNotNull(
+                config.webauthn(),
                 "the loader handed back a null section, so every start would fail on a"
                         + " NullPointerException rather than on a message");
-        assertEquals("nordtal.eu", config.webauthn().relyingPartyId(),
+        assertEquals(
+                "nordtal.eu",
+                config.webauthn().relyingPartyId(),
                 "a preserved file with no webauthn block must fall back to the spec's default");
 
         final String after = Files.readString(file);
-        assertTrue(after.contains("relying-party-id: nordtal.eu"),
+        assertTrue(
+                after.contains("relying-party-id: nordtal.eu"),
                 "the loader did not write the new section into the preserved file, so setting it"
                         + " by hand in the config volume is a DEPLOYMENT STEP and the comment in"
                         + " UiSpec has to say so. The file now reads:\n" + after);

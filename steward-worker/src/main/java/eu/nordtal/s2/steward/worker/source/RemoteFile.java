@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.worker.source;
 
+import java.net.URI;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.net.URI;
 
 /**
  * One downloadable file, as the source that published it describes it.
@@ -30,9 +29,9 @@ import java.net.URI;
  *                 comparison is on filenames instead.
  * @param checksum {@code null} where the source publishes none, which is every GitHub asset.
  */
-public record RemoteFile(@NotNull String artifact,
-                         @NotNull String version,
-                         @NotNull String fileName,
-                         @NotNull URI url,
-                         @Nullable Checksum checksum) {
-}
+public record RemoteFile(
+        @NotNull String artifact,
+        @NotNull String version,
+        @NotNull String fileName,
+        @NotNull URI url,
+        @Nullable Checksum checksum) {}

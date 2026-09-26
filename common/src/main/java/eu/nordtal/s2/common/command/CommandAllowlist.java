@@ -87,16 +87,15 @@ public record CommandAllowlist(List<List<String>> entries) {
      * {@code :common} carries no JSON library and is not gaining one for a list of words.</p>
      */
     public String serialise() {
-        return entries.stream().map(entry -> String.join(" ", entry))
+        return entries.stream()
+                .map(entry -> String.join(" ", entry))
                 .reduce((left, right) -> left + "\n" + right)
                 .orElse("");
     }
 
     /** The inverse of {@link #serialise()}. */
     public static CommandAllowlist deserialise(final String stored) {
-        return stored == null || stored.isBlank()
-                ? NOTHING
-                : parse(List.of(stored.split("\n", -1)));
+        return stored == null || stored.isBlank() ? NOTHING : parse(List.of(stored.split("\n", -1)));
     }
 
     /**
@@ -144,7 +143,8 @@ public record CommandAllowlist(List<List<String>> entries) {
     /** {@code /smp status, /msg, /r} - for a log line, never parsed back. */
     @Override
     public String toString() {
-        return entries.stream().map(entry -> "/" + String.join(" ", entry))
+        return entries.stream()
+                .map(entry -> "/" + String.join(" ", entry))
                 .reduce((left, right) -> left + ", " + right)
                 .orElse("(nothing)");
     }

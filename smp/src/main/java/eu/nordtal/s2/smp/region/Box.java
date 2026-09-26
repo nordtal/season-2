@@ -29,10 +29,7 @@ public record Box(String world, int minX, int minY, int minZ, int maxX, int maxY
 
     /** Whether the given block position is inside this box. Both corners count as inside. */
     public boolean contains(final String world, final int x, final int y, final int z) {
-        return this.world.equals(world)
-                && x >= minX && x <= maxX
-                && y >= minY && y <= maxY
-                && z >= minZ && z <= maxZ;
+        return this.world.equals(world) && x >= minX && x <= maxX && y >= minY && y <= maxY && z >= minZ && z <= maxZ;
     }
 
     /**

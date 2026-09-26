@@ -5,11 +5,6 @@ import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
 import eu.nordtal.s2.common.message.Tone;
-
-import org.bukkit.Material;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.EnumMap;
@@ -17,6 +12,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.bukkit.Material;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
 
 /**
  * Where {@code hunger-games}'s config files live, and every rule about what a valid value is: one
@@ -28,8 +26,7 @@ import java.util.Set;
  */
 public final class Configs {
 
-    private Configs() {
-    }
+    private Configs() {}
 
     public static @NotNull ConfigHandle<HungerGamesSpec> load(final Path dataFolder, final Logger logger)
             throws ConfigException {
@@ -42,8 +39,9 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            logger.warn("No config existed at {} - defaults were written and are almost certainly "
-                    + "not what you want, especially the world name and every coordinate",
+            logger.warn(
+                    "No config existed at {} - defaults were written and are almost certainly "
+                            + "not what you want, especially the world name and every coordinate",
                     file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
@@ -70,8 +68,9 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            logger.warn("No config existed at {} - defaults were written and are almost certainly "
-                    + "not what you want", file.toAbsolutePath());
+            logger.warn(
+                    "No config existed at {} - defaults were written and are almost certainly " + "not what you want",
+                    file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
         return handle;
@@ -88,14 +87,13 @@ public final class Configs {
 
         final ConfigHandle<SoundsSpec> handle = ConfigLoader.builder(file, SoundsSpec.class)
                 .envPrefix("NORDTAL_HUNGER_GAMES_SOUNDS")
-                .validator(config -> { })
+                .validator(config -> {})
                 .load();
 
         if (fresh) {
             // Not the "almost certainly not what you want" line the other two carry: fresh
             // defaults here are usable as they stand.
-            logger.info("No sounds config existed at {} - the ten defaults were written",
-                    file.toAbsolutePath());
+            logger.info("No sounds config existed at {} - the ten defaults were written", file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
         return handle;
@@ -114,12 +112,11 @@ public final class Configs {
 
         final ConfigHandle<ColoursSpec> handle = ConfigLoader.builder(file, ColoursSpec.class)
                 .envPrefix("NORDTAL_HUNGER_GAMES_COLOURS")
-                .validator(config -> { })
+                .validator(config -> {})
                 .load();
 
         if (fresh) {
-            logger.info("No colours config existed at {} - the five defaults were written",
-                    file.toAbsolutePath());
+            logger.info("No colours config existed at {} - the five defaults were written", file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
         return handle;
@@ -135,8 +132,7 @@ public final class Configs {
         try {
             EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
         } catch (final IOException e) {
-            logger.warn("Could not write the environment-override marker beside {}: {}",
-                    handle.file(), e.getMessage());
+            logger.warn("Could not write the environment-override marker beside {}: {}", handle.file(), e.getMessage());
         }
     }
 
@@ -149,13 +145,15 @@ public final class Configs {
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
         for (final Tone tone : Tone.values()) {
-            declared.put(tone, switch (tone) {
-                case GOOD -> spec.good();
-                case BAD -> spec.bad();
-                case WARN -> spec.warn();
-                case NEUTRAL -> spec.neutral();
-                case MUTED -> spec.muted();
-            });
+            declared.put(
+                    tone,
+                    switch (tone) {
+                        case GOOD -> spec.good();
+                        case BAD -> spec.bad();
+                        case WARN -> spec.warn();
+                        case NEUTRAL -> spec.neutral();
+                        case MUTED -> spec.muted();
+                    });
         }
         return declared;
     }
@@ -175,8 +173,7 @@ public final class Configs {
             throw new IllegalArgumentException("border-end-diameter must be greater than zero");
         }
         if (config.borderStartDiameter() <= config.borderEndDiameter()) {
-            throw new IllegalArgumentException(
-                    "border-start-diameter must be greater than border-end-diameter");
+            throw new IllegalArgumentException("border-start-diameter must be greater than border-end-diameter");
         }
         requirePositive("border-wall-speed-blocks-per-second", config.borderWallSpeedBlocksPerSecond());
         requirePositive("border-quiet-period-seconds", config.borderQuietPeriodSeconds());
@@ -187,10 +184,9 @@ public final class Configs {
 
         final List<HungerGamesSpec.LootPointSpec> points = config.lootPoints();
         if (points == null || points.size() != 5) {
-            throw new IllegalArgumentException(
-                    "loot-points must have exactly 5 entries (the spawn plus four staggered "
-                            + "points), had "
-                            + (points == null ? 0 : points.size()));
+            throw new IllegalArgumentException("loot-points must have exactly 5 entries (the spawn plus four staggered "
+                    + "points), had "
+                    + (points == null ? 0 : points.size()));
         }
         final Set<String> labels = new HashSet<>();
         for (final HungerGamesSpec.LootPointSpec point : points) {
@@ -213,12 +209,10 @@ public final class Configs {
                 throw new IllegalArgumentException("refill-tiers: delay-minutes must not be negative");
             }
             if (!delays.add(tier.delayMinutes())) {
-                throw new IllegalArgumentException(
-                        "refill-tiers: duplicate delay-minutes " + tier.delayMinutes());
+                throw new IllegalArgumentException("refill-tiers: duplicate delay-minutes " + tier.delayMinutes());
             }
             if (tier.delayMinutes() < previousDelay) {
-                throw new IllegalArgumentException(
-                        "refill-tiers must be ordered by ascending delay-minutes");
+                throw new IllegalArgumentException("refill-tiers must be ordered by ascending delay-minutes");
             }
             previousDelay = tier.delayMinutes();
 
@@ -228,9 +222,8 @@ public final class Configs {
             }
             for (final String item : tier.items()) {
                 if (Material.matchMaterial(item) == null) {
-                    throw new IllegalArgumentException(
-                            "refill-tiers: '" + item + "' is not a known material (tier at "
-                                    + tier.delayMinutes() + " minutes)");
+                    throw new IllegalArgumentException("refill-tiers: '" + item + "' is not a known material (tier at "
+                            + tier.delayMinutes() + " minutes)");
                 }
             }
         }

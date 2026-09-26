@@ -1,15 +1,13 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.steward.worker.plan.Topology;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.steward.worker.plan.Topology;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What a recreate actually takes round (season-2-ops/161).
@@ -23,14 +21,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RestartScopeTest {
 
-    private static final List<String> ALL = Topology.SERVICES.stream()
-            .map(Topology.Service::name).toList();
+    private static final List<String> ALL =
+            Topology.SERVICES.stream().map(Topology.Service::name).toList();
 
     @Test
     @DisplayName("a recreate of one service is a recreate of one service")
     void theScopeIsRead() {
         assertEquals(List.of("smp"), Runner.restarted(List.of("smp"), List.of()));
-        assertFalse(Runner.restarted(List.of("smp"), List.of()).contains("proxy"),
+        assertFalse(
+                Runner.restarted(List.of("smp"), List.of()).contains("proxy"),
                 "the proxy is the one whose restart costs everybody a reconnect, scope or no scope");
     }
 

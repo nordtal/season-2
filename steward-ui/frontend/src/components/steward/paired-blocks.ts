@@ -96,9 +96,7 @@ function descendantsOf(entries: ConfigEntry[], map: ConfigEntry): ConfigEntry[] 
 /** The immediate children of a `MAP`, in file order. */
 function childrenOf(entries: ConfigEntry[], map: ConfigEntry): ConfigEntry[] {
   const prefix = map.path + "."
-  return entries.filter(
-    (entry) => entry.path.startsWith(prefix) && !entry.path.slice(prefix.length).includes("."),
-  )
+  return entries.filter((entry) => entry.path.startsWith(prefix) && !entry.path.slice(prefix.length).includes("."))
 }
 
 function notALeaf(entry: ConfigEntry): boolean {

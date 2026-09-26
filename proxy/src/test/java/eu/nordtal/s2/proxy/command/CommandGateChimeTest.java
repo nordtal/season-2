@@ -1,25 +1,22 @@
 package eu.nordtal.s2.proxy.command;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.velocitypowered.api.event.command.CommandExecuteEvent;
 import com.velocitypowered.api.proxy.Player;
-
 import eu.nordtal.s2.common.command.CommandAllowlist;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
 
 /**
  * season-2-ingame/13's proxy half: {@code CommandGate#onCommandExecute} paints {@code Tone.BAD}
@@ -37,8 +34,7 @@ class CommandGateChimeTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000004");
 
-    private final Messages messages = Messages.load(getClass().getClassLoader(),
-            "messages/commands", Locales.DEFAULT);
+    private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locales.DEFAULT);
 
     private static final class SpyChime implements CommandGate.Chime {
 
@@ -54,14 +50,16 @@ class CommandGateChimeTest {
     @DisplayName("a command refused for not being on the allowlist plays REFUSED through the hook")
     void refusalPlaysRefused() {
         final SpyChime chime = new SpyChime();
-        final CommandGate gate = new CommandGate(new LoginRoster(), CommandAllowlist.NOTHING,
-                messages, silentLogger(), chime);
+        final CommandGate gate =
+                new CommandGate(new LoginRoster(), CommandAllowlist.NOTHING, messages, silentLogger(), chime);
 
         final CommandExecuteEvent event = new CommandExecuteEvent(player(), "spawn");
         gate.onCommandExecute(event);
 
         assertTrue(event.getResult() == CommandExecuteEvent.CommandResult.denied());
-        assertEquals(List.of(Feedback.REFUSED), chime.played,
+        assertEquals(
+                List.of(Feedback.REFUSED),
+                chime.played,
                 "CommandGate paints Tone.BAD already but must also call the chime hook - the hook"
                         + " is silent in production until a real Sounds adapter is wired in, but the"
                         + " call site itself is what this test holds in place");
@@ -73,16 +71,15 @@ class CommandGateChimeTest {
         // No SpyChime reachable here at all: this is exactly the four-argument constructor every
         // existing caller (ProxyPlugin) still uses, proving it still compiles and runs
         // without ever having heard of Chime.
-        final CommandGate gate = new CommandGate(new LoginRoster(), CommandAllowlist.NOTHING,
-                messages, silentLogger());
+        final CommandGate gate = new CommandGate(new LoginRoster(), CommandAllowlist.NOTHING, messages, silentLogger());
         final CommandExecuteEvent event = new CommandExecuteEvent(player(), "spawn");
         gate.onCommandExecute(event);
         assertTrue(event.getResult() == CommandExecuteEvent.CommandResult.denied());
     }
 
     private static Logger silentLogger() {
-        return (Logger) Proxy.newProxyInstance(Logger.class.getClassLoader(),
-                new Class<?>[]{Logger.class}, (proxy, method, args) -> {
+        return (Logger) Proxy.newProxyInstance(
+                Logger.class.getClassLoader(), new Class<?>[] {Logger.class}, (proxy, method, args) -> {
                     if (method.getReturnType() == void.class) {
                         return null;
                     }
@@ -94,8 +91,8 @@ class CommandGateChimeTest {
     }
 
     private static Player player() {
-        return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[]{Player.class}, (proxy, method, args) -> {
+        return (Player) Proxy.newProxyInstance(
+                Player.class.getClassLoader(), new Class<?>[] {Player.class}, (proxy, method, args) -> {
                     if ("getUniqueId".equals(method.getName())) {
                         return SOMEBODY;
                     }

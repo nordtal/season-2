@@ -1,13 +1,11 @@
 package eu.nordtal.s2.papercommon.access;
 
 import eu.nordtal.s2.common.access.AdminOperators;
-
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
-
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 
 /**
  * {@link AdminOperators.Ops} against the running server - the two Bukkit calls {@code :common}
@@ -36,9 +34,7 @@ public final class BukkitOps implements AdminOperators.Ops {
 
     @Override
     public Set<UUID> operators() {
-        return Bukkit.getOperators().stream()
-                .map(OfflinePlayer::getUniqueId)
-                .collect(Collectors.toUnmodifiableSet());
+        return Bukkit.getOperators().stream().map(OfflinePlayer::getUniqueId).collect(Collectors.toUnmodifiableSet());
     }
 
     /** The applier every Paper plugin builds at enable, over the running server. */

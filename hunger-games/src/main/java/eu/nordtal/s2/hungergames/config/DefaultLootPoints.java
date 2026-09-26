@@ -1,7 +1,6 @@
 package eu.nordtal.s2.hungergames.config;
 
 import eu.nordtal.jcore.config.spec.Specs;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,11 +20,10 @@ final class DefaultLootPoints {
             point("south", 0, 64, 150),
             point("west", -150, 64, 0));
 
-    private DefaultLootPoints() {
-    }
+    private DefaultLootPoints() {}
 
-    private static HungerGamesSpec.LootPointSpec point(final String label, final double x, final double y,
-                                                        final double z) {
+    private static HungerGamesSpec.LootPointSpec point(
+            final String label, final double x, final double y, final double z) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("label", label);
         values.put("x", x);

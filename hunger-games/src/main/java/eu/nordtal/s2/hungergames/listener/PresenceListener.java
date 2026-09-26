@@ -1,5 +1,7 @@
 package eu.nordtal.s2.hungergames.listener;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.hud.TabList;
@@ -9,7 +11,6 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.game.GameState;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
-
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
@@ -24,8 +25,6 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 /**
  * Wires {@link PlayerLocales} and the disconnected-body mechanism: on quit mid-game a body takes
@@ -51,10 +50,15 @@ public final class PresenceListener implements Listener {
     /** The five shared system lines. Held for one call: the join line, once the locale has landed. */
     private final SystemLines lines;
 
-    public PresenceListener(final Plugin plugin, final PlayerLocales locales, final PlayerBodies bodies,
-                            final GameState state, final Messages messages,
-                            final AdminOperators operators, final FullServerAdmission admission,
-                            final SystemLines lines) {
+    public PresenceListener(
+            final Plugin plugin,
+            final PlayerLocales locales,
+            final PlayerBodies bodies,
+            final GameState state,
+            final Messages messages,
+            final AdminOperators operators,
+            final FullServerAdmission admission,
+            final SystemLines lines) {
         this.plugin = plugin;
         this.locales = locales;
         this.bodies = bodies;
@@ -74,8 +78,9 @@ public final class PresenceListener implements Listener {
             final java.util.Locale locale = locales.of(online.getUniqueId());
             online.sendPlayerListHeaderAndFooter(
                     TabList.header(messages, locale, MESSAGES.tab()::header),
-                    messages.format(locale, MESSAGES.tab().footer(
-                            Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers())));
+                    messages.format(
+                            locale,
+                            MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers())));
         }
     }
 
@@ -87,8 +92,9 @@ public final class PresenceListener implements Listener {
         // Off the main thread: a blocking lookup here costs the pool's whole connection timeout,
         // per join, against a database that has stopped answering. Nothing renders from it
         // synchronously - PlayerLocales#of answers English until the real value lands.
-        locales.joinAsync(player.getUniqueId(), task -> plugin.getServer().getScheduler()
-                        .runTaskAsynchronously(plugin, task))
+        locales.joinAsync(
+                        player.getUniqueId(),
+                        task -> plugin.getServer().getScheduler().runTaskAsynchronously(plugin, task))
                 .thenRun(() -> {
                     if (!player.isOnline()) {
                         locales.quit(player.getUniqueId());

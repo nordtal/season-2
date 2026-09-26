@@ -1,7 +1,6 @@
 package eu.nordtal.s2.discordbot.config;
 
 import eu.nordtal.jcore.config.spec.Specs;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,8 +36,7 @@ final class DefaultLanguages {
      */
     static final List<AccessSpec.LanguageSpec> LIST = List.of(language("en"), language("de"));
 
-    private DefaultLanguages() {
-    }
+    private DefaultLanguages() {}
 
     private static AccessSpec.LanguageSpec language(final String tag) {
         final Map<String, Object> values = new LinkedHashMap<>();

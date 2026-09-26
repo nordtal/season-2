@@ -1,11 +1,10 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import java.util.List;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.List;
 
 /**
  * The SQL behind {@link PushPreferences}. Package-private: {@code PushPreferences} is the API.
@@ -29,8 +28,8 @@ interface PushPreferenceDao {
                 enabled = excluded.enabled,
                 updated_at = now()
             """)
-    void set(@Bind("discordId") String discordId, @Bind("alertType") String alertType,
-             @Bind("enabled") boolean enabled);
+    void set(
+            @Bind("discordId") String discordId, @Bind("alertType") String alertType, @Bind("enabled") boolean enabled);
 
     /** One account's own switches - the dialog's own list. */
     @SqlQuery("""

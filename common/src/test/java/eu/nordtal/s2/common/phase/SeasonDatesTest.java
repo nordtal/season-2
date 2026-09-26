@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.phase;
 
-import org.junit.jupiter.api.Test;
-
-import java.time.Instant;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.Instant;
+import org.junit.jupiter.api.Test;
 
 /**
  * The date format both {@code /phase} commands share.
@@ -21,7 +20,8 @@ class SeasonDatesTest {
     @Test
     void aSummerDateIsTwoHoursAheadOfUtc() {
         // 2026-10-01 is before the last Sunday of October, so Berlin is still on CEST.
-        assertEquals(Instant.parse("2026-10-01T16:00:00Z"),
+        assertEquals(
+                Instant.parse("2026-10-01T16:00:00Z"),
                 SeasonDates.parse("2026-10-01 18:00").orElseThrow());
     }
 
@@ -29,7 +29,8 @@ class SeasonDatesTest {
     void aWinterDateIsOneHourAheadOfUtc() {
         // Same wall-clock time, five weeks later, one hour further from UTC. This is the whole
         // reason the offset is not typed by hand.
-        assertEquals(Instant.parse("2026-11-15T17:00:00Z"),
+        assertEquals(
+                Instant.parse("2026-11-15T17:00:00Z"),
                 SeasonDates.parse("2026-11-15 18:00").orElseThrow());
     }
 
@@ -40,8 +41,7 @@ class SeasonDatesTest {
 
     @Test
     void surroundingWhitespaceIsIgnored() {
-        assertEquals(SeasonDates.parse("2026-10-01 18:00"),
-                SeasonDates.parse("  2026-10-01 18:00  "));
+        assertEquals(SeasonDates.parse("2026-10-01 18:00"), SeasonDates.parse("  2026-10-01 18:00  "));
     }
 
     @Test
@@ -75,9 +75,11 @@ class SeasonDatesTest {
 
     @Test
     void aDateIsShownBackInTheZoneItWasTypedIn() {
-        final String shown = SeasonDates.format(SeasonDates.parse("2026-10-01 18:00").orElseThrow());
+        final String shown =
+                SeasonDates.format(SeasonDates.parse("2026-10-01 18:00").orElseThrow());
 
-        assertTrue(shown.startsWith("2026-10-01 18:00"),
+        assertTrue(
+                shown.startsWith("2026-10-01 18:00"),
                 "the wall-clock time that was typed has to come back, was: " + shown);
         // The offset itself rather than an abbreviation: "GMT+02:00" needs no knowledge of
         // which three letters Germany uses in October.

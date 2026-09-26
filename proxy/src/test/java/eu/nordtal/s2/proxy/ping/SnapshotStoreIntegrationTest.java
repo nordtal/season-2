@@ -1,7 +1,16 @@
 package eu.nordtal.s2.proxy.ping;
 
-import eu.nordtal.s2.common.network.NetworkSnapshot;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.network.NetworkSnapshot;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -12,17 +21,6 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import javax.sql.DataSource;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Proxy;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The one query behind every MOTD placeholder, against a real PostgreSQL running the real
@@ -51,7 +49,8 @@ class SnapshotStoreIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed MOTD snapshot tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -94,7 +93,9 @@ class SnapshotStoreIntegrationTest {
         // no milestones, nobody registered.
         store.refresh();
 
-        assertEquals(NetworkSnapshot.EMPTY, store.current(),
+        assertEquals(
+                NetworkSnapshot.EMPTY,
+                store.current(),
                 "an empty database must produce exactly the snapshot a proxy that has never queried "
                         + "shows, or the MOTD changes appearance the first time the query succeeds");
     }
@@ -128,8 +129,8 @@ class SnapshotStoreIntegrationTest {
 
         assertEquals(1, store.current().hgEliminated());
         assertEquals(2, store.current().hgAlive(), "alive is participants minus eliminated, by construction");
-        assertEquals(2, store.current().hgTeamsAlive(),
-                "a team is still in while ANY of its full members has no DEATH row");
+        assertEquals(
+                2, store.current().hgTeamsAlive(), "a team is still in while ANY of its full members has no DEATH row");
 
         // Alpha's second member dies too. Now the team is out.
         kill("100000000000000002");
@@ -138,8 +139,8 @@ class SnapshotStoreIntegrationTest {
         assertEquals(2, store.current().hgEliminated());
         assertEquals(1, store.current().hgAlive());
         assertEquals(1, store.current().hgTeamsAlive());
-        assertEquals(2, store.current().hgTeams(),
-                "the registered team count does not shrink when a team is knocked out");
+        assertEquals(
+                2, store.current().hgTeams(), "the registered team count does not shrink when a team is knocked out");
     }
 
     @Test
@@ -224,7 +225,9 @@ class SnapshotStoreIntegrationTest {
         kill("100000000000000003"); // the INVITED row on Alpha
         store.refresh();
 
-        assertEquals(0, store.current().hgEliminated(),
+        assertEquals(
+                0,
+                store.current().hgEliminated(),
                 "an INVITED member is not a participant, so their death cannot eliminate one");
         assertEquals(3, store.current().hgAlive());
         assertEquals(2, store.current().hgTeamsAlive());
@@ -237,8 +240,8 @@ class SnapshotStoreIntegrationTest {
         // builds it once per class and @BeforeEach only truncates. JUnit's method order is not
         // something this file should have to depend on.
         final AtomicBoolean unreachable = new AtomicBoolean();
-        final SnapshotStore overAnOutage = SnapshotStore.using(failingWhen(unreachable),
-                LoggerFactory.getLogger(SnapshotStoreIntegrationTest.class));
+        final SnapshotStore overAnOutage = SnapshotStore.using(
+                failingWhen(unreachable), LoggerFactory.getLogger(SnapshotStoreIntegrationTest.class));
 
         seedGame();
         overAnOutage.refresh();
@@ -249,8 +252,7 @@ class SnapshotStoreIntegrationTest {
         unreachable.set(true);
         overAnOutage.refresh();
 
-        assertEquals(2, overAnOutage.current().hgTeams(),
-                "a database hiccup must cost freshness and nothing else");
+        assertEquals(2, overAnOutage.current().hgTeams(), "a database hiccup must cost freshness and nothing else");
 
         unreachable.set(false);
         overAnOutage.refresh();
@@ -314,9 +316,8 @@ class SnapshotStoreIntegrationTest {
      * DataSource}: the interface has nine methods and this needs one of them.
      */
     private static DataSource failingWhen(final AtomicBoolean unreachable) {
-        return (DataSource) Proxy.newProxyInstance(DataSource.class.getClassLoader(),
-                new Class<?>[]{DataSource.class},
-                (instance, method, arguments) -> {
+        return (DataSource) Proxy.newProxyInstance(
+                DataSource.class.getClassLoader(), new Class<?>[] {DataSource.class}, (instance, method, arguments) -> {
                     if (unreachable.get() && method.getName().equals("getConnection")) {
                         throw new SQLException("the database is unreachable");
                     }
@@ -330,7 +331,7 @@ class SnapshotStoreIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException failure) {
             throw new IllegalStateException(sql, failure);

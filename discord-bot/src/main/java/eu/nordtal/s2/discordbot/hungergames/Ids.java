@@ -34,6 +34,5 @@ final class Ids {
     /** @see #INVITE_ACCEPT */
     static final String INVITE_DECLINE = "hg:invite-decline:";
 
-    private Ids() {
-    }
+    private Ids() {}
 }

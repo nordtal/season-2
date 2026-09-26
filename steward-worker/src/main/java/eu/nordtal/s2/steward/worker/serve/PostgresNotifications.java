@@ -2,16 +2,14 @@ package eu.nordtal.s2.steward.worker.serve;
 
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
-
-import org.postgresql.PGConnection;
-import org.postgresql.PGNotification;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.Properties;
+import org.postgresql.PGConnection;
+import org.postgresql.PGNotification;
 
 /**
  * The pgjdbc half of {@link Notifications}: one plain JDBC connection with
@@ -79,8 +77,7 @@ public final class PostgresNotifications implements Notifications {
             return true;
         }
         if (!connection.isValid(LIVENESS_CHECK_SECONDS)) {
-            throw new SQLException("The " + UpdateDirectory.CHANNEL
-                    + " listener connection is no longer valid");
+            throw new SQLException("The " + UpdateDirectory.CHANNEL + " listener connection is no longer valid");
         }
         return false;
     }

@@ -44,6 +44,5 @@ public record NetworkSnapshot(
         int smpPlayers) {
 
     /** What a proxy renders before its first successful refresh, and if one never succeeds. */
-    public static final NetworkSnapshot EMPTY =
-            new NetworkSnapshot("", 0, 0, 0, 0, 0, "", 0, 0, 0, 0L, 0);
+    public static final NetworkSnapshot EMPTY = new NetworkSnapshot("", 0, 0, 0, 0, 0, "", 0, 0, 0, 0L, 0);
 }

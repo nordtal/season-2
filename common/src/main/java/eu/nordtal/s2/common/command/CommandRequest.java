@@ -21,7 +21,13 @@ import java.util.UUID;
  * @param expires     when the asker stops waiting - already in the future, or this row would not
  *                    have been claimable
  */
-public record CommandRequest(long id, String command, String arguments, String source,
-                             String requestedBy, Optional<String> discordId,
-                             Optional<UUID> minecraftId, String locale, Instant expires) {
-}
+public record CommandRequest(
+        long id,
+        String command,
+        String arguments,
+        String source,
+        String requestedBy,
+        Optional<String> discordId,
+        Optional<UUID> minecraftId,
+        String locale,
+        Instant expires) {}

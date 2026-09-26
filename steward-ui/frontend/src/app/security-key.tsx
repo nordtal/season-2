@@ -8,12 +8,7 @@ import { browserHasSecurityKeys } from "@/lib/webauthn"
 import { StewardMark } from "@/app/steward-mark"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -67,8 +62,8 @@ export function SecurityKeyPage({ me }: { me: Me }) {
                 <ShieldWarningIcon aria-hidden />
                 <AlertTitle>This browser cannot use security keys.</AlertTitle>
                 <AlertDescription>
-                  Every current browser can. A private window, an in-app browser or an old WebView
-                  may not - open Steward in Safari, Chrome or Firefox directly.
+                  Every current browser can. A private window, an in-app browser or an old WebView may not - open
+                  Steward in Safari, Chrome or Firefox directly.
                 </AlertDescription>
               </Alert>
             )}
@@ -120,7 +115,6 @@ export function SecurityKeyPage({ me }: { me: Me }) {
             </Button>
           </CardContent>
         </Card>
-
       </div>
     </div>
   )

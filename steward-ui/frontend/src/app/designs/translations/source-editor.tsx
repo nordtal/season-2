@@ -67,9 +67,21 @@ export function SourceEditor({ text, onChange, format, args, glyphs, fill, label
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-0.5">
-        {args.length > 0 ? <PlaceholderMenu args={args} fill={fill} disabled={disabled} onPick={(arg) => replaceSelection(() => tokenOf(arg))} /> : null}
+        {args.length > 0 ? (
+          <PlaceholderMenu
+            args={args}
+            fill={fill}
+            disabled={disabled}
+            onPick={(arg) => replaceSelection(() => tokenOf(arg))}
+          />
+        ) : null}
         {can.glyph ? <GlyphMenu glyphs={glyphs} onPick={(name) => replaceSelection(() => `<glyph:${name}>`)} /> : null}
-        {can.breaks ? <BreakButton disabled={disabled} onPress={() => replaceSelection(() => (format === "MINIMESSAGE" ? "<newline>" : "\n"))} /> : null}
+        {can.breaks ? (
+          <BreakButton
+            disabled={disabled}
+            onPress={() => replaceSelection(() => (format === "MINIMESSAGE" ? "<newline>" : "\n"))}
+          />
+        ) : null}
         {format !== "PLAIN" ? (
           <>
             <span aria-hidden className="mx-1 h-5 w-px bg-border" />
@@ -78,7 +90,11 @@ export function SourceEditor({ text, onChange, format, args, glyphs, fill, label
         ) : null}
       </div>
       <div className="relative min-w-0 overflow-hidden rounded-md border border-input bg-input/30 focus-within:ring-2 focus-within:ring-ring">
-        <pre ref={under} aria-hidden className={cn(MONO, "pointer-events-none m-0 min-h-24 px-2.5 py-2 break-words whitespace-pre-wrap")}>
+        <pre
+          ref={under}
+          aria-hidden
+          className={cn(MONO, "pointer-events-none m-0 min-h-24 px-2.5 py-2 break-words whitespace-pre-wrap")}
+        >
           {highlight(text, format, args)}
           {"\n"}
         </pre>
@@ -128,12 +144,20 @@ export function highlight(text: string, format: Format, args: MessageArg[]): Rea
 }
 
 function piece(token: string, format: Format, known: Set<string>, key: number): ReactNode {
-  if (token.startsWith("\\")) return <span key={key} className="text-muted-foreground">{token}</span>
+  if (token.startsWith("\\"))
+    return (
+      <span key={key} className="text-muted-foreground">
+        {token}
+      </span>
+    )
   if (token.startsWith("{")) {
     const name = token.slice(1, -1)
     const ok = known.has(name)
     return (
-      <span key={key} className={cn("rounded-sm", ok ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive")}>
+      <span
+        key={key}
+        className={cn("rounded-sm", ok ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive")}
+      >
         {token}
       </span>
     )
@@ -144,7 +168,10 @@ function piece(token: string, format: Format, known: Set<string>, key: number): 
     if (name.startsWith("_")) {
       const ok = known.has(name)
       return (
-        <span key={key} className={cn("rounded-sm", ok ? "bg-muted text-muted-foreground" : "bg-destructive/15 text-destructive")}>
+        <span
+          key={key}
+          className={cn("rounded-sm", ok ? "bg-muted text-muted-foreground" : "bg-destructive/15 text-destructive")}
+        >
           {token}
         </span>
       )
@@ -157,9 +184,17 @@ function piece(token: string, format: Format, known: Set<string>, key: number): 
         </span>
       )
     }
-    return <span key={key} className="text-chart-2">{token}</span>
+    return (
+      <span key={key} className="text-chart-2">
+        {token}
+      </span>
+    )
   }
-  return <span key={key} className="text-chart-2">{token}</span>
+  return (
+    <span key={key} className="text-chart-2">
+      {token}
+    </span>
+  )
 }
 
 function colourOf(body: string): string | null {

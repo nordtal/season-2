@@ -1,14 +1,13 @@
 package eu.nordtal.s2.commands.access;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
-
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /access revoke <member>} - every running grant, at once.
@@ -37,7 +36,12 @@ public final class RevokeAccess implements NordtalCommand<AccessEffects> {
                 user.reply(MESSAGES.access().failed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
-            user.reply(revoked == 0 ? MESSAGES.access().revokedSection().none() : revoked == 1 ? MESSAGES.access().revokedSection().one() : MESSAGES.access().revoked(revoked),
+            user.reply(
+                    revoked == 0
+                            ? MESSAGES.access().revokedSection().none()
+                            : revoked == 1
+                                    ? MESSAGES.access().revokedSection().one()
+                                    : MESSAGES.access().revoked(revoked),
                     revoked == 0 ? Feedback.REFUSED : Feedback.SMALL_SUCCESS,
                     // Nothing to revoke is WARN and not BAD: the command did what it was asked and
                     // found no grant, which is a fact about the account rather than a failure.

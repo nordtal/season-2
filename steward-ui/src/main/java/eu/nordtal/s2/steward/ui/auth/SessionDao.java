@@ -1,12 +1,11 @@
 package eu.nordtal.s2.steward.ui.auth;
 
+import java.time.Instant;
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.time.Instant;
-import java.util.Optional;
 
 /**
  * The SQL behind {@link Sessions}. Package-private: {@code Sessions} is the API.
@@ -33,10 +32,11 @@ interface SessionDao {
             INSERT INTO steward_session (id, oauth_state, csrf, created_at, expires_at)
             VALUES (:id, :state, :csrf, now(), now() + make_interval(secs => :seconds))
             """)
-    void begin(@Bind("id") String id,
-               @Bind("state") String state,
-               @Bind("csrf") String csrf,
-               @Bind("seconds") long seconds);
+    void begin(
+            @Bind("id") String id,
+            @Bind("state") String state,
+            @Bind("csrf") String csrf,
+            @Bind("seconds") long seconds);
 
     /**
      * Reads the one-time OAuth state and clears it in the same statement.
@@ -81,12 +81,13 @@ interface SessionDao {
             VALUES (:id, :discordId, :displayName, :roles, :csrf, now(),
                     now() + make_interval(secs => :seconds))
             """)
-    void signIn(@Bind("id") String id,
-                @Bind("discordId") String discordId,
-                @Bind("displayName") String displayName,
-                @Bind("roles") String roles,
-                @Bind("csrf") String csrf,
-                @Bind("seconds") long seconds);
+    void signIn(
+            @Bind("id") String id,
+            @Bind("discordId") String discordId,
+            @Bind("displayName") String displayName,
+            @Bind("roles") String roles,
+            @Bind("csrf") String csrf,
+            @Bind("seconds") long seconds);
 
     @SqlQuery("""
             SELECT id, discord_id, display_name, roles, csrf, created_at, expires_at, verified_at

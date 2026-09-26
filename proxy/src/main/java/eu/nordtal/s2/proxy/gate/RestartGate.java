@@ -3,17 +3,14 @@ package eu.nordtal.s2.proxy.gate;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.proxy.Player;
-
-import net.kyori.adventure.text.Component;
-
-import org.slf4j.Logger;
-
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
+import net.kyori.adventure.text.Component;
+import org.slf4j.Logger;
 
 /**
  * The door, for the seconds between "this proxy is being moved" and "this proxy has stopped"
@@ -86,9 +83,13 @@ public final class RestartGate {
      *                 address. {@code false} when the transfer could not be sent at all, which is
      *                 the only case that still ends in a screen
      */
-    public RestartGate(final Logger logger, final BooleanSupplier stopping,
-                       final Predicate<UUID> seated, final Predicate<Player> park,
-                       final GateMessages messages, final FallbackCache locales) {
+    public RestartGate(
+            final Logger logger,
+            final BooleanSupplier stopping,
+            final Predicate<UUID> seated,
+            final Predicate<Player> park,
+            final GateMessages messages,
+            final FallbackCache locales) {
         this.logger = Objects.requireNonNull(logger, "logger");
         this.stopping = Objects.requireNonNull(stopping, "stopping");
         this.seated = Objects.requireNonNull(seated, "seated");
@@ -148,9 +149,12 @@ public final class RestartGate {
             moved = false;
         }
         if (moved) {
-            logger.info("Parked {} ({}) on arrival: this proxy is being moved by an update, so"
-                    + " they went straight on to the standby ({} so far)",
-                    player.getUsername(), uuid, parked.incrementAndGet());
+            logger.info(
+                    "Parked {} ({}) on arrival: this proxy is being moved by an update, so"
+                            + " they went straight on to the standby ({} so far)",
+                    player.getUsername(),
+                    uuid,
+                    parked.incrementAndGet());
             return;
         }
         player.disconnect(refuse(uuid, player.getUsername()));
@@ -164,9 +168,12 @@ public final class RestartGate {
      */
     Component refuse(final UUID mcUuid, final String username) {
         final Locale locale = locales.localeOf(mcUuid);
-        logger.warn("Could not park {} ({}) and this proxy stops in a moment, so they were sent"
-                + " away with a sentence instead of a dropped connection ({} so far)",
-                username, mcUuid, refused.incrementAndGet());
+        logger.warn(
+                "Could not park {} ({}) and this proxy stops in a moment, so they were sent"
+                        + " away with a sentence instead of a dropped connection ({} so far)",
+                username,
+                mcUuid,
+                refused.incrementAndGet());
         return messages.restarting(locale);
     }
 

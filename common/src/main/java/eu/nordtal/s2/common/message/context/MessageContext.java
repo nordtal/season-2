@@ -11,5 +11,4 @@ package eu.nordtal.s2.common.message.context;
  * joins a type only when every place that builds the type can fill it, so a text never meets a
  * placeholder that is sometimes empty.</p>
  */
-public interface MessageContext {
-}
+public interface MessageContext {}

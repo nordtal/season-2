@@ -3,14 +3,12 @@ package eu.nordtal.s2.smp.player;
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
-import net.kyori.adventure.text.format.TextDecoration;
-
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Supplier;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 
 /**
  * What a player looks like, in the three places they are drawn.
@@ -52,8 +50,7 @@ public final class PlayerComposition {
      */
     private final Supplier<PrestigeColours> colours;
 
-    public PlayerComposition(final Supplier<Prestige> prestige,
-                             final Supplier<PrestigeColours> colours) {
+    public PlayerComposition(final Supplier<Prestige> prestige, final Supplier<PrestigeColours> colours) {
         // A supplier since steward/130: the ladder moved into `prestige.yml` beside the colours,
         // and that file is re-read by `/smp reload` - so the table this composes from has to be
         // asked for each time, exactly as the palette beside it already was.
@@ -109,8 +106,7 @@ public final class PlayerComposition {
      * this method existing is that they no longer are.
      */
     private Component name(final String name, final Identity identity) {
-        return Component.text(name).color(nameColour(identity))
-                .decoration(TextDecoration.ITALIC, false);
+        return Component.text(name).color(nameColour(identity)).decoration(TextDecoration.ITALIC, false);
     }
 
     /**
@@ -146,8 +142,7 @@ public final class PlayerComposition {
      */
     private Component crest(final Identity identity) {
         final int tier = tierOf(identity);
-        return Component.text(" " + Glyphs.PRESTIGE_CRESTS[tier - 1])
-                .decoration(TextDecoration.ITALIC, false);
+        return Component.text(" " + Glyphs.PRESTIGE_CRESTS[tier - 1]).decoration(TextDecoration.ITALIC, false);
     }
 
     /**

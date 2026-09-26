@@ -1,19 +1,17 @@
 package eu.nordtal.s2.discordbot.status;
 
-import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.network.NetworkSnapshot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Locale;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.network.NetworkSnapshot;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Locale;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What the status channel is called, in every phase and at every distance from the opening.
@@ -29,12 +27,12 @@ class StatusNameTest {
     private static final Messages MESSAGES = Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN);
     private static final Instant NOW = Instant.parse("2026-09-03T12:00:00Z");
 
-    private static final NetworkSnapshot RUNNING = new NetworkSnapshot(
-            "RUNNING", 8, 3, 24, 7, 17, "NETHER", 40, 3, 8, 12_400L, 31);
+    private static final NetworkSnapshot RUNNING =
+            new NetworkSnapshot("RUNNING", 8, 3, 24, 7, 17, "NETHER", 40, 3, 8, 12_400L, 31);
 
     private static String at(final Duration untilLaunch) {
-        return StatusName.render(MESSAGES, Locale.ENGLISH, SeasonPhase.PRE_LAUNCH,
-                NetworkSnapshot.EMPTY, NOW.plus(untilLaunch), NOW);
+        return StatusName.render(
+                MESSAGES, Locale.ENGLISH, SeasonPhase.PRE_LAUNCH, NetworkSnapshot.EMPTY, NOW.plus(untilLaunch), NOW);
     }
 
     // ---------------------------------------------------------------- the countdown
@@ -82,8 +80,9 @@ class StatusNameTest {
 
     @Test
     void noDateAtAllSaysSoRatherThanCountingFromNothing() {
-        assertEquals("Opening date to come", StatusName.render(MESSAGES, Locale.ENGLISH,
-                SeasonPhase.PRE_LAUNCH, NetworkSnapshot.EMPTY, null, NOW));
+        assertEquals(
+                "Opening date to come",
+                StatusName.render(MESSAGES, Locale.ENGLISH, SeasonPhase.PRE_LAUNCH, NetworkSnapshot.EMPTY, null, NOW));
     }
 
     // ---------------------------------------------------------------- the phase table
@@ -115,8 +114,8 @@ class StatusNameTest {
     @Test
     void everyPhaseRendersInGermanToo() {
         for (final SeasonPhase phase : SeasonPhase.values()) {
-            final String german = StatusName.render(MESSAGES, Locale.GERMAN, phase, RUNNING,
-                    NOW.plus(Duration.ofDays(2)), NOW);
+            final String german =
+                    StatusName.render(MESSAGES, Locale.GERMAN, phase, RUNNING, NOW.plus(Duration.ofDays(2)), NOW);
             assertTrue(german != null && !german.isBlank(), phase + " has no German name");
             assertNotEquals(phase.name(), german, phase + " fell through to its own enum name");
         }
@@ -125,10 +124,11 @@ class StatusNameTest {
     @Test
     void everyNameFitsInAChannelName() {
         for (final SeasonPhase phase : SeasonPhase.values()) {
-            for (final Locale locale : new Locale[]{Locale.ENGLISH, Locale.GERMAN}) {
-                final String name = StatusName.render(MESSAGES, locale, phase, RUNNING,
-                        NOW.plus(Duration.ofDays(365)), NOW);
-                assertTrue(name.length() <= StatusName.MAX_LENGTH,
+            for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
+                final String name =
+                        StatusName.render(MESSAGES, locale, phase, RUNNING, NOW.plus(Duration.ofDays(365)), NOW);
+                assertTrue(
+                        name.length() <= StatusName.MAX_LENGTH,
                         phase + "/" + locale + " is " + name.length() + " characters: " + name);
             }
         }

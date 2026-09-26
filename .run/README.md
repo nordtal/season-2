@@ -3,13 +3,13 @@
 IntelliJ (and other JetBrains IDEs) read run configurations from this directory automatically.
 Thirty of them are one `deploy/dev` subcommand each, grouped into five folders in the Run dropdown:
 
-| folder | what is in it |
-| --- | --- |
-| `dev: stack` | `init`, `up`, `ui`, `ps`, `stop`, `down`, `help` |
-| `dev: build and deploy` | `deploy` and its four per-server variants, `pack` |
-| `dev: logs` | all services, then the seven worth having on a key of their own |
-| `dev: console and database` | `console` per server, `mc`, `psql` |
-| `dev: reset (destructive)` | `reset` per server |
+| folder                      | what is in it                                                   |
+| --------------------------- | --------------------------------------------------------------- |
+| `dev: stack`                | `init`, `up`, `ui`, `ps`, `stop`, `down`, `help`                |
+| `dev: build and deploy`     | `deploy` and its four per-server variants, `pack`               |
+| `dev: logs`                 | all services, then the seven worth having on a key of their own |
+| `dev: console and database` | `console` per server, `mc`, `psql`                              |
+| `dev: reset (destructive)`  | `reset` per server                                              |
 
 **They are a keystroke, not an abstraction.** Every one of them runs `deploy/dev <subcommand>` and
 nothing else — no environment, no arguments the script does not define, no second copy of a

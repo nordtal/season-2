@@ -1,7 +1,8 @@
 package eu.nordtal.s2.steward.ui;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -15,10 +16,8 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Every {@code /api/...} path the browser asks for is a path this service answers.
@@ -44,8 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EveryCalledPathIsRoutedTest {
 
     private static final String FRONTEND = "steward-ui/frontend/src";
-    private static final String ROUTES =
-            "steward-ui/src/main/java/eu/nordtal/s2/steward/ui/StewardUi.java";
+    private static final String ROUTES = "steward-ui/src/main/java/eu/nordtal/s2/steward/ui/StewardUi.java";
     private static final String SAMPLER =
             "steward-worker/src/main/java/eu/nordtal/s2/steward/worker/metric/Sampler.java";
 
@@ -67,8 +65,8 @@ class EveryCalledPathIsRoutedTest {
     private static final Pattern CALLED = Pattern.compile("[\"`](/api/[^\"`?$\\\\]*)");
 
     /** {@code cfg.routes.get("/api/...", ...)} and the other five verbs, plus sse. */
-    private static final Pattern REGISTERED = Pattern.compile(
-            "routes\\.(?:get|post|put|patch|delete|sse)\\(\"(/api/[^\"]*)\"");
+    private static final Pattern REGISTERED =
+            Pattern.compile("routes\\.(?:get|post|put|patch|delete|sse)\\(\"(/api/[^\"]*)\"");
 
     /**
      * The catch-all, which is a route and is not an answer.
@@ -90,7 +88,8 @@ class EveryCalledPathIsRoutedTest {
         // nothing, every path below "matches" nothing and the assertion would still be the one
         // that fires - but for the wrong reason, and the message would send somebody to the
         // frontend. Say it here instead.
-        assertTrue(routes.size() > 20,
+        assertTrue(
+                routes.size() > 20,
                 "only " + routes.size() + " routes were read out of " + ROUTES
                         + " - the route table moved or the pattern stopped matching it.");
 
@@ -100,7 +99,9 @@ class EveryCalledPathIsRoutedTest {
                 unrouted.add(called);
             }
         }
-        assertEquals(List.of(), unrouted,
+        assertEquals(
+                List.of(),
+                unrouted,
                 "the browser can only reach steward-ui. A path the frontend calls and this service"
                         + " does not register is a 404 the moment somebody opens that page, and no"
                         + " suite sees it: the worker's tests call the worker, and the frontend's"
@@ -111,24 +112,25 @@ class EveryCalledPathIsRoutedTest {
     @DisplayName("the frontend is read, and it does call paths")
     void theFrontendIsActuallyRead() {
         final Set<String> called = called();
-        assertTrue(called.size() > 15,
+        assertTrue(
+                called.size() > 15,
                 "only " + called.size() + " /api paths were found in " + FRONTEND
                         + " - the tree moved, or the literals are written some other way now.");
-        assertFalse(registered().contains("/api/<path>"),
+        assertFalse(
+                registered().contains("/api/<path>"),
                 "the catch-all is a route that answers 404 and matches every path there is."
                         + " Counting it makes this test vacuous - see CATCH_ALL's javadoc.");
-        assertTrue(called.contains("/api/messages"),
+        assertTrue(
+                called.contains("/api/messages"),
                 "/api/messages is the path this test was written for; if it is gone, so is the"
                         + " reason to look for it, and this line should go with it.");
     }
 
     /** {@code useMetrics("host", "cpu_percent", 6)} - the second argument is the one that matters. */
-    private static final Pattern ASKED_METRIC =
-            Pattern.compile("useMetrics\\(\\s*\"[^\"]*\"\\s*,\\s*\"([^\"]+)\"");
+    private static final Pattern ASKED_METRIC = Pattern.compile("useMetrics\\(\\s*\"[^\"]*\"\\s*,\\s*\"([^\"]+)\"");
 
     /** {@code new MetricSample(subject, "cpu_percent", at, value)} in the sampler. */
-    private static final Pattern WRITTEN_METRIC =
-            Pattern.compile("new MetricSample\\([^,]*,\\s*\"([^\"]+)\"");
+    private static final Pattern WRITTEN_METRIC = Pattern.compile("new MetricSample\\([^,]*,\\s*\"([^\"]+)\"");
 
     /**
      * Every metric the frontend draws a curve of is one the sampler actually writes.
@@ -152,7 +154,8 @@ class EveryCalledPathIsRoutedTest {
     @DisplayName("every metric the frontend asks for is one the sampler writes")
     void nothingIsDrawnThatIsNeverSampled() {
         final Set<String> written = literals(WRITTEN_METRIC, repository().resolve(SAMPLER));
-        assertTrue(written.size() >= 4,
+        assertTrue(
+                written.size() >= 4,
                 "only " + written.size() + " metric names were read out of " + SAMPLER
                         + " - the sampler moved or it names its metrics some other way now, and"
                         + " this guard is measuring nothing.");
@@ -164,14 +167,17 @@ class EveryCalledPathIsRoutedTest {
                 asked.add(matcher.group(1));
             }
         });
-        assertFalse(asked.isEmpty(),
+        assertFalse(
+                asked.isEmpty(),
                 "no useMetrics call was found in " + FRONTEND + " - either no page draws a curve"
                         + " any more, in which case this test should go, or the call is written"
                         + " some other way and the pattern stopped seeing it.");
 
-        final List<String> unsampled = asked.stream().filter(name -> !written.contains(name))
-                .sorted().toList();
-        assertEquals(List.of(), unsampled,
+        final List<String> unsampled =
+                asked.stream().filter(name -> !written.contains(name)).sorted().toList();
+        assertEquals(
+                List.of(),
+                unsampled,
                 "a metric nobody samples is answered with 200 and an empty list, so the curve is"
                         + " simply never there and no error is reported anywhere. The names the"
                         + " sampler writes are " + written + ".");
@@ -245,8 +251,9 @@ class EveryCalledPathIsRoutedTest {
      */
     private static void forEachSourceFile(final java.util.function.Consumer<Path> visitor) {
         final Path root = repository().resolve(FRONTEND);
-        assertTrue(Files.isDirectory(root), root + " is not there, so this test was reading"
-                + " nothing. Fix the path rather than the assertion.");
+        assertTrue(
+                Files.isDirectory(root),
+                root + " is not there, so this test was reading" + " nothing. Fix the path rather than the assertion.");
         try (Stream<Path> walk = Files.walk(root)) {
             walk.filter(Files::isRegularFile)
                     // A test's fixture is not a call the browser makes, and a mocked fetch is
@@ -275,7 +282,8 @@ class EveryCalledPathIsRoutedTest {
         while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
             directory = directory.getParent();
         }
-        assertTrue(directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        assertTrue(
+                directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         return directory;
     }
 }

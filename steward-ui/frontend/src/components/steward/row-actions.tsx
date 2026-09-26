@@ -53,16 +53,16 @@ export function RowActions({ actions, label }: { actions: RowAction[]; label: st
       <Popover>
         <PopoverTrigger asChild>
           {/* `outline` rather than `ghost`: in a 390px table card this control sits alone on a
-            * line with no label beside it, and a ghost button with only three dots in it reads as
-            * a decoration. The border is what says "press me". */}
+           * line with no label beside it, and a ghost button with only three dots in it reads as
+           * a decoration. The border is what says "press me". */}
           <Button type="button" variant="outline" size="sm" aria-label={label}>
             <DotsThreeIcon aria-hidden />
           </Button>
         </PopoverTrigger>
         {/* `align="start"` and a collision padding, because the trigger sits at the LEFT edge of a
-          * stacked table card (`index.css` gives a mobile cell `justify-items: start`). Aligned to
-          * its end, a 13rem panel resolves to a negative left offset, and Radix then parks it flush
-          * against x=0 where it reads as cut off - measured at 390px on 2026-09-17. */}
+         * stacked table card (`index.css` gives a mobile cell `justify-items: start`). Aligned to
+         * its end, a 13rem panel resolves to a negative left offset, and Radix then parks it flush
+         * against x=0 where it reads as cut off - measured at 390px on 2026-09-17. */}
         <PopoverContent align="start" collisionPadding={8} className="w-52 p-1">
           <div className="flex flex-col items-stretch gap-0.5 [&_[data-slot=button]]:w-full [&_[data-slot=button]]:justify-start">
             {actions.map((action) => (

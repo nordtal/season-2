@@ -1,5 +1,7 @@
 package eu.nordtal.s2.hungergames.loot;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -7,9 +9,9 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
-
-import net.kyori.adventure.text.Component;
-
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -23,12 +25,6 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-
-import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 /**
  * Schedules the loot refills configured under {@code refill-tiers}: at each tier's delay, every
@@ -52,9 +48,14 @@ public final class LootRefill {
     /** Set by {@link #scheduleAll}, cleared by {@link #cancelAll}; null while no game is running. */
     private volatile Instant releasedAt;
 
-    public LootRefill(final Plugin plugin, final World world, final HungerGamesSpec config,
-                      final BorderController border, final Messages messages, final PlayerLocales locales,
-                      final HungerGamesSounds sounds) {
+    public LootRefill(
+            final Plugin plugin,
+            final World world,
+            final HungerGamesSpec config,
+            final BorderController border,
+            final Messages messages,
+            final PlayerLocales locales,
+            final HungerGamesSounds sounds) {
         this.plugin = plugin;
         this.world = world;
         this.config = config;
@@ -89,7 +90,8 @@ public final class LootRefill {
         this.releasedAt = releasedAt;
         for (final HungerGamesSpec.RefillTierSpec tier : config.refillTiers()) {
             final long delayTicks = tier.delayMinutes() * 60L * 20L;
-            final long elapsedTicks = java.time.Duration.between(releasedAt, Instant.now()).toSeconds() * 20L;
+            final long elapsedTicks =
+                    java.time.Duration.between(releasedAt, Instant.now()).toSeconds() * 20L;
             final long remainingTicks = Math.max(0, delayTicks - elapsedTicks);
 
             final BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> refill(tier), remainingTicks);
@@ -116,8 +118,11 @@ public final class LootRefill {
 
             final Block block = location.getBlock();
             if (!(block.getState() instanceof Chest chest)) {
-                LOGGER.warn("Loot point '{}' at {} is not a chest (found {}) - skipping refill",
-                        point.label(), location, block.getType());
+                LOGGER.warn(
+                        "Loot point '{}' at {} is not a chest (found {}) - skipping refill",
+                        point.label(),
+                        location,
+                        block.getType());
                 continue;
             }
 
@@ -126,8 +131,11 @@ public final class LootRefill {
             for (final String materialName : tier.items()) {
                 final Material material = Material.matchMaterial(materialName);
                 if (material == null) {
-                    LOGGER.warn("Refill tier at {} minutes has unknown material '{}' - already "
-                            + "validated at load, this should be unreachable", tier.delayMinutes(), materialName);
+                    LOGGER.warn(
+                            "Refill tier at {} minutes has unknown material '{}' - already "
+                                    + "validated at load, this should be unreachable",
+                            tier.delayMinutes(),
+                            materialName);
                     continue;
                 }
                 inventory.addItem(new ItemStack(material));
@@ -146,8 +154,10 @@ public final class LootRefill {
      */
     private void announce() {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
-                    MESSAGES.hg().loot().refill()));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(
+                            locales.of(player.getUniqueId()),
+                            MESSAGES.hg().loot().refill()));
             sounds.play(player, Feedback.NETWORK_EVENT);
         }
     }

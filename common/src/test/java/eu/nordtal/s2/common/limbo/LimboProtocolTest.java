@@ -1,15 +1,14 @@
 package eu.nordtal.s2.common.limbo;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * The {@code nordtal:limbo} wire format, from both ends.
@@ -41,7 +40,8 @@ class LimboProtocolTest {
 
     @Test
     void readyRoundTripsAndCarriesNoReason() {
-        final LimboProtocol.Message message = LimboProtocol.decode(LimboProtocol.ready()).orElseThrow();
+        final LimboProtocol.Message message =
+                LimboProtocol.decode(LimboProtocol.ready()).orElseThrow();
 
         assertEquals(LimboProtocol.Type.READY, message.type());
         assertEquals(null, message.reason());
@@ -61,7 +61,7 @@ class LimboProtocolTest {
     void nullAndTruncatedPayloadsDecodeToNothing() {
         assertEquals(Optional.empty(), LimboProtocol.decode(null));
         assertEquals(Optional.empty(), LimboProtocol.decode(new byte[0]));
-        assertEquals(Optional.empty(), LimboProtocol.decode(new byte[]{LimboProtocol.VERSION}));
+        assertEquals(Optional.empty(), LimboProtocol.decode(new byte[] {LimboProtocol.VERSION}));
     }
 
     @Test
@@ -107,9 +107,9 @@ class LimboProtocolTest {
 
     @Test
     void theMessageRecordRefusesAWaitWithoutAReasonAndAReadyWithOne() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new LimboProtocol.Message(LimboProtocol.Type.WAIT, null));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(IllegalArgumentException.class, () -> new LimboProtocol.Message(LimboProtocol.Type.WAIT, null));
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> new LimboProtocol.Message(LimboProtocol.Type.READY, WaitReason.PACK));
     }
 

@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.access;
 
+import java.util.List;
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.List;
-import java.util.Optional;
 
 /**
  * The whole SQL surface of the bot's access inbox, as a JDBI SqlObject interface - the same style as
@@ -42,12 +41,13 @@ interface AccessRequestDao {
             SELECT inserted.*, pg_notify('nordtal_access', '') AS notified
             FROM inserted
             """)
-    AccessRequest submit(@Bind("kind") String kind,
-                         @Bind("subject") String subject,
-                         @Bind("argument") String argument,
-                         @Bind("source") String source,
-                         @Bind("requestedBy") String requestedBy,
-                         @Bind("patienceSeconds") long patienceSeconds);
+    AccessRequest submit(
+            @Bind("kind") String kind,
+            @Bind("subject") String subject,
+            @Bind("argument") String argument,
+            @Bind("source") String source,
+            @Bind("requestedBy") String requestedBy,
+            @Bind("patienceSeconds") long patienceSeconds);
 
     /**
      * Takes the oldest request that has not expired, and marks it {@code RUNNING} in the same

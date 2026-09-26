@@ -1,17 +1,16 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import eu.nordtal.s2.steward.worker.plan.Topology;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import eu.nordtal.s2.steward.worker.plan.Topology;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The console, end to end, against the running stack.
@@ -39,13 +38,14 @@ class ConsoleIntegrationTest {
     @Test
     @DisplayName("a service without a console is refused, and told what it has instead")
     void refusesTheSix() {
-        for (final String service : List.of(Topology.DISCORD_BOT, "postgres", "caddy",
-                Topology.STEWARD_WORKER)) {
-            final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                    () -> console.send(service, "list"));
-            assertTrue(refused.getMessage().startsWith(service),
+        for (final String service : List.of(Topology.DISCORD_BOT, "postgres", "caddy", Topology.STEWARD_WORKER)) {
+            final IllegalArgumentException refused =
+                    assertThrows(IllegalArgumentException.class, () -> console.send(service, "list"));
+            assertTrue(
+                    refused.getMessage().startsWith(service),
                     "the refusal should name the service first: " + refused.getMessage());
-            assertTrue(refused.getMessage().length() > service.length() + 20,
+            assertTrue(
+                    refused.getMessage().length() > service.length() + 20,
                     "a refusal with no reason in it is a wall: " + refused.getMessage());
         }
     }
@@ -77,8 +77,7 @@ class ConsoleIntegrationTest {
         String found = null;
         while (found == null && Instant.now().isBefore(giveUp)) {
             for (final String line : docker.recentLines(smp.id(), 40, multiplexed)) {
-                if (line.contains("There are") && line.contains("players online")
-                        && isAfter(line, sentAt)) {
+                if (line.contains("There are") && line.contains("players online") && isAfter(line, sentAt)) {
                     found = line;
                     break;
                 }
@@ -87,8 +86,7 @@ class ConsoleIntegrationTest {
                 Thread.sleep(500);
             }
         }
-        assertTrue(found != null,
-                "typed `list` into the SMP and its answer never appeared in the log");
+        assertTrue(found != null, "typed `list` into the SMP and its answer never appeared in the log");
     }
 
     /**

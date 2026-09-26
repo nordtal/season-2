@@ -1,13 +1,12 @@
 package eu.nordtal.s2.common.access;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The two decisions in {@link FullServerAdmission}: when the admin flag is worth a query, and what
@@ -26,15 +25,17 @@ class FullServerAdmissionTest {
     @Test
     @DisplayName("an empty server is not worth a query, a full one is")
     void worthAskingFollowsTheCap() {
-        assertFalse(FullServerAdmission.worthAsking(0, 500),
+        assertFalse(
+                FullServerAdmission.worthAsking(0, 500),
                 "an empty server asked the database whether the arriving player is an admin."
                         + " limbo is crossed by every login on the network; that is one query per"
                         + " login for an answer that cannot change anything.");
-        assertTrue(FullServerAdmission.worthAsking(500, 500),
+        assertTrue(
+                FullServerAdmission.worthAsking(500, 500),
                 "a server Paper will refuse this login on did not read the admin flag, so the"
                         + " admin coming to fix a full network is refused with \"Server full\"");
-        assertTrue(FullServerAdmission.worthAsking(501, 500),
-                "a server already over its cap did not read the admin flag");
+        assertTrue(
+                FullServerAdmission.worthAsking(501, 500), "a server already over its cap did not read the admin flag");
     }
 
     @Test
@@ -42,10 +43,12 @@ class FullServerAdmissionTest {
     void worthAskingLeavesHeadroom() {
         // The count is read on the pre-login thread and acted on at PlayerLoginEvent; players join
         // in between. Exactly at the boundary, so a change to HEADROOM has to come here first.
-        assertTrue(FullServerAdmission.worthAsking(500 - FullServerAdmission.HEADROOM, 500),
+        assertTrue(
+                FullServerAdmission.worthAsking(500 - FullServerAdmission.HEADROOM, 500),
                 "a login HEADROOM short of the cap was not considered, so the whole point of the"
                         + " constant is gone");
-        assertFalse(FullServerAdmission.worthAsking(500 - FullServerAdmission.HEADROOM - 1, 500),
+        assertFalse(
+                FullServerAdmission.worthAsking(500 - FullServerAdmission.HEADROOM - 1, 500),
                 "the headroom reaches further than it says it does");
     }
 
@@ -59,8 +62,7 @@ class FullServerAdmissionTest {
         admission.remember(ADMIN, true);
 
         assertTrue(admission.admits(ADMIN), "the warmed admin was not admitted to a full server");
-        assertTrue(admission.admits(ADMIN),
-                "the second check of one login got a different answer from the first");
+        assertTrue(admission.admits(ADMIN), "the second check of one login got a different answer from the first");
         assertEquals(1, admission.size(), "reading the answer threw it away");
     }
 
@@ -69,7 +71,8 @@ class FullServerAdmissionTest {
     void nonAdminsAreNotAdmitted() {
         final FullServerAdmission admission = new FullServerAdmission();
 
-        assertFalse(admission.admits(PLAYER),
+        assertFalse(
+                admission.admits(PLAYER),
                 "a login nobody looked up was let onto a full server - which is every login on a"
                         + " server that was not near its cap when they connected");
 

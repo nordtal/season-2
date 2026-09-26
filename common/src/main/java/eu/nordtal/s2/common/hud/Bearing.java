@@ -9,8 +9,7 @@ package eu.nordtal.s2.common.hud;
  */
 public final class Bearing {
 
-    private Bearing() {
-    }
+    private Bearing() {}
 
     /**
      * The index into {@code Glyphs.BOSSBAR_ARROWS} for a target relative to a player's position and
@@ -23,8 +22,12 @@ public final class Bearing {
      * @param targetZ target Z
      * @return an index in {@code [0, 16)}; when the target is exactly at the player's position, 0
      */
-    public static int arrowIndex(final double playerX, final double playerZ, final double playerYawDegrees,
-                                  final double targetX, final double targetZ) {
+    public static int arrowIndex(
+            final double playerX,
+            final double playerZ,
+            final double playerYawDegrees,
+            final double targetX,
+            final double targetZ) {
         final double dx = targetX - playerX;
         final double dz = targetZ - playerZ;
         if (dx == 0 && dz == 0) {

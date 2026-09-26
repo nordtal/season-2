@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.worker.backup;
 
+import java.time.Duration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.time.Duration;
 
 /**
  * What saving one thing came to.
@@ -19,18 +18,22 @@ import java.time.Duration;
  * @param file     where it landed, or {@code null} when nothing was written
  * @param message  what happened, in a sentence a person can act on
  */
-public record SnapshotResult(@NotNull String name, boolean ok, long bytes,
-                             @NotNull Duration took, @Nullable String file,
-                             @NotNull String message) {
+public record SnapshotResult(
+        @NotNull String name,
+        boolean ok,
+        long bytes,
+        @NotNull Duration took,
+        @Nullable String file,
+        @NotNull String message) {
 
-    public static SnapshotResult saved(final @NotNull String name, final long bytes,
-                                       final @NotNull Duration took, final @NotNull String file) {
-        return new SnapshotResult(name, true, bytes, took, file,
-                "saved " + human(bytes) + " in " + took.toSeconds() + "s");
+    public static SnapshotResult saved(
+            final @NotNull String name, final long bytes, final @NotNull Duration took, final @NotNull String file) {
+        return new SnapshotResult(
+                name, true, bytes, took, file, "saved " + human(bytes) + " in " + took.toSeconds() + "s");
     }
 
-    public static SnapshotResult failed(final @NotNull String name, final @NotNull Duration took,
-                                        final @NotNull String message) {
+    public static SnapshotResult failed(
+            final @NotNull String name, final @NotNull Duration took, final @NotNull String message) {
         return new SnapshotResult(name, false, 0, took, null, message);
     }
 

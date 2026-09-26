@@ -1,18 +1,29 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
-import eu.nordtal.s2.common.payment.PaymentMatch;
-import eu.nordtal.s2.common.payment.PaymentNotice;
-import eu.nordtal.s2.common.payment.PaymentRequest;
-import eu.nordtal.s2.common.payment.PaymentRequestStatus;
-import eu.nordtal.s2.common.payment.PaymentRequests;
-import eu.nordtal.s2.common.payment.Watermark;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.access.AccessSource;
-
+import eu.nordtal.s2.common.payment.PaymentMatch;
+import eu.nordtal.s2.common.payment.PaymentNotice;
+import eu.nordtal.s2.common.payment.PaymentRequest;
+import eu.nordtal.s2.common.payment.PaymentRequestStatus;
+import eu.nordtal.s2.common.payment.PaymentRequests;
+import eu.nordtal.s2.common.payment.Watermark;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,20 +33,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The payment request state machine against a real PostgreSQL, running the real migrations.
@@ -73,7 +70,8 @@ class PaymentRequestIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -82,8 +80,8 @@ class PaymentRequestIntegrationTest {
                 .withPassword("access");
         postgres.start();
 
-        database = Database.create(DatabaseConfig.of(
-                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
+        database = Database.create(
+                DatabaseConfig.of(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
         database.migrate();
     }
 
@@ -100,9 +98,10 @@ class PaymentRequestIntegrationTest {
     @BeforeEach
     void clean() {
         assumeTrue(database != null);
-        database.jdbi().useHandle(handle -> handle.execute(
-                "TRUNCATE access_grant, payment_request, expiry_notice, payment_notice, "
-                        + "account_link, link_code, audit_log, discord_user CASCADE"));
+        database.jdbi()
+                .useHandle(handle ->
+                        handle.execute("TRUNCATE access_grant, payment_request, expiry_notice, payment_notice, "
+                                + "account_link, link_code, audit_log, discord_user CASCADE"));
         requests = new PaymentRequests(database.jdbi());
         access = AccessDirectory.using(database.dataSource());
     }
@@ -112,14 +111,23 @@ class PaymentRequestIntegrationTest {
     @Test
     @DisplayName("the migration applies and creates the stage B tables too")
     void migrationCreatesEverything() {
-        final List<String> tables = database.jdbi().withHandle(handle -> handle
-                .createQuery("SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename")
-                .mapTo(String.class)
-                .list());
+        final List<String> tables = database.jdbi()
+                .withHandle(handle -> handle.createQuery(
+                                "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename")
+                        .mapTo(String.class)
+                        .list());
 
-        assertTrue(tables.containsAll(List.of(
-                        "access_grant", "account_link", "audit_log", "bot_setting", "discord_user",
-                        "expiry_notice", "link_code", "managed_message", "payment_notice",
+        assertTrue(
+                tables.containsAll(List.of(
+                        "access_grant",
+                        "account_link",
+                        "audit_log",
+                        "bot_setting",
+                        "discord_user",
+                        "expiry_notice",
+                        "link_code",
+                        "managed_message",
+                        "payment_notice",
                         "payment_request")),
                 tables.toString());
     }
@@ -130,8 +138,7 @@ class PaymentRequestIntegrationTest {
         requests.open(USER, 30, 300, 0, TTL_HOURS);
 
         // Not a check in Java that two threads could both pass - a partial unique index.
-        assertThrows(UnableToExecuteStatementException.class,
-                () -> requests.open(USER, 60, 500, 0, TTL_HOURS));
+        assertThrows(UnableToExecuteStatementException.class, () -> requests.open(USER, 60, 500, 0, TTL_HOURS));
     }
 
     @Test
@@ -144,10 +151,9 @@ class PaymentRequestIntegrationTest {
 
         assertAll(
                 () -> assertEquals(60, second.days()),
-                () -> assertEquals(Optional.of(second.id()), requests.openOf(USER).map(PaymentRequest::id)),
-                () -> assertFalse(first.reference().equals(second.reference()),
-                        "each request gets its own reference")
-        );
+                () -> assertEquals(
+                        Optional.of(second.id()), requests.openOf(USER).map(PaymentRequest::id)),
+                () -> assertFalse(first.reference().equals(second.reference()), "each request gets its own reference"));
     }
 
     @Test
@@ -159,16 +165,15 @@ class PaymentRequestIntegrationTest {
         assertAll(
                 () -> assertTrue(requests.openOf(USER).isPresent()),
                 () -> assertTrue(requests.openOf(OTHER).isPresent()),
-                () -> assertEquals(2, requests.allOpen().size())
-        );
+                () -> assertEquals(2, requests.allOpen().size()));
     }
 
     @Test
     @DisplayName("the reference matches the pattern the fallback matcher scans for")
     void referenceMatchesThePattern() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
-        assertTrue(PaymentRequests.REFERENCE_PATTERN.matcher(request.reference()).matches(),
-                request.reference());
+        assertTrue(
+                PaymentRequests.REFERENCE_PATTERN.matcher(request.reference()).matches(), request.reference());
     }
 
     // ---------------------------------------------------------------- the flow
@@ -182,12 +187,13 @@ class PaymentRequestIntegrationTest {
 
         final PaymentRequest reloaded = requests.openOf(USER).orElseThrow();
         assertAll(
-                () -> assertEquals(request.reference(), reloaded.reference(),
+                () -> assertEquals(
+                        request.reference(),
+                        reloaded.reference(),
                         "clicking through the options must not burn a reference per click"),
                 () -> assertEquals(60, reloaded.days()),
                 () -> assertEquals(1000, reloaded.amountCents()),
-                () -> assertTrue(reloaded.donationRequested())
-        );
+                () -> assertTrue(reloaded.donationRequested()));
     }
 
     @Test
@@ -206,12 +212,14 @@ class PaymentRequestIntegrationTest {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         assertTrue(requests.dueForExpiry().isEmpty(), "not due yet");
 
-        database.jdbi().useHandle(handle -> handle
-                .createUpdate("UPDATE payment_request SET expires = now() - interval '1 minute' WHERE id = :id")
-                .bind("id", request.id())
-                .execute());
+        database.jdbi()
+                .useHandle(handle -> handle.createUpdate(
+                                "UPDATE payment_request SET expires = now() - interval '1 minute' WHERE id = :id")
+                        .bind("id", request.id())
+                        .execute());
 
-        assertEquals(List.of(request.reference()),
+        assertEquals(
+                List.of(request.reference()),
                 requests.dueForExpiry().stream().map(PaymentRequest::reference).toList());
     }
 
@@ -240,8 +248,7 @@ class PaymentRequestIntegrationTest {
 
         assertAll(
                 () -> assertTrue(requests.settle(request.id(), 888L)),
-                () -> assertFalse(requests.settle(request.id(), 888L), "the row is no longer OPEN")
-        );
+                () -> assertFalse(requests.settle(request.id(), 888L), "the row is no longer OPEN"));
     }
 
     @Test
@@ -255,9 +262,10 @@ class PaymentRequestIntegrationTest {
         assertAll(
                 () -> assertEquals(PaymentRequestStatus.PAID, reloaded.status()),
                 () -> assertNotNull(reloaded.settled()),
-                () -> assertEquals(null, reloaded.bunqPaymentId(),
-                        "a manual settlement is told apart from a matched one by having no payment")
-        );
+                () -> assertEquals(
+                        null,
+                        reloaded.bunqPaymentId(),
+                        "a manual settlement is told apart from a matched one by having no payment"));
     }
 
     @Test
@@ -270,8 +278,7 @@ class PaymentRequestIntegrationTest {
 
         // The second half of the double-booking guard: even a request settled twice through two
         // different code paths cannot hand out two periods.
-        assertThrows(RuntimeException.class,
-                () -> access.grantAccess(USER, 30, AccessSource.PURCHASE, request.id()));
+        assertThrows(RuntimeException.class, () -> access.grantAccess(USER, 30, AccessSource.PURCHASE, request.id()));
     }
 
     @Test
@@ -286,12 +293,11 @@ class PaymentRequestIntegrationTest {
         final AccessGrant second = access.grantAccess(USER, 30, AccessSource.PURCHASE, request.id());
 
         assertAll(
-                () -> assertEquals(first.validUntil(), second.validFrom(),
-                        "renewing early never loses paid time"),
+                () -> assertEquals(first.validUntil(), second.validFrom(), "renewing early never loses paid time"),
                 () -> assertEquals(Duration.ofDays(30), Duration.between(second.validFrom(), second.validUntil())),
-                () -> assertTrue(second.validUntil().isAfter(Instant.now().plus(Duration.ofDays(59))),
-                        "30 days on top of 30 days")
-        );
+                () -> assertTrue(
+                        second.validUntil().isAfter(Instant.now().plus(Duration.ofDays(59))),
+                        "30 days on top of 30 days"));
     }
 
     // ---------------------------------------------------------------- the seam (concept §10d)
@@ -300,16 +306,14 @@ class PaymentRequestIntegrationTest {
     @DisplayName("a request that wants a tab turns up in the worker's queue, and only then")
     void requestedTabTurnsUpInTheQueue() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
-        assertTrue(requests.tabsToCreate().isEmpty(),
-                "choosing a tier is not asking for a payment link");
+        assertTrue(requests.tabsToCreate().isEmpty(), "choosing a tier is not asking for a payment link");
 
         assertTrue(requests.requestTab(request.id()));
 
         assertAll(
                 () -> assertEquals(List.of(request.reference()), references(requests.tabsToCreate())),
                 () -> assertNotNull(requests.tabsToCreate().getFirst().tabRequested()),
-                () -> assertNull(requests.tabsToCreate().getFirst().tabFailed())
-        );
+                () -> assertNull(requests.tabsToCreate().getFirst().tabFailed()));
     }
 
     @Test
@@ -337,15 +341,18 @@ class PaymentRequestIntegrationTest {
 
         final PaymentRequest failed = requests.openOf(USER).orElseThrow();
         assertAll(
-                () -> assertTrue(requests.tabsToCreate().isEmpty(),
+                () -> assertTrue(
+                        requests.tabsToCreate().isEmpty(),
                         "a failure retried on every pass is a failure repeated forever"),
                 () -> assertNull(failed.tabRequested()),
-                () -> assertEquals("bunq: MonetaryAccount not found", failed.tabFailed(),
+                () -> assertEquals(
+                        "bunq: MonetaryAccount not found",
+                        failed.tabFailed(),
                         "'der Link kommt gleich' needs an exit - steward/07"),
                 () -> assertTrue(requests.requestTab(request.id())),
-                () -> assertNull(requests.openOf(USER).orElseThrow().tabFailed(),
-                        "asking again clears the old reason rather than showing it next to a pending ask")
-        );
+                () -> assertNull(
+                        requests.openOf(USER).orElseThrow().tabFailed(),
+                        "asking again clears the old reason rather than showing it next to a pending ask"));
     }
 
     @Test
@@ -371,11 +378,14 @@ class PaymentRequestIntegrationTest {
         assertFalse(requests.requestCancel(request.id()), "asking twice does not move the timestamp");
         assertTrue(requests.close(request.id(), PaymentRequestStatus.CANCELLED));
 
-        assertEquals(List.of(request.reference()), references(requests.tabsToCancel()),
+        assertEquals(
+                List.of(request.reference()),
+                references(requests.tabsToCancel()),
                 "closing the row is not cancelling the tab at bunq");
 
         assertTrue(requests.recordCancelled(request.id()));
-        assertTrue(requests.tabsToCancel().isEmpty(),
+        assertTrue(
+                requests.tabsToCancel().isEmpty(),
                 "without an exit the worker cancels the same tab on every pass, forever");
     }
 
@@ -389,15 +399,14 @@ class PaymentRequestIntegrationTest {
 
         final PaymentRequest matched = requests.openOf(USER).orElseThrow();
         assertAll(
-                () -> assertEquals(PaymentRequestStatus.OPEN, matched.status(),
-                        "the worker finds the money; the bot books it"),
+                () -> assertEquals(
+                        PaymentRequestStatus.OPEN, matched.status(), "the worker finds the money; the bot books it"),
                 () -> assertNull(matched.settled()),
                 () -> assertEquals(300, matched.matchedCents()),
                 () -> assertEquals(PaymentMatch.TAB, matched.matchedBy()),
                 () -> assertEquals(4711L, matched.bunqPaymentId()),
-                () -> assertTrue(requests.alreadyBooked(4711L),
-                        "the claim on the payment id happens here, not at the booking")
-        );
+                () -> assertTrue(
+                        requests.alreadyBooked(4711L), "the claim on the payment id happens here, not at the booking"));
     }
 
     @Test
@@ -414,7 +423,8 @@ class PaymentRequestIntegrationTest {
         final UnableToExecuteStatementException failure = assertThrows(
                 UnableToExecuteStatementException.class,
                 () -> requests.recordMatch(second.id(), 4711L, 300, PaymentMatch.REFERENCE));
-        assertTrue(String.valueOf(failure.getMessage()).contains("payment_request_bunq_payment_id_key"),
+        assertTrue(
+                String.valueOf(failure.getMessage()).contains("payment_request_bunq_payment_id_key"),
                 failure.getMessage());
     }
 
@@ -436,11 +446,12 @@ class PaymentRequestIntegrationTest {
 
         assertAll(
                 () -> assertFalse(first.isBefore(before.minusSeconds(1))),
-                () -> assertEquals(first, second,
+                () -> assertEquals(
+                        first,
+                        second,
                         "a restart must not move the cut-off forward - everything between the two "
                                 + "would be ignored forever"),
-                () -> assertTrue(Watermark.storedAt(database.jdbi()).isPresent())
-        );
+                () -> assertTrue(Watermark.storedAt(database.jdbi()).isPresent()));
     }
 
     @Test
@@ -476,8 +487,7 @@ class PaymentRequestIntegrationTest {
         assertAll(
                 () -> assertTrue(requests.noticeOnce(555L, "UNMATCHED", "first")),
                 () -> assertFalse(requests.noticeOnce(555L, "UNMATCHED", "second poll")),
-                () -> assertFalse(requests.noticeOnce(555L, "UNMATCHED", "third poll"))
-        );
+                () -> assertFalse(requests.noticeOnce(555L, "UNMATCHED", "third poll")));
     }
 
     @Test
@@ -491,18 +501,27 @@ class PaymentRequestIntegrationTest {
         requests.noticeOnce(555L, "UNMATCHED", "56.00 EUR with no reference");
         requests.noticeOnce(556L, "EXPIRED_REFERENCE", "NT-ABCDEF is not open");
 
-        assertEquals(List.of(555L, 556L),
-                requests.unpostedNotices().stream().map(PaymentNotice::bunqPaymentId).toList(),
+        assertEquals(
+                List.of(555L, 556L),
+                requests.unpostedNotices().stream()
+                        .map(PaymentNotice::bunqPaymentId)
+                        .toList(),
                 "oldest first, so the admin channel reads in the order the money arrived");
-        assertEquals("56.00 EUR with no reference", requests.unpostedNotices().getFirst().detail());
+        assertEquals(
+                "56.00 EUR with no reference",
+                requests.unpostedNotices().getFirst().detail());
         assertEquals("UNMATCHED", requests.unpostedNotices().getFirst().reason());
 
         assertTrue(requests.claimNotice(555L));
-        assertFalse(requests.claimNotice(555L),
+        assertFalse(
+                requests.claimNotice(555L),
                 "two bots, or one bot and a poll racing itself, must not both post the same line");
 
-        assertEquals(List.of(556L),
-                requests.unpostedNotices().stream().map(PaymentNotice::bunqPaymentId).toList(),
+        assertEquals(
+                List.of(556L),
+                requests.unpostedNotices().stream()
+                        .map(PaymentNotice::bunqPaymentId)
+                        .toList(),
                 "a claimed notice leaves the queue; without that it is posted on every pass forever");
     }
 
@@ -524,8 +543,7 @@ class PaymentRequestIntegrationTest {
     void matchedMoneyWaitsToBeBooked() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
-        assertTrue(requests.matchedAwaitingBooking().isEmpty(),
-                "an open request with a tab is not money");
+        assertTrue(requests.matchedAwaitingBooking().isEmpty(), "an open request with a tab is not money");
 
         assertTrue(requests.recordMatch(request.id(), 4711L, 500, PaymentMatch.REFERENCE));
 
@@ -537,11 +555,11 @@ class PaymentRequestIntegrationTest {
                 // settleManually writes a payment id with no amount behind it.
                 () -> assertEquals(500, queue.getFirst().matchedCents()),
                 () -> assertEquals(4711L, queue.getFirst().bunqPaymentId()),
-                () -> assertEquals(PaymentMatch.REFERENCE, queue.getFirst().matchedBy())
-        );
+                () -> assertEquals(PaymentMatch.REFERENCE, queue.getFirst().matchedBy()));
 
         assertTrue(requests.settle(request.id(), 4711L));
-        assertTrue(requests.matchedAwaitingBooking().isEmpty(),
+        assertTrue(
+                requests.matchedAwaitingBooking().isEmpty(),
                 "booking is the exit; without it the same money is granted on every pass");
     }
 
@@ -555,14 +573,16 @@ class PaymentRequestIntegrationTest {
         final PaymentRequest settled = requests.byId(request.id()).orElseThrow();
         assertAll(
                 () -> assertEquals(PaymentRequestStatus.PAID, settled.status()),
-                () -> assertEquals(PaymentMatch.MANUAL, settled.matchedBy(),
+                () -> assertEquals(
+                        PaymentMatch.MANUAL,
+                        settled.matchedBy(),
                         "an audit that cannot tell a hand-granted request from a matched one is"
                                 + " missing the only thing anybody asks it afterwards"),
-                () -> assertNull(settled.matchedCents(),
+                () -> assertNull(
+                        settled.matchedCents(),
                         "nothing arrived, so there is no amount to record - and that is exactly why"
                                 + " matchedAwaitingBooking keys on matched_cents"),
-                () -> assertTrue(requests.matchedAwaitingBooking().isEmpty())
-        );
+                () -> assertTrue(requests.matchedAwaitingBooking().isEmpty()));
     }
 
     @Test
@@ -576,11 +596,11 @@ class PaymentRequestIntegrationTest {
         final PaymentRequest closed = requests.byId(request.id()).orElseThrow();
         assertAll(
                 () -> assertEquals(PaymentRequestStatus.EXPIRED, closed.status()),
-                () -> assertNotNull(closed.cancelRequested(),
+                () -> assertNotNull(
+                        closed.cancelRequested(),
                         "a closed row whose bunq.me URL still works is a link somebody can pay,"
                                 + " and that payment lands on a reference nothing books"),
-                () -> assertEquals(List.of(request.reference()), references(requests.tabsToCancel()))
-        );
+                () -> assertEquals(List.of(request.reference()), references(requests.tabsToCancel())));
     }
 
     @Test
@@ -590,9 +610,12 @@ class PaymentRequestIntegrationTest {
 
         // PAID means money arrived and something has to be granted for it. Letting it through here
         // would close the row without a grant, silently.
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.PAID));
-        assertEquals(PaymentRequestStatus.OPEN, requests.byId(request.id()).orElseThrow().status());
+        assertEquals(
+                PaymentRequestStatus.OPEN,
+                requests.byId(request.id()).orElseThrow().status());
     }
 
     @Test
@@ -600,7 +623,8 @@ class PaymentRequestIntegrationTest {
     void byIdFindsTheRow() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
 
-        assertEquals(request.reference(), requests.byId(request.id()).orElseThrow().reference());
+        assertEquals(
+                request.reference(), requests.byId(request.id()).orElseThrow().reference());
         assertTrue(requests.byId(java.util.UUID.randomUUID()).isEmpty());
     }
 }

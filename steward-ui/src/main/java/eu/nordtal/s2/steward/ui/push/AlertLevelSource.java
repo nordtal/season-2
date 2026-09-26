@@ -16,5 +16,6 @@ public interface AlertLevelSource {
      * worker) - {@link AlertWatch} treats that as "nothing to report this cycle", the same as any
      * other transient failure of a background poll, and tries again on the next one.
      */
-    @NotNull AlertReading current();
+    @NotNull
+    AlertReading current();
 }

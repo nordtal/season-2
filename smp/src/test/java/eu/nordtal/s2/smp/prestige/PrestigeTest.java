@@ -1,11 +1,10 @@
 package eu.nordtal.s2.smp.prestige;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 /**
  * The crest tier, which is a pure function of one number and is rendered thousands of times a

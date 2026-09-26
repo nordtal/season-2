@@ -30,8 +30,7 @@ export type ParsedLine =
 const DOCKER_STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z /
 
 const PAPER = /^\[(\d{2}:\d{2}:\d{2})\] \[[^\]]*\/(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\](?: \[([^\]]+)\])?: (.*)$/s
-const LOGBACK =
-  /^(\d{2}:\d{2}:\d{2})\.\d{3} (?:\[[^\]]*\] )?(TRACE|DEBUG|INFO|WARN|ERROR)\s+(\S+) - (.*)$/s
+const LOGBACK = /^(\d{2}:\d{2}:\d{2})\.\d{3} (?:\[[^\]]*\] )?(TRACE|DEBUG|INFO|WARN|ERROR)\s+(\S+) - (.*)$/s
 const POSTGRES =
   /^\d{4}-\d{2}-\d{2} (\d{2}:\d{2}:\d{2})\.\d{3} \S+ \[\d+\] (DEBUG\d?|INFO|NOTICE|LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|HINT|STATEMENT|CONTEXT|QUERY|LOCATION):\s+(.*)$/s
 const POSTGRES_LEVEL: Record<string, Level> = { WARNING: "WARN", ERROR: "ERROR", FATAL: "ERROR", PANIC: "ERROR" }

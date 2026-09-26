@@ -1,16 +1,16 @@
 package eu.nordtal.s2.steward.worker.plan;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The filename rule, pinned against every jar this deployment actually runs.
@@ -29,16 +29,16 @@ class JarNameTest {
 
         @ParameterizedTest(name = "{0} -> {1} / {2}")
         @CsvSource({
-                "smp-0.2.0.jar,                  smp,                  0.2.0",
-                "limbo-0.2.0.jar,                limbo,                0.2.0",
-                "hunger-games-0.2.0.jar,         hunger-games,         0.2.0",
-                "proxy-0.2.0.jar,      proxy,      0.2.0",
-                "discord-bot-0.2.0.jar,          discord-bot,          0.2.0",
-                "papermc-display-tags-2.0.0.jar, papermc-display-tags, 2.0.0",
-                "packetevents-spigot-2.13.0.jar, packetevents-spigot,  2.13.0",
-                "voicechat-bukkit-2.6.24.jar,    voicechat-bukkit,     2.6.24",
-                "paper-26.2-121.jar,             paper-26.2,           121",
-                "velocity-4.1.1-24.jar,          velocity-4.1.1,       24",
+            "smp-0.2.0.jar,                  smp,                  0.2.0",
+            "limbo-0.2.0.jar,                limbo,                0.2.0",
+            "hunger-games-0.2.0.jar,         hunger-games,         0.2.0",
+            "proxy-0.2.0.jar,      proxy,      0.2.0",
+            "discord-bot-0.2.0.jar,          discord-bot,          0.2.0",
+            "papermc-display-tags-2.0.0.jar, papermc-display-tags, 2.0.0",
+            "packetevents-spigot-2.13.0.jar, packetevents-spigot,  2.13.0",
+            "voicechat-bukkit-2.6.24.jar,    voicechat-bukkit,     2.6.24",
+            "paper-26.2-121.jar,             paper-26.2,           121",
+            "velocity-4.1.1-24.jar,          velocity-4.1.1,       24",
         })
         void splitIntoPrefixAndVersion(final String fileName, final String prefix, final String version) {
             assertEquals(prefix, JarName.prefixOf(fileName));
@@ -74,8 +74,7 @@ class JarNameTest {
             // Nothing in this deployment publishes such a name today. If one ever does, this is
             // where it is noticed: the prefix swallows the version, so the new jar would be
             // installed NEXT TO the one it replaces rather than over it.
-            assertEquals("packetevents-spigot-2.14.0",
-                    JarName.prefixOf("packetevents-spigot-2.14.0-SNAPSHOT.jar"));
+            assertEquals("packetevents-spigot-2.14.0", JarName.prefixOf("packetevents-spigot-2.14.0-SNAPSHOT.jar"));
             assertFalse(JarName.looksSuperseded(
                     "packetevents-spigot-2.13.0.jar", "packetevents-spigot-2.14.0-SNAPSHOT.jar"));
         }

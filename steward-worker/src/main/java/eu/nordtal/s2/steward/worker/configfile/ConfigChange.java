@@ -1,10 +1,9 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * What a form is asking a key to say.
@@ -32,7 +31,8 @@ public sealed interface ConfigChange {
      *                 {@link ConfigEntry.Kind#SECTIONS} list, in order - see {@link Sections}
      */
     static @NotNull ConfigChange sections(final @NotNull List<? extends Map<String, ?>> sections) {
-        return new Sections(sections.stream().<Map<String, Object>>map(LinkedHashMap::new).toList());
+        return new Sections(
+                sections.stream().<Map<String, Object>>map(LinkedHashMap::new).toList());
     }
 
     /**
@@ -44,8 +44,7 @@ public sealed interface ConfigChange {
      * begins with a space, say - it falls back to a double-quoted single line, which is uglier to
      * read and still exactly right.</p>
      */
-    record Text(@NotNull String text) implements ConfigChange {
-    }
+    record Text(@NotNull String text) implements ConfigChange {}
 
     /**
      * New entries for a {@link ConfigEntry.Kind#LIST}.

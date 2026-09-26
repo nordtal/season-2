@@ -46,8 +46,7 @@ public final class MenuFont {
 
     private static final Map<Integer, Integer> TABLE = load();
 
-    private MenuFont() {
-    }
+    private MenuFont() {}
 
     /** @return how far {@code codePoint} moves the cursor in a row font, or 0 if it has none */
     public static int advance(final int codePoint) {
@@ -131,7 +130,8 @@ public final class MenuFont {
             throw new UncheckedIOException("cannot read " + RESOURCE, e);
         }
         final Map<Integer, Integer> table = new HashMap<>();
-        properties.forEach((key, value) -> table.put(Integer.parseInt(String.valueOf(key), 16),
+        properties.forEach((key, value) -> table.put(
+                Integer.parseInt(String.valueOf(key), 16),
                 Integer.parseInt(String.valueOf(value).trim())));
         return Map.copyOf(table);
     }

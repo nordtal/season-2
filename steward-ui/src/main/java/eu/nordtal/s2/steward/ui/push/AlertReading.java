@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
 
 /**
  * What {@code GET /api/alert-level} answers: everything steward-worker found wrong, and the three
@@ -34,17 +33,20 @@ import java.util.List;
  * @param backupAgeHours how old the most neglected finished backup series is, or null when there is
  *                       no finished backup at all - which is a {@code backup} trigger already
  */
-public record AlertReading(@NotNull List<Trigger> triggers,
-                           @Nullable Double diskPercent,
-                           @Nullable Double memoryPercent,
-                           @Nullable Double backupAgeHours) {
+public record AlertReading(
+        @NotNull List<Trigger> triggers,
+        @Nullable Double diskPercent,
+        @Nullable Double memoryPercent,
+        @Nullable Double backupAgeHours) {
 
     public AlertReading {
         triggers = List.copyOf(triggers);
     }
 
     /** One thing the worker found wrong. {@code kind} is {@link AlertType}'s own key, or unknown. */
-    public record Trigger(@NotNull String kind, @NotNull String level, @NotNull String subject,
-                          @NotNull String path) {
-    }
+    public record Trigger(
+            @NotNull String kind,
+            @NotNull String level,
+            @NotNull String subject,
+            @NotNull String path) {}
 }

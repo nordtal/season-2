@@ -10,10 +10,9 @@ import eu.nordtal.s2.limbo.LimboMessages;
 import eu.nordtal.s2.limbo.net.LimboChannel;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
-
 import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent;
-
+import java.util.Objects;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -26,10 +25,8 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.plugin.Plugin;
-
-import java.util.Objects;
+import org.bukkit.scheduler.BukkitRunnable;
 
 /**
  * Everything that has to be true for the waiting room to be a waiting room: players arrive in the
@@ -62,10 +59,15 @@ public final class PresenceListener implements Listener {
      */
     private final FullServerAdmission admission;
 
-    public PresenceListener(final Plugin plugin, final WaitingWorld world, final WaitingRoom room,
-                            final LimboChannel channel, final PlayerLocales locales,
-                            final Messages messages, final AdminOperators operators,
-                            final FullServerAdmission admission) {
+    public PresenceListener(
+            final Plugin plugin,
+            final WaitingWorld world,
+            final WaitingRoom room,
+            final LimboChannel channel,
+            final PlayerLocales locales,
+            final Messages messages,
+            final AdminOperators operators,
+            final FullServerAdmission admission) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.world = Objects.requireNonNull(world, "world");
         this.room = Objects.requireNonNull(room, "room");

@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -20,9 +19,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Every {@code @ConfigSpec} property with an {@code @Order} carries either {@code @Explain} or
@@ -94,10 +92,10 @@ class ConfigSpecExplanationTest {
     @Test
     @DisplayName("the walk still finds every config spec file it found when this test was written")
     void theWalkStillFindsTheFilesItWasWrittenFor() {
-        final Set<String> found = specFiles().stream()
-                .map(RepositoryRoot::relative)
-                .collect(Collectors.toCollection(TreeSet::new));
-        assertTrue(found.containsAll(KNOWN),
+        final Set<String> found =
+                specFiles().stream().map(RepositoryRoot::relative).collect(Collectors.toCollection(TreeSet::new));
+        assertTrue(
+                found.containsAll(KNOWN),
                 "the walk lost sight of a config spec file it used to find. Missing: " + missing(found));
     }
 
@@ -109,13 +107,17 @@ class ConfigSpecExplanationTest {
             final String name = RepositoryRoot.relative(file);
             final String text = read(file);
             for (final String block : blocks(text)) {
-                if (!EXPLAIN.matcher(block).find() && !NO_EXPLANATION_NEEDED.matcher(block).find()) {
-                    unexplained.computeIfAbsent(name, ignored -> new ArrayList<>())
+                if (!EXPLAIN.matcher(block).find()
+                        && !NO_EXPLANATION_NEEDED.matcher(block).find()) {
+                    unexplained
+                            .computeIfAbsent(name, ignored -> new ArrayList<>())
                             .add(settingName(block));
                 }
             }
         }
-        assertEquals(Map.of(), unexplained,
+        assertEquals(
+                Map.of(),
+                unexplained,
                 "every @ConfigSpec property with @Order needs either @Explain(\"...\") - the short"
                         + " sentence shown next to the setting in the Steward UI - or @NoExplanationNeeded,"
                         + " a deliberate decision that the name and its allowed values already say enough."
@@ -134,7 +136,9 @@ class ConfigSpecExplanationTest {
                 }
             }
         }
-        assertEquals(Map.of(), unnamed,
+        assertEquals(
+                Map.of(),
+                unnamed,
                 "every @ConfigSpec property with @Order needs @Name(\"...\") - the Steward UI shows it"
                         + " instead of the key, units in brackets: \"Poll interval (seconds)\"."
                         + " Listed above by file and setting key.");
@@ -148,13 +152,17 @@ class ConfigSpecExplanationTest {
             final String name = RepositoryRoot.relative(file);
             final String text = read(file);
             for (final String block : blocks(text)) {
-                if (EXPLAIN.matcher(block).find() && NO_EXPLANATION_NEEDED.matcher(block).find()) {
-                    contradictory.computeIfAbsent(name, ignored -> new ArrayList<>())
+                if (EXPLAIN.matcher(block).find()
+                        && NO_EXPLANATION_NEEDED.matcher(block).find()) {
+                    contradictory
+                            .computeIfAbsent(name, ignored -> new ArrayList<>())
                             .add(settingName(block));
                 }
             }
         }
-        assertEquals(Map.of(), contradictory,
+        assertEquals(
+                Map.of(),
+                contradictory,
                 "a property cannot both need a short sentence and be declared self-evident - jcore's"
                         + " schema writer refuses this combination at runtime; here it is caught by name.");
     }
@@ -178,7 +186,9 @@ class ConfigSpecExplanationTest {
     /** The {@code @Key} value of a block, or a fallback that still names it if one is somehow absent. */
     private static String settingName(final String block) {
         final Matcher key = KEY.matcher(block);
-        return key.find() ? key.group(1) : "(no @Key found in: " + block.strip().lines().findFirst().orElse("?") + ")";
+        return key.find()
+                ? key.group(1)
+                : "(no @Key found in: " + block.strip().lines().findFirst().orElse("?") + ")";
     }
 
     /**

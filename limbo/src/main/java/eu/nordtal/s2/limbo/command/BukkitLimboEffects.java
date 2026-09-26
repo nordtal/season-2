@@ -2,11 +2,9 @@ package eu.nordtal.s2.limbo.command;
 
 import eu.nordtal.s2.commands.limbo.LimboEffects;
 import eu.nordtal.s2.common.message.Messages;
-
+import java.util.concurrent.Executor;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
-
-import java.util.concurrent.Executor;
 
 /**
  * {@link LimboEffects} against this server.
@@ -29,8 +27,8 @@ public final class BukkitLimboEffects implements LimboEffects {
      *                 same files, so a reload that moved only one of them would leave a command
      *                 answering differently in chat and in Discord
      */
-    public BukkitLimboEffects(final Plugin plugin, final Executor executor,
-                              final Messages messages, final Messages shared) {
+    public BukkitLimboEffects(
+            final Plugin plugin, final Executor executor, final Messages messages, final Messages shared) {
         this.plugin = plugin;
         this.executor = executor;
         this.messages = messages;
@@ -60,13 +58,15 @@ public final class BukkitLimboEffects implements LimboEffects {
             // deliberately not reported: this bundle holds one root, so a key the module declares
             // would be named as unknown by it and is not.
             shared.reload();
-            messages.unknownOverrideKeys().forEach(unknown -> plugin.getLogger().warning(
-                    "the message override names " + unknown + ", which no bundle declares - it"
-                            + " is stored and never used; check the spelling"));
+            messages.unknownOverrideKeys()
+                    .forEach(unknown -> plugin.getLogger()
+                            .warning("the message override names " + unknown + ", which no bundle declares - it"
+                                    + " is stored and never used; check the spelling"));
             return true;
         } catch (final RuntimeException failure) {
-            plugin.getLogger().severe("the messages could not be reloaded, the running ones are "
-                    + "unchanged: " + failure.getMessage());
+            plugin.getLogger()
+                    .severe("the messages could not be reloaded, the running ones are " + "unchanged: "
+                            + failure.getMessage());
             return false;
         }
     }

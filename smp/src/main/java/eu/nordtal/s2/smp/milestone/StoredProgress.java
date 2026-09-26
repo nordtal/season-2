@@ -41,8 +41,8 @@ public final class StoredProgress {
      *                     rather than only the file - that is the first escape hatch
      * @param completed    whether it has completed and paid out
      */
-    public record StoredObjective(String milestoneKey, String key, ObjectiveType type,
-                                  long amount, long target, boolean completed) {
+    public record StoredObjective(
+            String milestoneKey, String key, ObjectiveType type, long amount, long target, boolean completed) {
 
         public StoredObjective {
             Objects.requireNonNull(milestoneKey, "milestoneKey");
@@ -54,8 +54,7 @@ public final class StoredProgress {
     private final List<StoredMilestone> milestones;
     private final List<StoredObjective> objectives;
 
-    public StoredProgress(final List<StoredMilestone> milestones,
-                          final List<StoredObjective> objectives) {
+    public StoredProgress(final List<StoredMilestone> milestones, final List<StoredObjective> objectives) {
         this.milestones = List.copyOf(Objects.requireNonNull(milestones, "milestones"));
         this.objectives = List.copyOf(Objects.requireNonNull(objectives, "objectives"));
     }
@@ -97,6 +96,8 @@ public final class StoredProgress {
      * @return the stored row, if there is one
      */
     public Optional<StoredMilestone> milestone(final String key) {
-        return milestones.stream().filter(milestone -> milestone.key().equals(key)).findFirst();
+        return milestones.stream()
+                .filter(milestone -> milestone.key().equals(key))
+                .findFirst();
     }
 }

@@ -1,22 +1,19 @@
 package eu.nordtal.s2.proxy.command;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.s2.commands.Catalogue;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.common.command.CommandAllowlist;
 import eu.nordtal.s2.proxy.config.NetworkSpec;
-
-import eu.nordtal.jcore.config.spec.Specs;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What the shipped allowlist actually lets through, held against the command surface it is a list
@@ -37,8 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CommandGateTest {
 
     /** The list exactly as a fresh {@code network.yml} writes it. */
-    private static final CommandAllowlist SHIPPED = CommandAllowlist.parse(
-            Specs.createDefault(NetworkSpec.class).commandAllowlist());
+    private static final CommandAllowlist SHIPPED =
+            CommandAllowlist.parse(Specs.createDefault(NetworkSpec.class).commandAllowlist());
 
     @Test
     @DisplayName("every command a player may run is on the list they are filtered against")
@@ -52,7 +49,9 @@ class CommandGateTest {
                 unreachable.add(declaration.name());
             }
         }
-        assertEquals(List.of(), unreachable,
+        assertEquals(
+                List.of(),
+                unreachable,
                 "a command declared for players is not on the allowlist, so every player who types"
                         + " it is told it does not exist - and being told that is what makes nobody"
                         + " report it");

@@ -8,7 +8,13 @@ import java.util.UUID;
  * never linked or never logged in - the roster still lists them, but they have no body to
  * teleport.
  */
-public record RosterEntry(UUID memberId, UUID teamId, String teamName, Integer teamColourRgb,
-                           String teamColourNamed, String discordId, MemberState memberState,
-                           boolean ready, UUID mcUuid) {
-}
+public record RosterEntry(
+        UUID memberId,
+        UUID teamId,
+        String teamName,
+        Integer teamColourRgb,
+        String teamColourNamed,
+        String discordId,
+        MemberState memberState,
+        boolean ready,
+        UUID mcUuid) {}

@@ -76,7 +76,8 @@ function splitQuery(baseUrl: string): [string, string] {
  * use. Deliberately loose about digits either side - a test wants to catch an id sitting in plain
  * text, not verify it is exactly one of those two shapes.
  */
-export const IDENTIFIER_PATTERN = /\b\d{17,20}\b|\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/
+export const IDENTIFIER_PATTERN =
+  /\b\d{17,20}\b|\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/
 
 /**
  * Copies text to the clipboard where the browser allows it, and never fails silently.
@@ -146,11 +147,7 @@ function displayName(props: PersonIdentityProps): { text: string | null } {
 export function PersonIdentity(props: PersonIdentityProps) {
   if (props.system) {
     return (
-      <span
-        className={
-          "inline-flex min-w-0 items-center gap-2 " + (props.className ?? "")
-        }
-      >
+      <span className={"inline-flex min-w-0 items-center gap-2 " + (props.className ?? "")}>
         <StewardMark className="size-5 shrink-0" />
         <span className="truncate text-sm text-foreground">Steward</span>
       </span>
@@ -167,15 +164,11 @@ export function PersonIdentity(props: PersonIdentityProps) {
         <DiscordAvatar url={props.discordAvatarUrl} name={name.text} />
       )}
       {minecraft ? (
-        <span
-          className={"truncate text-sm " + (props.mcName ? "text-foreground" : "text-muted-foreground italic")}
-        >
+        <span className={"truncate text-sm " + (props.mcName ? "text-foreground" : "text-muted-foreground italic")}>
           {props.mcName ?? "no name yet"}
         </span>
       ) : (
-        <span
-          className={"truncate text-sm " + (name.text ? "text-foreground" : "text-muted-foreground italic")}
-        >
+        <span className={"truncate text-sm " + (name.text ? "text-foreground" : "text-muted-foreground italic")}>
           {name.text ?? "no Discord name on record"}
         </span>
       )}
@@ -184,9 +177,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
 
   if (props.interactive === false) {
     return (
-      <span className={"inline-flex min-w-0 max-w-full items-center gap-2 " + (props.className ?? "")}>
-        {closed}
-      </span>
+      <span className={"inline-flex min-w-0 max-w-full items-center gap-2 " + (props.className ?? "")}>{closed}</span>
     )
   }
 
@@ -213,13 +204,9 @@ export function PersonIdentity(props: PersonIdentityProps) {
         <div className="flex items-center gap-2">
           <DiscordAvatar url={props.discordAvatarUrl} name={name.text} size="size-8" />
           <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-medium">
-              {name.text ?? "no Discord name on record"}
-            </span>
+            <span className="truncate text-sm font-medium">{name.text ?? "no Discord name on record"}</span>
             {name.text ? null : (
-              <span className="text-xs text-muted-foreground">
-                Never observed, or no longer a guild member.
-              </span>
+              <span className="text-xs text-muted-foreground">Never observed, or no longer a guild member.</span>
             )}
           </div>
         </div>
@@ -233,29 +220,18 @@ export function PersonIdentity(props: PersonIdentityProps) {
         {props.mcUuid ? (
           <>
             <div className="flex items-center gap-2 border-t border-border pt-3">
-              <MinecraftHead
-                mcUuid={props.mcUuid}
-                baseUrl={props.avatarBaseUrl}
-                size="size-8"
-                rounded="rounded-md"
-              />
+              <MinecraftHead mcUuid={props.mcUuid} baseUrl={props.avatarBaseUrl} size="size-8" rounded="rounded-md" />
               <div className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium">
-                  {props.mcName ?? "no Minecraft name on record"}
-                </span>
+                <span className="truncate text-sm font-medium">{props.mcName ?? "no Minecraft name on record"}</span>
                 {props.mcName ? null : (
-                  <span className="text-xs text-muted-foreground">
-                    Linked, but never seen joining yet.
-                  </span>
+                  <span className="text-xs text-muted-foreground">Linked, but never seen joining yet.</span>
                 )}
               </div>
             </div>
             <CopyableId label="Minecraft-UUID" value={props.mcUuid} />
           </>
         ) : (
-          <p className="border-t border-border pt-3 text-xs text-muted-foreground">
-            No Minecraft account linked.
-          </p>
+          <p className="border-t border-border pt-3 text-xs text-muted-foreground">No Minecraft account linked.</p>
         )}
       </PopoverContent>
     </Popover>
@@ -301,15 +277,7 @@ function CopyableId({ label, value }: { label: string; value: string }) {
 }
 
 /** The small round Discord avatar, closed or in the popover header. */
-function DiscordAvatar({
-  url,
-  name,
-  size = "size-5",
-}: {
-  url?: string
-  name: string | null
-  size?: string
-}) {
+function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: string | null; size?: string }) {
   const [broken, setBroken] = useState(false)
 
   if (url && !broken) {

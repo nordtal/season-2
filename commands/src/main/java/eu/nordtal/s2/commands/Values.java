@@ -48,16 +48,14 @@ public final class Values {
      * <p>A value that is not one of the choices at all is left exactly as it was typed:
      * {@link NordtalCommand#check} is what refuses it, and it has to be able to quote it back.</p>
      */
-    private static Map<String, Object> normalise(final Declaration declaration,
-                                                 final Map<String, Object> values) {
+    private static Map<String, Object> normalise(final Declaration declaration, final Map<String, Object> values) {
         final Map<String, Object> normalised = new java.util.LinkedHashMap<>(values);
         for (final Argument argument : declaration.arguments()) {
             final Object supplied = normalised.get(argument.name());
             if (argument.kind() != Argument.Kind.CHOICE || supplied == null) {
                 continue;
             }
-            argument.match(String.valueOf(supplied))
-                    .ifPresent(declared -> normalised.put(argument.name(), declared));
+            argument.match(String.valueOf(supplied)).ifPresent(declared -> normalised.put(argument.name(), declared));
         }
         return Map.copyOf(normalised);
     }

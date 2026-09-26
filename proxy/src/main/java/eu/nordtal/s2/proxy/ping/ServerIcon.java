@@ -1,8 +1,6 @@
 package eu.nordtal.s2.proxy.ping;
 
 import com.velocitypowered.api.util.Favicon;
-import org.slf4j.Logger;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -10,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 import java.util.Optional;
+import org.slf4j.Logger;
 
 /**
  * The 64 x 64 icon the server browser shows next to the MOTD.
@@ -32,8 +31,7 @@ public final class ServerIcon {
     /** Where the built-in icon sits in the jar, and what the file is called in the data folder. */
     public static final String FILE_NAME = "icon.png";
 
-    private ServerIcon() {
-    }
+    private ServerIcon() {}
 
     /**
      * @param dataDirectory the plugin's data folder
@@ -49,8 +47,11 @@ public final class ServerIcon {
             }
             return Optional.of(Favicon.create(file));
         } catch (final IOException | RuntimeException failure) {
-            logger.warn("No server icon: {} could not be read as a 64x64 PNG ({}). The server browser "
-                    + "shows the MOTD without one until it is replaced.", file, failure.toString());
+            logger.warn(
+                    "No server icon: {} could not be read as a 64x64 PNG ({}). The server browser "
+                            + "shows the MOTD without one until it is replaced.",
+                    file,
+                    failure.toString());
             return Optional.empty();
         }
     }

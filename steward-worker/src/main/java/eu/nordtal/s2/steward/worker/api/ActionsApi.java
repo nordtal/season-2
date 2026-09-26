@@ -6,12 +6,11 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import io.javalin.http.Context;
-import org.jetbrains.annotations.NotNull;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * {@code GET /api/actions} (steward/82): the newest things that happened on this network, across
@@ -58,8 +57,16 @@ public final class ActionsApi {
      * {@code FORGET_FACTORS} are what is actually in the running database on 2026-09-17.
      */
     private static final Set<String> DISPLAYED_AUDIT_ACTIONS = Set.of(
-            "GRANT_ACCESS", "REVOKE_ACCESS", "LINK", "UNLINK", "SETTLE",
-            "RECREATE", "SET_PHASE", "REGISTER_KEY", "REMOVE_KEY", "FORGET_FACTORS");
+            "GRANT_ACCESS",
+            "REVOKE_ACCESS",
+            "LINK",
+            "UNLINK",
+            "SETTLE",
+            "RECREATE",
+            "SET_PHASE",
+            "REGISTER_KEY",
+            "REMOVE_KEY",
+            "FORGET_FACTORS");
 
     private final UpdateDirectory updates;
     private final AuditDirectory audit;

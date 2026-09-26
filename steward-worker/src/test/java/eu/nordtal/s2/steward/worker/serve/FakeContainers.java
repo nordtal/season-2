@@ -5,13 +5,11 @@ import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
 import eu.nordtal.s2.steward.worker.ops.ServiceRuntime;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * A {@link ContainerOps} that answers from a map instead of from a Docker daemon.
@@ -129,8 +127,13 @@ final class FakeContainers implements ContainerOps {
         // A recreate is a new container, and the run has to keep working against the service name
         // rather than the id it remembered. Handing back a different id is what makes a test that
         // relies on the old one fail here rather than on the deployment.
-        services.put(service, new ServiceRuntime(service, service + "-container-2", "running",
-                neverHealthy.contains(service) ? "unhealthy" : "healthy"));
+        services.put(
+                service,
+                new ServiceRuntime(
+                        service,
+                        service + "-container-2",
+                        "running",
+                        neverHealthy.contains(service) ? "unhealthy" : "healthy"));
         return RedeployResult.triggered("HTTP 200");
     }
 
@@ -161,13 +164,11 @@ final class FakeContainers implements ContainerOps {
 
     /** A service that is up but whose plugin died - running, unhealthy. The interesting failure. */
     void sick(final String service) {
-        services.put(service, new ServiceRuntime(service, service + "-container", "running",
-                "unhealthy"));
+        services.put(service, new ServiceRuntime(service, service + "-container", "running", "unhealthy"));
     }
 
     void back(final String service) {
-        services.put(service, new ServiceRuntime(service, service + "-container", "running",
-                "healthy"));
+        services.put(service, new ServiceRuntime(service, service + "-container", "running", "healthy"));
     }
 
     /** This volume's snapshot never starts. */
@@ -182,10 +183,10 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
-
     @Override
     public @NotNull RuntimeResult runtime() {
-        return reachable ? RuntimeResult.of(List.copyOf(services.values()))
+        return reachable
+                ? RuntimeResult.of(List.copyOf(services.values()))
                 : RuntimeResult.unreachable("the docker daemon is not answering");
     }
 
@@ -195,8 +196,8 @@ final class FakeContainers implements ContainerOps {
         if (stopFails) {
             return RedeployResult.refused("refused");
         }
-        services.computeIfPresent(service(containerId), (name, entry) ->
-                new ServiceRuntime(name, entry.containerId(), "exited", null));
+        services.computeIfPresent(
+                service(containerId), (name, entry) -> new ServiceRuntime(name, entry.containerId(), "exited", null));
         if (stopUnverified.contains(service(containerId))) {
             return RedeployResult.unverified(containerId + " was stopped, and how it ended could"
                     + " not be read back: reading the docker socket");
@@ -208,8 +209,9 @@ final class FakeContainers implements ContainerOps {
     public @NotNull RedeployResult start(final @NotNull String containerId) {
         calls.add("start:" + containerId);
         // Started, and NOT healthy: that is the whole distinction the verify step exists for.
-        services.computeIfPresent(service(containerId), (name, entry) ->
-                new ServiceRuntime(name, entry.containerId(), "running", "starting"));
+        services.computeIfPresent(
+                service(containerId),
+                (name, entry) -> new ServiceRuntime(name, entry.containerId(), "running", "starting"));
         return RedeployResult.triggered("HTTP 204");
     }
 

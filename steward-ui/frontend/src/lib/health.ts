@@ -161,7 +161,8 @@ export function summarise(input: {
         outdated.length === 1
           ? `${outdated[0].service} is running an older image than the registry has.`
           : `${outdated.length} services are running an older image than the registry has: ` +
-            outdated.map((service) => service.service).join(", ") + ".",
+            outdated.map((service) => service.service).join(", ") +
+            ".",
       subject: outdated.map((service) => service.service).join(", "),
       to: "/operations/updates",
     })
@@ -238,13 +239,7 @@ export function summarise(input: {
  * hides behind the seven small ones that succeeded. `TarSnapshots.prune` counts per volume for the
  * same reason and would otherwise keep fourteen of whichever was written last.
  */
-function tooOld(
-  rows: Backup[],
-  what: string,
-  subject: string,
-  thresholds: Thresholds,
-  now: number,
-): Trigger[] {
+function tooOld(rows: Backup[], what: string, subject: string, thresholds: Thresholds, now: number): Trigger[] {
   if (rows.length === 0) return []
 
   const newest = rows.reduce((latest, row) => (row.modified > latest.modified ? row : latest))
@@ -262,11 +257,7 @@ function tooOld(
   return []
 }
 
-function backupTriggers(
-  backups: Backup[] | undefined,
-  thresholds: Thresholds | undefined,
-  now: number,
-): Trigger[] {
+function backupTriggers(backups: Backup[] | undefined, thresholds: Thresholds | undefined, now: number): Trigger[] {
   // Undefined means "not asked yet" and must not read as "there is no backup". Only an answered,
   // empty list is an accusation.
   if (backups === undefined) return []

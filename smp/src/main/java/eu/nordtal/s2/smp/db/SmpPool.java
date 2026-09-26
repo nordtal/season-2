@@ -13,8 +13,7 @@ import eu.nordtal.s2.smp.config.DatabaseSpec;
  */
 public final class SmpPool {
 
-    private SmpPool() {
-    }
+    private SmpPool() {}
 
     public static HikariDataSource open(final DatabaseSpec config) {
         final HikariConfig hikari = new HikariConfig();

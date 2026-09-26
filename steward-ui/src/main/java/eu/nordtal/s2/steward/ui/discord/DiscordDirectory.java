@@ -5,11 +5,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
-
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -20,6 +15,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The guild's roles and channels, so a Discord id can be PICKED rather than typed.
@@ -102,8 +100,11 @@ public final class DiscordDirectory {
             if (id.equals(config.guildId())) {
                 continue;
             }
-            fetched.add(new Entry(id, role.get("name").getAsString(),
-                    role.has("position") ? role.get("position").getAsInt() : 0, null));
+            fetched.add(new Entry(
+                    id,
+                    role.get("name").getAsString(),
+                    role.has("position") ? role.get("position").getAsInt() : 0,
+                    null));
         }
         fetched.sort(Comparator.comparingInt(Entry::position).reversed());
         roles = new Cached(List.copyOf(fetched), Instant.now());
@@ -141,13 +142,15 @@ public final class DiscordDirectory {
     private JsonArray fetch(final String path) {
         final HttpResponse<String> response;
         try {
-            response = http.send(HttpRequest.newBuilder(URI.create(api + path))
-                    // "Bot <token>", not "Bearer": a bot token is not an OAuth access token and
-                    // Discord answers 401 for the wrong prefix with no hint that it was the prefix.
-                    .header("Authorization", "Bot " + config.botToken())
-                    .timeout(ANSWER)
-                    .GET()
-                    .build(), HttpResponse.BodyHandlers.ofString());
+            response = http.send(
+                    HttpRequest.newBuilder(URI.create(api + path))
+                            // "Bot <token>", not "Bearer": a bot token is not an OAuth access token and
+                            // Discord answers 401 for the wrong prefix with no hint that it was the prefix.
+                            .header("Authorization", "Bot " + config.botToken())
+                            .timeout(ANSWER)
+                            .GET()
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
         } catch (final IOException exception) {
             throw new DirectoryException(502, "Discord could not be reached: " + exception.getMessage());
         } catch (final InterruptedException exception) {
@@ -158,12 +161,14 @@ public final class DiscordDirectory {
             // The body is not passed on. A 401 from Discord echoes nothing secret today, but this
             // is the one place a token could end up in a browser by way of an error message.
             log.warn("Discord answered {} for {}", response.statusCode(), path);
-            throw new DirectoryException(response.statusCode() == 401 ? 502 : 502,
+            throw new DirectoryException(
+                    response.statusCode() == 401 ? 502 : 502,
                     switch (response.statusCode()) {
                         case 401 -> "Discord refused the bot token. Check discord.bot-token.";
                         case 403 -> "The bot is in the guild but may not read it.";
-                        case 404 -> "Discord does not know that guild. Check discord.guild-id, and "
-                                + "that the bot has been invited to it.";
+                        case 404 ->
+                            "Discord does not know that guild. Check discord.guild-id, and "
+                                    + "that the bot has been invited to it.";
                         case 429 -> "Discord is rate limiting this. Try again in a moment.";
                         default -> "Discord answered " + response.statusCode() + ".";
                     });
@@ -179,9 +184,9 @@ public final class DiscordDirectory {
      * @param position where Discord draws it
      * @param type     Discord's channel type, or {@code null} for a role
      */
-    public record Entry(@NotNull String id, @NotNull String name, int position, Integer type) { }
+    public record Entry(@NotNull String id, @NotNull String name, int position, Integer type) {}
 
-    private record Cached(List<Entry> entries, Instant at) { }
+    private record Cached(List<Entry> entries, Instant at) {}
 
     /** Discord did not answer, or answered no. Carries the status the browser should see. */
     public static final class DirectoryException extends RuntimeException {

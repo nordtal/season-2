@@ -1,5 +1,9 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
 import com.google.gson.Gson;
@@ -9,10 +13,6 @@ import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerOps;
 import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
-
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -23,10 +23,9 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /**
  * What happens to a log follow when the browser watching it goes away, and when the worker stops.
@@ -81,31 +80,44 @@ class FollowEndsTest {
         final DockerSocket socket = new DockerSocket();
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
-        final WorkerApi api = new WorkerApi(docker, new DockerOps(docker, PROJECT),
-                new Console(docker, PROJECT), new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN, Path.of("/tmp"),
-                FakeDirectories.updates(), FakeDirectories.audit(),
-                new WorkerApi.Nightly("04:45", List.of("MONDAY", "TUESDAY", "WEDNESDAY",
-                        "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"), ZoneId.of("Europe/Berlin")));
+        final WorkerApi api = new WorkerApi(
+                docker,
+                new DockerOps(docker, PROJECT),
+                new Console(docker, PROJECT),
+                new HostMetrics(),
+                PROJECT,
+                Path.of("/tmp"),
+                TOKEN,
+                Path.of("/tmp"),
+                FakeDirectories.updates(),
+                FakeDirectories.audit(),
+                new WorkerApi.Nightly(
+                        "04:45",
+                        List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"),
+                        ZoneId.of("Europe/Berlin")));
         boolean closedByTheTest = false;
         api.start(PORT);
         try {
             final HttpClient http = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(5)).build();
+                    .connectTimeout(Duration.ofSeconds(5))
+                    .build();
             final String name = aRunningService(http);
 
             final Warnings warnings = new Warnings();
-            final ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger)
-                    LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+            final ch.qos.logback.classic.Logger root =
+                    (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
             warnings.setContext(root.getLoggerContext());
             warnings.start();
             root.addAppender(warnings);
 
-            final HttpResponse<InputStream> follow = http.send(HttpRequest.newBuilder(
-                            URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name
-                                    + "/logs?tail=200"))
-                    .header("X-Steward-Token", TOKEN)
-                    .header("Accept", "text/event-stream")
-                    .GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+            final HttpResponse<InputStream> follow = http.send(
+                    HttpRequest.newBuilder(
+                                    URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name + "/logs?tail=200"))
+                            .header("X-Steward-Token", TOKEN)
+                            .header("Accept", "text/event-stream")
+                            .GET()
+                            .build(),
+                    HttpResponse.BodyHandlers.ofInputStream());
             assertEquals(200, follow.statusCode());
 
             // Read one line, so the follow is established rather than merely accepted, and then leave
@@ -125,11 +137,12 @@ class FollowEndsTest {
                 // ordinary path - one follow ending, one emitter closing - to have happened.
                 Thread.sleep(1_000);
 
-                assertTrue(warnings.count.get() < 5,
+                assertTrue(
+                        warnings.count.get() < 5,
                         "a follow that lost its browser, and the shutdown after it, logged "
-                        + warnings.count.get() + " warnings. One per line of the backlog is the shape"
-                        + " to look for: WorkerApi asks client.terminated() before it writes, because"
-                        + " Javalin will not tell it any other way");
+                                + warnings.count.get() + " warnings. One per line of the backlog is the shape"
+                                + " to look for: WorkerApi asks client.terminated() before it writes, because"
+                                + " Javalin will not tell it any other way");
             } finally {
                 root.detachAppender(warnings);
                 warnings.stop();
@@ -145,13 +158,14 @@ class FollowEndsTest {
 
     /** A service with a container actually running, or a skip - a stopped one never follows. */
     private static String aRunningService(final HttpClient http) throws Exception {
-        final HttpResponse<String> response = http.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + PORT + "/api/services"))
-                .header("X-Steward-Token", TOKEN).GET().build(),
+        final HttpResponse<String> response = http.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + PORT + "/api/services"))
+                        .header("X-Steward-Token", TOKEN)
+                        .GET()
+                        .build(),
                 HttpResponse.BodyHandlers.ofString());
         assertEquals(200, response.statusCode(), response.body());
-        for (final var row : GSON.fromJson(response.body(), JsonObject.class)
-                .getAsJsonArray("services")) {
+        for (final var row : GSON.fromJson(response.body(), JsonObject.class).getAsJsonArray("services")) {
             final JsonObject service = row.getAsJsonObject();
             if ("running".equals(service.get("state").getAsString())) {
                 return service.get("service").getAsString();

@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
@@ -18,10 +17,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * What this client does when the thing on the other end of the socket stops talking.
@@ -57,13 +56,15 @@ class DockerSocketTest {
         // stream() overload without a deadline used to set no watchdog at all, so this call never
         // returned: the browser waiting on /api/services/smp/logs simply never got a response, and
         // the request thread was gone for good.
-        final Path socket = listening(client -> { });
+        final Path socket = listening(client -> {});
 
         final long before = System.nanoTime();
-        assertThrows(DockerException.class,
+        assertThrows(
+                DockerException.class,
                 () -> new DockerSocket(socket, Duration.ofMillis(300)).stream("GET", "/containers/json", null));
 
-        assertTrue(Duration.ofNanos(System.nanoTime() - before).toSeconds() < 10,
+        assertTrue(
+                Duration.ofNanos(System.nanoTime() - before).toSeconds() < 10,
                 "it gave up, but not within anything like the timeout it was given");
     }
 
@@ -80,11 +81,13 @@ class DockerSocketTest {
         });
 
         try (DockerSocket.Stream stream =
-                     new DockerSocket(socket, Duration.ofMillis(300)).stream("GET", "/logs", null)) {
+                new DockerSocket(socket, Duration.ofMillis(300)).stream("GET", "/logs", null)) {
             final List<String> lines = new ArrayList<>();
             LogFrames.read(stream.body(), false, lines::add);
 
-            assertEquals(List.of("[04:45:12 INFO]: nothing happened for a while"), lines,
+            assertEquals(
+                    List.of("[04:45:12 INFO]: nothing happened for a while"),
+                    lines,
                     "three times the timeout of silence, and the line still arrived");
         }
     }

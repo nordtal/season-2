@@ -2,16 +2,15 @@ package eu.nordtal.s2.discordbot.announce;
 
 import eu.nordtal.s2.commands.announce.AnnounceEffects;
 import eu.nordtal.s2.discordbot.config.Languages;
-import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import org.slf4j.Logger;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import org.slf4j.Logger;
 
 /**
  * The bot's end of {@code announce <language> <text>}: post the line into that language's
@@ -30,8 +29,7 @@ public final class Announcements implements AnnounceEffects {
     private final Executor executor;
     private final Logger log;
 
-    public Announcements(final JDA jda, final Languages languages, final Executor executor,
-                         final Logger log) {
+    public Announcements(final JDA jda, final Languages languages, final Executor executor, final Logger log) {
         this.jda = Objects.requireNonNull(jda, "jda");
         this.languages = Objects.requireNonNull(languages, "languages");
         this.executor = Objects.requireNonNull(executor, "executor");
@@ -58,8 +56,12 @@ public final class Announcements implements AnnounceEffects {
         final String channelId = language.get().announcementChannelId();
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
-            log.error("Announcement channel {} for '{}' does not exist or the bot cannot see it;"
-                    + " it would have carried \"{}\"", channelId, languageTag, text);
+            log.error(
+                    "Announcement channel {} for '{}' does not exist or the bot cannot see it;"
+                            + " it would have carried \"{}\"",
+                    channelId,
+                    languageTag,
+                    text);
             return false;
         }
         // Waited for, not queued. The answer this returns is what the asking server writes into its
@@ -81,8 +83,11 @@ public final class Announcements implements AnnounceEffects {
             // A timeout is reported as a failure even though JDA may still deliver the message
             // afterwards: an announcement that arrives late and was reported as failed is a puzzle,
             // one that never arrives and was reported as posted is a silence nobody investigates.
-            log.warn("Could not announce in '{}': {} - it would have carried \"{}\"",
-                    languageTag, failure.toString(), text);
+            log.warn(
+                    "Could not announce in '{}': {} - it would have carried \"{}\"",
+                    languageTag,
+                    failure.toString(),
+                    text);
             return false;
         }
     }

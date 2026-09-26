@@ -52,8 +52,7 @@ public final class Cinematics {
     }
 
     /** One player's run: everything outstanding, and the surface to clean up. */
-    private record Run(List<Handle> handles, CinematicStage stage) {
-    }
+    private record Run(List<Handle> handles, CinematicStage stage) {}
 
     private final Scheduler scheduler;
 
@@ -101,20 +100,25 @@ public final class Cinematics {
         }
 
         final List<Cinematic.Cue> cues = cinematic.cues();
-        stage.show(cues.getFirst().frame().image(), cinematic.subtitle(),
+        stage.show(
+                cues.getFirst().frame().image(),
+                cinematic.subtitle(),
                 cues.getFirst().frame().ticks());
         for (final Cinematic.Cue cue : cues.subList(1, cues.size())) {
-            run.handles().add(scheduler.later(
-                    () -> {
-                        // Guarded: a cancel between this task being scheduled and it running has
-                        // already cleared the screen, and a frame arriving after that would put the
-                        // staging back up on somebody who has just respawned.
-                        if (running.get(who) == run) {
-                            stage.show(cue.frame().image(), cinematic.subtitle(),
-                                    cue.frame().ticks());
-                        }
-                    },
-                    cue.atTick()));
+            run.handles()
+                    .add(scheduler.later(
+                            () -> {
+                                // Guarded: a cancel between this task being scheduled and it running has
+                                // already cleared the screen, and a frame arriving after that would put the
+                                // staging back up on somebody who has just respawned.
+                                if (running.get(who) == run) {
+                                    stage.show(
+                                            cue.frame().image(),
+                                            cinematic.subtitle(),
+                                            cue.frame().ticks());
+                                }
+                            },
+                            cue.atTick()));
         }
         run.handles().add(scheduler.later(() -> finish(who, run), total));
         return true;

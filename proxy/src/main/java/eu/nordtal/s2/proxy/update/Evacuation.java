@@ -1,23 +1,20 @@
 package eu.nordtal.s2.proxy.update;
 
-import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.proxy.routing.PhaseServers;
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.common.update.UpdateReports;
-import eu.nordtal.s2.common.update.UpdateRequest;
-
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-
-import org.slf4j.Logger;
-
+import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.common.update.UpdateReport;
+import eu.nordtal.s2.common.update.UpdateReports;
+import eu.nordtal.s2.common.update.UpdateRequest;
+import eu.nordtal.s2.proxy.routing.PhaseServers;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import org.slf4j.Logger;
 
 /**
  * Moves the players off a backend an update is about to stop, and keeps the waiting room able to
@@ -101,9 +98,12 @@ public final class Evacuation {
     /** Whether the last pass had to refuse the evacuation, so the warning is logged once per run. */
     private volatile boolean warnedAboutWaitingRoom;
 
-    public Evacuation(final ProxyServer proxy, final Logger logger,
-                      final UpdateDirectory updates, final PhaseServers servers,
-                      final Homecoming homecoming) {
+    public Evacuation(
+            final ProxyServer proxy,
+            final Logger logger,
+            final UpdateDirectory updates,
+            final PhaseServers servers,
+            final Homecoming homecoming) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
@@ -177,7 +177,10 @@ public final class Evacuation {
         // WHICH ROOM THIS RUN CAN USE (season-2-ops/120). The ordinary answer is the waiting room
         // itself; the run that stops the waiting room is the case this method used to have no
         // answer for, and `limbo-standby` is that answer.
-        final String room = roomFor(next, servers.limbo(), servers.limboStandby(),
+        final String room = roomFor(
+                next,
+                servers.limbo(),
+                servers.limboStandby(),
                 name -> proxy.getServer(name).isPresent());
         if (room == null) {
             // Still the one case with no answer - but now it is narrower: the run has to include
@@ -186,11 +189,13 @@ public final class Evacuation {
             // line in a week-old log is a line nobody finds.
             if (!warnedAboutWaitingRoom) {
                 warnedAboutWaitingRoom = true;
-                logger.warn("The update moves '{}' itself and no '{}' is registered on this proxy,"
+                logger.warn(
+                        "The update moves '{}' itself and no '{}' is registered on this proxy,"
                                 + " so there is nowhere to put anybody: nobody is being evacuated"
                                 + " and every connected player will be disconnected when the"
                                 + " servers stop. The countdown is all the warning they get.",
-                        servers.limbo(), servers.limboStandby());
+                        servers.limbo(),
+                        servers.limboStandby());
             }
             moving = Set.of();
             return;
@@ -225,8 +230,8 @@ public final class Evacuation {
      * @param registered whether this proxy has a server under a given name
      * @return a backend name to move players into, or {@code null}
      */
-    static String roomFor(final Set<String> next, final String limbo, final String standby,
-                          final Predicate<String> registered) {
+    static String roomFor(
+            final Set<String> next, final String limbo, final String standby, final Predicate<String> registered) {
         if (!next.contains(limbo) && registered.test(limbo)) {
             return limbo;
         }
@@ -322,8 +327,11 @@ public final class Evacuation {
             // roomFor already asked this proxy for the server, so reaching here means it was
             // unregistered between the two calls. Kept rather than dropped: it is the same
             // sentence, and a null here would be a NullPointerException in a scheduler task.
-            logger.error("The update moves {} and there is no '{}' registered on this proxy, so"
-                            + " nobody can be moved out of the way", backends, waitingRoom);
+            logger.error(
+                    "The update moves {} and there is no '{}' registered on this proxy, so"
+                            + " nobody can be moved out of the way",
+                    backends,
+                    waitingRoom);
             return;
         }
 
@@ -340,8 +348,11 @@ public final class Evacuation {
             return;
         }
 
-        logger.info("Moving {} player(s) off {} into '{}' before the update stops them",
-                leaving.size(), new HashSet<>(backends), waitingRoom);
+        logger.info(
+                "Moving {} player(s) off {} into '{}' before the update stops them",
+                leaving.size(),
+                new HashSet<>(backends),
+                waitingRoom);
         // Written down before they are moved, so that the release at the other end of the wait has
         // a sentence to say (season-2-ops/118). These, and not everybody the waiting room later
         // lets out: limbo is where every login waits.
@@ -354,8 +365,8 @@ public final class Evacuation {
             try {
                 player.createConnectionRequest(limbo).fireAndForget();
             } catch (final RuntimeException failure) {
-                logger.warn("Could not move {} into '{}' before the update",
-                        player.getUsername(), waitingRoom, failure);
+                logger.warn(
+                        "Could not move {} into '{}' before the update", player.getUsername(), waitingRoom, failure);
             }
         }
     }

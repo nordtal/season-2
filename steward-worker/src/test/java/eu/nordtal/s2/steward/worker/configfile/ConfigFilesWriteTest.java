@@ -1,13 +1,12 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,10 +16,10 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Writing one value back without disturbing anything else.
@@ -56,15 +55,16 @@ class ConfigFilesWriteTest {
     void changingSeveralValuesAtOnceLeavesEveryOtherByteWhereItWas() throws IOException {
         final String before = Files.readString(fixture);
 
-        ConfigFiles.write(fixture, Map.of(
-                "enabled", ConfigChange.of("false"),
-                "worker.base-url", ConfigChange.of("http://steward-worker:9999"),
-                "worker.limits.max-retries", ConfigChange.of("10")));
+        ConfigFiles.write(
+                fixture,
+                Map.of(
+                        "enabled", ConfigChange.of("false"),
+                        "worker.base-url", ConfigChange.of("http://steward-worker:9999"),
+                        "worker.limits.max-retries", ConfigChange.of("10")));
 
-        assertEquals(before
-                        .replace("enabled: true", "enabled: false")
-                        .replace("base-url: http://steward-worker:8082",
-                                "base-url: http://steward-worker:9999")
+        assertEquals(
+                before.replace("enabled: true", "enabled: false")
+                        .replace("base-url: http://steward-worker:8082", "base-url: http://steward-worker:9999")
                         .replace("max-retries: 3", "max-retries: 10"),
                 Files.readString(fixture));
     }
@@ -82,8 +82,8 @@ class ConfigFilesWriteTest {
 
         // Anchored to the start of a line: a bare replace would rewrite any comment that quotes
         // the same text, and the file would then differ in a place nothing had edited.
-        assertEquals(before.replace("\npoll-interval-seconds: 15\n",
-                        "\npoll-interval-seconds: 90\n"),
+        assertEquals(
+                before.replace("\npoll-interval-seconds: 15\n", "\npoll-interval-seconds: 90\n"),
                 Files.readString(file));
     }
 
@@ -115,8 +115,9 @@ class ConfigFilesWriteTest {
     void aValueThatNeedsNoQuotesGetsNone() throws IOException {
         ConfigFiles.write(fixture, Map.of("public-url", ConfigChange.of("https://steward.nordtal.eu/path")));
 
-        assertTrue(Files.readString(fixture).contains(
-                "\npublic-url: https://steward.nordtal.eu/path\n"), Files.readString(fixture));
+        assertTrue(
+                Files.readString(fixture).contains("\npublic-url: https://steward.nordtal.eu/path\n"),
+                Files.readString(fixture));
     }
 
     @Test
@@ -158,7 +159,9 @@ class ConfigFilesWriteTest {
         for (final String value : List.of("12", "true", "", "a: b", "it's fine", "line one\nline two")) {
             ConfigFiles.write(fixture, Map.of("public-url", ConfigChange.of(value)));
 
-            assertEquals(value, ConfigFiles.read(fixture).find("public-url").orElseThrow().value(),
+            assertEquals(
+                    value,
+                    ConfigFiles.read(fixture).find("public-url").orElseThrow().value(),
                     "round trip of «" + value + "»");
         }
     }
@@ -178,7 +181,8 @@ class ConfigFilesWriteTest {
     void anUnknownPathIsRefusedAndNamed() throws IOException {
         final String before = Files.readString(fixture);
 
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("worker.base-urls", ConfigChange.of("x"))));
 
         assertTrue(thrown.getMessage().contains("worker.base-urls"), thrown.getMessage());
@@ -189,7 +193,8 @@ class ConfigFilesWriteTest {
     void oneValueSentToAListIsRefused() throws IOException {
         final String before = Files.readString(fixture);
 
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("stop-services", ConfigChange.of("smp"))));
 
         assertTrue(thrown.getMessage().contains("stop-services"), thrown.getMessage());
@@ -202,7 +207,8 @@ class ConfigFilesWriteTest {
 
     @Test
     void aListSentToASingleValueIsRefused() throws IOException {
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("port", ConfigChange.list(List.of("1", "2")))));
 
         assertTrue(thrown.getMessage().contains("port"), thrown.getMessage());
@@ -211,7 +217,8 @@ class ConfigFilesWriteTest {
 
     @Test
     void aNestedSectionIsRefused() throws IOException {
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("worker", ConfigChange.of("anything"))));
 
         assertTrue(thrown.getMessage().contains("worker"), thrown.getMessage());
@@ -223,20 +230,25 @@ class ConfigFilesWriteTest {
     void aValueOfTheWrongTypeIsRefused() throws IOException {
         final String before = Files.readString(fixture);
 
-        final IllegalArgumentException boolish = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException boolish = assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("enabled", ConfigChange.of("maybe"))));
         assertTrue(boolish.getMessage().contains("enabled"), boolish.getMessage());
         assertTrue(boolish.getMessage().contains("maybe"), boolish.getMessage());
 
-        final IllegalArgumentException intish = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException intish = assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("12x"))));
         assertTrue(intish.getMessage().contains("port"), intish.getMessage());
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("1.5"))));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("ratio", ConfigChange.of("quite a lot"))));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("ratio", ConfigChange.of(".nan"))));
 
         assertEquals(before, Files.readString(fixture), "a refused write must not touch the file");
@@ -244,7 +256,8 @@ class ConfigFilesWriteTest {
 
     @Test
     void aNumericKeyCannotBeGivenMoreThanOneLine() throws IOException {
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("8080\n9090"))));
 
         assertTrue(thrown.getMessage().contains("port"), thrown.getMessage());
@@ -312,8 +325,7 @@ class ConfigFilesWriteTest {
 
         ConfigFiles.write(file, Map.of("size", ConfigChange.of("8192")));
 
-        assertEquals(before.replace("size: 4096", "size: 8192"),
-                Files.readString(file, StandardCharsets.UTF_8));
+        assertEquals(before.replace("size: 4096", "size: 8192"), Files.readString(file, StandardCharsets.UTF_8));
     }
 
     @Test
@@ -324,7 +336,8 @@ class ConfigFilesWriteTest {
         // loads FixtureSpec through it (steward/54) - it is not a temporary file this class wrote
         // and has to be there, not absent, for this assertion to mean what it says.
         try (Stream<Path> files = Files.list(directory)) {
-            assertEquals(List.of("fixture.schema.json", "fixture.yml"),
+            assertEquals(
+                    List.of("fixture.schema.json", "fixture.yml"),
                     files.map(p -> p.getFileName().toString()).sorted().toList());
         }
     }
@@ -379,9 +392,10 @@ class ConfigFilesWriteTest {
     void aValueGivenNewlinesBecomesABlock() throws IOException {
         ConfigFiles.write(fixture, Map.of("public-url", ConfigChange.of("one\ntwo")));
 
-        assertEquals("one\ntwo", ConfigFiles.read(fixture).find("public-url").orElseThrow().value());
-        assertTrue(Files.readString(fixture).contains("public-url: |-\n  one\n  two\n"),
-                Files.readString(fixture));
+        assertEquals(
+                "one\ntwo",
+                ConfigFiles.read(fixture).find("public-url").orElseThrow().value());
+        assertTrue(Files.readString(fixture).contains("public-url: |-\n  one\n  two\n"), Files.readString(fixture));
     }
 
     @Test
@@ -407,7 +421,9 @@ class ConfigFilesWriteTest {
         for (final String value : List.of("a\nb", "a\nb\n", "a\nb\n\n", " leading\nspace")) {
             ConfigFiles.write(fixture, Map.of("public-url", ConfigChange.of(value)));
 
-            assertEquals(value, ConfigFiles.read(fixture).find("public-url").orElseThrow().value(),
+            assertEquals(
+                    value,
+                    ConfigFiles.read(fixture).find("public-url").orElseThrow().value(),
                     "round trip of «" + value.replace("\n", "\\n") + "»");
         }
     }
@@ -418,7 +434,9 @@ class ConfigFilesWriteTest {
         // indicator would have nothing to chomp. It still has to survive the round trip.
         ConfigFiles.write(fixture, Map.of("public-url", ConfigChange.of("\n\n")));
 
-        assertEquals("\n\n", ConfigFiles.read(fixture).find("public-url").orElseThrow().value());
+        assertEquals(
+                "\n\n",
+                ConfigFiles.read(fixture).find("public-url").orElseThrow().value());
     }
 
     // ---------------------------------------------------------------------------------------
@@ -436,8 +454,7 @@ class ConfigFilesWriteTest {
                 port: 1
                 """);
 
-        ConfigFiles.write(file, Map.of("stop-services",
-                ConfigChange.list(List.of("smp", "limbo", "hunger-games"))));
+        ConfigFiles.write(file, Map.of("stop-services", ConfigChange.list(List.of("smp", "limbo", "hunger-games"))));
 
         assertEquals("""
                 # What to stop first.
@@ -488,7 +505,8 @@ class ConfigFilesWriteTest {
     void anEmptyListCanBeFilled() throws IOException {
         ConfigFiles.write(fixture, Map.of("empty-list", ConfigChange.list(List.of("a", "b"))));
 
-        assertEquals(List.of("a", "b"),
+        assertEquals(
+                List.of("a", "b"),
                 ConfigFiles.read(fixture).find("empty-list").orElseThrow().items());
     }
 
@@ -521,7 +539,9 @@ class ConfigFilesWriteTest {
 
         ConfigFiles.write(file, Map.of("names", ConfigChange.list(List.of("one, two"))));
 
-        assertEquals(List.of("one, two"), ConfigFiles.read(file).find("names").orElseThrow().items());
+        assertEquals(
+                List.of("one, two"),
+                ConfigFiles.read(file).find("names").orElseThrow().items());
     }
 
     @Test
@@ -529,8 +549,12 @@ class ConfigFilesWriteTest {
         for (final String entry : List.of("- dash", "a: b", "12", "true", "", "# hash", "[x]")) {
             ConfigFiles.write(fixture, Map.of("stop-services", ConfigChange.list(List.of(entry, "after"))));
 
-            assertEquals(List.of(entry, "after"),
-                    ConfigFiles.read(fixture).find("stop-services").orElseThrow().items(),
+            assertEquals(
+                    List.of(entry, "after"),
+                    ConfigFiles.read(fixture)
+                            .find("stop-services")
+                            .orElseThrow()
+                            .items(),
                     "round trip of «" + entry + "»");
         }
     }
@@ -544,7 +568,8 @@ class ConfigFilesWriteTest {
                     port: 1
                 """);
 
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(file, Map.of("servers", ConfigChange.list(List.of("x")))));
 
         assertTrue(thrown.getMessage().contains("servers"), thrown.getMessage());
@@ -569,10 +594,12 @@ class ConfigFilesWriteTest {
 
         // The block at the top grows by two lines and the list below it shrinks by one. Applied in
         // the order they are written down, the second edit would land on the wrong lines entirely.
-        ConfigFiles.write(file, Map.of(
-                "motd", ConfigChange.of("one\ntwo\nthree"),
-                "stop-services", ConfigChange.list(List.of("smp")),
-                "port", ConfigChange.of("25566")));
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "motd", ConfigChange.of("one\ntwo\nthree"),
+                        "stop-services", ConfigChange.list(List.of("smp")),
+                        "port", ConfigChange.of("25566")));
 
         assertEquals("""
                 motd: |-
@@ -597,8 +624,7 @@ class ConfigFilesWriteTest {
                   timeout: 60
                 """);
 
-        ConfigFiles.write(file, Map.of("backup.stop-services",
-                ConfigChange.list(List.of("smp", "limbo"))));
+        ConfigFiles.write(file, Map.of("backup.stop-services", ConfigChange.list(List.of("smp", "limbo"))));
 
         assertEquals("""
                 backup:
@@ -645,14 +671,12 @@ class ConfigFilesWriteTest {
      */
     @Test
     void savingLeavesTheFilesOwnPermissionsAlone() throws IOException {
-        Assumptions.assumeTrue(Files.getFileStore(fixture)
-                .supportsFileAttributeView(PosixFileAttributeView.class));
+        Assumptions.assumeTrue(Files.getFileStore(fixture).supportsFileAttributeView(PosixFileAttributeView.class));
         Files.setPosixFilePermissions(fixture, PosixFilePermissions.fromString("rw-r--r--"));
 
         ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("9090")));
 
-        assertEquals("rw-r--r--",
-                PosixFilePermissions.toString(Files.getPosixFilePermissions(fixture)));
+        assertEquals("rw-r--r--", PosixFilePermissions.toString(Files.getPosixFilePermissions(fixture)));
     }
 
     /**
@@ -665,7 +689,8 @@ class ConfigFilesWriteTest {
      */
     @Test
     void aNumberWithSomethingAfterItIsTheOperatorsMistakeAndNotThisPrograms() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("8080 # oops"))));
     }
 }

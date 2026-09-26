@@ -1,7 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.commands.access.AccessEffects;
-
 import java.time.Instant;
 
 /**

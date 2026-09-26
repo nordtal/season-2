@@ -5,21 +5,18 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.LinkCode;
 import eu.nordtal.s2.proxy.config.GateSpec;
 import eu.nordtal.s2.proxy.config.NetworkSpec;
-
-import org.slf4j.Logger;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
+import org.slf4j.Logger;
 
 /**
  * The season 2 login decision: one call to {@code AccessDirectory#accessState}, then linked? member
@@ -75,9 +72,16 @@ public final class LoginGate {
     private final NetworkSpec network;
     private final Clock clock;
 
-    public LoginGate(final Logger logger, final ProxyServer proxy, final AccessDirectory access,
-                     final FallbackCache fallback, final LoginRoster roster, final GateMessages messages,
-                     final GateSpec config, final NetworkSpec network, final Clock clock) {
+    public LoginGate(
+            final Logger logger,
+            final ProxyServer proxy,
+            final AccessDirectory access,
+            final FallbackCache fallback,
+            final LoginRoster roster,
+            final GateMessages messages,
+            final GateSpec config,
+            final NetworkSpec network,
+            final Clock clock) {
         this.logger = logger;
         this.proxy = proxy;
         this.access = access;
@@ -98,8 +102,11 @@ public final class LoginGate {
         try {
             state = access.accessState(uuid);
         } catch (final RuntimeException exception) {
-            logger.error("Could not reach the access database for {} ({}); falling back to the "
-                    + "last-known-state cache", uuid, player.getUsername(), exception);
+            logger.error(
+                    "Could not reach the access database for {} ({}); falling back to the " + "last-known-state cache",
+                    uuid,
+                    player.getUsername(),
+                    exception);
             fallBackToCache(event, uuid);
             return;
         }
@@ -127,10 +134,12 @@ public final class LoginGate {
             case NOT_LINKED -> issueCodeAndDeny(event, player, uuid, state.launch(), countdownFrom);
             case NOT_MEMBER -> event.setResult(ComponentResult.denied(messages.notMember(state.locale())));
             case NO_ACCESS -> event.setResult(ComponentResult.denied(messages.noAccess(state.locale())));
-            case PRE_LAUNCH_BUY -> event.setResult(ComponentResult.denied(
-                    messages.preLaunchBuy(state.locale(), state.launch(), countdownFrom)));
-            case PRE_LAUNCH_READY -> event.setResult(ComponentResult.denied(
-                    messages.preLaunchReady(state.locale(), state.launch(), countdownFrom)));
+            case PRE_LAUNCH_BUY ->
+                event.setResult(
+                        ComponentResult.denied(messages.preLaunchBuy(state.locale(), state.launch(), countdownFrom)));
+            case PRE_LAUNCH_READY ->
+                event.setResult(
+                        ComponentResult.denied(messages.preLaunchReady(state.locale(), state.launch(), countdownFrom)));
         }
     }
 
@@ -178,8 +187,8 @@ public final class LoginGate {
      * be held in {@code limbo}, since linking happens in Discord.
      * </p>
      */
-    private void issueCodeAndDeny(final LoginEvent event, final Player player, final UUID uuid,
-                                  final Instant launch, final Instant now) {
+    private void issueCodeAndDeny(
+            final LoginEvent event, final Player player, final UUID uuid, final Instant launch, final Instant now) {
         try {
             final LinkCode code = access.issueLinkCode(uuid, Duration.ofMinutes(config.linkCodeTtlMinutes()));
             event.setResult(ComponentResult.denied(messages.notLinked(code.code(), launch, now)));
@@ -208,8 +217,7 @@ public final class LoginGate {
             final int maximum = network.maxPlayers();
             final int online = proxy.getPlayerCount();
             if (online >= maximum) {
-                event.setResult(ComponentResult.denied(
-                        messages.full(fallback.localeOf(uuid), online, maximum)));
+                event.setResult(ComponentResult.denied(messages.full(fallback.localeOf(uuid), online, maximum)));
             }
             return; // default result stands: allowed
         }

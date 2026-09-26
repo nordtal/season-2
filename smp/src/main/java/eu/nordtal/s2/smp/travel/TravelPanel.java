@@ -3,11 +3,9 @@ package eu.nordtal.s2.smp.travel;
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.menu.SlotGeometry;
-
-import net.kyori.adventure.text.Component;
-
 import java.util.List;
 import java.util.Optional;
+import net.kyori.adventure.text.Component;
 
 /**
  * Draws the balloon's surface: the travel panel, and a state overlay on every card that needs one.
@@ -38,8 +36,7 @@ public final class TravelPanel {
     /** A card's drawn height: three slot rows less the inset on both sides. */
     public static final int CARD_HEIGHT = BalloonMenu.CARD_ROWS * SlotGeometry.PITCH - 2 * INSET;
 
-    private TravelPanel() {
-    }
+    private TravelPanel() {}
 
     /** The x of card column {@code column}'s left edge, in window pixels. */
     public static int x(final int column) {
@@ -64,8 +61,8 @@ public final class TravelPanel {
     public static Component title(final List<BalloonMenu.Entry> entries) {
         final MenuTitle.Canvas canvas = MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL);
         for (final BalloonMenu.Entry entry : entries) {
-            overlay(entry.state(), entry.row()).ifPresent(glyph ->
-                    canvas.overlay(glyph, x(entry.column()), CARD_WIDTH));
+            overlay(entry.state(), entry.row())
+                    .ifPresent(glyph -> canvas.overlay(glyph, x(entry.column()), CARD_WIDTH));
         }
         return canvas.build(Component.empty());
     }

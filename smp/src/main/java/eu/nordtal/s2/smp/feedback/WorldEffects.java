@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.feedback;
 
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
 import org.bukkit.Location;
@@ -14,9 +16,6 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
-
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * The one place in {@code smp} that names a particle or spawns a firework.
@@ -45,8 +44,8 @@ public final class WorldEffects implements Listener {
      * palette.
      */
     private static final List<Color> PALETTE = List.of(
-            Color.fromRGB(176, 138, 74),   // accent
-            Color.fromRGB(78, 86, 104),    // highlight
+            Color.fromRGB(176, 138, 74), // accent
+            Color.fromRGB(78, 86, 104), // highlight
             Color.WHITE);
 
     private final NamespacedKey celebration;
@@ -72,20 +71,17 @@ public final class WorldEffects implements Listener {
 
     /** Somebody leaving or arriving by balloon. Main thread. */
     public void travelled(final Location at) {
-        at.getWorld().spawnParticle(Particle.CLOUD, at.clone().add(0, 1, 0), 30,
-                0.4, 0.6, 0.4, 0.02);
+        at.getWorld().spawnParticle(Particle.CLOUD, at.clone().add(0, 1, 0), 30, 0.4, 0.6, 0.4, 0.02);
     }
 
     /** A grave being opened, where it stands. Main thread. */
     public void graveOpened(final Location at) {
-        at.getWorld().spawnParticle(Particle.SOUL, at.clone().add(0.5, 1.0, 0.5), 14,
-                0.25, 0.35, 0.25, 0.01);
+        at.getWorld().spawnParticle(Particle.SOUL, at.clone().add(0.5, 1.0, 0.5), 14, 0.25, 0.35, 0.25, 0.01);
     }
 
     /** Somebody arriving on an arena platform. Main thread. */
     public void arenaEntered(final Location at) {
-        at.getWorld().spawnParticle(Particle.CRIT, at.clone().add(0, 1, 0), 24,
-                0.35, 0.5, 0.35, 0.15);
+        at.getWorld().spawnParticle(Particle.CRIT, at.clone().add(0, 1, 0), 24, 0.35, 0.5, 0.35, 0.15);
     }
 
     /**

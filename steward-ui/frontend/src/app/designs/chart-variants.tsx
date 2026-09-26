@@ -93,8 +93,12 @@ export function TallLine({ label, value, points, format }: MetricProps) {
                 dot={false}
                 isAnimationActive={false}
               />
-              {top ? <ReferenceDot x={top.at} y={top.value} r={2.5} fill="var(--muted-foreground)" stroke="none" /> : null}
-              {last ? <ReferenceDot x={last.at} y={last.value} r={3} fill="var(--foreground)" stroke="var(--background)" /> : null}
+              {top ? (
+                <ReferenceDot x={top.at} y={top.value} r={2.5} fill="var(--muted-foreground)" stroke="none" />
+              ) : null}
+              {last ? (
+                <ReferenceDot x={last.at} y={last.value} r={3} fill="var(--foreground)" stroke="var(--background)" />
+              ) : null}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -195,8 +199,24 @@ export function Together({
               />
               <YAxis yAxisId="cpu" domain={[0, "dataMax"]} hide />
               <YAxis yAxisId="ram" domain={[0, "dataMax"]} hide />
-              <Line yAxisId="cpu" dataKey="cpu" type="monotone" stroke="var(--chart-1)" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-              <Line yAxisId="ram" dataKey="ram" type="monotone" stroke="var(--chart-2)" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+              <Line
+                yAxisId="cpu"
+                dataKey="cpu"
+                type="monotone"
+                stroke="var(--chart-1)"
+                strokeWidth={1.5}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                yAxisId="ram"
+                dataKey="ram"
+                type="monotone"
+                stroke="var(--chart-2)"
+                strokeWidth={1.5}
+                dot={false}
+                isAnimationActive={false}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -268,7 +288,11 @@ export function Scrub({ label, value, points, format, colour }: MetricProps & { 
               <XAxis dataKey="at" type="number" domain={["dataMin", "dataMax"]} hide />
               <YAxis domain={[0, "dataMax"]} hide />
               {/* The reading moves up into the number, so the tooltip draws only its cursor. */}
-              <Tooltip content={() => null} cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }} isAnimationActive={false} />
+              <Tooltip
+                content={() => null}
+                cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }}
+                isAnimationActive={false}
+              />
               <Area
                 dataKey="value"
                 type="monotone"

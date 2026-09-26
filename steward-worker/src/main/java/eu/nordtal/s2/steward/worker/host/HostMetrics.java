@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.worker.host;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileStore;
@@ -9,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.OptionalDouble;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Reads {@link HostSnapshot} out of {@code /proc} and one {@code statvfs}. Cheap enough to call on a
@@ -74,6 +73,7 @@ public final class HostMetrics {
      * three.
      */
     private long previousTotalJiffies = -1;
+
     private long previousIdleJiffies = -1;
 
     /** Reads the real {@code /proc} and the filesystem holding {@code /}. */
@@ -121,17 +121,24 @@ public final class HostMetrics {
         final long diskFree = store.getUsableSpace();
 
         return new HostSnapshot(
-                load.one(), load.five(), load.fifteen(), cpu.cpus(),
+                load.one(),
+                load.five(),
+                load.fifteen(),
+                cpu.cpus(),
                 percent,
-                memory.total(), memory.available(), memory.free(),
-                memory.swapTotal(), memory.swapFree(),
-                diskTotal, diskUsed, diskFree);
+                memory.total(),
+                memory.available(),
+                memory.free(),
+                memory.swapTotal(),
+                memory.swapFree(),
+                diskTotal,
+                diskUsed,
+                diskFree);
     }
 
     // ------------------------------------------------------------------ /proc/loadavg
 
-    private record Load(double one, double five, double fifteen) {
-    }
+    private record Load(double one, double five, double fifteen) {}
 
     /**
      * {@code 0.27 0.31 0.32 1/914 2752038} - three averages, then runnable/total tasks and the last
@@ -147,18 +154,16 @@ public final class HostMetrics {
         try {
             // Double.parseDouble and not NumberFormat: the kernel writes C-locale decimal points,
             // and a JVM started in a German locale must not read 0.27 as 27.
-            return new Load(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]),
-                    Double.parseDouble(fields[2]));
+            return new Load(
+                    Double.parseDouble(fields[0]), Double.parseDouble(fields[1]), Double.parseDouble(fields[2]));
         } catch (final NumberFormatException e) {
-            throw new IOException(file + " holds a load average that is not a number: '"
-                    + line + "'", e);
+            throw new IOException(file + " holds a load average that is not a number: '" + line + "'", e);
         }
     }
 
     // ------------------------------------------------------------------ /proc/stat
 
-    private record Cpu(long total, long idle, int cpus) {
-    }
+    private record Cpu(long total, long idle, int cpus) {}
 
     /**
      * The aggregate {@code cpu} line, plus a count of the per-core ones.
@@ -186,8 +191,8 @@ public final class HostMetrics {
                 final String[] fields = line.split("\\s+");
                 // fields[0] is "cpu"; eight numbers have to follow it.
                 if (fields.length < 9) {
-                    throw new IOException(file + " has an aggregate cpu line with "
-                            + (fields.length - 1) + " fields, expected at least 8: '" + line + "'");
+                    throw new IOException(file + " has an aggregate cpu line with " + (fields.length - 1)
+                            + " fields, expected at least 8: '" + line + "'");
                 }
                 long sum = 0;
                 for (int i = 1; i <= 8; i++) {
@@ -204,14 +209,12 @@ public final class HostMetrics {
             throw new IOException(file + " has no aggregate 'cpu ' line");
         }
         if (cpus == 0) {
-            throw new IOException(file + " has no per-core 'cpuN' lines, so the host's CPU count"
-                    + " cannot be read");
+            throw new IOException(file + " has no per-core 'cpuN' lines, so the host's CPU count" + " cannot be read");
         }
         return new Cpu(total, idle, cpus);
     }
 
-    private static long parseJiffies(final Path file, final String line, final String field)
-            throws IOException {
+    private static long parseJiffies(final Path file, final String line, final String field) throws IOException {
         try {
             return Long.parseLong(field);
         } catch (final NumberFormatException e) {
@@ -241,8 +244,7 @@ public final class HostMetrics {
 
     // ------------------------------------------------------------------ /proc/meminfo
 
-    private record Memory(long total, long available, long free, long swapTotal, long swapFree) {
-    }
+    private record Memory(long total, long available, long free, long swapTotal, long swapFree) {}
 
     /** Kernel "kB" is KiB. {@code 16372536 * 1024} is {@code free -b}'s 16765476864 exactly. */
     private static final long KIB = 1024L;
@@ -298,8 +300,7 @@ public final class HostMetrics {
         return new Memory(total, available, free, swapTotal, swapFree);
     }
 
-    private static void require(final Path file, final String key, final long value)
-            throws IOException {
+    private static void require(final Path file, final String key, final long value) throws IOException {
         if (value < 0) {
             throw new IOException(file + " has no " + key + " line");
         }

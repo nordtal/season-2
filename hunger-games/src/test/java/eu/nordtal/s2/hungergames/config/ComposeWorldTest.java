@@ -1,10 +1,8 @@
 package eu.nordtal.s2.hungergames.config;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.yaml.snakeyaml.Yaml;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -14,10 +12,11 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 /**
  * That the world {@code compose.yml} tells Paper to generate is the world this plugin runs in.
@@ -45,11 +44,12 @@ class ComposeWorldTest {
 
     @Test
     void composeGeneratesTheWorldTheSpecNames() throws Exception {
-        final String composed =
-                defaultOf(environmentOf("hunger-games").get("LEVEL_NAME"), "hunger-games.LEVEL_NAME");
+        final String composed = defaultOf(environmentOf("hunger-games").get("LEVEL_NAME"), "hunger-games.LEVEL_NAME");
         final String named = Configs.load(directory, LOGGER).get().worldName();
 
-        assertEquals(named, composed,
+        assertEquals(
+                named,
+                composed,
                 "compose.yml starts the event server on level-name '" + composed + "' while"
                         + " config.yml's world-name defaults to '" + named + "'. The plugin does not"
                         + " load a world of its own - it disables itself when that one is missing.");
@@ -80,7 +80,8 @@ class ComposeWorldTest {
     private static String defaultOf(final Object value, final String what) {
         assertNotNull(value, "compose.yml sets no " + what);
         final Matcher matcher = DEFAULTED.matcher(String.valueOf(value));
-        assertTrue(matcher.matches(),
+        assertTrue(
+                matcher.matches(),
                 what + " is '" + value + "', which has no default an unfilled .env would fall back"
                         + " to. Every value here has to work without a .env entry.");
         return matcher.group(1);
@@ -95,6 +96,7 @@ class ComposeWorldTest {
             }
             directory = directory.getParent();
         }
-        throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        throw new IllegalStateException(
+                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 }

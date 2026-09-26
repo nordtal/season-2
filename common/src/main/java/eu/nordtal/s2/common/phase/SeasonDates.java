@@ -1,8 +1,5 @@
 package eu.nordtal.s2.common.phase;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -12,6 +9,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.ResolverStyle;
 import java.util.Locale;
 import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * How the two season dates are typed and shown - the one place both {@code /phase} commands agree
@@ -50,13 +49,10 @@ public final class SeasonDates {
     // the year-of-era field, which is why the pattern the admin is shown and the pattern that
     // parses differ by exactly that one letter.
     private static final DateTimeFormatter TYPED =
-            DateTimeFormatter.ofPattern(PATTERN.replace('y', 'u'), Locale.ROOT)
-                    .withResolverStyle(ResolverStyle.STRICT);
-    private static final DateTimeFormatter SHOWN =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z", Locale.ROOT);
+            DateTimeFormatter.ofPattern(PATTERN.replace('y', 'u'), Locale.ROOT).withResolverStyle(ResolverStyle.STRICT);
+    private static final DateTimeFormatter SHOWN = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z", Locale.ROOT);
 
-    private SeasonDates() {
-    }
+    private SeasonDates() {}
 
     /**
      * Reads a date an admin typed.

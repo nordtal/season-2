@@ -1,7 +1,10 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -10,12 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The stage directions of a run: which standbys it needs, what a standby that will not come up
@@ -35,7 +34,8 @@ class ChoreographyTest {
     void theTriggerRule() {
         assertEquals(List.of("limbo-standby"), Choreography.standbysFor(Set.of("limbo")));
         assertEquals(List.of("proxy-standby"), Choreography.standbysFor(Set.of("proxy")));
-        assertEquals(List.of("proxy-standby", "limbo-standby"),
+        assertEquals(
+                List.of("proxy-standby", "limbo-standby"),
                 Choreography.standbysFor(Set.of("limbo", "proxy")),
                 "the order is SERVICES_WITH_STANDBY's, so a swap always starts the proxy first");
 
@@ -43,9 +43,13 @@ class ChoreographyTest {
         // moves the SMP needs a waiting room the whole time, and the waiting room of a run that
         // leaves the limbo alone IS the limbo. Asking for a standby here would start a second
         // limbo for no reason on every ordinary backend update.
-        assertEquals(List.of(), Choreography.standbysFor(Set.of("smp")),
+        assertEquals(
+                List.of(),
+                Choreography.standbysFor(Set.of("smp")),
                 "an SMP-only run has a waiting room already - the live limbo");
-        assertEquals(List.of("limbo-standby"), Choreography.standbysFor(Set.of("smp", "limbo")),
+        assertEquals(
+                List.of("limbo-standby"),
+                Choreography.standbysFor(Set.of("smp", "limbo")),
                 "and when the run takes the waiting room too, the standby is the waiting room");
 
         assertEquals(List.of(), Choreography.standbysFor(Set.of("hunger-games", "discord-bot")));
@@ -67,16 +71,17 @@ class ChoreographyTest {
         assertEquals(List.of("proxy-standby", "limbo-standby"), window.standbys());
         // recreate-local, not recreate: the standby has to run the image its live service runs,
         // and on this deployment that image is very often built on the host.
-        assertEquals(List.of("recreate-local:proxy-standby", "recreate-local:limbo-standby"),
-                containers.calls, "a standby is made from the image already here, never fetched");
+        assertEquals(
+                List.of("recreate-local:proxy-standby", "recreate-local:limbo-standby"),
+                containers.calls,
+                "a standby is made from the image already here, never fetched");
     }
 
     @Test
     @DisplayName("a standby that never becomes healthy aborts the run with nothing stopped")
     void anUnhealthyStandbyAbortsEverything() {
-        final FakeContainers containers = new FakeContainers()
-                .running("proxy", "limbo")
-                .neverHealthy("limbo-standby");
+        final FakeContainers containers =
+                new FakeContainers().running("proxy", "limbo").neverHealthy("limbo-standby");
         final Choreography choreography = new Choreography(containers, Occupancy.NONE, driven());
 
         final Choreography.Window window = choreography.open(List.of("limbo"));
@@ -87,11 +92,12 @@ class ChoreographyTest {
         assertTrue(window.refusal().contains("unhealthy"), window.refusal());
         // And it leaves nothing behind: the container it started is stopped again, so a refused run
         // does not park a second network on this host until somebody notices.
-        assertTrue(containers.calls.contains("stop:limbo-standby-container-2"),
+        assertTrue(
+                containers.calls.contains("stop:limbo-standby-container-2"),
                 "a refused window stops what it started - " + containers.calls);
-        assertTrue(containers.calls.stream().noneMatch(call -> call.startsWith("stop:limbo-c")),
-                "nothing the run was going to update may be stopped by the abort: "
-                        + containers.calls);
+        assertTrue(
+                containers.calls.stream().noneMatch(call -> call.startsWith("stop:limbo-c")),
+                "nothing the run was going to update may be stopped by the abort: " + containers.calls);
     }
 
     @Test
@@ -115,8 +121,7 @@ class ChoreographyTest {
     @DisplayName("an empty server is not waited for at all")
     void nobodyOnItMeansNoWait() {
         final Counts counts = new Counts().on("smp", 0);
-        final Choreography choreography =
-                new Choreography(new FakeContainers(), counts, driven());
+        final Choreography choreography = new Choreography(new FakeContainers(), counts, driven());
 
         assertNull(choreography.waitUntilEmpty(List.of("smp")));
     }
@@ -130,7 +135,9 @@ class ChoreographyTest {
         final Choreography choreography = new Choreography(new FakeContainers(), counts, clock);
 
         assertNull(choreography.waitUntilEmpty(List.of("smp")));
-        assertEquals(Duration.ofSeconds(1), clock.slept(),
+        assertEquals(
+                Duration.ofSeconds(1),
+                clock.slept(),
                 "one poll, not the whole cap: the wait is for the players, not for the clock");
     }
 
@@ -145,8 +152,7 @@ class ChoreographyTest {
 
         assertNotNull(said, "a stop with somebody still on it is a line in the report, not silence");
         assertEquals("stopped with 1 player still connected (smp: 1) after waiting 10s", said);
-        assertTrue(clock.slept().compareTo(Choreography.EMPTY_CAP) >= 0,
-                "it waited the whole cap before giving up");
+        assertTrue(clock.slept().compareTo(Choreography.EMPTY_CAP) >= 0, "it waited the whole cap before giving up");
     }
 
     @Test
@@ -155,8 +161,7 @@ class ChoreographyTest {
         // The failure this Optional exists for. online_count is written by the proxy; a proxy that
         // has stopped writing leaves a row that is minutes old, and reading that as "zero players"
         // would end the wait early on exactly the run where waiting mattered.
-        final Choreography choreography =
-                new Choreography(new FakeContainers(), Occupancy.NONE, driven());
+        final Choreography choreography = new Choreography(new FakeContainers(), Occupancy.NONE, driven());
 
         final String said = choreography.waitUntilEmpty(List.of("smp"));
 
@@ -215,9 +220,10 @@ class ChoreographyTest {
 
         assertEquals(List.of("stop:proxy-standby-container-2"), containers.calls);
         assertTrue(said.get(0).endsWith("has been stopped again"), said.toString());
-        assertEquals(Duration.ofSeconds(1), clock.slept(),
-                "it waited for the two players to go home before pulling the standby out"
-                        + " from under them");
+        assertEquals(
+                Duration.ofSeconds(1),
+                clock.slept(),
+                "it waited for the two players to go home before pulling the standby out" + " from under them");
     }
 
     // -------------------------------------------------------------------------------------------
@@ -233,7 +239,7 @@ class ChoreographyTest {
 
         private Instant now = Instant.parse("2026-09-20T12:00:00Z");
         private Duration slept = Duration.ZERO;
-        private Runnable onSleep = () -> { };
+        private Runnable onSleep = () -> {};
 
         void onSleep(final Runnable what) {
             this.onSleep = what;

@@ -29,10 +29,12 @@ public record FeedbackSound(String key, float volume, float pitch) {
 
     /** The volume and pitch a value that made no sense falls back to. */
     public static final float DEFAULT_VOLUME = 1.0f;
+
     public static final float DEFAULT_PITCH = 1.0f;
 
     /** The lowest and highest pitch a client will actually play; anything else is clamped there. */
     public static final float MIN_PITCH = 0.5f;
+
     public static final float MAX_PITCH = 2.0f;
 
     public FeedbackSound {

@@ -12,8 +12,7 @@ package eu.nordtal.s2.common.access;
  */
 public final class PlaytimeWording {
 
-    private PlaytimeWording() {
-    }
+    private PlaytimeWording() {}
 
     public static String of(final long seconds) {
         if (seconds < 0) {

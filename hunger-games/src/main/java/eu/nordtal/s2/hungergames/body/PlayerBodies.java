@@ -1,5 +1,8 @@
 package eu.nordtal.s2.hungergames.body;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
@@ -7,10 +10,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.PlayerInventory;
-
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Bodies standing in for absent players: one who was ready in the lobby but disconnected before the
@@ -24,6 +23,7 @@ public final class PlayerBodies {
 
     /** Minecraft UUID -> the marker standing in for that player, if any. */
     private final Map<UUID, UUID> markerByPlayer = new ConcurrentHashMap<>();
+
     private final Map<UUID, UUID> playerByMarker = new ConcurrentHashMap<>();
 
     /**

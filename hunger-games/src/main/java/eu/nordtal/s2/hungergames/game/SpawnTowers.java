@@ -9,8 +9,7 @@ import java.util.List;
  */
 public final class SpawnTowers {
 
-    private SpawnTowers() {
-    }
+    private SpawnTowers() {}
 
     /**
      * @param count      how many towers are needed; must be positive
@@ -20,8 +19,8 @@ public final class SpawnTowers {
      * @return {@code count} {@code [x, z]} pairs, evenly spaced starting at angle 0 (positive X axis)
      * @throws IllegalArgumentException if {@code count} or {@code radius} is not positive
      */
-    public static List<double[]> positions(final int count, final double centreX, final double centreZ,
-                                            final double radius) {
+    public static List<double[]> positions(
+            final int count, final double centreX, final double centreZ, final double radius) {
         if (count <= 0) {
             throw new IllegalArgumentException("count must be positive, was " + count);
         }

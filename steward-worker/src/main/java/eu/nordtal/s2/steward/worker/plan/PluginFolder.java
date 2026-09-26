@@ -1,8 +1,5 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +9,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Which directory under {@code plugins/} a jar will make for itself.
@@ -50,11 +49,10 @@ public final class PluginFolder {
      * <p>Anchored to the start of a line in {@code MULTILINE}, so a {@code name:} nested under
      * {@code libraries:} or {@code commands:} - where every plugin has several - cannot match.</p>
      */
-    private static final Pattern NAME = Pattern.compile(
-            "^name:\\s*[\"']?([A-Za-z0-9_.-]+)[\"']?\\s*(?:#.*)?$", Pattern.MULTILINE);
+    private static final Pattern NAME =
+            Pattern.compile("^name:\\s*[\"']?([A-Za-z0-9_.-]+)[\"']?\\s*(?:#.*)?$", Pattern.MULTILINE);
 
-    private PluginFolder() {
-    }
+    private PluginFolder() {}
 
     /**
      * @param jar a plugin jar in a service's {@code plugins/} folder

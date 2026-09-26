@@ -1,14 +1,13 @@
 package eu.nordtal.s2.commands.hungergames;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
-
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /hg reload} - the wording and the sounds, and nothing else.
@@ -30,8 +29,7 @@ public final class ReloadHungerGames implements NordtalCommand<HungerGamesEffect
     }
 
     @Override
-    public void run(final NordtalUser user, final Values values,
-                    final HungerGamesEffects effects) {
+    public void run(final NordtalUser user, final Values values, final HungerGamesEffects effects) {
         effects.async(() -> {
             final boolean sounds = effects.reloadSounds();
             final boolean messages = effects.reloadMessages();

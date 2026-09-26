@@ -1,5 +1,10 @@
 package eu.nordtal.s2.steward.worker.apply;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.http.Fetcher;
 import eu.nordtal.s2.steward.worker.plan.Change;
@@ -8,11 +13,6 @@ import eu.nordtal.s2.steward.worker.plan.Topology;
 import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
 import eu.nordtal.s2.steward.worker.source.Checksum;
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -21,11 +21,9 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Step 3: what happens on disk, and - the part worth the test - what happens on disk when it goes
@@ -45,8 +43,7 @@ class ApplierTest {
     void replacesAndSupersedes() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
 
-        final ApplyResult result = apply(new Fake(), plan(
-                outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
+        final ApplyResult result = apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
 
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
         assertFalse(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")));
@@ -64,15 +61,26 @@ class ApplierTest {
         install("smp", "plugins/smp-0.9.5.jar");
         install("smp", "plugins/packetevents-spigot-2.13.0.jar");
 
-        final ApplyResult result = apply(new Fake(), plan(
-                new Change("smp", "smp", Change.Status.NOT_IN_RELEASE, "smp-0.9.5.jar", null,
-                        "release v0.9.5 carries no smp-<version>.jar"),
-                outdated("smp", "packetevents", "packetevents-spigot-2.13.0.jar",
-                        "packetevents-spigot-2.14.0.jar")));
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(
+                        new Change(
+                                "smp",
+                                "smp",
+                                Change.Status.NOT_IN_RELEASE,
+                                "smp-0.9.5.jar",
+                                null,
+                                "release v0.9.5 carries no smp-<version>.jar"),
+                        outdated(
+                                "smp",
+                                "packetevents",
+                                "packetevents-spigot-2.13.0.jar",
+                                "packetevents-spigot-2.14.0.jar")));
 
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.9.5.jar")));
         assertTrue(Files.exists(volumes.resolve("smp/plugins/packetevents-spigot-2.14.0.jar")));
-        assertEquals(ApplyResult.Status.DONE, outcome(result, "smp", "packetevents").status());
+        assertEquals(
+                ApplyResult.Status.DONE, outcome(result, "smp", "packetevents").status());
         assertEquals(ApplyResult.Status.UNCHANGED, outcome(result, "smp", "smp").status());
     }
 
@@ -107,7 +115,8 @@ class ApplierTest {
         apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
 
         assertFalse(Files.exists(volumes.resolve("smp/plugins").resolve(Applier.STAGING)));
-        assertFalse(Files.exists(volumes.resolve("smp").resolve(Applier.STAGING)),
+        assertFalse(
+                Files.exists(volumes.resolve("smp").resolve(Applier.STAGING)),
                 "and not at the volume root either, which is where it used to be");
     }
 
@@ -123,14 +132,20 @@ class ApplierTest {
         // Files.move falls back to copy-and-delete without complaining. The only way that stays
         // true is if staging is resolved per destination, so that is what is asserted.
         final Fake fetcher = new Fake();
-        apply(fetcher, plan(
-                outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
-                outdated("smp", "paper", "paper-26.2-121.jar", "paper-26.2-125.jar")));
+        apply(
+                fetcher,
+                plan(
+                        outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
+                        outdated("smp", "paper", "paper-26.2-121.jar", "paper-26.2-125.jar")));
 
-        assertEquals(volumes.resolve("smp/plugins").resolve(Applier.STAGING),
-                parentOf(fetcher, "smp-0.2.0.jar"), "a plugin stages inside plugins/");
-        assertEquals(volumes.resolve("smp/.server").resolve(Applier.STAGING),
-                parentOf(fetcher, "paper-26.2-125.jar"), "the server jar stages inside .server/");
+        assertEquals(
+                volumes.resolve("smp/plugins").resolve(Applier.STAGING),
+                parentOf(fetcher, "smp-0.2.0.jar"),
+                "a plugin stages inside plugins/");
+        assertEquals(
+                volumes.resolve("smp/.server").resolve(Applier.STAGING),
+                parentOf(fetcher, "paper-26.2-125.jar"),
+                "the server jar stages inside .server/");
 
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
         assertTrue(Files.exists(volumes.resolve("smp/.server/paper-26.2-125.jar")));
@@ -161,8 +176,7 @@ class ApplierTest {
 
         // "old" is what install() writes. A run that died between the two phases leaves exactly
         // this, and re-using it would install a jar this run never verified.
-        assertEquals("downloaded smp-0.2.0.jar",
-                Files.readString(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
+        assertEquals("downloaded smp-0.2.0.jar", Files.readString(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
     }
 
     @Test
@@ -174,11 +188,14 @@ class ApplierTest {
         // It sits inside plugins/ now, so this is the assumption everything above rests on: a
         // Paper server loads only jars directly in plugins/, and Installation only takes regular
         // files. If either stopped being true, the SMP would try to load a half-downloaded jar.
-        final var installed = eu.nordtal.s2.steward.worker.plan.Installation
-                .scan("smp", volumes.resolve("smp")).plugins();
+        final var installed = eu.nordtal.s2.steward.worker.plan.Installation.scan("smp", volumes.resolve("smp"))
+                .plugins();
 
-        assertEquals(List.of("smp-0.1.0.jar"), installed.stream()
-                .map(eu.nordtal.s2.steward.worker.plan.Installation.Jar::fileName).toList());
+        assertEquals(
+                List.of("smp-0.1.0.jar"),
+                installed.stream()
+                        .map(eu.nordtal.s2.steward.worker.plan.Installation.Jar::fileName)
+                        .toList());
     }
 
     // ---------------------------------------------------------------- the failure cases
@@ -191,9 +208,11 @@ class ApplierTest {
 
         // The second of two downloads fails. Without two phases the SMP server would now be
         // running a new season jar against an old Simple Voice Chat, which is a combination nobody chose.
-        final ApplyResult result = apply(new Fake().failingOn("voicechat-bukkit-2.6.23.jar"), plan(
-                outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
-                outdated("smp", "voicechat", "voicechat-bukkit-2.6.21.jar", "voicechat-bukkit-2.6.23.jar")));
+        final ApplyResult result = apply(
+                new Fake().failingOn("voicechat-bukkit-2.6.23.jar"),
+                plan(
+                        outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
+                        outdated("smp", "voicechat", "voicechat-bukkit-2.6.21.jar", "voicechat-bukkit-2.6.23.jar")));
 
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")), "the old jar is still there");
         assertFalse(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")), "the new jar was not placed");
@@ -201,7 +220,8 @@ class ApplierTest {
         assertFalse(Files.exists(volumes.resolve("smp/plugins").resolve(Applier.STAGING)));
 
         assertEquals(ApplyResult.Status.FAILED, outcome(result, "smp", "smp").status());
-        assertEquals(ApplyResult.Status.FAILED, outcome(result, "smp", "voicechat").status());
+        assertEquals(
+                ApplyResult.Status.FAILED, outcome(result, "smp", "voicechat").status());
         assertFalse(result.restartWorthOffering());
     }
 
@@ -210,9 +230,11 @@ class ApplierTest {
     void aServerMovesTogetherOrNotAtAll() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
 
-        final ApplyResult result = apply(new Fake(), plan(
-                outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
-                Change.unresolved("smp", "packetevents", "Modrinth: connect timed out")));
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(
+                        outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
+                        Change.unresolved("smp", "packetevents", "Modrinth: connect timed out")));
 
         // DisplayTags is a required plugin of smp and PacketEvents is required under it. A partial
         // swap here is a server that does not start.
@@ -231,9 +253,11 @@ class ApplierTest {
         // The same shape as the case above it and the opposite outcome, which is the whole reason
         // the status is not UNRESOLVED: CoreProtect has no 26.2 build, and a failure row would have
         // meant the SMP's own jar was never installed - every run, for as long as that lasted.
-        final ApplyResult result = apply(new Fake(), plan(
-                outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
-                Change.unsupported("smp", "coreprotect", "no stable release for this platform")));
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(
+                        outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
+                        Change.unsupported("smp", "coreprotect", "no stable release for this platform")));
 
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
         assertEquals(ApplyResult.Status.DONE, outcome(result, "smp", "smp").status());
@@ -241,7 +265,9 @@ class ApplierTest {
         // Its own word. UNCHANGED is a claim about a file that is there and nothing is, and SKIPPED
         // is the whole-service refusal, which would put "nothing was installed, and not because
         // everything was current" under a run that installed the season jar.
-        assertEquals(ApplyResult.Status.UNSUPPORTED, outcome(result, "smp", "coreprotect").status());
+        assertEquals(
+                ApplyResult.Status.UNSUPPORTED,
+                outcome(result, "smp", "coreprotect").status());
         assertFalse(result.skippedAnything());
         assertFalse(result.hasFailures());
         assertTrue(result.changedAnything());
@@ -255,9 +281,11 @@ class ApplierTest {
 
         // Fill is down. The plugins are compiled against 26.2, not against build 121, and 121 is
         // a build that runs - so there is nothing for a Fill outage to protect the plugins from.
-        final ApplyResult result = apply(new Fake(), plan(
-                outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
-                Change.unresolved("smp", "paper", "PaperMC Fill: connect timed out")));
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(
+                        outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
+                        Change.unresolved("smp", "paper", "PaperMC Fill: connect timed out")));
 
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
         assertFalse(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")));
@@ -275,9 +303,11 @@ class ApplierTest {
         install("smp", "plugins/smp-0.1.0.jar");
         install("limbo", "plugins/limbo-0.1.0.jar");
 
-        final ApplyResult result = apply(new Fake().failingOn("smp-0.2.0.jar"), plan(
-                outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
-                outdated("limbo", "limbo", "limbo-0.1.0.jar", "limbo-0.2.0.jar")));
+        final ApplyResult result = apply(
+                new Fake().failingOn("smp-0.2.0.jar"),
+                plan(
+                        outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
+                        outdated("limbo", "limbo", "limbo-0.1.0.jar", "limbo-0.2.0.jar")));
 
         assertEquals(ApplyResult.Status.FAILED, outcome(result, "smp", "smp").status());
         assertEquals(ApplyResult.Status.DONE, outcome(result, "limbo", "limbo").status());
@@ -292,9 +322,15 @@ class ApplierTest {
         install("proxy", "plugins/proxy-0.1.0.jar");
         writePackYml();
 
-        final Change pack = new Change("proxy", "resource-pack", Change.Status.OUTDATED,
+        final Change pack = new Change(
+                "proxy",
+                "resource-pack",
+                Change.Status.OUTDATED,
                 "0000000000000000000000000000000000000000",
-                new RemoteFile("resource-pack", "0.2.0", "nordtal-resource-pack-0.2.0.zip",
+                new RemoteFile(
+                        "resource-pack",
+                        "0.2.0",
+                        "nordtal-resource-pack-0.2.0.zip",
                         URI.create("https://github.com/nordtal/season-2/releases/download/v0.2.0/"
                                 + "nordtal-resource-pack-0.2.0.zip"),
                         Checksum.sha1(SHA1)),
@@ -305,7 +341,9 @@ class ApplierTest {
         final String written = Files.readString(PackState.fileIn(volumes.resolve("proxy")));
         assertTrue(written.contains("sha1: " + SHA1), written);
         assertTrue(written.contains("releases/download/v0.2.0/"), written);
-        assertEquals(ApplyResult.Status.DONE, outcome(result, "proxy", "resource-pack").status());
+        assertEquals(
+                ApplyResult.Status.DONE,
+                outcome(result, "proxy", "resource-pack").status());
         // The zip itself is never downloaded: the client fetches it, the proxy only describes it.
         assertFalse(Files.exists(volumes.resolve("proxy/plugins/nordtal-resource-pack-0.2.0.zip")));
     }
@@ -316,15 +354,25 @@ class ApplierTest {
         Files.createDirectories(volumes.resolve("discord-bot"));
         Files.writeString(volumes.resolve("discord-bot/discord-bot-0.1.0.jar"), "old");
 
-        final ApplyResult result = apply(new Fake(), plan(
-                new Change("discord-bot", "discord-bot", Change.Status.OUTDATED,
-                        "discord-bot-0.1.0.jar", remote("discord-bot", "discord-bot-0.2.0.jar"), null)));
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(new Change(
+                        "discord-bot",
+                        "discord-bot",
+                        Change.Status.OUTDATED,
+                        "discord-bot-0.1.0.jar",
+                        remote("discord-bot", "discord-bot-0.2.0.jar"),
+                        null)));
 
-        assertEquals(ApplyResult.Status.DONE, outcome(result, "discord-bot", "discord-bot").status());
+        assertEquals(
+                ApplyResult.Status.DONE,
+                outcome(result, "discord-bot", "discord-bot").status());
         assertTrue(Files.exists(volumes.resolve("discord-bot/discord-bot-0.2.0.jar")));
-        assertFalse(Files.exists(volumes.resolve("discord-bot/discord-bot-0.1.0.jar")),
+        assertFalse(
+                Files.exists(volumes.resolve("discord-bot/discord-bot-0.1.0.jar")),
                 "the superseded jar goes, by the same prefix rule as every plugin");
-        assertFalse(Files.exists(volumes.resolve("discord-bot/plugins")),
+        assertFalse(
+                Files.exists(volumes.resolve("discord-bot/plugins")),
                 "there is no plugins folder here and none is created");
     }
 
@@ -333,12 +381,21 @@ class ApplierTest {
     void installsItsOwnJar() throws IOException {
         Files.createDirectories(volumes.resolve("steward-worker"));
 
-        final ApplyResult result = apply(new Fake(), plan(
-                new Change("steward-worker", "steward-worker", Change.Status.MISSING, null,
-                        remote("steward-worker", "steward-worker-0.2.0.jar"), null)));
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(new Change(
+                        "steward-worker",
+                        "steward-worker",
+                        Change.Status.MISSING,
+                        null,
+                        remote("steward-worker", "steward-worker-0.2.0.jar"),
+                        null)));
 
-        assertEquals(ApplyResult.Status.DONE, outcome(result, "steward-worker", "steward-worker").status());
-        assertTrue(Files.exists(volumes.resolve("steward-worker/steward-worker-0.2.0.jar")),
+        assertEquals(
+                ApplyResult.Status.DONE,
+                outcome(result, "steward-worker", "steward-worker").status());
+        assertTrue(
+                Files.exists(volumes.resolve("steward-worker/steward-worker-0.2.0.jar")),
                 "it lands in the volume; the process running right now carries on with the old one"
                         + " until the restart, which is the only way this module's version moves");
     }
@@ -346,12 +403,19 @@ class ApplierTest {
     @Test
     @DisplayName("a volume that is not mounted is skipped whole, never created")
     void doesNotCreateAVolumeThatIsNotThere() {
-        final ApplyResult result = apply(new Fake(), plan(
-                new Change("discord-bot", "discord-bot", Change.Status.MOUNT_MISSING, null,
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(new Change(
+                        "discord-bot",
+                        "discord-bot",
+                        Change.Status.MOUNT_MISSING,
+                        null,
                         remote("discord-bot", "discord-bot-0.2.0.jar"),
                         "/volumes/discord-bot is not mounted in this container")));
 
-        assertEquals(ApplyResult.Status.SKIPPED, outcome(result, "discord-bot", "discord-bot").status());
+        assertEquals(
+                ApplyResult.Status.SKIPPED,
+                outcome(result, "discord-bot", "discord-bot").status());
         assertFalse(result.changedAnything());
         assertFalse(Files.exists(volumes.resolve("discord-bot")));
     }
@@ -362,10 +426,17 @@ class ApplierTest {
         // Found on a real container run, 2026-09-01: every volume unmounted, every row skipped,
         // and the report closed with "Nothing needed doing." - which is the sentence that lets
         // somebody shut the report believing the network is up to date.
-        final ApplyResult result = apply(new Fake(), plan(
-                Change.unresolved("smp", "packetevents", "Modrinth: connect timed out"),
-                new Change("smp", "smp", Change.Status.OUTDATED, "smp-0.1.0.jar",
-                        remote("smp", "smp-0.2.0.jar"), null)));
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(
+                        Change.unresolved("smp", "packetevents", "Modrinth: connect timed out"),
+                        new Change(
+                                "smp",
+                                "smp",
+                                Change.Status.OUTDATED,
+                                "smp-0.1.0.jar",
+                                remote("smp", "smp-0.2.0.jar"),
+                                null)));
 
         assertTrue(result.skippedAnything());
         assertFalse(result.changedAnything());
@@ -388,16 +459,27 @@ class ApplierTest {
         // filter is where the row used to disappear: this asserts the whole bootstrap path, not
         // just the Applier.
         final UpdatePlan bootstrap = plan(
-                Change.unresolved("smp", "smp", "could not read nordtal/season-2@latest: HTTP 403"),
-                new Change("smp", "packetevents", Change.Status.MISSING, null,
-                        remote("packetevents", "packetevents-spigot-2.13.0.jar"), null),
-                new Change("smp", "voicechat", Change.Status.MISSING, null,
-                        remote("voicechat", "voicechat-bukkit-2.6.23.jar"), null))
+                        Change.unresolved("smp", "smp", "could not read nordtal/season-2@latest: HTTP 403"),
+                        new Change(
+                                "smp",
+                                "packetevents",
+                                Change.Status.MISSING,
+                                null,
+                                remote("packetevents", "packetevents-spigot-2.13.0.jar"),
+                                null),
+                        new Change(
+                                "smp",
+                                "voicechat",
+                                Change.Status.MISSING,
+                                null,
+                                remote("voicechat", "voicechat-bukkit-2.6.23.jar"),
+                                null))
                 .onlyMissing();
 
         final ApplyResult result = apply(new Fake(), bootstrap);
 
-        assertFalse(Files.exists(volumes.resolve("smp/plugins/packetevents-spigot-2.13.0.jar")),
+        assertFalse(
+                Files.exists(volumes.resolve("smp/plugins/packetevents-spigot-2.13.0.jar")),
                 "PacketEvents was installed beside a season that could not be resolved. That is the"
                         + " one shape of half-filled volume the empty-plugins guard cannot see.");
         assertFalse(Files.exists(volumes.resolve("smp/plugins/voicechat-bukkit-2.6.23.jar")));
@@ -418,17 +500,20 @@ class ApplierTest {
         // service - the proxy plugin and the Velocity jar with it - while the three backends
         // updated regardless, which is precisely the split network the all-or-nothing rule exists
         // to prevent.
-        final ApplyResult result = apply(new Fake(), plan(
-                Change.unresolved("proxy", Topology.RESOURCE_PACK,
-                        "the release published no .sha1 asset"),
-                outdated("proxy", "proxy",
-                        "proxy-0.1.0.jar", "proxy-0.2.0.jar")));
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(
+                        Change.unresolved("proxy", Topology.RESOURCE_PACK, "the release published no .sha1 asset"),
+                        outdated("proxy", "proxy", "proxy-0.1.0.jar", "proxy-0.2.0.jar")));
 
-        assertTrue(Files.exists(volumes.resolve("proxy/plugins/proxy-0.2.0.jar")),
+        assertTrue(
+                Files.exists(volumes.resolve("proxy/plugins/proxy-0.2.0.jar")),
                 "the proxy plugin was held back because the pack could not be checked");
 
         final ApplyResult.Outcome pack = outcome(result, "proxy", Topology.RESOURCE_PACK);
-        assertEquals(ApplyResult.Status.SKIPPED, pack.status(),
+        assertEquals(
+                ApplyResult.Status.SKIPPED,
+                pack.status(),
                 "a pack that could not be checked must not read as UNCHANGED - the client is still"
                         + " being sent the previous one, and that is a fallback, not a no-op");
         assertNotNull(pack.detail());
@@ -440,10 +525,11 @@ class ApplierTest {
     void aBlockedServiceStillReportsItsPack() {
         // The early return used to skip applyPack entirely, so a run that skipped this service said
         // nothing at all about what the client is being sent - the one row here a player can see.
-        final ApplyResult result = apply(new Fake(), plan(
-                Change.unresolved("proxy", "proxy", "GitHub answered 403"),
-                new Change("proxy", Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE,
-                        "abc123", null, null)));
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(
+                        Change.unresolved("proxy", "proxy", "GitHub answered 403"),
+                        new Change("proxy", Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE, "abc123", null, null)));
 
         final ApplyResult.Outcome pack = outcome(result, "proxy", Topology.RESOURCE_PACK);
         assertNotNull(pack, "the pack row vanished from a report for a service that was skipped");
@@ -481,22 +567,19 @@ class ApplierTest {
             public BunqSpec bunq() {
                 // Defaults: empty credentials, which is "no bank account" and is a valid season.
                 // Nothing in this test asks bunq anything (steward/109).
-                return new BunqSpec() {
-                };
+                return new BunqSpec() {};
             }
 
             @Override
             public ApiSpec api() {
                 // Defaults: nothing here serves HTTP.
-                return new ApiSpec() {
-                };
+                return new ApiSpec() {};
             }
 
             @Override
             public DockerSpec docker() {
                 // Defaults: this test is not about the daemon, and nothing here reads it.
-                return new DockerSpec() {
-                };
+                return new DockerSpec() {};
             }
 
             @Override
@@ -506,7 +589,7 @@ class ApplierTest {
 
             @Override
             public UpdateSpec update() {
-                return new UpdateSpec() { };
+                return new UpdateSpec() {};
             }
 
             @Override
@@ -518,44 +601,37 @@ class ApplierTest {
                     // anonymous spec has to hand back its defaults by name (steward/95).
                     @Override
                     public RemoteSpec remote() {
-                        return new RemoteSpec() {
-                        };
+                        return new RemoteSpec() {};
                     }
 
                     @Override
                     public RetentionSpec retention() {
-                        return new RetentionSpec() {
-                        };
+                        return new RetentionSpec() {};
                     }
-
                 };
             }
 
             @Override
             public DeployerSpec deployer() {
                 // Defaults: this test never recreates a container.
-                return new DeployerSpec() {
-                };
+                return new DeployerSpec() {};
             }
-
         };
         return new Applier(config, fetcher).apply(plan);
     }
 
     private static UpdatePlan plan(final Change... changes) {
-        return new UpdatePlan(Instant.parse("2026-09-01T18:00:00Z"), "v0.2.0", false,
-                List.of(changes), List.of(), List.of());
+        return new UpdatePlan(
+                Instant.parse("2026-09-01T18:00:00Z"), "v0.2.0", false, List.of(changes), List.of(), List.of());
     }
 
-    private static Change outdated(final String service, final String artifact,
-                                   final String installed, final String wanted) {
-        return new Change(service, artifact, Change.Status.OUTDATED, installed,
-                remote(artifact, wanted), null);
+    private static Change outdated(
+            final String service, final String artifact, final String installed, final String wanted) {
+        return new Change(service, artifact, Change.Status.OUTDATED, installed, remote(artifact, wanted), null);
     }
 
     private static RemoteFile remote(final String artifact, final String fileName) {
-        return new RemoteFile(artifact, "x", fileName,
-                URI.create("https://example.invalid/" + fileName), null);
+        return new RemoteFile(artifact, "x", fileName, URI.create("https://example.invalid/" + fileName), null);
     }
 
     private void install(final String service, final String relative) throws IOException {
@@ -584,13 +660,11 @@ class ApplierTest {
                 .getParent();
     }
 
-    private static ApplyResult.Outcome outcome(final ApplyResult result, final String service,
-                                               final String artifact) {
+    private static ApplyResult.Outcome outcome(final ApplyResult result, final String service, final String artifact) {
         return result.outcomes().stream()
                 .filter(candidate -> candidate.artifact().equals(artifact))
-                .filter(candidate -> service == null
-                        ? candidate.service() == null
-                        : service.equals(candidate.service()))
+                .filter(candidate ->
+                        service == null ? candidate.service() == null : service.equals(candidate.service()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("no outcome for " + service + "/" + artifact));
     }

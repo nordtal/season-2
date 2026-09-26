@@ -1,8 +1,5 @@
 package eu.nordtal.s2.common.message;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -10,6 +7,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A player's language, read once at join and held for the session.

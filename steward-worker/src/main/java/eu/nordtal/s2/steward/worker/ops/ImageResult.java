@@ -1,11 +1,10 @@
 package eu.nordtal.s2.steward.worker.ops;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Which of the project's services are running an image older than the registry's.
@@ -31,8 +30,11 @@ import java.util.Set;
  *                     a known answer, not an unanswered question (steward/75)
  * @param message      why not, or {@code null} when they could be read
  */
-public record ImageResult(boolean reached, @NotNull Map<String, State> services,
-                          @NotNull Set<String> unverifiable, @Nullable String message) {
+public record ImageResult(
+        boolean reached,
+        @NotNull Map<String, State> services,
+        @NotNull Set<String> unverifiable,
+        @Nullable String message) {
 
     public ImageResult {
         services = Map.copyOf(services);
@@ -72,8 +74,7 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
         return of(services, Set.of());
     }
 
-    public static ImageResult of(final @NotNull Map<String, State> services,
-                                 final @NotNull Set<String> unverifiable) {
+    public static ImageResult of(final @NotNull Map<String, State> services, final @NotNull Set<String> unverifiable) {
         return new ImageResult(true, services, unverifiable, null);
     }
 
@@ -104,8 +105,8 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
      */
     public Optional<String> nothingChecked() {
         if (!reached) {
-            return Optional.of("The images could not be read, so this run knows nothing about"
-                    + " image updates: " + message);
+            return Optional.of(
+                    "The images could not be read, so this run knows nothing about" + " image updates: " + message);
         }
         if (!unverifiable.isEmpty()) {
             // Never both. When some image really was unreadable for another reason the sentence

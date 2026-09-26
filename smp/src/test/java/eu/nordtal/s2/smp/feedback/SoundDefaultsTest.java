@@ -1,26 +1,24 @@
 package eu.nordtal.s2.smp.feedback;
 
-import eu.nordtal.s2.common.feedback.Feedback;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.jcore.config.ConfigHandle;
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.smp.config.Configs;
 import eu.nordtal.s2.smp.config.SoundsSpec;
-
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import net.kyori.adventure.key.Key;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * That the ten sounds a fresh {@code sounds.yml} ships actually exist.
@@ -65,7 +63,8 @@ class SoundDefaultsTest {
                 // with its artwork and does not exist yet; borrowing another category's would give
                 // the season's opening somebody else's chime. Asserted rather than skipped, so that
                 // filling it in becomes a visible decision here instead of a quiet one.
-                assertTrue(sound.key() == null || sound.key().isBlank(),
+                assertTrue(
+                        sound.key() == null || sound.key().isBlank(),
                         "STAGING ships a sound. It is meant to ship blank until the pack has one -"
                                 + " if that day has come, say so here rather than leaving this"
                                 + " check believing something that is no longer true");
@@ -120,18 +119,18 @@ class SoundDefaultsTest {
     @DisplayName("the parsed vocabulary has no silent category by default")
     void nothingIsSilentByDefault() throws Exception {
         final List<String> problems = new ArrayList<>();
-        final SmpSounds sounds = SmpSounds.of(Configs.sounds(directory, LOGGER).get(),
-                problems::add);
+        final SmpSounds sounds = SmpSounds.of(Configs.sounds(directory, LOGGER).get(), problems::add);
 
-        assertEquals(List.of(), problems,
-                "a shipped default that the parser has to correct is a default that was never"
-                        + " checked");
+        assertEquals(
+                List.of(),
+                problems,
+                "a shipped default that the parser has to correct is a default that was never" + " checked");
         for (final Feedback category : Feedback.values()) {
             if (category == Feedback.STAGING) {
                 // Silent on purpose - see the exception in the test above.
-                assertTrue(sounds.isSilent(category),
-                        "STAGING is no longer silent out of the box, which is a decision and not a"
-                                + " tidy-up");
+                assertTrue(
+                        sounds.isSilent(category),
+                        "STAGING is no longer silent out of the box, which is a decision and not a" + " tidy-up");
                 continue;
             }
             assertFalse(sounds.isSilent(category), category + " is silent out of the box");
@@ -152,19 +151,17 @@ class SoundDefaultsTest {
     void blankingAKeyInTheFileSilencesTheCategory() throws Exception {
         Configs.sounds(directory, LOGGER);
         final Path file = directory.resolve("sounds.yml");
-        Files.writeString(file, Files.readString(file)
-                .replace("key: minecraft:ui.button.click", "key: ''"));
+        Files.writeString(file, Files.readString(file).replace("key: minecraft:ui.button.click", "key: ''"));
 
         final List<String> problems = new ArrayList<>();
         final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
-        assertEquals("", spec.select().key(),
-                "jcore handed back something other than the empty string the operator wrote");
+        assertEquals(
+                "", spec.select().key(), "jcore handed back something other than the empty string the operator wrote");
 
         final SmpSounds sounds = SmpSounds.of(spec, problems::add);
         assertTrue(sounds.isSilent(Feedback.SELECT));
         assertFalse(sounds.isSilent(Feedback.TRAVEL), "only the blanked category goes quiet");
-        assertEquals(List.of(), problems,
-                "silencing a category on purpose must not read as a misconfiguration");
+        assertEquals(List.of(), problems, "silencing a category on purpose must not read as a misconfiguration");
     }
 
     /**
@@ -183,18 +180,17 @@ class SoundDefaultsTest {
     @DisplayName("a reload silences a category on the instance the listeners already hold")
     void aReloadIsPickedUpByTheRunningInstance() throws Exception {
         final ConfigHandle<SoundsSpec> handle = Configs.sounds(directory, LOGGER);
-        final SmpSounds running = SmpSounds.of(handle.get(), problem -> { });
-        assertFalse(running.isSilent(Feedback.SELECT), "it has to start audible for this to prove"
-                + " anything");
+        final SmpSounds running = SmpSounds.of(handle.get(), problem -> {});
+        assertFalse(running.isSilent(Feedback.SELECT), "it has to start audible for this to prove" + " anything");
 
         final Path file = directory.resolve("sounds.yml");
-        Files.writeString(file, Files.readString(file)
-                .replace("key: minecraft:ui.button.click", "key: ''"));
+        Files.writeString(file, Files.readString(file).replace("key: minecraft:ui.button.click", "key: ''"));
 
         handle.reload();
         running.reload(handle.get());
 
-        assertTrue(running.isSilent(Feedback.SELECT),
+        assertTrue(
+                running.isSilent(Feedback.SELECT),
                 "the operator blanked a key and ran /smp reload; the same object every listener"
                         + " holds has to answer silent from the next click on");
         assertFalse(running.isSilent(Feedback.TRAVEL), "only the blanked category goes quiet");
@@ -205,7 +201,8 @@ class SoundDefaultsTest {
     @DisplayName("the two note-block categories do not ship on the same pitch")
     void theTwoNoteBlockCategoriesDiffer() throws Exception {
         final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
-        assertTrue(spec.refused().pitch() != spec.countdownTick().pitch()
+        assertTrue(
+                spec.refused().pitch() != spec.countdownTick().pitch()
                         || !spec.refused().key().equals(spec.countdownTick().key()),
                 "REFUSED and COUNTDOWN_TICK are both note blocks by default; identical key and"
                         + " pitch would make 'the server said no' and 'three seconds left' the same"

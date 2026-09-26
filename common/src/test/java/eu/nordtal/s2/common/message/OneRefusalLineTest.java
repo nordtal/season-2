@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.message;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -17,9 +16,8 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * One sentence for "that command does not exist" and for "you may not type that", everywhere.
@@ -71,7 +69,9 @@ class OneRefusalLineTest {
                 keys.add(keyOf(matcher.group(1)));
             }
         }
-        assertEquals(Set.of(KEY), keys,
+        assertEquals(
+                Set.of(KEY),
+                keys,
                 "a second sentence here is how a player learns which of 'you may not' and 'there is"
                         + " no such command' they hit - which is the whole of what the allowlist is"
                         + " keeping from them");
@@ -81,7 +81,8 @@ class OneRefusalLineTest {
     @DisplayName("the Paper side answers UnknownCommandEvent, or an admin reads vanilla's")
     void unknownCommandsAreAnsweredOnPaperToo() {
         final String filter = read(RepositoryRoot.resolve(REFUSERS.get(0)));
-        assertTrue(filter.contains("UnknownCommandEvent"),
+        assertTrue(
+                filter.contains("UnknownCommandEvent"),
                 "without this handler a typo, an admin's mistyped command and every command typed"
                         + " before a proxy has published a list all read vanilla's 'Unknown or"
                         + " incomplete command', in the server's language, with a red caret");
@@ -95,9 +96,10 @@ class OneRefusalLineTest {
     @DisplayName("the one key exists in both languages of the shared bundle")
     void theKeyIsTranslated() {
         for (final String language : List.of("en", "de")) {
-            final Path bundle = RepositoryRoot.resolve(
-                    "commands/src/main/resources/messages/commands/" + language + ".properties");
-            assertTrue(read(bundle).contains("\n" + KEY + "="),
+            final Path bundle =
+                    RepositoryRoot.resolve("commands/src/main/resources/messages/commands/" + language + ".properties");
+            assertTrue(
+                    read(bundle).contains("\n" + KEY + "="),
                     KEY + " is missing from " + language + ", so the refusal reaches a player as the"
                             + " key itself - which does tell them something, in the worst way");
         }
@@ -114,13 +116,17 @@ class OneRefusalLineTest {
                 if (key.equals(KEY) || key.startsWith("#")) {
                     continue;
                 }
-                if (key.endsWith(".unknown-command") || key.endsWith(".no-such-command")
-                        || key.endsWith("command.not-allowed") || key.endsWith("command.refused")) {
+                if (key.endsWith(".unknown-command")
+                        || key.endsWith(".no-such-command")
+                        || key.endsWith("command.not-allowed")
+                        || key.endsWith("command.refused")) {
                     suspects.add(RepositoryRoot.relative(bundle) + ": " + key);
                 }
             }
         }
-        assertEquals(List.of(), suspects,
+        assertEquals(
+                List.of(),
+                suspects,
                 "a key with this shape is a second way of saying " + KEY + ". If one is genuinely"
                         + " needed, that is a decision to take out loud - the allowlist's wording"
                         + " rests on there being one sentence");
@@ -131,7 +137,8 @@ class OneRefusalLineTest {
         final List<String> segments = new ArrayList<>();
         for (final String call : chain.replaceAll("\\s", "").split("\\(\\)")) {
             if (!call.isEmpty()) {
-                segments.add(call.substring(1).replaceAll("([a-z0-9])([A-Z])", "$1-$2")
+                segments.add(call.substring(1)
+                        .replaceAll("([a-z0-9])([A-Z])", "$1-$2")
                         .toLowerCase(java.util.Locale.ROOT));
             }
         }
@@ -140,8 +147,8 @@ class OneRefusalLineTest {
 
     private static List<Path> bundles() {
         final List<Path> found = new ArrayList<>();
-        for (final String root : List.of("smp", "limbo", "hunger-games", "proxy",
-                "commands", "paper-common", "discord-bot")) {
+        for (final String root :
+                List.of("smp", "limbo", "hunger-games", "proxy", "commands", "paper-common", "discord-bot")) {
             final Path directory = RepositoryRoot.resolve(root + "/src/main/resources/messages");
             if (!Files.isDirectory(directory)) {
                 continue;
@@ -160,8 +167,9 @@ class OneRefusalLineTest {
     }
 
     private static String read(final Path source) {
-        assertTrue(Files.isRegularFile(source), source + " no longer exists - a missing file is a"
-                + " check that silently stops running");
+        assertTrue(
+                Files.isRegularFile(source),
+                source + " no longer exists - a missing file is a" + " check that silently stops running");
         try {
             return Files.readString(source, StandardCharsets.UTF_8);
         } catch (final IOException e) {

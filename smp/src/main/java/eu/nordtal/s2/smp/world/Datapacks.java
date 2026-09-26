@@ -1,11 +1,10 @@
 package eu.nordtal.s2.smp.world;
 
 import io.papermc.paper.datapack.Datapack;
-import org.bukkit.Bukkit;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import org.bukkit.Bukkit;
 
 /**
  * Checks that the world-generation datapacks are installed and enabled, and says so loudly when
@@ -35,8 +34,7 @@ import java.util.Locale;
  */
 public final class Datapacks {
 
-    private Datapacks() {
-    }
+    private Datapacks() {}
 
     /** What the check found: the packs still missing, and what was actually enabled. */
     public record Result(List<String> missing, List<String> enabled) {

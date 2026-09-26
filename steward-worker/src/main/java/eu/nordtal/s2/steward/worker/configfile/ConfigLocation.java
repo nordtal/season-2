@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.nio.file.Path;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * One config file found under the mount, before anything has been read from it.
@@ -29,5 +28,4 @@ public record ConfigLocation(
         @NotNull String name,
         @NotNull Path file,
         boolean readable,
-        boolean writable) {
-}
+        boolean writable) {}

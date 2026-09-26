@@ -1,15 +1,14 @@
 package eu.nordtal.s2.smp.grave;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * A grave settling - the moment {@code erase} removes its three entities - has to say so, out loud,
@@ -34,12 +33,14 @@ class GraveEraseSoundTest {
     void erasingAGravePlaysAWorldSound() {
         final String source = read();
 
-        assertTrue(source.contains("sounds.playAt("),
+        assertTrue(
+                source.contains("sounds.playAt("),
                 "a grave finishing has to sound like something (season-2-ingame/15). play(Player, ...)"
                         + " only reaches the looter; erase runs for everyone standing at the grave, so"
                         + " this has to be the WORLD-scoped call, not the player-scoped one");
 
-        assertTrue(source.contains("Feedback.RECLAIMED"),
+        assertTrue(
+                source.contains("Feedback.RECLAIMED"),
                 "the sound at a grave settling has to name its own category rather than reuse LOSS"
                         + " (\"something was taken from you\") or SMALL_SUCCESS (the pickup itself) -"
                         + " both already mean something else. season-2-ingame/15 calls for a twelfth"
@@ -49,8 +50,7 @@ class GraveEraseSoundTest {
     private static String read() {
         try {
             Path candidate = Path.of("").toAbsolutePath();
-            while (candidate != null
-                    && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
+            while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
                 candidate = candidate.getParent();
             }
             if (candidate == null) {

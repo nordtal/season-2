@@ -1,7 +1,7 @@
 package eu.nordtal.s2.smp.feedback;
 
 import eu.nordtal.s2.common.feedback.Feedback;
-
+import java.util.function.Predicate;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -9,8 +9,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.inventory.Inventory;
-
-import java.util.function.Predicate;
 
 /**
  * {@code SURFACE_OPEN} and {@code SURFACE_CLOSE} for every menu this plugin opens.

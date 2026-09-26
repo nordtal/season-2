@@ -1,20 +1,18 @@
 package eu.nordtal.s2.steward.worker.serve;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.plan.Topology;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Stop, swap, start, and prove it came back.
@@ -41,9 +39,13 @@ class UpdateRunTest {
     @Test
     @DisplayName("a run whose container runtime is unreachable never gets as far as a plan")
     void anUnreachableRuntimeStopsEverything() {
-        final FakeContainers containers = new FakeContainers().running(Topology.SMP).unreachable();
+        final FakeContainers containers =
+                new FakeContainers().running(Topology.SMP).unreachable();
 
-        assertFalse(new UpdateRun(containers, new FakeSnapshots(), progress::add).check().reached(),
+        assertFalse(
+                new UpdateRun(containers, new FakeSnapshots(), progress::add)
+                        .check()
+                        .reached(),
                 "the runtime read is the first thing a run does, before a version is resolved or a"
                         + " byte is downloaded - because a run that cannot STOP a server must not"
                         + " move a jar. Continuing anyway is finding 147 performed as a fallback");
@@ -58,15 +60,18 @@ class UpdateRunTest {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP, Topology.LIMBO);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
-        final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP, Topology.LIMBO),
-                containers.runtime());
+        final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP, Topology.LIMBO), containers.runtime());
 
-        assertEquals(List.of("stop:smp-container"), containers.calls,
-                "limbo has no changes, and stopping it would be an outage with nothing to show"
-                        + " for it");
+        assertEquals(
+                List.of("stop:smp-container"),
+                containers.calls,
+                "limbo has no changes, and stopping it would be an outage with nothing to show" + " for it");
         assertEquals(List.of(Topology.SMP), stopped.services());
-        assertEquals(UpdateReport.State.STOPPED, stopped.report().line(Topology.SMP).state());
-        assertEquals(UpdateReport.State.UNCHANGED, stopped.report().line(Topology.LIMBO).state());
+        assertEquals(
+                UpdateReport.State.STOPPED, stopped.report().line(Topology.SMP).state());
+        assertEquals(
+                UpdateReport.State.UNCHANGED,
+                stopped.report().line(Topology.LIMBO).state());
     }
 
     @Test
@@ -80,12 +85,17 @@ class UpdateRunTest {
         // playing get thrown off. `changes().isEmpty()` was the old test and would fail this one:
         // the line is not empty, it is simply not moving.
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
-                .with(new UpdateReport.ServiceLine(Topology.SMP, UpdateReport.State.UNCHANGED,
-                        List.of(UpdateReport.Change.unsupported("coreprotect")), null));
+                .with(new UpdateReport.ServiceLine(
+                        Topology.SMP,
+                        UpdateReport.State.UNCHANGED,
+                        List.of(UpdateReport.Change.unsupported("coreprotect")),
+                        null));
 
         final UpdateRun.Stopped stopped = run.stop(report, containers.runtime());
 
-        assertEquals(List.of(), containers.calls,
+        assertEquals(
+                List.of(),
+                containers.calls,
                 "the SMP was taken down because somebody else has not published a jar yet");
         assertEquals(List.of(), stopped.services());
     }
@@ -96,15 +106,19 @@ class UpdateRunTest {
         final FakeContainers containers = new FakeContainers().running(Topology.STEWARD_WORKER, Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
-        final UpdateRun.Stopped stopped = run.stop(planned(Topology.STEWARD_WORKER, Topology.SMP)
-                .with(work(Topology.STEWARD_WORKER)), containers.runtime());
+        final UpdateRun.Stopped stopped = run.stop(
+                planned(Topology.STEWARD_WORKER, Topology.SMP).with(work(Topology.STEWARD_WORKER)),
+                containers.runtime());
 
-        assertFalse(containers.calls.contains("stop:steward-worker-container"),
+        assertFalse(
+                containers.calls.contains("stop:steward-worker-container"),
                 "this sequence is running inside steward-worker; stopping it kills the process that"
                         + " would otherwise start everything else again - which is exactly why the"
                         + " old project-wide redeploy could never report whether anything returned");
         assertFalse(stopped.services().contains(Topology.STEWARD_WORKER));
-        assertEquals(UpdateReport.State.INSTALLED, stopped.report().line(Topology.STEWARD_WORKER).state(),
+        assertEquals(
+                UpdateReport.State.INSTALLED,
+                stopped.report().line(Topology.STEWARD_WORKER).state(),
                 "its jar is still placed; it is picked up at its next start, as it always was");
     }
 
@@ -120,31 +134,41 @@ class UpdateRunTest {
         // exempts the line. The stop does not, and that was the whole of the remaining failure.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
-        final UpdateReport planned = planned(Topology.SMP).with(new UpdateReport.ServiceLine(
-                DatabaseDump.NAME, UpdateReport.State.SAVED,
-                List.of(new UpdateReport.Change("backup", null, "saved 790.0 KiB in 0s")), null));
+        final UpdateReport planned = planned(Topology.SMP)
+                .with(new UpdateReport.ServiceLine(
+                        DatabaseDump.NAME,
+                        UpdateReport.State.SAVED,
+                        List.of(new UpdateReport.Change("backup", null, "saved 790.0 KiB in 0s")),
+                        null));
 
         final UpdateRun.Stopped stopped = run.stop(planned, containers.runtime());
 
-        assertEquals(UpdateReport.State.SAVED, stopped.report().line(DatabaseDump.NAME).state(),
+        assertEquals(
+                UpdateReport.State.SAVED,
+                stopped.report().line(DatabaseDump.NAME).state(),
                 "the dump is finished before this loop begins and its line is already written."
                         + " Turning it FAILED here reports a backup that exists as a backup that"
                         + " does not, which is the one direction that must never happen");
-        assertFalse(stopped.services().contains(DatabaseDump.NAME),
+        assertFalse(
+                stopped.services().contains(DatabaseDump.NAME),
                 "nothing was stopped for it and nothing may be started for it either");
     }
 
     @Test
     @DisplayName("a service that could not be stopped is not installed to and not started")
     void aRefusedStopTakesItsServiceOutOfTheRun() {
-        final FakeContainers containers = new FakeContainers().running(Topology.SMP).stopFails();
+        final FakeContainers containers =
+                new FakeContainers().running(Topology.SMP).stopFails();
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
 
-        assertEquals(List.of(), stopped.services(),
+        assertEquals(
+                List.of(),
+                stopped.services(),
                 "starting something that was never stopped is how one failure becomes two");
-        assertEquals(UpdateReport.State.FAILED, stopped.report().line(Topology.SMP).state());
+        assertEquals(
+                UpdateReport.State.FAILED, stopped.report().line(Topology.SMP).state());
         run.start(stopped);
         assertFalse(containers.calls.contains("start:smp-container"));
     }
@@ -157,8 +181,10 @@ class UpdateRunTest {
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
 
-        assertEquals(UpdateReport.State.FAILED, stopped.report().line(Topology.SMP).state());
-        assertTrue(stopped.report().line(Topology.SMP).detail().contains("no container for this"),
+        assertEquals(
+                UpdateReport.State.FAILED, stopped.report().line(Topology.SMP).state());
+        assertTrue(
+                stopped.report().line(Topology.SMP).detail().contains("no container for this"),
                 stopped.report().line(Topology.SMP).detail());
     }
 
@@ -172,7 +198,9 @@ class UpdateRunTest {
 
         run.start(run.stop(planned(Topology.SMP), containers.runtime()));
 
-        assertEquals(List.of("stop:smp-container", "start:smp-container"), containers.calls,
+        assertEquals(
+                List.of("stop:smp-container", "start:smp-container"),
+                containers.calls,
                 "the gap between these two is where jars are safe to move, and it is the entire"
                         + " reason this is container-level rather than one project-wide call");
     }
@@ -188,11 +216,14 @@ class UpdateRunTest {
 
         final UpdateReport verified = run.verify(started, stopped.services(), impatient());
 
-        assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state(),
+        assertEquals(
+                UpdateReport.State.FAILED,
+                verified.line(Topology.SMP).state(),
                 "a container whose plugin threw in onEnable is 'running' with an open port and no"
                         + " season on it - which is what the first deployment actually did, and is"
                         + " why every process writes a readiness marker");
-        assertTrue(verified.line(Topology.SMP).detail().contains("did not come back"),
+        assertTrue(
+                verified.line(Topology.SMP).detail().contains("did not come back"),
                 verified.line(Topology.SMP).detail());
     }
 
@@ -231,15 +262,17 @@ class UpdateRunTest {
     void aPartialFailureStillReportsTheRest() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP, Topology.LIMBO);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
-        final UpdateRun.Stopped stopped = run.stop(
-                planned(Topology.SMP, Topology.LIMBO).with(work(Topology.LIMBO)), containers.runtime());
+        final UpdateRun.Stopped stopped =
+                run.stop(planned(Topology.SMP, Topology.LIMBO).with(work(Topology.LIMBO)), containers.runtime());
         final UpdateReport started = run.start(stopped);
         containers.back(Topology.LIMBO);
         containers.sick(Topology.SMP);
 
         final UpdateReport verified = run.verify(started, stopped.services(), impatient());
 
-        assertEquals(UpdateReport.State.HEALTHY, verified.line(Topology.LIMBO).state(),
+        assertEquals(
+                UpdateReport.State.HEALTHY,
+                verified.line(Topology.LIMBO).state(),
                 "the run is a failure, and 'which servers are up' is still the question somebody"
                         + " has at three in the morning");
         assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state());
@@ -251,16 +284,17 @@ class UpdateRunTest {
         // Runner reads exactly this to decide whether to abort: a service with work that is not in
         // stopped.services() is still RUNNING, and installing into it is finding 147 reached
         // through the sequence that exists to prevent it. Found by review, 2026-09-08.
-        final FakeContainers containers = new FakeContainers()
-                .running(Topology.SMP, Topology.LIMBO).stopFails();
+        final FakeContainers containers =
+                new FakeContainers().running(Topology.SMP, Topology.LIMBO).stopFails();
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
         final UpdateReport planned = planned(Topology.SMP, Topology.LIMBO).with(work(Topology.LIMBO));
         final UpdateRun.Stopped stopped = run.stop(planned, containers.runtime());
 
-        assertEquals(List.of(), stopped.services(),
-                "neither stopped, so neither may be installed into");
-        assertEquals(List.of(Topology.SMP, Topology.LIMBO), planned.services().stream()
+        assertEquals(List.of(), stopped.services(), "neither stopped, so neither may be installed into");
+        assertEquals(
+                List.of(Topology.SMP, Topology.LIMBO),
+                planned.services().stream()
                         .filter(line -> !line.changes().isEmpty())
                         .map(UpdateReport.ServiceLine::service)
                         .toList(),
@@ -284,7 +318,8 @@ class UpdateRunTest {
         final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp"));
         run.start(new UpdateRun.Stopped(saved, stopped.services(), containers.runtime()));
 
-        assertEquals(List.of("stop:smp-container", "backup:mc-smp", "start:smp-container"),
+        assertEquals(
+                List.of("stop:smp-container", "backup:mc-smp", "start:smp-container"),
                 containers.calls,
                 "stopped, then saved, then started - a snapshot outside that gap is a torn one");
         assertEquals(UpdateReport.State.SAVED, saved.line("mc-smp").state());
@@ -313,8 +348,8 @@ class UpdateRunTest {
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).fails("mc-smp");
         final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
 
-        final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
-                List.of("mc-smp", "bot-config"));
+        final UpdateReport saved =
+                run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp", "bot-config"));
 
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
         assertEquals(UpdateReport.State.SAVED, saved.line("bot-config").state());
@@ -327,11 +362,11 @@ class UpdateRunTest {
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).fails("mc-smp");
         final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
 
-        final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
-                List.of("mc-smp"));
+        final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp"));
 
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
-        assertTrue(saved.line("mc-smp").detail().contains("not a readable archive"),
+        assertTrue(
+                saved.line("mc-smp").detail().contains("not a readable archive"),
                 "what the tar said is what a person reads at 04:45: "
                         + saved.line("mc-smp").detail());
     }
@@ -345,11 +380,11 @@ class UpdateRunTest {
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).savesNothing("mc-smp");
         final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
 
-        final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
-                List.of("mc-smp"));
+        final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp"));
 
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
-        assertTrue(saved.line("mc-smp").detail().contains("nothing was saved"),
+        assertTrue(
+                saved.line("mc-smp").detail().contains("nothing was saved"),
                 saved.line("mc-smp").detail());
     }
 
@@ -365,7 +400,8 @@ class UpdateRunTest {
 
         assertTrue(progress.stream().anyMatch(r -> r.stage() == UpdateReport.Stage.STOPPING));
         assertTrue(progress.stream().anyMatch(r -> r.stage() == UpdateReport.Stage.STARTING));
-        assertTrue(progress.size() >= 4,
+        assertTrue(
+                progress.size() >= 4,
                 "a run that only writes its answer at the end leaves an admin looking at an"
                         + " unchanging message for minutes, which is what the live embed exists to"
                         + " stop being");
@@ -377,16 +413,17 @@ class UpdateRunTest {
     private static UpdateReport planned(final String... services) {
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED);
         for (int i = 0; i < services.length; i++) {
-            report = report.with(i == 0 ? work(services[i])
-                    : new UpdateReport.ServiceLine(services[i], UpdateReport.State.UNCHANGED,
-                            List.of(), null));
+            report = report.with(
+                    i == 0
+                            ? work(services[i])
+                            : new UpdateReport.ServiceLine(services[i], UpdateReport.State.UNCHANGED, List.of(), null));
         }
         return report;
     }
 
     private static UpdateReport.ServiceLine work(final String service) {
-        return new UpdateReport.ServiceLine(service, UpdateReport.State.PLANNED,
-                List.of(new UpdateReport.Change(service, "0.6.0", "0.7.0")), null);
+        return new UpdateReport.ServiceLine(
+                service, UpdateReport.State.PLANNED, List.of(new UpdateReport.Change(service, "0.6.0", "0.7.0")), null);
     }
 
     /** A clock that never runs out, so a wait ends only because the work finished. */
@@ -410,8 +447,7 @@ class UpdateRunTest {
      * <p>The wait is driven rather than slept through: the sleep advances the instant and makes the
      * container healthy, which is what a real start does one poll later.</p>
      */
-    private static UpdateRun.Waiting comesBackOnTheSecondLook(final FakeContainers containers,
-                                                              final String service) {
+    private static UpdateRun.Waiting comesBackOnTheSecondLook(final FakeContainers containers, final String service) {
         return new UpdateRun.Waiting() {
             private Instant now = Instant.parse("2026-09-07T12:00:00Z");
 
@@ -456,22 +492,23 @@ class UpdateRunTest {
         // The whole point of the image path. A start hands the container back to Docker on exactly
         // the image it was created from, so the jars would be new and entrypoint.sh, the JRE and
         // every change to compose.yml would still be whatever was pulled at the last deploy.
-        final FakeContainers containers = new FakeContainers().running(Topology.SMP)
-                .imageOutdated(Topology.SMP);
+        final FakeContainers containers =
+                new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), containers.runtime()), containers.images());
 
-        assertEquals(List.of("stop:smp-container", "recreate:smp"), containers.calls,
-                "the stop is unchanged - the gap is still where jars move - and only the way back"
-                        + " up differs");
+        assertEquals(
+                List.of("stop:smp-container", "recreate:smp"),
+                containers.calls,
+                "the stop is unchanged - the gap is still where jars move - and only the way back" + " up differs");
     }
 
     @Test
     @DisplayName("a current image is started exactly as before, and so is an unchecked one")
     void aCurrentImageIsStarted() {
-        final FakeContainers containers = new FakeContainers().running(Topology.SMP, Topology.LIMBO)
-                .imageCurrent(Topology.SMP);
+        final FakeContainers containers =
+                new FakeContainers().running(Topology.SMP, Topology.LIMBO).imageCurrent(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP, Topology.LIMBO), containers.runtime()), containers.images());
@@ -487,13 +524,15 @@ class UpdateRunTest {
         // Every path that is undoing something - a refused stop, a failed migration, a restart -
         // calls the one-argument start(). All three promise to change no version, and pulling an
         // image there would change the biggest one there is.
-        final FakeContainers containers = new FakeContainers().running(Topology.SMP)
-                .imageOutdated(Topology.SMP);
+        final FakeContainers containers =
+                new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), containers.runtime()));
 
-        assertEquals(List.of("stop:smp-container", "start:smp-container"), containers.calls,
+        assertEquals(
+                List.of("stop:smp-container", "start:smp-container"),
+                containers.calls,
                 "an abort puts the network back the way it was and does not take the opportunity"
                         + " to move an image nobody asked it to move");
     }
@@ -501,8 +540,10 @@ class UpdateRunTest {
     @Test
     @DisplayName("a refused recreate puts the old container back and still reports the failure")
     void aRefusedRecreateIsNamed() {
-        final FakeContainers containers = new FakeContainers().running(Topology.SMP)
-                .imageOutdated(Topology.SMP).recreateRefused(Topology.SMP);
+        final FakeContainers containers = new FakeContainers()
+                .running(Topology.SMP)
+                .imageOutdated(Topology.SMP)
+                .recreateRefused(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
         final UpdateReport report =
@@ -512,18 +553,22 @@ class UpdateRunTest {
         // outdated service off until somebody looked - and DockerOps#recreate refuses every time,
         // so "every outdated service" was all of them. The old image is the second-best outcome;
         // an empty server is the worst one.
-        assertEquals(List.of("stop:smp-container", "recreate:smp", "start:smp-container"),
-                containers.calls);
-        assertEquals(UpdateReport.State.FAILED, report.line(Topology.SMP).state(),
+        assertEquals(List.of("stop:smp-container", "recreate:smp", "start:smp-container"), containers.calls);
+        assertEquals(
+                UpdateReport.State.FAILED,
+                report.line(Topology.SMP).state(),
                 "the update did not happen, and a run is settled FAILED the moment a line is");
-        assertTrue(report.line(Topology.SMP).detail().contains("image is out of date"),
+        assertTrue(
+                report.line(Topology.SMP).detail().contains("image is out of date"),
                 "the reason has to say which half of the run stopped: "
                         + report.line(Topology.SMP).detail());
-        assertTrue(report.line(Topology.SMP).detail()
-                        .contains("started again on the image it already had"),
+        assertTrue(
+                report.line(Topology.SMP).detail().contains("started again on the image it already had"),
                 "and it has to say the old container was put back, or an operator starts by hand"
-                        + " one that is already running: " + report.line(Topology.SMP).detail());
-        assertFalse(report.line(Topology.SMP).detail().contains("the service is back"),
+                        + " one that is already running: "
+                        + report.line(Topology.SMP).detail());
+        assertFalse(
+                report.line(Topology.SMP).detail().contains("the service is back"),
                 "this line ended 'so the service is back' until 2026-09-13, written on the strength"
                         + " of Docker having accepted a start. Docker accepts one just as readily"
                         + " for a container that exits on the first tick. Whether it came back is"
@@ -534,23 +579,29 @@ class UpdateRunTest {
     @Test
     @DisplayName("a fallback that really came back is said to have come back, and only then")
     void aFallbackThatComesBackIsReportedAsBack() {
-        final FakeContainers containers = new FakeContainers().running(Topology.SMP)
-                .imageOutdated(Topology.SMP).recreateRefused(Topology.SMP);
+        final FakeContainers containers = new FakeContainers()
+                .running(Topology.SMP)
+                .imageOutdated(Topology.SMP)
+                .recreateRefused(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport started = run.start(stopped, containers.images());
 
-        final UpdateReport verified = run.verify(started, stopped.services(),
-                comesBackOnTheSecondLook(containers, Topology.SMP));
+        final UpdateReport verified =
+                run.verify(started, stopped.services(), comesBackOnTheSecondLook(containers, Topology.SMP));
 
         final String detail = verified.line(Topology.SMP).detail();
-        assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state(),
+        assertEquals(
+                UpdateReport.State.FAILED,
+                verified.line(Topology.SMP).state(),
                 "the update genuinely did not happen - the jars moved and the image did not - so"
                         + " the line stays FAILED however well the old version is running");
-        assertTrue(detail.contains("it is back on that old version"),
+        assertTrue(
+                detail.contains("it is back on that old version"),
                 "which version is running is the question an admin has next, and a bare FAILED"
                         + " sends somebody to look at a server that is fine: " + detail);
-        assertFalse(detail.contains("did NOT come back"),
+        assertFalse(
+                detail.contains("did NOT come back"),
                 "a service that came back must not also be reported as down: " + detail);
     }
 
@@ -561,8 +612,10 @@ class UpdateRunTest {
         // moment Docker accepted the start. A container that exits on the first tick - the old
         // image's entrypoint against a plugins directory that has just been updated is a good way
         // to get one - was reported as a service that was back on the old version.
-        final FakeContainers containers = new FakeContainers().running(Topology.SMP)
-                .imageOutdated(Topology.SMP).recreateRefused(Topology.SMP);
+        final FakeContainers containers = new FakeContainers()
+                .running(Topology.SMP)
+                .imageOutdated(Topology.SMP)
+                .recreateRefused(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport started = run.start(stopped, containers.images());
@@ -571,15 +624,18 @@ class UpdateRunTest {
 
         final String detail = verified.line(Topology.SMP).detail();
         assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state());
-        assertTrue(detail.contains("did NOT come back within "
-                        + UpdateRun.HEALTH_PATIENCE.toMinutes() + " minutes"),
+        assertTrue(
+                detail.contains("did NOT come back within " + UpdateRun.HEALTH_PATIENCE.toMinutes() + " minutes"),
                 "how long was waited is half of what makes this actionable: " + detail);
-        assertTrue(detail.contains("The service is down."),
+        assertTrue(
+                detail.contains("The service is down."),
                 "and somebody has to be told to go and look, in those words: " + detail);
-        assertTrue(detail.contains("running, starting"),
+        assertTrue(
+                detail.contains("running, starting"),
                 "the runtime was actually re-read - this used to be a line verify() never looked"
                         + " at, because only STARTING lines were waited on: " + detail);
-        assertFalse(detail.contains("is back on that old version"),
+        assertFalse(
+                detail.contains("is back on that old version"),
                 "a service that is down must not also be reported as back: " + detail);
     }
 
@@ -590,8 +646,8 @@ class UpdateRunTest {
         // depends on the worker - so a recreate that considers the worker a diverged dependency can
         // take the process making the call down with it. When that happens the last report written
         // is the whole diagnosis.
-        final FakeContainers containers = new FakeContainers().running(Topology.SMP)
-                .imageOutdated(Topology.SMP);
+        final FakeContainers containers =
+                new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), containers.runtime()), containers.images());

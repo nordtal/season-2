@@ -1,14 +1,13 @@
 package eu.nordtal.s2.hungergames.game;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 /**
  * That the four ways a game can end stay four ways.
@@ -68,8 +67,7 @@ class WinOutcomeTest {
 
     @Test
     void theFourEndingsAreDistinguishableByTheTwoFieldsTheCeremonyBranchesOn() {
-        record Shape(boolean hasWinner, boolean tie) {
-        }
+        record Shape(boolean hasWinner, boolean tie) {}
 
         final java.util.Set<Shape> shapes = new java.util.HashSet<>();
         for (final WinTracker.Outcome outcome : java.util.List.of(

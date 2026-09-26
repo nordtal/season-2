@@ -1,18 +1,14 @@
 package eu.nordtal.s2.proxy.update;
 
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+
+import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import eu.nordtal.s2.proxy.routing.PhaseServers;
-
-import com.velocitypowered.api.proxy.Player;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.title.Title;
-import org.slf4j.Logger;
-
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Locale;
@@ -20,8 +16,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-
-import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.title.Title;
+import org.slf4j.Logger;
 
 /**
  * The way back gets a voice - season-2-ops/118, point 3.
@@ -64,8 +61,8 @@ public final class Homecoming {
     public static final Duration NOTICE = Duration.ofSeconds(10);
 
     /** As long as a tick's subtitle in {@code RestartWatch}, and for the reason given there. */
-    private static final Title.Times TIMES = Title.Times.times(
-            Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
+    private static final Title.Times TIMES =
+            Title.Times.times(Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
 
     private final Logger logger;
     private final Messages messages;
@@ -81,8 +78,8 @@ public final class Homecoming {
      */
     private final Set<UUID> owed = ConcurrentHashMap.newKeySet();
 
-    public Homecoming(final Logger logger, final Messages messages, final LoginRoster roster,
-                      final PhaseServers servers) {
+    public Homecoming(
+            final Logger logger, final Messages messages, final LoginRoster roster, final PhaseServers servers) {
         this.logger = Objects.requireNonNull(logger, "logger");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.roster = Objects.requireNonNull(roster, "roster");
@@ -128,11 +125,14 @@ public final class Homecoming {
         }
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
-            player.sendMessage(MessageRenderer.of(messages).format(locale,
-                    MESSAGES.returnSection().waitingRoom(serviceName(messages, locale, destination))));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.returnSection().waitingRoom(serviceName(messages, locale, destination))));
         } catch (final RuntimeException failure) {
-            logger.warn("Could not tell {} that they are being moved back to '{}'",
-                    player.getUsername(), destination, failure);
+            logger.warn(
+                    "Could not tell {} that they are being moved back to '{}'",
+                    player.getUsername(),
+                    destination,
+                    failure);
         }
     }
 
@@ -151,8 +151,7 @@ public final class Homecoming {
             try {
                 tell(player, announcement);
             } catch (final RuntimeException failure) {
-                logger.warn("Could not tell {} that the network is back",
-                        player.getUsername(), failure);
+                logger.warn("Could not tell {} that the network is back", player.getUsername(), failure);
             }
         }
     }
@@ -162,39 +161,44 @@ public final class Homecoming {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         switch (announcement.kind()) {
             case COUNTDOWN -> {
-                player.sendMessage(renderer.format(locale,
-                        MESSAGES.returnSection().countdown(announcement.seconds())));
+                player.sendMessage(
+                        renderer.format(locale, MESSAGES.returnSection().countdown(announcement.seconds())));
                 if (isPlaying(player)) {
-                    subtitle(player, renderer.format(locale,
-                            MESSAGES.restart().tick(announcement.seconds())));
+                    subtitle(player, renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
                 }
             }
             case TICK -> {
                 if (isPlaying(player)) {
-                    subtitle(player, renderer.format(locale,
-                            MESSAGES.restart().tick(announcement.seconds())));
+                    subtitle(player, renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
                 }
             }
             case NOW -> {
-                player.sendMessage(renderer.format(locale, MESSAGES.returnSection().now()));
+                player.sendMessage(
+                        renderer.format(locale, MESSAGES.returnSection().now()));
                 if (isPlaying(player)) {
-                    subtitle(player, renderer.format(locale, MESSAGES.returnSection().now()));
+                    subtitle(
+                            player,
+                            renderer.format(locale, MESSAGES.returnSection().now()));
                 }
             }
             // Neither can happen on this path: the standby speaks only about a return it has
             // already decided on, and it decides by looking at a port rather than at a row that
             // could be withdrawn. Named rather than defaulted, so a future kind is a compile error
             // here instead of silence on somebody's screen.
-            case CANCELLED, FAILED -> logger.warn("The standby was asked to announce {}, which is"
-                    + " not something a return can be", announcement.kind());
+            case CANCELLED, FAILED ->
+                logger.warn(
+                        "The standby was asked to announce {}, which is" + " not something a return can be",
+                        announcement.kind());
         }
     }
 
     /** @return whether this player is doing something a transfer would interrupt */
     private boolean isPlaying(final Player player) {
-        return interrupts(player.getCurrentServer()
-                .map(connection -> connection.getServerInfo().getName())
-                .orElse(null), servers);
+        return interrupts(
+                player.getCurrentServer()
+                        .map(connection -> connection.getServerInfo().getName())
+                        .orElse(null),
+                servers);
     }
 
     /**
@@ -223,8 +227,7 @@ public final class Homecoming {
      * language falls back to English, so asking the locale would drop a perfectly good English name
      * in favour of a compose name for anything not yet translated.</p>
      */
-    public static Component serviceName(final Messages messages, final Locale locale,
-                                        final String service) {
+    public static Component serviceName(final Messages messages, final Locale locale, final String service) {
         final ProxyMessages.Restart.What names = MESSAGES.restart().what();
         final MessageRef name = switch (service) {
             case "smp" -> names.smp();
@@ -233,6 +236,8 @@ public final class Homecoming {
             case "proxy" -> names.proxy();
             default -> null;
         };
-        return name == null ? Component.text(service) : MessageRenderer.of(messages).format(locale, name);
+        return name == null
+                ? Component.text(service)
+                : MessageRenderer.of(messages).format(locale, name);
     }
 }

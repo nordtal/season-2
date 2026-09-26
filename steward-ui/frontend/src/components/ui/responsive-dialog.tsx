@@ -78,10 +78,7 @@ function useSheet(): boolean {
   return React.useContext(ResponsiveContext)
 }
 
-export function ResponsiveDialog({
-  children,
-  ...props
-}: React.ComponentProps<typeof Dialog>) {
+export function ResponsiveDialog({ children, ...props }: React.ComponentProps<typeof Dialog>) {
   // Answered `false` on the very first render and corrected in an effect - which is fine here, and
   // is worth saying why: these are mounted closed, at the top of a page or beside a popover, so the
   // correction has long happened before anything is on screen. What it does mean is that crossing
@@ -103,10 +100,7 @@ export function ResponsiveDialogTrigger(props: React.ComponentProps<typeof Dialo
   return <Trigger {...props} />
 }
 
-export function ResponsiveDialogContent({
-  showCloseButton,
-  ...props
-}: React.ComponentProps<typeof DialogContent>) {
+export function ResponsiveDialogContent({ showCloseButton, ...props }: React.ComponentProps<typeof DialogContent>) {
   // A sheet has no close button: it is closed by flicking it away or tapping the overlay, and a
   // second way to do it in the top corner is the corner a thumb cannot reach anyway.
   if (useSheet()) {
@@ -125,17 +119,12 @@ export function ResponsiveDialogTitle(props: React.ComponentProps<typeof DialogT
   return <Title {...props} />
 }
 
-export function ResponsiveDialogDescription(
-  props: React.ComponentProps<typeof DialogDescription>,
-) {
+export function ResponsiveDialogDescription(props: React.ComponentProps<typeof DialogDescription>) {
   const Description = useSheet() ? DrawerDescription : DialogDescription
   return <Description {...props} />
 }
 
-export function ResponsiveDialogFooter({
-  showCloseButton,
-  ...props
-}: React.ComponentProps<typeof DialogFooter>) {
+export function ResponsiveDialogFooter({ showCloseButton, ...props }: React.ComponentProps<typeof DialogFooter>) {
   if (useSheet()) {
     return <DrawerFooter {...props} />
   }
@@ -158,10 +147,7 @@ export function ResponsiveDialogClose(props: React.ComponentProps<typeof DialogC
  * <p>The names mirror `alert-dialog.tsx` one for one, so converting a call site is its import line
  * and a rename, the same trade the plain half above makes.</p>
  */
-export function ResponsiveAlertDialog({
-  children,
-  ...props
-}: React.ComponentProps<typeof AlertDialog>) {
+export function ResponsiveAlertDialog({ children, ...props }: React.ComponentProps<typeof AlertDialog>) {
   const sheet = useIsMobile()
   const Root = sheet ? Drawer : AlertDialog
 
@@ -172,44 +158,32 @@ export function ResponsiveAlertDialog({
   )
 }
 
-export function ResponsiveAlertDialogTrigger(
-  props: React.ComponentProps<typeof AlertDialogTrigger>,
-) {
+export function ResponsiveAlertDialogTrigger(props: React.ComponentProps<typeof AlertDialogTrigger>) {
   const Trigger = useSheet() ? DrawerTrigger : AlertDialogTrigger
   return <Trigger {...props} />
 }
 
-export function ResponsiveAlertDialogContent(
-  props: React.ComponentProps<typeof AlertDialogContent>,
-) {
+export function ResponsiveAlertDialogContent(props: React.ComponentProps<typeof AlertDialogContent>) {
   const Content = useSheet() ? DrawerContent : AlertDialogContent
   return <Content {...props} />
 }
 
-export function ResponsiveAlertDialogHeader(
-  props: React.ComponentProps<typeof AlertDialogHeader>,
-) {
+export function ResponsiveAlertDialogHeader(props: React.ComponentProps<typeof AlertDialogHeader>) {
   const Header = useSheet() ? DrawerHeader : AlertDialogHeader
   return <Header {...props} />
 }
 
-export function ResponsiveAlertDialogTitle(
-  props: React.ComponentProps<typeof AlertDialogTitle>,
-) {
+export function ResponsiveAlertDialogTitle(props: React.ComponentProps<typeof AlertDialogTitle>) {
   const Title = useSheet() ? DrawerTitle : AlertDialogTitle
   return <Title {...props} />
 }
 
-export function ResponsiveAlertDialogDescription(
-  props: React.ComponentProps<typeof AlertDialogDescription>,
-) {
+export function ResponsiveAlertDialogDescription(props: React.ComponentProps<typeof AlertDialogDescription>) {
   const Description = useSheet() ? DrawerDescription : AlertDialogDescription
   return <Description {...props} />
 }
 
-export function ResponsiveAlertDialogFooter(
-  props: React.ComponentProps<typeof AlertDialogFooter>,
-) {
+export function ResponsiveAlertDialogFooter(props: React.ComponentProps<typeof AlertDialogFooter>) {
   const Footer = useSheet() ? DrawerFooter : AlertDialogFooter
   return <Footer {...props} />
 }

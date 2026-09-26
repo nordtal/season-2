@@ -1,5 +1,8 @@
 package eu.nordtal.s2.common.online;
 
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindMethods;
@@ -7,10 +10,6 @@ import org.jdbi.v3.sqlobject.statement.SqlBatch;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
-
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
 
 /**
  * The whole SQL surface of {@code online_player}, the same style as {@link OnlineDao}.
@@ -90,6 +89,5 @@ interface OnlineRosterDao {
      *
      * @param subject may be {@code null}: the proxy has this player and no backend does yet
      */
-    record BoundPresence(UUID uuid, String name, String subject, OffsetDateTime updated) {
-    }
+    record BoundPresence(UUID uuid, String name, String subject, OffsetDateTime updated) {}
 }

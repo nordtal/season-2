@@ -4,13 +4,7 @@ import { ColourControl } from "@/components/steward/colour-control"
 import { SnowflakePicker } from "@/components/steward/snowflake-picker"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { fileTitle } from "@/lib/words"
@@ -251,15 +245,7 @@ export function ScalarControl({
   // the more specific of the two, being data this particular key actually declared rather than a
   // guess drawn from its name.
   if (entry.choices) {
-    return (
-      <ChoicesControl
-        id={id}
-        value={value}
-        choices={entry.choices}
-        disabled={disabled}
-        onChange={onChange}
-      />
-    )
+    return <ChoicesControl id={id} value={value} choices={entry.choices} disabled={disabled} onChange={onChange} />
   }
 
   const discord = discordId(entry)
@@ -359,9 +345,7 @@ export function ListControl({
               spellCheck={false}
               className="font-mono text-sm"
               aria-label={`Entry ${index + 1}`}
-              onChange={(event) =>
-                onChange(items.map((old, at) => (at === index ? event.target.value : old)))
-              }
+              onChange={(event) => onChange(items.map((old, at) => (at === index ? event.target.value : old)))}
             />
             <Button
               type="button"
@@ -377,13 +361,7 @@ export function ListControl({
         ))
       )}
       <div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          onClick={() => onChange([...items, ""])}
-        >
+        <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onChange([...items, ""])}>
           <PlusIcon aria-hidden />
           Add entry
         </Button>

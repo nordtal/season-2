@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.worker.apply;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -9,6 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Changes exactly two lines of the proxy's {@code pack.yml}: {@code url} and {@code sha1}.
@@ -28,15 +27,14 @@ import java.util.List;
  */
 public final class PackWriter {
 
-    private PackWriter() {
-    }
+    private PackWriter() {}
 
     /**
      * @return {@code true} if the file was written, {@code false} if it already said this.
      * @throws IOException if the file is missing, or does not carry both keys exactly once.
      */
-    public static boolean write(final @NotNull Path packYml, final @NotNull String url,
-                                final @NotNull String sha1) throws IOException {
+    public static boolean write(final @NotNull Path packYml, final @NotNull String url, final @NotNull String sha1)
+            throws IOException {
         if (!Files.isRegularFile(packYml)) {
             return create(packYml, url, sha1);
         }
@@ -73,8 +71,7 @@ public final class PackWriter {
         final Path temporary = packYml.resolveSibling(packYml.getFileName() + ".steward-worker-tmp");
         Files.write(temporary, written, StandardCharsets.UTF_8);
         try {
-            Files.move(temporary, packYml, StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE);
+            Files.move(temporary, packYml, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (final IOException atomicUnsupported) {
             // Some volume drivers cannot do an atomic rename; a plain replace of a five-line file
             // is still better than writing in place.
@@ -87,15 +84,18 @@ public final class PackWriter {
      * Writes a two-key {@code pack.yml} into a volume the proxy has never started against; the proxy
      * rewrites the header and adds the other three settings on its first load.
      */
-    private static boolean create(final @NotNull Path packYml, final @NotNull String url,
-                                  final @NotNull String sha1) throws IOException {
+    private static boolean create(final @NotNull Path packYml, final @NotNull String url, final @NotNull String sha1)
+            throws IOException {
         Files.createDirectories(packYml.getParent());
-        Files.write(packYml, List.of(
-                "# Written by steward-worker against a volume proxy had never started",
-                "# against. The proxy fills in enabled, force and apply-timeout-seconds with their",
-                "# defaults on its first load, and rewrites this header.",
-                "url: " + url,
-                "sha1: " + sha1), StandardCharsets.UTF_8);
+        Files.write(
+                packYml,
+                List.of(
+                        "# Written by steward-worker against a volume proxy had never started",
+                        "# against. The proxy fills in enabled, force and apply-timeout-seconds with their",
+                        "# defaults on its first load, and rewrites this header.",
+                        "url: " + url,
+                        "sha1: " + sha1),
+                StandardCharsets.UTF_8);
         return true;
     }
 

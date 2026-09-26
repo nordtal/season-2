@@ -3,13 +3,6 @@ package eu.nordtal.s2.common.access;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.common.message.Locales;
-
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
@@ -18,6 +11,11 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
+import org.jdbi.v3.postgres.PostgresPlugin;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
  * The only implementation of {@link AccessDirectory}. Package-private: consumers get it from the
@@ -39,9 +37,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
     private final HikariDataSource ownedPool;
 
     private JdbiAccessDirectory(final DataSource dataSource, final HikariDataSource ownedPool) {
-        this.jdbi = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin());
+        this.jdbi = Jdbi.create(dataSource).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
         this.dao = jdbi.onDemand(AccessDao.class);
         this.ownedPool = ownedPool;
     }
@@ -164,8 +160,8 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public void setDiscordProfile(final String discordId, final String username,
-                                  final String displayName, final String avatarUrl) {
+    public void setDiscordProfile(
+            final String discordId, final String username, final String displayName, final String avatarUrl) {
         dao.setDiscordProfile(Objects.requireNonNull(discordId, "discordId"), username, displayName, avatarUrl);
     }
 
@@ -200,10 +196,8 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public AccessGrant grantAccess(final String discordId,
-                                   final int days,
-                                   final AccessSource source,
-                                   final UUID paymentRequestId) {
+    public AccessGrant grantAccess(
+            final String discordId, final int days, final AccessSource source, final UUID paymentRequestId) {
         Objects.requireNonNull(discordId, "discordId");
         Objects.requireNonNull(source, "source");
         if (days <= 0) {
@@ -272,8 +266,9 @@ final class JdbiAccessDirectory implements AccessDirectory {
             }
         }
         throw new IllegalStateException(
-                "Could not allocate a unique link code for " + mcUuid + " after "
-                        + MAX_LINK_CODE_ATTEMPTS + " attempts", lastCollision);
+                "Could not allocate a unique link code for " + mcUuid + " after " + MAX_LINK_CODE_ATTEMPTS
+                        + " attempts",
+                lastCollision);
     }
 
     @Override
@@ -321,5 +316,4 @@ final class JdbiAccessDirectory implements AccessDirectory {
     public java.util.Optional<OpenPayment> openPayment(final String discordId) {
         return dao.openPayment(discordId);
     }
-
 }

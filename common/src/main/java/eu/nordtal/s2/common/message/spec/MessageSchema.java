@@ -1,7 +1,6 @@
 package eu.nordtal.s2.common.message.spec;
 
 import eu.nordtal.s2.common.message.context.Contexts;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -33,8 +32,7 @@ public final class MessageSchema {
     /** Adventure's component type, by name: a spec in a module without Adventure never loads it. */
     private static final String COMPONENT = "net.kyori.adventure.text.Component";
 
-    private MessageSchema() {
-    }
+    private MessageSchema() {}
 
     /**
      * @param name      the placeholder, or for a context the role
@@ -58,9 +56,14 @@ public final class MessageSchema {
      * @param format      how it is written
      * @param shown       where it is shown
      */
-    public record Entry(String key, String name, String description, List<Arg> args, List<String> section,
-                        TextFormat format, Display shown) {
-    }
+    public record Entry(
+            String key,
+            String name,
+            String description,
+            List<Arg> args,
+            List<String> section,
+            TextFormat format,
+            Display shown) {}
 
     /** @return the bundle a spec describes */
     public static String bundle(final Class<?> spec) {
@@ -75,7 +78,12 @@ public final class MessageSchema {
     public static List<Entry> entries(final Class<?> spec) {
         final List<Entry> entries = new ArrayList<>();
         final MessageSpec annotation = spec.getAnnotation(MessageSpec.class);
-        walk(spec, "", List.of(), entries, 0,
+        walk(
+                spec,
+                "",
+                List.of(),
+                entries,
+                0,
                 nearest(null, spec.getAnnotation(Format.class), annotation.format()),
                 nearest(null, spec.getAnnotation(Shown.class), annotation.shown()));
         final Map<String, Integer> order = new LinkedHashMap<>();
@@ -87,9 +95,14 @@ public final class MessageSchema {
         return entries;
     }
 
-    private static void walk(final Class<?> type, final String prefix, final List<String> section,
-                             final List<Entry> into, final int depth, final TextFormat format,
-                             final Display shown) {
+    private static void walk(
+            final Class<?> type,
+            final String prefix,
+            final List<String> section,
+            final List<Entry> into,
+            final int depth,
+            final TextFormat format,
+            final Display shown) {
         if (depth > 16) {
             throw new IllegalStateException(type.getName() + " nests sections more than 16 deep - a cycle?");
         }
@@ -98,7 +111,12 @@ public final class MessageSchema {
                 final List<String> inner = new ArrayList<>(section);
                 inner.add(sectionName(method));
                 final Class<?> inside = method.getReturnType();
-                walk(inside, prefix + MessageSpecs.segment(method) + ".", inner, into, depth + 1,
+                walk(
+                        inside,
+                        prefix + MessageSpecs.segment(method) + ".",
+                        inner,
+                        into,
+                        depth + 1,
                         nearest(method.getAnnotation(Format.class), inside.getAnnotation(Format.class), format),
                         nearest(method.getAnnotation(Shown.class), inside.getAnnotation(Shown.class), shown));
             } else if (MessageSpecs.isKey(method)) {
@@ -108,14 +126,19 @@ public final class MessageSchema {
                 for (final Parameter parameter : method.getParameters()) {
                     final eu.nordtal.s2.common.message.spec.Arg arg =
                             parameter.getAnnotation(eu.nordtal.s2.common.message.spec.Arg.class);
-                    args.add(new Arg(arg == null ? null : arg.value(),
+                    args.add(new Arg(
+                            arg == null ? null : arg.value(),
                             COMPONENT.equals(parameter.getType().getName()),
                             Contexts.isContext(parameter.getType()) ? Contexts.type(parameter.getType()) : null));
                 }
                 final Format ownFormat = method.getAnnotation(Format.class);
                 final Shown ownShown = method.getAnnotation(Shown.class);
-                into.add(new Entry(prefix + MessageSpecs.segment(method), name == null ? null : name.value(),
-                        describe == null ? null : describe.value(), List.copyOf(args), List.copyOf(section),
+                into.add(new Entry(
+                        prefix + MessageSpecs.segment(method),
+                        name == null ? null : name.value(),
+                        describe == null ? null : describe.value(),
+                        List.copyOf(args),
+                        List.copyOf(section),
                         ownFormat == null ? format : ownFormat.value(),
                         ownShown == null ? shown : ownShown.value()));
             }
@@ -228,18 +251,26 @@ public final class MessageSchema {
         final List<Entry> entries = entries(spec);
         for (int i = 0; i < entries.size(); i++) {
             final Entry entry = entries.get(i);
-            out.append(i == 0 ? "\n" : ",\n").append("    {\"key\": ").append(quote(entry.key()))
-                    .append(", \"name\": ").append(quote(entry.name()));
+            out.append(i == 0 ? "\n" : ",\n")
+                    .append("    {\"key\": ")
+                    .append(quote(entry.key()))
+                    .append(", \"name\": ")
+                    .append(quote(entry.name()));
             if (entry.description() != null) {
                 out.append(", \"description\": ").append(quote(entry.description()));
             }
-            out.append(", \"format\": ").append(quote(entry.format().name()))
-                    .append(", \"shown\": ").append(quote(entry.shown().name()));
+            out.append(", \"format\": ")
+                    .append(quote(entry.format().name()))
+                    .append(", \"shown\": ")
+                    .append(quote(entry.shown().name()));
             out.append(", \"args\": [");
             for (int a = 0; a < entry.args().size(); a++) {
                 final Arg arg = entry.args().get(a);
-                out.append(a == 0 ? "" : ", ").append("{\"name\": ").append(quote(arg.name()))
-                        .append(", \"component\": ").append(arg.component());
+                out.append(a == 0 ? "" : ", ")
+                        .append("{\"name\": ")
+                        .append(quote(arg.name()))
+                        .append(", \"component\": ")
+                        .append(arg.component());
                 if (arg.context() != null) {
                     out.append(", \"context\": ").append(quote(arg.context()));
                 }
@@ -254,8 +285,12 @@ public final class MessageSchema {
         out.append("\n  ],\n  \"contexts\": {");
         boolean first = true;
         for (final Map.Entry<String, Class<?>> type : contextTypes(spec).entrySet()) {
-            out.append(first ? "\n" : ",\n").append("    ").append(quote(type.getKey())).append(": {\"name\": ")
-                    .append(quote(Contexts.name(type.getValue()))).append(", \"properties\": [");
+            out.append(first ? "\n" : ",\n")
+                    .append("    ")
+                    .append(quote(type.getKey()))
+                    .append(": {\"name\": ")
+                    .append(quote(Contexts.name(type.getValue())))
+                    .append(", \"properties\": [");
             final List<String> properties = Contexts.properties(type.getValue());
             for (int p = 0; p < properties.size(); p++) {
                 out.append(p == 0 ? "" : ", ").append(quote(properties.get(p)));
@@ -266,8 +301,12 @@ public final class MessageSchema {
         out.append("\n  },\n  \"globals\": [");
         for (int g = 0; g < Contexts.GLOBAL_ROLES.size(); g++) {
             final String role = Contexts.GLOBAL_ROLES.get(g);
-            out.append(g == 0 ? "" : ", ").append("{\"name\": ").append(quote(role)).append(", \"context\": ")
-                    .append(quote(Contexts.type(Contexts.GLOBALS.get(role)))).append('}');
+            out.append(g == 0 ? "" : ", ")
+                    .append("{\"name\": ")
+                    .append(quote(role))
+                    .append(", \"context\": ")
+                    .append(quote(Contexts.type(Contexts.GLOBALS.get(role))))
+                    .append('}');
         }
         return out.append("]\n}\n").toString();
     }
@@ -310,8 +349,8 @@ public final class MessageSchema {
         final Class<?> spec = Class.forName(args[0]);
         final List<String> problems = MessageSpecCheck.problems(spec);
         if (!problems.isEmpty()) {
-            throw new IllegalStateException(spec.getName() + " disagrees with its bundle:\n  "
-                    + String.join("\n  ", problems));
+            throw new IllegalStateException(
+                    spec.getName() + " disagrees with its bundle:\n  " + String.join("\n  ", problems));
         }
         final Path file = Path.of(args[1], "messages", bundle(spec), "schema.json");
         Files.createDirectories(file.getParent());

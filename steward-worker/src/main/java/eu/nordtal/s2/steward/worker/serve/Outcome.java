@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
 import eu.nordtal.s2.common.update.UpdateStatus;
-
 import org.jetbrains.annotations.NotNull;
 
 /**

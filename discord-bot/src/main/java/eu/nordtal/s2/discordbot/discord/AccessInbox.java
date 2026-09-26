@@ -3,12 +3,10 @@ package eu.nordtal.s2.discordbot.discord;
 import eu.nordtal.s2.commands.access.AccessEffects;
 import eu.nordtal.s2.common.access.AccessRequest;
 import eu.nordtal.s2.common.access.AccessRequests;
-
-import org.slf4j.Logger;
-
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import org.slf4j.Logger;
 
 /**
  * Carries out whatever {@code access_request} holds (season-2-community/08).
@@ -36,8 +34,7 @@ public final class AccessInbox {
     private final AccessChanges effects;
     private final Logger log;
 
-    public AccessInbox(final AccessRequests inbox, final AccessChanges effects,
-                       final Logger log) {
+    public AccessInbox(final AccessRequests inbox, final AccessChanges effects, final Logger log) {
         this.inbox = Objects.requireNonNull(inbox, "inbox");
         this.effects = Objects.requireNonNull(effects, "effects");
         this.log = Objects.requireNonNull(log, "log");
@@ -59,13 +56,10 @@ public final class AccessInbox {
         // at all, which is precisely the case the patience exists for.
         final int given = inbox.expireDue();
         if (given > 0) {
-            log.warn("{} access request(s) were never picked up in time and have been given up on",
-                    given);
+            log.warn("{} access request(s) were never picked up in time and have been given up on", given);
         }
         int done = 0;
-        for (Optional<AccessRequest> claimed = inbox.claim();
-             claimed.isPresent();
-             claimed = inbox.claim()) {
+        for (Optional<AccessRequest> claimed = inbox.claim(); claimed.isPresent(); claimed = inbox.claim()) {
             carryOut(claimed.get());
             done++;
         }
@@ -76,13 +70,11 @@ public final class AccessInbox {
         final Actor by = Actor.asked(request.requestedBy());
         try {
             inbox.finish(request.id(), true, run(request, by));
-            log.info("access request {} ({} for {}) carried out", request.id(), request.kind(),
-                    request.subject());
+            log.info("access request {} ({} for {}) carried out", request.id(), request.kind(), request.subject());
         } catch (final RuntimeException failure) {
             // The message and not the stack trace: the row is read back by a web interface, and a
             // stack trace in a toast helps nobody. The trace goes to the log, where it belongs.
-            log.error("access request {} ({} for {}) failed", request.id(), request.kind(),
-                    request.subject(), failure);
+            log.error("access request {} ({} for {}) failed", request.id(), request.kind(), request.subject(), failure);
             inbox.finish(request.id(), false, json("error", String.valueOf(failure.getMessage())));
         }
     }
@@ -91,8 +83,7 @@ public final class AccessInbox {
     private String run(final AccessRequest request, final Actor by) {
         return switch (request.kind()) {
             case GRANT -> {
-                final Instant until =
-                        effects.grant(request.subject(), Math.toIntExact(request.number()), by);
+                final Instant until = effects.grant(request.subject(), Math.toIntExact(request.number()), by);
                 yield json("until", until.toString());
             }
             case REVOKE -> json("revoked", String.valueOf(effects.revoke(request.subject(), by)));
@@ -102,10 +93,15 @@ public final class AccessInbox {
                 // `until` is null for both refusals, and the row says so rather than inventing an
                 // instant - a surface reading this has to be able to tell "booked until then" from
                 // "there was nothing to book".
-                yield json("outcome", settled.outcome().name(),
-                        "days", String.valueOf(settled.days()),
-                        "until", settled.until() == null ? null : settled.until().toString(),
-                        "was", settled.status());
+                yield json(
+                        "outcome",
+                        settled.outcome().name(),
+                        "days",
+                        String.valueOf(settled.days()),
+                        "until",
+                        settled.until() == null ? null : settled.until().toString(),
+                        "was",
+                        settled.status());
             }
             case SET_PLAYTIME -> {
                 effects.setPlaytime(request.subject(), request.number(), by);
@@ -116,8 +112,8 @@ public final class AccessInbox {
                     // A bundle that no longer parses leaves the running one in place, so this is a
                     // failure and has to read as one: the surface that asked must say "not applied"
                     // rather than "applied, nothing to report".
-                    throw new IllegalStateException("the message bundles could not be re-read;"
-                            + " the running ones are unchanged");
+                    throw new IllegalStateException(
+                            "the message bundles could not be re-read;" + " the running ones are unchanged");
                 }
                 // The typos, by name. A key in the override that no bundle declares does nothing at
                 // all today, silently, and naming it is the whole reason /access reload prints

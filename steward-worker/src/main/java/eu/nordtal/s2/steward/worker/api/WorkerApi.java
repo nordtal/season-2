@@ -2,9 +2,9 @@ package eu.nordtal.s2.steward.worker.api;
 
 import com.google.gson.Gson;
 import eu.nordtal.s2.common.audit.AuditDirectory;
+import eu.nordtal.s2.common.online.OnlinePlayer;
 import eu.nordtal.s2.common.update.ServiceHold;
 import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.online.OnlinePlayer;
 import eu.nordtal.s2.steward.worker.backup.NightlyClock;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
 import eu.nordtal.s2.steward.worker.backup.TarSnapshots;
@@ -18,8 +18,8 @@ import eu.nordtal.s2.steward.worker.host.HostMetrics;
 import eu.nordtal.s2.steward.worker.host.HostSnapshot;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.plan.Change;
-import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
 import eu.nordtal.s2.steward.worker.plan.Topology;
+import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -27,10 +27,6 @@ import io.javalin.http.NotFoundResponse;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.http.sse.SseClient;
 import io.javalin.json.JavalinGson;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -45,7 +41,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,6 +51,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * What steward-ui is allowed to ask this container.
@@ -94,12 +93,15 @@ public final class WorkerApi implements AutoCloseable {
      * @param updateAt the same for the scheduled update, blank - the default - for none
      * @param zone     this container's zone - compose sets {@code TZ}, and it is not the browser's
      */
-    public record Nightly(@NotNull String at, @NotNull List<String> days, @NotNull String updateAt,
-                          @NotNull List<String> updateDays, @NotNull ZoneId zone) {
+    public record Nightly(
+            @NotNull String at,
+            @NotNull List<String> days,
+            @NotNull String updateAt,
+            @NotNull List<String> updateDays,
+            @NotNull ZoneId zone) {
 
         /** No scheduled update, which is what a config without the {@code update} section says. */
-        public Nightly(final @NotNull String at, final @NotNull List<String> days,
-                       final @NotNull ZoneId zone) {
+        public Nightly(final @NotNull String at, final @NotNull List<String> days, final @NotNull ZoneId zone) {
             this(at, days, "", List.of(), zone);
         }
     }
@@ -167,12 +169,11 @@ public final class WorkerApi implements AutoCloseable {
      */
     private static final Duration HEARTBEAT = Duration.ofSeconds(10);
 
-    private final ScheduledExecutorService heartbeats = Executors.newSingleThreadScheduledExecutor(
-            runnable -> {
-                final Thread thread = new Thread(runnable, "steward-worker-sse-heartbeat");
-                thread.setDaemon(true);
-                return thread;
-            });
+    private final ScheduledExecutorService heartbeats = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        final Thread thread = new Thread(runnable, "steward-worker-sse-heartbeat");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     /**
      * How long a registry answer is good for.
@@ -185,6 +186,7 @@ public final class WorkerApi implements AutoCloseable {
     private static final Duration DRIFT_TTL = Duration.ofMinutes(1);
     /** The console's steps are 1000, 5000 and 10000 lines; counting past the top one buys nothing. */
     static final int LOG_CAPACITY_MAX = 10_000;
+
     private static final Duration LOG_CAPACITY_TTL = Duration.ofMinutes(5);
 
     /**
@@ -196,7 +198,8 @@ public final class WorkerApi implements AutoCloseable {
      * minute ago" belonging to another - and this whole column exists because image drift went
      * unnoticed for four releases, so a row and its age have to be the same reading.</p>
      */
-    private record Drift(@NotNull ImageResult result, @NotNull Instant checkedAt) { }
+    private record Drift(
+            @NotNull ImageResult result, @NotNull Instant checkedAt) {}
 
     /**
      * One thread, and it belongs to nobody's request.
@@ -238,7 +241,8 @@ public final class WorkerApi implements AutoCloseable {
     private static final Duration AVAILABLE_TTL = Duration.ofHours(6);
 
     /** One resolve and the moment it was made, for the same reason {@link Drift} is one value. */
-    private record Available(@NotNull UpdatePlan plan, @NotNull Instant checkedAt) { }
+    private record Available(
+            @NotNull UpdatePlan plan, @NotNull Instant checkedAt) {}
 
     /**
      * The resolve, or {@code null} where this API has no sources to ask - every test that builds a
@@ -287,14 +291,19 @@ public final class WorkerApi implements AutoCloseable {
      */
     private final @NotNull UpdateDirectory updates;
 
-    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
-                     final @NotNull Console console, final @NotNull HostMetrics host,
-                     final @NotNull String project, final @NotNull Path backups,
-                     final @NotNull String token, final @NotNull Path configs,
-                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
-                     final @NotNull Nightly nightly) {
-        this(docker, ops, console, host, project, backups, token, configs, null, updates, audit,
-                nightly);
+    public WorkerApi(
+            final @NotNull Docker docker,
+            final @NotNull DockerOps ops,
+            final @NotNull Console console,
+            final @NotNull HostMetrics host,
+            final @NotNull String project,
+            final @NotNull Path backups,
+            final @NotNull String token,
+            final @NotNull Path configs,
+            final @NotNull UpdateDirectory updates,
+            final @NotNull AuditDirectory audit,
+            final @NotNull Nightly nightly) {
+        this(docker, ops, console, host, project, backups, token, configs, null, updates, audit, nightly);
     }
 
     /**
@@ -313,15 +322,20 @@ public final class WorkerApi implements AutoCloseable {
      *                    for why that one reading is worth the exception to "this class talks to
      *                    Docker and the filesystem, never the database" (§3)
      */
-    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
-                     final @NotNull Console console, final @NotNull HostMetrics host,
-                     final @NotNull String project, final @NotNull Path backups,
-                     final @NotNull String token, final @NotNull Path configs,
-                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
-                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
-                     final @NotNull Nightly nightly) {
-        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates,
-                audit, nightly, null);
+    public WorkerApi(
+            final @NotNull Docker docker,
+            final @NotNull DockerOps ops,
+            final @NotNull Console console,
+            final @NotNull HostMetrics host,
+            final @NotNull String project,
+            final @NotNull Path backups,
+            final @NotNull String token,
+            final @NotNull Path configs,
+            final @org.jetbrains.annotations.Nullable Path volumesRoot,
+            final @NotNull UpdateDirectory updates,
+            final @NotNull AuditDirectory audit,
+            final @NotNull Nightly nightly) {
+        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates, audit, nightly, null);
     }
 
     /**
@@ -332,16 +346,35 @@ public final class WorkerApi implements AutoCloseable {
      *               for why a subject it cannot vouch for is left out of the answer rather than
      *               sent as {@code 0} or an empty list (steward/86, steward/111).
      */
-    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
-                     final @NotNull Console console, final @NotNull HostMetrics host,
-                     final @NotNull String project, final @NotNull Path backups,
-                     final @NotNull String token, final @NotNull Path configs,
-                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
-                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
-                     final @NotNull Nightly nightly,
-                     final @org.jetbrains.annotations.Nullable ServicesApi online) {
-        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates,
-                audit, nightly, online, null);
+    public WorkerApi(
+            final @NotNull Docker docker,
+            final @NotNull DockerOps ops,
+            final @NotNull Console console,
+            final @NotNull HostMetrics host,
+            final @NotNull String project,
+            final @NotNull Path backups,
+            final @NotNull String token,
+            final @NotNull Path configs,
+            final @org.jetbrains.annotations.Nullable Path volumesRoot,
+            final @NotNull UpdateDirectory updates,
+            final @NotNull AuditDirectory audit,
+            final @NotNull Nightly nightly,
+            final @org.jetbrains.annotations.Nullable ServicesApi online) {
+        this(
+                docker,
+                ops,
+                console,
+                host,
+                project,
+                backups,
+                token,
+                configs,
+                volumesRoot,
+                updates,
+                audit,
+                nightly,
+                online,
+                null);
     }
 
     /**
@@ -353,17 +386,38 @@ public final class WorkerApi implements AutoCloseable {
      *                hold one from process start - a jar installed an hour ago has to stop being
      *                reported as available, and the only way it does is by asking again.
      */
-    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
-                     final @NotNull Console console, final @NotNull HostMetrics host,
-                     final @NotNull String project, final @NotNull Path backups,
-                     final @NotNull String token, final @NotNull Path configs,
-                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
-                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
-                     final @NotNull Nightly nightly,
-                     final @org.jetbrains.annotations.Nullable ServicesApi online,
-                     final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve) {
-        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates,
-                audit, nightly, online, resolve, null, null);
+    public WorkerApi(
+            final @NotNull Docker docker,
+            final @NotNull DockerOps ops,
+            final @NotNull Console console,
+            final @NotNull HostMetrics host,
+            final @NotNull String project,
+            final @NotNull Path backups,
+            final @NotNull String token,
+            final @NotNull Path configs,
+            final @org.jetbrains.annotations.Nullable Path volumesRoot,
+            final @NotNull UpdateDirectory updates,
+            final @NotNull AuditDirectory audit,
+            final @NotNull Nightly nightly,
+            final @org.jetbrains.annotations.Nullable ServicesApi online,
+            final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve) {
+        this(
+                docker,
+                ops,
+                console,
+                host,
+                project,
+                backups,
+                token,
+                configs,
+                volumesRoot,
+                updates,
+                audit,
+                nightly,
+                online,
+                resolve,
+                null,
+                null);
     }
 
     /**
@@ -374,18 +428,39 @@ public final class WorkerApi implements AutoCloseable {
      *                       answers, and guessing the friendlier one would be a lie about what is
      *                       installed
      */
-    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
-                     final @NotNull Console console, final @NotNull HostMetrics host,
-                     final @NotNull String project, final @NotNull Path backups,
-                     final @NotNull String token, final @NotNull Path configs,
-                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
-                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
-                     final @NotNull Nightly nightly,
-                     final @org.jetbrains.annotations.Nullable ServicesApi online,
-                     final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
-                     final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins) {
-        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates,
-                audit, nightly, online, resolve, managedPlugins, null);
+    public WorkerApi(
+            final @NotNull Docker docker,
+            final @NotNull DockerOps ops,
+            final @NotNull Console console,
+            final @NotNull HostMetrics host,
+            final @NotNull String project,
+            final @NotNull Path backups,
+            final @NotNull String token,
+            final @NotNull Path configs,
+            final @org.jetbrains.annotations.Nullable Path volumesRoot,
+            final @NotNull UpdateDirectory updates,
+            final @NotNull AuditDirectory audit,
+            final @NotNull Nightly nightly,
+            final @org.jetbrains.annotations.Nullable ServicesApi online,
+            final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
+            final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins) {
+        this(
+                docker,
+                ops,
+                console,
+                host,
+                project,
+                backups,
+                token,
+                configs,
+                volumesRoot,
+                updates,
+                audit,
+                nightly,
+                online,
+                resolve,
+                managedPlugins,
+                null);
     }
 
     /**
@@ -393,20 +468,41 @@ public final class WorkerApi implements AutoCloseable {
      *                    deployment with no database - saving the bot's messages then answers
      *                    that a restart is needed, which is what is true there
      */
-    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
-                     final @NotNull Console console, final @NotNull HostMetrics host,
-                     final @NotNull String project, final @NotNull Path backups,
-                     final @NotNull String token, final @NotNull Path configs,
-                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
-                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
-                     final @NotNull Nightly nightly,
-                     final @org.jetbrains.annotations.Nullable ServicesApi online,
-                     final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
-                     final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins,
-                     final @org.jetbrains.annotations.Nullable
-                             eu.nordtal.s2.common.access.AccessRequests accessInbox) {
-        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates,
-                audit, () -> nightly, online, resolve, managedPlugins, accessInbox, () -> { });
+    public WorkerApi(
+            final @NotNull Docker docker,
+            final @NotNull DockerOps ops,
+            final @NotNull Console console,
+            final @NotNull HostMetrics host,
+            final @NotNull String project,
+            final @NotNull Path backups,
+            final @NotNull String token,
+            final @NotNull Path configs,
+            final @org.jetbrains.annotations.Nullable Path volumesRoot,
+            final @NotNull UpdateDirectory updates,
+            final @NotNull AuditDirectory audit,
+            final @NotNull Nightly nightly,
+            final @org.jetbrains.annotations.Nullable ServicesApi online,
+            final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
+            final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins,
+            final @org.jetbrains.annotations.Nullable eu.nordtal.s2.common.access.AccessRequests accessInbox) {
+        this(
+                docker,
+                ops,
+                console,
+                host,
+                project,
+                backups,
+                token,
+                configs,
+                volumesRoot,
+                updates,
+                audit,
+                () -> nightly,
+                online,
+                resolve,
+                managedPlugins,
+                accessInbox,
+                () -> {});
     }
 
     /**
@@ -416,19 +512,24 @@ public final class WorkerApi implements AutoCloseable {
      *                  written: re-read it and re-arm the clocks. It may throw; the save has
      *                  already happened, and the answer then says the change waits for a restart.
      */
-    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
-                     final @NotNull Console console, final @NotNull HostMetrics host,
-                     final @NotNull String project, final @NotNull Path backups,
-                     final @NotNull String token, final @NotNull Path configs,
-                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
-                     final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit,
-                     final @NotNull Supplier<Nightly> nightly,
-                     final @org.jetbrains.annotations.Nullable ServicesApi online,
-                     final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
-                     final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins,
-                     final @org.jetbrains.annotations.Nullable
-                             eu.nordtal.s2.common.access.AccessRequests accessInbox,
-                     final @NotNull Runnable reReadOwn) {
+    public WorkerApi(
+            final @NotNull Docker docker,
+            final @NotNull DockerOps ops,
+            final @NotNull Console console,
+            final @NotNull HostMetrics host,
+            final @NotNull String project,
+            final @NotNull Path backups,
+            final @NotNull String token,
+            final @NotNull Path configs,
+            final @org.jetbrains.annotations.Nullable Path volumesRoot,
+            final @NotNull UpdateDirectory updates,
+            final @NotNull AuditDirectory audit,
+            final @NotNull Supplier<Nightly> nightly,
+            final @org.jetbrains.annotations.Nullable ServicesApi online,
+            final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
+            final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins,
+            final @org.jetbrains.annotations.Nullable eu.nordtal.s2.common.access.AccessRequests accessInbox,
+            final @NotNull Runnable reReadOwn) {
         this.managedPlugins = managedPlugins;
         this.players = online;
         this.updates = updates;
@@ -443,8 +544,7 @@ public final class WorkerApi implements AutoCloseable {
         // The configuration editor's whole back end. It lives here and not in steward-ui because
         // every file it touches is 0600 root:root and steward-ui is the one service that is not
         // root - see ApiSpec#configsRoot for the measurement that moved it.
-        this.configs = new ConfigApi(configs, console::send,
-                java.util.Map.of(ConfigApi.OWN_CONFIG, reReadOwn));
+        this.configs = new ConfigApi(configs, console::send, java.util.Map.of(ConfigApi.OWN_CONFIG, reReadOwn));
         // A message bundle is not a config file - see MessagesApi's own javadoc for why it is kept
         // apart rather than folded into ConfigApi (steward/48).
         this.messages = new MessagesApi(configs, volumesRoot, accessInbox, console::send);
@@ -453,234 +553,252 @@ public final class WorkerApi implements AutoCloseable {
         this.actions = new ActionsApi(updates, audit);
         // Its own virtual thread per refresh, not driftRefresh: a du queued behind a registry
         // comparison over the internet would age the number for no reason of its own.
-        this.disk = new DiskUsage(volumesRoot,
-                runnable -> Thread.ofVirtual().name("disk-usage").start(runnable));
+        this.disk = new DiskUsage(
+                volumesRoot, runnable -> Thread.ofVirtual().name("disk-usage").start(runnable));
         this.archive = new LogArchive(volumesRoot);
         // Here rather than at the field, because it reads `ops`, which is a constructor argument.
-        this.drift = new Refreshed<>(() -> new Drift(ops.images(), Instant.now()), DRIFT_TTL,
-                driftRefresh, Instant::now);
+        this.drift =
+                new Refreshed<>(() -> new Drift(ops.images(), Instant.now()), DRIFT_TTL, driftRefresh, Instant::now);
         // The same background thread as drift, and deliberately so: both are slow calls over the
         // internet made on nobody's request, Refreshed never has two of its own going at once, and
         // a resolve waiting behind a registry comparison costs a page that is already showing the
         // previous answer nothing at all.
-        this.available = resolve == null ? null
-                : new Refreshed<>(() -> new Available(resolve.get(), Instant.now()),
-                        AVAILABLE_TTL, driftRefresh, Instant::now);
+        this.available = resolve == null
+                ? null
+                : new Refreshed<>(
+                        () -> new Available(resolve.get(), Instant.now()), AVAILABLE_TTL, driftRefresh, Instant::now);
     }
 
     public void start(final int port) {
         if (token.isBlank()) {
             throw new IllegalStateException(
                     "api.token is empty. This API can type into a server console, so it does not "
-                    + "serve without a shared secret; the setup script writes one into the host's "
-                    + ".env and compose gives it to both containers.");
+                            + "serve without a shared secret; the setup script writes one into the host's "
+                            + ".env and compose gives it to both containers.");
         }
         app = Javalin.create(config -> {
-            config.jsonMapper(new JavalinGson(new Gson(), true));
-            config.startup.showJavalinBanner = false;
+                    config.jsonMapper(new JavalinGson(new Gson(), true));
+                    config.startup.showJavalinBanner = false;
 
-            config.routes.before("/api/*", ctx -> {
-                if (ctx.path().equals("/api/health")) {
-                    return;
-                }
-                if (!token.equals(ctx.header("X-Steward-Token"))) {
-                    throw new UnauthorizedResponse("bad or missing X-Steward-Token");
-                }
-            });
+                    config.routes.before("/api/*", ctx -> {
+                        if (ctx.path().equals("/api/health")) {
+                            return;
+                        }
+                        if (!token.equals(ctx.header("X-Steward-Token"))) {
+                            throw new UnauthorizedResponse("bad or missing X-Steward-Token");
+                        }
+                    });
 
-            config.routes.get("/api/health", ctx -> ctx.json(Map.of(
-                    "status", "ok", "docker", docker.isReachable())));
+                    config.routes.get(
+                            "/api/health", ctx -> ctx.json(Map.of("status", "ok", "docker", docker.isReachable())));
 
-            // Everything the start page's service table needs, in one request: §10c wants state,
-            // health, image, uptime, RAM and CPU per service, and ten round trips for one table
-            // would make the page slower than the thing it is describing.
-            config.routes.get("/api/services", ctx -> ctx.json(serviceTable()));
+                    // Everything the start page's service table needs, in one request: §10c wants state,
+                    // health, image, uptime, RAM and CPU per service, and ten round trips for one table
+                    // would make the page slower than the thing it is describing.
+                    config.routes.get("/api/services", ctx -> ctx.json(serviceTable()));
 
-            config.routes.get("/api/services/{name}", ctx -> ctx.json(
-                    service(ctx.pathParam("name")).orElseThrow(
-                            () -> new NotFoundResponse("no such service: " + ctx.pathParam("name")))));
+                    config.routes.get(
+                            "/api/services/{name}",
+                            ctx -> ctx.json(service(ctx.pathParam("name"))
+                                    .orElseThrow(
+                                            () -> new NotFoundResponse("no such service: " + ctx.pathParam("name")))));
 
-            // The live log. SSE rather than a websocket: one direction, reconnects by itself, and
-            // it passes through a reverse proxy without a special rule.
-            config.routes.sse("/api/services/{name}/logs", client -> {
-                final String name = client.ctx().pathParam("name");
-                final String containerId = containerOf(name).orElse(null);
-                if (containerId == null) {
-                    client.sendEvent("gone", "no running container for " + name);
-                    client.close();
-                    return;
-                }
-                client.keepAlive();
-                final boolean multiplexed = !docker.inspect(containerId).tty();
-                final String tail = client.ctx().queryParamAsClass("tail", String.class)
-                        .getOrDefault("200");
-                final String since = client.ctx().queryParam("since");
+                    // The live log. SSE rather than a websocket: one direction, reconnects by itself, and
+                    // it passes through a reverse proxy without a special rule.
+                    config.routes.sse("/api/services/{name}/logs", client -> {
+                        final String name = client.ctx().pathParam("name");
+                        final String containerId = containerOf(name).orElse(null);
+                        if (containerId == null) {
+                            client.sendEvent("gone", "no running container for " + name);
+                            client.close();
+                            return;
+                        }
+                        client.keepAlive();
+                        final boolean multiplexed = !docker.inspect(containerId).tty();
+                        final String tail = client.ctx()
+                                .queryParamAsClass("tail", String.class)
+                                .getOrDefault("200");
+                        final String since = client.ctx().queryParam("since");
 
-                final DockerSocket.Stream stream = docker.logs(containerId, true, tail, since);
-                follows.add(stream);
-                if (closing) {
-                    // close() may have walked `follows` a moment before this line put the stream in
-                    // it. Nobody else will close it now, so this does.
-                    goneOnShutdown(client, stream, name);
-                    return;
-                }
-                final ScheduledFuture<?> heartbeat;
-                final AtomicBoolean beating = new AtomicBoolean();
-                try {
-                    heartbeat = heartbeats.scheduleWithFixedDelay(
-                            () -> beat(client, name, beating), HEARTBEAT.toSeconds(),
-                            HEARTBEAT.toSeconds(), TimeUnit.SECONDS);
-                } catch (RejectedExecutionException rejected) {
-                    goneOnShutdown(client, stream, name);
-                    return;
-                }
-                client.onClose(() -> {
-                    heartbeat.cancel(false);
-                    closeQuietly(stream, name);
-                });
-                try {
-                followers.submit(() -> {
-                    try {
-                        backlog(client, containerId, name, tail, multiplexed);
-                        LogFrames.read(stream.body(), multiplexed, line -> {
-                            // Asking before writing, rather than letting the write fail. Javalin
-                            // does not throw on a terminated client - it logs "Cannot send data"
-                            // and returns - so a follow whose browser has gone reads the container's
-                            // whole backlog and reports every line of it to nobody, one warning per
-                            // line. Measured on this host on 2026-09-13: a `tail=200` follow closed
-                            // at its first line still wrote 69 of them.
-                            if (client.terminated()) {
-                                throw new Gone();
-                            }
-                            client.sendEvent("line", line);
+                        final DockerSocket.Stream stream = docker.logs(containerId, true, tail, since);
+                        follows.add(stream);
+                        if (closing) {
+                            // close() may have walked `follows` a moment before this line put the stream in
+                            // it. Nobody else will close it now, so this does.
+                            goneOnShutdown(client, stream, name);
+                            return;
+                        }
+                        final ScheduledFuture<?> heartbeat;
+                        final AtomicBoolean beating = new AtomicBoolean();
+                        try {
+                            heartbeat = heartbeats.scheduleWithFixedDelay(
+                                    () -> beat(client, name, beating),
+                                    HEARTBEAT.toSeconds(),
+                                    HEARTBEAT.toSeconds(),
+                                    TimeUnit.SECONDS);
+                        } catch (RejectedExecutionException rejected) {
+                            goneOnShutdown(client, stream, name);
+                            return;
+                        }
+                        client.onClose(() -> {
+                            heartbeat.cancel(false);
+                            closeQuietly(stream, name);
                         });
-                    } catch (Gone gone) {
-                        log.debug("the follow of {} ended with whoever was watching it", name);
-                    } catch (IOException e) {
-                        log.debug("the log follow for {} ended", name, e);
-                    } finally {
-                        follows.remove(stream);
-                        closeQuietly(stream, name);
-                        client.close();
-                    }
-                });
-                } catch (RejectedExecutionException rejected) {
-                    heartbeat.cancel(false);
-                    goneOnShutdown(client, stream, name);
-                }
-            });
+                        try {
+                            followers.submit(() -> {
+                                try {
+                                    backlog(client, containerId, name, tail, multiplexed);
+                                    LogFrames.read(stream.body(), multiplexed, line -> {
+                                        // Asking before writing, rather than letting the write fail. Javalin
+                                        // does not throw on a terminated client - it logs "Cannot send data"
+                                        // and returns - so a follow whose browser has gone reads the container's
+                                        // whole backlog and reports every line of it to nobody, one warning per
+                                        // line. Measured on this host on 2026-09-13: a `tail=200` follow closed
+                                        // at its first line still wrote 69 of them.
+                                        if (client.terminated()) {
+                                            throw new Gone();
+                                        }
+                                        client.sendEvent("line", line);
+                                    });
+                                } catch (Gone gone) {
+                                    log.debug("the follow of {} ended with whoever was watching it", name);
+                                } catch (IOException e) {
+                                    log.debug("the log follow for {} ended", name, e);
+                                } finally {
+                                    follows.remove(stream);
+                                    closeQuietly(stream, name);
+                                    client.close();
+                                }
+                            });
+                        } catch (RejectedExecutionException rejected) {
+                            heartbeat.cancel(false);
+                            goneOnShutdown(client, stream, name);
+                        }
+                    });
 
-            // One line into one server's console. The answer is NOT in the response: `mc` hands the
-            // line to tmux and the server prints its reply on its own console, which is the log
-            // everybody is already watching. That is what makes a second admin's command visible
-            // to the first instead of private.
-            config.routes.post("/api/services/{name}/console", ctx -> {
-                final ConsoleLine body = ctx.bodyAsClass(ConsoleLine.class);
-                if (body == null || body.command == null || body.command.isBlank()) {
-                    throw new BadRequestResponse("command is the line to type");
-                }
-                try {
-                    console.send(ctx.pathParam("name"), body.command.strip());
-                } catch (IllegalArgumentException e) {
-                    throw new BadRequestResponse(e.getMessage());
-                }
-                ctx.status(202).json(Map.of("sent", body.command.strip(),
-                        "where", "the answer appears in this service's log"));
-            });
+                    // One line into one server's console. The answer is NOT in the response: `mc` hands the
+                    // line to tmux and the server prints its reply on its own console, which is the log
+                    // everybody is already watching. That is what makes a second admin's command visible
+                    // to the first instead of private.
+                    config.routes.post("/api/services/{name}/console", ctx -> {
+                        final ConsoleLine body = ctx.bodyAsClass(ConsoleLine.class);
+                        if (body == null || body.command == null || body.command.isBlank()) {
+                            throw new BadRequestResponse("command is the line to type");
+                        }
+                        try {
+                            console.send(ctx.pathParam("name"), body.command.strip());
+                        } catch (IllegalArgumentException e) {
+                            throw new BadRequestResponse(e.getMessage());
+                        }
+                        ctx.status(202)
+                                .json(Map.of(
+                                        "sent",
+                                        body.command.strip(),
+                                        "where",
+                                        "the answer appears in this service's log"));
+                    });
 
-            // The configuration of every service in the stack (§10a.6). steward-ui proxies these
-            // three verbatim: it draws the form and holds the security key in front of it, and
-            // this side holds the file permissions. Neither half can do the other's job, which is
-            // the point.
-            config.routes.get("/api/config", configs::list);
-            config.routes.get("/api/config/<file>", configs::one);
-            config.routes.put("/api/config/<file>", configs::save);
+                    // The configuration of every service in the stack (§10a.6). steward-ui proxies these
+                    // three verbatim: it draws the form and holds the security key in front of it, and
+                    // this side holds the file permissions. Neither half can do the other's job, which is
+                    // the point.
+                    config.routes.get("/api/config", configs::list);
+                    config.routes.get("/api/config/<file>", configs::one);
+                    config.routes.put("/api/config/<file>", configs::save);
 
-            // The raw editor's own save (steward/60) - a route of its own rather than a fourth
-            // verb on the three above, because a raw save carries text and a revision, never a
-            // `changes` map, and nothing here refuses on what that text says. See ConfigApi#saveRaw.
-            config.routes.put("/api/config-raw/<file>", configs::saveRaw);
+                    // The raw editor's own save (steward/60) - a route of its own rather than a fourth
+                    // verb on the three above, because a raw save carries text and a revision, never a
+                    // `changes` map, and nothing here refuses on what that text says. See ConfigApi#saveRaw.
+                    config.routes.put("/api/config-raw/<file>", configs::saveRaw);
 
-            // The message bundles (steward/48) - their own routes and their own card in the
-            // interface, never folded into the three above. See MessagesApi's javadoc for why.
-            config.routes.get("/api/messages", messages::list);
-            config.routes.get("/api/messages/<bundle>", messages::one);
-            config.routes.put("/api/messages/<bundle>", messages::save);
+                    // The message bundles (steward/48) - their own routes and their own card in the
+                    // interface, never folded into the three above. See MessagesApi's javadoc for why.
+                    config.routes.get("/api/messages", messages::list);
+                    config.routes.get("/api/messages/<bundle>", messages::one);
+                    config.routes.put("/api/messages/<bundle>", messages::save);
 
+                    config.routes.get("/api/host", ctx -> ctx.json(hostNumbers()));
 
-            config.routes.get("/api/host", ctx -> ctx.json(hostNumbers()));
+                    // The nightly clock, so that "tonight" in the interface means a moment on THIS host.
+                    // A browser works out four o'clock in its own time zone, which is not this container's
+                    // - and the whole point of the offer is to land before the backup rather than on it.
+                    config.routes.get("/api/schedule", ctx -> ctx.json(schedule()));
 
-            // The nightly clock, so that "tonight" in the interface means a moment on THIS host.
-            // A browser works out four o'clock in its own time zone, which is not this container's
-            // - and the whole point of the offer is to land before the backup rather than on it.
-            config.routes.get("/api/schedule", ctx -> ctx.json(schedule()));
+                    // What is actually on the disk, not what a run reported. A backup list read from the
+                    // report is a list of things somebody meant to write.
+                    config.routes.get("/api/backups", ctx -> ctx.json(archives()));
 
-            // What is actually on the disk, not what a run reported. A backup list read from the
-            // report is a list of things somebody meant to write.
-            config.routes.get("/api/backups", ctx -> ctx.json(archives()));
+                    // steward/95's download: one archive, streamed rather than read into memory - these are
+                    // hundreds of megabytes. `{name}` is a single path segment, so a literal `/` in it is
+                    // already refused by the router before this ever runs; downloadBackup itself does not
+                    // rely on that alone. See its own javadoc for the two checks it does make.
+                    config.routes.get(
+                            "/api/backups/{name}/download", ctx -> downloadBackup(ctx, ctx.pathParam("name")));
 
-            // steward/95's download: one archive, streamed rather than read into memory - these are
-            // hundreds of megabytes. `{name}` is a single path segment, so a literal `/` in it is
-            // already refused by the router before this ever runs; downloadBackup itself does not
-            // rely on that alone. See its own javadoc for the two checks it does make.
-            config.routes.get("/api/backups/{name}/download", ctx -> downloadBackup(ctx, ctx.pathParam("name")));
+                    // steward-ui's push watch (steward/98): a small derived reading, not the service table
+                    // again - see AlertLevel's own javadoc for why it is a subset of health.ts's summarise
+                    // and reads the same maps this class already built rather than a copy of their shape.
+                    config.routes.get("/api/alert-level", ctx -> ctx.json(alertLevel()));
 
-            // steward-ui's push watch (steward/98): a small derived reading, not the service table
-            // again - see AlertLevel's own javadoc for why it is a subset of health.ts's summarise
-            // and reads the same maps this class already built rather than a copy of their shape.
-            config.routes.get("/api/alert-level", ctx -> ctx.json(alertLevel()));
+                    // The unified "latest actions" feed (steward/82) - the newest few rows across
+                    // update_request and audit_log, merged and sorted here rather than by the interface.
+                    // See ActionsApi's own javadoc for why it is one query and not two.
+                    config.routes.get("/api/actions", actions::list);
 
-            // The unified "latest actions" feed (steward/82) - the newest few rows across
-            // update_request and audit_log, merged and sorted here rather than by the interface.
-            // See ActionsApi's own javadoc for why it is one query and not two.
-            config.routes.get("/api/actions", actions::list);
+                    // season-2-ops/129: the plugins on one Minecraft server, and the Modrinth search
+                    // beside them. The list is read off the disk and the table only says which rows may
+                    // be deleted - see PluginsApi for why that is the enforcement of "the Nordtal plugins
+                    // are fixed" rather than a greyed-out button.
+                    //
+                    // Installing is a row and not an install: the jar arrives with the next update run,
+                    // through the ordinary resolve, because Topology.servicesWith merges the table into
+                    // the fixed list. Removing is the one thing here that touches the disk at once, and it
+                    // deletes the data folder as well - which is why the list hands its name over first.
+                    config.routes.get(
+                            "/api/services/{name}/plugins", ctx -> plugins().list(ctx));
+                    config.routes.get(
+                            "/api/services/{name}/plugins/search",
+                            ctx -> plugins().search(ctx));
+                    config.routes.post(
+                            "/api/services/{name}/plugins", ctx -> plugins().add(ctx));
+                    config.routes.delete(
+                            "/api/services/{name}/plugins/{artifact}",
+                            ctx -> plugins().remove(ctx));
 
-            // season-2-ops/129: the plugins on one Minecraft server, and the Modrinth search
-            // beside them. The list is read off the disk and the table only says which rows may
-            // be deleted - see PluginsApi for why that is the enforcement of "the Nordtal plugins
-            // are fixed" rather than a greyed-out button.
-            //
-            // Installing is a row and not an install: the jar arrives with the next update run,
-            // through the ordinary resolve, because Topology.servicesWith merges the table into
-            // the fixed list. Removing is the one thing here that touches the disk at once, and it
-            // deletes the data folder as well - which is why the list hands its name over first.
-            config.routes.get("/api/services/{name}/plugins", ctx -> plugins().list(ctx));
-            config.routes.get("/api/services/{name}/plugins/search", ctx -> plugins().search(ctx));
-            config.routes.post("/api/services/{name}/plugins", ctx -> plugins().add(ctx));
-            config.routes.delete("/api/services/{name}/plugins/{artifact}", ctx -> plugins().remove(ctx));
-
-            // season-2-ops/128: WHAT A RUN WOULD DO, WITHOUT DOING IT. Until this existed the only
-            // way to see whether PacketEvents or Paper had moved was to start a run, so the plan page
-            // said in as many words that there was no dry run and drew an image comparison
-            // instead. Reading this route writes nothing: no row in update_request, no container
-            // touched, no jar moved. See AVAILABLE_TTL for why that is not a breach of "nothing
-            // updates on a schedule" but the other half of it.
-            config.routes.get("/api/updates/available", ctx -> {
-                if (available == null) {
-                    // 503 and not an empty plan. See the field for why the two are different
-                    // answers and why guessing the friendlier one would be a lie.
-                    ctx.status(503).json(Map.of("error",
-                            "this worker has no sources configured, so nothing can be resolved"));
-                    return;
-                }
-                // season-2-ops/142: the same reading, asked for again on purpose. The cache holds
-                // six hours, which is right for a page somebody opens and wrong for the one moment
-                // they have just published something and want to see it - and without this that
-                // wait is one nobody can shorten.
-                //
-                // A parameter on the read rather than a POST of its own, and that is the honest
-                // shape: it costs a lot and still changes nothing. Steward's own rule is that a
-                // writing route needs the security key touched in the last five minutes
-                // (`GateTest`), and asking a refusable question about it every time somebody wants
-                // a current answer would be a key ceremony for a refresh button. What it does to
-                // the cache is throw it away, which is what any cache-busting read does.
-                if (ctx.queryParam("refresh") != null) {
-                    available.invalidate();
-                }
-                ctx.json(availability(available.get()));
-            });
-
-        }).start(port);
+                    // season-2-ops/128: WHAT A RUN WOULD DO, WITHOUT DOING IT. Until this existed the only
+                    // way to see whether PacketEvents or Paper had moved was to start a run, so the plan page
+                    // said in as many words that there was no dry run and drew an image comparison
+                    // instead. Reading this route writes nothing: no row in update_request, no container
+                    // touched, no jar moved. See AVAILABLE_TTL for why that is not a breach of "nothing
+                    // updates on a schedule" but the other half of it.
+                    config.routes.get("/api/updates/available", ctx -> {
+                        if (available == null) {
+                            // 503 and not an empty plan. See the field for why the two are different
+                            // answers and why guessing the friendlier one would be a lie.
+                            ctx.status(503)
+                                    .json(Map.of(
+                                            "error",
+                                            "this worker has no sources configured, so nothing can be resolved"));
+                            return;
+                        }
+                        // season-2-ops/142: the same reading, asked for again on purpose. The cache holds
+                        // six hours, which is right for a page somebody opens and wrong for the one moment
+                        // they have just published something and want to see it - and without this that
+                        // wait is one nobody can shorten.
+                        //
+                        // A parameter on the read rather than a POST of its own, and that is the honest
+                        // shape: it costs a lot and still changes nothing. Steward's own rule is that a
+                        // writing route needs the security key touched in the last five minutes
+                        // (`GateTest`), and asking a refusable question about it every time somebody wants
+                        // a current answer would be a key ceremony for a refresh button. What it does to
+                        // the cache is throw it away, which is what any cache-busting read does.
+                        if (ctx.queryParam("refresh") != null) {
+                            available.invalidate();
+                        }
+                        ctx.json(availability(available.get()));
+                    });
+                })
+                .start(port);
 
         log.info("the internal API is on {} - steward-ui reads the daemon through it", port);
 
@@ -693,8 +811,7 @@ public final class WorkerApi implements AutoCloseable {
             try {
                 drift.get();
             } catch (RuntimeException failed) {
-                log.warn("the first image comparison failed - the next request will try again: {}",
-                        failed.toString());
+                log.warn("the first image comparison failed - the next request will try again: {}", failed.toString());
             }
         });
     }
@@ -771,10 +888,12 @@ public final class WorkerApi implements AutoCloseable {
         }
         final List<Map<String, Object>> all;
         try (var scope = Executors.newVirtualThreadPerTaskExecutor()) {
-            all = scope.invokeAll(containers.stream()
+            all = scope
+                    .invokeAll(containers.stream()
                             .map(container -> (java.util.concurrent.Callable<Map<String, Object>>)
                                     () -> describe(container, drift, counts, holds))
-                            .toList()).stream()
+                            .toList())
+                    .stream()
                     .map(WorkerApi::resultOf)
                     .toList();
         } catch (InterruptedException e) {
@@ -782,8 +901,8 @@ public final class WorkerApi implements AutoCloseable {
             throw new IllegalStateException("reading the service table was interrupted", e);
         }
         return all.stream()
-                .sorted((left, right) -> String.valueOf(left.get("service"))
-                        .compareTo(String.valueOf(right.get("service"))))
+                .sorted((left, right) ->
+                        String.valueOf(left.get("service")).compareTo(String.valueOf(right.get("service"))))
                 .toList();
     }
 
@@ -826,9 +945,11 @@ public final class WorkerApi implements AutoCloseable {
      * {@link ServicesApi#read()} taken once for the whole response, so no two rows of one answer can
      * disagree about the same instant.
      */
-    private Map<String, Object> describe(final Docker.Container container, final ImageResult drift,
-                                         final ServicesApi.Online counts,
-                                         final Map<String, ServiceHold> holds) {
+    private Map<String, Object> describe(
+            final Docker.Container container,
+            final ImageResult drift,
+            final ServicesApi.Online counts,
+            final Map<String, ServiceHold> holds) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("service", container.service());
         row.put("containerId", container.id());
@@ -907,8 +1028,7 @@ public final class WorkerApi implements AutoCloseable {
      *
      * @param service the compose service name this row is about - the key both maps are keyed by
      */
-    static void putOnline(final Map<String, Object> row, final String service,
-                          final ServicesApi.Online online) {
+    static void putOnline(final Map<String, Object> row, final String service, final ServicesApi.Online online) {
         final Integer connected = online.counts().get(service);
         if (connected != null) {
             row.put("players", connected);
@@ -959,10 +1079,19 @@ public final class WorkerApi implements AutoCloseable {
                         row.put("diskBytes", measured.bytes().getAsLong());
                         row.put("diskMeasuredAt", measured.at().toString());
                     });
-                    row.put("logCapacity", logCapacity.computeIfAbsent(name, key -> new Refreshed<>(
-                            () -> capacity(key), LOG_CAPACITY_TTL,
-                            runnable -> Thread.ofVirtual().name("log-capacity").start(runnable),
-                            Instant::now)).get());
+                    row.put(
+                            "logCapacity",
+                            logCapacity
+                                    .computeIfAbsent(
+                                            name,
+                                            key -> new Refreshed<>(
+                                                    () -> capacity(key),
+                                                    LOG_CAPACITY_TTL,
+                                                    runnable -> Thread.ofVirtual()
+                                                            .name("log-capacity")
+                                                            .start(runnable),
+                                                    Instant::now))
+                                    .get());
                     return row;
                 });
     }
@@ -977,19 +1106,27 @@ public final class WorkerApi implements AutoCloseable {
         // to show as it stands rather than one that silently disappears on the way here.
         answer.put("backupDays", nightly.days());
         answer.put("zone", nightly.zone().getId());
-        answer.put("nextBackupAt", NightlyClock.next(nightly.at(), nightly.days(), nightly.zone(),
-                        ZonedDateTime.now(nightly.zone()))
-                .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-                .orElse(null));
+        answer.put(
+                "nextBackupAt",
+                NightlyClock.next(nightly.at(), nightly.days(), nightly.zone(), ZonedDateTime.now(nightly.zone()))
+                        .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                        .orElse(null));
         // The optional update clock, read exactly the same way. A blank update.at is no schedule,
         // and then there is no next moment either.
         answer.put("updateAt", nightly.updateAt().isBlank() ? null : nightly.updateAt());
         answer.put("updateDays", nightly.updateDays());
-        answer.put("nextUpdateAt", nightly.updateAt().isBlank() ? null
-                : NightlyClock.next(NightlyClock.Job.UPDATE, nightly.updateAt(), nightly.updateDays(),
-                                nightly.zone(), ZonedDateTime.now(nightly.zone()))
-                        .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-                        .orElse(null));
+        answer.put(
+                "nextUpdateAt",
+                nightly.updateAt().isBlank()
+                        ? null
+                        : NightlyClock.next(
+                                        NightlyClock.Job.UPDATE,
+                                        nightly.updateAt(),
+                                        nightly.updateDays(),
+                                        nightly.zone(),
+                                        ZonedDateTime.now(nightly.zone()))
+                                .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                                .orElse(null));
         return answer;
     }
 
@@ -1019,7 +1156,8 @@ public final class WorkerApi implements AutoCloseable {
         // container's own budget (§10c). A whole sentence, because the interface prints it as one:
         // "none - percentages are a share of the host" needs a label in front of it to parse, and
         // the label the status page used to carry said the same thing a second time.
-        answer.put("containerLimits",
+        answer.put(
+                "containerLimits",
                 "No container sets a memory limit, so every percentage here is a share of the whole host.");
         return answer;
     }
@@ -1054,8 +1192,9 @@ public final class WorkerApi implements AutoCloseable {
             // Work a run would not do: another row of the same service could not be checked, and
             // the applier leaves that whole service alone. Sent so the page shows an update only
             // where a run would install it.
-            row.put("held", change.status().isWork() && change.service() != null
-                    && plan.blocker(change.service()) != null);
+            row.put(
+                    "held",
+                    change.status().isWork() && change.service() != null && plan.blocker(change.service()) != null);
             if (change.installed() != null) {
                 row.put("installed", change.installed());
             }
@@ -1082,9 +1221,11 @@ public final class WorkerApi implements AutoCloseable {
         answer.put("hasWork", plan.hasWork());
         answer.put("hasFailures", plan.hasFailures());
         answer.put("changes", changes);
-        answer.put("unclaimed", plan.unclaimed().stream()
-                .map(one -> Map.of("service", one.service(), "fileName", one.fileName()))
-                .toList());
+        answer.put(
+                "unclaimed",
+                plan.unclaimed().stream()
+                        .map(one -> Map.of("service", one.service(), "fileName", one.fileName()))
+                        .toList());
         answer.put("notes", plan.notes());
         return answer;
     }
@@ -1104,8 +1245,7 @@ public final class WorkerApi implements AutoCloseable {
      * are not a separate opinion.</p>
      */
     private Map<String, Object> alertLevel() {
-        final AlertLevel.Reading reading =
-                AlertLevel.of(serviceTable(), archives(), hostNumbers(), Instant.now());
+        final AlertLevel.Reading reading = AlertLevel.of(serviceTable(), archives(), hostNumbers(), Instant.now());
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("level", reading.level().name().toLowerCase(java.util.Locale.ROOT));
         answer.put("subject", reading.subject());
@@ -1146,8 +1286,8 @@ public final class WorkerApi implements AutoCloseable {
         } catch (IOException e) {
             log.warn("could not list {}", backups, e);
         }
-        all.sort((left, right) -> String.valueOf(right.get("modified"))
-                .compareTo(String.valueOf(left.get("modified"))));
+        all.sort(
+                (left, right) -> String.valueOf(right.get("modified")).compareTo(String.valueOf(left.get("modified"))));
         return all;
     }
 
@@ -1207,8 +1347,12 @@ public final class WorkerApi implements AutoCloseable {
      * is left anywhere. The follow that comes after starts with the same {@code tail}, so the two
      * meet where Docker's own log begins.
      */
-    private void backlog(final SseClient client, final String containerId, final String name,
-                         final String tail, final boolean multiplexed) {
+    private void backlog(
+            final SseClient client,
+            final String containerId,
+            final String name,
+            final String tail,
+            final boolean multiplexed) {
         final int wanted;
         try {
             wanted = Integer.parseInt(tail);
@@ -1219,8 +1363,7 @@ public final class WorkerApi implements AutoCloseable {
         if (docker.size() >= wanted) {
             return;
         }
-        final LogArchive.Backlog earlier = archive.before(name, oldest(docker),
-                wanted - docker.size());
+        final LogArchive.Backlog earlier = archive.before(name, oldest(docker), wanted - docker.size());
         if (earlier.exhausted()) {
             client.sendEvent("end", "Nothing older.");
         }
@@ -1262,8 +1405,9 @@ public final class WorkerApi implements AutoCloseable {
         if (lines.size() >= LOG_CAPACITY_MAX) {
             return LOG_CAPACITY_MAX;
         }
-        return lines.size() + archive.before(service, oldest(lines),
-                LOG_CAPACITY_MAX - lines.size()).lineCount();
+        return lines.size()
+                + archive.before(service, oldest(lines), LOG_CAPACITY_MAX - lines.size())
+                        .lineCount();
     }
 
     private Optional<String> containerOf(final String service) {
@@ -1323,8 +1467,7 @@ public final class WorkerApi implements AutoCloseable {
      * than a connection that simply stops: an SSE client reconnects by itself, and "the server is
      * going away" is what tells the page to say so instead of retrying into a closed port.</p>
      */
-    private void goneOnShutdown(final SseClient client, final DockerSocket.Stream stream,
-                                final String name) {
+    private void goneOnShutdown(final SseClient client, final DockerSocket.Stream stream, final String name) {
         follows.remove(stream);
         closeQuietly(stream, name);
         client.sendEvent("gone", "steward-worker is shutting down");

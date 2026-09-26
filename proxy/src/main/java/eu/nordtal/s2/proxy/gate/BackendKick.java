@@ -4,15 +4,11 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.player.KickedFromServerEvent;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-
 import eu.nordtal.s2.proxy.routing.PhaseServers;
-
-import net.kyori.adventure.text.Component;
-
-import org.slf4j.Logger;
-
 import java.util.Locale;
 import java.util.Objects;
+import net.kyori.adventure.text.Component;
+import org.slf4j.Logger;
 
 /**
  * What happens to a player a backend has just kicked - shown their own reason if it gave one,
@@ -89,8 +85,13 @@ public final class BackendKick {
      * @param roster   asked for that player's locale, the same way {@code PlayerRouter} does
      * @param logger   the plugin logger
      */
-    public BackendKick(final ProxyServer proxy, final PhaseServers servers, final BackendHealth health,
-                       final GateMessages messages, final LoginRoster roster, final Logger logger) {
+    public BackendKick(
+            final ProxyServer proxy,
+            final PhaseServers servers,
+            final BackendHealth health,
+            final GateMessages messages,
+            final LoginRoster roster,
+            final Logger logger) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.servers = Objects.requireNonNull(servers, "servers");
         this.health = Objects.requireNonNull(health, "health");
@@ -106,8 +107,7 @@ public final class BackendKick {
     public void onKickedFromServer(final KickedFromServerEvent event) {
         final Component reason = event.getServerKickReason().orElse(null);
         switch (decide(event.getResult(), reason)) {
-            case SHOW_REASON ->
-                    event.setResult(KickedFromServerEvent.DisconnectPlayer.create(reason));
+            case SHOW_REASON -> event.setResult(KickedFromServerEvent.DisconnectPlayer.create(reason));
             case TO_LIMBO -> toLimbo(event);
             case LEAVE -> {
                 // Nothing: a Notify or a RedirectPlayer is somebody else's decision.
@@ -152,9 +152,11 @@ public final class BackendKick {
             // exists to stop, so Velocity's own result stands - the same "nothing better to say"
             // rule this class always applied to a reasonless kick, still true for the one backend
             // that cannot be the destination of its own redirect.
-            logger.warn("'{}' lost {} with no reason given, and it is itself a waiting room; "
+            logger.warn(
+                    "'{}' lost {} with no reason given, and it is itself a waiting room; "
                             + "leaving Velocity's own result in place",
-                    from, event.getPlayer().getUsername());
+                    from,
+                    event.getPlayer().getUsername());
             return;
         }
 
@@ -164,9 +166,13 @@ public final class BackendKick {
                 .or(() -> proxy.getServer(servers.limboStandby()))
                 .orElse(null);
         if (target == null) {
-            logger.error("{} lost its connection to '{}' with no reason given, and neither '{}' nor "
+            logger.error(
+                    "{} lost its connection to '{}' with no reason given, and neither '{}' nor "
                             + "'{}' is registered on this proxy to hold them in instead",
-                    event.getPlayer().getUsername(), from, servers.limbo(), servers.limboStandby());
+                    event.getPlayer().getUsername(),
+                    from,
+                    servers.limbo(),
+                    servers.limboStandby());
             return;
         }
 
@@ -175,12 +181,15 @@ public final class BackendKick {
         // about to release toward the same backend - from being sent straight back into it before
         // BackendHealth's retry window has passed.
         health.suspend(from);
-        logger.warn("{} lost its connection to '{}' with no reason given; moving them to '{}' "
+        logger.warn(
+                "{} lost its connection to '{}' with no reason given; moving them to '{}' "
                         + "instead of a disconnect screen, and holding '{}' suspended for {}s",
-                event.getPlayer().getUsername(), from, target.getServerInfo().getName(), from,
+                event.getPlayer().getUsername(),
+                from,
+                target.getServerInfo().getName(),
+                from,
                 BackendHealth.RETRY.toSeconds());
         final Locale locale = roster.localeOf(event.getPlayer().getUniqueId());
-        event.setResult(KickedFromServerEvent.RedirectPlayer.create(target,
-                messages.connectionLost(locale)));
+        event.setResult(KickedFromServerEvent.RedirectPlayer.create(target, messages.connectionLost(locale)));
     }
 }

@@ -1,8 +1,8 @@
 package eu.nordtal.s2.common.update;
 
-import javax.sql.DataSource;
 import java.time.Instant;
 import java.util.Optional;
+import javax.sql.DataSource;
 
 /**
  * What the standby proxy is holding, read by steward-worker (season-2-ops/122).

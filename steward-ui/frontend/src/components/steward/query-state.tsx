@@ -101,14 +101,14 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
           </p>
           {worker ? (
             <p className="max-w-prose text-sm text-muted-foreground">
-              Everything about a container - status, log, console - comes from this service. The
-              interface itself is running; this list is not empty because of that.
+              Everything about a container - status, log, console - comes from this service. The interface itself is
+              running; this list is not empty because of that.
             </p>
           ) : null}
           {deployer ? (
             <p className="max-w-prose text-sm text-muted-foreground">
-              Only this service may create containers. While it stays silent nothing can be
-              recreated - the stack keeps running regardless.
+              Only this service may create containers. While it stays silent nothing can be recreated - the stack keeps
+              running regardless.
             </p>
           ) : null}
           {api?.detail ? (

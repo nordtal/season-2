@@ -1,15 +1,14 @@
 package eu.nordtal.s2.steward.worker.schema;
 
-import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Optional;
+import javax.sql.DataSource;
+import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * "Exactly one steward-worker is <em>serving</em>", held by PostgreSQL for the life of the process.
@@ -82,14 +81,12 @@ public final class ServeLock implements AutoCloseable {
      *         which means this process must not start
      * @throws SQLException if the database could not be asked at all
      */
-    public static @NotNull Optional<ServeLock> acquire(final @NotNull DataSource dataSource)
-            throws SQLException {
+    public static @NotNull Optional<ServeLock> acquire(final @NotNull DataSource dataSource) throws SQLException {
         return acquire(dataSource, PATIENCE);
     }
 
     /** Package-visible so a test can watch the refusal without waiting half a minute for it. */
-    static @NotNull Optional<ServeLock> acquire(final @NotNull DataSource dataSource,
-                                                final @NotNull Duration patience)
+    static @NotNull Optional<ServeLock> acquire(final @NotNull DataSource dataSource, final @NotNull Duration patience)
             throws SQLException {
         final long deadline = System.nanoTime() + patience.toNanos();
         boolean waited = false;
@@ -106,9 +103,11 @@ public final class ServeLock implements AutoCloseable {
             }
             if (!waited) {
                 waited = true;
-                log.info("Another steward-worker still holds the serve lock - almost certainly the"
-                        + " one this deployment is replacing, finishing its shutdown. Waiting up to"
-                        + " {}s.", patience.toSeconds());
+                log.info(
+                        "Another steward-worker still holds the serve lock - almost certainly the"
+                                + " one this deployment is replacing, finishing its shutdown. Waiting up to"
+                                + " {}s.",
+                        patience.toSeconds());
             }
             try {
                 Thread.sleep(BETWEEN_TRIES.toMillis());
@@ -121,8 +120,7 @@ public final class ServeLock implements AutoCloseable {
 
     private static Optional<ServeLock> tryOnce(final DataSource dataSource) throws SQLException {
         final Connection connection = dataSource.getConnection();
-        try (PreparedStatement statement =
-                     connection.prepareStatement("SELECT pg_try_advisory_lock(?)")) {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT pg_try_advisory_lock(?)")) {
             statement.setLong(1, KEY);
             try (ResultSet result = statement.executeQuery()) {
                 if (result.next() && result.getBoolean(1)) {
@@ -140,13 +138,11 @@ public final class ServeLock implements AutoCloseable {
     /** Releases the lock by giving the session back. */
     @Override
     public void close() {
-        try (PreparedStatement statement =
-                     connection.prepareStatement("SELECT pg_advisory_unlock(?)")) {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT pg_advisory_unlock(?)")) {
             statement.setLong(1, KEY);
             statement.execute();
         } catch (final SQLException failure) {
-            log.warn("Could not release the serve lock cleanly; it goes away with the connection",
-                    failure);
+            log.warn("Could not release the serve lock cleanly; it goes away with the connection", failure);
         }
         close(connection);
     }

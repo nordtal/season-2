@@ -24,17 +24,16 @@ import com.yubico.webauthn.data.UserIdentity;
 import com.yubico.webauthn.data.UserVerificationRequirement;
 import com.yubico.webauthn.exception.AssertionFailedException;
 import com.yubico.webauthn.exception.RegistrationFailedException;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The WebAuthn ceremonies - and the only class in this repository that speaks Jackson.
@@ -83,8 +82,10 @@ public final class WebAuthn {
     private final Credentials credentials;
     private final String relyingPartyId;
 
-    public WebAuthn(final @NotNull String relyingPartyId, final @NotNull String publicUrl,
-                    final @NotNull Credentials credentials) {
+    public WebAuthn(
+            final @NotNull String relyingPartyId,
+            final @NotNull String publicUrl,
+            final @NotNull Credentials credentials) {
         this.relyingPartyId = Objects.requireNonNull(relyingPartyId, "relyingPartyId");
         this.credentials = Objects.requireNonNull(credentials, "credentials");
         this.relyingParty = RelyingParty.builder()
@@ -121,9 +122,7 @@ public final class WebAuthn {
      */
     static @NotNull String originOf(final @NotNull String publicUrl) {
         final URI parsed = URI.create(publicUrl);
-        final String authority = parsed.getPort() < 0
-                ? parsed.getHost()
-                : parsed.getHost() + ":" + parsed.getPort();
+        final String authority = parsed.getPort() < 0 ? parsed.getHost() : parsed.getHost() + ":" + parsed.getPort();
         return parsed.getScheme() + "://" + authority;
     }
 
@@ -142,10 +141,9 @@ public final class WebAuthn {
      *
      * @return the request in two forms - one to park, one to hand the browser
      */
-    public @NotNull Ceremony startRegistration(final @NotNull String discordId,
-                                               final @NotNull String displayName) {
-        final PublicKeyCredentialCreationOptions request = relyingParty.startRegistration(
-                StartRegistrationOptions.builder()
+    public @NotNull Ceremony startRegistration(final @NotNull String discordId, final @NotNull String displayName) {
+        final PublicKeyCredentialCreationOptions request =
+                relyingParty.startRegistration(StartRegistrationOptions.builder()
                         .user(UserIdentity.builder()
                                 // `name` is what a passkey manager lists the entry under, and
                                 // `displayName` is what it prints in bold. Both are the person's
@@ -180,8 +178,10 @@ public final class WebAuthn {
         } catch (IOException impossible) {
             // The library serialising its own freshly built object. If this ever throws, the
             // classpath has two Jacksons on it and that is the thing to go and look at.
-            throw new IllegalStateException("the registration request could not be serialised -"
-                    + " check for a second jackson-databind on the classpath", impossible);
+            throw new IllegalStateException(
+                    "the registration request could not be serialised -"
+                            + " check for a second jackson-databind on the classpath",
+                    impossible);
         }
     }
 
@@ -197,21 +197,22 @@ public final class WebAuthn {
      *                 wrong: a replayed challenge, a key already registered, a signature that does
      *                 not verify, a browser on the wrong origin
      */
-    public @NotNull Registered finishRegistration(final @NotNull String parked,
-                                                  final @NotNull String answer,
-                                                  final @NotNull String label,
-                                                  final @NotNull String discordId)
+    public @NotNull Registered finishRegistration(
+            final @NotNull String parked,
+            final @NotNull String answer,
+            final @NotNull String label,
+            final @NotNull String discordId)
             throws Refused {
         final PublicKeyCredentialCreationOptions request;
-        final PublicKeyCredential<AuthenticatorAttestationResponse,
-                ClientRegistrationExtensionOutputs> response;
+        final PublicKeyCredential<AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs> response;
         try {
             request = PublicKeyCredentialCreationOptions.fromJson(parked);
         } catch (IOException unreadable) {
             // A row this service wrote itself. Only reachable if the column was edited by hand or
             // the jar changed under a ceremony that was in flight across a deployment.
-            throw new Refused("that registration was started by a different version of this"
-                    + " service - start again", unreadable);
+            throw new Refused(
+                    "that registration was started by a different version of this" + " service - start again",
+                    unreadable);
         }
         try {
             response = PublicKeyCredential.parseRegistrationResponseJson(answer);
@@ -242,11 +243,16 @@ public final class WebAuthn {
 
         final Set<AuthenticatorTransport> transports =
                 new TreeSet<>(response.getResponse().getTransports());
-        credentials.add(discordId, result.getKeyId().getId(), result.getPublicKeyCose(),
-                result.getSignatureCount(), label, transports,
-                result.isBackupEligible(), result.isBackedUp());
-        return new Registered(result.getKeyId().getId(), label.trim(), result.isUserVerified(),
+        credentials.add(
+                discordId,
+                result.getKeyId().getId(),
+                result.getPublicKeyCose(),
+                result.getSignatureCount(),
+                label,
+                transports,
+                result.isBackupEligible(),
                 result.isBackedUp());
+        return new Registered(result.getKeyId().getId(), label.trim(), result.isUserVerified(), result.isBackedUp());
     }
 
     // --- the other ceremony: proving a key is still in somebody's hand -------------------------
@@ -271,21 +277,22 @@ public final class WebAuthn {
             // somebody else's. An empty list is not "any key"; it is "no key", and it says so.
             throw new Refused("that account has no security key to be asked for", null);
         }
-        final AssertionRequest request = relyingParty.startAssertion(
-                StartAssertionOptions.builder()
-                        .userHandle(Credentials.handleOf(discordId))
-                        // PREFERRED, matching the registration. REQUIRED here would refuse, at
-                        // sign-in, exactly the bare USB key that registration accepted - and the
-                        // person holding it would have a key that could be registered and never
-                        // used, which is the worst of the three possible arrangements.
-                        .userVerification(UserVerificationRequirement.PREFERRED)
-                        .timeout(DIALOG.toMillis())
-                        .build());
+        final AssertionRequest request = relyingParty.startAssertion(StartAssertionOptions.builder()
+                .userHandle(Credentials.handleOf(discordId))
+                // PREFERRED, matching the registration. REQUIRED here would refuse, at
+                // sign-in, exactly the bare USB key that registration accepted - and the
+                // person holding it would have a key that could be registered and never
+                // used, which is the worst of the three possible arrangements.
+                .userVerification(UserVerificationRequirement.PREFERRED)
+                .timeout(DIALOG.toMillis())
+                .build());
         try {
             return new Ceremony(request.toJson(), request.toCredentialsGetJson());
         } catch (IOException impossible) {
-            throw new IllegalStateException("the assertion request could not be serialised -"
-                    + " check for a second jackson-databind on the classpath", impossible);
+            throw new IllegalStateException(
+                    "the assertion request could not be serialised -"
+                            + " check for a second jackson-databind on the classpath",
+                    impossible);
         }
     }
 
@@ -310,20 +317,20 @@ public final class WebAuthn {
      *                 key belonging to somebody else, a signature that does not verify, a browser
      *                 on the wrong origin
      */
-    public @NotNull Held finishAssertion(final @NotNull String parked,
-                                         final @NotNull String answer,
-                                         final @NotNull String discordId) throws Refused {
+    public @NotNull Held finishAssertion(
+            final @NotNull String parked, final @NotNull String answer, final @NotNull String discordId)
+            throws Refused {
         final AssertionRequest request;
-        final PublicKeyCredential<AuthenticatorAssertionResponse,
-                ClientAssertionExtensionOutputs> response;
+        final PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs> response;
         try {
             request = AssertionRequest.fromJson(parked);
         } catch (IOException unreadable) {
             // The column holds whichever ceremony this browser has open, and there is only ever
             // one. Landing here means a registration was started and an authentication finished,
             // or the jar changed under a dialog that was already on screen.
-            throw new Refused("that sign-in was started differently, or by another version of this"
-                    + " service - start again", unreadable);
+            throw new Refused(
+                    "that sign-in was started differently, or by another version of this" + " service - start again",
+                    unreadable);
         }
         try {
             response = PublicKeyCredential.parseAssertionResponseJson(answer);
@@ -331,9 +338,8 @@ public final class WebAuthn {
             throw new Refused("the browser's answer could not be read", malformed);
         }
 
-        final String intended = request.getUserHandle()
-                .flatMap(Credentials::accountOf)
-                .orElse("");
+        final String intended =
+                request.getUserHandle().flatMap(Credentials::accountOf).orElse("");
         if (!intended.equals(discordId)) {
             throw new Refused("that sign-in was started for a different account", null);
         }
@@ -359,8 +365,7 @@ public final class WebAuthn {
     }
 
     /** The key that just answered, for the journal and for the sentence on screen. */
-    public record Held(@NotNull String label, boolean userVerified) {
-    }
+    public record Held(@NotNull String label, boolean userVerified) {}
 
     /**
      * One request, in the two forms it is needed in.
@@ -371,13 +376,11 @@ public final class WebAuthn {
      *                   authentication - takes. Handed to the browser as an opaque string and
      *                   never re-parsed on this side.
      */
-    public record Ceremony(@NotNull String parked, @NotNull String forBrowser) {
-    }
+    public record Ceremony(@NotNull String parked, @NotNull String forBrowser) {}
 
     /** What was written down, for the answer the browser gets back. */
-    public record Registered(@NotNull ByteArray credentialId, @NotNull String label,
-                             boolean userVerified, boolean backedUp) {
-    }
+    public record Registered(
+            @NotNull ByteArray credentialId, @NotNull String label, boolean userVerified, boolean backedUp) {}
 
     /**
      * A ceremony that did not pass - for an ordinary reason.

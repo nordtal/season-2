@@ -4,9 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-
 import eu.nordtal.s2.common.RepositoryRoot;
-
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -56,7 +54,10 @@ public final class FontFile {
         final int colon = textureId.indexOf(':');
         final String namespace = colon < 0 ? "minecraft" : textureId.substring(0, colon);
         final String path = textureId.substring(colon + 1);
-        return RepositoryRoot.resolve(ASSETS).resolve(namespace).resolve("textures").resolve(path);
+        return RepositoryRoot.resolve(ASSETS)
+                .resolve(namespace)
+                .resolve("textures")
+                .resolve(path);
     }
 
     private final String id;
@@ -75,22 +76,22 @@ public final class FontFile {
      */
     static FontFile load(final String id, final String relative) {
         final FontFile font = new FontFile(id, RepositoryRoot.resolve(relative));
-        final JsonObject root = JsonParser.parseString(RepositoryRoot.read(relative))
-                .getAsJsonObject();
+        final JsonObject root =
+                JsonParser.parseString(RepositoryRoot.read(relative)).getAsJsonObject();
 
         for (final JsonElement element : root.getAsJsonArray("providers")) {
             final JsonObject provider = element.getAsJsonObject();
             switch (provider.get("type").getAsString()) {
                 case "space" -> {
-                    for (final Map.Entry<String, JsonElement> advance
-                            : provider.getAsJsonObject("advances").entrySet()) {
+                    for (final Map.Entry<String, JsonElement> advance :
+                            provider.getAsJsonObject("advances").entrySet()) {
                         advance.getKey().codePoints().forEach(font.spaced::add);
                     }
                 }
                 case "bitmap" -> font.bitmaps.add(Bitmap.of(provider));
-                default -> throw new IllegalStateException(
-                        relative + " has a provider of unknown type "
-                                + provider.get("type").getAsString());
+                default ->
+                    throw new IllegalStateException(relative + " has a provider of unknown type "
+                            + provider.get("type").getAsString());
             }
         }
         return font;
@@ -147,8 +148,7 @@ public final class FontFile {
                             + row.length + "); the client would place every glyph after it wrong");
                 }
             }
-            return new Bitmap(textureId, texturePath(textureId), List.copyOf(grid),
-                    grid.size(), columns);
+            return new Bitmap(textureId, texturePath(textureId), List.copyOf(grid), grid.size(), columns);
         }
 
         /** @return {@code {row, column}} of {@code codePoint} in this provider's grid */

@@ -1,16 +1,14 @@
 package eu.nordtal.s2.steward.worker;
 
-import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import java.time.Duration;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That a database which is not up yet is waited for, and that giving up reads as a sentence.
@@ -60,14 +58,15 @@ class DatabaseStartupTest {
     @DisplayName("a database that is not there is asked again, for the whole window")
     void anAbsentDatabaseIsWaitedFor() {
         final long before = System.nanoTime();
-        final Database opened = assertTimeoutPreemptively(Duration.ofSeconds(30),
-                () -> StewardWorker.openDatabase(UNREACHABLE, Duration.ofSeconds(3),
-                        Duration.ofMillis(200)),
+        final Database opened = assertTimeoutPreemptively(
+                Duration.ofSeconds(30),
+                () -> StewardWorker.openDatabase(UNREACHABLE, Duration.ofSeconds(3), Duration.ofMillis(200)),
                 "waiting for the database must end at the window, not hang the bootstrap");
         final Duration waited = Duration.ofNanos(System.nanoTime() - before);
 
         assertNull(opened, "the window ran out, so this is a refusal");
-        assertTrue(waited.compareTo(Duration.ofSeconds(3)) >= 0,
+        assertTrue(
+                waited.compareTo(Duration.ofSeconds(3)) >= 0,
                 "openDatabase came back after " + waited + ", which is less than the window it was"
                         + " given - so it gave up on the first refusal. That is the exit compose"
                         + " reads as a failed dependency, and it takes the whole first deployment"
@@ -77,11 +76,13 @@ class DatabaseStartupTest {
     @Test
     @DisplayName("a database that is still not there returns null instead of throwing")
     void anUnreachableDatabaseIsNotAnUncaughtException() {
-        final Database opened = assertTimeoutPreemptively(Duration.ofSeconds(30),
+        final Database opened = assertTimeoutPreemptively(
+                Duration.ofSeconds(30),
                 () -> StewardWorker.openDatabase(UNREACHABLE, Duration.ZERO, Duration.ofMillis(200)),
                 "opening an unreachable database should fail fast, not hang the bootstrap");
 
-        assertNull(opened,
+        assertNull(
+                opened,
                 "openDatabase must answer null so the caller can exit with a sentence. Letting the"
                         + " HikariPool exception out is what put a stack trace on the first screen"
                         + " of the first deployment.");
@@ -93,10 +94,12 @@ class DatabaseStartupTest {
         // Pinned because the default is the only one a deployment ever uses, and a plausible-looking
         // edit to it - seconds instead of minutes - would restore exactly the failure above without
         // either test noticing: both of those pass their own window in explicitly.
-        assertTrue(StewardWorker.DATABASE_WAIT.compareTo(Duration.ofMinutes(1)) >= 0,
-                "a first deployment initialises a PostgreSQL data directory before it listens;"
-                        + " DATABASE_WAIT is " + StewardWorker.DATABASE_WAIT);
-        assertTrue(StewardWorker.DATABASE_RETRY.compareTo(Duration.ofSeconds(10)) <= 0,
+        assertTrue(
+                StewardWorker.DATABASE_WAIT.compareTo(Duration.ofMinutes(1)) >= 0,
+                "a first deployment initialises a PostgreSQL data directory before it listens;" + " DATABASE_WAIT is "
+                        + StewardWorker.DATABASE_WAIT);
+        assertTrue(
+                StewardWorker.DATABASE_RETRY.compareTo(Duration.ofSeconds(10)) <= 0,
                 "the pause between attempts is how late the worker notices a database that has"
                         + " arrived, and everything else in the stack is waiting behind it;"
                         + " DATABASE_RETRY is " + StewardWorker.DATABASE_RETRY);

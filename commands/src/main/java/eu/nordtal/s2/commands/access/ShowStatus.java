@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.access;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -9,11 +11,8 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.context.DiscordMemberContext;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.common.phase.SeasonDates;
-
 import java.util.Optional;
 import java.util.UUID;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /access status <member>} - access, donor, language, every grant and every purchase.
@@ -43,45 +42,76 @@ public final class ShowStatus implements NordtalCommand<AccessEffects> {
             }
             if (status.isEmpty()) {
                 // The id is one Discord no longer has: the row is not wrong, the person is gone.
-                user.reply(MESSAGES.access().noSuchMember(new DiscordMemberContext(discordId)),
-                        Feedback.REFUSED, Tone.BAD);
+                user.reply(
+                        MESSAGES.access().noSuchMember(new DiscordMemberContext(discordId)),
+                        Feedback.REFUSED,
+                        Tone.BAD);
                 return;
             }
 
             final AccessEffects.Status account = status.get();
             // The tones shape the readout: the header says who, one line carries the news, the
             // rest is detail.
-            user.reply(MESSAGES.access().header(new PlayerContext(account.name()), new DiscordMemberContext(discordId)),
+            user.reply(
+                    MESSAGES.access().header(new PlayerContext(account.name()), new DiscordMemberContext(discordId)),
                     Tone.NEUTRAL);
-            user.reply(account.accessUntil()
+            user.reply(
+                    account.accessUntil()
                             .map(until -> MESSAGES.access().until(SeasonDates.format(until)))
                             .orElseGet(MESSAGES.access()::none),
                     account.accessUntil().isPresent() ? Tone.GOOD : Tone.WARN);
             user.reply(
-                    MESSAGES.access().donor(user.phrase(account.donor() ? MESSAGES.access().yes() : MESSAGES.access().no())),
+                    MESSAGES.access()
+                            .donor(user.phrase(
+                                    account.donor()
+                                            ? MESSAGES.access().yes()
+                                            : MESSAGES.access().no())),
                     Tone.MUTED);
-            user.reply(MESSAGES.access().language(account.locale().getLanguage()),
+            user.reply(MESSAGES.access().language(account.locale().getLanguage()), Tone.MUTED);
+            user.reply(
+                    MESSAGES.access()
+                            .linked(account.minecraftAccount()
+                                    .map(UUID::toString)
+                                    .orElseGet(
+                                            () -> user.phrase(MESSAGES.access().noneLinked()))),
                     Tone.MUTED);
-            user.reply(MESSAGES.access().linked(account.minecraftAccount().map(UUID::toString)
-                            .orElseGet(() -> user.phrase(MESSAGES.access().noneLinked()))), Tone.MUTED);
 
             if (account.grants().isEmpty()) {
                 user.reply(MESSAGES.access().grants().none(), Tone.MUTED);
             } else {
                 user.reply(MESSAGES.access().grants().header(), Tone.NEUTRAL);
-                account.grants().forEach(grant -> user.reply(
-                        grant.revoked() ? MESSAGES.access().grants().revoked(SeasonDates.format(grant.validFrom()), SeasonDates.format(grant.validUntil()), grant.source()) : MESSAGES.access().grants().line(SeasonDates.format(grant.validFrom()), SeasonDates.format(grant.validUntil()), grant.source()),
-                        Tone.MUTED));
+                account.grants()
+                        .forEach(grant -> user.reply(
+                                grant.revoked()
+                                        ? MESSAGES.access()
+                                                .grants()
+                                                .revoked(
+                                                        SeasonDates.format(grant.validFrom()),
+                                                        SeasonDates.format(grant.validUntil()),
+                                                        grant.source())
+                                        : MESSAGES.access()
+                                                .grants()
+                                                .line(
+                                                        SeasonDates.format(grant.validFrom()),
+                                                        SeasonDates.format(grant.validUntil()),
+                                                        grant.source()),
+                                Tone.MUTED));
             }
 
             if (account.purchases().isEmpty()) {
                 user.reply(MESSAGES.access().purchases().none(), Tone.MUTED);
             } else {
                 user.reply(MESSAGES.access().purchases().header(), Tone.NEUTRAL);
-                account.purchases().forEach(purchase -> user.reply(
-                        MESSAGES.access().purchases().line(purchase.reference(), purchase.days(),
-                                purchase.amount(), purchase.status()),
-                        Tone.MUTED));
+                account.purchases()
+                        .forEach(purchase -> user.reply(
+                                MESSAGES.access()
+                                        .purchases()
+                                        .line(
+                                                purchase.reference(),
+                                                purchase.days(),
+                                                purchase.amount(),
+                                                purchase.status()),
+                                Tone.MUTED));
             }
         });
     }

@@ -1,7 +1,7 @@
 package eu.nordtal.s2.hungergames.hud;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -13,9 +13,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The HUD reads its numbers; nothing has to remember to tell it.
@@ -40,11 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class HudReadsItsNumbersTest {
 
-    private static final String RENDERER =
-            "hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java";
+    private static final String RENDERER = "hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java";
 
-    private static final Pattern SETTER =
-            Pattern.compile("\\bpublic\\s+void\\s+(set[A-Z]\\w*)\\s*\\(");
+    private static final Pattern SETTER = Pattern.compile("\\bpublic\\s+void\\s+(set[A-Z]\\w*)\\s*\\(");
 
     @Test
     @DisplayName("the renderer has no setter for anybody to forget")
@@ -54,7 +51,9 @@ class HudReadsItsNumbersTest {
         while (matcher.find()) {
             found.add(matcher.group(1));
         }
-        assertEquals(List.of(), found,
+        assertEquals(
+                List.of(),
+                found,
                 "HudRenderer grew a setter. Two of them had no caller at all and printed zeroes to"
                         + " every participant for the whole of every game; read this class's"
                         + " javadoc before adding a third. Pull the value from whatever owns it,"
@@ -65,7 +64,8 @@ class HudReadsItsNumbersTest {
     @DisplayName("the living count comes from the tracker that records the deaths")
     void theCountsComeFromTheTracker() {
         final String source = read(RENDERER);
-        assertTrue(source.contains("wins.aliveCount()") && source.contains("wins.deadCount("),
+        assertTrue(
+                source.contains("wins.aliveCount()") && source.contains("wins.deadCount("),
                 "the players line has to read WinTracker, which is the object the death handler"
                         + " writes to - anything else can go stale");
     }
@@ -73,7 +73,8 @@ class HudReadsItsNumbersTest {
     @Test
     @DisplayName("the refill time comes from the schedule that owns it")
     void theRefillComesFromTheSchedule() {
-        assertTrue(read(RENDERER).contains("loot.nextRefillAt()"),
+        assertTrue(
+                read(RENDERER).contains("loot.nextRefillAt()"),
                 "the loot line has to read LootRefill rather than a copy somebody pushed in");
     }
 
@@ -82,7 +83,8 @@ class HudReadsItsNumbersTest {
     void nobodyElsePushes() {
         final List<String> offenders = new ArrayList<>();
         for (final Path source : sources()) {
-            final String relative = repositoryRoot().relativize(source).toString().replace('\\', '/');
+            final String relative =
+                    repositoryRoot().relativize(source).toString().replace('\\', '/');
             // The renderer's own javadoc names both retired setters on purpose - that is where the
             // reason lives. The first test above is what keeps them from coming back as code here.
             if (relative.equals(RENDERER)) {
@@ -93,7 +95,9 @@ class HudReadsItsNumbersTest {
                 offenders.add(source.getFileName().toString());
             }
         }
-        assertEquals(List.of(), offenders,
+        assertEquals(
+                List.of(),
+                offenders,
                 "the push-based setters are gone; a call to one is a merge that brought them back");
     }
 

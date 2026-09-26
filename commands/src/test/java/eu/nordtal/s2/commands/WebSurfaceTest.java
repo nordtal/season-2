@@ -1,12 +1,11 @@
 package eu.nordtal.s2.commands;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Which commands the web interface may ask for - the whole list, pinned.
@@ -63,7 +62,9 @@ class WebSurfaceTest {
     @Test
     @DisplayName("exactly the decided commands carry WEB, and no others")
     void nothingElseGrewAButton() {
-        assertEquals(ON_THE_WEB, Catalogue.all().stream()
+        assertEquals(
+                ON_THE_WEB,
+                Catalogue.all().stream()
                         .filter(declaration -> declaration.surfaces().contains(Surface.WEB))
                         .map(Declaration::name)
                         .sorted()
@@ -84,7 +85,8 @@ class WebSurfaceTest {
             // an inbox. Target.LOCAL means "whoever typed it runs it", and nothing in steward-ui
             // runs a Minecraft command - a LOCAL command with a WEB button would be a button that
             // writes a row no process will ever claim.
-            assertTrue(declaration.target() != Target.LOCAL,
+            assertTrue(
+                    declaration.target() != Target.LOCAL,
                     declaration.name() + " is Target.LOCAL and on the web. Nothing would claim the"
                             + " row: steward-ui writes it and runs no command itself.");
         }
@@ -97,7 +99,8 @@ class WebSurfaceTest {
         // violation rather than a compile error: `announce` declares SYSTEM and its rows are
         // written with source CONSOLE, because nobody typed them. V18 adds WEB to the source CHECK
         // and deliberately does not add SYSTEM.
-        assertTrue(Catalogue.all().stream()
+        assertTrue(
+                Catalogue.all().stream()
                         .filter(declaration -> declaration.surfaces().contains(Surface.SYSTEM))
                         .allMatch(declaration -> declaration.target() != Target.LOCAL),
                 "a SYSTEM command has to travel, or nothing would ever run it");

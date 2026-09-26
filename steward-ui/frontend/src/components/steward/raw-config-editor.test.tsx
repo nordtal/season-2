@@ -209,7 +209,11 @@ describe("RawConfigEditor", () => {
 
   it("gives a Nordtal file one line, with the parser's reason behind it", () => {
     const { container } = draw(
-      <RawConfigEditor file="smp/smp/config.yml" origin="nordtal" document={document({ reason: "line 3: bad indent" })} />,
+      <RawConfigEditor
+        file="smp/smp/config.yml"
+        origin="nordtal"
+        document={document({ reason: "line 3: bad indent" })}
+      />,
     )
     expect(container.querySelector("[role=alert]")).toBeNull()
     screen.getByText("Shown as text, it did not parse.")

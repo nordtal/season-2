@@ -3,16 +3,14 @@ package eu.nordtal.s2.discordbot.discord;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Messages;
-
-import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.interactions.InteractionHook;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.interactions.InteractionHook;
 
 /**
  * An admin who ran a slash command, as {@code :commands} sees them.
@@ -42,9 +40,12 @@ public final class DiscordUser implements NordtalUser {
 
     private final List<String> lines = new ArrayList<>();
 
-
-    public DiscordUser(final User user, final Locale locale, final boolean admin,
-                       final InteractionHook hook, final Messages messages) {
+    public DiscordUser(
+            final User user,
+            final Locale locale,
+            final boolean admin,
+            final InteractionHook hook,
+            final Messages messages) {
         this.user = Objects.requireNonNull(user, "user");
         this.locale = Objects.requireNonNull(locale, "locale");
         this.admin = admin;

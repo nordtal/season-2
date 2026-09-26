@@ -134,17 +134,58 @@ describe("the file row", () => {
 
   it("lists Nordtal's translations, then Nordtal's configs, then everything third-party", async () => {
     const files = [
-      { service: "smp", name: "bStats/config.yml", path: "smp/bStats/config.yml", readable: true, writable: true, origin: "third-party", plugin: "bStats" },
-      { service: "smp", name: "smp/milestones.yml", path: "smp/smp/milestones.yml", readable: true, writable: true, origin: "nordtal", plugin: "SMP" },
-      { service: "smp", name: "voicechat/voicechat-server.properties", path: "smp/voicechat/voicechat-server.properties", readable: true, writable: true, origin: "third-party", plugin: "voicechat" },
-      { service: "smp", name: "DisplayTags/config.yml", path: "smp/DisplayTags/config.yml", readable: true, writable: true, origin: "nordtal", plugin: "Display Tags" },
-      { service: "smp", name: "smp/config.yml", path: "smp/smp/config.yml", readable: true, writable: true, origin: "nordtal", plugin: "SMP" },
+      {
+        service: "smp",
+        name: "bStats/config.yml",
+        path: "smp/bStats/config.yml",
+        readable: true,
+        writable: true,
+        origin: "third-party",
+        plugin: "bStats",
+      },
+      {
+        service: "smp",
+        name: "smp/milestones.yml",
+        path: "smp/smp/milestones.yml",
+        readable: true,
+        writable: true,
+        origin: "nordtal",
+        plugin: "SMP",
+      },
+      {
+        service: "smp",
+        name: "voicechat/voicechat-server.properties",
+        path: "smp/voicechat/voicechat-server.properties",
+        readable: true,
+        writable: true,
+        origin: "third-party",
+        plugin: "voicechat",
+      },
+      {
+        service: "smp",
+        name: "DisplayTags/config.yml",
+        path: "smp/DisplayTags/config.yml",
+        readable: true,
+        writable: true,
+        origin: "nordtal",
+        plugin: "Display Tags",
+      },
+      {
+        service: "smp",
+        name: "smp/config.yml",
+        path: "smp/smp/config.yml",
+        readable: true,
+        writable: true,
+        origin: "nordtal",
+        plugin: "SMP",
+      },
     ]
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
         if (url === "/api/config") return json(files)
-        if (url === "/api/messages") return json([{ service: "smp", module: "smp", path: "smp/smp/messages", writable: true }])
+        if (url === "/api/messages")
+          return json([{ service: "smp", module: "smp", path: "smp/smp/messages", writable: true }])
         throw new Error(`the list asked for ${url}, which this test did not expect`)
       }),
     )
@@ -364,9 +405,7 @@ describe("headings and explanations", () => {
     await open("Steward")
     await screen.findByText("Max attempts")
 
-    expect(
-      screen.queryByText("An old mechanical comment that must not show through."),
-    ).toBeNull()
+    expect(screen.queryByText("An old mechanical comment that must not show through.")).toBeNull()
   })
 
   it("falls back to the mechanical comment when there is no schema explanation", async () => {
@@ -422,9 +461,7 @@ describe("environment overrides (steward/76)", () => {
     await open("Steward")
 
     await screen.findByText("env override")
-    const input = (await screen.findByDisplayValue(
-      "http://steward-worker:8081",
-    )) as HTMLInputElement
+    const input = (await screen.findByDisplayValue("http://steward-worker:8081")) as HTMLInputElement
     expect(input.disabled).toBe(false)
   })
 
@@ -605,9 +642,7 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (url === "/api/messages") return json([])
       if (url === "/api/config") {
-        return json([
-          { service: "steward-worker", name: "config.yml", path: file, readable: true, writable: true },
-        ])
+        return json([{ service: "steward-worker", name: "config.yml", path: file, readable: true, writable: true }])
       }
       if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
       if (url === `/api/config-raw/${file}` && init?.method === "PUT") {
@@ -639,9 +674,7 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
     draw(<Settings service="steward-worker" />)
     await open("Config")
 
-    const editor = (await screen.findByLabelText(
-      "Raw content of config.yml",
-    )) as HTMLTextAreaElement
+    const editor = (await screen.findByLabelText("Raw content of config.yml")) as HTMLTextAreaElement
     fireEvent.change(editor, { target: { value: broken } })
     fireEvent.click(screen.getByRole("button", { name: /Save/ }))
 
@@ -797,9 +830,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (url === "/api/messages") return json([])
       if (url === "/api/config") {
-        return json([
-          { service: "discord-bot", name: "access.yml", path: file, readable: true, writable: true },
-        ])
+        return json([{ service: "discord-bot", name: "access.yml", path: file, readable: true, writable: true }])
       }
       if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
       if (url === `/api/config/${file}` && init?.method === "PUT") {
@@ -839,9 +870,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save 1" }))
 
-    await waitFor(() =>
-      expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true),
-    )
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true))
   })
 })
 
@@ -946,13 +975,9 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
     return [
       entry({ path: "admin", key: "admin", label: "admin", value: "#ff5555" }),
       entry({ path: "hours", key: "hours", label: "hours", kind: "MAP", editable: false }),
-      ...keys.map((key, at) =>
-        entry({ path: `hours.${key}`, key, label: key, type: "INTEGER", value: hours[at] }),
-      ),
+      ...keys.map((key, at) => entry({ path: `hours.${key}`, key, label: key, type: "INTEGER", value: hours[at] })),
       entry({ path: "colours", key: "colours", label: "colours", kind: "MAP", editable: false }),
-      ...keys.map((key, at) =>
-        entry({ path: `colours.${key}`, key, label: key, value: colours[at] }),
-      ),
+      ...keys.map((key, at) => entry({ path: `colours.${key}`, key, label: key, value: colours[at] })),
     ]
   }
 
@@ -1057,9 +1082,7 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
     fireEvent.change(fieldFor(container, "colours.tier-02"), { target: { value: "#112233" } })
     fireEvent.click(screen.getByRole("button", { name: /save/i }))
 
-    await waitFor(() =>
-      expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true),
-    )
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true))
     const put = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")
     expect(JSON.parse(String(put?.[1]?.body)).changes).toEqual({
       // The display label was overridden, the path was not - which is what keeps a search hit and

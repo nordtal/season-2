@@ -1,7 +1,6 @@
 package eu.nordtal.s2.smp.wheel;
 
 import eu.nordtal.s2.smp.region.Boxes;
-
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -85,8 +84,7 @@ public final class WheelListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onClose(final InventoryCloseEvent event) {
-        if (event.getInventory().getHolder() instanceof WheelGui gui
-                && event.getPlayer() instanceof Player player) {
+        if (event.getInventory().getHolder() instanceof WheelGui gui && event.getPlayer() instanceof Player player) {
             gui.finish(player, false);
         }
     }

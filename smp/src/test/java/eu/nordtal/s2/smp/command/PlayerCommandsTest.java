@@ -1,24 +1,22 @@
 package eu.nordtal.s2.smp.command;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.context.MilestoneContext;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What {@code /aura} and {@code /smp status} say, without a server - the decisions that moved here
@@ -39,15 +37,20 @@ class PlayerCommandsTest {
     void auraIsYourOwnLineThenTheBoard() {
         // Your own line first, deliberately: the question somebody types /aura to answer is "where
         // am I", and a list of ten with the answer somewhere inside it is not that.
-        standing.aura = new Standing.AuraStanding(120, 3, 37, List.of(
-                new Standing.AuraLine(1, "Anna", 400, false),
-                new Standing.AuraLine(2, "Bert", 200, false),
-                new Standing.AuraLine(3, "tester", 120, true)));
+        standing.aura = new Standing.AuraStanding(
+                120,
+                3,
+                37,
+                List.of(
+                        new Standing.AuraLine(1, "Anna", 400, false),
+                        new Standing.AuraLine(2, "Bert", 200, false),
+                        new Standing.AuraLine(3, "tester", 120, true)));
 
         commands.showAura(user, SELF);
 
-        assertEquals(List.of("smp.aura.own", "smp.aura.top",
-                "smp.aura.line", "smp.aura.line", "smp.aura.line"), user.keys());
+        assertEquals(
+                List.of("smp.aura.own", "smp.aura.top", "smp.aura.line", "smp.aura.line", "smp.aura.line"),
+                user.keys());
         assertEquals(120, user.replies.getFirst().args().get("aura"));
         assertEquals(3, user.replies.getFirst().args().get("rank"));
         assertEquals(37, user.replies.getFirst().args().get("total"));
@@ -60,9 +63,11 @@ class PlayerCommandsTest {
     void yourOwnLineIsMarked() {
         // One key, two tones. A second key with the same words in another colour is two strings to
         // translate, and one of them eventually says something else.
-        standing.aura = new Standing.AuraStanding(120, 2, 2, List.of(
-                new Standing.AuraLine(1, "Anna", 400, false),
-                new Standing.AuraLine(2, "tester", 120, true)));
+        standing.aura = new Standing.AuraStanding(
+                120,
+                2,
+                2,
+                List.of(new Standing.AuraLine(1, "Anna", 400, false), new Standing.AuraLine(2, "tester", 120, true)));
 
         commands.showAura(user, SELF);
 
@@ -102,9 +107,9 @@ class PlayerCommandsTest {
     @DisplayName("/smp status answers the phase, the milestone with its progress, and who is on")
     void statusIsThreeLines() {
         commands.showStatus(user);
-        assertEquals(List.of("phase.current", "smp.status.milestone", "smp.status.online"),
-                user.keys());
-        assertEquals(new MilestoneContext("Aufbruch"), user.replies.get(1).args().get("milestone"));
+        assertEquals(List.of("phase.current", "smp.status.milestone", "smp.status.online"), user.keys());
+        assertEquals(
+                new MilestoneContext("Aufbruch"), user.replies.get(1).args().get("milestone"));
         assertEquals(42, user.replies.get(1).args().get("percent"));
         assertEquals(3, user.replies.get(2).args().get("online"));
     }
@@ -112,13 +117,13 @@ class PlayerCommandsTest {
     @Test
     @DisplayName("the third line is a sentence, and it picks a key rather than a bracketed plural")
     void statusCountsPeopleInSentences() {
-        for (final int[] counts : new int[][]{{0, 0}, {1, 1}, {2, 2}, {57, 2}}) {
+        for (final int[] counts : new int[][] {{0, 0}, {1, 1}, {2, 2}, {57, 2}}) {
             standing.status = new Standing.Status("SMP", true, Optional.of("Aufbruch"), 42, counts[0]);
             user.replies.clear();
             commands.showStatus(user);
 
-            final String expected = List.of("smp.status.online.none", "smp.status.online.one",
-                    "smp.status.online").get(counts[1]);
+            final String expected = List.of("smp.status.online.none", "smp.status.online.one", "smp.status.online")
+                    .get(counts[1]);
             assertEquals(expected, user.keys().get(2), counts[0] + " online should read as " + expected);
         }
     }
@@ -154,16 +159,19 @@ class PlayerCommandsTest {
     void everyKeyResolves() {
         // The keys moved from :commands' bundle to this one. A half-moved key reaches a player as
         // the literal key string, which is the one failure nothing else here would catch.
-        final Messages messages = Messages.load(PlayerCommandsTest.class.getClassLoader(),
+        final Messages messages = Messages.load(
+                PlayerCommandsTest.class.getClassLoader(),
                 List.of("messages/paper-common", "messages/commands", "messages/smp"),
-                null, Locale.ENGLISH, Locale.GERMAN);
+                null,
+                Locale.ENGLISH,
+                Locale.GERMAN);
         standing.aura = new Standing.AuraStanding(1, 1, 1, List.of(new Standing.AuraLine(1, "a", 1, true)));
         commands.showAura(user, SELF);
         standing.aura = new Standing.AuraStanding(0, 1, 0, List.of());
         commands.showAura(user, SELF);
         standing.aura = null;
         commands.showAura(user, SELF);
-        for (final int online : new int[]{0, 1, 2}) {
+        for (final int online : new int[] {0, 1, 2}) {
             standing.status = new Standing.Status("SMP", true, Optional.of("x"), 1, online);
             commands.showStatus(user);
         }
@@ -218,12 +226,10 @@ class PlayerCommandsTest {
         }
 
         @Override
-        public void warn(final String what, final Throwable failure) {
-        }
+        public void warn(final String what, final Throwable failure) {}
     }
 
-    private record Reply(String key, Map<String, ?> args, Tone tone) {
-    }
+    private record Reply(String key, Map<String, ?> args, Tone tone) {}
 
     private static final class Recorder implements NordtalUser {
 
@@ -279,7 +285,6 @@ class PlayerCommandsTest {
         }
 
         @Override
-        public void replyLiteral(final String text) {
-        }
+        public void replyLiteral(final String text) {}
     }
 }

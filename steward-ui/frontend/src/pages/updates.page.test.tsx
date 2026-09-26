@@ -1,11 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -94,9 +88,7 @@ function run(id: number, kind: string) {
 function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; runs?: unknown[] } = {}) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/config") {
-      return json(200, [
-        { service: "steward-worker", name: "steward.yml", path: FILE, readable: true, writable: true },
-      ])
+      return json(200, [{ service: "steward-worker", name: "steward.yml", path: FILE, readable: true, writable: true }])
     }
     if (url === `/api/config/${FILE}`) {
       if (init?.method === "PUT") return (over.put ?? (() => json(200, workerConfig())))(JSON.parse(String(init.body)))
@@ -124,7 +116,13 @@ function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; 
     if (url === "/api/schedule") {
       return json(
         200,
-        over.schedule ?? { backupAt: "04:45", zone: "Europe/Berlin", nextBackupAt: null, updateAt: null, nextUpdateAt: null },
+        over.schedule ?? {
+          backupAt: "04:45",
+          zone: "Europe/Berlin",
+          nextBackupAt: null,
+          updateAt: null,
+          nextUpdateAt: null,
+        },
       )
     }
     throw new Error(`the page asked for ${url}, which this test did not expect`)

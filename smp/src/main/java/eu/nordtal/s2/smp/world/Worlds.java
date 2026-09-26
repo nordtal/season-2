@@ -1,15 +1,13 @@
 package eu.nordtal.s2.smp.world;
 
 import eu.nordtal.s2.smp.config.SmpSpec;
-
-import org.bukkit.Bukkit;
-import org.bukkit.World;
-import org.bukkit.WorldCreator;
-import org.bukkit.WorldBorder;
-
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
+import org.bukkit.WorldBorder;
+import org.bukkit.WorldCreator;
 
 /**
  * The SMP's four worlds: finding them, creating the ones that are missing, and holding their
@@ -163,8 +161,8 @@ public final class Worlds {
             // both sides at once and using the whole delta would run it at double the intended
             // speed.
             final double travel = (diameter - current) / 2.0;
-            final long seconds = Math.max(1L,
-                    Math.round(travel / Math.max(0.0001, config.borderExpansionBlocksPerSecond())));
+            final long seconds =
+                    Math.max(1L, Math.round(travel / Math.max(0.0001, config.borderExpansionBlocksPerSecond())));
             border.setSize(diameter, seconds);
         });
     }

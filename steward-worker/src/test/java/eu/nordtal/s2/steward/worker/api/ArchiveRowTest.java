@@ -1,17 +1,16 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The archive list is read while the thing it lists is being written, which is what these hold.
@@ -24,8 +23,8 @@ class ArchiveRowTest {
     @Test
     @DisplayName("the size and the size in words are the same moment, not two")
     void oneStatAnswersBoth() throws IOException {
-        final Path archive = Files.writeString(backups.resolve("mc-smp-data-20260913T041500Z.tar.zst"),
-                "x".repeat(2048));
+        final Path archive =
+                Files.writeString(backups.resolve("mc-smp-data-20260913T041500Z.tar.zst"), "x".repeat(2048));
 
         final Map<String, Object> row = WorkerApi.archiveRow(archive).orElseThrow();
 
@@ -37,8 +36,7 @@ class ArchiveRowTest {
     @Test
     @DisplayName("a .partial is listed as one, because a directory that hides them is lying")
     void aPartialSaysSo() throws IOException {
-        final Path running = Files.writeString(
-                backups.resolve("mc-smp-data-20260913T041500Z.tar.zst.partial"), "half");
+        final Path running = Files.writeString(backups.resolve("mc-smp-data-20260913T041500Z.tar.zst.partial"), "half");
 
         assertEquals(true, WorkerApi.archiveRow(running).orElseThrow().get("partial"));
     }
@@ -56,6 +54,7 @@ class ArchiveRowTest {
 
     @Test
     void aDirectoryIsNotAnArchive() throws IOException {
-        assertTrue(WorkerApi.archiveRow(Files.createDirectory(backups.resolve("sources"))).isEmpty());
+        assertTrue(WorkerApi.archiveRow(Files.createDirectory(backups.resolve("sources")))
+                .isEmpty());
     }
 }

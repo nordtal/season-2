@@ -1,13 +1,12 @@
 package eu.nordtal.s2.proxy.update;
 
-import org.jdbi.v3.sqlobject.customizer.Bind;
-import org.jdbi.v3.sqlobject.statement.SqlQuery;
-import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
  * The whole SQL surface of the proxy swap, package-private for the reason {@code PlaytimeDao} gives:

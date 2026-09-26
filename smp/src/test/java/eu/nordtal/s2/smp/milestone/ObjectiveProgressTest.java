@@ -1,10 +1,10 @@
 package eu.nordtal.s2.smp.milestone;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * Advancing an objective, and the one moment that fires everything else.
@@ -44,7 +44,9 @@ class ObjectiveProgressTest {
     void nothingIsCreditedForNothing() {
         assertEquals(0, ObjectiveProgress.advance(100, 2048, 0).credited());
         assertEquals(100, ObjectiveProgress.advance(100, 2048, 0).amount());
-        assertEquals(100, ObjectiveProgress.advance(100, 2048, -50).amount(),
+        assertEquals(
+                100,
+                ObjectiveProgress.advance(100, 2048, -50).amount(),
                 "a negative delta credits nothing rather than taking progress away");
     }
 
@@ -52,7 +54,9 @@ class ObjectiveProgressTest {
     void anAbsurdDeltaSaturatesRatherThanWrapping() {
         // Nothing on this server can reach a bigint's limit, and an overflowing counter would read
         // as an objective going backwards - which is worse than a number nobody will ever see.
-        assertEquals(Long.MAX_VALUE, ObjectiveProgress.advance(Long.MAX_VALUE - 1, 100, 1000).amount());
+        assertEquals(
+                Long.MAX_VALUE,
+                ObjectiveProgress.advance(Long.MAX_VALUE - 1, 100, 1000).amount());
     }
 
     @Test

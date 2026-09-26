@@ -1,5 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.access.AccessEffects;
 import eu.nordtal.s2.common.access.AccessDirectory;
@@ -7,22 +9,18 @@ import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.access.AccessSource;
 import eu.nordtal.s2.common.access.PlaytimeWording;
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.discordbot.access.SeasonStart;
-import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.common.payment.Money;
 import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequestStatus;
 import eu.nordtal.s2.common.payment.PaymentRequests;
-
-import net.dv8tion.jda.api.JDA;
-
+import eu.nordtal.s2.discordbot.access.SeasonStart;
+import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
-
-import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+import net.dv8tion.jda.api.JDA;
 
 /**
  * {@link AccessEffects} against this bot.
@@ -62,11 +60,17 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
      *                 same files, so a reload that moved only one of them would leave a command
      *                 answering differently in Discord and in game
      */
-    public BotAccessEffects(final Executor executor, final JDA jda, final AccessDirectory access,
-                            final AccessRoles roles, final PaymentRequests requests,
-                            final AdminLog admin, final SeasonStart seasonStart,
-                            final Messages messages, final Messages shared,
-                            final org.slf4j.Logger log) {
+    public BotAccessEffects(
+            final Executor executor,
+            final JDA jda,
+            final AccessDirectory access,
+            final AccessRoles roles,
+            final PaymentRequests requests,
+            final AdminLog admin,
+            final SeasonStart seasonStart,
+            final Messages messages,
+            final Messages shared,
+            final org.slf4j.Logger log) {
         this.executor = executor;
         this.jda = jda;
         this.access = access;
@@ -105,15 +109,19 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         }
 
         final List<Grant> grants = access.grantsOf(discordId).stream()
-                .map(grant -> new Grant(grant.validFrom(), grant.validUntil(),
-                        grant.source().name(), grant.revoked() != null))
+                .map(grant -> new Grant(
+                        grant.validFrom(), grant.validUntil(), grant.source().name(), grant.revoked() != null))
                 .toList();
         final List<Purchase> purchases = requests.recentOf(discordId, 5).stream()
-                .map(request -> new Purchase(request.reference(), request.days(),
-                        Money.format(request.amountCents()), request.status().name()))
+                .map(request -> new Purchase(
+                        request.reference(),
+                        request.days(),
+                        Money.format(request.amountCents()),
+                        request.status().name()))
                 .toList();
 
-        return Optional.of(new Status(member.get().getUser().getName(),
+        return Optional.of(new Status(
+                member.get().getUser().getName(),
                 grants.stream()
                         .filter(grant -> !grant.revoked())
                         .map(Grant::validUntil)
@@ -140,16 +148,18 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
      */
     @Override
     public Instant grant(final String discordId, final int days, final Actor by) {
-        final AccessGrant granted =
-                access.grantAccess(discordId, days, AccessSource.ADMIN, null);
+        final AccessGrant granted = access.grantAccess(discordId, days, AccessSource.ADMIN, null);
         seasonStart.warnIfUnanchored(discordId, granted);
         roles.applyAccessRole(discordId, true);
-        roles.dm(discordId, messages.format(roles.localeOf(discordId),
-                MESSAGES.dm().grantedSection().admin(String.valueOf(days),
-                        AccessRoles.timestamp(granted.validUntil()))));
+        roles.dm(
+                discordId,
+                messages.format(
+                        roles.localeOf(discordId),
+                        MESSAGES.dm()
+                                .grantedSection()
+                                .admin(String.valueOf(days), AccessRoles.timestamp(granted.validUntil()))));
 
-        admin.record("GRANT_ACCESS", by.filed(), discordId, by.minecraftUuid(),
-                days + " days");
+        admin.record("GRANT_ACCESS", by.filed(), discordId, by.minecraftUuid(), days + " days");
         admin.note(by.mention() + " granted <@" + discordId + "> " + days + " days of access, until "
                 + AccessRoles.timestamp(granted.validUntil()) + ".");
         return granted.validUntil();
@@ -166,13 +176,13 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         final int revoked = access.revokeAccess(discordId);
         roles.applyAccessRole(discordId, false);
         if (revoked > 0) {
-            roles.dm(discordId, messages.format(roles.localeOf(discordId), MESSAGES.dm().revoked()));
+            roles.dm(
+                    discordId,
+                    messages.format(roles.localeOf(discordId), MESSAGES.dm().revoked()));
         }
 
-        admin.record("REVOKE_ACCESS", by.filed(), discordId, by.minecraftUuid(),
-                revoked + " grant(s)");
-        admin.note(by.mention() + " revoked <@" + discordId + ">'s access (" + revoked
-                + " grant(s)).");
+        admin.record("REVOKE_ACCESS", by.filed(), discordId, by.minecraftUuid(), revoked + " grant(s)");
+        admin.note(by.mention() + " revoked <@" + discordId + ">'s access (" + revoked + " grant(s)).");
         return revoked;
     }
 
@@ -190,8 +200,7 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         if (!access.unlink(discordId)) {
             return false;
         }
-        admin.record("UNLINK", by.filed(), discordId, linked.orElse(null),
-                "by an admin, not self-service");
+        admin.record("UNLINK", by.filed(), discordId, linked.orElse(null), "by an admin, not self-service");
         admin.note(by.mention() + " unlinked <@" + discordId + ">'s Minecraft account `"
                 + linked.map(UUID::toString).orElse("?") + "`.");
         return true;
@@ -216,26 +225,37 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         }
         final PaymentRequest found = request.get();
         if (found.status() != PaymentRequestStatus.OPEN) {
-            return new Settled(Settlement.NOT_OPEN, null, found.days(), found.status().name());
+            return new Settled(
+                    Settlement.NOT_OPEN, null, found.days(), found.status().name());
         }
 
         requests.settleManually(found.id());
-        final AccessGrant granted = access.grantAccess(found.discordId(), found.days(),
-                AccessSource.PURCHASE, found.id());
+        final AccessGrant granted =
+                access.grantAccess(found.discordId(), found.days(), AccessSource.PURCHASE, found.id());
         seasonStart.warnIfUnanchored(found.discordId(), granted);
         roles.applyAccessRole(found.discordId(), true);
         if (found.donationCents() > 0) {
             access.setDonor(found.discordId(), true);
             roles.grantDonorRole(found.discordId());
         }
-        roles.dm(found.discordId(), messages.format(roles.localeOf(found.discordId()),
-                MESSAGES.dm().granted(AccessRoles.timestamp(granted.validUntil()))));
+        roles.dm(
+                found.discordId(),
+                messages.format(
+                        roles.localeOf(found.discordId()),
+                        MESSAGES.dm().granted(AccessRoles.timestamp(granted.validUntil()))));
 
-        admin.record("SETTLE", by.filed(), found.discordId(), by.minecraftUuid(),
+        admin.record(
+                "SETTLE",
+                by.filed(),
+                found.discordId(),
+                by.minecraftUuid(),
                 "manual, reference=" + reference + " days=" + found.days());
-        admin.note(by.mention() + " settled `" + reference + "` by hand: " + found.days()
-                + " days for <@" + found.discordId() + ">.");
-        return new Settled(Settlement.BOOKED, granted.validUntil(), found.days(),
+        admin.note(by.mention() + " settled `" + reference + "` by hand: " + found.days() + " days for <@"
+                + found.discordId() + ">.");
+        return new Settled(
+                Settlement.BOOKED,
+                granted.validUntil(),
+                found.days(),
                 found.status().name());
     }
 
@@ -258,10 +278,8 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         access.setPlaytimeSeconds(discordId, seconds);
         // Days, hours and minutes and not a number of seconds: Steward's dialog asks in those
         // units and its list answers in them, so the journal and the admin channel do too.
-        admin.record("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(),
-                PlaytimeWording.of(seconds));
-        admin.note(by.mention() + " set <@" + discordId + ">'s play time to "
-                + PlaytimeWording.of(seconds) + ".");
+        admin.record("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(), PlaytimeWording.of(seconds));
+        admin.note(by.mention() + " set <@" + discordId + ">'s play time to " + PlaytimeWording.of(seconds) + ".");
     }
 
     @Override
@@ -283,5 +301,4 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
     public List<String> unknownOverrideKeys() {
         return List.copyOf(messages.unknownOverrideKeys());
     }
-
 }

@@ -13,5 +13,4 @@ package eu.nordtal.s2.smp.db;
  * @param target what the objective asked for, which is what the aura and spin thresholds are
  *               measured against ({@code AuraPayout#QUALIFYING_PERCENT})
  */
-public record OwnContributionRow(String key, long mine, long target) {
-}
+public record OwnContributionRow(String key, long mine, long target) {}

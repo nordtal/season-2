@@ -11,17 +11,15 @@ import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
-
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 /**
  * {@link SmpEffects} against this server.
@@ -62,12 +60,16 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
      */
     private final org.jdbi.v3.core.Jdbi jdbi;
 
-    public BukkitSmpEffects(final Plugin plugin, final Executor executor,
-                            final org.jdbi.v3.core.Jdbi jdbi, final SmpDao dao,
-                            final ObjectiveEngine engine,
-                            final Identities identities, final AccessDirectory access,
-                            final java.util.function.Supplier<java.util.List<String>> reload,
-                            final java.util.function.Function<java.util.Locale, Status> status) {
+    public BukkitSmpEffects(
+            final Plugin plugin,
+            final Executor executor,
+            final org.jdbi.v3.core.Jdbi jdbi,
+            final SmpDao dao,
+            final ObjectiveEngine engine,
+            final Identities identities,
+            final AccessDirectory access,
+            final java.util.function.Supplier<java.util.List<String>> reload,
+            final java.util.function.Function<java.util.Locale, Status> status) {
         this.status = java.util.Objects.requireNonNull(status, "status");
         this.plugin = plugin;
         this.executor = executor;
@@ -115,9 +117,8 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
         if (row.isEmpty()) {
             // Between the check and here somebody reloaded the track. Rare, and cheaper to re-read
             // than to pass the row through a platform-free command layer that has no type for it.
-            throw new IllegalStateException(
-                    "objective " + milestone + "/" + objective + " disappeared while it was being"
-                            + " completed - the track was probably reloaded in between");
+            throw new IllegalStateException("objective " + milestone + "/" + objective
+                    + " disappeared while it was being" + " completed - the track was probably reloaded in between");
         }
         // null: an admin's escape hatch has nobody standing behind it, so the milestone it may
         // complete is a network event for everybody rather than a congratulation for whoever typed
@@ -155,8 +156,7 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
     }
 
     @Override
-    public void changeAura(final UUID player, final String discordId, final int delta,
-                           final String by) {
+    public void changeAura(final UUID player, final String discordId, final int delta, final String by) {
         dao.addAura(discordId, delta, AuraReason.ADMIN.stored(), "by " + by);
         dao.auraOf(discordId).ifPresent(now -> identities.recordAura(player, now));
         plugin.getLogger().info(by + " changed " + player + "'s aura by " + delta);
@@ -165,8 +165,7 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
     @Override
     public Optional<Access> access(final UUID player) {
         final AccessState state = access.accessState(player);
-        return Optional.of(new Access(state.discordId(), state.accessActive(),
-                state.accessValidUntil()));
+        return Optional.of(new Access(state.discordId(), state.accessActive(), state.accessValidUntil()));
     }
 
     @Override
@@ -202,15 +201,14 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
         // All three in one REPEATABLE READ transaction: a rank, a total and a leaderboard read
         // one after the other through an on-demand DAO are three separate snapshots, and a single
         // aura event between them prints a place that the list underneath it contradicts.
-        final AuraSnapshot snapshot = jdbi.inTransaction(
-                org.jdbi.v3.core.transaction.TransactionIsolationLevel.REPEATABLE_READ, handle -> {
+        final AuraSnapshot snapshot =
+                jdbi.inTransaction(org.jdbi.v3.core.transaction.TransactionIsolationLevel.REPEATABLE_READ, handle -> {
                     final SmpDao attached = handle.attach(SmpDao.class);
                     // A player who has never been given aura has no smp_player row yet, and zero is
                     // the honest answer for them - the alternative is telling somebody their account
                     // cannot be read on their first day.
                     final int own = attached.auraOf(discordId.get()).orElse(0);
-                    return new AuraSnapshot(own, attached.auraPlace(own, discordId.get()),
-                            attached.topAura(10));
+                    return new AuraSnapshot(own, attached.auraPlace(own, discordId.get()), attached.topAura(10));
                 });
         final int aura = snapshot.aura();
         final AuraPlace place = snapshot.place();
@@ -231,7 +229,10 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
 
         final List<AuraLine> lines = new java.util.ArrayList<>(top.size());
         for (int at = 0; at < top.size(); at++) {
-            lines.add(new AuraLine(at + 1, names.get(at), top.get(at).aura(),
+            lines.add(new AuraLine(
+                    at + 1,
+                    names.get(at),
+                    top.get(at).aura(),
                     top.get(at).mcUuid().equals(player)));
         }
         return Optional.of(new AuraStanding(aura, place.place(), place.total(), List.copyOf(lines)));
@@ -251,21 +252,16 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
             return Bukkit.getScheduler().callSyncMethod(plugin, work).get();
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("interrupted while waiting for the server thread",
-                    interrupted);
+            throw new IllegalStateException("interrupted while waiting for the server thread", interrupted);
         } catch (final ExecutionException failure) {
             throw asUnchecked(failure.getCause());
         }
     }
 
     private static RuntimeException asUnchecked(final Throwable failure) {
-        return failure instanceof RuntimeException unchecked
-                ? unchecked
-                : new IllegalStateException(failure);
+        return failure instanceof RuntimeException unchecked ? unchecked : new IllegalStateException(failure);
     }
 
     /** The three aura reads, taken together. */
-    private record AuraSnapshot(int aura, AuraPlace place, List<AuraRow> top) {
-    }
-
+    private record AuraSnapshot(int aura, AuraPlace place, List<AuraRow> top) {}
 }

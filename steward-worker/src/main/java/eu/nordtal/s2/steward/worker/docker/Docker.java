@@ -4,11 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -17,6 +12,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.function.Consumer;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The Docker Engine API, as far as Steward needs it.
@@ -33,6 +32,7 @@ public final class Docker {
 
     /** Compose writes these on every container it creates; they are how a container gets a name. */
     private static final String LABEL_PROJECT = "com.docker.compose.project";
+
     private static final String LABEL_SERVICE = "com.docker.compose.service";
 
     /**
@@ -56,13 +56,13 @@ public final class Docker {
 
     /** Every container of one compose project, running or not. */
     public @NotNull List<Container> containers(final @NotNull String project) {
-        final JsonArray array = GSON.fromJson(
-                socket.send("GET", "/containers/json?all=1", null), JsonArray.class);
+        final JsonArray array = GSON.fromJson(socket.send("GET", "/containers/json?all=1", null), JsonArray.class);
         final List<Container> containers = new ArrayList<>();
         for (final JsonElement element : array) {
             final JsonObject json = element.getAsJsonObject();
             final JsonObject labels = json.has("Labels") && json.get("Labels").isJsonObject()
-                    ? json.getAsJsonObject("Labels") : new JsonObject();
+                    ? json.getAsJsonObject("Labels")
+                    : new JsonObject();
             if (!project.equals(string(labels, LABEL_PROJECT))) {
                 continue;
             }
@@ -86,12 +86,12 @@ public final class Docker {
      * {@link LogFrames}.</p>
      */
     public @NotNull Inspection inspect(final @NotNull String id) {
-        final JsonObject json = GSON.fromJson(
-                socket.send("GET", "/containers/" + id + "/json", null), JsonObject.class);
+        final JsonObject json =
+                GSON.fromJson(socket.send("GET", "/containers/" + id + "/json", null), JsonObject.class);
         final JsonObject state = json.getAsJsonObject("State");
         final JsonObject config = json.getAsJsonObject("Config");
-        final String health = state != null && state.has("Health")
-                ? string(state.getAsJsonObject("Health"), "Status") : null;
+        final String health =
+                state != null && state.has("Health") ? string(state.getAsJsonObject("Health"), "Status") : null;
         return new Inspection(
                 string(json, "Id"),
                 json.has("Name") ? string(json, "Name").replaceFirst("^/", "") : null,
@@ -102,7 +102,8 @@ public final class Docker {
                 state == null ? null : string(state, "StartedAt"),
                 config != null && config.has("Tty") && config.get("Tty").getAsBoolean(),
                 state != null && state.has("ExitCode") && !state.get("ExitCode").isJsonNull()
-                        ? state.get("ExitCode").getAsInt() : -1,
+                        ? state.get("ExitCode").getAsInt()
+                        : -1,
                 repoDigests(string(json, "Image")));
     }
 
@@ -122,9 +123,8 @@ public final class Docker {
      * of the whole machine and has to be labelled that way (§10c).</p>
      */
     public @NotNull Stats stats(final @NotNull String id) {
-        final JsonObject json = GSON.fromJson(
-                socket.send("GET", "/containers/" + id + "/stats?stream=false", null),
-                JsonObject.class);
+        final JsonObject json =
+                GSON.fromJson(socket.send("GET", "/containers/" + id + "/stats?stream=false", null), JsonObject.class);
 
         final JsonObject memory = json.getAsJsonObject("memory_stats");
         long usage = 0;
@@ -132,8 +132,8 @@ public final class Docker {
         if (memory != null) {
             usage = number(memory, "usage");
             limit = number(memory, "limit");
-            final JsonObject detail = memory.has("stats") && memory.get("stats").isJsonObject()
-                    ? memory.getAsJsonObject("stats") : null;
+            final JsonObject detail =
+                    memory.has("stats") && memory.get("stats").isJsonObject() ? memory.getAsJsonObject("stats") : null;
             if (detail != null && detail.has("inactive_file")) {
                 usage = Math.max(0, usage - number(detail, "inactive_file"));
             }
@@ -182,12 +182,15 @@ public final class Docker {
      * @param since RFC3339 or a unix timestamp; empty for everything Docker still has
      * @param tail  how many lines to start with, or {@code "all"}
      */
-    public @NotNull DockerSocket.Stream logs(final @NotNull String id, final boolean follow,
-                                             final @NotNull String tail, final @Nullable String since) {
-        final StringBuilder path = new StringBuilder("/containers/").append(id)
+    public @NotNull DockerSocket.Stream logs(
+            final @NotNull String id, final boolean follow, final @NotNull String tail, final @Nullable String since) {
+        final StringBuilder path = new StringBuilder("/containers/")
+                .append(id)
                 .append("/logs?stdout=1&stderr=1&timestamps=1")
-                .append("&follow=").append(follow ? "1" : "0")
-                .append("&tail=").append(encode(tail));
+                .append("&follow=")
+                .append(follow ? "1" : "0")
+                .append("&tail=")
+                .append(encode(tail));
         if (since != null && !since.isBlank()) {
             path.append("&since=").append(encode(since));
         }
@@ -195,15 +198,13 @@ public final class Docker {
     }
 
     /** The last {@code tail} lines, read to the end and handed back. Never follows. */
-    public @NotNull List<String> recentLines(final @NotNull String id, final int tail,
-                                             final boolean multiplexed) {
+    public @NotNull List<String> recentLines(final @NotNull String id, final int tail, final boolean multiplexed) {
         final List<String> lines = new ArrayList<>();
         collect(id, tail, multiplexed, lines::add);
         return lines;
     }
 
-    private void collect(final String id, final int tail, final boolean multiplexed,
-                         final Consumer<String> line) {
+    private void collect(final String id, final int tail, final boolean multiplexed, final Consumer<String> line) {
         try (DockerSocket.Stream stream = logs(id, false, String.valueOf(tail), null)) {
             LogFrames.read(stream.body(), multiplexed, line);
         } catch (IOException e) {
@@ -227,8 +228,7 @@ public final class Docker {
     public @NotNull Optional<String> registryDigest(final @NotNull String imageRef) {
         try {
             final JsonObject json = GSON.fromJson(
-                    socket.send("GET", "/distribution/" + encodePath(imageRef) + "/json", null),
-                    JsonObject.class);
+                    socket.send("GET", "/distribution/" + encodePath(imageRef) + "/json", null), JsonObject.class);
             final JsonObject descriptor = json.getAsJsonObject("Descriptor");
             return Optional.ofNullable(descriptor == null ? null : string(descriptor, "digest"));
         } catch (DockerException e) {
@@ -244,8 +244,7 @@ public final class Docker {
         }
         try {
             final JsonObject json = GSON.fromJson(
-                    socket.send("GET", "/images/" + encodePath(imageId) + "/json", null),
-                    JsonObject.class);
+                    socket.send("GET", "/images/" + encodePath(imageId) + "/json", null), JsonObject.class);
             final JsonArray digests = json.getAsJsonArray("RepoDigests");
             if (digests == null) {
                 return List.of();
@@ -289,16 +288,17 @@ public final class Docker {
         }
         try {
             final JsonObject json = GSON.fromJson(
-                    socket.send("GET", "/images/" + encodePath(imageRef) + "/json", null),
-                    JsonObject.class);
+                    socket.send("GET", "/images/" + encodePath(imageRef) + "/json", null), JsonObject.class);
             final JsonArray digests = json.getAsJsonArray("RepoDigests");
             final List<String> all = new ArrayList<>();
             if (digests != null) {
                 digests.forEach(element -> all.add(element.getAsString()));
             }
             final JsonObject identity = json.getAsJsonObject("Identity");
-            final boolean builtLocally = identity != null && identity.has("Build")
-                    && identity.get("Build").isJsonArray() && !identity.getAsJsonArray("Build").isEmpty();
+            final boolean builtLocally = identity != null
+                    && identity.has("Build")
+                    && identity.get("Build").isJsonArray()
+                    && !identity.getAsJsonArray("Build").isEmpty();
             return Optional.of(new ImageIdentity(all, builtLocally));
         } catch (DockerException e) {
             log.debug("no image record for {}", imageRef, e);
@@ -336,8 +336,8 @@ public final class Docker {
      * a user is a smaller lie than putting a password in an argument list where {@code ps} can read
      * it.</p>
      */
-    public @NotNull ExecResult exec(final @NotNull String id, final @NotNull List<String> command,
-                                    final @Nullable String user) {
+    public @NotNull ExecResult exec(
+            final @NotNull String id, final @NotNull List<String> command, final @Nullable String user) {
         final JsonObject request = new JsonObject();
         request.addProperty("AttachStdout", true);
         request.addProperty("AttachStderr", true);
@@ -350,8 +350,7 @@ public final class Docker {
         request.add("Cmd", argv);
 
         final JsonObject created = GSON.fromJson(
-                socket.send("POST", "/containers/" + id + "/exec", GSON.toJson(request)),
-                JsonObject.class);
+                socket.send("POST", "/containers/" + id + "/exec", GSON.toJson(request)), JsonObject.class);
         final String execId = string(created, "Id");
         if (execId == null) {
             throw new DockerException("docker created no exec for " + id);
@@ -362,8 +361,8 @@ public final class Docker {
         start.addProperty("Tty", false);
 
         final StringBuilder output = new StringBuilder();
-        try (DockerSocket.Stream stream = socket.stream(
-                "POST", "/exec/" + execId + "/start", GSON.toJson(start), EXEC_DEADLINE)) {
+        try (DockerSocket.Stream stream =
+                socket.stream("POST", "/exec/" + execId + "/start", GSON.toJson(start), EXEC_DEADLINE)) {
             // Always multiplexed: Tty was false above, so the answer carries frame headers even
             // though the container it runs in may have a TTY of its own.
             LogFrames.read(stream.body(), true, line -> output.append(line).append('\n'));
@@ -375,10 +374,12 @@ public final class Docker {
         // a quiet one. `pg_dump` writes its complaint to stderr and exits 1; without this the
         // caller would see some text, no exception, and would go on to rename a partial file over
         // a good backup.
-        final JsonObject finished = GSON.fromJson(
-                socket.send("GET", "/exec/" + execId + "/json", null), JsonObject.class);
-        final int exitCode = finished.has("ExitCode") && !finished.get("ExitCode").isJsonNull()
-                ? finished.get("ExitCode").getAsInt() : -1;
+        final JsonObject finished =
+                GSON.fromJson(socket.send("GET", "/exec/" + execId + "/json", null), JsonObject.class);
+        final int exitCode =
+                finished.has("ExitCode") && !finished.get("ExitCode").isJsonNull()
+                        ? finished.get("ExitCode").getAsInt()
+                        : -1;
         return new ExecResult(exitCode, output.toString());
     }
 
@@ -402,9 +403,14 @@ public final class Docker {
     // --- the shapes ------------------------------------------------------------------------
 
     /** One container as the list shows it. {@code service} is null for anything not from compose. */
-    public record Container(@NotNull String id, @Nullable String service, @Nullable String name,
-                            @Nullable String image, @Nullable String imageId,
-                            @Nullable String state, @Nullable String status) {
+    public record Container(
+            @NotNull String id,
+            @Nullable String service,
+            @Nullable String name,
+            @Nullable String image,
+            @Nullable String imageId,
+            @Nullable String state,
+            @Nullable String status) {
 
         public boolean isRunning() {
             return "running".equalsIgnoreCase(state);
@@ -418,10 +424,17 @@ public final class Docker {
      *                 {@code docker stop} means the grace period ran out and Docker killed a
      *                 process that was still working - for a Minecraft server, still saving.
      */
-    public record Inspection(@NotNull String id, @Nullable String name, @Nullable String image,
-                             @Nullable String imageId, @Nullable String state,
-                             @Nullable String health, @Nullable String startedAt, boolean tty,
-                             int exitCode, @NotNull List<String> repoDigests) {
+    public record Inspection(
+            @NotNull String id,
+            @Nullable String name,
+            @Nullable String image,
+            @Nullable String imageId,
+            @Nullable String state,
+            @Nullable String health,
+            @Nullable String startedAt,
+            boolean tty,
+            int exitCode,
+            @NotNull List<String> repoDigests) {
 
         /** Killed rather than asked: SIGKILL, which is what a stop that ran out of time looks like. */
         public boolean wasKilled() {
@@ -445,11 +458,14 @@ public final class Docker {
      *                     {@link #imageIdentity}
      * @param builtLocally whether {@code Identity.Build} names at least one local build
      */
-    public record ImageIdentity(@NotNull List<String> repoDigests, boolean builtLocally) { }
+    public record ImageIdentity(@NotNull List<String> repoDigests, boolean builtLocally) {}
 
-    public record Stats(long memoryBytes, long memoryLimitBytes, @NotNull OptionalDouble cpuPercent) { }
+    public record Stats(
+            long memoryBytes,
+            long memoryLimitBytes,
+            @NotNull OptionalDouble cpuPercent) {}
 
-    public record DiskUsage(long imagesBytes, long volumesBytes, long containersBytes) { }
+    public record DiskUsage(long imagesBytes, long volumesBytes, long containersBytes) {}
 
     // --- the small print -------------------------------------------------------------------
 
@@ -485,7 +501,8 @@ public final class Docker {
             JsonObject cursor = element.getAsJsonObject();
             for (int i = 0; i < path.length - 1 && cursor != null; i++) {
                 cursor = cursor.has(path[i]) && cursor.get(path[i]).isJsonObject()
-                        ? cursor.getAsJsonObject(path[i]) : null;
+                        ? cursor.getAsJsonObject(path[i])
+                        : null;
             }
             total += number(cursor, path[path.length - 1]);
         }

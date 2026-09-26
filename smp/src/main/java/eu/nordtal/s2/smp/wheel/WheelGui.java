@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.wheel;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.menu.SlotGeometry;
 import eu.nordtal.s2.common.message.MessageRef;
@@ -9,20 +11,16 @@ import eu.nordtal.s2.papercommon.menu.BlankItem;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.Surface;
-
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The wheel itself: twelve prizes travelling round a ring, slowing down, and stopping on the one
@@ -70,10 +68,16 @@ public final class WheelGui implements Surface {
      * @param earnAt    the lowest contribution share that earns an extra spin, in percent
      * @param again     runs another spin, or null when this player has none left
      */
-    public WheelGui(final Messages messages, final Locale locale, final WheelStrip strip,
-                    final List<ItemStack> icons, final SmpSounds sounds,
-                    final int spinsLeft, final int earnAt, final Runnable again,
-                    final Consumer<Player> payout) {
+    public WheelGui(
+            final Messages messages,
+            final Locale locale,
+            final WheelStrip strip,
+            final List<ItemStack> icons,
+            final SmpSounds sounds,
+            final int spinsLeft,
+            final int earnAt,
+            final Runnable again,
+            final Consumer<Player> payout) {
         this.strip = strip;
         this.icons = List.copyOf(icons);
         this.sounds = sounds;
@@ -83,9 +87,11 @@ public final class WheelGui implements Surface {
         this.again = again;
 
         final MessageRenderer renderer = MessageRenderer.of(messages);
-        this.inventory = Bukkit.createInventory(this,
+        this.inventory = Bukkit.createInventory(
+                this,
                 WheelPanel.ROWS * SlotGeometry.COLUMNS,
-                WheelPanel.title(renderer.format(locale, MESSAGES.smp().wheel().title()),
+                WheelPanel.title(
+                        renderer.format(locale, MESSAGES.smp().wheel().title()),
                         String.valueOf(spinsLeft),
                         messages.format(locale, MESSAGES.smp().wheel().spinsLeft(spinsLeft)),
                         messages.format(locale, MESSAGES.smp().wheel().ruleTop()),
@@ -152,7 +158,8 @@ public final class WheelGui implements Surface {
         if (celebrate && player.isOnline()) {
             sounds.play(player, Feedback.BIG_SUCCESS);
             final SmpMessages.Smp.Wheel wheel = MESSAGES.smp().wheel();
-            setAgain(again == null ? wheel.againNone() : wheel.again(),
+            setAgain(
+                    again == null ? wheel.againNone() : wheel.again(),
                     again == null ? wheel.againNoneHint() : wheel.againHint());
         }
         payout.accept(player);
@@ -160,8 +167,7 @@ public final class WheelGui implements Surface {
 
     private void setAgain(final MessageRef name, final MessageRef hint) {
         final MessageRenderer renderer = MessageRenderer.of(messages);
-        final ItemStack item = BlankItem.of(renderer.format(locale, name),
-                List.of(renderer.format(locale, hint)));
+        final ItemStack item = BlankItem.of(renderer.format(locale, name), List.of(renderer.format(locale, hint)));
         WheelPanel.AGAIN_SLOTS.forEach(slot -> inventory.setItem(slot, item));
     }
 
@@ -174,14 +180,18 @@ public final class WheelGui implements Surface {
 
         final int delay = WheelStrip.delay(step);
         final int next = step + 1;
-        task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (next < WheelStrip.steps()) {
-                step(plugin, player, next);
-            } else {
-                // The last delay is the beat after the wheel stops, not a gap before a frame.
-                finish(player, true);
-            }
-        }, delay);
+        task = Bukkit.getScheduler()
+                .runTaskLater(
+                        plugin,
+                        () -> {
+                            if (next < WheelStrip.steps()) {
+                                step(plugin, player, next);
+                            } else {
+                                // The last delay is the beat after the wheel stops, not a gap before a frame.
+                                finish(player, true);
+                            }
+                        },
+                        delay);
     }
 
     private void draw(final int step) {

@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,9 +11,9 @@ import java.time.Instant;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** A number for the four services with a volume here, and no field for the rest. */
 class DiskUsageTest {
@@ -42,8 +41,8 @@ class DiskUsageTest {
     void cachedForFiveMinutes() throws IOException {
         Files.createDirectories(root.resolve("smp"));
         final AtomicInteger calls = new AtomicInteger();
-        final DiskUsage usage = new DiskUsage(root, path -> OptionalLong.of(calls.incrementAndGet()),
-                Runnable::run, now::get);
+        final DiskUsage usage =
+                new DiskUsage(root, path -> OptionalLong.of(calls.incrementAndGet()), Runnable::run, now::get);
 
         final Instant first = now.get();
         assertEquals(1, usage.of("smp").orElseThrow().bytes().getAsLong());
@@ -62,7 +61,8 @@ class DiskUsageTest {
     void aFailedMeasurementIsNoField() throws IOException {
         Files.createDirectories(root.resolve("smp"));
         assertTrue(new DiskUsage(root, path -> OptionalLong.empty(), Runnable::run, now::get)
-                .of("smp").isEmpty());
+                .of("smp")
+                .isEmpty());
     }
 
     @Test

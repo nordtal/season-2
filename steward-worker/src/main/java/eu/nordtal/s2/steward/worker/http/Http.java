@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.worker.http;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.net.URI;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Fetches a small document over HTTPS.
@@ -25,5 +24,6 @@ public interface Http {
      *                       themselves rather than surfacing them here.
      * @throws IOException   on a transport failure or a timeout.
      */
-    @NotNull String get(@NotNull URI uri) throws IOException;
+    @NotNull
+    String get(@NotNull URI uri) throws IOException;
 }

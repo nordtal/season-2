@@ -18,15 +18,16 @@ public final class Money {
 
     private static final BigDecimal CENTS_PER_EURO = BigDecimal.valueOf(100);
 
-    private Money() {
-    }
+    private Money() {}
 
     /**
      * @param cents an amount in cents
      * @return the amount as bunq wants it, e.g. {@code "3.00"}
      */
     public static String toDecimalString(final int cents) {
-        return BigDecimal.valueOf(cents).divide(CENTS_PER_EURO, 2, RoundingMode.UNNECESSARY).toPlainString();
+        return BigDecimal.valueOf(cents)
+                .divide(CENTS_PER_EURO, 2, RoundingMode.UNNECESSARY)
+                .toPlainString();
     }
 
     /**

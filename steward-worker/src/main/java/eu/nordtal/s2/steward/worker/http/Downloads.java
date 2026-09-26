@@ -2,9 +2,6 @@ package eu.nordtal.s2.steward.worker.http;
 
 import eu.nordtal.s2.steward.worker.source.Checksum;
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.http.HttpClient;
@@ -17,6 +14,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Fetching a jar onto disk and proving it is the jar that was asked for.
@@ -97,16 +95,16 @@ public final class Downloads implements Fetcher {
     }
 
     /** Hex digest of a file, streamed - these are jars, not strings. */
-    public static @NotNull String digest(final @NotNull Path file, final @NotNull String algorithm)
-            throws IOException {
+    public static @NotNull String digest(final @NotNull Path file, final @NotNull String algorithm) throws IOException {
         final MessageDigest digest;
         try {
-            digest = MessageDigest.getInstance(switch (algorithm) {
-                case "sha1" -> "SHA-1";
-                case "sha256" -> "SHA-256";
-                case "sha512" -> "SHA-512";
-                default -> throw new IOException("no digest known for '" + algorithm + "'");
-            });
+            digest = MessageDigest.getInstance(
+                    switch (algorithm) {
+                        case "sha1" -> "SHA-1";
+                        case "sha256" -> "SHA-256";
+                        case "sha512" -> "SHA-512";
+                        default -> throw new IOException("no digest known for '" + algorithm + "'");
+                    });
         } catch (final NoSuchAlgorithmException impossible) {
             throw new IOException("this JVM has no " + algorithm, impossible);
         }

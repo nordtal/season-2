@@ -1,14 +1,13 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.gson.Gson;
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SettingKind;
 import eu.nordtal.jcore.config.schema.SettingType;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,9 +15,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * A list of sections whose sections hold lists of their own - smp's {@code milestones.yml}, where
@@ -37,8 +36,7 @@ class ConfigFilesNestedSectionsTest {
 
     private static final Gson GSON = new Gson();
 
-    private static final String TRACK =
-            "# the milestone track\n"
+    private static final String TRACK = "# the milestone track\n"
             + "milestones:\n"
             + "- key: waiting\n"
             + "  unlocks: BORDER\n"
@@ -74,8 +72,9 @@ class ConfigFilesNestedSectionsTest {
         objective.put("key", scalar(SettingType.STRING));
         objective.put("type", scalar(SettingType.STRING));
         objective.put("target", scalar(SettingType.INTEGER));
-        objective.put("items", new SchemaNode(SettingKind.LIST, "Items", "", false, false,
-                SettingType.STRING, null, Map.of(), null));
+        objective.put(
+                "items",
+                new SchemaNode(SettingKind.LIST, "Items", "", false, false, SettingType.STRING, null, Map.of(), null));
         final Map<String, SchemaNode> milestone = new LinkedHashMap<>();
         milestone.put("key", scalar(SettingType.STRING));
         milestone.put("unlocks", scalar(SettingType.STRING));
@@ -83,8 +82,9 @@ class ConfigFilesNestedSectionsTest {
         final Map<String, SchemaNode> root = new LinkedHashMap<>();
         root.put("milestones", list("Milestones", milestone));
         root.put("season", scalar(SettingType.INTEGER));
-        Files.writeString(directory.resolve("milestones.schema.json"), GSON.toJson(
-                new SchemaNode(SettingKind.MAP, "", "", false, false, null, null, root, null)));
+        Files.writeString(
+                directory.resolve("milestones.schema.json"),
+                GSON.toJson(new SchemaNode(SettingKind.MAP, "", "", false, false, null, null, root, null)));
     }
 
     // -----------------------------------------------------------------------------------------
@@ -97,7 +97,8 @@ class ConfigFilesNestedSectionsTest {
 
         final ConfigEntry objectives = field(milestones.template(), "objectives");
         assertEquals(Kind.SECTIONS, objectives.kind());
-        assertEquals(List.of("key", "type", "target", "items"),
+        assertEquals(
+                List.of("key", "type", "target", "items"),
                 objectives.template().stream().map(ConfigEntry::key).toList());
         assertEquals(Kind.LIST, field(objectives.template(), "items").kind());
     }
@@ -132,8 +133,8 @@ class ConfigFilesNestedSectionsTest {
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(TRACK.replace("    - SPRUCE_LOG\n", "    - BIRCH_LOG\n    - CHERRY_LOG\n"),
-                Files.readString(file));
+        assertEquals(
+                TRACK.replace("    - SPRUCE_LOG\n", "    - BIRCH_LOG\n    - CHERRY_LOG\n"), Files.readString(file));
     }
 
     // -----------------------------------------------------------------------------------------
@@ -147,14 +148,17 @@ class ConfigFilesNestedSectionsTest {
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(TRACK.replace("    items: []\n- key: nether",
-                "    items: []\n"
-                        + "  - key: iron\n"
-                        + "    type: HAND_IN\n"
-                        + "    target: 64\n"
-                        + "    items:\n"
-                        + "    - IRON_INGOT\n"
-                        + "- key: nether"), Files.readString(file));
+        assertEquals(
+                TRACK.replace(
+                        "    items: []\n- key: nether",
+                        "    items: []\n"
+                                + "  - key: iron\n"
+                                + "    type: HAND_IN\n"
+                                + "    target: 64\n"
+                                + "    items:\n"
+                                + "    - IRON_INGOT\n"
+                                + "- key: nether"),
+                Files.readString(file));
     }
 
     @Test
@@ -164,13 +168,16 @@ class ConfigFilesNestedSectionsTest {
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(TRACK.replace("  objectives: []\n- key: foothold",
-                "  objectives:\n"
-                        + "  - key: wood\n"
-                        + "    type: HAND_IN\n"
-                        + "    target: 10\n"
-                        + "    items: []\n"
-                        + "- key: foothold"), Files.readString(file));
+        assertEquals(
+                TRACK.replace(
+                        "  objectives: []\n- key: foothold",
+                        "  objectives:\n"
+                                + "  - key: wood\n"
+                                + "    type: HAND_IN\n"
+                                + "    target: 10\n"
+                                + "    items: []\n"
+                                + "- key: foothold"),
+                Files.readString(file));
     }
 
     @Test
@@ -180,14 +187,17 @@ class ConfigFilesNestedSectionsTest {
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(TRACK.replace(
-                "  - key: logs\n"
-                        + "    type: HAND_IN\n"
-                        + "    # lowering this is always allowed\n"
-                        + "    target: 2048\n"
-                        + "    items:\n"
-                        + "    - OAK_LOG\n"
-                        + "    - SPRUCE_LOG\n", ""), Files.readString(file));
+        assertEquals(
+                TRACK.replace(
+                        "  - key: logs\n"
+                                + "    type: HAND_IN\n"
+                                + "    # lowering this is always allowed\n"
+                                + "    target: 2048\n"
+                                + "    items:\n"
+                                + "    - OAK_LOG\n"
+                                + "    - SPRUCE_LOG\n",
+                        ""),
+                Files.readString(file));
     }
 
     @Test
@@ -197,12 +207,15 @@ class ConfigFilesNestedSectionsTest {
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(TRACK.replace(
-                "  objectives:\n"
-                        + "  - key: blaze\n"
-                        + "    type: STATISTIC\n"
-                        + "    target: 30\n"
-                        + "    items: []\n", "  objectives: []\n"), Files.readString(file));
+        assertEquals(
+                TRACK.replace(
+                        "  objectives:\n"
+                                + "  - key: blaze\n"
+                                + "    type: STATISTIC\n"
+                                + "    target: 30\n"
+                                + "    items: []\n",
+                        "  objectives: []\n"),
+                Files.readString(file));
     }
 
     @Test
@@ -223,27 +236,32 @@ class ConfigFilesNestedSectionsTest {
         final Map<String, Object> end = new LinkedHashMap<>();
         end.put("key", "end");
         end.put("unlocks", "END");
-        end.put("objectives", new ArrayList<>(List.of(
-                objectiveRow("dragon", "ADVANCEMENT", "5", List.of()),
-                objectiveRow("pearls", "HAND_IN", "16", List.of("ENDER_PEARL")))));
+        end.put(
+                "objectives",
+                new ArrayList<>(List.of(
+                        objectiveRow("dragon", "ADVANCEMENT", "5", List.of()),
+                        objectiveRow("pearls", "HAND_IN", "16", List.of("ENDER_PEARL")))));
         track.add(end);
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(TRACK.replace("season: 2\n",
-                "- key: end\n"
-                        + "  unlocks: END\n"
-                        + "  objectives:\n"
-                        + "  - key: dragon\n"
-                        + "    type: ADVANCEMENT\n"
-                        + "    target: 5\n"
-                        + "    items: []\n"
-                        + "  - key: pearls\n"
-                        + "    type: HAND_IN\n"
-                        + "    target: 16\n"
-                        + "    items:\n"
-                        + "    - ENDER_PEARL\n"
-                        + "season: 2\n"), Files.readString(file));
+        assertEquals(
+                TRACK.replace(
+                        "season: 2\n",
+                        "- key: end\n"
+                                + "  unlocks: END\n"
+                                + "  objectives:\n"
+                                + "  - key: dragon\n"
+                                + "    type: ADVANCEMENT\n"
+                                + "    target: 5\n"
+                                + "    items: []\n"
+                                + "  - key: pearls\n"
+                                + "    type: HAND_IN\n"
+                                + "    target: 16\n"
+                                + "    items:\n"
+                                + "    - ENDER_PEARL\n"
+                                + "season: 2\n"),
+                Files.readString(file));
         assertEquals(track, valuesOf(milestones()));
     }
 
@@ -271,7 +289,9 @@ class ConfigFilesNestedSectionsTest {
     }
 
     private static ConfigEntry field(final List<ConfigEntry> fields, final String key) {
-        return fields.stream().filter(f -> f.key().equals(key)).findFirst()
+        return fields.stream()
+                .filter(f -> f.key().equals(key))
+                .findFirst()
                 .orElseThrow(() -> new AssertionError("no field " + key));
     }
 
@@ -281,11 +301,13 @@ class ConfigFilesNestedSectionsTest {
         for (final List<ConfigEntry> section : sections.sections()) {
             final Map<String, Object> row = new LinkedHashMap<>();
             for (final ConfigEntry field : section) {
-                row.put(field.key(), switch (field.kind()) {
-                    case SECTIONS -> valuesOf(field);
-                    case LIST -> new ArrayList<>(field.items());
-                    case SCALAR, MAP -> field.value();
-                });
+                row.put(
+                        field.key(),
+                        switch (field.kind()) {
+                            case SECTIONS -> valuesOf(field);
+                            case LIST -> new ArrayList<>(field.items());
+                            case SCALAR, MAP -> field.value();
+                        });
             }
             rows.add(row);
         }
@@ -293,18 +315,17 @@ class ConfigFilesNestedSectionsTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<Map<String, Object>> objectives(final List<Map<String, Object>> track,
-                                                        final int milestone) {
+    private static List<Map<String, Object>> objectives(final List<Map<String, Object>> track, final int milestone) {
         return (List<Map<String, Object>>) track.get(milestone).get("objectives");
     }
 
-    private static Map<String, Object> objective(final List<Map<String, Object>> track,
-                                                 final int milestone, final int index) {
+    private static Map<String, Object> objective(
+            final List<Map<String, Object>> track, final int milestone, final int index) {
         return objectives(track, milestone).get(index);
     }
 
-    private static Map<String, Object> objectiveRow(final String key, final String type,
-                                                    final String target, final List<String> items) {
+    private static Map<String, Object> objectiveRow(
+            final String key, final String type, final String target, final List<String> items) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("key", key);
         row.put("type", type);

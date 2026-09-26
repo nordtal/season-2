@@ -3,15 +3,9 @@ package eu.nordtal.s2.smp.menu;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.menu.MenuFont;
 import eu.nordtal.s2.common.menu.MenuTitle;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -27,6 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import javax.imageio.ImageIO;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 
 /**
  * Rebuilds a composed menu surface the way the client lays it out, so a test can contradict a panel
@@ -56,8 +53,7 @@ public final class PanelWalk {
     /** The advances of {@code nordtal:gui}, derived from that font's own file and its PNGs. */
     private static final Map<Integer, Integer> GUI_ADVANCES = guiAdvances();
 
-    private PanelWalk() {
-    }
+    private PanelWalk() {}
 
     /**
      * One drawn thing: the font it is in, its payload, where the payload starts and how wide it is.
@@ -97,8 +93,8 @@ public final class PanelWalk {
         return runs.stream()
                 .filter(run -> run.font().equals(font) && run.content().equals(content))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("nothing draws U+%X in %s"
-                        .formatted(content.codePointAt(0), font)));
+                .orElseThrow(
+                        () -> new AssertionError("nothing draws U+%X in %s".formatted(content.codePointAt(0), font)));
     }
 
     /**
@@ -117,18 +113,18 @@ public final class PanelWalk {
 
     /** Every code point one font resolves, straight out of its own file. */
     public static Set<Integer> declared(final String font) {
-        final String file = Glyphs.FONT_GUI.equals(font)
-                ? "gui.json"
-                : "gui_r" + font.charAt(font.length() - 1) + ".json";
+        final String file =
+                Glyphs.FONT_GUI.equals(font) ? "gui.json" : "gui_r" + font.charAt(font.length() - 1) + ".json";
         final Set<Integer> out = new LinkedHashSet<>();
         for (final JsonObject provider : providers(file)) {
             if ("space".equals(provider.get("type").getAsString())) {
-                provider.getAsJsonObject("advances").keySet().forEach(key ->
-                        key.codePoints().forEach(out::add));
+                provider.getAsJsonObject("advances")
+                        .keySet()
+                        .forEach(key -> key.codePoints().forEach(out::add));
                 continue;
             }
-            provider.getAsJsonArray("chars").forEach(chars ->
-                    chars.getAsString().codePoints().forEach(out::add));
+            provider.getAsJsonArray("chars")
+                    .forEach(chars -> chars.getAsString().codePoints().forEach(out::add));
         }
         return out;
     }
@@ -141,10 +137,8 @@ public final class PanelWalk {
     /** One of {@code smp}'s message bundles, for asserting what a drawn string may contain. */
     public static Properties bundle(final String language) {
         final Properties properties = new Properties();
-        final Path path = ROOT.resolve("smp/src/main/resources/messages/smp/"
-                + language + ".properties");
-        try (Reader reader = new InputStreamReader(Files.newInputStream(path),
-                StandardCharsets.UTF_8)) {
+        final Path path = ROOT.resolve("smp/src/main/resources/messages/smp/" + language + ".properties");
+        try (Reader reader = new InputStreamReader(Files.newInputStream(path), StandardCharsets.UTF_8)) {
             properties.load(reader);
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + path, e);
@@ -154,10 +148,10 @@ public final class PanelWalk {
 
     // --- walking ------------------------------------------------------------------------
 
-    private static void walk(final Component component, final String inherited,
-                             final List<Run> out, final int[] cursor) {
-        final String font = component.style().font() != null
-                ? component.style().font().asString() : inherited;
+    private static void walk(
+            final Component component, final String inherited, final List<Run> out, final int[] cursor) {
+        final String font =
+                component.style().font() != null ? component.style().font().asString() : inherited;
         if (component instanceof TextComponent text && !text.content().isEmpty()) {
             final String whole = text.content();
             final StringBuilder payload = new StringBuilder();
@@ -182,8 +176,7 @@ public final class PanelWalk {
     }
 
     private static boolean isShift(final int codePoint) {
-        return (codePoint >= 0xFF001 && codePoint <= 0xFF128)
-                || (codePoint >= 0xFF801 && codePoint <= 0xFF928);
+        return (codePoint >= 0xFF001 && codePoint <= 0xFF128) || (codePoint >= 0xFF801 && codePoint <= 0xFF928);
     }
 
     /** The advance of one code point in one font, taken from the pack and never from the code. */
@@ -198,23 +191,24 @@ public final class PanelWalk {
         final Map<Integer, Integer> table = new HashMap<>();
         for (final JsonObject provider : providers("gui.json")) {
             if ("space".equals(provider.get("type").getAsString())) {
-                provider.getAsJsonObject("advances").entrySet().forEach(entry ->
-                        entry.getKey().codePoints().forEach(codePoint ->
-                                table.put(codePoint, entry.getValue().getAsInt())));
+                provider.getAsJsonObject("advances")
+                        .entrySet()
+                        .forEach(entry -> entry.getKey()
+                                .codePoints()
+                                .forEach(codePoint ->
+                                        table.put(codePoint, entry.getValue().getAsInt())));
                 continue;
             }
             final BufferedImage png = read(ROOT.resolve(ASSETS + "/nordtal/textures")
                     .resolve(provider.get("file").getAsString().replace("nordtal:", "")));
-            table.put(provider.getAsJsonArray("chars").get(0).getAsString().codePointAt(0),
-                    png.getWidth() + 1);
+            table.put(provider.getAsJsonArray("chars").get(0).getAsString().codePointAt(0), png.getWidth() + 1);
         }
         return table;
     }
 
     private static List<JsonObject> providers(final String file) {
         final List<JsonObject> out = new ArrayList<>();
-        final JsonObject root = JsonParser
-                .parseString(readText(ROOT.resolve(ASSETS + "/nordtal/font/" + file)))
+        final JsonObject root = JsonParser.parseString(readText(ROOT.resolve(ASSETS + "/nordtal/font/" + file)))
                 .getAsJsonObject();
         for (final JsonElement element : root.getAsJsonArray("providers")) {
             out.add(element.getAsJsonObject());
@@ -250,8 +244,8 @@ public final class PanelWalk {
             at = at.getParent();
         }
         if (at == null) {
-            throw new IllegalStateException("no settings.gradle.kts above "
-                    + Path.of("").toAbsolutePath());
+            throw new IllegalStateException(
+                    "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         }
         return at;
     }

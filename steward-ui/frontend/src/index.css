@@ -196,8 +196,8 @@
   --spacing-row: var(--row-height);
   --spacing-cell: var(--cell-padding);
   --spacing-control: var(--control-min-height);
-  --font-sans: 'DM Sans Variable', sans-serif;
-  --font-heading: 'JetBrains Mono Variable', monospace;
+  --font-sans: "DM Sans Variable", sans-serif;
+  --font-heading: "JetBrains Mono Variable", monospace;
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
@@ -363,7 +363,6 @@
    * a label somebody forgot reads as an unnamed line rather than as a broken layout.
    */
 }
-
 
 /*
   DELIBERATELY UNLAYERED, and that is the whole reason this block sits outside `@layer components`

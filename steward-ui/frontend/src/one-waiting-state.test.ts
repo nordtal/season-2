@@ -60,7 +60,7 @@ const NO_WAITING_SHAPE = new Map<string, string>([
   [
     "components/steward/console.tsx",
     "useConsole is a mutation. The log is a stream, not a query, and says" +
-      " \"Waiting for the log\" in its own window until the first line arrives.",
+      ' "Waiting for the log" in its own window until the first line arrives.',
   ],
   ["app/hold-key.tsx", "steward/120: useHoldKey is a mutation. Nothing here is read."],
   ["app/security-key.tsx", "steward/120: useRegisterKey is a mutation. Nothing here is read."],
@@ -138,7 +138,8 @@ describe("one waiting state, and it is QueryState (steward/120)", () => {
       "These files read from @/lib/queries and never import @/components/steward/query-state, so" +
         " whatever they fetch appears out of nothing. Draw the waiting shape through QueryState -" +
         " or, if there is genuinely nothing to reserve, say so in NO_WAITING_SHAPE with the" +
-        " reason.\n\n" + withoutTheGate().join("\n"),
+        " reason.\n\n" +
+        withoutTheGate().join("\n"),
     ).toEqual([])
   })
 
@@ -149,7 +150,8 @@ describe("one waiting state, and it is QueryState (steward/120)", () => {
         " nothing about the layout under it, so it cannot resemble it. Pass the shape to" +
         " QueryState instead - or, if the shape is genuinely unknowable before the data (a form" +
         " whose fields come from the answer), name the file in FLAT_BARS_ALLOWED with the" +
-        " reason.\n\n" + drawingFlatBars().join("\n"),
+        " reason.\n\n" +
+        drawingFlatBars().join("\n"),
     ).toEqual([])
   })
 

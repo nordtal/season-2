@@ -1,5 +1,13 @@
 package eu.nordtal.s2.discordbot.config;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
@@ -7,12 +15,6 @@ import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.exception.UnknownConfigKeyException;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -23,14 +25,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The fail-fast that replaced "log it and carry on with defaults".
@@ -167,8 +166,7 @@ class ConfigsTest {
                 () -> assertEquals("10", config.roles().access()),
                 () -> assertEquals("14", config.roles().admin()),
                 () -> assertEquals("24", config.channels().admin()),
-                () -> assertEquals(24, config.payment().requestTtlHours())
-        );
+                () -> assertEquals(24, config.payment().requestTtlHours()));
     }
 
     @Test
@@ -207,10 +205,11 @@ class ConfigsTest {
     @Test
     @DisplayName("every role but the admin one may be left empty, and the bot still starts")
     void theOptionalRolesMayAllBeEmpty() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), access()
-                .replace("access: '10'", "access: ''")
-                .replace("donor: '11'", "donor: ''")
-                .replace("admin-ping: '15'", "admin-ping: ''"));
+        Files.writeString(
+                directory.resolve("access.yml"),
+                access().replace("access: '10'", "access: ''")
+                        .replace("donor: '11'", "donor: ''")
+                        .replace("admin-ping: '15'", "admin-ping: ''"));
 
         final AccessSpec config = Configs.access().get();
 
@@ -218,8 +217,7 @@ class ConfigsTest {
                 () -> assertEquals("", config.roles().access()),
                 () -> assertEquals("", config.roles().donor()),
                 () -> assertEquals("", config.roles().adminPing()),
-                () -> assertEquals("14", config.roles().admin())
-        );
+                () -> assertEquals("14", config.roles().admin()));
     }
 
     @Test
@@ -236,8 +234,7 @@ class ConfigsTest {
     @Test
     @DisplayName("a role id that is not a snowflake stops the bot")
     void nonNumericRoleIdStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("access.yml"),
-                access().replace("access: '10'", "access: '<@&10>'"));
+        Files.writeString(directory.resolve("access.yml"), access().replace("access: '10'", "access: '<@&10>'"));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("roles.access"), error.getMessage());
@@ -248,7 +245,8 @@ class ConfigsTest {
     void unorderedTiersStopTheBot() throws Exception {
         // A shortfall is settled by walking down to the highest tier the amount covers, which is
         // only the answer a human would give if more days cost more money.
-        Files.writeString(directory.resolve("access.yml"),
+        Files.writeString(
+                directory.resolve("access.yml"),
                 access(VALID_TIERS.replace("- days: 60\n  price-cents: 500", "- days: 60\n  price-cents: 900")));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
@@ -260,8 +258,7 @@ class ConfigsTest {
     void duplicateDayCountsStopTheBot() throws Exception {
         // A purchase button carries a day count, so two tiers with the same one is an ambiguous
         // lookup rather than a cosmetic mistake.
-        Files.writeString(directory.resolve("access.yml"),
-                access(VALID_TIERS.replace("- days: 90", "- days: 30")));
+        Files.writeString(directory.resolve("access.yml"), access(VALID_TIERS.replace("- days: 90", "- days: 30")));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("Day counts identify a tier"), error.getMessage());
@@ -293,8 +290,7 @@ class ConfigsTest {
                 () -> assertEquals("32", config.languages().getFirst().linkChannel()),
                 () -> assertEquals("de", config.languages().getLast().tag()),
                 () -> assertEquals("34", config.languages().getLast().contributionChannel()),
-                () -> assertEquals("40", config.languages().getLast().hungerGamesChannel())
-        );
+                () -> assertEquals("40", config.languages().getLast().hungerGamesChannel()));
     }
 
     @Test
@@ -313,9 +309,9 @@ class ConfigsTest {
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertAll(
                 () -> assertTrue(error.getMessage().contains("no 'en' entry"), error.getMessage()),
-                () -> assertTrue(error.getMessage().contains("tag: en"),
-                        "the message has to show what to write: " + error.getMessage())
-        );
+                () -> assertTrue(
+                        error.getMessage().contains("tag: en"),
+                        "the message has to show what to write: " + error.getMessage()));
     }
 
     @Test
@@ -326,9 +322,9 @@ class ConfigsTest {
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertAll(
                 () -> assertTrue(error.getMessage().contains("languages is empty"), error.getMessage()),
-                () -> assertTrue(error.getMessage().contains("link-channel"),
-                        "the message has to show the whole entry: " + error.getMessage())
-        );
+                () -> assertTrue(
+                        error.getMessage().contains("link-channel"),
+                        "the message has to show the whole entry: " + error.getMessage()));
     }
 
     @Test
@@ -336,8 +332,8 @@ class ConfigsTest {
     void duplicateLanguageTagsStopTheBot() throws Exception {
         // A tag is the bundle file name and the value in discord_user.locale, so two entries
         // claiming one is an ambiguous lookup rather than a cosmetic mistake.
-        Files.writeString(directory.resolve("access.yml"),
-                languages(VALID_LANGUAGES.replace("- tag: de", "- tag: en")));
+        Files.writeString(
+                directory.resolve("access.yml"), languages(VALID_LANGUAGES.replace("- tag: de", "- tag: en")));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("Tags identify a language"), error.getMessage());
@@ -347,8 +343,8 @@ class ConfigsTest {
     @DisplayName("an upper-case tag stops the bot")
     void upperCaseLanguageTagStopsTheBot() throws Exception {
         // Nothing downstream case-folds a .properties file name.
-        Files.writeString(directory.resolve("access.yml"),
-                languages(VALID_LANGUAGES.replace("- tag: de", "- tag: DE")));
+        Files.writeString(
+                directory.resolve("access.yml"), languages(VALID_LANGUAGES.replace("- tag: de", "- tag: DE")));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("must be lower case"), error.getMessage());
@@ -360,20 +356,22 @@ class ConfigsTest {
         // All four of these used to be mandatory, which made a first deployment wait on eight
         // channels nobody had created. Empty switches the thing it names off - no link message in
         // this language - and Configured lists every one of them in a line at startup.
-        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES
-                .replace("role: '33'", "role: ''")
-                .replace("contribution-channel: '34'", "contribution-channel: ''")
-                .replace("link-channel: '35'", "link-channel: ''")
-                .replace("hunger-games-channel: '40'", "hunger-games-channel: ''")));
+        Files.writeString(
+                directory.resolve("access.yml"),
+                languages(VALID_LANGUAGES
+                        .replace("role: '33'", "role: ''")
+                        .replace("contribution-channel: '34'", "contribution-channel: ''")
+                        .replace("link-channel: '35'", "link-channel: ''")
+                        .replace("hunger-games-channel: '40'", "hunger-games-channel: ''")));
 
-        final AccessSpec.LanguageSpec german = Configs.access().get().languages().get(1);
+        final AccessSpec.LanguageSpec german =
+                Configs.access().get().languages().get(1);
 
         assertAll(
                 () -> assertEquals("", german.role()),
                 () -> assertEquals("", german.contributionChannel()),
                 () -> assertEquals("", german.linkChannel()),
-                () -> assertEquals("", german.hungerGamesChannel())
-        );
+                () -> assertEquals("", german.hungerGamesChannel()));
     }
 
     @Test
@@ -381,7 +379,8 @@ class ConfigsTest {
     void aNonNumericLanguageChannelStillStopsTheBot() throws Exception {
         // The reason the leniency is about emptiness and nothing else: an unresolvable channel and
         // an unconfigured one look identical from the outside and are not the same thing at all.
-        Files.writeString(directory.resolve("access.yml"),
+        Files.writeString(
+                directory.resolve("access.yml"),
                 languages(VALID_LANGUAGES.replace("link-channel: '35'", "link-channel: '<#35>'")));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
@@ -417,8 +416,11 @@ class ConfigsTest {
     @Test
     @DisplayName("an announcement-channel that is set has to be a real snowflake")
     void aMistypedAnnouncementChannelStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES
-                .replace("hunger-games-channel: '40'", "hunger-games-channel: '40'\n  announcement-channel: 'not-an-id'")));
+        Files.writeString(
+                directory.resolve("access.yml"),
+                languages(VALID_LANGUAGES.replace(
+                        "hunger-games-channel: '40'",
+                        "hunger-games-channel: '40'\n  announcement-channel: 'not-an-id'")));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("languages[1].announcement-channel"), error.getMessage());
@@ -430,8 +432,10 @@ class ConfigsTest {
         // Being lenient about it being absent must not become being lenient about it being wrong:
         // the failure mode of an unresolvable channel id is silence, which looks exactly like a
         // channel nobody configured.
-        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES
-                .replace("hunger-games-channel: '40'", "hunger-games-channel: '40'\n  status-channel: 'not-an-id'")));
+        Files.writeString(
+                directory.resolve("access.yml"),
+                languages(VALID_LANGUAGES.replace(
+                        "hunger-games-channel: '40'", "hunger-games-channel: '40'\n  status-channel: 'not-an-id'")));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("languages[1].status-channel"), error.getMessage());
@@ -440,9 +444,11 @@ class ConfigsTest {
     @Test
     @DisplayName("a link-code attempt cap of zero would lock everybody out and is refused")
     void aZeroAttemptCapStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("access.yml"),
-                access().replace("role-reconcile-interval-minutes: 10",
-                        "role-reconcile-interval-minutes: 10\nlink-code-attempts-per-hour: 0"));
+        Files.writeString(
+                directory.resolve("access.yml"),
+                access().replace(
+                                "role-reconcile-interval-minutes: 10",
+                                "role-reconcile-interval-minutes: 10\nlink-code-attempts-per-hour: 0"));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("link-code-attempts-per-hour"), error.getMessage());
@@ -453,7 +459,8 @@ class ConfigsTest {
     void anOverlongLanguageTagStopsTheBot() throws Exception {
         // Not a rule about languages: managed_message.kind is varchar(32) and the bot writes
         // "CONTRIBUTION_<TAG>" into it. Caught here rather than as an INSERT failure at startup.
-        Files.writeString(directory.resolve("access.yml"),
+        Files.writeString(
+                directory.resolve("access.yml"),
                 languages(VALID_LANGUAGES.replace("- tag: de", "- tag: " + "a".repeat(20))));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
@@ -473,34 +480,35 @@ class ConfigsTest {
         // the only possible move was to delete the line, so the loader does it. What the test still
         // pins is that the key does not come back - re-declaring it as a quiet no-op would leave it
         // in the file, and this fails.
-        Files.writeString(directory.resolve("access.yml"),
-                access().replace("  donor: '11'", "  donor: '11'\n  german: '12'"));
+        Files.writeString(
+                directory.resolve("access.yml"), access().replace("  donor: '11'", "  donor: '11'\n  german: '12'"));
 
         final AccessSpec config = Configs.access().get();
 
         assertAll(
-                () -> assertFalse(Files.readString(directory.resolve("access.yml")).contains("german:"),
+                () -> assertFalse(
+                        Files.readString(directory.resolve("access.yml")).contains("german:"),
                         "the retired key has to be gone from the file"),
-                () -> assertTrue(Files.readString(directory.resolve("access.yml.bak")).contains("german:"),
+                () -> assertTrue(
+                        Files.readString(directory.resolve("access.yml.bak")).contains("german:"),
                         "and recoverable from the backup, because it carried an id"),
-                () -> assertEquals(2, config.languages().size(),
-                        "the list is still the only source for the language roles")
-        );
+                () -> assertEquals(
+                        2, config.languages().size(), "the list is still the only source for the language roles"));
     }
 
     @Test
     @DisplayName("the retired fixed contribution and link channels are deleted from the file")
     void retiredLanguageChannelsAreDropped() throws Exception {
-        Files.writeString(directory.resolve("access.yml"),
+        Files.writeString(
+                directory.resolve("access.yml"),
                 access().replace("  admin: '24'", "  contribution-en: '20'\n  admin: '24'"));
 
         final AccessSpec config = Configs.access().get();
 
         assertAll(
-                () -> assertFalse(Files.readString(directory.resolve("access.yml")).contains("contribution-en:")),
-                () -> assertEquals("24", config.channels().admin(),
-                        "the sibling ids are not collateral")
-        );
+                () -> assertFalse(
+                        Files.readString(directory.resolve("access.yml")).contains("contribution-en:")),
+                () -> assertEquals("24", config.channels().admin(), "the sibling ids are not collateral"));
     }
 
     @Test
@@ -518,18 +526,19 @@ class ConfigsTest {
         assertAll(
                 () -> assertEquals(3, languages.all().size()),
                 () -> assertEquals(Locale.FRENCH, french.locale()),
-                () -> assertEquals("fr", languages.resolve(Set.of("36")).orElseThrow().tag()),
+                () -> assertEquals(
+                        "fr", languages.resolve(Set.of("36")).orElseThrow().tag()),
                 () -> assertEquals("37", french.contributionChannelId()),
                 () -> assertEquals("38", french.linkChannelId()),
                 () -> assertEquals("41", french.hungerGamesChannelId()),
                 () -> assertEquals("CONTRIBUTION_FR", french.contributionKind()),
                 () -> assertEquals("HG_REGISTER_FR", french.hungerGamesRegisterKind()),
-                () -> assertArrayEquals(new Locale[]{Locale.ENGLISH, Locale.GERMAN, Locale.FRENCH},
-                        languages.locales()),
+                () -> assertArrayEquals(
+                        new Locale[] {Locale.ENGLISH, Locale.GERMAN, Locale.FRENCH}, languages.locales()),
                 // ...and the two that already existed still behave exactly as they did.
-                () -> assertEquals("de", languages.resolve(Set.of("33")).orElseThrow().tag()),
-                () -> assertEquals("31", languages.forLocale(Locale.ENGLISH).contributionChannelId())
-        );
+                () -> assertEquals(
+                        "de", languages.resolve(Set.of("33")).orElseThrow().tag()),
+                () -> assertEquals("31", languages.forLocale(Locale.ENGLISH).contributionChannelId()));
     }
 
     @Test
@@ -543,8 +552,7 @@ class ConfigsTest {
         // The other half is what this is really for: nobody may quietly re-declare either key here
         // to make an upgrade smoother. A watermark read by a process with no bunq connection is a
         // setting that cannot do anything except disagree with the one that can.
-        Files.writeString(directory.resolve("access.yml"), access()
-                .replace("""
+        Files.writeString(directory.resolve("access.yml"), access().replace("""
                         payment:
                           poll-interval-seconds: 30
                         """, """
@@ -557,28 +565,29 @@ class ConfigsTest {
         Configs.access();
 
         final String written = Files.readString(directory.resolve("access.yml"));
-        assertFalse(written.lines().anyMatch(line -> line.strip().startsWith("watermark:")),
+        assertFalse(
+                written.lines().anyMatch(line -> line.strip().startsWith("watermark:")),
                 "access.yml still carries payment.watermark after a load - something re-declared"
                         + " it in AccessSpec: " + written);
-        assertFalse(written.lines().anyMatch(line -> line.strip().startsWith("recent-payment-count:")),
+        assertFalse(
+                written.lines().anyMatch(line -> line.strip().startsWith("recent-payment-count:")),
                 "access.yml still carries payment.recent-payment-count after a load: " + written);
     }
 
     @Test
     @DisplayName("a mistyped setting stops the bot and says what was meant")
     void mistypedSettingStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("access.yml"),
-                access().replace("donation-cents:", "donation-cent:"));
+        Files.writeString(directory.resolve("access.yml"), access().replace("donation-cents:", "donation-cent:"));
 
         // jcore's predecessor deleted a key it did not know, so a typo cost both the setting and
         // any trace of it.
-        final UnknownConfigKeyException error =
-                assertThrows(UnknownConfigKeyException.class, Configs::access);
+        final UnknownConfigKeyException error = assertThrows(UnknownConfigKeyException.class, Configs::access);
 
         assertAll(
-                () -> assertEquals("donation-cent", error.unknownKeys().getFirst().path()),
-                () -> assertEquals("donation-cents", error.unknownKeys().getFirst().suggestion())
-        );
+                () -> assertEquals(
+                        "donation-cent", error.unknownKeys().getFirst().path()),
+                () -> assertEquals(
+                        "donation-cents", error.unknownKeys().getFirst().suggestion()));
     }
 
     @Test
@@ -591,7 +600,8 @@ class ConfigsTest {
 
         Configs.access();
 
-        assertFalse(Files.readString(directory.resolve("access.yml")).contains("link-code-ttl-minutes"),
+        assertFalse(
+                Files.readString(directory.resolve("access.yml")).contains("link-code-ttl-minutes"),
                 "the key is gone rather than sitting in the file looking like a setting");
     }
 
@@ -605,23 +615,26 @@ class ConfigsTest {
         final Path file = directory.resolve("access.yml");
         assertAll(
                 () -> assertTrue(Files.isRegularFile(file)),
-                () -> assertTrue(Files.readString(file).contains("access: ''"),
-                        "the role ids are written empty, never guessed"),
-                () -> assertTrue(Files.readString(file).contains("price-cents: 300"),
+                () -> assertTrue(
+                        Files.readString(file).contains("access: ''"), "the role ids are written empty, never guessed"),
+                () -> assertTrue(
+                        Files.readString(file).contains("price-cents: 300"),
                         "but the price list is written in full - a fresh install is ready to sell"),
-                () -> assertTrue(Files.readString(file).contains("price-cents: 700"),
-                        "all three tiers, not just the first"),
+                () -> assertTrue(
+                        Files.readString(file).contains("price-cents: 700"), "all three tiers, not just the first"),
                 // jcore initialises a List<NestedSpec> to empty, so without DefaultLanguages this
                 // comes out as "languages: []" and a fresh install has no language at all.
-                () -> assertTrue(Files.readString(file).contains("tag: en"),
-                        "the fallback language is written: " + read(file)),
-                () -> assertTrue(Files.readString(file).contains("tag: de"),
+                () -> assertTrue(
+                        Files.readString(file).contains("tag: en"), "the fallback language is written: " + read(file)),
+                () -> assertTrue(
+                        Files.readString(file).contains("tag: de"),
                         "and so is German - both entries, not an empty list: " + read(file)),
-                () -> assertTrue(Files.readString(file).contains("link-channel: ''"),
+                () -> assertTrue(
+                        Files.readString(file).contains("link-channel: ''"),
                         "with their ids empty, exactly like every other id"),
-                () -> assertTrue(Files.readString(file).contains("hunger-games-channel: ''"),
-                        "the hunger games channel id too")
-        );
+                () -> assertTrue(
+                        Files.readString(file).contains("hunger-games-channel: ''"),
+                        "the hunger games channel id too"));
     }
 
     private static String read(final Path file) throws Exception {
@@ -637,9 +650,9 @@ class ConfigsTest {
 
         assertAll(
                 () -> assertTrue(error.getMessage().contains("token"), error.getMessage()),
-                () -> assertTrue(error.getMessage().contains("NORDTAL_BOT_TOKEN"),
-                        "the message has to name the variable to set: " + error.getMessage())
-        );
+                () -> assertTrue(
+                        error.getMessage().contains("NORDTAL_BOT_TOKEN"),
+                        "the message has to name the variable to set: " + error.getMessage()));
     }
 
     @Test
@@ -666,11 +679,11 @@ class ConfigsTest {
         assertEquals("a-token", Configs.bot().get().token());
 
         final String written = Files.readString(directory.resolve("bot.yml"));
-        assertFalse(written.lines().anyMatch(line -> line.strip().startsWith("bunq:")),
+        assertFalse(
+                written.lines().anyMatch(line -> line.strip().startsWith("bunq:")),
                 "bot.yml still carries the bunq block after a load. jcore drops a key the interface"
                         + " does not declare - if it survived, something declared it again: " + written);
-        assertFalse(written.contains("a-key"),
-                "the bunq API key survived into the rewritten bot.yml: " + written);
+        assertFalse(written.contains("a-key"), "the bunq API key survived into the rewritten bot.yml: " + written);
     }
 
     @Test
@@ -689,22 +702,25 @@ class ConfigsTest {
         final Path schema = directory.resolve("bot.schema.json");
         assertAll(
                 () -> assertTrue(Files.isRegularFile(file), "the defaults file is still written"),
-                () -> assertTrue(Files.readString(file).contains("token: ''"),
-                        "the token slot is written empty, never guessed"),
-                () -> assertTrue(Files.isRegularFile(schema),
+                () -> assertTrue(
+                        Files.readString(file).contains("token: ''"), "the token slot is written empty, never guessed"),
+                () -> assertTrue(
+                        Files.isRegularFile(schema),
                         "the schema is written beside it, under the config's own base name"),
                 // "THIS" and not "THESE" since steward/109: bot.yml has one setting left, because
                 // the bunq credentials moved to steward-worker. The sentence is still the only
                 // place NORDTAL_BOT_TOKEN is explained to somebody looking at this file.
-                () -> assertTrue(Files.readString(schema).contains("LEAVE THIS EMPTY"),
+                () -> assertTrue(
+                        Files.readString(schema).contains("LEAVE THIS EMPTY"),
                         "and the schema's root explanation carries the header that says so"),
-                () -> assertTrue(Files.readString(schema).contains("NORDTAL_STEWARD_BUNQ_API_KEY"),
+                () -> assertTrue(
+                        Files.readString(schema).contains("NORDTAL_STEWARD_BUNQ_API_KEY"),
                         "the header also has to say where the bunq key went, because the one thing"
                                 + " an operator will look for in bot.yml is the setting that is no"
                                 + " longer in it"),
-                () -> assertFalse(Files.readString(file).contains("LEAVE THIS EMPTY"),
-                        "the YAML itself stays comment-free - that is what jcore 4.0.0 decided")
-        );
+                () -> assertFalse(
+                        Files.readString(file).contains("LEAVE THIS EMPTY"),
+                        "the YAML itself stays comment-free - that is what jcore 4.0.0 decided"));
     }
 
     // ------------------------------------------------------------- database.yml
@@ -712,11 +728,9 @@ class ConfigsTest {
     @Test
     @DisplayName("a non-PostgreSQL jdbc-url stops the bot")
     void wrongDatabaseUrlStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("database.yml"),
-                "jdbc-url: jdbc:mysql://db:3306/access\nusername: u\n");
+        Files.writeString(directory.resolve("database.yml"), "jdbc-url: jdbc:mysql://db:3306/access\nusername: u\n");
 
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, Configs::database);
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::database);
         assertTrue(error.getMessage().contains("PostgreSQL"), error.getMessage());
     }
 
@@ -749,13 +763,15 @@ class ConfigsTest {
         swallowValidationFailure(Configs::database);
 
         assertAll(
-                () -> assertTrue(Files.isRegularFile(directory.resolve("access.schema.json")),
+                () -> assertTrue(
+                        Files.isRegularFile(directory.resolve("access.schema.json")),
                         "access.yml has no access.schema.json beside it"),
-                () -> assertTrue(Files.isRegularFile(directory.resolve("bot.schema.json")),
+                () -> assertTrue(
+                        Files.isRegularFile(directory.resolve("bot.schema.json")),
                         "bot.yml has no bot.schema.json beside it"),
-                () -> assertTrue(Files.isRegularFile(directory.resolve("database.schema.json")),
-                        "database.yml has no database.schema.json beside it")
-        );
+                () -> assertTrue(
+                        Files.isRegularFile(directory.resolve("database.schema.json")),
+                        "database.yml has no database.schema.json beside it"));
     }
 
     /**
@@ -846,15 +862,15 @@ class ConfigsTest {
             }
             directory = directory.getParent();
         }
-        throw new IllegalStateException("no settings.gradle.kts above "
-                + Path.of("").toAbsolutePath());
+        throw new IllegalStateException(
+                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 
     @Test
     @DisplayName("the language list in .env.example is read back as two languages")
     void theEnvExampleLanguageListParses() throws Exception {
-        final AccessSpec config = fromEnvironment(Map.of(
-                "NORDTAL_ACCESS_LANGUAGES", envExampleValue("NORDTAL_ACCESS_LANGUAGES")));
+        final AccessSpec config =
+                fromEnvironment(Map.of("NORDTAL_ACCESS_LANGUAGES", envExampleValue("NORDTAL_ACCESS_LANGUAGES")));
 
         assertEquals(2, config.languages().size(), "both entries have to survive the round trip");
         assertEquals("en", config.languages().get(0).tag());
@@ -875,8 +891,8 @@ class ConfigsTest {
     @Test
     @DisplayName("the price list in .env.example is read back as three tiers")
     void theEnvExampleTierListParses() throws Exception {
-        final AccessSpec config = fromEnvironment(
-                Map.of("NORDTAL_ACCESS_TIERS", envExampleValue("NORDTAL_ACCESS_TIERS")));
+        final AccessSpec config =
+                fromEnvironment(Map.of("NORDTAL_ACCESS_TIERS", envExampleValue("NORDTAL_ACCESS_TIERS")));
 
         assertEquals(3, config.tiers().size());
         assertEquals(30, config.tiers().get(0).days());
@@ -888,12 +904,11 @@ class ConfigsTest {
     void aPlaceholderIdIsRefusedByName() throws Exception {
         // The whole point of REPLACE_ME over a row of zeros: zeros are a valid snowflake and would
         // start a bot against a guild that does not exist.
-        Files.writeString(directory.resolve("access.yml"),
-                access().replace("access: '10'", "access: 'REPLACE_ME'"));
+        Files.writeString(directory.resolve("access.yml"), access().replace("access: '10'", "access: 'REPLACE_ME'"));
 
-        final ConfigValidationException thrown =
-                assertThrows(ConfigValidationException.class, Configs::access);
-        assertTrue(thrown.getMessage().contains("roles.access"),
+        final ConfigValidationException thrown = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(
+                thrown.getMessage().contains("roles.access"),
                 "the message has to name the setting, was: " + thrown.getMessage());
     }
 
@@ -913,12 +928,15 @@ class ConfigsTest {
     void theProtectedLanguageIsTheFallback() throws Exception {
         final Method languages = AccessSpec.class.getMethod("languages");
         final Protected annotation = languages.getAnnotation(Protected.class);
-        assertNotNull(annotation, "AccessSpec#languages() must carry @Protected - without it"
-                + " steward-worker lets an operator remove the fallback language through the API,"
-                + " and the bot only notices on its next restart");
-        assertEquals("tag", annotation.field(),
-                "@Protected has to match on the element's own tag field");
-        assertEquals(Languages.FALLBACK_TAG, annotation.value(),
+        assertNotNull(
+                annotation,
+                "AccessSpec#languages() must carry @Protected - without it"
+                        + " steward-worker lets an operator remove the fallback language through the API,"
+                        + " and the bot only notices on its next restart");
+        assertEquals("tag", annotation.field(), "@Protected has to match on the element's own tag field");
+        assertEquals(
+                Languages.FALLBACK_TAG,
+                annotation.value(),
                 "the protected tag and the fallback tag are the same language or the rule protects"
                         + " the wrong entry");
     }
@@ -943,8 +961,7 @@ class ConfigsTest {
      * {@code environmentOverridesNameExactlyTheOverriddenPaths} below for why this had to be added
      * rather than reused as it stood.
      */
-    private ConfigHandle<AccessSpec> handleFromEnvironment(final Map<String, String> environment)
-            throws Exception {
+    private ConfigHandle<AccessSpec> handleFromEnvironment(final Map<String, String> environment) throws Exception {
         Files.writeString(directory.resolve("access.yml"), access());
         return ConfigLoader.builder(directory.resolve("access.yml"), AccessSpec.class)
                 .envPrefix("NORDTAL_ACCESS")
@@ -965,16 +982,18 @@ class ConfigsTest {
     @Test
     @DisplayName("languages, overridden exactly the way dev.env.example overrides it, ends up in the marker file")
     void environmentOverridesNameExactlyTheOverriddenPaths() throws Exception {
-        final ConfigHandle<AccessSpec> handle = handleFromEnvironment(Map.of(
-                "NORDTAL_ACCESS_LANGUAGES", envExampleValue("NORDTAL_ACCESS_LANGUAGES")));
+        final ConfigHandle<AccessSpec> handle =
+                handleFromEnvironment(Map.of("NORDTAL_ACCESS_LANGUAGES", envExampleValue("NORDTAL_ACCESS_LANGUAGES")));
 
-        assertTrue(handle.environmentOverrides().contains("languages"),
+        assertTrue(
+                handle.environmentOverrides().contains("languages"),
                 "jcore itself has to report the override before anything downstream can - reported: "
                         + handle.environmentOverrides());
 
         EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
 
-        assertEquals(Optional.of(handle.environmentOverrides()),
+        assertEquals(
+                Optional.of(handle.environmentOverrides()),
                 EnvOverrideFile.read(handle.file()),
                 "the marker file steward-worker reads has to carry exactly what jcore reported");
     }
@@ -998,7 +1017,9 @@ class ConfigsTest {
 
         Configs.access();
 
-        assertEquals(Optional.of(List.of()), EnvOverrideFile.read(directory.resolve("access.yml")),
+        assertEquals(
+                Optional.of(List.of()),
+                EnvOverrideFile.read(directory.resolve("access.yml")),
                 "nothing is overridden here, but Configs#load still has to run the write step - an"
                         + " absent marker file and an empty one are different facts (steward/76)");
     }

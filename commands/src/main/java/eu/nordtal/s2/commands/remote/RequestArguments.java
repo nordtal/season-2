@@ -3,7 +3,6 @@ package eu.nordtal.s2.commands.remote;
 import eu.nordtal.s2.commands.Argument;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.Values;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,8 +25,7 @@ import java.util.UUID;
  */
 public final class RequestArguments {
 
-    private RequestArguments() {
-    }
+    private RequestArguments() {}
 
     /**
      * The arguments of one invocation, as a line.
@@ -44,14 +42,16 @@ public final class RequestArguments {
             final Optional<Object> raw = values.raw(argument.name());
             if (raw.isEmpty()) {
                 if (argument.required()) {
-                    throw new IllegalArgumentException(declaration.name()
-                            + " is missing required argument '" + argument.name() + "'");
+                    throw new IllegalArgumentException(
+                            declaration.name() + " is missing required argument '" + argument.name() + "'");
                 }
                 // Optionals are trailing, so the first absent value ends the line. A later value
                 // supplied after an absent optional cannot be written back and must not be dropped
                 // silently.
-                for (final Argument later : declaration.arguments()
-                        .subList(declaration.arguments().indexOf(argument) + 1,
+                for (final Argument later : declaration
+                        .arguments()
+                        .subList(
+                                declaration.arguments().indexOf(argument) + 1,
                                 declaration.arguments().size())) {
                     if (values.raw(later.name()).isPresent()) {
                         throw new IllegalArgumentException(declaration.name() + ": argument '"
@@ -130,14 +130,13 @@ public final class RequestArguments {
             cursor++;
         }
         if (cursor < line.length()) {
-            throw new IllegalArgumentException(declaration.name() + " was sent \""
-                    + line.substring(cursor) + "\" after its last declared argument");
+            throw new IllegalArgumentException(declaration.name() + " was sent \"" + line.substring(cursor)
+                    + "\" after its last declared argument");
         }
         return new Values(declaration, values);
     }
 
-    private static Object parse(final Declaration declaration, final Argument argument,
-                                final String token) {
+    private static Object parse(final Declaration declaration, final Argument argument, final String token) {
         return switch (argument.kind()) {
             case WORD, GREEDY_STRING, REFERENCE -> token;
             case ACCOUNT -> {
@@ -154,17 +153,18 @@ public final class RequestArguments {
             case CHOICE -> {
                 // Case-insensitive in, declared spelling out: the far side compares against its own
                 // constants.
-                yield argument.match(token).orElseThrow(() -> new IllegalArgumentException(
-                        declaration.name() + ": '" + token + "' is not one of "
-                                + argument.choices() + " for argument '" + argument.name() + "'"));
+                yield argument.match(token)
+                        .orElseThrow(() -> new IllegalArgumentException(declaration.name() + ": '" + token
+                                + "' is not one of " + argument.choices() + " for argument '" + argument.name() + "'"));
             }
             case INTEGER -> {
                 final int value;
                 try {
                     value = Integer.parseInt(token);
                 } catch (final NumberFormatException notANumber) {
-                    throw new IllegalArgumentException(declaration.name() + ": argument '"
-                            + argument.name() + "' is a number and was sent \"" + token + "\"",
+                    throw new IllegalArgumentException(
+                            declaration.name() + ": argument '" + argument.name() + "' is a number and was sent \""
+                                    + token + "\"",
                             notANumber);
                 }
                 if (value < argument.min() || value > argument.max()) {
@@ -178,10 +178,12 @@ public final class RequestArguments {
                 try {
                     yield UUID.fromString(token);
                 } catch (final IllegalArgumentException notAUuid) {
-                    throw new IllegalArgumentException(declaration.name() + ": argument '"
-                            + argument.name() + "' is a player and was sent \"" + token
-                            + "\" rather than a UUID - the asking adapter is meant to resolve the"
-                            + " name before the request is written", notAUuid);
+                    throw new IllegalArgumentException(
+                            declaration.name() + ": argument '"
+                                    + argument.name() + "' is a player and was sent \"" + token
+                                    + "\" rather than a UUID - the asking adapter is meant to resolve the"
+                                    + " name before the request is written",
+                            notAUuid);
                 }
             }
         };

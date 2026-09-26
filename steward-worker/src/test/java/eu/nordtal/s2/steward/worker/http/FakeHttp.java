@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.worker.http;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -10,6 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * An {@link Http} backed by responses recorded from the live APIs on 2026-09-01.

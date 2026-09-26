@@ -4,14 +4,11 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
 import com.velocitypowered.api.proxy.Player;
-
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
-import org.slf4j.Logger;
-
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
 
 /**
  * Where {@link PlayerRouter} decided to send somebody - and the refusal of every other destination.
@@ -106,9 +103,12 @@ public final class RouteIntents {
         // line here is either somebody going around the routing - which is what it is for - or a
         // connection path that was added without one, which is a bug that has just cost a player
         // their destination. Both need to be findable in the log without knowing to look.
-        logger.warn("Refused to connect {} to '{}': nothing in proxy chose that "
-                + "destination. If this is a route this plugin takes, it is missing its "
-                + "RouteIntents#intend call.", player.getUsername(), destination);
+        logger.warn(
+                "Refused to connect {} to '{}': nothing in proxy chose that "
+                        + "destination. If this is a route this plugin takes, it is missing its "
+                        + "RouteIntents#intend call.",
+                player.getUsername(),
+                destination);
         event.setResult(ServerPreConnectEvent.ServerResult.denied());
     }
 
@@ -121,8 +121,7 @@ public final class RouteIntents {
      * @param intended    where this plugin last decided to send the player, or {@code null}
      * @return whether the connection may go through
      */
-    static boolean allows(final PhaseServers servers, final String destination,
-                          final String intended) {
+    static boolean allows(final PhaseServers servers, final String destination, final String intended) {
         return servers.isWaitingRoom(destination) || destination.equals(intended);
     }
 

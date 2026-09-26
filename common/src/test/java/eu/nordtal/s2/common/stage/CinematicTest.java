@@ -1,15 +1,13 @@
 package eu.nordtal.s2.common.stage;
 
-import net.kyori.adventure.text.Component;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.List;
+import net.kyori.adventure.text.Component;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The arithmetic of a staging: which picture appears on which tick, and how long the whole thing is.
@@ -27,16 +25,15 @@ class CinematicTest {
     @Test
     @DisplayName("the frames run in the order they were added, each starting where the last ended")
     void theCuesAreCumulative() {
-        final Cinematic cinematic = Cinematic.builder()
-                .frame(A, 5)
-                .frame(B, 10)
-                .frame(C, 1)
-                .build();
+        final Cinematic cinematic =
+                Cinematic.builder().frame(A, 5).frame(B, 10).frame(C, 1).build();
 
-        assertEquals(List.of(0, 5, 15),
+        assertEquals(
+                List.of(0, 5, 15),
                 cinematic.cues().stream().map(Cinematic.Cue::atTick).toList(),
                 "a frame starts when the one before it has finished, and the first starts at zero");
-        assertEquals(List.of(A, B, C),
+        assertEquals(
+                List.of(A, B, C),
                 cinematic.cues().stream().map(cue -> cue.frame().image()).toList(),
                 "the order is the order they were added; a set or a map here would lose it");
         assertEquals(16, cinematic.totalTicks());
@@ -45,9 +42,11 @@ class CinematicTest {
     @Test
     @DisplayName("frames of equal length are the ordinary animated case")
     void framesOfEqualLength() {
-        final Cinematic cinematic = Cinematic.builder().frames(List.of(A, B, C), 4).build();
+        final Cinematic cinematic =
+                Cinematic.builder().frames(List.of(A, B, C), 4).build();
 
-        assertEquals(List.of(0, 4, 8),
+        assertEquals(
+                List.of(0, 4, 8),
                 cinematic.cues().stream().map(Cinematic.Cue::atTick).toList());
         assertEquals(12, cinematic.totalTicks());
     }
@@ -64,9 +63,11 @@ class CinematicTest {
     @Test
     @DisplayName("a frame nobody could see is refused")
     void aFrameLastsAtLeastOneTick() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> Cinematic.builder().frame(A, 0).build());
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> Cinematic.builder().frame(A, -1).build());
     }
 
@@ -77,8 +78,10 @@ class CinematicTest {
 
         assertNull(bare.subtitle());
         assertNull(bare.effect());
-        assertNull(bare.sound(), "a staging with no sound is silent, which is what a moment whose"
-                + " sound has not been drawn yet has to be");
+        assertNull(
+                bare.sound(),
+                "a staging with no sound is silent, which is what a moment whose"
+                        + " sound has not been drawn yet has to be");
     }
 
     @Test
@@ -86,7 +89,6 @@ class CinematicTest {
     void anEffectNeedsAKey() {
         assertThrows(IllegalArgumentException.class, () -> new Cinematic.Effect("", 0));
         assertThrows(IllegalArgumentException.class, () -> new Cinematic.Effect(null, 0));
-        assertThrows(IllegalArgumentException.class,
-                () -> new Cinematic.Effect("minecraft:blindness", -1));
+        assertThrows(IllegalArgumentException.class, () -> new Cinematic.Effect("minecraft:blindness", -1));
     }
 }

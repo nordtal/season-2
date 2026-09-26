@@ -1,10 +1,8 @@
 package eu.nordtal.s2.common.access;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -13,8 +11,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * A person in this schema is a discord id, and a Minecraft UUID is never spelled as a string.
@@ -71,7 +69,9 @@ class PeopleAreDiscordIdsTest {
                 }
             }
         }
-        assertEquals(List.of(), offenders,
+        assertEquals(
+                List.of(),
+                offenders,
                 "a person in this schema is a discord id in a varchar(32) column, and a Minecraft"
                         + " UUID printed as text is 36 characters - resolve the discord id"
                         + " (Identities#discordIdOf) or bind a real java.util.UUID to a uuid column");

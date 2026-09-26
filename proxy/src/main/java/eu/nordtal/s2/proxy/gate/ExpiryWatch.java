@@ -4,19 +4,15 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessState;
-
-import net.kyori.adventure.text.Component;
-
-import org.slf4j.Logger;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import net.kyori.adventure.text.Component;
+import org.slf4j.Logger;
 
 /**
  * Mid-session expiry: warn a few minutes before access ends, then disconnect when it does.
@@ -45,8 +41,13 @@ public final class ExpiryWatch {
      * and whenever a re-check finds them no longer within the warning window - see {@link #check()}. */
     private final Set<UUID> warned = ConcurrentHashMap.newKeySet();
 
-    public ExpiryWatch(final ProxyServer proxy, final Logger logger, final AccessDirectory access,
-                       final FallbackCache fallback, final GateMessages messages, final Duration warningLead) {
+    public ExpiryWatch(
+            final ProxyServer proxy,
+            final Logger logger,
+            final AccessDirectory access,
+            final FallbackCache fallback,
+            final GateMessages messages,
+            final Duration warningLead) {
         this.proxy = proxy;
         this.logger = logger;
         this.access = access;
@@ -76,8 +77,12 @@ public final class ExpiryWatch {
         try {
             state = access.accessState(uuid);
         } catch (final RuntimeException exception) {
-            logger.warn("Could not re-check access for {} ({}) during the periodic expiry sweep; "
-                    + "trying again next interval", uuid, player.getUsername(), exception);
+            logger.warn(
+                    "Could not re-check access for {} ({}) during the periodic expiry sweep; "
+                            + "trying again next interval",
+                    uuid,
+                    player.getUsername(),
+                    exception);
             return;
         }
         fallback.remember(uuid, state);

@@ -1,11 +1,9 @@
 package eu.nordtal.s2.discordbot.access;
 
-import eu.nordtal.s2.discordbot.discord.AdminLog;
-
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
-
+import eu.nordtal.s2.discordbot.discord.AdminLog;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -38,9 +36,7 @@ public final class SeasonStart {
      * a season already running rather than preceding one.
      */
     private static boolean beforeTheSmp(final SeasonPhase phase) {
-        return phase == SeasonPhase.PRE_LAUNCH
-                || phase == SeasonPhase.PRE_EVENT
-                || phase == SeasonPhase.START_EVENT;
+        return phase == SeasonPhase.PRE_LAUNCH || phase == SeasonPhase.PRE_EVENT || phase == SeasonPhase.START_EVENT;
     }
 
     /**
@@ -61,8 +57,11 @@ public final class SeasonStart {
             return;
         }
 
-        log.warn("Granted access to {} while season_phase.smp_start is NULL: the period runs from"
-                + " {} instead of from the SMP opening", discordId, grant.validFrom());
+        log.warn(
+                "Granted access to {} while season_phase.smp_start is NULL: the period runs from"
+                        + " {} instead of from the SMP opening",
+                discordId,
+                grant.validFrom());
         admin.note("Access was granted to <@" + discordId + "> while the season has no start date."
                 + " The period runs from **" + grant.validFrom() + "**, not from the SMP opening."
                 + " Expected while testing; before the season opens, set the date with"

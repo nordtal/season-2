@@ -1,14 +1,12 @@
 package eu.nordtal.s2.common.hud;
 
 import eu.nordtal.s2.common.Glyphs;
-
+import java.util.ArrayList;
+import java.util.List;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.ShadowColor;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Draws the frame around a Text Display board out of {@code nordtal:board}.
@@ -75,33 +73,32 @@ public final class BoardFrame {
     private static final int[] POWERS = {128, 64, 32, 16, 8, 4, 2, 1};
 
     private static final String[] MINUS = {
-            Glyphs.BOARD_SPACE_MINUS_128, Glyphs.BOARD_SPACE_MINUS_64,
-            Glyphs.BOARD_SPACE_MINUS_32, Glyphs.BOARD_SPACE_MINUS_16,
-            Glyphs.BOARD_SPACE_MINUS_8, Glyphs.BOARD_SPACE_MINUS_4,
-            Glyphs.BOARD_SPACE_MINUS_2, Glyphs.BOARD_SPACE_MINUS_1,
+        Glyphs.BOARD_SPACE_MINUS_128, Glyphs.BOARD_SPACE_MINUS_64,
+        Glyphs.BOARD_SPACE_MINUS_32, Glyphs.BOARD_SPACE_MINUS_16,
+        Glyphs.BOARD_SPACE_MINUS_8, Glyphs.BOARD_SPACE_MINUS_4,
+        Glyphs.BOARD_SPACE_MINUS_2, Glyphs.BOARD_SPACE_MINUS_1,
     };
 
     private static final int[] PLUS_PIXELS = {32, 16, 8, 4, 2, 1};
 
     private static final String[] PLUS = {
-            Glyphs.BOARD_SPACE_PLUS_32, Glyphs.BOARD_SPACE_PLUS_16, Glyphs.BOARD_SPACE_PLUS_8,
-            Glyphs.BOARD_SPACE_PLUS_4, Glyphs.BOARD_SPACE_PLUS_2, Glyphs.BOARD_SPACE_PLUS_1,
+        Glyphs.BOARD_SPACE_PLUS_32, Glyphs.BOARD_SPACE_PLUS_16, Glyphs.BOARD_SPACE_PLUS_8,
+        Glyphs.BOARD_SPACE_PLUS_4, Glyphs.BOARD_SPACE_PLUS_2, Glyphs.BOARD_SPACE_PLUS_1,
     };
 
     private static final String[] EDGES_H = {
-            Glyphs.BOARD_EDGE_H_128, Glyphs.BOARD_EDGE_H_64, Glyphs.BOARD_EDGE_H_32,
-            Glyphs.BOARD_EDGE_H_16, Glyphs.BOARD_EDGE_H_8, Glyphs.BOARD_EDGE_H_4,
-            Glyphs.BOARD_EDGE_H_2, Glyphs.BOARD_EDGE_H_1,
+        Glyphs.BOARD_EDGE_H_128, Glyphs.BOARD_EDGE_H_64, Glyphs.BOARD_EDGE_H_32,
+        Glyphs.BOARD_EDGE_H_16, Glyphs.BOARD_EDGE_H_8, Glyphs.BOARD_EDGE_H_4,
+        Glyphs.BOARD_EDGE_H_2, Glyphs.BOARD_EDGE_H_1,
     };
 
     private static final String[] DIVIDERS = {
-            Glyphs.BOARD_DIVIDER_128, Glyphs.BOARD_DIVIDER_64, Glyphs.BOARD_DIVIDER_32,
-            Glyphs.BOARD_DIVIDER_16, Glyphs.BOARD_DIVIDER_8, Glyphs.BOARD_DIVIDER_4,
-            Glyphs.BOARD_DIVIDER_2, Glyphs.BOARD_DIVIDER_1,
+        Glyphs.BOARD_DIVIDER_128, Glyphs.BOARD_DIVIDER_64, Glyphs.BOARD_DIVIDER_32,
+        Glyphs.BOARD_DIVIDER_16, Glyphs.BOARD_DIVIDER_8, Glyphs.BOARD_DIVIDER_4,
+        Glyphs.BOARD_DIVIDER_2, Glyphs.BOARD_DIVIDER_1,
     };
 
-    private BoardFrame() {
-    }
+    private BoardFrame() {}
 
     /**
      * The whole board: a top border, the title, a rule under it, the lines, and a bottom border.
@@ -116,8 +113,7 @@ public final class BoardFrame {
      *                                  error, and one the plugin's validator should have caught
      *                                  before a single board was drawn
      */
-    public static Component render(final int width, final Component title,
-                                   final List<Component> lines) {
+    public static Component render(final int width, final Component title, final List<Component> lines) {
         checkWidth(width);
 
         final List<Component> out = new ArrayList<>(lines.size() + 4);
@@ -140,8 +136,7 @@ public final class BoardFrame {
     }
 
     /** One horizontal border: a corner, the edge tiled to width, and the other corner. */
-    public static Component border(final int width, final String leftCorner,
-                                   final String rightCorner) {
+    public static Component border(final int width, final String leftCorner, final String rightCorner) {
         checkWidth(width);
         return frameText(glyph(leftCorner) + tile(width, EDGES_H) + glyph(rightCorner));
     }
@@ -207,8 +202,7 @@ public final class BoardFrame {
     /** Moves the cursor left; the eight negative advances reach 255 and no further. */
     public static String left(final int pixels) {
         if (pixels < 0 || pixels > 255) {
-            throw new IllegalArgumentException(
-                    "nordtal:board reaches 255 pixels leftward, not " + pixels);
+            throw new IllegalArgumentException("nordtal:board reaches 255 pixels leftward, not " + pixels);
         }
         final StringBuilder out = new StringBuilder();
         int remaining = pixels;
@@ -245,8 +239,8 @@ public final class BoardFrame {
 
     private static void checkWidth(final int width) {
         if (width < MIN_WIDTH || width > MAX_WIDTH) {
-            throw new IllegalArgumentException("a board is " + MIN_WIDTH + " to " + MAX_WIDTH
-                    + " pixels wide, not " + width);
+            throw new IllegalArgumentException(
+                    "a board is " + MIN_WIDTH + " to " + MAX_WIDTH + " pixels wide, not " + width);
         }
     }
 }

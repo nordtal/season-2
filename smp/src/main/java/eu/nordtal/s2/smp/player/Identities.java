@@ -3,7 +3,6 @@ package eu.nordtal.s2.smp.player;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.smp.db.IdentityRow;
 import eu.nordtal.s2.smp.db.SmpDao;
-
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,8 +41,7 @@ public final class Identities {
         dao.discordIdOf(mcUuid).ifPresent(id -> discordIds.put(mcUuid, id));
 
         final Optional<IdentityRow> row = dao.identityOf(mcUuid);
-        final Identity identity = row
-                .map(r -> new Identity(
+        final Identity identity = row.map(r -> new Identity(
                         Locales.parse(r.locale()),
                         Boolean.TRUE.equals(r.admin()),
                         Boolean.TRUE.equals(r.donor()),

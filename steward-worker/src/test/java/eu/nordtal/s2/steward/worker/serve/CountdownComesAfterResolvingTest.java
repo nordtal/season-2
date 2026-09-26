@@ -1,15 +1,14 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The countdown happens after the plan is known, and only when the plan has work in it.
@@ -53,7 +52,8 @@ class CountdownComesAfterResolvingTest {
         final int resolved = at(update, "final UpdatePlan plan = Runs.resolve(config");
         final int countdown = at(update, "countDown(request.id()");
 
-        assertTrue(resolved < countdown,
+        assertTrue(
+                resolved < countdown,
                 "the countdown is started before the plan is known. Every /update now would warn"
                         + " every player on the network for thirty seconds, including the"
                         + " overwhelmingly common one that then answers 'everything is already"
@@ -67,8 +67,7 @@ class CountdownComesAfterResolvingTest {
         final int nothingToDo = at(update, "if (!planned.isWork())");
         final int countdown = at(update, "countDown(request.id()");
 
-        assertTrue(nothingToDo < countdown,
-                "the countdown is reachable on a run that has nothing to install");
+        assertTrue(nothingToDo < countdown, "the countdown is reachable on a run that has nothing to install");
     }
 
     @Test
@@ -81,9 +80,9 @@ class CountdownComesAfterResolvingTest {
         final int countdown = at(update, "countDown(request.id()");
         final int firstStop = at(update, "run.stop(planned, runtime)");
 
-        assertTrue(firstStop > countdown,
-                "a service is stopped before the countdown has been committed");
-        assertTrue(update.contains("return cancelled();"),
+        assertTrue(firstStop > countdown, "a service is stopped before the countdown has been committed");
+        assertTrue(
+                update.contains("return cancelled();"),
                 "the cancelled branch must leave the sequence, not fall through it");
     }
 
@@ -105,11 +104,15 @@ class CountdownComesAfterResolvingTest {
      */
     private String updateMethod() {
         final int from = source.indexOf("private Outcome update(");
-        assertTrue(from > 0, "Runner#update is gone - if it was renamed, this test moves with it,"
-                + " because a check that cannot find its subject silently stops running");
+        assertTrue(
+                from > 0,
+                "Runner#update is gone - if it was renamed, this test moves with it,"
+                        + " because a check that cannot find its subject silently stops running");
         final int to = source.indexOf("\n    private boolean countDown(");
-        assertTrue(to > from, "Runner#countDown is gone or has moved above update; this test"
-                + " brackets one method and needs both ends");
+        assertTrue(
+                to > from,
+                "Runner#countDown is gone or has moved above update; this test"
+                        + " brackets one method and needs both ends");
         return source.substring(from, to);
     }
 
@@ -123,8 +126,10 @@ class CountdownComesAfterResolvingTest {
      */
     private static int at(final String haystack, final String token) {
         final int index = haystack.indexOf(token);
-        assertTrue(index >= 0, "Runner#update no longer contains `" + token + "`. If that call was"
-                + " removed the guard is gone; if it was renamed, rename it here too.");
+        assertTrue(
+                index >= 0,
+                "Runner#update no longer contains `" + token + "`. If that call was"
+                        + " removed the guard is gone; if it was renamed, rename it here too.");
         return index;
     }
 

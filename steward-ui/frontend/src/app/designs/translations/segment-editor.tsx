@@ -7,7 +7,14 @@ import { capabilities } from "@/lib/rich-text"
 import type { Format, Run, Style } from "@/lib/rich-text"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { GlyphMenu, PlaceholderChip, PlaceholderMenu, StyleButtons, Swatch, ToolButton } from "@/app/designs/translations/parts"
+import {
+  GlyphMenu,
+  PlaceholderChip,
+  PlaceholderMenu,
+  StyleButtons,
+  Swatch,
+  ToolButton,
+} from "@/app/designs/translations/parts"
 import { Glyph, MinecraftText } from "@/app/designs/translations/preview"
 import type { Fill } from "@/app/designs/translations/preview"
 import { VisualEditor } from "@/app/designs/translations/visual-editor"
@@ -67,7 +74,13 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
                 onClick={() => setOpen(open === index ? null : index)}
                 className="flex min-h-control min-w-0 flex-1 items-center gap-2 px-2.5 text-left"
               >
-                <CaretDownIcon aria-hidden className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open === index || "-rotate-90")} />
+                <CaretDownIcon
+                  aria-hidden
+                  className={cn(
+                    "size-3.5 shrink-0 text-muted-foreground transition-transform",
+                    open === index || "-rotate-90",
+                  )}
+                />
                 <Summary run={run} format={format} glyphs={glyphs} fill={fill} args={args} />
               </button>
               {open === index ? (
@@ -75,7 +88,11 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
                   <ToolButton label="Up" disabled={disabled || index === 0} onPress={() => move(index, -1)}>
                     <ArrowUpIcon aria-hidden />
                   </ToolButton>
-                  <ToolButton label="Down" disabled={disabled || index === runs.length - 1} onPress={() => move(index, 1)}>
+                  <ToolButton
+                    label="Down"
+                    disabled={disabled || index === runs.length - 1}
+                    onPress={() => move(index, 1)}
+                  >
                     <ArrowDownIcon aria-hidden />
                   </ToolButton>
                   <ToolButton label="Remove" disabled={disabled} onPress={() => drop(index)}>
@@ -87,12 +104,20 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
             {open === index ? (
               <div className="flex min-w-0 flex-col gap-2 px-2.5 pb-2.5">
                 {run.kind === "text" ? (
-                  <Input aria-label="Text" value={run.text} disabled={disabled} onChange={(event) => set(index, { ...run, text: event.target.value })} />
+                  <Input
+                    aria-label="Text"
+                    value={run.text}
+                    disabled={disabled}
+                    onChange={(event) => set(index, { ...run, text: event.target.value })}
+                  />
                 ) : null}
                 {run.kind === "placeholder" ? (
                   <PlaceholderMenu args={args} fill={fill} onPick={(arg) => set(index, { ...run, name: arg.name })}>
                     <Button type="button" variant="outline" size="sm" className="self-start">
-                      <PlaceholderChip name={run.name.replace(/^_/, "")} global={args.find((arg) => arg.name === run.name)?.global} />
+                      <PlaceholderChip
+                        name={run.name.replace(/^_/, "")}
+                        global={args.find((arg) => arg.name === run.name)?.global}
+                      />
                     </Button>
                   </PlaceholderMenu>
                 ) : null}
@@ -105,7 +130,13 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
                   </GlyphMenu>
                 ) : null}
                 {run.kind === "raw" ? (
-                  <Input aria-label="Tag" value={run.source} disabled={disabled} className="font-mono" onChange={(event) => set(index, { ...run, source: event.target.value })} />
+                  <Input
+                    aria-label="Tag"
+                    value={run.source}
+                    disabled={disabled}
+                    className="font-mono"
+                    onChange={(event) => set(index, { ...run, source: event.target.value })}
+                  />
                 ) : null}
                 {run.kind !== "break" && format !== "PLAIN" ? (
                   <div className="flex flex-wrap items-center gap-0.5">
@@ -114,12 +145,27 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
                       style={run.style}
                       disabled={disabled}
                       onStyle={(change) => set(index, { ...run, style: change(run.style) } as Run)}
-                      hover={<HoverRow hover={run.style.hover} args={args} glyphs={glyphs} fill={fill} onChange={(hover) => set(index, { ...run, style: { ...run.style, hover } } as Run)} />}
+                      hover={
+                        <HoverRow
+                          hover={run.style.hover}
+                          args={args}
+                          glyphs={glyphs}
+                          fill={fill}
+                          onChange={(hover) => set(index, { ...run, style: { ...run.style, hover } } as Run)}
+                        />
+                      }
                     />
                   </div>
                 ) : null}
                 {run.style.hover && can.hover ? (
-                  <HoverRow hover={run.style.hover} args={args} glyphs={glyphs} fill={fill} expanded onChange={(hover) => set(index, { ...run, style: { ...run.style, hover } } as Run)} />
+                  <HoverRow
+                    hover={run.style.hover}
+                    args={args}
+                    glyphs={glyphs}
+                    fill={fill}
+                    expanded
+                    onChange={(hover) => set(index, { ...run, style: { ...run.style, hover } } as Run)}
+                  />
                 ) : null}
               </div>
             ) : null}
@@ -128,12 +174,23 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
         {runs.length === 0 ? <li className="px-2.5 py-3 text-sm text-muted-foreground">Empty</li> : null}
       </ol>
       <div className="flex flex-wrap gap-1">
-        <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => add({ kind: "text", text: "", style: {} })}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={disabled}
+          onClick={() => add({ kind: "text", text: "", style: {} })}
+        >
           <PlusIcon aria-hidden />
           Text
         </Button>
         {args.length > 0 ? (
-          <PlaceholderMenu args={args} fill={fill} disabled={disabled} onPick={(arg) => add({ kind: "placeholder", name: arg.name, style: {} })}>
+          <PlaceholderMenu
+            args={args}
+            fill={fill}
+            disabled={disabled}
+            onPick={(arg) => add({ kind: "placeholder", name: arg.name, style: {} })}
+          >
             <Button type="button" size="sm" variant="outline" disabled={disabled}>
               <PlusIcon aria-hidden />
               Placeholder
@@ -149,7 +206,13 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
           </GlyphMenu>
         ) : null}
         {can.breaks ? (
-          <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => add({ kind: "break", style: {} })}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            onClick={() => add({ kind: "break", style: {} })}
+          >
             <PlusIcon aria-hidden />
             Line break
           </Button>
@@ -159,7 +222,19 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
   )
 }
 
-function Summary({ run, format, glyphs, fill, args }: { run: Run; format: Format; glyphs: GlyphInfo[]; fill: Fill; args: MessageArg[] }) {
+function Summary({
+  run,
+  format,
+  glyphs,
+  fill,
+  args,
+}: {
+  run: Run
+  format: Format
+  glyphs: GlyphInfo[]
+  fill: Fill
+  args: MessageArg[]
+}) {
   const marks = <Marks style={run.style} />
   switch (run.kind) {
     case "text":
@@ -174,7 +249,10 @@ function Summary({ run, format, glyphs, fill, args }: { run: Run; format: Format
       return (
         <span className="flex min-w-0 items-center gap-2">
           {format === "MINIMESSAGE" ? <Swatch style={run.style} /> : null}
-          <PlaceholderChip name={run.name.replace(/^_/, "")} global={args.find((arg) => arg.name === run.name)?.global} />
+          <PlaceholderChip
+            name={run.name.replace(/^_/, "")}
+            global={args.find((arg) => arg.name === run.name)?.global}
+          />
           <span className="truncate text-xs text-muted-foreground">{fill(run.name)}</span>
           {marks}
         </span>
@@ -226,7 +304,11 @@ function HoverRow({
 }) {
   if (!expanded) {
     return (
-      <ToolButton label="Hover" pressed={Boolean(hover)} onPress={() => onChange(hover ? undefined : [{ kind: "text", text: "", style: {} }])}>
+      <ToolButton
+        label="Hover"
+        pressed={Boolean(hover)}
+        onPress={() => onChange(hover ? undefined : [{ kind: "text", text: "", style: {} }])}
+      >
         <span aria-hidden className="text-xs font-semibold">
           H
         </span>
@@ -241,7 +323,16 @@ function HoverRow({
           <MinecraftText runs={hover ?? []} fill={fill} glyphs={glyphs} scale={1} />
         </span>
       </div>
-      <VisualEditor runs={hover ?? []} onChange={(next) => onChange(next.length > 0 ? next : [])} format="MINIMESSAGE" args={args} glyphs={glyphs} fill={fill} label="Hover text" nested />
+      <VisualEditor
+        runs={hover ?? []}
+        onChange={(next) => onChange(next.length > 0 ? next : [])}
+        format="MINIMESSAGE"
+        args={args}
+        glyphs={glyphs}
+        fill={fill}
+        label="Hover text"
+        nested
+      />
     </div>
   )
 }

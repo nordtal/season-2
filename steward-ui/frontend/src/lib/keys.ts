@@ -12,8 +12,7 @@
  */
 export function usesCommandKey(navigatorLike: Navigator | undefined = globalThis.navigator): boolean {
   if (!navigatorLike) return false
-  const hinted = (navigatorLike as Navigator & { userAgentData?: { platform?: string } })
-    .userAgentData?.platform
+  const hinted = (navigatorLike as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform
   const platform = hinted || navigatorLike.platform || navigatorLike.userAgent || ""
   return /mac|iphone|ipad|ipod/i.test(platform)
 }

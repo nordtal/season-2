@@ -1,11 +1,9 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import eu.nordtal.s2.steward.worker.ops.ImageResult;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
@@ -19,9 +17,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Image drift against a hand-written daemon, for the one case a real daemon on this host cannot be
@@ -81,10 +80,11 @@ class DockerOpsImagesTest {
             return null;
         });
 
-        final DockerOps.ImageCheck check =
-                ops.check("ghcr.io/nordtal/steward-ui:latest", "sha256:" + digest);
+        final DockerOps.ImageCheck check = ops.check("ghcr.io/nordtal/steward-ui:latest", "sha256:" + digest);
 
-        assertNotEquals(ImageResult.State.OUTDATED, check.state(),
+        assertNotEquals(
+                ImageResult.State.OUTDATED,
+                check.state(),
                 "a locally built, never-pushed image was reported OUTDATED - the registry has"
                         + " nothing newer, this host has something the registry has never seen: "
                         + check);
@@ -106,8 +106,7 @@ class DockerOpsImagesTest {
             return null;
         });
 
-        final DockerOps.ImageCheck check =
-                ops.check("ghcr.io/nordtal/steward-ui:latest", "sha256:" + digest);
+        final DockerOps.ImageCheck check = ops.check("ghcr.io/nordtal/steward-ui:latest", "sha256:" + digest);
 
         assertEquals(ImageResult.State.LOCAL, check.state());
     }
@@ -129,8 +128,7 @@ class DockerOpsImagesTest {
             return null;
         });
 
-        final DockerOps.ImageCheck check =
-                ops.check("ghcr.io/nordtal/minecraft:latest", "sha256:" + digest);
+        final DockerOps.ImageCheck check = ops.check("ghcr.io/nordtal/minecraft:latest", "sha256:" + digest);
 
         assertEquals(ImageResult.State.UP_TO_DATE, check.state());
     }
@@ -149,10 +147,14 @@ class DockerOpsImagesTest {
 
     /** A DockerOps whose daemon answers `/images/` and `/distribution/` through {@code answer}. */
     private DockerOps ops(final Answer answer) throws IOException {
-        return new DockerOps(new Docker(new DockerSocket(listening(request -> {
-            final String body = answer.to(request);
-            return body;
-        }), Duration.ofSeconds(5))), "nordtal-s2");
+        return new DockerOps(
+                new Docker(new DockerSocket(
+                        listening(request -> {
+                            final String body = answer.to(request);
+                            return body;
+                        }),
+                        Duration.ofSeconds(5))),
+                "nordtal-s2");
     }
 
     /** A unix socket that answers every request, one connection at a time, until the test ends. */
@@ -168,8 +170,7 @@ class DockerOpsImagesTest {
                     // sends RST, and the RST throws away the answer just written.
                     final ByteBuffer buffer = ByteBuffer.allocate(8192);
                     client.read(buffer);
-                    final String request = new String(buffer.flip().array(), 0, buffer.limit(),
-                            StandardCharsets.UTF_8);
+                    final String request = new String(buffer.flip().array(), 0, buffer.limit(), StandardCharsets.UTF_8);
                     final String body = answer.to(request);
                     final String head;
                     if (body == null) {

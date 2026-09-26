@@ -9,7 +9,10 @@ import eu.nordtal.s2.smp.region.Boxes;
 import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
-
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,11 +20,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Stepping into a balloon opens the travel GUI; clicking in it travels.
@@ -49,6 +47,7 @@ public final class BalloonListener implements Listener {
      * definitions the server started with, for the rest of the season, and nothing would say so.</p>
      */
     private final java.util.function.Supplier<MilestoneTrack> track;
+
     private final Messages messages;
     private final PlayerLocales locales;
     private final SmpSounds sounds;
@@ -57,10 +56,15 @@ public final class BalloonListener implements Listener {
     /** Who is currently standing in a balloon, so entry is an edge and not a state. */
     private final Map<UUID, Boolean> inside = new ConcurrentHashMap<>();
 
-    public BalloonListener(final Boxes balloons, final Worlds worlds, final SeasonState season,
-                           final java.util.function.Supplier<MilestoneTrack> track, final Messages messages,
-                           final PlayerLocales locales, final SmpSounds sounds,
-                           final WorldEffects effects) {
+    public BalloonListener(
+            final Boxes balloons,
+            final Worlds worlds,
+            final SeasonState season,
+            final java.util.function.Supplier<MilestoneTrack> track,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds,
+            final WorldEffects effects) {
         this.balloons = balloons;
         this.worlds = worlds;
         this.season = season;
@@ -75,14 +79,15 @@ public final class BalloonListener implements Listener {
     public void onMove(final PlayerMoveEvent event) {
         final Location to = event.getTo();
         final Location from = event.getFrom();
-        if (to.getBlockX() == from.getBlockX() && to.getBlockY() == from.getBlockY()
+        if (to.getBlockX() == from.getBlockX()
+                && to.getBlockY() == from.getBlockY()
                 && to.getBlockZ() == from.getBlockZ()) {
             return;
         }
 
         final Player player = event.getPlayer();
-        final boolean nowInside = balloons.contains(to.getWorld().getName(), to.getBlockX(),
-                to.getBlockY(), to.getBlockZ());
+        final boolean nowInside =
+                balloons.contains(to.getWorld().getName(), to.getBlockX(), to.getBlockY(), to.getBlockZ());
         final boolean wasInside = inside.getOrDefault(player.getUniqueId(), Boolean.FALSE);
 
         if (nowInside == wasInside) {
@@ -116,7 +121,8 @@ public final class BalloonListener implements Listener {
         if (role.isEmpty()) {
             return;
         }
-        player.openInventory(new BalloonGui(messages, locales, worlds, season, track.get(), sounds,
-                effects, player, role.get()).getInventory());
+        player.openInventory(
+                new BalloonGui(messages, locales, worlds, season, track.get(), sounds, effects, player, role.get())
+                        .getInventory());
     }
 }

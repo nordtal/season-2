@@ -116,8 +116,13 @@ x-minecraft: &minecraft
   #
   # `bash -c` and not CMD-SHELL: /bin/sh in this image is dash, which has no /dev/tcp.
   healthcheck:
-    test: ["CMD", "bash", "-c",
-           "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/nordtal-ready) )) -lt 90 && exec 3<>/dev/tcp/127.0.0.1/$${SERVER_PORT:-25565}"]
+    test:
+      [
+        "CMD",
+        "bash",
+        "-c",
+        "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/nordtal-ready) )) -lt 90 && exec 3<>/dev/tcp/127.0.0.1/$${SERVER_PORT:-25565}",
+      ]
     interval: 15s
     timeout: 5s
     # 45s of consecutive failure on top of the 90s the marker takes to go stale. Deliberately not 1:
@@ -163,7 +168,6 @@ x-database:
   password: &db-password ${NORDTAL_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD or NORDTAL_DATABASE_PASSWORD in .env}}
 
 services:
-
   # -------------------------------------------------------------------------------------------
   postgres:
     profiles: ["db"]

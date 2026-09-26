@@ -1,7 +1,6 @@
 package eu.nordtal.s2.proxy.update;
 
 import eu.nordtal.s2.proxy.routing.PhaseServers;
-
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -88,8 +87,12 @@ public final class ParkedSeats {
      * @param servers          the backend names
      * @return where to actually connect them
      */
-    public String releaseTo(final UUID player, final boolean admin, final String phaseDestination,
-                            final Set<String> available, final PhaseServers servers) {
+    public String releaseTo(
+            final UUID player,
+            final boolean admin,
+            final String phaseDestination,
+            final Set<String> available,
+            final PhaseServers servers) {
         final String seat = seats.remove(player);
         return destination(seat, admin, phaseDestination, available, servers);
     }
@@ -104,8 +107,12 @@ public final class ParkedSeats {
      *             swap
      * @return the seat when it may be honoured, otherwise {@code phaseDestination} unchanged
      */
-    static String destination(final String seat, final boolean admin, final String phaseDestination,
-                              final Set<String> available, final PhaseServers servers) {
+    static String destination(
+            final String seat,
+            final boolean admin,
+            final String phaseDestination,
+            final Set<String> available,
+            final PhaseServers servers) {
         if (seat == null || !admin) {
             return phaseDestination;
         }

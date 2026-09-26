@@ -23,8 +23,11 @@ public class DockerException extends RuntimeException {
         this(message, 0, null, cause);
     }
 
-    public DockerException(final @NotNull String message, final int status,
-                           final @Nullable String body, final @Nullable Throwable cause) {
+    public DockerException(
+            final @NotNull String message,
+            final int status,
+            final @Nullable String body,
+            final @Nullable Throwable cause) {
         super(body == null || body.isBlank() ? message : message + ": " + body.strip(), cause);
         this.status = status;
         this.body = body;

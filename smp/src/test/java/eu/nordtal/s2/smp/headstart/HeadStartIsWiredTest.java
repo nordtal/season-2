@@ -1,16 +1,15 @@
 package eu.nordtal.s2.smp.headstart;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The head start has a caller.
@@ -39,10 +38,12 @@ class HeadStartIsWiredTest {
     void thePluginRegistersIt() {
         final String source = read(PLUGIN);
 
-        assertTrue(source.contains("new HeadStart("),
+        assertTrue(
+                source.contains("new HeadStart("),
                 "nothing constructs HeadStart, so the start event's winner is paid nothing - and"
                         + " the only way to find that out is to win the start event");
-        assertTrue(source.contains("registerEvents(") && source.contains("HeadStart"),
+        assertTrue(
+                source.contains("registerEvents(") && source.contains("HeadStart"),
                 "HeadStart is a Listener and does its whole job from PlayerJoinEvent; constructing"
                         + " one without registering it is the same as not having it");
     }
@@ -52,10 +53,12 @@ class HeadStartIsWiredTest {
     void bothConfiguredHalvesAreRead() {
         final String source = read("smp/src/main/java/eu/nordtal/s2/smp/headstart/HeadStart.java");
 
-        assertTrue(source.contains("hgWinnerAura()"),
+        assertTrue(
+                source.contains("hgWinnerAura()"),
                 "config.yml#hg-winner-aura is the number on the leaderboard, which is the whole"
                         + " prize - aura buys nothing, so recognition is all there is");
-        assertTrue(source.contains("hgWinnerItems()"),
+        assertTrue(
+                source.contains("hgWinnerItems()"),
                 "config.yml#hg-winner-items is the other half, and a head start that pays only the"
                         + " number would look exactly like one that works");
     }
@@ -65,14 +68,16 @@ class HeadStartIsWiredTest {
     void aReconnectStillGetsTheItems() {
         final String source = read("smp/src/main/java/eu/nordtal/s2/smp/headstart/HeadStart.java");
 
-        assertTrue(source.contains("Bukkit.getPlayer(mcUuid)"),
+        assertTrue(
+                source.contains("Bukkit.getPlayer(mcUuid)"),
                 "the delivery has to resolve the CURRENT session. Between the claim committing and"
                         + " the main-thread task running, the winner can reconnect - and a Player"
                         + " captured at join answers isOnline() false for ever after that, so the"
                         + " head start would be booked, the flag set, and the items left to the"
                         + " manual path for somebody standing right there. Found by review,"
                         + " 2026-09-08.");
-        assertFalse(source.contains("private void hand(final Player"),
+        assertFalse(
+                source.contains("private void hand(final Player"),
                 "hand() must not take a Player: the whole point is that the instance captured at"
                         + " join is the one that goes stale");
     }

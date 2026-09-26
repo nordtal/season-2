@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.worker.source;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.Locale;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * A digest as the API that published it writes it: an algorithm name and lowercase hex.

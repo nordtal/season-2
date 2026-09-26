@@ -1,13 +1,12 @@
 package eu.nordtal.s2.common.command;
 
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.time.Instant;
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * The SQL behind {@link CommandRequests}. Package-private: the interface is the API.
@@ -50,15 +49,16 @@ interface CommandRequestDao {
             FROM inserted,
                  notified
             """)
-    long submit(@Bind("target") String target,
-                @Bind("command") String command,
-                @Bind("arguments") String arguments,
-                @Bind("source") String source,
-                @Bind("requestedBy") String requestedBy,
-                @Bind("discordId") String discordId,
-                @Bind("minecraftId") UUID minecraftId,
-                @Bind("locale") String locale,
-                @Bind("expires") Instant expires);
+    long submit(
+            @Bind("target") String target,
+            @Bind("command") String command,
+            @Bind("arguments") String arguments,
+            @Bind("source") String source,
+            @Bind("requestedBy") String requestedBy,
+            @Bind("discordId") String discordId,
+            @Bind("minecraftId") UUID minecraftId,
+            @Bind("locale") String locale,
+            @Bind("expires") Instant expires);
 
     /**
      * The same insert, carrying its journal line in the same statement.
@@ -100,20 +100,21 @@ interface CommandRequestDao {
             FROM inserted,
                  notified
             """)
-    long submitJournalled(@Bind("target") String target,
-                          @Bind("command") String command,
-                          @Bind("arguments") String arguments,
-                          @Bind("source") String source,
-                          @Bind("requestedBy") String requestedBy,
-                          @Bind("discordId") String discordId,
-                          @Bind("minecraftId") UUID minecraftId,
-                          @Bind("locale") String locale,
-                          @Bind("expires") Instant expires,
-                          @Bind("action") String action,
-                          @Bind("actor") String actor,
-                          @Bind("subject") String subject,
-                          @Bind("auditUuid") UUID auditUuid,
-                          @Bind("detail") String detail);
+    long submitJournalled(
+            @Bind("target") String target,
+            @Bind("command") String command,
+            @Bind("arguments") String arguments,
+            @Bind("source") String source,
+            @Bind("requestedBy") String requestedBy,
+            @Bind("discordId") String discordId,
+            @Bind("minecraftId") UUID minecraftId,
+            @Bind("locale") String locale,
+            @Bind("expires") Instant expires,
+            @Bind("action") String action,
+            @Bind("actor") String actor,
+            @Bind("subject") String subject,
+            @Bind("auditUuid") UUID auditUuid,
+            @Bind("detail") String detail);
 
     /**
      * Take the oldest pending request for this target, atomically.
@@ -220,6 +221,5 @@ interface CommandRequestDao {
     int deleteSettledOlderThan(@Bind("days") int days);
 
     /** One row of {@link #outcome}: the status, and the answer that may not be there yet. */
-    record OutcomeRow(String status, String result) {
-    }
+    record OutcomeRow(String status, String result) {}
 }

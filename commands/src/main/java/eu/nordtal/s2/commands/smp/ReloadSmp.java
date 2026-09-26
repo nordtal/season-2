@@ -1,14 +1,13 @@
 package eu.nordtal.s2.commands.smp;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
-
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /smp reload} - re-read the two reloadable files and the message bundles.
@@ -40,8 +39,7 @@ public final class ReloadSmp implements NordtalCommand<SmpEffects> {
                 // Named, not summarised. The person running this is editing milestones.yml on a
                 // running season, and "you renamed a key that has rows against it" is the only
                 // form of the answer they can act on.
-                user.reply(MESSAGES.smp().admin().trackRefused(String.join("\n", refused)), Feedback.REFUSED,
-                        Tone.BAD);
+                user.reply(MESSAGES.smp().admin().trackRefused(String.join("\n", refused)), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             user.reply(MESSAGES.smp().admin().reloaded(), Feedback.SMALL_SUCCESS, Tone.GOOD);

@@ -16,8 +16,7 @@ public final class Countdown {
      */
     private static final int[] MARKS = {60, 30, 20, 10, 5, 4, 3, 2, 1};
 
-    private Countdown() {
-    }
+    private Countdown() {}
 
     /**
      * @param totalSeconds the configured countdown length, {@code config.countdownSeconds()}

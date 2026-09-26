@@ -1,11 +1,11 @@
 package eu.nordtal.s2.steward.ui.config;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The one value in this configuration that leaves the process: {@code public-url}.
@@ -31,17 +31,15 @@ class ConfigsTest {
     @Test
     @DisplayName("a query or a fragment is refused, because the redirect URI is this plus a path")
     void aQueryIsRefused() {
-        assertThrows(IllegalArgumentException.class,
-                () -> Configs.requirePublicUrl("https://steward.example?x=1"));
-        assertThrows(IllegalArgumentException.class,
-                () -> Configs.requirePublicUrl("https://steward.example#top"));
+        assertThrows(IllegalArgumentException.class, () -> Configs.requirePublicUrl("https://steward.example?x=1"));
+        assertThrows(IllegalArgumentException.class, () -> Configs.requirePublicUrl("https://steward.example#top"));
     }
 
     @Test
     @DisplayName("a trailing slash is refused, and the message says why Discord would not match it")
     void aTrailingSlashIsRefused() {
-        final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                () -> Configs.requirePublicUrl("https://steward.example/"));
+        final IllegalArgumentException refused = assertThrows(
+                IllegalArgumentException.class, () -> Configs.requirePublicUrl("https://steward.example/"));
 
         assertTrue(refused.getMessage().contains("two"), refused.getMessage());
     }
@@ -49,19 +47,17 @@ class ConfigsTest {
     @Test
     @DisplayName("nothing at all is its own message, not a parse error")
     void anEmptyValueSaysWhatItIsFor() {
-        final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                () -> Configs.requirePublicUrl(""));
+        final IllegalArgumentException refused =
+                assertThrows(IllegalArgumentException.class, () -> Configs.requirePublicUrl(""));
 
-        assertTrue(refused.getMessage().contains("the address this interface answers on"),
-                refused.getMessage());
+        assertTrue(refused.getMessage().contains("the address this interface answers on"), refused.getMessage());
         assertThrows(IllegalArgumentException.class, () -> Configs.requirePublicUrl(null));
     }
 
     @Test
     @DisplayName("a scheme Discord will not take is refused even though it parses")
     void onlyHttpAndHttps() {
-        assertThrows(IllegalArgumentException.class,
-                () -> Configs.requirePublicUrl("ftp://steward.example"));
+        assertThrows(IllegalArgumentException.class, () -> Configs.requirePublicUrl("ftp://steward.example"));
     }
 
     @Test
@@ -85,24 +81,25 @@ class ConfigsTest {
         // A NEAR MISS THAT LOOKS RIGHT IN A DIFF. `nordtal.eu` and `ordtal.eu` differ by a
         // character, and the naive check - endsWith - accepts the second for the first. A browser
         // would refuse every ceremony in silence, so the dot is part of the comparison here.
-        final IllegalArgumentException wrong = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException wrong = assertThrows(
+                IllegalArgumentException.class,
                 () -> Configs.requireRelyingParty("ordtal.eu", "https://steward.dev.nordtal.eu"));
-        assertTrue(wrong.getMessage().contains("ordtal.eu")
-                && wrong.getMessage().contains("steward.dev.nordtal.eu"),
-                "the message has to name both values, or nobody can see what does not match: "
-                        + wrong.getMessage());
+        assertTrue(
+                wrong.getMessage().contains("ordtal.eu") && wrong.getMessage().contains("steward.dev.nordtal.eu"),
+                "the message has to name both values, or nobody can see what does not match: " + wrong.getMessage());
 
         // A BARE TLD IS A SUFFIX OF THE HOST, and the naive check therefore accepts it - measured,
         // which is why the implementation has a second condition. A browser refuses a relying
         // party id that is a public suffix, in silence, because every site under one would share a
         // set of keys.
-        final IllegalArgumentException tld = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException tld = assertThrows(
+                IllegalArgumentException.class,
                 () -> Configs.requireRelyingParty("eu", "https://steward.dev.nordtal.eu"));
         assertTrue(tld.getMessage().contains("registrable"), tld.getMessage());
         // Narrower than the address: a key registered here would never be offered at all.
-        assertThrows(IllegalArgumentException.class,
-                () -> Configs.requireRelyingParty("other.nordtal.eu",
-                        "https://steward.dev.nordtal.eu"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("other.nordtal.eu", "https://steward.dev.nordtal.eu"));
     }
 
     @Test
@@ -118,31 +115,36 @@ class ConfigsTest {
 
         // AND IT WIDENS NOTHING, which is the half worth testing. The exception is one value
         // against one host, not "single labels are fine now".
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> Configs.requireRelyingParty("eu", "https://steward.dev.nordtal.eu"));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> Configs.requireRelyingParty("localhost", "https://steward.dev.nordtal.eu"));
         // The other direction: an address on localhost does not accept some other single label.
-        assertThrows(IllegalArgumentException.class,
-                () -> Configs.requireRelyingParty("intranet", "http://localhost:5173"));
+        assertThrows(
+                IllegalArgumentException.class, () -> Configs.requireRelyingParty("intranet", "http://localhost:5173"));
         // And a name that merely ENDS in localhost is a different host, the same near miss the
         // dot in the comparison above exists for.
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> Configs.requireRelyingParty("localhost", "http://notlocalhost:5173"));
     }
 
     @Test
     @DisplayName("a relying party written as a URL is refused, because it is a domain")
     void aRelyingPartyIsNotAUrl() {
-        assertThrows(IllegalArgumentException.class,
-                () -> Configs.requireRelyingParty("https://nordtal.eu",
-                        "https://steward.dev.nordtal.eu"));
-        assertThrows(IllegalArgumentException.class,
-                () -> Configs.requireRelyingParty("nordtal.eu:443",
-                        "https://steward.dev.nordtal.eu"));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("https://nordtal.eu", "https://steward.dev.nordtal.eu"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("nordtal.eu:443", "https://steward.dev.nordtal.eu"));
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> Configs.requireRelyingParty("", "https://steward.dev.nordtal.eu"));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> Configs.requireRelyingParty(null, "https://steward.dev.nordtal.eu"));
     }
 }

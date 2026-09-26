@@ -3,12 +3,10 @@ package eu.nordtal.s2.papercommon.command;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.update.UpdateFollower;
 import eu.nordtal.s2.common.update.UpdateDirectory;
-
+import java.time.Instant;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
-
-import java.time.Instant;
 
 /**
  * Follows an update request on a Paper server and prints its answer when it lands.
@@ -57,16 +55,21 @@ public final class UpdateWatcher {
     public void watch(final long id, final NordtalUser user) {
         final UpdateFollower follower = UpdateFollower.of(id, updates::find, Instant.now());
         final BukkitTask[] handle = new BukkitTask[1];
-        handle[0] = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-            final UpdateFollower.Step step = follower.poll(Instant.now());
-            if (step.failure() != null) {
-                plugin.getLogger().warning("Could not read update request " + id + ": "
-                        + step.failure());
-            }
-            step.deliver(user);
-            if (step.finished()) {
-                handle[0].cancel();
-            }
-        }, CHECK_TICKS, CHECK_TICKS);
+        handle[0] = Bukkit.getScheduler()
+                .runTaskTimerAsynchronously(
+                        plugin,
+                        () -> {
+                            final UpdateFollower.Step step = follower.poll(Instant.now());
+                            if (step.failure() != null) {
+                                plugin.getLogger()
+                                        .warning("Could not read update request " + id + ": " + step.failure());
+                            }
+                            step.deliver(user);
+                            if (step.finished()) {
+                                handle[0].cancel();
+                            }
+                        },
+                        CHECK_TICKS,
+                        CHECK_TICKS);
     }
 }

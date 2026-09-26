@@ -28,8 +28,7 @@ import java.util.Optional;
  */
 public final class SwapAddresses {
 
-    private SwapAddresses() {
-    }
+    private SwapAddresses() {}
 
     /**
      * Parses {@code network.yml#public-address}.
@@ -85,8 +84,7 @@ public final class SwapAddresses {
      *         port or is the one the live proxy is already on - which would transfer everybody to
      *         the address they are already connected to
      */
-    public static Optional<InetSocketAddress> standbyAddress(final InetSocketAddress address,
-                                                             final int standbyPort) {
+    public static Optional<InetSocketAddress> standbyAddress(final InetSocketAddress address, final int standbyPort) {
         if (address == null) {
             return Optional.empty();
         }

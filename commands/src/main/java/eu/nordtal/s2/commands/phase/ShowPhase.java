@@ -1,17 +1,16 @@
 package eu.nordtal.s2.commands.phase;
 
-import eu.nordtal.s2.common.message.Tone;
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.SeasonDates;
-
 import java.time.Instant;
 import java.util.Optional;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /phase show} - and the bare {@code /phase} on the proxy. Reads, writes nothing.
@@ -62,7 +61,11 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
                 // with no response at all and settled a request row empty. It was suppressed
                 // because phase.read.failed says "the phase above", and on that path there is
                 // nothing above; so the answer is a second key rather than no key.
-                user.reply(saidThePhase ? MESSAGES.phase().read().failed() : MESSAGES.phase().read().failedSection().only(), Tone.BAD);
+                user.reply(
+                        saidThePhase
+                                ? MESSAGES.phase().read().failed()
+                                : MESSAGES.phase().read().failedSection().only(),
+                        Tone.BAD);
                 return;
             }
 
@@ -70,15 +73,22 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
             // - the first German /phase on the local stack read "Das Netzwerk öffnet: not set."
             final String unset = user.phrase(MESSAGES.phase().date().unset());
             user.reply(
-                    MESSAGES.phase().dates(SeasonDates.format(launch, unset), SeasonDates.format(smpStart,
-                            unset), SeasonDates.ZONE.getId()), Tone.MUTED);
+                    MESSAGES.phase()
+                            .dates(
+                                    SeasonDates.format(launch, unset),
+                                    SeasonDates.format(smpStart, unset),
+                                    SeasonDates.ZONE.getId()),
+                    Tone.MUTED);
         });
     }
 
-    private static void sayPhase(final NordtalUser user, final SeasonPhase phase,
-                                 final boolean everRead) {
+    private static void sayPhase(final NordtalUser user, final SeasonPhase phase, final boolean everRead) {
         // The unread answer is WARN and not NEUTRAL: it is the proxy's own cache answering
         // because nothing has ever read the row, which is exactly the state /phase is typed in.
-        user.reply(everRead ? MESSAGES.phase().current(phase.name()) : MESSAGES.phase().currentSection().unread(phase.name()), everRead ? Tone.NEUTRAL : Tone.WARN);
+        user.reply(
+                everRead
+                        ? MESSAGES.phase().current(phase.name())
+                        : MESSAGES.phase().currentSection().unread(phase.name()),
+                everRead ? Tone.NEUTRAL : Tone.WARN);
     }
 }

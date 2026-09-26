@@ -5,10 +5,8 @@ import eu.nordtal.s2.common.menu.MenuFont;
 import eu.nordtal.s2.common.menu.MenuPalette;
 import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.menu.SlotGeometry;
-
-import net.kyori.adventure.text.Component;
-
 import java.util.List;
+import net.kyori.adventure.text.Component;
 
 /**
  * Draws the wheel: twelve prizes in a ring round a hub, and the controls beside it.
@@ -50,8 +48,7 @@ public final class WheelPanel {
      * {@link WheelStrip} and what the panel's baked frame marks.
      */
     private static final int[][] CELLS = {
-            {2, 0}, {3, 0}, {4, 1}, {4, 2}, {4, 3},
-            {3, 4}, {2, 4}, {1, 4}, {0, 3}, {0, 2}, {0, 1}, {1, 0},
+        {2, 0}, {3, 0}, {4, 1}, {4, 2}, {4, 3}, {3, 4}, {2, 4}, {1, 4}, {0, 3}, {0, 2}, {0, 1}, {1, 0},
     };
 
     /** The slot each cell is, in the same order - what the animation writes its icons into. */
@@ -62,6 +59,7 @@ public final class WheelPanel {
 
     /** Where the hub's number is centred - the middle of the hub's own slot cell. */
     private static final int HUB_CENTRE_X = SlotGeometry.x(2) + SlotGeometry.PITCH / 2;
+
     private static final int HUB_ROW = 2;
 
     // --- the controls, on the four columns the ring's move freed --------------------------
@@ -70,6 +68,7 @@ public final class WheelPanel {
 
     /** The row each of the three lines is written on. */
     private static final int SPINS_ROW = 1;
+
     private static final int RULE_TOP_ROW = 2;
     private static final int RULE_BOTTOM_ROW = 3;
 
@@ -78,15 +77,13 @@ public final class WheelPanel {
     public static final int AGAIN_WIDTH = 3 * SlotGeometry.PITCH - 2 * INSET;
 
     /** The three cells the "again" plate covers; each carries the same tooltip and the same click. */
-    public static final List<Integer> AGAIN_SLOTS = List.of(
-            SlotGeometry.slot(6, AGAIN_ROW), SlotGeometry.slot(7, AGAIN_ROW),
-            SlotGeometry.slot(8, AGAIN_ROW));
+    public static final List<Integer> AGAIN_SLOTS =
+            List.of(SlotGeometry.slot(6, AGAIN_ROW), SlotGeometry.slot(7, AGAIN_ROW), SlotGeometry.slot(8, AGAIN_ROW));
 
     /** The four cells the three text lines are written across - hoverable, and never free. */
     public static final List<Integer> INFO_SLOTS = infoSlots();
 
-    private WheelPanel() {
-    }
+    private WheelPanel() {}
 
     /** What {@link WheelStrip} has to be built for: twelve cells, resting on the first. */
     public static WheelStrip.Shape shape() {
@@ -103,24 +100,25 @@ public final class WheelPanel {
      * @param ruleFoot the second line of it
      * @param again    the button's label
      */
-    public static Component title(final Component title, final String spins, final String left,
-                                  final String ruleTop, final String ruleFoot, final String again) {
+    public static Component title(
+            final Component title,
+            final String spins,
+            final String left,
+            final String ruleTop,
+            final String ruleFoot,
+            final String again) {
         final MenuTitle.Canvas canvas = MenuTitle.on(Glyphs.GUI_WHEEL_RING);
 
         final String number = MenuFont.fold(spins);
-        canvas.rowText(number, HUB_ROW, HUB_CENTRE_X - MenuFont.width(number) / 2,
-                MenuPalette.INK);
+        canvas.rowText(number, HUB_ROW, HUB_CENTRE_X - MenuFont.width(number) / 2, MenuPalette.INK);
 
         canvas.rowText(MenuFont.fit(left, INFO_RIGHT - INFO_X), SPINS_ROW, INFO_X, MenuPalette.INK);
-        canvas.rowText(MenuFont.fit(ruleTop, INFO_RIGHT - INFO_X), RULE_TOP_ROW, INFO_X,
-                MenuPalette.SOFT);
-        canvas.rowText(MenuFont.fit(ruleFoot, INFO_RIGHT - INFO_X), RULE_BOTTOM_ROW, INFO_X,
-                MenuPalette.SOFT);
+        canvas.rowText(MenuFont.fit(ruleTop, INFO_RIGHT - INFO_X), RULE_TOP_ROW, INFO_X, MenuPalette.SOFT);
+        canvas.rowText(MenuFont.fit(ruleFoot, INFO_RIGHT - INFO_X), RULE_BOTTOM_ROW, INFO_X, MenuPalette.SOFT);
 
         canvas.rowArt(Glyphs.GUI_ROW_BUTTON_CONFIRM, AGAIN_ROW, AGAIN_X, null);
         final String label = MenuFont.fit(again, AGAIN_WIDTH - 6);
-        canvas.rowText(label, AGAIN_ROW, AGAIN_X + (AGAIN_WIDTH - MenuFont.width(label)) / 2,
-                MenuPalette.INK);
+        canvas.rowText(label, AGAIN_ROW, AGAIN_X + (AGAIN_WIDTH - MenuFont.width(label)) / 2, MenuPalette.INK);
 
         return canvas.build(title);
     }

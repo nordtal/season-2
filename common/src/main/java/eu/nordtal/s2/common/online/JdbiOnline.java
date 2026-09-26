@@ -1,16 +1,15 @@
 package eu.nordtal.s2.common.online;
 
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.postgres.PostgresPlugin;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
  * The only implementation of {@link OnlineDirectory}. Package-private: consumers get it from the
@@ -47,8 +46,7 @@ final class JdbiOnline implements OnlineDirectory {
             final String subject = Objects.requireNonNull(entry.getKey(), "subject");
             final Integer players = Objects.requireNonNull(entry.getValue(), "players");
             if (players < 0) {
-                throw new IllegalArgumentException(
-                        "players must not be negative, was " + players + " for " + subject);
+                throw new IllegalArgumentException("players must not be negative, was " + players + " for " + subject);
             }
             rows.add(new OnlineDao.BoundCount(subject, players, now));
         }

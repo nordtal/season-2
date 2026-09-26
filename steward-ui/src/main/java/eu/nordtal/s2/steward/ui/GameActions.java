@@ -5,9 +5,6 @@ import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import org.jetbrains.annotations.NotNull;
-
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -16,6 +13,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import javax.sql.DataSource;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The SMP's and the hunger games' admin actions, as the service pages draw them.
@@ -47,7 +46,7 @@ final class GameActions {
     void track(final @NotNull Context ctx) {
         final Map<String, List<Map<String, Object>>> objectives = new LinkedHashMap<>();
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement("""
+                PreparedStatement statement = connection.prepareStatement("""
                      SELECT milestone.key AS milestone, objective.key, objective.type,
                             objective.amount, objective.target, objective.completed IS NOT NULL AS done
                      FROM smp_milestone milestone
@@ -55,7 +54,7 @@ final class GameActions {
                      WHERE milestone.state = 'ACTIVE'
                      ORDER BY milestone.key, objective.key
                      """);
-             ResultSet rows = statement.executeQuery()) {
+                ResultSet rows = statement.executeQuery()) {
             while (rows.next()) {
                 final List<Map<String, Object>> list =
                         objectives.computeIfAbsent(rows.getString("milestone"), key -> new ArrayList<>());
@@ -115,13 +114,13 @@ final class GameActions {
     void round(final @NotNull Context ctx) {
         final Map<String, Object> answer = new LinkedHashMap<>();
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement("""
+                PreparedStatement statement = connection.prepareStatement("""
                      SELECT game.state, (SELECT count(*) FROM hg_member member
                                          WHERE member.game_id = game.id) AS registered
                      FROM hg_game game
                      WHERE game.state <> 'DECIDED'
                      """);
-             ResultSet rows = statement.executeQuery()) {
+                ResultSet rows = statement.executeQuery()) {
             if (rows.next()) {
                 answer.put("state", rows.getString("state"));
                 answer.put("registered", rows.getLong("registered"));
@@ -141,10 +140,10 @@ final class GameActions {
      */
     void startRound(final @NotNull Context ctx) {
         final JsonObject body = body(ctx);
-        final boolean confirm = body.has("confirm") && body.get("confirm").isJsonPrimitive()
+        final boolean confirm = body.has("confirm")
+                && body.get("confirm").isJsonPrimitive()
                 && body.get("confirm").getAsBoolean();
-        answer(ctx, commands.submit(ctx, HungerGamesCommands.START,
-                confirm ? arguments("confirm", "confirm") : null));
+        answer(ctx, commands.submit(ctx, HungerGamesCommands.START, confirm ? arguments("confirm", "confirm") : null));
     }
 
     // ---------------------------------------------------------------------------------------
@@ -172,7 +171,8 @@ final class GameActions {
 
     private static String key(final Context ctx) {
         final JsonObject body = body(ctx);
-        if (!body.has("key") || !body.get("key").isJsonPrimitive()
+        if (!body.has("key")
+                || !body.get("key").isJsonPrimitive()
                 || body.get("key").getAsString().isBlank()) {
             throw new BadRequestResponse("key is the one to act on.");
         }
@@ -181,7 +181,7 @@ final class GameActions {
 
     private boolean exists(final String sql, final String parameter) {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, parameter);
             try (ResultSet rows = statement.executeQuery()) {
                 return rows.next();

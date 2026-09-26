@@ -1,14 +1,13 @@
 package eu.nordtal.s2.smp.duel;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That a duel does not begin inside the move event that started it.
@@ -27,12 +26,12 @@ class DuelStartIsDeferredTest {
         final int steppedOn = source.indexOf("public void steppedOn(");
         assertTrue(steppedOn >= 0, "Duels has no steppedOn");
         final String body = source.substring(steppedOn, source.indexOf("\n    }\n", steppedOn));
-        assertTrue(body.contains("Bukkit.getScheduler().runTask("),
+        assertTrue(
+                body.contains("Bukkit.getScheduler().runTask("),
                 "steppedOn calls begin() straight from the move event, so whichever fighter is"
                         + " standing in that event is teleported into the arena and immediately"
                         + " put back on the platform - with the loadout, in a scored duel");
-        assertTrue(body.contains("begin(first, second, type)"),
-                "the scheduled task no longer starts the duel");
+        assertTrue(body.contains("begin(first, second, type)"), "the scheduled task no longer starts the duel");
     }
 
     @Test
@@ -45,7 +44,8 @@ class DuelStartIsDeferredTest {
         final int death = source.indexOf("public void onDeath(");
         assertTrue(death >= 0, "DuelListener has no onDeath");
         final String body = source.substring(death, source.indexOf("\n    }\n", death));
-        assertTrue(body.contains("runTask(plugin, () -> duels.decide("),
+        assertTrue(
+                body.contains("runTask(plugin, () -> duels.decide("),
                 "DuelListener#onDeath decides the duel inside the death event, so the arena is"
                         + " already forgotten when GraveListener asks about it at HIGH");
     }
@@ -57,11 +57,14 @@ class DuelStartIsDeferredTest {
         // is thrown away by the respawn, which hands back whatever they died holding - the arena's
         // loadout. Their own inventory is then gone.
         final String duels = read("smp/src/main/java/eu/nordtal/s2/smp/duel/Duels.java");
-        assertTrue(duels.contains("if (player.isDead()) {"),
+        assertTrue(
+                duels.contains("if (player.isDead()) {"),
                 "Duels#restore writes onto a dead player, and the respawn throws it away");
-        assertTrue(duels.contains("public void respawned("),
+        assertTrue(
+                duels.contains("public void respawned("),
                 "nothing hands the state back on the other side of the respawn screen");
-        assertTrue(read("smp/src/main/java/eu/nordtal/s2/smp/duel/DuelListener.java")
+        assertTrue(
+                read("smp/src/main/java/eu/nordtal/s2/smp/duel/DuelListener.java")
                         .contains("duels.respawned(event)"),
                 "DuelListener does not listen for the respawn, so the state waits for ever and the"
                         + " loser keeps the loadout - which is worse than not saving it at all");
@@ -73,15 +76,19 @@ class DuelStartIsDeferredTest {
         // A death cannot be un-shown, so the only way to keep the red "You Died!" screen out of a
         // sparring match is to cancel the lethal blow before it lands.
         final String listener = read("smp/src/main/java/eu/nordtal/s2/smp/duel/DuelListener.java");
-        assertTrue(listener.contains("public void onDamage("),
+        assertTrue(
+                listener.contains("public void onDamage("),
                 "nothing catches the lethal blow, so every duel still ends on a death screen");
-        assertTrue(listener.contains("event.setCancelled(true)"),
+        assertTrue(
+                listener.contains("event.setCancelled(true)"),
                 "the lethal blow is not cancelled, so the death happens anyway");
 
         final String duels = read("smp/src/main/java/eu/nordtal/s2/smp/duel/Duels.java");
-        assertTrue(duels.contains("state.restore(player, spawn())"),
+        assertTrue(
+                duels.contains("state.restore(player, spawn())"),
                 "a fighter is put back on the platform rather than at the spawn");
-        assertTrue(duels.contains("player.showTitle("),
+        assertTrue(
+                duels.contains("player.showTitle("),
                 "the outcome is only a chat line, and the person who just lost is not reading chat");
     }
 
@@ -91,7 +98,8 @@ class DuelStartIsDeferredTest {
             candidate = candidate.getParent();
         }
         if (candidate == null) {
-            throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+            throw new IllegalStateException(
+                    "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         }
         final Path path = candidate.resolve(relative);
         assertTrue(Files.isRegularFile(path), relative + " no longer exists");

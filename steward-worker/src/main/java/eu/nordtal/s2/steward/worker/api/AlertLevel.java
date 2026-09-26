@@ -44,7 +44,11 @@ import java.util.regex.Pattern;
  */
 final class AlertLevel {
 
-    enum Level { OK, WARN, DOWN }
+    enum Level {
+        OK,
+        WARN,
+        DOWN
+    }
 
     /**
      * What a trigger is <b>about</b>, in the words an admin would use for it.
@@ -70,8 +74,7 @@ final class AlertLevel {
      * @param path    a frontend route - {@code /services/<name>} for one service, {@code /operations}
      *                for a backup or drift problem
      */
-    record Trigger(Kind kind, Level level, String subject, String path) {
-    }
+    record Trigger(Kind kind, Level level, String subject, String path) {}
 
     /**
      * One reading: everything that is wrong right now, plus the three raw measurements.
@@ -85,10 +88,7 @@ final class AlertLevel {
      *                        or null when there is not a single finished backup - which is a
      *                        {@link Kind#BACKUP} trigger already and not an age question
      */
-    record Reading(List<Trigger> triggers,
-                   Double diskPercent,
-                   Double memoryPercent,
-                   Double backupAgeHours) {
+    record Reading(List<Trigger> triggers, Double diskPercent, Double memoryPercent, Double backupAgeHours) {
 
         static final Reading OK = new Reading(List.of(), null, null, null);
 
@@ -128,15 +128,12 @@ final class AlertLevel {
     }
 
     /** `TarSnapshots`: `<volume>-<stamp>.tar.zst`, mirroring `backup-name.ts`'s `VOLUME_ARCHIVE`. */
-    private static final Pattern VOLUME_ARCHIVE =
-            Pattern.compile("^(.+)-(\\d{8}T\\d{6}Z)\\.tar\\.zst(\\.partial)?$");
+    private static final Pattern VOLUME_ARCHIVE = Pattern.compile("^(.+)-(\\d{8}T\\d{6}Z)\\.tar\\.zst(\\.partial)?$");
 
     /** `DatabaseDump`: `nordtal-<stamp>.dump`, mirroring `backup-name.ts`'s `DATABASE_DUMP`. */
-    private static final Pattern DATABASE_DUMP =
-            Pattern.compile("^(.+)-(\\d{8}T\\d{6}Z)\\.dump(\\.partial)?$");
+    private static final Pattern DATABASE_DUMP = Pattern.compile("^(.+)-(\\d{8}T\\d{6}Z)\\.dump(\\.partial)?$");
 
-    private AlertLevel() {
-    }
+    private AlertLevel() {}
 
     static Reading of(final Map<String, Object> serviceTable, final List<Map<String, Object>> archives) {
         return of(serviceTable, archives, Map.of(), Instant.now());
@@ -152,10 +149,11 @@ final class AlertLevel {
      *             lock-screen alarm about a number nobody measured.
      */
     @SuppressWarnings("unchecked")
-    static Reading of(final Map<String, Object> serviceTable,
-                      final List<Map<String, Object>> archives,
-                      final Map<String, Object> host,
-                      final Instant now) {
+    static Reading of(
+            final Map<String, Object> serviceTable,
+            final List<Map<String, Object>> archives,
+            final Map<String, Object> host,
+            final Instant now) {
         final List<Trigger> triggers = new ArrayList<>();
         final List<Map<String, Object>> services =
                 (List<Map<String, Object>>) serviceTable.getOrDefault("services", List.of());
@@ -170,7 +168,9 @@ final class AlertLevel {
         if (services.isEmpty()) {
             return new Reading(
                     List.of(new Trigger(Kind.SERVICE, Level.WARN, "services", "/operations/updates")),
-                    diskPercent(host), memoryPercent(host), backupAgeHours(archives, now));
+                    diskPercent(host),
+                    memoryPercent(host),
+                    backupAgeHours(archives, now));
         }
 
         // 1 - a service stopped or unhealthy. Red, and first in the list: without this it is not a
@@ -222,8 +222,7 @@ final class AlertLevel {
             triggers.add(new Trigger(Kind.DRIFT, Level.WARN, "registry", "/operations/updates"));
         }
 
-        return new Reading(triggers, diskPercent(host), memoryPercent(host),
-                backupAgeHours(archives, now));
+        return new Reading(triggers, diskPercent(host), memoryPercent(host), backupAgeHours(archives, now));
     }
 
     /** {@code diskUsedBytes / diskTotalBytes} as a percentage, or null when either is missing. */

@@ -82,5 +82,4 @@ public record Person(
         Instant mcNameUpdated,
         Long playtimeSeconds,
         String adminGrantedBy,
-        Instant adminGrantedAt) {
-}
+        Instant adminGrantedAt) {}

@@ -1,10 +1,11 @@
 package eu.nordtal.s2.hungergames.command;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
-
 import eu.nordtal.s2.commands.Catalogue;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -13,28 +14,23 @@ import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.message.Tone;
-import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.lobby.Lobby;
 import eu.nordtal.s2.papercommon.command.PaperCommands;
 import eu.nordtal.s2.papercommon.command.PaperUser;
-
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
-
-import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 /**
  * The hunger games server's Brigadier trees: three admin commands, one player command, and
@@ -63,11 +59,15 @@ public final class HungerGamesCommand {
     private final Supplier<UUID> currentGameId;
     private final Supplier<ToneColours> colours;
 
-    public HungerGamesCommand(final Plugin plugin, final HungerGamesDao dao,
-                              final Messages messages, final PlayerLocales locales,
-                              final Lobby lobby, final HungerGamesSounds sounds,
-                              final Supplier<UUID> currentGameId,
-                              final Supplier<ToneColours> colours) {
+    public HungerGamesCommand(
+            final Plugin plugin,
+            final HungerGamesDao dao,
+            final Messages messages,
+            final PlayerLocales locales,
+            final Lobby lobby,
+            final HungerGamesSounds sounds,
+            final Supplier<UUID> currentGameId,
+            final Supplier<ToneColours> colours) {
         this.plugin = plugin;
         this.dao = dao;
         this.messages = messages;
@@ -79,16 +79,21 @@ public final class HungerGamesCommand {
     }
 
     /** Every tree this server registers. */
-    public List<LiteralCommandNode<CommandSourceStack>> build(final Outbox outbox,
-                                                              final HungerGamesEffects effects,
-                                                              final java.util.function.Predicate<UUID> isAdmin,
-                                                              final javax.sql.DataSource pool) {
-        final PaperCommands commands = new PaperCommands(plugin, messages, Target.HUNGER_GAMES,
+    public List<LiteralCommandNode<CommandSourceStack>> build(
+            final Outbox outbox,
+            final HungerGamesEffects effects,
+            final java.util.function.Predicate<UUID> isAdmin,
+            final javax.sql.DataSource pool) {
+        final PaperCommands commands = new PaperCommands(
+                plugin,
+                messages,
+                Target.HUNGER_GAMES,
                 outbox,
                 mcUuid -> locales.of(mcUuid),
                 isAdmin,
                 dao::discordIdOf,
-                sounds::play, colours);
+                sounds::play,
+                colours);
 
         for (final NordtalCommand<HungerGamesEffects> command : HungerGamesCommands.all()) {
             commands.local(command, effects);
@@ -99,15 +104,17 @@ public final class HungerGamesCommand {
         // is the other half and it is not optional: without it an admin gets the acknowledgement
         // and never the report, the failure or the health of a single service.
         final eu.nordtal.s2.papercommon.command.UpdateWatcher updates =
-                new eu.nordtal.s2.papercommon.command.UpdateWatcher(plugin,
-                        eu.nordtal.s2.common.update.UpdateDirectory.using(pool));
-        eu.nordtal.s2.commands.update.UpdateCommands.all().forEach(command -> commands.local(command,
-                new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                        updates.directory(),
-                        work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
-                        (what, failure) -> plugin.getLogger()
-                                .warning("An update command failed while " + what + ": " + failure),
-                        updates::watch)));
+                new eu.nordtal.s2.papercommon.command.UpdateWatcher(
+                        plugin, eu.nordtal.s2.common.update.UpdateDirectory.using(pool));
+        eu.nordtal.s2.commands.update.UpdateCommands.all()
+                .forEach(command -> commands.local(
+                        command,
+                        new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
+                                updates.directory(),
+                                work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
+                                (what, failure) -> plugin.getLogger()
+                                        .warning("An update command failed while " + what + ": " + failure),
+                                updates::watch)));
 
         // extraOpen, not extra: this is the one subtree any player may use.
         commands.extraOpen("hg", ready());
@@ -131,8 +138,15 @@ public final class HungerGamesCommand {
         final Player player = (Player) context.getSource().getSender();
         // Optional::empty rather than null: /hg ready needs no Discord id, it never travels, and a
         // bare null is ambiguous between PaperUser's two factories.
-        final NordtalUser user = PaperUser.of(plugin, player, locales.of(player.getUniqueId()),
-                false, java.util.Optional::<String>empty, messages, sounds::play, colours);
+        final NordtalUser user = PaperUser.of(
+                plugin,
+                player,
+                locales.of(player.getUniqueId()),
+                false,
+                java.util.Optional::<String>empty,
+                messages,
+                sounds::play,
+                colours);
         final UUID gameId = currentGameId.get();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
@@ -142,7 +156,10 @@ public final class HungerGamesCommand {
             }
             final var discordId = dao.discordIdOf(player.getUniqueId());
             final boolean marked = discordId.isPresent() && lobby.markReady(gameId, discordId.get());
-            user.reply(marked ? MESSAGES.hg().lobby().readySet() : MESSAGES.hg().lobby().notRegistered(),
+            user.reply(
+                    marked
+                            ? MESSAGES.hg().lobby().readySet()
+                            : MESSAGES.hg().lobby().notRegistered(),
                     marked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED,
                     marked ? Tone.GOOD : Tone.BAD);
         });

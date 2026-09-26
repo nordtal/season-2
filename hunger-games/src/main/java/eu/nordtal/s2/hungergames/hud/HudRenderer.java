@@ -1,10 +1,11 @@
 package eu.nordtal.s2.hungergames.hud;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
+import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.hud.Bearing;
 import eu.nordtal.s2.common.hud.BossBarLine;
 import eu.nordtal.s2.common.hud.BossBarLine.Pill;
-
-import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.border.BorderController;
@@ -12,25 +13,20 @@ import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.game.GameState;
 import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.hungergames.loot.LootRefill;
-
-import net.kyori.adventure.bossbar.BossBar;
-import net.kyori.adventure.text.Component;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 
 /**
  * The three-line HUD: players (alive/dead plus an arrow to the nearest living player), loot
@@ -68,9 +64,16 @@ public final class HudRenderer {
     /** Read on every redraw, for the reason given on {@link #wins}. */
     private final LootRefill loot;
 
-    public HudRenderer(final Plugin plugin, final World world, final HungerGamesSpec config,
-                       final Messages messages, final PlayerLocales locales, final BorderController border,
-                       final GameState state, final WinTracker wins, final LootRefill loot) {
+    public HudRenderer(
+            final Plugin plugin,
+            final World world,
+            final HungerGamesSpec config,
+            final Messages messages,
+            final PlayerLocales locales,
+            final BorderController border,
+            final GameState state,
+            final WinTracker wins,
+            final LootRefill loot) {
         this.plugin = plugin;
         this.world = world;
         this.config = config;
@@ -122,21 +125,28 @@ public final class HudRenderer {
 
     private void renderFor(final Player player) {
         final java.util.Locale locale = locales.of(player.getUniqueId());
-        final BossBar playersBar = playersBars.computeIfAbsent(player.getUniqueId(),
+        final BossBar playersBar = playersBars.computeIfAbsent(
+                player.getUniqueId(),
                 key -> BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS));
-        final BossBar lootBar = lootBars.computeIfAbsent(player.getUniqueId(),
+        final BossBar lootBar = lootBars.computeIfAbsent(
+                player.getUniqueId(),
                 key -> BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS));
-        final BossBar borderBar = borderBars.computeIfAbsent(player.getUniqueId(),
+        final BossBar borderBar = borderBars.computeIfAbsent(
+                player.getUniqueId(),
                 key -> BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS));
 
-        playersBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_ALIVE,
-                withArrow(messages.format(locale,
-                        MESSAGES.hg().hud().players(wins.aliveCount(),
-                                wins.deadCount(state.effectiveParticipants()))),
+        playersBar.name(BossBarLine.render(List.of(Pill.of(
+                Glyphs.BOSSBAR_ICON_ALIVE,
+                withArrow(
+                        messages.format(
+                                locale,
+                                MESSAGES.hg()
+                                        .hud()
+                                        .players(wins.aliveCount(), wins.deadCount(state.effectiveParticipants()))),
                         nearestPlayerArrow(player))))));
 
-        lootBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_LOOT_POINT,
-                withArrow(lootLine(locale), nearestLootArrow(player))))));
+        lootBar.name(BossBarLine.render(List.of(
+                Pill.of(Glyphs.BOSSBAR_ICON_LOOT_POINT, withArrow(lootLine(locale), nearestLootArrow(player))))));
 
         borderBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, borderLine(locale)))));
 
@@ -155,7 +165,8 @@ public final class HudRenderer {
         if (nextRefillAt == null) {
             return messages.format(locale, MESSAGES.hg().hud().lootNone());
         }
-        final long secondsLeft = Math.max(0, Duration.between(Instant.now(), nextRefillAt).toSeconds());
+        final long secondsLeft =
+                Math.max(0, Duration.between(Instant.now(), nextRefillAt).toSeconds());
         return messages.format(locale, MESSAGES.hg().hud().loot(formatDuration(secondsLeft)));
     }
 
@@ -164,11 +175,13 @@ public final class HudRenderer {
             return messages.format(locale, MESSAGES.hg().hud().borderStable());
         }
         final long secondsLeft = state.shrinkEndsAt() == null
-                ? 0 : Math.max(0, Duration.between(Instant.now(), state.shrinkEndsAt()).toSeconds());
+                ? 0
+                : Math.max(
+                        0, Duration.between(Instant.now(), state.shrinkEndsAt()).toSeconds());
         final double distance = Math.max(0, (border.currentSize() - state.shrinkTarget()) / 2.0);
-        return messages.format(locale,
-                MESSAGES.hg().hud().borderShrinking(formatDuration(secondsLeft),
-                        String.valueOf(Math.round(distance))));
+        return messages.format(
+                locale,
+                MESSAGES.hg().hud().borderShrinking(formatDuration(secondsLeft), String.valueOf(Math.round(distance))));
     }
 
     private String nearestPlayerArrow(final Player player) {
@@ -187,8 +200,12 @@ public final class HudRenderer {
         if (nearest == null) {
             return "";
         }
-        final int index = Bearing.arrowIndex(player.getLocation().getX(), player.getLocation().getZ(),
-                player.getLocation().getYaw(), nearest.getLocation().getX(), nearest.getLocation().getZ());
+        final int index = Bearing.arrowIndex(
+                player.getLocation().getX(),
+                player.getLocation().getZ(),
+                player.getLocation().getYaw(),
+                nearest.getLocation().getX(),
+                nearest.getLocation().getZ());
         return Glyphs.BOSSBAR_ARROWS[index];
     }
 
@@ -211,8 +228,12 @@ public final class HudRenderer {
         if (nearest == null) {
             return "";
         }
-        final int index = Bearing.arrowIndex(player.getLocation().getX(), player.getLocation().getZ(),
-                player.getLocation().getYaw(), nearest.x(), nearest.z());
+        final int index = Bearing.arrowIndex(
+                player.getLocation().getX(),
+                player.getLocation().getZ(),
+                player.getLocation().getYaw(),
+                nearest.x(),
+                nearest.z());
         return Glyphs.BOSSBAR_ARROWS[index];
     }
 

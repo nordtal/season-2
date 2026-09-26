@@ -1,14 +1,12 @@
 package eu.nordtal.s2.proxy.command;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.message.Messages;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The far half of {@code /discord} and {@code /rules}.
@@ -22,18 +20,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class InfoTextTest {
 
-    private static final Messages MESSAGES = Messages.load(InfoTextTest.class.getClassLoader(),
-            "messages/proxy", Locale.ENGLISH, Locale.GERMAN);
+    private static final Messages MESSAGES =
+            Messages.load(InfoTextTest.class.getClassLoader(), "messages/proxy", Locale.ENGLISH, Locale.GERMAN);
 
-    private static final List<String> KEYS =
-            List.of(InfoTexts.DISCORD_TEXT.apply("").key(), InfoTexts.RULES_TEXT.apply("").key());
+    private static final List<String> KEYS = List.of(
+            InfoTexts.DISCORD_TEXT.apply("").key(),
+            InfoTexts.RULES_TEXT.apply("").key());
 
     @Test
     @DisplayName("both keys the commands name exist, in both languages")
     void theKeysExist() {
         for (final String key : KEYS) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-                assertTrue(MESSAGES.hasTranslation(locale, key),
+                assertTrue(
+                        MESSAGES.hasTranslation(locale, key),
                         key + " is missing in " + locale.getLanguage() + ", so the command would"
                                 + " print its own key at a player");
             }
@@ -45,7 +45,8 @@ class InfoTextTest {
     void bothNameTheInvite() {
         for (final String key : KEYS) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-                assertTrue(MESSAGES.get(locale, key).contains("{invite}"),
+                assertTrue(
+                        MESSAGES.get(locale, key).contains("{invite}"),
                         key + " (" + locale.getLanguage() + ") does not substitute the Discord"
                                 + " invite. It is gate.yml's one copy of that link, and a bundle"
                                 + " that spells the URL out itself is the copy that goes stale -"
@@ -61,9 +62,13 @@ class InfoTextTest {
         // a /rules that answers with something plausible is a /rules nobody checks again. When the
         // real text lands, this test is deleted in the same commit - it is a reminder with a build
         // behind it, not a rule about the wording.
-        assertTrue(MESSAGES.get(Locale.ENGLISH, InfoTexts.RULES_TEXT.apply("").key()).contains("PLACEHOLDER"),
+        assertTrue(
+                MESSAGES.get(Locale.ENGLISH, InfoTexts.RULES_TEXT.apply("").key())
+                        .contains("PLACEHOLDER"),
                 "the English rules text no longer says it is a placeholder");
-        assertTrue(MESSAGES.get(Locale.GERMAN, InfoTexts.RULES_TEXT.apply("").key()).contains("PLATZHALTER"),
+        assertTrue(
+                MESSAGES.get(Locale.GERMAN, InfoTexts.RULES_TEXT.apply("").key())
+                        .contains("PLATZHALTER"),
                 "the German rules text no longer says it is a placeholder - if the real rules have"
                         + " been written, delete this test with the same commit");
     }

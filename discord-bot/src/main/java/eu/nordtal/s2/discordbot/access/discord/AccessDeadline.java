@@ -12,5 +12,4 @@ import java.time.Instant;
  * @param discordId  whose access it is
  * @param validUntil when it ends
  */
-public record AccessDeadline(String discordId, Instant validUntil) {
-}
+public record AccessDeadline(String discordId, Instant validUntil) {}

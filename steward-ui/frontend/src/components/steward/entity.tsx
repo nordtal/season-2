@@ -47,17 +47,11 @@ function plainUuid(uuid: string): string {
   return uuid.replace(/-/g, "").toLowerCase()
 }
 
-export function findPerson(
-  people: Person[] | undefined,
-  kind: EntityKind,
-  id: string,
-): Person | undefined {
+export function findPerson(people: Person[] | undefined, kind: EntityKind, id: string): Person | undefined {
   if (kind === "discord") return people?.find((person) => person.discordId === id)
   if (kind === "minecraft") {
     const wanted = plainUuid(id)
-    return people?.find(
-      (person) => person.minecraftUuid !== undefined && plainUuid(person.minecraftUuid) === wanted,
-    )
+    return people?.find((person) => person.minecraftUuid !== undefined && plainUuid(person.minecraftUuid) === wanted)
   }
   return undefined
 }
@@ -75,9 +69,7 @@ export type EntityProps = {
 }
 
 export function Entity({ id, kind, system, interactive, className }: EntityProps) {
-  const resolved: EntityKind | "unknown" = system
-    ? "unknown"
-    : (kind ?? entityKind(id ?? ""))
+  const resolved: EntityKind | "unknown" = system ? "unknown" : (kind ?? entityKind(id ?? ""))
   const isPerson = !system && (resolved === "discord" || resolved === "minecraft")
   const people = usePeople(isPerson)
   const avatarBase = useAvatarBaseUrl(isPerson)
@@ -135,10 +127,7 @@ export function Entity({ id, kind, system, interactive, className }: EntityProps
   }
 
   return (
-    <span
-      className={"inline-flex min-w-0 max-w-full items-center gap-1.5 " + (className ?? "")}
-      data-entity="unknown"
-    >
+    <span className={"inline-flex min-w-0 max-w-full items-center gap-1.5 " + (className ?? "")} data-entity="unknown">
       <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-muted-foreground">
         <QuestionIcon aria-hidden className="size-3" />
       </span>

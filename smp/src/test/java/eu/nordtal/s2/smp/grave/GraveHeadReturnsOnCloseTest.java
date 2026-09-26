@@ -1,16 +1,15 @@
 package eu.nordtal.s2.smp.grave;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The head is not loot any more: an emptied grave hands it over on close, by itself.
@@ -36,7 +35,8 @@ class GraveHeadReturnsOnCloseTest {
     void takeAllLeavesTheHeadAlone() {
         final String takeAll = body("private void takeAll(");
 
-        assertFalse(takeAll.contains("headSlot"),
+        assertFalse(
+                takeAll.contains("headSlot"),
                 "the head is furniture again: the button empties the content slots, and the head"
                         + " comes back on close instead of needing a second press");
     }
@@ -46,10 +46,12 @@ class GraveHeadReturnsOnCloseTest {
     void emptinessIsAboutTheContent() {
         final String settle = body("private void settle(");
 
-        assertFalse(settle.contains("headGone"),
+        assertFalse(
+                settle.contains("headGone"),
                 "a grave whose content slots are empty is finished; requiring the head to be gone"
                         + " too is what made a second press necessary");
-        assertTrue(settle.contains("final boolean empty = contentGone;"),
+        assertTrue(
+                settle.contains("final boolean empty = contentGone;"),
                 "the emptiness decision is the content and nothing else");
     }
 
@@ -61,9 +63,11 @@ class GraveHeadReturnsOnCloseTest {
 
         assertTrue(reads >= 0, "settle is the one place that takes the head out of the window");
         final String handOut = settle.substring(reads);
-        assertTrue(handOut.contains("player.getInventory().addItem("),
+        assertTrue(
+                handOut.contains("player.getInventory().addItem("),
                 "the head goes into the inventory of whoever closed the emptied grave");
-        assertTrue(handOut.contains("dropItemNaturally("),
+        assertTrue(
+                handOut.contains("dropItemNaturally("),
                 "and onto the floor when it does not fit, rather than being deleted");
     }
 
@@ -93,8 +97,7 @@ class GraveHeadReturnsOnCloseTest {
     private static String read() {
         try {
             Path candidate = Path.of("").toAbsolutePath();
-            while (candidate != null
-                    && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
+            while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
                 candidate = candidate.getParent();
             }
             if (candidate == null) {

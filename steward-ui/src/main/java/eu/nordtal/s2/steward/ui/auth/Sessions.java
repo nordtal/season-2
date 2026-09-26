@@ -1,5 +1,13 @@
 package eu.nordtal.s2.steward.ui.auth;
 
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.postgres.PostgresPlugin;
@@ -8,16 +16,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.sql.DataSource;
-
-import java.security.SecureRandom;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Base64;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Who is signed in, kept in PostgreSQL rather than in this JVM's memory.
@@ -112,11 +110,16 @@ public final class Sessions {
      * <p>The caller is expected to {@link #end} the row the sign-in started in and to replace the
      * browser's cookie with what this returns. See the class note on fixation.</p>
      */
-    public @NotNull String signIn(final @NotNull String discordId, final @NotNull String name,
-                                  final @NotNull List<String> roles) {
+    public @NotNull String signIn(
+            final @NotNull String discordId, final @NotNull String name, final @NotNull List<String> roles) {
         final String id = random();
-        dao.signIn(id, Objects.requireNonNull(discordId, "discordId"),
-                Objects.requireNonNull(name, "name"), String.join(",", roles), random(), seconds);
+        dao.signIn(
+                id,
+                Objects.requireNonNull(discordId, "discordId"),
+                Objects.requireNonNull(name, "name"),
+                String.join(",", roles),
+                random(),
+                seconds);
         log.info("signed in {} ({}) - session valid for {} days", name, discordId, seconds / 86400);
         return id;
     }
@@ -213,14 +216,15 @@ public final class Sessions {
      *
      * @param roles the role ids held at sign-in - a snapshot, see {@code V19}
      */
-    public record Session(@NotNull String id,
-                          @ColumnName("discord_id") @Nullable String discordId,
-                          @ColumnName("display_name") @Nullable String displayName,
-                          @Nullable String roles,
-                          @NotNull String csrf,
-                          @ColumnName("created_at") @NotNull Instant createdAt,
-                          @ColumnName("expires_at") @NotNull Instant expiresAt,
-                          @ColumnName("verified_at") @Nullable Instant verifiedAt) {
+    public record Session(
+            @NotNull String id,
+            @ColumnName("discord_id") @Nullable String discordId,
+            @ColumnName("display_name") @Nullable String displayName,
+            @Nullable String roles,
+            @NotNull String csrf,
+            @ColumnName("created_at") @NotNull Instant createdAt,
+            @ColumnName("expires_at") @NotNull Instant expiresAt,
+            @ColumnName("verified_at") @Nullable Instant verifiedAt) {
 
         /** False for a row that is still between {@code /auth/login} and a completed callback. */
         public boolean signedIn() {
@@ -229,8 +233,8 @@ public final class Sessions {
 
         /** The account, for everything that was written against Discord's answer directly. */
         public DiscordAuth.@NotNull Account account() {
-            return new DiscordAuth.Account(Objects.requireNonNull(discordId),
-                    Objects.requireNonNull(displayName), roleList());
+            return new DiscordAuth.Account(
+                    Objects.requireNonNull(discordId), Objects.requireNonNull(displayName), roleList());
         }
 
         /**

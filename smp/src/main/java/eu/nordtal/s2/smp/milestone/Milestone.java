@@ -24,8 +24,13 @@ import java.util.Optional;
  *                       True for {@code departure} alone
  * @param objectives     every objective, in file order; empty for the two opening milestones
  */
-public record Milestone(String key, Unlock unlock, int borderDiameter, int objectivePot,
-                        boolean adminUnlocked, List<Objective> objectives) {
+public record Milestone(
+        String key,
+        Unlock unlock,
+        int borderDiameter,
+        int objectivePot,
+        boolean adminUnlocked,
+        List<Objective> objectives) {
 
     public Milestone {
         Objects.requireNonNull(key, "key");
@@ -38,7 +43,9 @@ public record Milestone(String key, Unlock unlock, int borderDiameter, int objec
      * @return that objective, if this milestone declares it
      */
     public Optional<Objective> objective(final String key) {
-        return objectives.stream().filter(objective -> objective.key().equals(key)).findFirst();
+        return objectives.stream()
+                .filter(objective -> objective.key().equals(key))
+                .findFirst();
     }
 
     /**

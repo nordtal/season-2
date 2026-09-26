@@ -1,15 +1,13 @@
 package eu.nordtal.s2.proxy.launch;
 
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
-
-import net.kyori.adventure.text.Component;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
-
-import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+import net.kyori.adventure.text.Component;
 
 /**
  * How long until the network opens, as a line somebody reads once.
@@ -30,8 +28,7 @@ import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
  */
 public final class LaunchCountdown {
 
-    private LaunchCountdown() {
-    }
+    private LaunchCountdown() {}
 
     /**
      * Renders the remaining time, or the line for a date nobody has announced.
@@ -42,8 +39,7 @@ public final class LaunchCountdown {
      * @param now      the instant to measure against, passed in so this is testable without a clock
      * @return one line, never {@code null} and never empty
      */
-    public static String render(final Messages messages, final Locale locale, final Instant launch,
-                                final Instant now) {
+    public static String render(final Messages messages, final Locale locale, final Instant launch, final Instant now) {
         if (launch == null) {
             // Not gate.countdown.unknown: that key is an already-tagged whole sentence for when
             // nothing wraps it, and this value is a plain-text fragment that gets substituted into
@@ -57,12 +53,10 @@ public final class LaunchCountdown {
             return messages.format(locale, MESSAGES.countdown().imminent());
         }
         if (remaining.toDays() >= 1) {
-            return messages.format(locale,
-                    MESSAGES.countdown().days(remaining.toDays(), remaining.toHoursPart()));
+            return messages.format(locale, MESSAGES.countdown().days(remaining.toDays(), remaining.toHoursPart()));
         }
         if (remaining.toHours() >= 1) {
-            return messages.format(locale,
-                    MESSAGES.countdown().hours(remaining.toHours(), remaining.toMinutesPart()));
+            return messages.format(locale, MESSAGES.countdown().hours(remaining.toHours(), remaining.toMinutesPart()));
         }
         return messages.format(locale, MESSAGES.countdown().minutes(remaining.toMinutes()));
     }
@@ -78,8 +72,8 @@ public final class LaunchCountdown {
      * @param now      the instant to measure against
      * @return one sentence
      */
-    public static String sentence(final Messages messages, final Locale locale, final Instant launch,
-                                  final Instant now) {
+    public static String sentence(
+            final Messages messages, final Locale locale, final Instant launch, final Instant now) {
         if (launch == null) {
             return messages.format(locale, MESSAGES.gate().countdownSection().unknown());
         }
@@ -104,8 +98,8 @@ public final class LaunchCountdown {
      * @param now      the instant to measure against
      * @return one sentence, parsed as MiniMessage
      */
-    public static Component component(final Messages messages, final Locale locale,
-                                      final Instant launch, final Instant now) {
+    public static Component component(
+            final Messages messages, final Locale locale, final Instant launch, final Instant now) {
         return MessageRenderer.parse(sentence(messages, locale, launch, now));
     }
 }

@@ -1,14 +1,13 @@
 package eu.nordtal.s2.common.metric;
 
+import java.time.OffsetDateTime;
+import java.util.List;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindMethods;
 import org.jdbi.v3.sqlobject.statement.SqlBatch;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.time.OffsetDateTime;
-import java.util.List;
 
 /**
  * The whole SQL surface of the time-series table, as a JDBI SqlObject interface - the same style as
@@ -110,10 +109,11 @@ interface MetricDao {
                                    AND resolution = 'RAW'), 'infinity'::timestamptz)
             ORDER BY at
             """)
-    List<MetricPoint> range(@Bind("subject") String subject,
-                            @Bind("metric") String metric,
-                            @Bind("from") OffsetDateTime from,
-                            @Bind("to") OffsetDateTime to);
+    List<MetricPoint> range(
+            @Bind("subject") String subject,
+            @Bind("metric") String metric,
+            @Bind("from") OffsetDateTime from,
+            @Bind("to") OffsetDateTime to);
 
     /**
      * Averages every raw sample before {@code cut} into its UTC hour and writes the means.
@@ -207,6 +207,5 @@ interface MetricDao {
      * statement, and because four lists that must stay the same length is the bug that gets written
      * the first time somebody filters one of them.
      */
-    record BoundSample(String subject, String metric, OffsetDateTime at, double value) {
-    }
+    record BoundSample(String subject, String metric, OffsetDateTime at, double value) {}
 }

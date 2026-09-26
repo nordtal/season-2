@@ -1,24 +1,21 @@
 package eu.nordtal.s2.smp.db;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.player.Identity;
-
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
-import net.kyori.adventure.text.Component;
+import java.util.Locale;
+import java.util.UUID;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.slf4j.Logger;
-
-import java.util.Locale;
-import java.util.UUID;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * What happens to a login when PostgreSQL is not there.
@@ -50,8 +47,11 @@ public final class JoinGate implements Listener {
     private final Messages messages;
     private final Logger logger;
 
-    public JoinGate(final Identities identities, final FullServerAdmission admission,
-                    final Messages messages, final Logger logger) {
+    public JoinGate(
+            final Identities identities,
+            final FullServerAdmission admission,
+            final Messages messages,
+            final Logger logger) {
         this.identities = identities;
         this.admission = admission;
         this.messages = messages;
@@ -67,13 +67,13 @@ public final class JoinGate implements Listener {
             // login closes the window between this thread and PlayerLoginEvent outright.
             admission.remember(event.getUniqueId(), identity.admin());
         } catch (final RuntimeException exception) {
-            logger.error("refusing {}'s login because the database is unreachable",
-                    event.getUniqueId(), exception);
+            logger.error("refusing {}'s login because the database is unreachable", event.getUniqueId(), exception);
             // English: at this point there is no account link to read a language from, which is
             // itself the thing that is broken.
-            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
-                    MessageRenderer.of(messages).format(Locale.ENGLISH,
-                            MESSAGES.smp().error().databaseUnreachable()));
+            event.disallow(
+                    AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
+                    MessageRenderer.of(messages)
+                            .format(Locale.ENGLISH, MESSAGES.smp().error().databaseUnreachable()));
         }
     }
 

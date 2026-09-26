@@ -1,5 +1,11 @@
 package eu.nordtal.s2.papercommon.command;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.lang.reflect.Proxy;
+import java.util.UUID;
+import java.util.function.Predicate;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -8,13 +14,6 @@ import org.bukkit.command.RemoteConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.lang.reflect.Proxy;
-import java.util.UUID;
-import java.util.function.Predicate;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Who may use an admin command on a Paper server.
@@ -46,6 +45,7 @@ class PaperCommandsAccessTest {
 
     /** Admin flag lookups must never even be consulted for a non-player. */
     private static final Predicate<UUID> NOBODY_IS_ADMIN = uuid -> false;
+
     private static final Predicate<UUID> EVERYBODY_IS_ADMIN = uuid -> true;
 
     @Test
@@ -57,7 +57,8 @@ class PaperCommandsAccessTest {
     @Test
     @DisplayName("a command block may not - this is the one the old check let through")
     void aCommandBlockMayNot() {
-        assertFalse(PaperCommands.mayUse(sender(BlockCommandSender.class), NOBODY_IS_ADMIN),
+        assertFalse(
+                PaperCommands.mayUse(sender(BlockCommandSender.class), NOBODY_IS_ADMIN),
                 "a command block is not a Player, which is all the old check asked. On a server"
                         + " where players build and two datapacks are required, that is a way to"
                         + " reach /smp aura and /smp update restart.");
@@ -87,19 +88,17 @@ class PaperCommandsAccessTest {
     // ---------------------------------------------------------------- senders with nothing behind them
 
     private static CommandSender sender(final Class<? extends CommandSender> type) {
-        return (CommandSender) Proxy.newProxyInstance(
-                type.getClassLoader(), new Class<?>[]{type},
-                (proxy, method, args) -> {
+        return (CommandSender)
+                Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
                     throw new UnsupportedOperationException(
-                            "the decision must read the sender's type and nothing else, but it "
-                                    + "called " + method.getName());
+                            "the decision must read the sender's type and nothing else, but it " + "called "
+                                    + method.getName());
                 });
     }
 
     private static CommandSender player() {
         return (CommandSender) Proxy.newProxyInstance(
-                Player.class.getClassLoader(), new Class<?>[]{Player.class},
-                (proxy, method, args) -> {
+                Player.class.getClassLoader(), new Class<?>[] {Player.class}, (proxy, method, args) -> {
                     if ("getUniqueId".equals(method.getName())) {
                         return SOMEBODY;
                     }

@@ -1,6 +1,7 @@
 package eu.nordtal.s2.papercommon.command;
 
-import eu.nordtal.s2.common.message.MessageRef;
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -8,7 +9,6 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
-
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.Confirmations;
 import eu.nordtal.s2.commands.Declaration;
@@ -18,20 +18,12 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.ToneColours;
-import eu.nordtal.s2.common.message.Messages;
-
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-
-import org.bukkit.Bukkit;
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.ConsoleCommandSender;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.IllegalPluginAccessException;
-import org.bukkit.plugin.Plugin;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,8 +33,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.IllegalPluginAccessException;
+import org.bukkit.plugin.Plugin;
 
 /**
  * A {@link Declaration} turned into a real Brigadier tree, once, for all three Paper plugins - so
@@ -64,11 +60,10 @@ import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 public final class PaperCommands {
 
     /** One registered command: what it is, and what to do when somebody runs it. */
-    private record Entry(Declaration declaration,
-                         java.util.function.BiConsumer<NordtalUser, Values> run,
-                         java.util.function.Function<Values,
-                                 java.util.Optional<MessageRef>> problem) {
-    }
+    private record Entry(
+            Declaration declaration,
+            java.util.function.BiConsumer<NordtalUser, Values> run,
+            java.util.function.Function<Values, java.util.Optional<MessageRef>> problem) {}
 
     private final Plugin plugin;
     private final Messages messages;
@@ -81,10 +76,8 @@ public final class PaperCommands {
     private final java.util.function.Supplier<ToneColours> colours;
     private final Confirmations confirmations = new Confirmations();
     private final List<Entry> entries = new ArrayList<>();
-    private final Map<String, List<LiteralArgumentBuilder<CommandSourceStack>>> extras =
-            new LinkedHashMap<>();
-    private final Map<String, List<LiteralArgumentBuilder<CommandSourceStack>>> openExtras =
-            new LinkedHashMap<>();
+    private final Map<String, List<LiteralArgumentBuilder<CommandSourceStack>>> extras = new LinkedHashMap<>();
+    private final Map<String, List<LiteralArgumentBuilder<CommandSourceStack>>> openExtras = new LinkedHashMap<>();
     private final Map<String, java.util.function.Supplier<java.util.Collection<String>>> suggestions =
             new LinkedHashMap<>();
 
@@ -103,12 +96,16 @@ public final class PaperCommands {
      *                    the {@link PaperUser} built for the next command typed sees a reload that
      *                    happened after this tree was built
      */
-    public PaperCommands(final Plugin plugin, final Messages messages, final Target here,
-                         final Outbox outbox, final Function<UUID, java.util.Locale> localeOf,
-                         final Predicate<UUID> isAdmin,
-                         final Function<UUID, Optional<String>> discordIdOf,
-                         final PaperUser.Chime chime,
-                         final java.util.function.Supplier<ToneColours> colours) {
+    public PaperCommands(
+            final Plugin plugin,
+            final Messages messages,
+            final Target here,
+            final Outbox outbox,
+            final Function<UUID, java.util.Locale> localeOf,
+            final Predicate<UUID> isAdmin,
+            final Function<UUID, Optional<String>> discordIdOf,
+            final PaperUser.Chime chime,
+            final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.here = Objects.requireNonNull(here, "here");
@@ -121,18 +118,15 @@ public final class PaperCommands {
     }
 
     /** A command this process runs itself. */
-    public <E extends CommandEffects> PaperCommands local(final NordtalCommand<E> command,
-                                                          final E effects) {
+    public <E extends CommandEffects> PaperCommands local(final NordtalCommand<E> command, final E effects) {
         Objects.requireNonNull(command, "command");
         Objects.requireNonNull(effects, "effects");
         final Declaration declaration = command.declaration();
         if (declaration.isRemoteOn(here)) {
-            throw new IllegalArgumentException(declaration.name() + " is run by "
-                    + declaration.target() + ", not by " + here);
+            throw new IllegalArgumentException(
+                    declaration.name() + " is run by " + declaration.target() + ", not by " + here);
         }
-        entries.add(new Entry(declaration,
-                (user, values) -> command.run(user, values, effects),
-                command::check));
+        entries.add(new Entry(declaration, (user, values) -> command.run(user, values, effects), command::check));
         return this;
     }
 
@@ -162,12 +156,14 @@ public final class PaperCommands {
             return this;
         }
         if (outbox == null) {
-            throw new IllegalStateException(declaration.name() + " has to travel, and this adapter"
-                    + " was built without an outbox");
+            throw new IllegalStateException(
+                    declaration.name() + " has to travel, and this adapter" + " was built without an outbox");
         }
         // A remote command's own problem() cannot be asked here - this process holds the
         // declaration but not the command - so it is asked on the far side instead.
-        entries.add(new Entry(declaration, (user, values) -> outbox.send(declaration, user, values),
+        entries.add(new Entry(
+                declaration,
+                (user, values) -> outbox.send(declaration, user, values),
                 values -> java.util.Optional.empty()));
         return this;
     }
@@ -186,8 +182,10 @@ public final class PaperCommands {
      * <p><b>Must not block and must not query.</b> Brigadier asks once per keystroke, for every
      * client with the command in its tree, so only an in-memory source belongs here.
      */
-    public PaperCommands suggest(final Declaration declaration, final String argument,
-                                 final java.util.function.Supplier<java.util.Collection<String>> values) {
+    public PaperCommands suggest(
+            final Declaration declaration,
+            final String argument,
+            final java.util.function.Supplier<java.util.Collection<String>> values) {
         final eu.nordtal.s2.commands.Argument declared = declaration.arguments().stream()
                 .filter(a -> a.name().equals(argument))
                 .findFirst()
@@ -213,8 +211,7 @@ public final class PaperCommands {
      *
      * @param root the first path segment it belongs under, which must be one a command here uses
      */
-    public PaperCommands extra(final String root,
-                               final LiteralArgumentBuilder<CommandSourceStack> node) {
+    public PaperCommands extra(final String root, final LiteralArgumentBuilder<CommandSourceStack> node) {
         extras.computeIfAbsent(Objects.requireNonNull(root, "root"), name -> new ArrayList<>())
                 .add(Objects.requireNonNull(node, "node"));
         return this;
@@ -227,9 +224,9 @@ public final class PaperCommands {
      * {@code requires} on a root - gating {@code /hg} would hide {@code /hg ready} from every
      * player - so an extra hung on one is ungated unless this adapter gates it.
      */
-    public PaperCommands extraOpen(final String root,
-                                   final LiteralArgumentBuilder<CommandSourceStack> node) {
-        openExtras.computeIfAbsent(Objects.requireNonNull(root, "root"), name -> new ArrayList<>())
+    public PaperCommands extraOpen(final String root, final LiteralArgumentBuilder<CommandSourceStack> node) {
+        openExtras
+                .computeIfAbsent(Objects.requireNonNull(root, "root"), name -> new ArrayList<>())
                 .add(Objects.requireNonNull(node, "node"));
         return this;
     }
@@ -252,14 +249,13 @@ public final class PaperCommands {
                 node = node.children.computeIfAbsent(path.get(depth), Node::new);
             }
             if (node.command != null) {
-                throw new IllegalStateException("two commands both claim /"
-                        + String.join(" ", path));
+                throw new IllegalStateException("two commands both claim /" + String.join(" ", path));
             }
             node.command = entry;
         }
 
-        for (final String root : java.util.stream.Stream.concat(
-                extras.keySet().stream(), openExtras.keySet().stream()).toList()) {
+        for (final String root : java.util.stream.Stream.concat(extras.keySet().stream(), openExtras.keySet().stream())
+                .toList()) {
             if (!roots.containsKey(root)) {
                 throw new IllegalStateException("an extra subtree was hung under /" + root
                         + ", which no command here uses as a root - it would never be registered");
@@ -377,9 +373,9 @@ public final class PaperCommands {
      * @return whether the literal itself became runnable - which it does only when every required
      *         argument can be left out
      */
-    private boolean arguments(final LiteralArgumentBuilder<CommandSourceStack> parent,
-                              final Entry entry) {
-        final List<eu.nordtal.s2.commands.Argument> arguments = entry.declaration().arguments();
+    private boolean arguments(final LiteralArgumentBuilder<CommandSourceStack> parent, final Entry entry) {
+        final List<eu.nordtal.s2.commands.Argument> arguments =
+                entry.declaration().arguments();
         if (arguments.isEmpty()) {
             parent.executes(context -> dispatch(context, entry, new Parsed(Map.of(), Map.of())));
             return true;
@@ -389,8 +385,7 @@ public final class PaperCommands {
         // handed to its parent.
         RequiredArgumentBuilder<CommandSourceStack, ?> child = null;
         for (int at = arguments.size() - 1; at >= 0; at--) {
-            final RequiredArgumentBuilder<CommandSourceStack, ?> node =
-                    node(entry.declaration(), arguments.get(at));
+            final RequiredArgumentBuilder<CommandSourceStack, ?> node = node(entry.declaration(), arguments.get(at));
             final int index = at;
             // Runnable at this depth only when nothing required is still missing; otherwise half a
             // command answers with the usage line rather than throwing at Values.
@@ -414,8 +409,7 @@ public final class PaperCommands {
     }
 
     /** Whether a command given its first {@code count} arguments has everything it needs. */
-    private static boolean satisfied(final List<eu.nordtal.s2.commands.Argument> arguments,
-                                     final int count) {
+    private static boolean satisfied(final List<eu.nordtal.s2.commands.Argument> arguments, final int count) {
         for (int at = count; at < arguments.size(); at++) {
             if (arguments.get(at).required()) {
                 return false;
@@ -434,11 +428,12 @@ public final class PaperCommands {
     private int help(final CommandContext<CommandSourceStack> context, final Node node) {
         // A root with a declared default runs it instead of listing itself. The admin flag goes with
         // it, because this path goes around the child node's requires - which is the whole gate.
-        final java.util.Optional<Declaration> preset = eu.nordtal.s2.commands.Catalogue
-                .rootDefault(node.literal, mayUse(context.getSource()));
+        final java.util.Optional<Declaration> preset =
+                eu.nordtal.s2.commands.Catalogue.rootDefault(node.literal, mayUse(context.getSource()));
         if (preset.isPresent()) {
             final Node child = node.children.get(preset.get().path().get(1));
-            if (child != null && child.command != null
+            if (child != null
+                    && child.command != null
                     && child.command.declaration().equals(preset.get())) {
                 return dispatch(context, child.command, new Parsed(Map.of(), Map.of()));
             }
@@ -462,8 +457,7 @@ public final class PaperCommands {
         // chat would name /smp reload - a command they would then be told does not exist, which is
         // a worse lie than the sentence steward/106 removed.
         if (user.origin() == NordtalUser.Origin.GAME) {
-            below.removeIf(declaration ->
-                    !declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.GAME));
+            below.removeIf(declaration -> !declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.GAME));
             if (below.isEmpty()) {
                 user.reply(MESSAGES.command().unknown(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
@@ -487,23 +481,20 @@ public final class PaperCommands {
         // support was added there. usage() below it already had Feedback.REFUSED; this brings the
         // multi-child listing in line with it rather than leaving the two forms of the same
         // "nothing more specific was runnable" answer sounding different.
-        user.reply(MESSAGES.command().help().header("/" + node.literal),
-                Feedback.REFUSED, Tone.NEUTRAL);
+        user.reply(MESSAGES.command().help().header("/" + node.literal), Feedback.REFUSED, Tone.NEUTRAL);
         below.stream()
                 .sorted(java.util.Comparator.comparing(Declaration::name))
-                .forEach(declaration -> user.reply(MESSAGES.command().help().line(declaration.usage(),
-                        user.phrase(declaration.describe())), Tone.MUTED));
+                .forEach(declaration -> user.reply(
+                        MESSAGES.command().help().line(declaration.usage(), user.phrase(declaration.describe())),
+                        Tone.MUTED));
         return Command.SINGLE_SUCCESS;
     }
 
     /** The usage of one command, plus the sentence saying what it is for. */
-    private int usage(final CommandContext<CommandSourceStack> context,
-                      final Declaration declaration) {
+    private int usage(final CommandContext<CommandSourceStack> context, final Declaration declaration) {
         final NordtalUser user = user(context.getSource().getSender());
-        user.reply(MESSAGES.command().help().usage(declaration.usage()),
-                Feedback.REFUSED, Tone.NEUTRAL);
-        user.reply(MESSAGES.command().help().what(user.phrase(declaration.describe())),
-                Tone.MUTED);
+        user.reply(MESSAGES.command().help().usage(declaration.usage()), Feedback.REFUSED, Tone.NEUTRAL);
+        user.reply(MESSAGES.command().help().what(user.phrase(declaration.describe())), Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -514,8 +505,8 @@ public final class PaperCommands {
         node.children.values().forEach(child -> collect(child, into));
     }
 
-    private RequiredArgumentBuilder<CommandSourceStack, ?> node(final Declaration declaration,
-                                                               final eu.nordtal.s2.commands.Argument argument) {
+    private RequiredArgumentBuilder<CommandSourceStack, ?> node(
+            final Declaration declaration, final eu.nordtal.s2.commands.Argument argument) {
         final java.util.function.Supplier<java.util.Collection<String>> offered =
                 suggestions.get(declaration.name() + " " + argument.name());
         return switch (argument.kind()) {
@@ -530,25 +521,24 @@ public final class PaperCommands {
                 }
                 yield word;
             }
-            case GREEDY_STRING ->
-                    Commands.argument(argument.name(), StringArgumentType.greedyString());
-            case INTEGER -> Commands.argument(argument.name(),
-                    IntegerArgumentType.integer(argument.min(), argument.max()));
+            case GREEDY_STRING -> Commands.argument(argument.name(), StringArgumentType.greedyString());
+            case INTEGER ->
+                Commands.argument(argument.name(), IntegerArgumentType.integer(argument.min(), argument.max()));
             // Both are typed as a Minecraft name here and differ in what they resolve TO: a PLAYER
             // becomes a UUID, an ACCOUNT the Discord id behind it. In Discord it is the other way
             // round, which is why they are two kinds.
-            case PLAYER, ACCOUNT -> Commands.argument(argument.name(), StringArgumentType.word())
-                    .suggests((context, builder) -> {
-                        for (final Player online : Bukkit.getOnlinePlayers()) {
-                            builder.suggest(online.getName());
-                        }
-                        return builder.buildFuture();
-                    });
-            case CHOICE -> Commands.argument(argument.name(), StringArgumentType.word())
-                    .suggests((context, builder) -> {
-                        argument.choices().forEach(builder::suggest);
-                        return builder.buildFuture();
-                    });
+            case PLAYER, ACCOUNT ->
+                Commands.argument(argument.name(), StringArgumentType.word()).suggests((context, builder) -> {
+                    for (final Player online : Bukkit.getOnlinePlayers()) {
+                        builder.suggest(online.getName());
+                    }
+                    return builder.buildFuture();
+                });
+            case CHOICE ->
+                Commands.argument(argument.name(), StringArgumentType.word()).suggests((context, builder) -> {
+                    argument.choices().forEach(builder::suggest);
+                    return builder.buildFuture();
+                });
         };
     }
 
@@ -559,23 +549,21 @@ public final class PaperCommands {
      * @param values   what is already known, on the main thread, without touching a database
      * @param accounts argument name to the UUID whose {@code account_link} row has to be read
      */
-    private record Parsed(Map<String, Object> values, Map<String, UUID> accounts) {
-    }
+    private record Parsed(Map<String, Object> values, Map<String, UUID> accounts) {}
 
     /** Everything Brigadier parsed, in the shapes {@link Values} hands out. */
-    private Parsed read(final CommandContext<CommandSourceStack> context,
-                        final List<eu.nordtal.s2.commands.Argument> arguments,
-                        final int count) {
+    private Parsed read(
+            final CommandContext<CommandSourceStack> context,
+            final List<eu.nordtal.s2.commands.Argument> arguments,
+            final int count) {
         final Map<String, Object> values = new LinkedHashMap<>();
         final Map<String, UUID> accounts = new LinkedHashMap<>();
         for (int at = 0; at < count; at++) {
             final eu.nordtal.s2.commands.Argument argument = arguments.get(at);
             switch (argument.kind()) {
-                case INTEGER -> values.put(argument.name(),
-                        IntegerArgumentType.getInteger(context, argument.name()));
+                case INTEGER -> values.put(argument.name(), IntegerArgumentType.getInteger(context, argument.name()));
                 case PLAYER, ACCOUNT -> {
-                    final Player target =
-                            Bukkit.getPlayerExact(StringArgumentType.getString(context, argument.name()));
+                    final Player target = Bukkit.getPlayerExact(StringArgumentType.getString(context, argument.name()));
                     if (target == null) {
                         // Left absent: run() turns that into "that player is not online" rather than
                         // letting Values throw.
@@ -590,8 +578,7 @@ public final class PaperCommands {
                     // thread, which never queries a database.
                     accounts.put(argument.name(), target.getUniqueId());
                 }
-                default -> values.put(argument.name(),
-                        StringArgumentType.getString(context, argument.name()));
+                default -> values.put(argument.name(), StringArgumentType.getString(context, argument.name()));
             }
         }
         return new Parsed(values, accounts);
@@ -607,8 +594,7 @@ public final class PaperCommands {
      * <p>An account that does not resolve is left out of the values, which is what makes
      * {@code command.account-unreachable} the one answer for "not online" and "not linked" alike.
      */
-    private int dispatch(final CommandContext<CommandSourceStack> context, final Entry entry,
-                         final Parsed parsed) {
+    private int dispatch(final CommandContext<CommandSourceStack> context, final Entry entry, final Parsed parsed) {
         final CommandSender sender = context.getSource().getSender();
         final String input = context.getInput();
         if (parsed.accounts().isEmpty()) {
@@ -625,8 +611,7 @@ public final class PaperCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    private void offThread(final CommandSender sender, final String input, final Entry entry,
-                           final Parsed parsed) {
+    private void offThread(final CommandSender sender, final String input, final Entry entry, final Parsed parsed) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Map<String, Object> resolved = new LinkedHashMap<>(parsed.values());
             for (final Map.Entry<String, UUID> account : parsed.accounts().entrySet()) {
@@ -634,10 +619,12 @@ public final class PaperCommands {
                 try {
                     linked = discordIdOf.apply(account.getValue());
                 } catch (final RuntimeException failure) {
-                    plugin.getLogger().log(java.util.logging.Level.WARNING,
-                            "Could not read the account link for " + account.getValue(), failure);
-                    back(() -> user(sender).reply(MESSAGES.command().accountUnreachable(),
-                            Feedback.REFUSED, Tone.BAD));
+                    plugin.getLogger()
+                            .log(
+                                    java.util.logging.Level.WARNING,
+                                    "Could not read the account link for " + account.getValue(),
+                                    failure);
+                    back(() -> user(sender).reply(MESSAGES.command().accountUnreachable(), Feedback.REFUSED, Tone.BAD));
                     return;
                 }
                 if (linked.isEmpty()) {
@@ -654,13 +641,12 @@ public final class PaperCommands {
         try {
             Bukkit.getScheduler().runTask(plugin, work);
         } catch (final IllegalPluginAccessException disabled) {
-            plugin.getLogger().fine("Dropped a command answer because the plugin is no longer"
-                    + " enabled");
+            plugin.getLogger().fine("Dropped a command answer because the plugin is no longer" + " enabled");
         }
     }
 
-    private int run(final CommandSender sender, final String input, final Entry entry,
-                    final Map<String, Object> values) {
+    private int run(
+            final CommandSender sender, final String input, final Entry entry, final Map<String, Object> values) {
         final NordtalUser user = user(sender);
 
         // A command the console may not run. Declared per command as a Surface, so the rule lives
@@ -697,7 +683,8 @@ public final class PaperCommands {
 
         // A player argument that resolved to nobody. Answered here rather than by the command,
         // because "that name is not on this server" is a property of the surface it was typed on.
-        for (final eu.nordtal.s2.commands.Argument argument : entry.declaration().arguments()) {
+        for (final eu.nordtal.s2.commands.Argument argument :
+                entry.declaration().arguments()) {
             if (!argument.required() || values.containsKey(argument.name())) {
                 continue;
             }
@@ -737,8 +724,10 @@ public final class PaperCommands {
         if (confirmations.confirm(user, what)) {
             return true;
         }
-        user.reply(MESSAGES.command().confirm().retype(what, String.valueOf(Confirmations.WINDOW.toSeconds())),
-                Feedback.REFUSED, Tone.WARN);
+        user.reply(
+                MESSAGES.command().confirm().retype(what, String.valueOf(Confirmations.WINDOW.toSeconds())),
+                Feedback.REFUSED,
+                Tone.WARN);
         return false;
     }
 
@@ -768,8 +757,15 @@ public final class PaperCommands {
             // admin is true without a lookup: the tree is gated on mayUse before any handler runs.
             // The supplier and not the value, because this runs for every invocation and the help
             // output, and an eager account_link read would be a query on the main thread.
-            return PaperUser.of(plugin, player, localeOf.apply(player.getUniqueId()), true,
-                    () -> discordIdOf.apply(player.getUniqueId()), messages, chime, colours);
+            return PaperUser.of(
+                    plugin,
+                    player,
+                    localeOf.apply(player.getUniqueId()),
+                    true,
+                    () -> discordIdOf.apply(player.getUniqueId()),
+                    messages,
+                    chime,
+                    colours);
         }
         return PaperUser.console(plugin, sender, messages, colours);
     }

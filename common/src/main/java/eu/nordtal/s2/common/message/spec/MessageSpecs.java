@@ -1,7 +1,6 @@
 package eu.nordtal.s2.common.message.spec;
 
 import eu.nordtal.s2.common.message.MessageRef;
-
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -27,8 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class MessageSpecs {
 
-    private MessageSpecs() {
-    }
+    private MessageSpecs() {}
 
     /**
      * @param spec an interface annotated {@link MessageSpec}
@@ -43,8 +41,8 @@ public final class MessageSpecs {
     }
 
     private static <T> T section(final Class<T> type, final String prefix) {
-        final Object proxy = Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                new Handler(type, prefix));
+        final Object proxy =
+                Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, new Handler(type, prefix));
         return type.cast(proxy);
     }
 
@@ -59,8 +57,8 @@ public final class MessageSpecs {
         final StringBuilder out = new StringBuilder(name.length() + 8);
         for (int i = 0; i < name.length(); i++) {
             final char c = name.charAt(i);
-            final boolean boundary = i > 0 && (Character.isUpperCase(c)
-                    || Character.isDigit(c) != Character.isDigit(name.charAt(i - 1)));
+            final boolean boundary = i > 0
+                    && (Character.isUpperCase(c) || Character.isDigit(c) != Character.isDigit(name.charAt(i - 1)));
             if (boundary) {
                 out.append('-');
             }
@@ -76,7 +74,8 @@ public final class MessageSpecs {
 
     /** Whether a method opens a section. */
     static boolean isSection(final Method method) {
-        return !method.isDefault() && method.getParameterCount() == 0
+        return !method.isDefault()
+                && method.getParameterCount() == 0
                 && method.getReturnType().isInterface()
                 && method.getReturnType() != MessageRef.class;
     }
@@ -121,8 +120,7 @@ public final class MessageSpecs {
                 return InvocationHandler.invokeDefault(proxy, method, args);
             }
             if (isSection(method)) {
-                return sections.computeIfAbsent(method,
-                        m -> section(m.getReturnType(), prefix + segment(m) + "."));
+                return sections.computeIfAbsent(method, m -> section(m.getReturnType(), prefix + segment(m) + "."));
             }
             if (isKey(method)) {
                 final List<String> names = argNames.computeIfAbsent(method, MessageSpecs::args);

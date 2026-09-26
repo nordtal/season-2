@@ -23,22 +23,22 @@ database it was not built against and names `steward-worker migrate`; a Minecraf
 an empty `plugins/` folder.
 
 Running it with no argument gives the read-only report, so a container started by accident does the
-harmless thing. That default is *not* reachable through `docker compose run`, which falls through to
+harmless thing. That default is _not_ reachable through `docker compose run`, which falls through to
 the service's own `command` — always name the subcommand.
 
 ## Where a version comes from
 
-| what | source |
-|---|---|
-| the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2` |
-| DisplayTags | GitHub releases, `nordtal/papermc-display-tags` |
-| PacketEvents | Modrinth v2, filtered to the Minecraft version and `paper` |
-| Paper, Velocity | PaperMC Fill v3, newest `STABLE` build |
-| what is installed | the six volumes under `volumes-root` |
-| what pack the proxy offers | `pack.yml` in the `proxy` volume |
+| what                                                 | source                                                     |
+| ---------------------------------------------------- | ---------------------------------------------------------- |
+| the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2`                        |
+| DisplayTags                                          | GitHub releases, `nordtal/papermc-display-tags`            |
+| PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper` |
+| Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                     |
+| what is installed                                    | the six volumes under `volumes-root`                       |
+| what pack the proxy offers                           | `pack.yml` in the `proxy` volume                           |
 
 The report prints one row per artefact per server: up to date, `OUTDATED old -> new`, not installed,
-*unknown*, or *UNRESOLVED*. The last two exist so that "nothing to do" and "nothing could be asked"
+_unknown_, or _UNRESOLVED_. The last two exist so that "nothing to do" and "nothing could be asked"
 never look the same.
 
 ## Rules
@@ -143,7 +143,7 @@ contents did not. See `steward/101`.
 
 Nothing calls this container — it is reached through the database. `/update` in Discord and in game
 write a row into `update_request` and read the answer back from it. `serve` holds a
-`LISTEN nordtal_update` connection outside its pool *and* polls every fifteen seconds: the poll is the
+`LISTEN nordtal_update` connection outside its pool _and_ polls every fifteen seconds: the poll is the
 guarantee, the notification is the speed.
 
 A restart is written with an instant sixty seconds out and the proxy counts every player down to it.
@@ -164,7 +164,7 @@ so by name.
 ## The docker socket
 
 **It is mounted here since 2026-09-12, and it was not before.** The sentence this file used to carry
-— *not the Docker socket, which is mounted nowhere in this deployment* — was true of the arrangement
+— _not the Docker socket, which is mounted nowhere in this deployment_ — was true of the arrangement
 where a management panel did the container work. The concept's §3 draws the line in a different
 place: the part
 that must not hold the socket is the **web interface**, because that is what an attacker reaches
@@ -173,18 +173,18 @@ them; the socket does not widen that, and it removes a whole service from the pa
 
 What it does with it:
 
-| | |
-|---|---|
-| reads | state, health, image, uptime, CPU and memory per container, the log stream, `/system/df` |
-| asks a registry | `GET /distribution/{ref}/json` against the image's own digests — the drift check the old panel never performed |
-| writes | one stop, one start, and `mc <command>` into the four Minecraft consoles |
-| **refuses** | creating a container. That needs the compose file, which `steward-deployer` owns, and a container rebuilt from an inspect would drift from it silently |
+|                 |                                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| reads           | state, health, image, uptime, CPU and memory per container, the log stream, `/system/df`                                                               |
+| asks a registry | `GET /distribution/{ref}/json` against the image's own digests — the drift check the old panel never performed                                         |
+| writes          | one stop, one start, and `mc <command>` into the four Minecraft consoles                                                                               |
+| **refuses**     | creating a container. That needs the compose file, which `steward-deployer` owns, and a container rebuilt from an inspect would drift from it silently |
 
-`:ro` on the mount would be theatre: it restricts the socket *file*, not the API behind it. The
+`:ro` on the mount would be theatre: it restricts the socket _file_, not the API behind it. The
 restraint is in the code — `DockerOps` — and in the fact that `steward-ui` has no socket at all.
 
 Without the socket nothing here fails. The drift check and the metrics report that they **could not
-look**, which is a different answer from *everything is current* — and confusing those two is
+look**, which is a different answer from _everything is current_ — and confusing those two is
 precisely what let four releases run behind unnoticed.
 
 ## The curves
@@ -243,7 +243,7 @@ confirms rather than a step discovered after they said yes to something else. A 
 then **recreated** instead of started, one service at a time, and the report says which. Volumes are
 not touched on that path.
 
-- **Three answers, never two.** Newer in the registry, the same, or *could not be asked* — the last
+- **Three answers, never two.** Newer in the registry, the same, or _could not be asked_ — the last
   is a named note and never a quiet "up to date". Arcane, the management panel this replaced,
   answered from checks it had persisted itself and never queried a registry at all, so four releases
   ran behind while every report said the network was current. An image that cannot be checked now is one
@@ -257,7 +257,7 @@ not touched on that path.
   report they confirmed.
 - **The recreate is not this container's to perform.** `DockerOps.recreate` refuses: creating a
   container needs the compose file, which `steward-deployer` owns (§8b). It is also why each
-  recreate is reported *before* it is asked for — a `compose up` that considers this container a
+  recreate is reported _before_ it is asked for — a `compose up` that considers this container a
   diverged dependency can end the run from the outside, and the last line written is then the whole
   diagnosis.
 
@@ -270,7 +270,7 @@ other side by `:discord-bot`'s `SchemaCheckTest` against a real PostgreSQL.
 
 `ImageResultTest` holds the two sentences a person reads when an image could not be compared. They
 are not log lines — they go into a Discord embed and into `/smp update`'s output, and they are the
-only thing between *"nobody could look at this"* and *"this is current"*, which is A24 in one
+only thing between _"nobody could look at this"_ and _"this is current"_, which is A24 in one
 sentence.
 
 ## Output

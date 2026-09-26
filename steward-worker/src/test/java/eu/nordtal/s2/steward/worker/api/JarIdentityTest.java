@@ -1,14 +1,12 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.steward.worker.http.FakeHttp;
 import eu.nordtal.s2.steward.worker.http.HttpException;
 import eu.nordtal.s2.steward.worker.plan.Installation;
 import eu.nordtal.s2.steward.worker.source.Modrinth;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -20,9 +18,9 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** The preinstalled jars get their name, picture and link from the project Modrinth published them under. */
 class JarIdentityTest {
@@ -56,7 +54,8 @@ class JarIdentityTest {
                 .failing("/version_file/" + sha512("tags"), notFound())
                 .answering("/v2/projects", VOICECHAT_PROJECT);
 
-        final Map<String, Modrinth.Project> found = new JarIdentity(new Modrinth(http)).identify(List.of(voicechat, tags));
+        final Map<String, Modrinth.Project> found =
+                new JarIdentity(new Modrinth(http)).identify(List.of(voicechat, tags));
 
         assertEquals(1, found.size(), found.toString());
         final Modrinth.Project project = found.get("voicechat-bukkit-2.6.24.jar");

@@ -89,6 +89,5 @@ public final class Platform {
      */
     public static final String API_VERSION = "26.2";
 
-    private Platform() {
-    }
+    private Platform() {}
 }

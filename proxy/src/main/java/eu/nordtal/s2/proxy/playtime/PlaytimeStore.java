@@ -1,11 +1,10 @@
 package eu.nordtal.s2.proxy.playtime;
 
+import java.util.Objects;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
-import java.util.Objects;
 
 /**
  * Where accumulated online time goes. One method, because that is the whole of what the proxy does

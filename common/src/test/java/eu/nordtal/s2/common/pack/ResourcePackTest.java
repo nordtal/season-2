@@ -1,12 +1,10 @@
 package eu.nordtal.s2.common.pack;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -26,9 +24,9 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.imageio.ImageIO;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Holds {@link Glyphs}, the four font files and the pack's PNGs to each other.
@@ -58,12 +56,10 @@ class ResourcePackTest {
 
     private static final FontFile DEFAULT_FONT =
             FontFile.load("minecraft:default", ASSETS + "/minecraft/font/default.json");
-    private static final FontFile BOARD_FONT =
-            FontFile.load(Glyphs.FONT_BOARD, ASSETS + "/nordtal/font/board.json");
+    private static final FontFile BOARD_FONT = FontFile.load(Glyphs.FONT_BOARD, ASSETS + "/nordtal/font/board.json");
     private static final FontFile BOSSBAR_FONT =
             FontFile.load(Glyphs.FONT_BOSSBAR, ASSETS + "/nordtal/font/bossbar.json");
-    private static final FontFile GUI_FONT =
-            FontFile.load(Glyphs.FONT_GUI, ASSETS + "/nordtal/font/gui.json");
+    private static final FontFile GUI_FONT = FontFile.load(Glyphs.FONT_GUI, ASSETS + "/nordtal/font/gui.json");
 
     /**
      * The six row fonts, which declare exactly the same characters at six different ascents.
@@ -74,13 +70,12 @@ class ResourcePackTest {
      * what asserts they still agree.</p>
      */
     private static final List<FontFile> GUI_ROW_FONTS = java.util.stream.IntStream.range(0, 6)
-            .mapToObj(row -> FontFile.load(Glyphs.FONT_GUI_ROWS[row],
-                    ASSETS + "/nordtal/font/gui_r" + row + ".json"))
+            .mapToObj(row -> FontFile.load(Glyphs.FONT_GUI_ROWS[row], ASSETS + "/nordtal/font/gui_r" + row + ".json"))
             .toList();
 
     private static final List<FontFile> FONTS = Stream.concat(
-            Stream.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT),
-            GUI_ROW_FONTS.stream()).toList();
+                    Stream.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT), GUI_ROW_FONTS.stream())
+            .toList();
 
     /**
      * The message keys whose text is drawn inside a boss bar, mirroring what
@@ -110,11 +105,13 @@ class ResourcePackTest {
                 return;
             }
             if (!font.covers(value.codePointAt(0))) {
-                missing.add("Glyphs.%s = U+%04X is not declared in %s"
-                        .formatted(name, value.codePointAt(0), font.id()));
+                missing.add(
+                        "Glyphs.%s = U+%04X is not declared in %s".formatted(name, value.codePointAt(0), font.id()));
             }
         });
-        assertEquals(List.of(), missing,
+        assertEquals(
+                List.of(),
+                missing,
                 "Glyphs, the font files and resource-pack/README.md's allocation table are three"
                         + " mirrors of one table - a constant missing from its font draws a"
                         + " missing-glyph box, and nothing else says so");
@@ -131,8 +128,11 @@ class ResourcePackTest {
                 }
             }
         }
-        assertEquals(List.of(), missing, "a font entry pointing at a texture that is not in the"
-                + " pack draws nothing at all, and the client logs nothing about it");
+        assertEquals(
+                List.of(),
+                missing,
+                "a font entry pointing at a texture that is not in the"
+                        + " pack draws nothing at all, and the client logs nothing about it");
     }
 
     @Test
@@ -150,18 +150,20 @@ class ResourcePackTest {
                         if (codePoint == 0 || codePoint == ' ') {
                             continue;
                         }
-                        if (!hasPixels(image, column * cellWidth, row * cellHeight,
-                                cellWidth, cellHeight)) {
+                        if (!hasPixels(image, column * cellWidth, row * cellHeight, cellWidth, cellHeight)) {
                             blank.add("%s declares U+%04X at row %d column %d of %s, and that cell"
-                                    .formatted(font.id(), codePoint, row, column, bitmap.textureId())
+                                            .formatted(font.id(), codePoint, row, column, bitmap.textureId())
                                     + " is empty");
                         }
                     }
                 }
             }
         }
-        assertEquals(List.of(), blank, "a declared character with no pixels is not a missing glyph"
-                + " on screen - it is a gap the width of the glyph, which reads as a layout bug");
+        assertEquals(
+                List.of(),
+                blank,
+                "a declared character with no pixels is not a missing glyph"
+                        + " on screen - it is a gap the width of the glyph, which reads as a layout bug");
     }
 
     @Test
@@ -178,18 +180,20 @@ class ResourcePackTest {
                         if (bitmap.grid().get(row)[column] != 0) {
                             continue;
                         }
-                        if (hasPixels(image, column * cellWidth, row * cellHeight,
-                                cellWidth, cellHeight)) {
+                        if (hasPixels(image, column * cellWidth, row * cellHeight, cellWidth, cellHeight)) {
                             orphans.add("%s: row %d column %d of %s is drawn but no character"
-                                    .formatted(font.id(), row, column, bitmap.textureId())
+                                            .formatted(font.id(), row, column, bitmap.textureId())
                                     + " points at it");
                         }
                     }
                 }
             }
         }
-        assertEquals(List.of(), orphans, "art nothing can reach is art nobody will ever see - it is"
-                + " a chars entry somebody forgot, not a spare cell");
+        assertEquals(
+                List.of(),
+                orphans,
+                "art nothing can reach is art nobody will ever see - it is"
+                        + " a chars entry somebody forgot, not a spare cell");
     }
 
     @Test
@@ -197,7 +201,9 @@ class ResourcePackTest {
     void theRowFontsAreSixCopies() {
         final Set<Integer> first = GUI_ROW_FONTS.get(0).declared();
         for (int row = 1; row < GUI_ROW_FONTS.size(); row++) {
-            assertEquals(new TreeSet<>(first), new TreeSet<>(GUI_ROW_FONTS.get(row).declared()),
+            assertEquals(
+                    new TreeSet<>(first),
+                    new TreeSet<>(GUI_ROW_FONTS.get(row).declared()),
                     Glyphs.FONT_GUI_ROWS[row] + " declares a different set of characters from"
                             + " nordtal:gui_r0. The six are one font drawn at six heights - a"
                             + " character in five of them is a row that renders on five rows and"
@@ -214,7 +220,9 @@ class ResourcePackTest {
                 missing.add(new String(Character.toChars(codePoint)));
             }
         }
-        assertEquals(List.of(), missing,
+        assertEquals(
+                List.of(),
+                missing,
                 "nordtal:bossbar carries its own ascii sheet, so a character the vanilla font has"
                         + " is not a character this one has. It shipped without a single umlaut"
                         + " until 2026-09-04, which is why every German HUD string was written"
@@ -238,7 +246,9 @@ class ResourcePackTest {
                 });
             });
         }
-        assertEquals(Map.of(), missing,
+        assertEquals(
+                Map.of(),
+                missing,
                 "a boss bar line is rendered in nordtal:bossbar, whose ascii sheet is a subset of"
                         + " the vanilla one - a character it does not carry reaches the player as a"
                         + " missing-glyph box in the middle of the HUD. What a placeholder is"
@@ -249,10 +259,11 @@ class ResourcePackTest {
     @DisplayName("the vanilla boss bar sprites are fully transparent")
     void theVanillaBossBarSpritesAreBlank() {
         for (final String sprite : List.of("white_background", "white_progress")) {
-            final Path path = RepositoryRoot.resolve(
-                    ASSETS + "/minecraft/textures/gui/sprites/boss_bar/" + sprite + ".png");
+            final Path path =
+                    RepositoryRoot.resolve(ASSETS + "/minecraft/textures/gui/sprites/boss_bar/" + sprite + ".png");
             final BufferedImage image = read(path);
-            assertTrue(!hasPixels(image, 0, 0, image.getWidth(), image.getHeight()),
+            assertTrue(
+                    !hasPixels(image, 0, 0, image.getWidth(), image.getHeight()),
                     sprite + ".png has to be fully transparent: the whole HUD technique is a"
                             + " vanilla boss bar made invisible with a composed background drawn"
                             + " in its name. A pixel here puts the vanilla bar back on screen"
@@ -269,10 +280,11 @@ class ResourcePackTest {
         // item; "front" is the one drawn over it - both have to be blank, or the other layer
         // still shows.
         for (final String sprite : List.of("slot_highlight_back", "slot_highlight_front")) {
-            final Path path = RepositoryRoot.resolve(
-                    ASSETS + "/minecraft/textures/gui/sprites/container/" + sprite + ".png");
+            final Path path =
+                    RepositoryRoot.resolve(ASSETS + "/minecraft/textures/gui/sprites/container/" + sprite + ".png");
             final BufferedImage image = read(path);
-            assertTrue(!hasPixels(image, 0, 0, image.getWidth(), image.getHeight()),
+            assertTrue(
+                    !hasPixels(image, 0, 0, image.getWidth(), image.getHeight()),
                     sprite + ".png has to be fully transparent: the owner asked for the hover"
                             + " square to be gone everywhere a slot exists, chests included, and a"
                             + " pixel in either layer puts it back.");
@@ -303,8 +315,11 @@ class ResourcePackTest {
             throw new UncheckedIOException("cannot walk " + textures, e);
         }
         orphans.sort(String::compareTo);
-        assertEquals(List.of(), orphans, "a texture no font names is either a font entry somebody"
-                + " forgot or dead weight in the pack zip; both are worth knowing about");
+        assertEquals(
+                List.of(),
+                orphans,
+                "a texture no font names is either a font entry somebody"
+                        + " forgot or dead weight in the pack zip; both are worth knowing about");
     }
 
     /**
@@ -316,9 +331,8 @@ class ResourcePackTest {
      * because what lives there is three cosmetic strings; this is the check that they stay three
      * cosmetic strings that actually render.</p>
      */
-    private static final List<String> LANG_FILES = List.of(
-            ASSETS + "/minecraft/lang/en_us.json",
-            ASSETS + "/minecraft/lang/de_de.json");
+    private static final List<String> LANG_FILES =
+            List.of(ASSETS + "/minecraft/lang/en_us.json", ASSETS + "/minecraft/lang/de_de.json");
 
     @Test
     @DisplayName("every glyph a vanilla lang override draws is one the pack declares")
@@ -339,10 +353,13 @@ class ResourcePackTest {
             //
             // A lang override renders in minecraft:default and nowhere else - a screen title cannot
             // name a font - so it is that one font the code point has to be in, not any of the four.
-            for (final Map.Entry<String, com.google.gson.JsonElement> entry
-                    : com.google.gson.JsonParser.parseString(readText(file)).getAsJsonObject()
-                            .entrySet()) {
-                entry.getValue().getAsString().codePoints()
+            for (final Map.Entry<String, com.google.gson.JsonElement> entry : com.google.gson.JsonParser.parseString(
+                            readText(file))
+                    .getAsJsonObject()
+                    .entrySet()) {
+                entry.getValue()
+                        .getAsString()
+                        .codePoints()
                         .filter(ResourcePackTest::isPrivateUse)
                         .forEach(codePoint -> {
                             if (!DEFAULT_FONT.covers(codePoint)) {
@@ -354,7 +371,9 @@ class ResourcePackTest {
                         });
             }
         }
-        assertEquals(List.of(), undeclared,
+        assertEquals(
+                List.of(),
+                undeclared,
                 "a lang override naming a code point no font carries is a missing-glyph box on a"
                         + " vanilla screen - and it is invisible from every other check here,"
                         + " because a lang file is not a font and not a message bundle");
@@ -421,8 +440,8 @@ class ResourcePackTest {
         return DEFAULT_FONT;
     }
 
-    private static boolean hasPixels(final BufferedImage image, final int x, final int y,
-                                     final int width, final int height) {
+    private static boolean hasPixels(
+            final BufferedImage image, final int x, final int y, final int width, final int height) {
         for (int row = y; row < y + height; row++) {
             for (int column = x; column < x + width; column++) {
                 if ((image.getRGB(column, row) >>> 24) != 0) {
@@ -448,8 +467,8 @@ class ResourcePackTest {
     /** Reads a bundle the way {@code Messages} does - UTF-8, never the platform default. */
     private static Properties properties(final String relative) {
         final Properties properties = new Properties();
-        try (Reader reader = new InputStreamReader(
-                Files.newInputStream(RepositoryRoot.resolve(relative)), StandardCharsets.UTF_8)) {
+        try (Reader reader =
+                new InputStreamReader(Files.newInputStream(RepositoryRoot.resolve(relative)), StandardCharsets.UTF_8)) {
             properties.load(reader);
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + relative, e);

@@ -26,8 +26,7 @@ public final class LandingSite {
     /** How far out to look before giving up. Well inside any world border this server sets. */
     private static final int MAX_RADIUS = 256;
 
-    private LandingSite() {
-    }
+    private LandingSite() {}
 
     /**
      * The first safe spot at or near the world centre.
@@ -96,13 +95,11 @@ public final class LandingSite {
      * @return {@code preferred} if a player fits there, the nearest column where one does
      *         otherwise, and empty if there is no such column within {@link #MAX_RADIUS}
      */
-    public static java.util.Optional<Location> findSafeAt(final World world,
-                                                          final Location preferred) {
+    public static java.util.Optional<Location> findSafeAt(final World world, final Location preferred) {
         if (fits(world, preferred)) {
             return java.util.Optional.of(preferred);
         }
-        return java.util.Optional.ofNullable(
-                find(world, preferred.getBlockX(), preferred.getBlockZ()));
+        return java.util.Optional.ofNullable(find(world, preferred.getBlockX(), preferred.getBlockZ()));
     }
 
     /**
@@ -143,8 +140,17 @@ public final class LandingSite {
             return false;
         }
         return switch (material) {
-            case LAVA, MAGMA_BLOCK, FIRE, SOUL_FIRE, CAMPFIRE, SOUL_CAMPFIRE, POWDER_SNOW,
-                 CACTUS, SWEET_BERRY_BUSH, WITHER_ROSE, POINTED_DRIPSTONE -> false;
+            case LAVA,
+                    MAGMA_BLOCK,
+                    FIRE,
+                    SOUL_FIRE,
+                    CAMPFIRE,
+                    SOUL_CAMPFIRE,
+                    POWDER_SNOW,
+                    CACTUS,
+                    SWEET_BERRY_BUSH,
+                    WITHER_ROSE,
+                    POINTED_DRIPSTONE -> false;
             default -> true;
         };
     }

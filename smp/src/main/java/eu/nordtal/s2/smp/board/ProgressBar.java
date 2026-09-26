@@ -16,8 +16,7 @@ public final class ProgressBar {
     private static final char FILLED = '█';
     private static final char EMPTY = '░';
 
-    private ProgressBar() {
-    }
+    private ProgressBar() {}
 
     /**
      * @param ratio 0.0 to 1.0; anything outside is clamped rather than refused, because a lowered

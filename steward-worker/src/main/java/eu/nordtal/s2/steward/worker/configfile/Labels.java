@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.Locale;
 import java.util.Set;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Turns a config key into the words a human reads above the input.
@@ -15,8 +14,7 @@ import java.util.Set;
  */
 final class Labels {
 
-    private Labels() {
-    }
+    private Labels() {}
 
     /**
      * The few abbreviations a config key in this stack actually uses, written upper-case in a
@@ -24,8 +22,8 @@ final class Labels {
      * {@code max} and {@code day} into shouting.
      */
     private static final Set<String> ACRONYMS = Set.of(
-            "api", "db", "gui", "http", "https", "id", "ip", "json", "jvm", "motd", "mspt", "pvp",
-            "smp", "sql", "tps", "ttl", "ui", "url", "uri", "uuid", "xp");
+            "api", "db", "gui", "http", "https", "id", "ip", "json", "jvm", "motd", "mspt", "pvp", "smp", "sql", "tps",
+            "ttl", "ui", "url", "uri", "uuid", "xp");
 
     /**
      * {@code base-url} becomes {@code Base URL}, {@code stop_services} becomes
@@ -41,9 +39,8 @@ final class Labels {
             // "HTTPServer" is HTTP and Server, "serverUuid" is server and Uuid. A key written all
             // in capitals is one word, not one word per letter.
             final boolean allCaps = part.equals(part.toUpperCase(Locale.ROOT));
-            final String[] words = allCaps
-                    ? new String[]{part}
-                    : part.split("(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])");
+            final String[] words =
+                    allCaps ? new String[] {part} : part.split("(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])");
             for (final String word : words) {
                 if (word.isEmpty()) {
                     continue;
@@ -53,7 +50,8 @@ final class Labels {
                 }
                 final String lower = word.toLowerCase(Locale.ROOT);
                 // A word written in capitals inside a mixed-case key ("discordSRV") was meant as one.
-                final boolean shouted = !allCaps && word.length() > 1
+                final boolean shouted = !allCaps
+                        && word.length() > 1
                         && word.equals(word.toUpperCase(Locale.ROOT))
                         && !word.equals(lower);
                 out.append(ACRONYMS.contains(lower) || shouted ? lower.toUpperCase(Locale.ROOT) : lower);

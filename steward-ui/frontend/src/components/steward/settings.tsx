@@ -25,13 +25,7 @@ import type {
 } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, setOpened, useDirtyFiles, useDraft, useOpened } from "@/lib/drafts"
-import {
-  overrideOf,
-  packagedOf,
-  tokenOf,
-  unknownPlaceholders,
-  type Language,
-} from "@/lib/message-text"
+import { overrideOf, packagedOf, tokenOf, unknownPlaceholders, type Language } from "@/lib/message-text"
 import {
   useConfig,
   useConfigs,
@@ -42,12 +36,7 @@ import {
   useSaveConfig,
   useSaveMessageBundle,
 } from "@/lib/queries"
-import {
-  onPendingJump,
-  onPendingMessageJump,
-  takePendingJump,
-  takePendingMessageJump,
-} from "@/lib/settings-search"
+import { onPendingJump, onPendingMessageJump, takePendingJump, takePendingMessageJump } from "@/lib/settings-search"
 import {
   ancestorsOf,
   configLeafMatches,
@@ -163,32 +152,37 @@ export function ServiceSettings({
 
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8">
-      <nav aria-label="Files" className={cn("flex flex-col gap-0.5 lg:sticky lg:top-4", file !== undefined && "max-lg:hidden")}>
+      <nav
+        aria-label="Files"
+        className={cn("flex flex-col gap-0.5 lg:sticky lg:top-4", file !== undefined && "max-lg:hidden")}
+      >
         {failure ? <Failure error={failure} /> : null}
-        {loading
-          ? [0, 1, 2].map((index) => (
-              <div key={index} className="flex h-9 items-center gap-2 px-2">
-                <SkeletonText className="text-sm" width="medium" />
-              </div>
-            ))
-          : files.length === 0 && !failure
-            ? <p className="px-2 text-sm text-muted-foreground">No files.</p>
-            : groups.map((group) => (
-                <Fragment key={group.label ?? "files"}>
-                  {group.label ? (
-                    <h3 className="px-2 pt-3 pb-1 text-xs font-medium text-muted-foreground first:pt-0">{group.label}</h3>
-                  ) : null}
-                  {group.items.map((item) => (
-                    <FileRow
-                      key={item.id}
-                      item={item}
-                      selected={item.id === shown}
-                      dirty={dirty.includes(item.id)}
-                      onSelect={() => onFile(item.id)}
-                    />
-                  ))}
-                </Fragment>
+        {loading ? (
+          [0, 1, 2].map((index) => (
+            <div key={index} className="flex h-9 items-center gap-2 px-2">
+              <SkeletonText className="text-sm" width="medium" />
+            </div>
+          ))
+        ) : files.length === 0 && !failure ? (
+          <p className="px-2 text-sm text-muted-foreground">No files.</p>
+        ) : (
+          groups.map((group) => (
+            <Fragment key={group.label ?? "files"}>
+              {group.label ? (
+                <h3 className="px-2 pt-3 pb-1 text-xs font-medium text-muted-foreground first:pt-0">{group.label}</h3>
+              ) : null}
+              {group.items.map((item) => (
+                <FileRow
+                  key={item.id}
+                  item={item}
+                  selected={item.id === shown}
+                  dirty={dirty.includes(item.id)}
+                  onSelect={() => onFile(item.id)}
+                />
               ))}
+            </Fragment>
+          ))
+        )}
       </nav>
 
       <div className={cn("min-w-0", file === undefined && "max-lg:hidden")}>
@@ -524,7 +518,9 @@ function NodeList<L>({
               <span className="flex min-w-0 items-center gap-1 truncate">
                 {group.labels.map((label, index) => (
                   <Fragment key={index}>
-                    {index > 0 ? <CaretRightIcon aria-hidden className="size-3 shrink-0 text-muted-foreground" /> : null}
+                    {index > 0 ? (
+                      <CaretRightIcon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+                    ) : null}
                     <span className="truncate">{label}</span>
                   </Fragment>
                 ))}
@@ -726,7 +722,10 @@ function SettingField({
   return (
     <div
       ref={ref}
-      className={cn("flex min-w-0 scroll-mt-4 flex-col gap-1.5 rounded-md transition-colors duration-300", highlight && LIT)}
+      className={cn(
+        "flex min-w-0 scroll-mt-4 flex-col gap-1.5 rounded-md transition-colors duration-300",
+        highlight && LIT,
+      )}
     >
       <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1", layout !== "cell" && "min-h-6")}>
         <Label htmlFor={entry.path} className={layout === "cell" ? "sr-only" : "min-w-0 text-sm font-normal"}>
@@ -757,28 +756,18 @@ function SettingField({
 }
 
 /** Two sections with the same keys, as one row per key: the key's name, then both fields. */
-function PairedRows({
-  pair,
-  field,
-}: {
-  pair: PairedBlocks
-  field: (entry: ConfigEntry, block: string) => ReactNode
-}) {
+function PairedRows({ pair, field }: { pair: PairedBlocks; field: (entry: ConfigEntry, block: string) => ReactNode }) {
   // A number needs room for four digits and no more; the other half - a hex colour, a name - gets
   // the rest. A custom property rather than an inline grid template, so `fits-on-a-phone.test.ts`
   // still sees a column count in the class.
-  const span = (entry: ConfigEntry) =>
-    entry.type === "INTEGER" || entry.type === "DECIMAL" ? "5rem" : "minmax(0,1fr)"
+  const span = (entry: ConfigEntry) => (entry.type === "INTEGER" || entry.type === "DECIMAL" ? "5rem" : "minmax(0,1fr)")
   const columns = {
     "--paired-columns": `auto ${span(pair.rows[0].left)} ${span(pair.rows[0].right)}`,
   } as CSSProperties
 
   return (
     <ul className="flex max-w-xl flex-col">
-      <li
-        className="grid grid-cols-[var(--paired-columns)] items-end gap-x-3 pb-1 text-sm"
-        style={columns}
-      >
+      <li className="grid grid-cols-[var(--paired-columns)] items-end gap-x-3 pb-1 text-sm" style={columns}>
         <span />
         <span>{pair.left.label}</span>
         <span>{pair.right.label}</span>
@@ -927,7 +916,12 @@ function MessageRow({
 }) {
   const wide = useWide()
   const name = messageName(entry)
-  const english = draft?.en === undefined ? (overrideOf(entry, "en") ?? packagedOf(entry, "en")) : draft.en === null ? packagedOf(entry, "en") : draft.en
+  const english =
+    draft?.en === undefined
+      ? (overrideOf(entry, "en") ?? packagedOf(entry, "en"))
+      : draft.en === null
+        ? packagedOf(entry, "en")
+        : draft.en
   const text = english || (draft?.de ?? overrideOf(entry, "de") ?? packagedOf(entry, "de") ?? "")
 
   // A jump from the command palette lands on a key by opening it.
@@ -967,7 +961,9 @@ function MessageRow({
         />
       </button>
       {wide ? (
-        open ? <div className="px-2 pt-1 pb-3">{field}</div> : null
+        open ? (
+          <div className="px-2 pt-1 pb-3">{field}</div>
+        ) : null
       ) : (
         <ResponsiveDialog open={open} onOpenChange={onOpen}>
           <ResponsiveDialogContent>
@@ -1042,7 +1038,10 @@ function MessageField({
   return (
     <div
       ref={ref}
-      className={cn("flex min-w-0 scroll-mt-4 flex-col gap-1.5 rounded-md transition-colors duration-300", highlight && LIT)}
+      className={cn(
+        "flex min-w-0 scroll-mt-4 flex-col gap-1.5 rounded-md transition-colors duration-300",
+        highlight && LIT,
+      )}
     >
       {bare ? null : (
         <div className="flex min-h-6 items-center gap-2">
@@ -1076,18 +1075,18 @@ function MessageField({
             </InputGroupButton>
           ) : null}
           {override !== undefined && typed !== null && writable ? (
-            <InputGroupButton size="icon-xs" aria-label="Reset to the packaged text" onClick={() => onChange(language, null)}>
+            <InputGroupButton
+              size="icon-xs"
+              aria-label="Reset to the packaged text"
+              onClick={() => onChange(language, null)}
+            >
               <EraserIcon aria-hidden />
             </InputGroupButton>
           ) : null}
           <Tabs value={language} onValueChange={(next) => setLanguage(next as Language)}>
             <TabsList className="group-data-horizontal/tabs:h-6 p-0.5">
               {(["en", "de"] as const).map((tab) => (
-                <TabsTrigger
-                  key={tab}
-                  value={tab}
-                  className={cn("gap-1 px-1.5 text-xs", empty(tab) && "opacity-50")}
-                >
+                <TabsTrigger key={tab} value={tab} className={cn("gap-1 px-1.5 text-xs", empty(tab) && "opacity-50")}>
                   {tab.toUpperCase()}
                   {overridden(tab) ? <span aria-label="Overridden" className="size-1 rounded-full bg-primary" /> : null}
                 </TabsTrigger>
@@ -1096,9 +1095,7 @@ function MessageField({
           </Tabs>
         </InputGroupAddon>
       </InputGroup>
-      {unknown.length > 0 ? (
-        <p className="text-xs text-destructive">Unknown placeholder {unknown.join(" ")}</p>
-      ) : null}
+      {unknown.length > 0 ? <p className="text-xs text-destructive">Unknown placeholder {unknown.join(" ")}</p> : null}
       {entry.args.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {entry.args.map((arg) => (

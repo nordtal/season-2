@@ -128,10 +128,9 @@ export function useLogStream(service: string, limit: number = DEFAULT_LIMIT): Lo
 
     const connect = () => {
       if (stopped) return
-      const opened = new EventSource(
-        `/api/services/${encodeURIComponent(service)}/logs?tail=${limit}`,
-        { withCredentials: true },
-      )
+      const opened = new EventSource(`/api/services/${encodeURIComponent(service)}/logs?tail=${limit}`, {
+        withCredentials: true,
+      })
       source = opened
       opened.addEventListener("open", () => {
         pending = []

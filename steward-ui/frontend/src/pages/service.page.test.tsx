@@ -1,11 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -42,9 +36,7 @@ function backend(service: Record<string, unknown>, active: unknown = { run: null
     if (url.startsWith("/api/services/")) return json(200, service)
     if (url === "/api/updates/active") return json(200, active)
     if (url === "/api/config") {
-      return json(200, [
-        { service: "smp", name: "config.yml", path: "smp/config.yml", readable: true, writable: true },
-      ])
+      return json(200, [{ service: "smp", name: "config.yml", path: "smp/config.yml", readable: true, writable: true }])
     }
     if (url === "/api/messages") return json(200, [])
     if (url === "/api/settings") return json(200, { minecraftHeadBaseUrl: "" })
@@ -184,13 +176,16 @@ describe("ServicePage - a run that is open", () => {
 
   it("shows the stage once the countdown is over, and no Cancel", async () => {
     vi.stubGlobal("EventSource", SilentEventSource)
-    vi.stubGlobal("fetch", backend(row("smp"), {
-      run: openRun({
-        status: "RUNNING",
-        notBefore: "2026-09-24T20:00:30Z",
-        report: { stage: "STOPPING", services: [], notes: [] },
+    vi.stubGlobal(
+      "fetch",
+      backend(row("smp"), {
+        run: openRun({
+          status: "RUNNING",
+          notBefore: "2026-09-24T20:00:30Z",
+          report: { stage: "STOPPING", services: [], notes: [] },
+        }),
       }),
-    }))
+    )
     draw("/services/smp")
 
     expect(await screen.findByText("Stopping")).toBeTruthy()
@@ -245,7 +240,10 @@ describe("ServicePage - the actions arrive together", () => {
     let answer: (response: Response) => void = () => {}
     const pending = new Promise<Response>((resolve) => (answer = resolve))
     const served = backend(row("smp", { hasPlugins: true }))
-    vi.stubGlobal("fetch", vi.fn((url: string) => (url.startsWith("/api/services/") ? pending : served(url))))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => (url.startsWith("/api/services/") ? pending : served(url))),
+    )
     draw("/services/smp")
 
     const slots = await screen.findAllByTestId("action-skeleton")

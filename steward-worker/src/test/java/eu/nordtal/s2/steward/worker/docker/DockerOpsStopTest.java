@@ -1,11 +1,9 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import eu.nordtal.s2.steward.worker.ops.RedeployResult;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.steward.worker.ops.RedeployResult;
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
@@ -19,9 +17,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * How a stop ended, which the stop call itself does not say.
@@ -63,7 +62,8 @@ class DockerOpsStopTest {
 
         assertFalse(result.triggered(), result.message());
         assertTrue(result.message().contains("killed"), result.message());
-        assertTrue(result.message().contains("backup"),
+        assertTrue(
+                result.message().contains("backup"),
                 "the message has to say what it costs, not just what happened: " + result.message());
     }
 
@@ -73,8 +73,10 @@ class DockerOpsStopTest {
         final RedeployResult result = ops(0).stop("smp-container");
 
         assertTrue(result.triggered());
-        assertTrue(result.verified(), "the ending was read and it was a clean one, so nothing"
-                + " downstream has any reason to doubt the backup that follows");
+        assertTrue(
+                result.verified(),
+                "the ending was read and it was a clean one, so nothing"
+                        + " downstream has any reason to doubt the backup that follows");
     }
 
     @Test
@@ -85,8 +87,10 @@ class DockerOpsStopTest {
         final RedeployResult result = ops(null).stop("smp-container");
 
         assertTrue(result.triggered());
-        assertTrue(result.verified(), "the inspect answered; an old daemon leaving the field out is"
-                + " not the same as an inspect nobody could read");
+        assertTrue(
+                result.verified(),
+                "the inspect answered; an old daemon leaving the field out is"
+                        + " not the same as an inspect nobody could read");
     }
 
     @Test
@@ -98,37 +102,44 @@ class DockerOpsStopTest {
         // it a success is what let the archive taken afterwards look like every other archive.
         final RedeployResult result = deafAfterTheStop().stop("smp-container");
 
-        assertTrue(result.triggered(), "the stop itself worked, and the container really is down: "
-                + result.message());
-        assertFalse(result.verified(), "not knowing how it ended is not the same as knowing it"
-                + " ended well, and the backup taken over it is marked on the strength of this"
-                + " one bit: " + result.message());
-        assertTrue(result.message().contains("could not be read back"),
+        assertTrue(result.triggered(), "the stop itself worked, and the container really is down: " + result.message());
+        assertFalse(
+                result.verified(),
+                "not knowing how it ended is not the same as knowing it"
+                        + " ended well, and the backup taken over it is marked on the strength of this"
+                        + " one bit: " + result.message());
+        assertTrue(
+                result.message().contains("could not be read back"),
                 "the sentence ends up on the report line and in the mark beside the archive, so it"
                         + " has to say what was not read: " + result.message());
     }
 
     /** A DockerOps whose daemon accepts the stop and then hangs up on the inspect. */
     private DockerOps deafAfterTheStop() throws IOException {
-        return new DockerOps(new Docker(new DockerSocket(listening(request ->
-                request.contains("/stop") ? "" : null), Duration.ofSeconds(5))), "nordtal-s2");
+        return new DockerOps(
+                new Docker(new DockerSocket(
+                        listening(request -> request.contains("/stop") ? "" : null), Duration.ofSeconds(5))),
+                "nordtal-s2");
     }
 
     /** A DockerOps whose daemon accepts the stop and then reports {@code exitCode}. */
     private DockerOps ops(final Integer exitCode) throws IOException {
-        final String state = exitCode == null
-                ? "{\"Status\":\"exited\"}"
-                : "{\"Status\":\"exited\",\"ExitCode\":" + exitCode + "}";
-        return new DockerOps(new Docker(new DockerSocket(listening(request -> {
-            if (request.contains("/stop")) {
-                return "";
-            }
-            if (request.contains("/images/")) {
-                return "{\"RepoDigests\":[]}";
-            }
-            return "{\"Id\":\"smp-container\",\"Image\":\"sha256:1\",\"State\":" + state
-                    + ",\"Config\":{\"Image\":\"nordtal/smp\",\"Tty\":false}}";
-        }), Duration.ofSeconds(5))), "nordtal-s2");
+        final String state =
+                exitCode == null ? "{\"Status\":\"exited\"}" : "{\"Status\":\"exited\",\"ExitCode\":" + exitCode + "}";
+        return new DockerOps(
+                new Docker(new DockerSocket(
+                        listening(request -> {
+                            if (request.contains("/stop")) {
+                                return "";
+                            }
+                            if (request.contains("/images/")) {
+                                return "{\"RepoDigests\":[]}";
+                            }
+                            return "{\"Id\":\"smp-container\",\"Image\":\"sha256:1\",\"State\":" + state
+                                    + ",\"Config\":{\"Image\":\"nordtal/smp\",\"Tty\":false}}";
+                        }),
+                        Duration.ofSeconds(5))),
+                "nordtal-s2");
     }
 
     /** A unix socket that answers every request, one connection at a time, until the test ends. */
@@ -144,8 +155,7 @@ class DockerOpsStopTest {
                     // sends RST, and the RST throws away the answer just written.
                     final ByteBuffer buffer = ByteBuffer.allocate(8192);
                     client.read(buffer);
-                    final String request = new String(buffer.flip().array(), 0, buffer.limit(),
-                            StandardCharsets.UTF_8);
+                    final String request = new String(buffer.flip().array(), 0, buffer.limit(), StandardCharsets.UTF_8);
                     final String body = answer.to(request);
                     if (body == null) {
                         // A daemon that took the connection and then said nothing: the client reads
@@ -157,7 +167,7 @@ class DockerOpsStopTest {
                     final String head = body.isEmpty()
                             ? "HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n"
                             : "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
-                              + body.getBytes(StandardCharsets.UTF_8).length + "\r\n\r\n" + body;
+                                    + body.getBytes(StandardCharsets.UTF_8).length + "\r\n\r\n" + body;
                     client.write(ByteBuffer.wrap(head.getBytes(StandardCharsets.UTF_8)));
                 } catch (Exception ended) {
                     return null;

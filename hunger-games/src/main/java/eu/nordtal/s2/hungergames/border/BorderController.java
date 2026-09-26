@@ -1,5 +1,7 @@
 package eu.nordtal.s2.hungergames.border;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -7,20 +9,14 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.GameState;
-
-import net.kyori.adventure.text.Component;
-
+import java.time.Instant;
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-
-import java.time.Instant;
-import java.util.UUID;
-
-import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 /**
  * Drives {@code World#getWorldBorder()}: centred on spawn, shrinking by a fixed step on every death
@@ -41,9 +37,13 @@ public final class BorderController {
 
     private org.bukkit.scheduler.BukkitTask quietPeriodChecker;
 
-    public BorderController(final Plugin plugin, final World world, final HungerGamesSpec config,
-                            final Messages messages, final PlayerLocales locales,
-                            final HungerGamesSounds sounds) {
+    public BorderController(
+            final Plugin plugin,
+            final World world,
+            final HungerGamesSpec config,
+            final Messages messages,
+            final PlayerLocales locales,
+            final HungerGamesSounds sounds) {
         this.plugin = plugin;
         this.world = world;
         this.config = config;
@@ -58,8 +58,8 @@ public final class BorderController {
         border.setCenter(world.getSpawnLocation());
         border.setSize(config.borderStartDiameter());
 
-        quietPeriodChecker = Bukkit.getScheduler().runTaskTimer(plugin, () -> checkQuietPeriod(state),
-                20L * 30, 20L * 30);
+        quietPeriodChecker =
+                Bukkit.getScheduler().runTaskTimer(plugin, () -> checkQuietPeriod(state), 20L * 30, 20L * 30);
     }
 
     public void stop() {
@@ -85,8 +85,8 @@ public final class BorderController {
             return;
         }
 
-        final long durationMillis = BorderMath.shrinkDurationMillis(
-                border.getSize(), target, config.borderWallSpeedBlocksPerSecond());
+        final long durationMillis =
+                BorderMath.shrinkDurationMillis(border.getSize(), target, config.borderWallSpeedBlocksPerSecond());
         border.changeSize(target, Math.max(1, durationMillis / 50));
 
         final Instant endsAt = Instant.now().plusMillis(durationMillis);
@@ -113,7 +113,8 @@ public final class BorderController {
         if (quietSince == null) {
             return;
         }
-        final long quietSeconds = java.time.Duration.between(quietSince, Instant.now()).toSeconds();
+        final long quietSeconds =
+                java.time.Duration.between(quietSince, Instant.now()).toSeconds();
         if (quietSeconds < config.borderQuietPeriodSeconds()) {
             return;
         }
@@ -134,17 +135,22 @@ public final class BorderController {
      */
     private void announce(final double target, final long seconds) {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
-                    MESSAGES.hg().border().shrinkStarted(String.valueOf(Math.round(target)),
-                            String.valueOf(seconds))));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(
+                            locales.of(player.getUniqueId()),
+                            MESSAGES.hg()
+                                    .border()
+                                    .shrinkStarted(String.valueOf(Math.round(target)), String.valueOf(seconds))));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }
 
     private void announcePassive() {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
-                    MESSAGES.hg().border().passiveShrinkStarted()));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(
+                            locales.of(player.getUniqueId()),
+                            MESSAGES.hg().border().passiveShrinkStarted()));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }

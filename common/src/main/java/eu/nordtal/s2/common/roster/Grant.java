@@ -30,5 +30,4 @@ public record Grant(
         String source,
         UUID paymentRequestId,
         Instant revoked,
-        Instant created) {
-}
+        Instant created) {}

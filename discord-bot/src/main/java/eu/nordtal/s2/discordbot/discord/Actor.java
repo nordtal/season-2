@@ -1,7 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.commands.NordtalUser;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;

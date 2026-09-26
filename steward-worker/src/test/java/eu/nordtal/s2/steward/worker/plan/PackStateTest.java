@@ -1,18 +1,17 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Reading {@code pack.yml} out of the proxy's volume without writing to it. */
 class PackStateTest {
@@ -28,7 +27,9 @@ class PackStateTest {
         // file - and it reported the pack as changed from "0" to itself.
         writePackYml("0000000000000000000000000000000000000000");
 
-        assertEquals("0000000000000000000000000000000000000000", PackState.read(volume).sha1());
+        assertEquals(
+                "0000000000000000000000000000000000000000",
+                PackState.read(volume).sha1());
     }
 
     @Test

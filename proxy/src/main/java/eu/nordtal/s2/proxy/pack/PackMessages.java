@@ -1,14 +1,12 @@
 package eu.nordtal.s2.proxy.pack;
 
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
-
-import net.kyori.adventure.text.Component;
-
 import java.util.Locale;
 import java.util.Objects;
-
-import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+import net.kyori.adventure.text.Component;
 
 /**
  * The four things the pack station can say to a player, in that player's own language.

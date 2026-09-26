@@ -4,7 +4,6 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
-
 import java.util.List;
 import java.util.Set;
 
@@ -33,8 +32,7 @@ import java.util.Set;
  */
 public final class HungerGamesCommands {
 
-    private HungerGamesCommands() {
-    }
+    private HungerGamesCommands() {}
 
     /**
      * The floor the border arithmetic needs, and the one number here that is not configuration.
@@ -58,8 +56,7 @@ public final class HungerGamesCommands {
     private static final Set<Surface> CONSOLE_ONLY = Set.of(Surface.CONSOLE);
 
     /** {@code /hg start} is also a button in Steward - see {@code SmpCommands.CONSOLE_AND_WEB}. */
-    private static final Set<Surface> CONSOLE_AND_WEB =
-            Set.of(Surface.CONSOLE, Surface.WEB);
+    private static final Set<Surface> CONSOLE_AND_WEB = Set.of(Surface.CONSOLE, Surface.WEB);
 
     /**
      * {@code /hg start [confirm]} - begins the event. Its own confirmation lives in
@@ -78,17 +75,21 @@ public final class HungerGamesCommands {
      * asserts no path is both a subcommand and a group, so the next one fails the build.</p>
      */
     public static final Declaration START = new Declaration(
-            List.of("hg", "start"), Target.HUNGER_GAMES, CONSOLE_AND_WEB, true, false,
+            List.of("hg", "start"),
+            Target.HUNGER_GAMES,
+            CONSOLE_AND_WEB,
+            true,
+            false,
             List.of(eu.nordtal.s2.commands.Argument.choice("confirm", List.of("confirm"))
                     .optional()));
 
     /** {@code /hg ready-status} - which teams have said they are ready. */
-    public static final Declaration READY_STATUS = new Declaration(
-            List.of("hg", "ready-status"), Target.HUNGER_GAMES, CONSOLE_ONLY, true, false, List.of());
+    public static final Declaration READY_STATUS =
+            new Declaration(List.of("hg", "ready-status"), Target.HUNGER_GAMES, CONSOLE_ONLY, true, false, List.of());
 
     /** {@code /hg reload} - the wording and the sounds, never {@code config.yml}. */
-    public static final Declaration RELOAD = new Declaration(
-            List.of("hg", "reload"), Target.HUNGER_GAMES, CONSOLE_ONLY, true, false, List.of());
+    public static final Declaration RELOAD =
+            new Declaration(List.of("hg", "reload"), Target.HUNGER_GAMES, CONSOLE_ONLY, true, false, List.of());
 
     /**
      * Every {@code /hg} command.

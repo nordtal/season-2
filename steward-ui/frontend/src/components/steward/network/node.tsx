@@ -1,10 +1,4 @@
-import {
-  ArrowSquareOutIcon,
-  ArrowUpIcon,
-  QuestionIcon,
-  UsersIcon,
-  WrenchIcon,
-} from "@phosphor-icons/react"
+import { ArrowSquareOutIcon, ArrowUpIcon, QuestionIcon, UsersIcon, WrenchIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 import { cn } from "cn"
 
@@ -110,30 +104,14 @@ const DRIFT_WORDS: Record<string, string> = {
 export function DriftMark({ drift }: { drift: string }) {
   switch (drift) {
     case "OUTDATED":
-      return (
-        <ArrowUpIcon
-          className="size-3 shrink-0 text-warning"
-          role="img"
-          aria-label="a newer image exists"
-        />
-      )
+      return <ArrowUpIcon className="size-3 shrink-0 text-warning" role="img" aria-label="a newer image exists" />
     case "LOCAL":
-      return (
-        <WrenchIcon
-          className="size-3 shrink-0 text-muted-foreground"
-          role="img"
-          aria-label="built on this host"
-        />
-      )
+      return <WrenchIcon className="size-3 shrink-0 text-muted-foreground" role="img" aria-label="built on this host" />
     case "UP_TO_DATE":
       return null
     default:
       return (
-        <QuestionIcon
-          className="size-3 shrink-0 text-muted-foreground"
-          role="img"
-          aria-label="image not compared"
-        />
+        <QuestionIcon className="size-3 shrink-0 text-muted-foreground" role="img" aria-label="image not compared" />
       )
   }
 }
@@ -238,9 +216,7 @@ export function ServiceNode({
     >
       <div className="flex min-w-0 items-center gap-1.5">
         {ingress ? (
-          <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
-            {id}
-          </span>
+          <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">{id}</span>
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>

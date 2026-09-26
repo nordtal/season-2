@@ -2,16 +2,14 @@ package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.common.access.AdminTree;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
-
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
-
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The Discord admin role, kept to match the admin tree in the database - one way.
@@ -64,9 +62,10 @@ public final class AdminRole {
 
         for (final Member member : guild.getMembersWithRoles(role)) {
             if (!shouldHave.remove(member.getId())) {
-                guild.removeRoleFromMember(member, role).queue(
-                        ok -> succeeded(member.getId(), "took the admin role from"),
-                        failure -> failed(member.getId(), "take the admin role from", failure));
+                guild.removeRoleFromMember(member, role)
+                        .queue(
+                                ok -> succeeded(member.getId(), "took the admin role from"),
+                                failure -> failed(member.getId(), "take the admin role from", failure));
             }
         }
 
@@ -78,9 +77,10 @@ public final class AdminRole {
                 // has not caught up, and the next pass sees them.
                 continue;
             }
-            guild.addRoleToMember(member, role).queue(
-                    ok -> succeeded(discordId, "gave the admin role to"),
-                    failure -> failed(discordId, "give the admin role to", failure));
+            guild.addRoleToMember(member, role)
+                    .queue(
+                            ok -> succeeded(discordId, "gave the admin role to"),
+                            failure -> failed(discordId, "give the admin role to", failure));
         }
     }
 

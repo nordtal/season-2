@@ -1,12 +1,6 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -139,8 +133,6 @@ describe("Actor - who asked for a run", () => {
 
     expect(await screen.findByText("Ally")).toBeTruthy()
     expect(screen.getByText("Steward")).toBeTruthy()
-    expect(
-      screen.getByText("agent (plane session)").closest("[data-entity='unknown']"),
-    ).toBeTruthy()
+    expect(screen.getByText("agent (plane session)").closest("[data-entity='unknown']")).toBeTruthy()
   })
 })

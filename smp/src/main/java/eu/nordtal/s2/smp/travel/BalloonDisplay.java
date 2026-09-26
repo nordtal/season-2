@@ -2,8 +2,10 @@ package eu.nordtal.s2.smp.travel;
 
 import eu.nordtal.s2.smp.region.Box;
 import eu.nordtal.s2.smp.region.Boxes;
-
 import io.papermc.paper.datacomponent.DataComponentTypes;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -16,10 +18,6 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 /**
  * The balloon itself - the thing a player sees standing at the spawn, as opposed to the box they
@@ -55,8 +53,9 @@ public final class BalloonDisplay {
         for (final Box box : balloons.all()) {
             final World world = Bukkit.getWorld(box.world());
             if (world == null) {
-                plugin.getLogger().warning("the balloon's world '" + box.world()
-                        + "' does not exist - no balloon was placed there");
+                plugin.getLogger()
+                        .warning("the balloon's world '" + box.world()
+                                + "' does not exist - no balloon was placed there");
                 continue;
             }
             final Location centre = centre(world, box);
@@ -74,9 +73,8 @@ public final class BalloonDisplay {
                 entity.setTransformation(new Transformation(
                         new Vector3f(),
                         new AxisAngle4f(),
-                        new Vector3f(box.maxX() - box.minX() + 1,
-                                box.maxY() - box.minY() + 1,
-                                box.maxZ() - box.minZ() + 1),
+                        new Vector3f(
+                                box.maxX() - box.minX() + 1, box.maxY() - box.minY() + 1, box.maxZ() - box.minZ() + 1),
                         new AxisAngle4f()));
             });
             spawned.add(display.getUniqueId());
@@ -92,7 +90,8 @@ public final class BalloonDisplay {
 
     /** The box's centre - inclusive corners, so the centre is half a block in from each edge's block. */
     static Location centre(final World world, final Box box) {
-        return new Location(world,
+        return new Location(
+                world,
                 (box.minX() + box.maxX() + 1) / 2.0,
                 (box.minY() + box.maxY() + 1) / 2.0,
                 (box.minZ() + box.maxZ() + 1) / 2.0);
@@ -100,8 +99,8 @@ public final class BalloonDisplay {
 
     /** Removes any balloon display this plugin left in the box before the last restart. */
     private void sweep(final World world, final Location centre, final Box box) {
-        final double reach = Math.max(box.maxX() - box.minX(), Math.max(box.maxY() - box.minY(),
-                box.maxZ() - box.minZ())) + 1.0;
+        final double reach =
+                Math.max(box.maxX() - box.minX(), Math.max(box.maxY() - box.minY(), box.maxZ() - box.minZ())) + 1.0;
         world.getNearbyEntitiesByType(ItemDisplay.class, centre, reach).stream()
                 .filter(display -> {
                     final ItemStack shown = display.getItemStack();

@@ -1,5 +1,10 @@
 package eu.nordtal.s2.commands.phase;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
@@ -7,18 +12,11 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.phase.SeasonDateRefused;
 import eu.nordtal.s2.common.phase.SeasonDates;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What {@code /phase} decides, asserted without a proxy and without a guild.
@@ -33,8 +31,8 @@ class PhaseCommandsTest {
     @Test
     @DisplayName("all four subcommands are admin-only, run on the proxy, and are off chat entirely")
     void theDeclarationsAgree() {
-        for (final var declaration : List.of(PhaseCommands.SHOW, PhaseCommands.SET,
-                PhaseCommands.LAUNCH, PhaseCommands.SMP_START)) {
+        for (final var declaration :
+                List.of(PhaseCommands.SHOW, PhaseCommands.SET, PhaseCommands.LAUNCH, PhaseCommands.SMP_START)) {
             assertEquals(Target.PROXY, declaration.target(), declaration.name());
             assertTrue(declaration.adminOnly(), declaration.name());
             // This assertion was the exact opposite until 2026-09-16, and it is worth saying why
@@ -44,8 +42,7 @@ class PhaseCommandsTest {
             // command that starts the season - is the last one that should keep a chat exception.
             // WEB as well as CONSOLE, because a WEB row carries the asker's Discord id (V18) where
             // a CONSOLE row carries no identity at all (V11).
-            assertEquals(java.util.Set.of(Surface.CONSOLE, Surface.WEB),
-                    declaration.surfaces(), declaration.name());
+            assertEquals(java.util.Set.of(Surface.CONSOLE, Surface.WEB), declaration.surfaces(), declaration.name());
         }
     }
 
@@ -53,9 +50,9 @@ class PhaseCommandsTest {
     @DisplayName("the flag marks what cannot be undone, and not simply everything that writes")
     void onlyTheTrulyIrreversibleIsFlagged() {
         assertFalse(PhaseCommands.SHOW.irreversible(), "reading changes nothing");
-        assertTrue(PhaseCommands.SET.irreversible(),
-                "a switch to SMP disconnects every player without active access");
-        assertTrue(PhaseCommands.SMP_START.irreversible(),
+        assertTrue(PhaseCommands.SET.irreversible(), "a switch to SMP disconnects every player without active access");
+        assertTrue(
+                PhaseCommands.SMP_START.irreversible(),
                 "moving smp-start shifts access periods belonging to people who are not in the room,"
                         + " and moving it back shifts them again rather than undoing it");
 
@@ -70,7 +67,9 @@ class PhaseCommandsTest {
         // One key per constant, so that a new phase produces a missing key rather than silently
         // telling an admin what a different phase would have done.
         for (final SeasonPhase phase : SeasonPhase.values()) {
-            assertEquals("phase.consequence." + phase.name(), SetPhase.consequence(phase).key());
+            assertEquals(
+                    "phase.consequence." + phase.name(),
+                    SetPhase.consequence(phase).key());
         }
     }
 
@@ -176,7 +175,9 @@ class PhaseCommandsTest {
 
         assertEquals(SeasonPhase.SMP, effects.current);
         assertEquals(1, effects.recordedSwitches.size(), "the admin channel or the log has to hear");
-        assertEquals(1, effects.afterWrites,
+        assertEquals(
+                1,
+                effects.afterWrites,
                 "a process that caches the phase must not wait for its own notification to come"
                         + " back around, or the reply and the log disagree");
         assertEquals("phase.changed", user.only().key());
@@ -208,8 +209,7 @@ class PhaseCommandsTest {
         effects.current = SeasonPhase.SMP;
         final FakeUser user = FakeUser.inGame();
 
-        new SetPhase().run(user, new Values(PhaseCommands.SET, Map.of("phase", "SEASON_OVER")),
-                effects);
+        new SetPhase().run(user, new Values(PhaseCommands.SET, Map.of("phase", "SEASON_OVER")), effects);
 
         assertEquals("phase.unknown", user.only().key());
         assertEquals("SEASON_OVER", user.only().of("value"));
@@ -221,8 +221,7 @@ class PhaseCommandsTest {
     @DisplayName("a phase name is case-insensitive, because one surface types it by hand")
     void typingItInLowerCaseWorks() {
         final FakeEffects effects = new FakeEffects();
-        new SetPhase().run(FakeUser.inGame(),
-                new Values(PhaseCommands.SET, Map.of("phase", "maintenance")), effects);
+        new SetPhase().run(FakeUser.inGame(), new Values(PhaseCommands.SET, Map.of("phase", "maintenance")), effects);
 
         assertEquals(SeasonPhase.MAINTENANCE, effects.current);
     }
@@ -245,8 +244,7 @@ class PhaseCommandsTest {
     @DisplayName("the audit trail records the Discord id, and says which surface it came from")
     void theActorAndTheReasonAreRecorded() {
         final FakeEffects effects = new FakeEffects();
-        new SetPhase().run(FakeUser.inDiscord(),
-                new Values(PhaseCommands.SET, Map.of("phase", "SMP")), effects);
+        new SetPhase().run(FakeUser.inDiscord(), new Values(PhaseCommands.SET, Map.of("phase", "SMP")), effects);
         assertEquals("100000000000000002", effects.lastActor);
         assertTrue(effects.lastReason.contains("DISCORD"), effects.lastReason);
         assertTrue(effects.lastReason.contains("tester"), effects.lastReason);
@@ -254,8 +252,7 @@ class PhaseCommandsTest {
         // An asker with no Discord id writes a null actor rather than a placeholder string; the
         // audit column is nullable for exactly that.
         final FakeEffects fromConsole = new FakeEffects();
-        new SetPhase().run(FakeUser.console(),
-                new Values(PhaseCommands.SET, Map.of("phase", "SMP")), fromConsole);
+        new SetPhase().run(FakeUser.console(), new Values(PhaseCommands.SET, Map.of("phase", "SMP")), fromConsole);
         assertNull(fromConsole.lastActor);
         assertTrue(fromConsole.lastReason.contains("CONSOLE"), fromConsole.lastReason);
     }
@@ -268,8 +265,7 @@ class PhaseCommandsTest {
         final FakeEffects effects = new FakeEffects();
         final FakeUser user = FakeUser.inDiscord();
 
-        SetSeasonDate.launch().run(user,
-                new Values(PhaseCommands.LAUNCH, Map.of("when", "next tuesday")), effects);
+        SetSeasonDate.launch().run(user, new Values(PhaseCommands.LAUNCH, Map.of("when", "next tuesday")), effects);
 
         assertEquals("phase.date.invalid", user.only().key());
         assertEquals(SeasonDates.PATTERN, user.only().of("pattern"));
@@ -283,11 +279,12 @@ class PhaseCommandsTest {
         effects.launch = SeasonDates.parse("2026-09-01 12:00").orElseThrow();
         final FakeUser user = FakeUser.inGame();
 
-        SetSeasonDate.launch().run(user,
-                new Values(PhaseCommands.LAUNCH, Map.of("when", "2026-10-01 18:00")), effects);
+        SetSeasonDate.launch().run(user, new Values(PhaseCommands.LAUNCH, Map.of("when", "2026-10-01 18:00")), effects);
 
         assertEquals(List.of("phase.date.set"), user.keys());
-        assertEquals("<phase.date.what.launch>", user.only().of("what"),
+        assertEquals(
+                "<phase.date.what.launch>",
+                user.only().of("what"),
                 "the noun is itself translated and has to go through the asker's own bundle");
         assertEquals(1, effects.afterWrites);
         assertEquals(1, effects.recordedDates.size());
@@ -303,8 +300,8 @@ class PhaseCommandsTest {
         effects.accounts = 4;
         final FakeUser user = FakeUser.inGame();
 
-        SetSeasonDate.smpStart().run(user,
-                new Values(PhaseCommands.SMP_START, Map.of("when", "2026-11-01 18:00")), effects);
+        SetSeasonDate.smpStart()
+                .run(user, new Values(PhaseCommands.SMP_START, Map.of("when", "2026-11-01 18:00")), effects);
 
         assertEquals(List.of("phase.date.set", "phase.date.moved"), user.keys());
         assertEquals(7, user.replies.get(1).of("grants"));
@@ -317,8 +314,8 @@ class PhaseCommandsTest {
         final FakeEffects effects = new FakeEffects();
         final FakeUser user = FakeUser.inGame();
 
-        SetSeasonDate.smpStart().run(user,
-                new Values(PhaseCommands.SMP_START, Map.of("when", "2026-11-01 18:00")), effects);
+        SetSeasonDate.smpStart()
+                .run(user, new Values(PhaseCommands.SMP_START, Map.of("when", "2026-11-01 18:00")), effects);
 
         assertEquals(List.of("phase.date.set", "phase.date.none-moved"), user.keys());
     }
@@ -331,8 +328,7 @@ class PhaseCommandsTest {
         effects.accounts = 4;
         final FakeUser user = FakeUser.inGame();
 
-        SetSeasonDate.launch().run(user,
-                new Values(PhaseCommands.LAUNCH, Map.of("when", "2026-10-01 18:00")), effects);
+        SetSeasonDate.launch().run(user, new Values(PhaseCommands.LAUNCH, Map.of("when", "2026-10-01 18:00")), effects);
 
         assertEquals(List.of("phase.date.set"), user.keys());
     }
@@ -346,8 +342,8 @@ class PhaseCommandsTest {
         effects.smpStart = SeasonDates.parse("2026-11-01 18:00").orElseThrow();
         final FakeUser user = FakeUser.inDiscord();
 
-        SetSeasonDate.smpStart().run(user,
-                new Values(PhaseCommands.SMP_START, Map.of("when", SeasonDates.CLEAR)), effects);
+        SetSeasonDate.smpStart()
+                .run(user, new Values(PhaseCommands.SMP_START, Map.of("when", SeasonDates.CLEAR)), effects);
 
         assertEquals(List.of("phase.date.cleared", "phase.date.kept"), user.keys());
         assertNull(effects.smpStart);
@@ -360,8 +356,7 @@ class PhaseCommandsTest {
         effects.launch = Instant.EPOCH;
 
         final FakeUser user = FakeUser.inGame();
-        SetSeasonDate.launch().run(user,
-                new Values(PhaseCommands.LAUNCH, Map.of("when", SeasonDates.CLEAR)), effects);
+        SetSeasonDate.launch().run(user, new Values(PhaseCommands.LAUNCH, Map.of("when", SeasonDates.CLEAR)), effects);
 
         assertEquals(List.of("phase.date.cleared"), user.keys());
     }
@@ -373,13 +368,12 @@ class PhaseCommandsTest {
         effects.dateRefusal = new SeasonDateRefused("the opening cannot be after the SMP start");
         final FakeUser user = FakeUser.inGame();
 
-        SetSeasonDate.launch().run(user,
-                new Values(PhaseCommands.LAUNCH, Map.of("when", "2026-10-01 18:00")), effects);
+        SetSeasonDate.launch().run(user, new Values(PhaseCommands.LAUNCH, Map.of("when", "2026-10-01 18:00")), effects);
 
         assertEquals("phase.date.refused", user.only().key());
         assertEquals("the opening cannot be after the SMP start", user.only().of("reason"));
-        assertEquals(List.of(), effects.warnings,
-                "the model saying no is not something an operator has to be paged about");
+        assertEquals(
+                List.of(), effects.warnings, "the model saying no is not something an operator has to be paged about");
         assertEquals(0, effects.afterWrites);
     }
 
@@ -390,8 +384,8 @@ class PhaseCommandsTest {
         effects.writeFailure = new IllegalStateException("the database did not accept it");
         final FakeUser user = FakeUser.inGame();
 
-        SetSeasonDate.smpStart().run(user,
-                new Values(PhaseCommands.SMP_START, Map.of("when", "2026-11-01 18:00")), effects);
+        SetSeasonDate.smpStart()
+                .run(user, new Values(PhaseCommands.SMP_START, Map.of("when", "2026-11-01 18:00")), effects);
 
         assertEquals("phase.date.failed", user.only().key());
         assertEquals(1, effects.warnings.size());

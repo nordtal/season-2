@@ -1,7 +1,9 @@
 package eu.nordtal.s2.steward.deployer;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -11,11 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The deployer must never recreate itself, and the refusal has to happen before anything runs.
@@ -29,14 +28,14 @@ class ComposeRefusesItselfTest {
     /** A service key: two spaces in, a name, a colon, nothing else on the line. */
     private static final Pattern SERVICE_KEY = Pattern.compile("  ([A-Za-z0-9][A-Za-z0-9._-]*):\\s*");
 
-    private final Compose compose = new Compose(
-            Path.of("/app/compose.yml"), Path.of("/does/not/exist/.env"), Path.of("/app"), "nordtal-s2");
+    private final Compose compose =
+            new Compose(Path.of("/app/compose.yml"), Path.of("/does/not/exist/.env"), Path.of("/app"), "nordtal-s2");
 
     @Test
     @DisplayName("recreating steward-deployer is refused, and the message says who does it instead")
     void refusesToRecreateItself() {
-        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                () -> compose.recreate(Compose.SELF, line -> { }));
+        IllegalArgumentException refused =
+                assertThrows(IllegalArgumentException.class, () -> compose.recreate(Compose.SELF, line -> {}));
 
         assertTrue(refused.getMessage().contains("setup script"), refused.getMessage());
     }
@@ -44,8 +43,7 @@ class ComposeRefusesItselfTest {
     @Test
     @DisplayName("and so is an `up` that names it among other services")
     void refusesToBringItselfUpByName() {
-        assertThrows(IllegalArgumentException.class,
-                () -> compose.up(List.of("smp", Compose.SELF), line -> { }));
+        assertThrows(IllegalArgumentException.class, () -> compose.up(List.of("smp", Compose.SELF), line -> {}));
     }
 
     @Test
@@ -79,7 +77,8 @@ class ComposeRefusesItselfTest {
     void namingOnlyItselfIsRefused() {
         final List<String> all = List.of("postgres", "smp", Compose.SELF);
 
-        final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException refused = assertThrows(
+                IllegalArgumentException.class,
                 () -> StewardDeployer.servicesToDeploy(all, List.of(Compose.SELF), false));
 
         // `nordtal.sh` and not `setup` since season-2-ops/124 renamed the script. What this
@@ -93,7 +92,8 @@ class ComposeRefusesItselfTest {
     void namingItBesideAnotherIsRefused() {
         final List<String> all = List.of("postgres", "smp", Compose.SELF);
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> StewardDeployer.servicesToDeploy(all, List.of("smp", Compose.SELF), false));
     }
 
@@ -115,8 +115,8 @@ class ComposeRefusesItselfTest {
         final List<String> declared = serviceNames(repositoryRoot().resolve("compose.yml"));
 
         assertFalse(declared.isEmpty(), "no services parsed out of compose.yml");
-        assertTrue(declared.contains(Compose.SELF),
-                "compose.yml declares " + declared + ", none of them " + Compose.SELF);
+        assertTrue(
+                declared.contains(Compose.SELF), "compose.yml declares " + declared + ", none of them " + Compose.SELF);
     }
 
     /**
@@ -127,9 +127,11 @@ class ComposeRefusesItselfTest {
      * design. The keys are two spaces in under {@code services:} and that is all this needs.</p>
      */
     private static List<String> serviceNames(Path composeFile) throws IOException {
-        assertTrue(Files.isRegularFile(composeFile), composeFile + " no longer exists - if it moved,"
-                + " this path has to move with it, because a missing file is a check that silently"
-                + " stops running");
+        assertTrue(
+                Files.isRegularFile(composeFile),
+                composeFile + " no longer exists - if it moved,"
+                        + " this path has to move with it, because a missing file is a check that silently"
+                        + " stops running");
         final List<String> names = new ArrayList<>();
         boolean inServices = false;
         for (final String line : Files.readAllLines(composeFile, StandardCharsets.UTF_8)) {

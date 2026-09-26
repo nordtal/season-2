@@ -1,7 +1,6 @@
 package eu.nordtal.s2.smp.world;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -11,8 +10,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * A world spawn is a coordinate, not a promise.
@@ -67,7 +66,9 @@ class LandingIsCheckedTest {
                 }
             }
         }
-        assertEquals(List.of(), raw,
+        assertEquals(
+                List.of(),
+                raw,
                 "a world spawn reached a player without a landing check - wrap it in"
                         + " LandingSite.safeAt(world, world.getSpawnLocation()), which is free when"
                         + " the spot is already good and is the difference between arriving and"

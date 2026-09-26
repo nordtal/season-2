@@ -1,28 +1,23 @@
 package eu.nordtal.s2.limbo;
 
 import com.zaxxer.hikari.HikariDataSource;
-
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.limbo.LimboCommands;
 import eu.nordtal.s2.commands.limbo.LimboEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
-import eu.nordtal.s2.limbo.command.BukkitLimboEffects;
-import eu.nordtal.s2.papercommon.access.AdminWatch;
-import eu.nordtal.s2.papercommon.command.CommandFilter;
-import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
-import eu.nordtal.s2.papercommon.access.BukkitOps;
+import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.command.AllowlistDirectory;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.limbo.LimboProtocol;
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.limbo.command.LimboCommand;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.limbo.command.BukkitLimboEffects;
+import eu.nordtal.s2.limbo.command.LimboCommand;
 import eu.nordtal.s2.limbo.config.ColoursSpec;
 import eu.nordtal.s2.limbo.config.Configs;
 import eu.nordtal.s2.limbo.config.DatabaseSpec;
@@ -33,10 +28,12 @@ import eu.nordtal.s2.limbo.listener.PresenceListener;
 import eu.nordtal.s2.limbo.net.LimboChannel;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
-
-import org.bukkit.plugin.java.JavaPlugin;
-
+import eu.nordtal.s2.papercommon.access.AdminWatch;
+import eu.nordtal.s2.papercommon.access.BukkitOps;
+import eu.nordtal.s2.papercommon.command.CommandFilter;
+import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
 import java.util.Locale;
+import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * The season 2 waiting room. Every login lands here first, whatever the phase, and leaves when the
@@ -67,6 +64,7 @@ public final class LimboPlugin extends JavaPlugin {
 
     /** The tone palette this server paints a reply with. Set once in {@link #start()}. */
     private ToneColours colours;
+
     private HikariDataSource pool;
     private AccessDirectory access;
     private AdminWatch adminWatch;
@@ -110,8 +108,7 @@ public final class LimboPlugin extends JavaPlugin {
             databaseHandle = Configs.database(getDataFolder().toPath(), slf4j());
             coloursHandle = Configs.colours(getDataFolder().toPath(), slf4j());
         } catch (final ConfigException exception) {
-            severe("limbo is not starting because its configuration could not be read: "
-                    + exception.getMessage());
+            severe("limbo is not starting because its configuration could not be read: " + exception.getMessage());
             return;
         }
 
@@ -133,12 +130,16 @@ public final class LimboPlugin extends JavaPlugin {
 
         // Two roots, shared first: this module's own bundle wins where both declare a key, which is
         // how limbo puts its colours back on a line the shared bundle has to leave plain.
-        final Messages messages = Messages.load(getClass().getClassLoader(),
+        final Messages messages = Messages.load(
+                getClass().getClassLoader(),
                 java.util.List.of("messages/commands", "messages/limbo"),
-                getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
-        messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
-                "the message override names " + key + ", which no bundle declares - it is stored"
-                        + " and never used; check the spelling"));
+                getDataFolder().toPath().resolve("messages"),
+                Locale.ENGLISH,
+                Locale.GERMAN);
+        messages.unknownOverrideKeys()
+                .forEach(key -> getLogger()
+                        .warning("the message override names " + key + ", which no bundle declares - it is stored"
+                                + " and never used; check the spelling"));
 
         // Admins are operators for as long as they are admins. The sweep runs before a single join
         // can be handled: ops.json is persistent, so anybody left in it by a crash would otherwise
@@ -157,19 +158,20 @@ public final class LimboPlugin extends JavaPlugin {
         channel = new LimboChannel(this, room);
         channel.register();
 
-        getServer().getPluginManager()
-                .registerEvents(new PresenceListener(this, world, room, channel, locales, messages,
-                        operators, admission), this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new PresenceListener(this, world, room, channel, locales, messages, operators, admission),
+                        this);
         // The player cap on this server is the network's own now, so Paper can refuse a login for
         // fullness - and the only login it would ever refuse is an admin's, because admins are the
         // only players the proxy lets past a full network. See FullServerAdmission.
-        getServer().getPluginManager()
-                .registerEvents(new FullServerGate(access, admission, slf4j()), this);
+        getServer().getPluginManager().registerEvents(new FullServerGate(access, admission, slf4j()), this);
 
         // ...and keeps being one only for as long as the database says so. Without this the flag is
         // read once per session and a revoked admin keeps operator until they disconnect; see
         // AdminWatch. limbo passes no extra cache because it holds none - it renders one title.
-        adminWatch = new AdminWatch(this, access, operators, admission, admins -> { }, slf4j());
+        adminWatch = new AdminWatch(this, access, operators, admission, admins -> {}, slf4j());
 
         // Built before the admin watch is started, because the inbox rides on that watch's LISTEN
         // connection: one connection carrying nordtal_admin and nordtal_command.
@@ -178,8 +180,7 @@ public final class LimboPlugin extends JavaPlugin {
         // it; one that never reloaded would answer a Discord admin with the wording this process
         // started with.
         final eu.nordtal.s2.common.message.Messages shared = PaperCommandInbox.sharedBundle(this);
-        final LimboEffects chatEffects =
-                new BukkitLimboEffects(this, BukkitLimboEffects.async(this), messages, shared);
+        final LimboEffects chatEffects = new BukkitLimboEffects(this, BukkitLimboEffects.async(this), messages, shared);
         commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
             final Thread thread = new Thread(task, getName() + "-command-waiter");
             thread.setDaemon(true);
@@ -187,53 +188,70 @@ public final class LimboPlugin extends JavaPlugin {
         });
         final eu.nordtal.s2.common.command.CommandRequests requests =
                 eu.nordtal.s2.common.command.CommandRequests.borrowing(pool);
-        final Outbox outbox = new Outbox(requests, commandWaiter,
-                (message, failure) -> getLogger()
-                        .log(java.util.logging.Level.WARNING, message, failure));
+        final Outbox outbox = new Outbox(
+                requests,
+                commandWaiter,
+                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
 
-        final PaperCommandInbox inbox =
-                new PaperCommandInbox(this, Target.LIMBO, requests, access, shared);
+        final PaperCommandInbox inbox = new PaperCommandInbox(this, Target.LIMBO, requests, access, shared);
         // Inline: the inbox settles a request row when the command returns, so scheduled effects
         // would write the answer before the command produced it. CommandInbox#register refuses them.
-        LimboCommands.all().forEach(command ->
-                inbox.register(command, new BukkitLimboEffects(this, Runnable::run, messages,
-                        shared)));
+        LimboCommands.all()
+                .forEach(command ->
+                        inbox.register(command, new BukkitLimboEffects(this, Runnable::run, messages, shared)));
         inbox.start(this);
 
         // The proxy refuses a command before it reaches this server, which is the enforcement; this
         // is the half the proxy cannot do - what this server tells a client exists at all.
         // CommandFilter fails OPEN, and says so, when no list has been published yet.
-        commandFilter = new CommandFilter(this,
+        commandFilter = new CommandFilter(
+                this,
                 CommandFilter.Source.of(AllowlistDirectory.using(pool)),
-                adminWatch::isAdmin, locales, messages, slf4j(), () -> colours);
+                adminWatch::isAdmin,
+                locales,
+                messages,
+                slf4j(),
+                () -> colours);
         getServer().getPluginManager().registerEvents(commandFilter, this);
         commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 
-        adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
+        adminWatch.start(
+                java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
                 config.adminListenEnabled()
-                        ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
-                                databaseHandle.get().username(), databaseHandle.get().password(),
+                        ? new AdminWatch.DatabaseConnection(
+                                databaseHandle.get().jdbcUrl(),
+                                databaseHandle.get().username(),
+                                databaseHandle.get().password(),
                                 databaseHandle.get().queryTimeoutSeconds())
                         : null,
-                java.util.stream.Stream.concat(inbox.refreshes().stream(),
-                        commandFilter.refreshes().stream()).toList(),
-                java.util.stream.Stream.concat(inbox.channels().stream(),
-                        commandFilter.channels().stream()).toList());
+                java.util.stream.Stream.concat(inbox.refreshes().stream(), commandFilter.refreshes().stream())
+                        .toList(),
+                java.util.stream.Stream.concat(inbox.channels().stream(), commandFilter.channels().stream())
+                        .toList());
 
-        getLifecycleManager().registerEventHandler(
-                io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS,
-                event -> LimboCommand.build(this, messages, locales,
-                                // The admin watch's own set, not FullServerAdmission's: that one
-                                // is filled at pre-login only when the server is near its cap, and
-                                // limbo never is - it would answer "nobody is an admin", for ever.
-                                adminWatch::isAdmin, access::linkedDiscordAccount,
-                                outbox, chatEffects, pool, () -> colours)
-                        .forEach(node -> event.registrar().register(node)));
+        getLifecycleManager()
+                .registerEventHandler(
+                        io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS,
+                        event -> LimboCommand.build(
+                                        this,
+                                        messages,
+                                        locales,
+                                        // The admin watch's own set, not FullServerAdmission's: that one
+                                        // is filled at pre-login only when the server is near its cap, and
+                                        // limbo never is - it would answer "nobody is an admin", for ever.
+                                        adminWatch::isAdmin,
+                                        access::linkedDiscordAccount,
+                                        outbox,
+                                        chatEffects,
+                                        pool,
+                                        () -> colours)
+                                .forEach(node -> event.registrar().register(node)));
 
         startHeartbeat();
 
-        getLogger().info("limbo enabled - waiting world '" + config.worldName() + "', title refreshed "
-                + "every " + config.titleRefreshSeconds() + "s, speaking " + LimboProtocol.CHANNEL);
+        getLogger()
+                .info("limbo enabled - waiting world '" + config.worldName() + "', title refreshed " + "every "
+                        + config.titleRefreshSeconds() + "s, speaking " + LimboProtocol.CHANNEL);
     }
 
     /**
@@ -246,8 +264,7 @@ public final class LimboPlugin extends JavaPlugin {
     private void startHeartbeat() {
         final Readiness readiness = Readiness.onDefaultPath(getLogger()::warning);
         final long ticks = Readiness.BEAT.toSeconds() * 20L;
-        heartbeat = getServer().getScheduler()
-                .runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
+        heartbeat = getServer().getScheduler().runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
     }
 
     @Override
@@ -282,8 +299,8 @@ public final class LimboPlugin extends JavaPlugin {
 
     /** One disable step, isolated from the next - see {@link eu.nordtal.s2.common.health.Shutdown}. */
     private void quietly(final String what, final Runnable step) {
-        eu.nordtal.s2.common.health.Shutdown.quietly(what, step,
-                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
+        eu.nordtal.s2.common.health.Shutdown.quietly(
+                what, step, (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
     }
 
     // JavaPlugin#getLogger() returns java.util.logging.Logger; jcore's ConfigLoader wants an
@@ -305,7 +322,4 @@ public final class LimboPlugin extends JavaPlugin {
         getServer().getPluginManager().disablePlugin(this);
         getServer().shutdown();
     }
-
-
-
 }

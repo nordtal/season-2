@@ -10,5 +10,4 @@ import java.util.UUID;
  * grave decays with it, the same as vanilla items that despawn. What is left is the three things the
  * server still has to do something about: which display to take down, and where to make the sound.
  */
-public record ExpiredGrave(UUID id, String world, int x, int y, int z) {
-}
+public record ExpiredGrave(UUID id, String world, int x, int y, int z) {}

@@ -7,13 +7,7 @@ import type { ReactNode } from "react"
  * its title saying what the page was for, to somebody already standing on it. They are gone, and
  * the prop went with them so that the next one has to be argued for rather than filled in.
  */
-export function PageHeader({
-  title,
-  actions,
-}: {
-  title: ReactNode
-  actions?: ReactNode
-}) {
+export function PageHeader({ title, actions }: { title: ReactNode; actions?: ReactNode }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1.5">

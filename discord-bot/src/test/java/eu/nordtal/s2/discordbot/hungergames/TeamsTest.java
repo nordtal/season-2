@@ -1,14 +1,13 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.sql.Connection;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import javax.sql.DataSource;
-import java.sql.Connection;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * The validations {@link Teams} can answer without ever reaching the database - the same reason
@@ -24,64 +23,68 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class TeamsTest {
 
     private static final Teams TEAMS = new Teams(Jdbi.create(new DataSource() {
-        // Reduced to the two methods JDBI's SqlObjectPlugin actually calls; every other method
-        // throws to prove nothing here reaches past connection acquisition.
-        @Override
-        public Connection getConnection() {
-            throw new UnsupportedOperationException("this test must never reach the database");
-        }
+                // Reduced to the two methods JDBI's SqlObjectPlugin actually calls; every other method
+                // throws to prove nothing here reaches past connection acquisition.
+                @Override
+                public Connection getConnection() {
+                    throw new UnsupportedOperationException("this test must never reach the database");
+                }
 
-        @Override
-        public Connection getConnection(final String username, final String password) {
-            throw new UnsupportedOperationException("this test must never reach the database");
-        }
+                @Override
+                public Connection getConnection(final String username, final String password) {
+                    throw new UnsupportedOperationException("this test must never reach the database");
+                }
 
-        @Override
-        public java.io.PrintWriter getLogWriter() {
-            throw new UnsupportedOperationException();
-        }
+                @Override
+                public java.io.PrintWriter getLogWriter() {
+                    throw new UnsupportedOperationException();
+                }
 
-        @Override
-        public void setLogWriter(final java.io.PrintWriter out) {
-            throw new UnsupportedOperationException();
-        }
+                @Override
+                public void setLogWriter(final java.io.PrintWriter out) {
+                    throw new UnsupportedOperationException();
+                }
 
-        @Override
-        public void setLoginTimeout(final int seconds) {
-            throw new UnsupportedOperationException();
-        }
+                @Override
+                public void setLoginTimeout(final int seconds) {
+                    throw new UnsupportedOperationException();
+                }
 
-        @Override
-        public int getLoginTimeout() {
-            throw new UnsupportedOperationException();
-        }
+                @Override
+                public int getLoginTimeout() {
+                    throw new UnsupportedOperationException();
+                }
 
-        @Override
-        public java.util.logging.Logger getParentLogger() {
-            throw new UnsupportedOperationException();
-        }
+                @Override
+                public java.util.logging.Logger getParentLogger() {
+                    throw new UnsupportedOperationException();
+                }
 
-        @Override
-        public <T> T unwrap(final Class<T> iface) {
-            throw new UnsupportedOperationException();
-        }
+                @Override
+                public <T> T unwrap(final Class<T> iface) {
+                    throw new UnsupportedOperationException();
+                }
 
-        @Override
-        public boolean isWrapperFor(final Class<?> iface) {
-            throw new UnsupportedOperationException();
-        }
-    }).installPlugin(new SqlObjectPlugin()));
+                @Override
+                public boolean isWrapperFor(final Class<?> iface) {
+                    throw new UnsupportedOperationException();
+                }
+            })
+            .installPlugin(new SqlObjectPlugin()));
 
     @Test
     @DisplayName("a team name shorter than 3 characters is refused without touching the database")
     void tooShortNameIsRefused() {
-        assertEquals(RegistrationResult.Status.INVALID_NAME, TEAMS.register("1", "ab").status());
+        assertEquals(
+                RegistrationResult.Status.INVALID_NAME,
+                TEAMS.register("1", "ab").status());
     }
 
     @Test
     @DisplayName("a team name longer than 15 characters is refused without touching the database")
     void tooLongNameIsRefused() {
-        assertEquals(RegistrationResult.Status.INVALID_NAME,
+        assertEquals(
+                RegistrationResult.Status.INVALID_NAME,
                 TEAMS.register("1", "a".repeat(16)).status());
     }
 
@@ -98,15 +101,15 @@ class TeamsTest {
     @Test
     @DisplayName("inviting yourself is refused without touching the database")
     void invitingYourselfIsRefused() {
-        assertEquals(InviteResult.Status.CANNOT_INVITE_SELF,
-                TEAMS.invite("1", "1").status());
+        assertEquals(
+                InviteResult.Status.CANNOT_INVITE_SELF, TEAMS.invite("1", "1").status());
     }
 
     private static void assertThrows(final int nameLength, final Runnable action) {
         try {
             action.run();
-            throw new AssertionError("expected the stub database to be reached for a " + nameLength
-                    + "-character name");
+            throw new AssertionError(
+                    "expected the stub database to be reached for a " + nameLength + "-character name");
         } catch (final RuntimeException expected) {
             // UnsupportedOperationException from the stub DataSource, possibly wrapped by JDBI.
         }

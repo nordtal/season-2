@@ -1,15 +1,14 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The archives are written before anything decides the run is a failure.
@@ -37,15 +36,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class BackupSavesBeforeItSettlesTest {
 
-    private final String source =
-            read("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/Runner.java");
+    private final String source = read("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/Runner.java");
 
     @Test
     @DisplayName("the volumes are saved before anything decides the run is a failure")
     void theArchivesAreWrittenFirst() {
         final String backup = backupMethod();
 
-        assertTrue(at(backup, "run.save(") < at(backup, "settle("),
+        assertTrue(
+                at(backup, "run.save(") < at(backup, "settle("),
                 "the run decides it is a failure before it has taken the backup. The whole point of"
                         + " failing is to warn about archives that exist; failing instead of"
                         + " writing them is the loss the warning is there to prevent");
@@ -62,11 +61,15 @@ class BackupSavesBeforeItSettlesTest {
      */
     private String backupMethod() {
         final int from = source.indexOf("private Outcome backupUnderLock(");
-        assertTrue(from > 0, "Runner#backupUnderLock is gone - if it was renamed, this test moves"
-                + " with it, because a check that cannot find its subject silently stops running");
+        assertTrue(
+                from > 0,
+                "Runner#backupUnderLock is gone - if it was renamed, this test moves"
+                        + " with it, because a check that cannot find its subject silently stops running");
         final int to = source.indexOf("\n    private Outcome restart(");
-        assertTrue(to > from, "Runner#restart is gone or has moved above backupUnderLock; this test"
-                + " brackets one method and needs both ends");
+        assertTrue(
+                to > from,
+                "Runner#restart is gone or has moved above backupUnderLock; this test"
+                        + " brackets one method and needs both ends");
         return source.substring(from, to);
     }
 
@@ -79,8 +82,10 @@ class BackupSavesBeforeItSettlesTest {
      */
     private static int at(final String haystack, final String token) {
         final int index = haystack.indexOf(token);
-        assertTrue(index >= 0, "Runner#backupUnderLock no longer contains `" + token + "`. If that"
-                + " call was removed the guard is gone; if it was renamed, rename it here too.");
+        assertTrue(
+                index >= 0,
+                "Runner#backupUnderLock no longer contains `" + token + "`. If that"
+                        + " call was removed the guard is gone; if it was renamed, rename it here too.");
         return index;
     }
 

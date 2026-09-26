@@ -11,11 +11,9 @@ import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
 import eu.nordtal.s2.steward.worker.source.GitHubReleases;
 import eu.nordtal.s2.steward.worker.source.Modrinth;
 import eu.nordtal.s2.steward.worker.source.PaperFill;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.time.Clock;
 import java.time.Duration;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The two things steward-worker actually does, assembled in one place.
@@ -29,8 +27,7 @@ import java.time.Duration;
  */
 public final class Runs {
 
-    private Runs() {
-    }
+    private Runs() {}
 
     /**
      * Asks every source what the newest thing is and compares it with what is in the volumes.
@@ -51,16 +48,16 @@ public final class Runs {
      * table existed.</p>
      */
     public static @NotNull UpdatePlan resolve(
-            final @NotNull StewardSpec config,
-            final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+            final @NotNull StewardSpec config, final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
         final Http http = new JdkHttp(Duration.ofSeconds(config.httpTimeoutSeconds()), config.githubToken());
         return new Resolver(
-                config,
-                new GitHubReleases(http),
-                new Modrinth(http),
-                new PaperFill(http),
-                Clock.systemUTC(),
-                plugins).resolve();
+                        config,
+                        new GitHubReleases(http),
+                        new Modrinth(http),
+                        new PaperFill(http),
+                        Clock.systemUTC(),
+                        plugins)
+                .resolve();
     }
 
     /**
@@ -70,9 +67,7 @@ public final class Runs {
      * against a schema older than itself, and a failed migration has to stop the run while nothing
      * has moved yet.</p>
      */
-    public static @NotNull ApplyResult apply(final @NotNull StewardSpec config,
-                                             final @NotNull UpdatePlan plan) {
-        return new Applier(config, new Downloads(Duration.ofSeconds(config.downloadTimeoutSeconds())))
-                .apply(plan);
+    public static @NotNull ApplyResult apply(final @NotNull StewardSpec config, final @NotNull UpdatePlan plan) {
+        return new Applier(config, new Downloads(Duration.ofSeconds(config.downloadTimeoutSeconds()))).apply(plan);
     }
 }

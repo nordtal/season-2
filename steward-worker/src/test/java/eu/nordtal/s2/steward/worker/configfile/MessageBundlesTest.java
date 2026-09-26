@@ -1,8 +1,9 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -15,11 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The bundles a module ships in its jar, merged with an operator's override (steward/48).
@@ -44,8 +43,7 @@ class MessageBundlesTest {
     @Test
     @DisplayName("a Paper plugin's bundle is found next to its own jar, in the configs mount")
     void aPluginBundleIsFoundBesideItsOwnJar() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/smp/en.properties", "welcome=Welcome\n"));
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
         Files.createDirectories(configs.resolve("smp/smp/messages"));
 
         final List<MessageBundleLocation> found = MessageBundles.discover(configs, volumes);
@@ -61,15 +59,18 @@ class MessageBundlesTest {
     void aStandaloneJarIsFoundInTheVolumesMount() throws IOException {
         // discord-bot's own jar is not under the configs mount at all - only its data is.
         Files.createDirectories(configs.resolve("discord-bot/messages"));
-        writeJar(volumes.resolve("discord-bot/discord-bot-0.9.1.jar"), Map.of(
-                "messages/access/en.properties", "contribution.title=Access\n"));
+        writeJar(
+                volumes.resolve("discord-bot/discord-bot-0.9.1.jar"),
+                Map.of("messages/access/en.properties", "contribution.title=Access\n"));
 
         final List<MessageBundleLocation> found = MessageBundles.discover(configs, volumes);
 
         assertEquals(1, found.size(), found.toString());
         assertEquals("discord-bot", found.getFirst().service());
         assertEquals("", found.getFirst().module());
-        assertEquals(volumes.resolve("discord-bot/discord-bot-0.9.1.jar"), found.getFirst().jar());
+        assertEquals(
+                volumes.resolve("discord-bot/discord-bot-0.9.1.jar"),
+                found.getFirst().jar());
     }
 
     @Test
@@ -94,18 +95,21 @@ class MessageBundlesTest {
     @Test
     @DisplayName("several roots in one jar are merged into one bundle, the way Messages.load merges them")
     void severalRootsAreMergedIntoOneBundle() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/commands/en.properties", "reload.done=Reloaded\n",
-                "messages/commands/de.properties", "reload.done=Neu geladen\n",
-                "messages/smp/en.properties", "welcome=Welcome\n",
-                "messages/smp/de.properties", "welcome=Willkommen\n"));
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                Map.of(
+                        "messages/commands/en.properties", "reload.done=Reloaded\n",
+                        "messages/commands/de.properties", "reload.done=Neu geladen\n",
+                        "messages/smp/en.properties", "welcome=Welcome\n",
+                        "messages/smp/de.properties", "welcome=Willkommen\n"));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
-        final MessageBundleLocation location = new MessageBundleLocation(
-                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
+        final MessageBundleLocation location =
+                new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
 
         final MessageBundle bundle = MessageBundles.read(location);
 
-        assertEquals(List.of("reload.done", "welcome"),
+        assertEquals(
+                List.of("reload.done", "welcome"),
                 bundle.entries().stream().map(MessageEntry::key).sorted().toList());
         final MessageEntry welcome = entry(bundle, "welcome");
         assertEquals("Welcome", welcome.english());
@@ -125,17 +129,22 @@ class MessageBundlesTest {
     @Test
     @DisplayName("the jar's schema names each key, in the order of the English file, the rest after it")
     void theSchemaNamesEachKey() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/smp/en.properties", "welcome=Welcome\nduel.won=You beat {opponent} <_link>\n",
-                "messages/smp/schema.json", SCHEMA));
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                Map.of(
+                        "messages/smp/en.properties",
+                        "welcome=Welcome\nduel.won=You beat {opponent} <_link>\n",
+                        "messages/smp/schema.json",
+                        SCHEMA));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
         Files.writeString(overrides.resolve("en.properties"), "a.typo=Oops\n", StandardCharsets.UTF_8);
-        final MessageBundleLocation location = new MessageBundleLocation(
-                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
+        final MessageBundleLocation location =
+                new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
 
         final MessageBundle bundle = MessageBundles.read(location);
 
-        assertEquals(List.of("welcome", "duel.won", "a.typo"),
+        assertEquals(
+                List.of("welcome", "duel.won", "a.typo"),
                 bundle.entries().stream().map(MessageEntry::key).toList());
         final MessageEntry won = entry(bundle, "duel.won");
         assertEquals("Duel won", won.name());
@@ -148,19 +157,24 @@ class MessageBundlesTest {
     @Test
     @DisplayName("a placeholder the schema does not declare is found, a declared one and formatting are not")
     void anUndeclaredPlaceholderIsFound() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/smp/en.properties", "welcome=Welcome\nduel.won=You beat {opponent} <_link>\n",
-                "messages/smp/schema.json", SCHEMA));
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                Map.of(
+                        "messages/smp/en.properties",
+                        "welcome=Welcome\nduel.won=You beat {opponent} <_link>\n",
+                        "messages/smp/schema.json",
+                        SCHEMA));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
-        final MessageBundle bundle = MessageBundles.read(new MessageBundleLocation(
-                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true));
+        final MessageBundle bundle = MessageBundles.read(
+                new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true));
         final MessageEntry won = entry(bundle, "duel.won");
 
         assertEquals(List.of(), MessageBundles.unknownPlaceholders(won, "<bold>{opponent}</bold> lost <_link>"));
-        assertEquals(List.of("{oponent}", "<_player>"),
+        assertEquals(
+                List.of("{oponent}", "<_player>"),
                 MessageBundles.unknownPlaceholders(won, "You beat {oponent} <_player> {oponent}"));
-        assertEquals(List.of("{player}"),
-                MessageBundles.unknownPlaceholders(entry(bundle, "welcome"), "Welcome {player}"));
+        assertEquals(
+                List.of("{player}"), MessageBundles.unknownPlaceholders(entry(bundle, "welcome"), "Welcome {player}"));
     }
 
     private static final String ROLE_SCHEMA = """
@@ -179,31 +193,43 @@ class MessageBundlesTest {
     @Test
     @DisplayName("a role becomes one placeholder per property of its type, and every message gets the globals")
     void aRoleIsExpandedIntoItsProperties() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/smp/en.properties", "duel.won={winner.name} won {count}\n",
-                "messages/smp/schema.json", ROLE_SCHEMA));
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                Map.of(
+                        "messages/smp/en.properties",
+                        "duel.won={winner.name} won {count}\n",
+                        "messages/smp/schema.json",
+                        ROLE_SCHEMA));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
-        final MessageEntry won = entry(MessageBundles.read(new MessageBundleLocation(
-                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true)), "duel.won");
+        final MessageEntry won = entry(
+                MessageBundles.read(
+                        new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true)),
+                "duel.won");
 
-        assertEquals(List.of(new MessageArg("winner.name", false, "player", false),
-                new MessageArg("count", false),
-                new MessageArg("server.name", false, "service", true),
-                new MessageArg("season.number", false, "season", true)), won.args());
+        assertEquals(
+                List.of(
+                        new MessageArg("winner.name", false, "player", false),
+                        new MessageArg("count", false),
+                        new MessageArg("server.name", false, "service", true),
+                        new MessageArg("season.number", false, "season", true)),
+                won.args());
         assertEquals("MINIMESSAGE", won.format());
         assertEquals("TITLE", won.shown());
-        assertEquals(List.of("{winner.nope}", "{winner}"), MessageBundles.unknownPlaceholders(won,
-                "{winner.name} {server.name} {season.number} {winner.nope} {winner}"));
+        assertEquals(
+                List.of("{winner.nope}", "{winner}"),
+                MessageBundles.unknownPlaceholders(
+                        won, "{winner.name} {server.name} {season.number} {winner.nope} {winner}"));
     }
 
     @Test
     @DisplayName("a key without a schema is shown and never checked")
     void aKeyWithoutASchemaIsNeverChecked() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/smp/en.properties", "welcome=Welcome\n"));
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
-        final MessageEntry welcome = entry(MessageBundles.read(new MessageBundleLocation(
-                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true)), "welcome");
+        final MessageEntry welcome = entry(
+                MessageBundles.read(
+                        new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true)),
+                "welcome");
 
         assertNull(welcome.name());
         assertEquals(List.of(), MessageBundles.unknownPlaceholders(welcome, "Welcome {player}"));
@@ -212,12 +238,14 @@ class MessageBundlesTest {
     @Test
     @DisplayName("a key missing from the German bundle is a real gap, not silently filled with English")
     void aKeyMissingFromGermanIsReportedAsMissing() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/smp/en.properties", "new-feature=New!\n",
-                "messages/smp/de.properties", "# nothing translated yet\n"));
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                Map.of(
+                        "messages/smp/en.properties", "new-feature=New!\n",
+                        "messages/smp/de.properties", "# nothing translated yet\n"));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
-        final MessageBundleLocation location = new MessageBundleLocation(
-                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
+        final MessageBundleLocation location =
+                new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
 
         final MessageEntry entry = entry(MessageBundles.read(location), "new-feature");
 
@@ -228,12 +256,11 @@ class MessageBundlesTest {
     @Test
     @DisplayName("an override is carried beside the packaged text, not merged over it")
     void anOverrideIsCarriedSeparately() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/smp/en.properties", "welcome=Welcome\n"));
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
         Files.writeString(overrides.resolve("en.properties"), "welcome=Howdy\n", StandardCharsets.UTF_8);
-        final MessageBundleLocation location = new MessageBundleLocation(
-                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
+        final MessageBundleLocation location =
+                new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
 
         final MessageEntry entry = entry(MessageBundles.read(location), "welcome");
 
@@ -244,12 +271,11 @@ class MessageBundlesTest {
     @Test
     @DisplayName("a key only an override names, that no bundle declares, is shown and marked as such")
     void anUnknownOverrideKeyIsShownNotHidden() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/smp/en.properties", "welcome=Welcome\n"));
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
         Files.writeString(overrides.resolve("en.properties"), "typo-key=oops\n", StandardCharsets.UTF_8);
-        final MessageBundleLocation location = new MessageBundleLocation(
-                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
+        final MessageBundleLocation location =
+                new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
 
         final MessageEntry entry = entry(MessageBundles.read(location), "typo-key");
 
@@ -264,11 +290,10 @@ class MessageBundlesTest {
     @Test
     @DisplayName("saving a line creates the override, and resetting it removes the key entirely")
     void savingCreatesAndResettingRemoves() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/smp/en.properties", "welcome=Welcome\n"));
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
-        final MessageBundleLocation location = new MessageBundleLocation(
-                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
+        final MessageBundleLocation location =
+                new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
 
         MessageBundles.write(location, "en", Map.of("welcome", "Howdy"));
         assertEquals("Howdy", entry(MessageBundles.read(location), "welcome").overrideEnglish());
@@ -286,16 +311,16 @@ class MessageBundlesTest {
     @Test
     @DisplayName("an umlaut survives the round trip through the override file - the trap steward/48 names")
     void umlautsSurviveTheRoundTrip() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of(
-                "messages/smp/de.properties", "mill=Mühle\n"));
+        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of("messages/smp/de.properties", "mill=Mühle\n"));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
-        final MessageBundleLocation location = new MessageBundleLocation(
-                "smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
+        final MessageBundleLocation location =
+                new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.9.1.jar"), overrides, true);
 
         MessageBundles.write(location, "de", Map.of("mill", "Die Mühle dreht sich - äöüÄÖÜß"));
 
         final String onDisk = Files.readString(overrides.resolve("de.properties"), StandardCharsets.UTF_8);
-        assertTrue(onDisk.contains("Mühle"),
+        assertTrue(
+                onDisk.contains("Mühle"),
                 "written wrong, this reads \"M\\u00c3\\u00bchle\" instead - see the class javadoc: " + onDisk);
         assertFalse(onDisk.contains("\\u"), "must be a literal umlaut, never a \\uXXXX escape: " + onDisk);
 
@@ -310,19 +335,17 @@ class MessageBundlesTest {
     @Test
     @DisplayName("dropping a named placeholder is reported, never silently accepted")
     void droppingAPlaceholderIsReported() {
-        assertEquals(List.of("<_sender>"),
-                MessageBundles.missingPlaceholders(
-                        "<_sender> waves hello", "somebody waves hello"));
-        assertEquals(List.of("{price}"),
-                MessageBundles.missingPlaceholders(
-                        "{days} days - {price}", "{days} days - free"));
+        assertEquals(
+                List.of("<_sender>"),
+                MessageBundles.missingPlaceholders("<_sender> waves hello", "somebody waves hello"));
+        assertEquals(
+                List.of("{price}"), MessageBundles.missingPlaceholders("{days} days - {price}", "{days} days - free"));
     }
 
     @Test
     @DisplayName("keeping the placeholder, or having none to keep, reports nothing")
     void keepingOrHavingNoPlaceholderReportsNothing() {
-        assertEquals(List.of(),
-                MessageBundles.missingPlaceholders("<_sender> waves hello", "<_sender> says hi"));
+        assertEquals(List.of(), MessageBundles.missingPlaceholders("<_sender> waves hello", "<_sender> says hi"));
         assertEquals(List.of(), MessageBundles.missingPlaceholders("plain text", "different plain text"));
     }
 
@@ -337,9 +360,11 @@ class MessageBundlesTest {
     // ---------------------------------------------------------------------------------------
 
     private static MessageEntry entry(final MessageBundle bundle, final String key) {
-        return bundle.entries().stream().filter(e -> e.key().equals(key)).findFirst()
-                .orElseThrow(() -> new AssertionError(
-                        "no key " + key + " in " + bundle.entries().stream().map(MessageEntry::key).toList()));
+        return bundle.entries().stream()
+                .filter(e -> e.key().equals(key))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no key " + key + " in "
+                        + bundle.entries().stream().map(MessageEntry::key).toList()));
     }
 
     /** Writes a jar with the given entry name -> UTF-8 text content, directory entries included. */

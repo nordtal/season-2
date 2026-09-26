@@ -5,12 +5,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link AlertLevelSource} over the wire: {@code GET /api/alert-level} on steward-worker.
@@ -56,14 +55,14 @@ final class WorkerAlertLevelSource implements AlertLevelSource {
                         text(trigger, "path")));
             }
         }
-        return new AlertReading(triggers,
-                number(body, "diskPercent"),
-                number(body, "memoryPercent"),
-                number(body, "backupAgeHours"));
+        return new AlertReading(
+                triggers, number(body, "diskPercent"), number(body, "memoryPercent"), number(body, "backupAgeHours"));
     }
 
     private static String text(final JsonObject body, final String field) {
-        return body.has(field) && !body.get(field).isJsonNull() ? body.get(field).getAsString() : "";
+        return body.has(field) && !body.get(field).isJsonNull()
+                ? body.get(field).getAsString()
+                : "";
     }
 
     private static @Nullable Double number(final JsonObject body, final String field) {

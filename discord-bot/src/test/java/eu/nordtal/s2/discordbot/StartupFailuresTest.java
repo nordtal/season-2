@@ -1,14 +1,13 @@
 package eu.nordtal.s2.discordbot;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That the two ways this bot cannot possibly start are both handled as settings, not as crashes.
@@ -32,17 +31,19 @@ class StartupFailuresTest {
     @DisplayName("a token Discord rejects is caught, explained, and backed off")
     void aRejectedTokenIsNotAnUncaughtException() throws IOException {
         final String main = Files.readString(
-                repositoryRoot().resolve(
-                        "discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java"),
+                repositoryRoot().resolve("discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java"),
                 StandardCharsets.UTF_8);
 
-        assertTrue(main.contains("catch (final net.dv8tion.jda.api.exceptions.InvalidTokenException"),
+        assertTrue(
+                main.contains("catch (final net.dv8tion.jda.api.exceptions.InvalidTokenException"),
                 "AccessBot.main no longer catches InvalidTokenException, so a wrong token is a raw"
                         + " stack trace in a loop again");
-        assertTrue(main.contains("backOffThenExit()"),
+        assertTrue(
+                main.contains("backOffThenExit()"),
                 "nothing slows the restart loop down. Retrying a login Discord has already refused"
                         + " every eight seconds is what its rate limiter is for.");
-        assertTrue(main.contains("Thread.currentThread().interrupt()"),
+        assertTrue(
+                main.contains("Thread.currentThread().interrupt()"),
                 "the back-off has to stay interruptible: a container that ignores SIGTERM for a"
                         + " minute is a worse problem than the one being solved");
     }
@@ -56,6 +57,7 @@ class StartupFailuresTest {
             }
             directory = directory.getParent();
         }
-        throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        throw new IllegalStateException(
+                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 }

@@ -3,13 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { CommandPalette } from "@/app/command-palette"
 import { GERMAN_BACKUP_SYNONYM } from "@/app/run-search-terms"
-import {
-  useConfigDocuments,
-  useConfigs,
-  useMessageBundles,
-  useMessageDocuments,
-  useRuns,
-} from "@/lib/queries"
+import { useConfigDocuments, useConfigs, useMessageBundles, useMessageDocuments, useRuns } from "@/lib/queries"
 import { takePendingJump, takePendingMessageJump } from "@/lib/settings-search"
 import type {
   ConfigEntry,
@@ -370,9 +364,7 @@ describe("CommandPalette - finding a setting (steward/58)", () => {
  * is that exact case, word for word.
  */
 describe("CommandPalette - finding a message bundle key (steward/87)", () => {
-  function bundleLocation(
-    over: Partial<MessageBundleLocation> & { path: string },
-  ): MessageBundleLocation {
+  function bundleLocation(over: Partial<MessageBundleLocation> & { path: string }): MessageBundleLocation {
     return { service: "smp", module: "smp", writable: true, ...over }
   }
 
@@ -390,9 +382,7 @@ describe("CommandPalette - finding a message bundle key (steward/87)", () => {
 
   it("finds a bundle key that no config file mentions - the ticket's own red-then-green case", async () => {
     const loc = bundleLocation({ path: "smp/smp" })
-    oneBundle(loc, [
-      messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." }),
-    ])
+    oneBundle(loc, [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })])
 
     await search("decayed")
 
@@ -523,9 +513,7 @@ describe("CommandPalette - the input says what it is", () => {
     await waitFor(() => expect(searchInput()).not.toBeNull())
 
     // eslint-disable-next-line no-console
-    expect(screen.getByRole("combobox", { name: "Search pages, runs, settings" })).toBe(
-      searchInput(),
-    )
+    expect(screen.getByRole("combobox", { name: "Search pages, runs, settings" })).toBe(searchInput())
   })
 })
 
@@ -550,13 +538,7 @@ describe("CommandPalette - what an exact name outranks (steward/105)", () => {
       readable: true,
       writable: true,
     }
-    const scalar = (
-      path: string,
-      key: string,
-      label: string,
-      explanation: string,
-      value: string,
-    ): ConfigEntry => ({
+    const scalar = (path: string, key: string, label: string, explanation: string, value: string): ConfigEntry => ({
       path,
       key,
       label,
@@ -604,9 +586,7 @@ describe("CommandPalette - what an exact name outranks (steward/105)", () => {
 
   /** Every row the palette is currently showing, top to bottom, by its visible text. */
   function items(): string[] {
-    return Array.from(document.querySelectorAll("[cmdk-item]")).map((row) =>
-      (row.textContent ?? "").trim(),
-    )
+    return Array.from(document.querySelectorAll("[cmdk-item]")).map((row) => (row.textContent ?? "").trim())
   }
 
   it("puts the setting named Donor above the service pages that only fuzzily contain those letters", async () => {
@@ -739,6 +719,8 @@ describe("CommandPalette - the shell is a sheet on a phone (steward/128)", () =>
     // The dialog's width and offset are the desktop half; on a sheet they shrank it and pushed it aside.
     const sheet = input.closest("[data-slot='drawer-content']") as HTMLElement
     const bare = sheet.className.split(/\s+/).filter((name) => !name.includes(":"))
-    expect(bare.some((name) => name.startsWith("w-[") || name.startsWith("top-[") || name.startsWith("translate-"))).toBe(false)
+    expect(
+      bare.some((name) => name.startsWith("w-[") || name.startsWith("top-[") || name.startsWith("translate-")),
+    ).toBe(false)
   })
 })

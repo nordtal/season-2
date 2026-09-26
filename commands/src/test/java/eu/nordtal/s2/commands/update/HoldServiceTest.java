@@ -1,17 +1,15 @@
 package eu.nordtal.s2.commands.update;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import eu.nordtal.s2.commands.FakeUser;
-import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateKind;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@code /update down <service>} and {@code /update start [service]} (season-2-ops/125).
@@ -23,25 +21,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 class HoldServiceTest {
 
-    private static FakeUpdateDirectory ask(final eu.nordtal.s2.commands.Declaration declaration,
-                                           final Map<String, Object> arguments) {
+    private static FakeUpdateDirectory ask(
+            final eu.nordtal.s2.commands.Declaration declaration, final Map<String, Object> arguments) {
         final FakeUpdateDirectory directory = new FakeUpdateDirectory();
-        new HoldService(declaration).run(FakeUser.console(),
-                new Values(declaration, arguments),
-                new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> { },
-                        (id, user) -> { }));
+        new HoldService(declaration)
+                .run(
+                        FakeUser.console(),
+                        new Values(declaration, arguments),
+                        new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> {}, (id, user) -> {}));
         return directory;
     }
 
     @Test
     @DisplayName("/update down smp writes a DOWN for smp alone")
     void downCarriesItsService() {
-        final FakeUpdateDirectory directory =
-                ask(UpdateCommands.DOWN, Map.of("service", "smp"));
+        final FakeUpdateDirectory directory = ask(UpdateCommands.DOWN, Map.of("service", "smp"));
 
         assertEquals(1, directory.submitted.size());
         assertEquals(UpdateKind.DOWN, directory.submitted.getFirst().kind());
-        assertEquals(List.of("smp"), directory.submitted.getFirst().services(),
+        assertEquals(
+                List.of("smp"),
+                directory.submitted.getFirst().services(),
                 "the service was dropped on the way to the row, which makes this a DOWN with an"
                         + " empty scope - and an empty scope is the whole network");
     }
@@ -53,9 +53,11 @@ class HoldServiceTest {
         directory.refusing = RunRefused.alreadyHeld(List.of("smp"));
         final FakeUser user = FakeUser.console();
 
-        new HoldService(UpdateCommands.DOWN).run(user,
-                new Values(UpdateCommands.DOWN, Map.of("service", "smp")),
-                new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> { }, (id, who) -> { }));
+        new HoldService(UpdateCommands.DOWN)
+                .run(
+                        user,
+                        new Values(UpdateCommands.DOWN, Map.of("service", "smp")),
+                        new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> {}, (id, who) -> {}));
 
         assertEquals("update.already-down", user.only().key());
         assertEquals("smp", user.only().of("services"));
@@ -65,14 +67,24 @@ class HoldServiceTest {
     @DisplayName("a run refused because another is open says so")
     void aBusyNetworkIsNamedAsSuch() {
         final FakeUpdateDirectory directory = new FakeUpdateDirectory();
-        directory.refusing = RunRefused.runOpen(new eu.nordtal.s2.common.update.UpdateRequest(7L,
-                UpdateKind.UPDATE, eu.nordtal.s2.common.update.UpdateStatus.RUNNING,
-                eu.nordtal.s2.common.update.UpdateSource.DISCORD, "a", java.time.Instant.now(),
-                java.time.Instant.now(), null, null, null));
+        directory.refusing = RunRefused.runOpen(new eu.nordtal.s2.common.update.UpdateRequest(
+                7L,
+                UpdateKind.UPDATE,
+                eu.nordtal.s2.common.update.UpdateStatus.RUNNING,
+                eu.nordtal.s2.common.update.UpdateSource.DISCORD,
+                "a",
+                java.time.Instant.now(),
+                java.time.Instant.now(),
+                null,
+                null,
+                null));
         final FakeUser user = FakeUser.console();
 
-        new RunUpdate(UpdateCommands.NOW).run(user, new Values(UpdateCommands.NOW, Map.of()),
-                new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> { }, (id, who) -> { }));
+        new RunUpdate(UpdateCommands.NOW)
+                .run(
+                        user,
+                        new Values(UpdateCommands.NOW, Map.of()),
+                        new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> {}, (id, who) -> {}));
 
         assertEquals("update.busy", user.only().key());
     }
@@ -80,8 +92,7 @@ class HoldServiceTest {
     @Test
     @DisplayName("/update start smp writes a START for smp alone")
     void startCarriesItsService() {
-        final FakeUpdateDirectory directory =
-                ask(UpdateCommands.START, Map.of("service", "smp"));
+        final FakeUpdateDirectory directory = ask(UpdateCommands.START, Map.of("service", "smp"));
 
         assertEquals(UpdateKind.START, directory.submitted.getFirst().kind());
         assertEquals(List.of("smp"), directory.submitted.getFirst().services());

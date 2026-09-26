@@ -1,16 +1,15 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.OffsetDateTime;
+import java.util.List;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.OffsetDateTime;
-import java.util.List;
 
 /**
  * The sweeps: who should hold the access role, and whose access is about to end or just ended.
@@ -87,9 +86,10 @@ public interface ReconcileDao {
             VALUES (:discordId, :validUntil, :kind)
             ON CONFLICT (discord_id, valid_until, kind) DO NOTHING
             """)
-    int noticeOnce(@Bind("discordId") String discordId,
-                   @Bind("validUntil") OffsetDateTime validUntil,
-                   @Bind("kind") String kind);
+    int noticeOnce(
+            @Bind("discordId") String discordId,
+            @Bind("validUntil") OffsetDateTime validUntil,
+            @Bind("kind") String kind);
 
     /**
      * Every Discord account the bot has ever written about.

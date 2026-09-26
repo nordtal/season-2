@@ -1,15 +1,14 @@
 package eu.nordtal.s2.steward.ui.push;
 
 import com.google.gson.Gson;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Polls the traffic light and pushes every subscribed browser that asked for that kind of news
@@ -52,9 +51,12 @@ public final class AlertWatch {
     /** Null until the first successful poll - see the class note on why that poll never sends. */
     private volatile Map<AlertType, Alerts.Alert> last;
 
-    AlertWatch(final @NotNull AlertLevelSource source, final @NotNull PushSubscriptions subscriptions,
-               final @NotNull PushPreferences preferences, final @NotNull PushSender sender,
-               final @NotNull Alerts.Thresholds thresholds) {
+    AlertWatch(
+            final @NotNull AlertLevelSource source,
+            final @NotNull PushSubscriptions subscriptions,
+            final @NotNull PushPreferences preferences,
+            final @NotNull PushSender sender,
+            final @NotNull Alerts.Thresholds thresholds) {
         this.source = Objects.requireNonNull(source, "source");
         this.subscriptions = Objects.requireNonNull(subscriptions, "subscriptions");
         this.preferences = Objects.requireNonNull(preferences, "preferences");
@@ -63,13 +65,19 @@ public final class AlertWatch {
     }
 
     /** The public constructor: the real worker, the real database, the real push protocol. */
-    public AlertWatch(final @NotNull eu.nordtal.s2.steward.ui.internal.InternalClient worker,
-                      final @NotNull PushSubscriptions subscriptions,
-                      final @NotNull PushPreferences preferences,
-                      final @NotNull String vapidSubject,
-                      final @NotNull com.interaso.webpush.VapidKeys vapidKeys,
-                      final int diskPercent, final int memoryPercent, final int backupAgeHours) {
-        this(new WorkerAlertLevelSource(worker), subscriptions, preferences,
+    public AlertWatch(
+            final @NotNull eu.nordtal.s2.steward.ui.internal.InternalClient worker,
+            final @NotNull PushSubscriptions subscriptions,
+            final @NotNull PushPreferences preferences,
+            final @NotNull String vapidSubject,
+            final @NotNull com.interaso.webpush.VapidKeys vapidKeys,
+            final int diskPercent,
+            final int memoryPercent,
+            final int backupAgeHours) {
+        this(
+                new WorkerAlertLevelSource(worker),
+                subscriptions,
+                preferences,
                 new WebPushSender(vapidSubject, vapidKeys),
                 new Alerts.Thresholds(diskPercent, memoryPercent, backupAgeHours));
     }
@@ -112,8 +120,11 @@ public final class AlertWatch {
                 chosen = preferences.all();
                 browsers = subscriptions.all();
             }
-            log.info("{} moved from {} to {} - pushing to every subscription that wants it",
-                    type.key(), describe(before), describe(now));
+            log.info(
+                    "{} moved from {} to {} - pushing to every subscription that wants it",
+                    type.key(),
+                    describe(before),
+                    describe(now));
             push(type, payloadOf(type, now, before), chosen, browsers);
         }
     }
@@ -128,8 +139,8 @@ public final class AlertWatch {
      * @return what the push service said, so that the route can report a dead subscription rather
      *         than a silent success
      */
-    public @NotNull Delivery sendSample(final @NotNull PushSubscriptions.Subscription subscription,
-                                        final @NotNull AlertType type) {
+    public @NotNull Delivery sendSample(
+            final @NotNull PushSubscriptions.Subscription subscription, final @NotNull AlertType type) {
         final PushSender.Result result = send(subscription, payloadOf(type, sample(type), null));
         if (result == PushSender.Result.EXPIRED) {
             subscriptions.expired(subscription.endpoint());
@@ -155,9 +166,11 @@ public final class AlertWatch {
         FAILED
     }
 
-    private void push(final AlertType type, final String payload,
-                      final Map<String, Map<AlertType, Boolean>> chosen,
-                      final List<PushSubscriptions.Subscription> browsers) {
+    private void push(
+            final AlertType type,
+            final String payload,
+            final Map<String, Map<AlertType, Boolean>> chosen,
+            final List<PushSubscriptions.Subscription> browsers) {
         for (final PushSubscriptions.Subscription subscription : browsers) {
             if (!PushPreferences.enabled(chosen.get(subscription.discordId()), type)) {
                 continue;
@@ -174,8 +187,7 @@ public final class AlertWatch {
         }
     }
 
-    private PushSender.Result send(final PushSubscriptions.Subscription subscription,
-                                   final String payload) {
+    private PushSender.Result send(final PushSubscriptions.Subscription subscription, final String payload) {
         try {
             return sender.send(subscription, payload);
         } catch (final RuntimeException failure) {
@@ -213,8 +225,8 @@ public final class AlertWatch {
      * it. A clear that dropped the subject would arrive as "Steward is clear" - true, unreadable,
      * and the one notification somebody is waiting for after a service went down.</p>
      */
-    private static String payloadOf(final AlertType type, final @Nullable Alerts.Alert alert,
-                                    final @Nullable Alerts.Alert cleared) {
+    private static String payloadOf(
+            final AlertType type, final @Nullable Alerts.Alert alert, final @Nullable Alerts.Alert cleared) {
         final Alerts.Alert named = alert != null ? alert : cleared;
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", type.key());

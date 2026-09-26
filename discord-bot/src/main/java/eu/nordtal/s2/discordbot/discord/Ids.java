@@ -66,6 +66,5 @@ public final class Ids {
     /** Stops a countdown that is still running. */
     public static final String UPDATE_CANCEL = "access:update-cancel";
 
-    private Ids() {
-    }
+    private Ids() {}
 }

@@ -16,7 +16,6 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -55,74 +54,49 @@ class MigrationsAreImmutableTest {
     private static final Map<String, String> FROZEN = new LinkedHashMap<>();
 
     static {
-        FROZEN.put("V1__access.sql",
-                "53c2516f8206871f36b0e3680fae059b5426c79db9866f795691d68cd0808aca");
-        FROZEN.put("V2__bot_state.sql",
-                "eda34a10983f732466563eaf74ba53a5cfeb40a2822c9a72ffcd2202bf7ff162");
-        FROZEN.put("V3__bot_setting.sql",
-                "b60034927576ec2325b221db529cce25ee13b3514e5d43c89a7db0c8d081d79a");
-        FROZEN.put("V4__phase_admin_playtime.sql",
-                "3c6daf3d8def2ab21a1438bf16febdf5de3e7cd9699d7e2912fe9a480d8fbe89");
-        FROZEN.put("V5__hunger_games.sql",
-                "4a761fc45a184b1bdfdb3588df52c02c082ca793ca23b09b3993b48cadaca592");
-        FROZEN.put("V6__smp.sql",
-                "1902184489ae2bf636f7d7f49adf34700ee2f5927f073ab1cc2af7b14c36919a");
-        FROZEN.put("V7__update_request.sql",
-                "e0c6601d20af7289e58051504d66a2b12517493cd459bc3443d51b00d47da5c6");
-        FROZEN.put("V8__pre_launch.sql",
-                "e404fb391076150d67adbd7b4fdea8395e4af4c8aab4e3f22b4ba6f81efd3790");
-        FROZEN.put("V9__smp_start.sql",
-                "cfaf9c77a23da1313909c2c01400392e48fdf2c4281d89be800d4214f9243001");
-        FROZEN.put("V10__drop_smp_duel.sql",
-                "62e495ae17002bb76c8d69022ca73ac55f0823031a489d6b7a864198bad24f2b");
-        FROZEN.put("V11__command_request.sql",
-                "51ea000390f8d8a2f71582fe3f653d3c892f3bf97dff41e065870aa1faa223ba");
-        FROZEN.put("V12__update_is_one_run.sql",
-                "467dc7039be42f24f53483dc1d3a6ac66717ef1df3ef1c551bfd065fced2a8b0");
-        FROZEN.put("V13__countdown_after_resolving.sql",
+        FROZEN.put("V1__access.sql", "53c2516f8206871f36b0e3680fae059b5426c79db9866f795691d68cd0808aca");
+        FROZEN.put("V2__bot_state.sql", "eda34a10983f732466563eaf74ba53a5cfeb40a2822c9a72ffcd2202bf7ff162");
+        FROZEN.put("V3__bot_setting.sql", "b60034927576ec2325b221db529cce25ee13b3514e5d43c89a7db0c8d081d79a");
+        FROZEN.put("V4__phase_admin_playtime.sql", "3c6daf3d8def2ab21a1438bf16febdf5de3e7cd9699d7e2912fe9a480d8fbe89");
+        FROZEN.put("V5__hunger_games.sql", "4a761fc45a184b1bdfdb3588df52c02c082ca793ca23b09b3993b48cadaca592");
+        FROZEN.put("V6__smp.sql", "1902184489ae2bf636f7d7f49adf34700ee2f5927f073ab1cc2af7b14c36919a");
+        FROZEN.put("V7__update_request.sql", "e0c6601d20af7289e58051504d66a2b12517493cd459bc3443d51b00d47da5c6");
+        FROZEN.put("V8__pre_launch.sql", "e404fb391076150d67adbd7b4fdea8395e4af4c8aab4e3f22b4ba6f81efd3790");
+        FROZEN.put("V9__smp_start.sql", "cfaf9c77a23da1313909c2c01400392e48fdf2c4281d89be800d4214f9243001");
+        FROZEN.put("V10__drop_smp_duel.sql", "62e495ae17002bb76c8d69022ca73ac55f0823031a489d6b7a864198bad24f2b");
+        FROZEN.put("V11__command_request.sql", "51ea000390f8d8a2f71582fe3f653d3c892f3bf97dff41e065870aa1faa223ba");
+        FROZEN.put("V12__update_is_one_run.sql", "467dc7039be42f24f53483dc1d3a6ac66717ef1df3ef1c551bfd065fced2a8b0");
+        FROZEN.put(
+                "V13__countdown_after_resolving.sql",
                 "050e49837ebcddf49939c5f67e35156c07962b58f354983c63f01a8b2e88317b");
-        FROZEN.put("V14__backup_request.sql",
-                "875698e677bdf1fbab3d0f4f886a279b5fd9339d307ea9304a9a86e52ad0468f");
-        FROZEN.put("V15__network_setting.sql",
-                "0c8b5cb6f817b37e354607ddef0ccc92346fcdbeb1650e98a428b3086545b3ad");
-        FROZEN.put("V16__smp_welcome.sql",
-                "c19fdef6628c0b28338e48d998758c3f904a200442877564307c616049e2f14f");
-        FROZEN.put("V17__metric_sample.sql",
-                "7b6eee77bf978de455c98a96945068875bad57698a2669001d13a79921b4cd0e");
-        FROZEN.put("V18__command_request_web.sql",
-                "f2a203a69252181743fba7bdb59261d7ded361f66431fa9aa3c8a838c53b2906");
-        FROZEN.put("V19__steward_session.sql",
-                "7a8ea086b6e364501828119da501fb14e3a8fccd0ef473efbcf8b45d277f7783");
-        FROZEN.put("V20__steward_credential.sql",
-                "db65081934220ecbbf227acb602a7a060ce191a337549e7fdbb8748da25cf701");
-        FROZEN.put("V21__discord_and_minecraft_profile_cache.sql",
+        FROZEN.put("V14__backup_request.sql", "875698e677bdf1fbab3d0f4f886a279b5fd9339d307ea9304a9a86e52ad0468f");
+        FROZEN.put("V15__network_setting.sql", "0c8b5cb6f817b37e354607ddef0ccc92346fcdbeb1650e98a428b3086545b3ad");
+        FROZEN.put("V16__smp_welcome.sql", "c19fdef6628c0b28338e48d998758c3f904a200442877564307c616049e2f14f");
+        FROZEN.put("V17__metric_sample.sql", "7b6eee77bf978de455c98a96945068875bad57698a2669001d13a79921b4cd0e");
+        FROZEN.put("V18__command_request_web.sql", "f2a203a69252181743fba7bdb59261d7ded361f66431fa9aa3c8a838c53b2906");
+        FROZEN.put("V19__steward_session.sql", "7a8ea086b6e364501828119da501fb14e3a8fccd0ef473efbcf8b45d277f7783");
+        FROZEN.put("V20__steward_credential.sql", "db65081934220ecbbf227acb602a7a060ce191a337549e7fdbb8748da25cf701");
+        FROZEN.put(
+                "V21__discord_and_minecraft_profile_cache.sql",
                 "e598a302d28e4fcfb97a39a4e6eb8db2d634fa7840d508a9a7bc81aebaf5fed5");
-        FROZEN.put("V22__online_count.sql",
-                "bf98dd8e45614cd2cf1e76f812102f575957ec038ec58768c1281f5779846164");
-        FROZEN.put("V23__payment_request_seam.sql",
-                "ae71c85668ebe7948c2cd3c7ff07102b8cfb2e6fe8ee5320127ea40b730c28d1");
-        FROZEN.put("V24__online_player.sql",
-                "5261d44157deecfa8e11f6862bc166aca4ea394fd210cfa31c2f6baaf54c4766");
-        FROZEN.put("V25__payment_notice_posted.sql",
-                "c231c64b72cbc887083429d95288bbc364e7886975f9836cfbb809d07b91e72a");
-        FROZEN.put("V26__web_push_subscription.sql",
-                "d55ca77170392e6f72ea2cf124cd15b3258b26c738746aefe84677e39d344dd4");
-        FROZEN.put("V27__update_request_scope.sql",
-                "96306695d689a425553183d83399699337ad7cde36aea0352400e59dda5edfab");
-        FROZEN.put("V28__service_hold.sql",
-                "3aa88fe7c7e9dc06a080e2365879e85e9aa2ceaa165896bbe0ccbd0a03e6430f");
-        FROZEN.put("V29__service_plugin.sql",
-                "2be49ad36cdf8aa6fac391821c1c2a869b20036dff537c6c3bb0a538122b76f0");
-        FROZEN.put("V30__push_preferences_and_devices.sql",
+        FROZEN.put("V22__online_count.sql", "bf98dd8e45614cd2cf1e76f812102f575957ec038ec58768c1281f5779846164");
+        FROZEN.put("V23__payment_request_seam.sql", "ae71c85668ebe7948c2cd3c7ff07102b8cfb2e6fe8ee5320127ea40b730c28d1");
+        FROZEN.put("V24__online_player.sql", "5261d44157deecfa8e11f6862bc166aca4ea394fd210cfa31c2f6baaf54c4766");
+        FROZEN.put(
+                "V25__payment_notice_posted.sql", "c231c64b72cbc887083429d95288bbc364e7886975f9836cfbb809d07b91e72a");
+        FROZEN.put(
+                "V26__web_push_subscription.sql", "d55ca77170392e6f72ea2cf124cd15b3258b26c738746aefe84677e39d344dd4");
+        FROZEN.put("V27__update_request_scope.sql", "96306695d689a425553183d83399699337ad7cde36aea0352400e59dda5edfab");
+        FROZEN.put("V28__service_hold.sql", "3aa88fe7c7e9dc06a080e2365879e85e9aa2ceaa165896bbe0ccbd0a03e6430f");
+        FROZEN.put("V29__service_plugin.sql", "2be49ad36cdf8aa6fac391821c1c2a869b20036dff537c6c3bb0a538122b76f0");
+        FROZEN.put(
+                "V30__push_preferences_and_devices.sql",
                 "222aae4922acaeb05f5ffebc33293f96b26c88deebd9b5a222a7f8d759813aa9");
-        FROZEN.put("V31__proxy_swap.sql",
-                "13bfc3b409bc71a0800841a484203ca4089c4dca751ad90a17d68e1abbbc1b3f");
-        FROZEN.put("V33__access_request_reload.sql",
-                "8c0c58b154b1f1230c3d69092798e2b59d30102424083012ddd4b1394638fe74");
-        FROZEN.put("V32__access_request.sql",
-                "d6d4df3171f57275f1226faca0ef6f48cbaec6f823d56fc9ead0d197a900e0ec");
-        FROZEN.put("V34__admin_tree.sql",
-                "b0fdb96280a85020d604eb435b9053ecfc34229357ed3532024ae2d65e04d7f0");
+        FROZEN.put("V31__proxy_swap.sql", "13bfc3b409bc71a0800841a484203ca4089c4dca751ad90a17d68e1abbbc1b3f");
+        FROZEN.put(
+                "V33__access_request_reload.sql", "8c0c58b154b1f1230c3d69092798e2b59d30102424083012ddd4b1394638fe74");
+        FROZEN.put("V32__access_request.sql", "d6d4df3171f57275f1226faca0ef6f48cbaec6f823d56fc9ead0d197a900e0ec");
+        FROZEN.put("V34__admin_tree.sql", "b0fdb96280a85020d604eb435b9053ecfc34229357ed3532024ae2d65e04d7f0");
     }
 
     @Test
@@ -131,12 +105,17 @@ class MigrationsAreImmutableTest {
         final Path directory = migrations();
         assertAll(FROZEN.entrySet().stream().map(frozen -> () -> {
             final Path file = directory.resolve(frozen.getKey());
-            assertTrue(Files.isRegularFile(file), frozen.getKey() + " is gone. A released migration"
-                    + " is not deleted either - the database it ran against still has its row.");
-            assertEquals(frozen.getValue(), sha256(file), frozen.getKey() + " has changed. Flyway"
-                    + " checksums comments too, so every deployment that already ran this file now"
-                    + " refuses to start. Undo the edit; if the schema really has to change, that is"
-                    + " a NEW migration.");
+            assertTrue(
+                    Files.isRegularFile(file),
+                    frozen.getKey() + " is gone. A released migration"
+                            + " is not deleted either - the database it ran against still has its row.");
+            assertEquals(
+                    frozen.getValue(),
+                    sha256(file),
+                    frozen.getKey() + " has changed. Flyway"
+                            + " checksums comments too, so every deployment that already ran this file now"
+                            + " refuses to start. Undo the edit; if the schema really has to change, that is"
+                            + " a NEW migration.");
         }));
     }
 
@@ -144,10 +123,14 @@ class MigrationsAreImmutableTest {
     @DisplayName("a new migration is frozen in the same commit that adds it")
     void everyMigrationIsFrozen() {
         try (Stream<Path> files = Files.list(migrations())) {
-            assertAll(files.map(Path::getFileName).map(Path::toString).sorted().map(name -> () ->
-                    assertTrue(FROZEN.containsKey(name), name + " is in db/migration and not in this"
-                            + " test. Add it with its hash - that line is what stops the next"
-                            + " search-and-replace from walking through it unnoticed.")));
+            assertAll(files.map(Path::getFileName)
+                    .map(Path::toString)
+                    .sorted()
+                    .map(name -> () -> assertTrue(
+                            FROZEN.containsKey(name),
+                            name + " is in db/migration and not in this"
+                                    + " test. Add it with its hash - that line is what stops the next"
+                                    + " search-and-replace from walking through it unnoticed.")));
         } catch (final IOException failure) {
             throw new UncheckedIOException(failure);
         }

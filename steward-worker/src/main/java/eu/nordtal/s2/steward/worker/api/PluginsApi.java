@@ -8,18 +8,12 @@ import eu.nordtal.s2.steward.worker.plan.PluginFolder;
 import eu.nordtal.s2.steward.worker.plan.Topology;
 import eu.nordtal.s2.steward.worker.source.Modrinth;
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
-
 import io.javalin.http.BadGatewayResponse;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
 import io.javalin.http.InternalServerErrorResponse;
 import io.javalin.http.NotFoundResponse;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +24,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The four routes behind "the plugins on this server" (season-2-ops/129).
@@ -90,8 +88,11 @@ public final class PluginsApi {
      * @param gameVersion the Minecraft version every search and every resolve is filtered to,
      *                    which is {@code Platform#MINECRAFT}
      */
-    public PluginsApi(final @NotNull PluginDirectory plugins, final @NotNull Modrinth modrinth,
-                      final @Nullable Path volumesRoot, final @NotNull String gameVersion) {
+    public PluginsApi(
+            final @NotNull PluginDirectory plugins,
+            final @NotNull Modrinth modrinth,
+            final @Nullable Path volumesRoot,
+            final @NotNull String gameVersion) {
         this(plugins, modrinth, volumesRoot, gameVersion, Map.of());
     }
 
@@ -99,9 +100,12 @@ public final class PluginsApi {
      * @param fixedProjects the Modrinth project id of each plugin the network gives from Modrinth,
      *                      keyed by artefact id - what names and draws one that is not on the disk
      */
-    public PluginsApi(final @NotNull PluginDirectory plugins, final @NotNull Modrinth modrinth,
-                      final @Nullable Path volumesRoot, final @NotNull String gameVersion,
-                      final @NotNull Map<String, String> fixedProjects) {
+    public PluginsApi(
+            final @NotNull PluginDirectory plugins,
+            final @NotNull Modrinth modrinth,
+            final @Nullable Path volumesRoot,
+            final @NotNull String gameVersion,
+            final @NotNull Map<String, String> fixedProjects) {
         this.fixedProjects = Map.copyOf(fixedProjects);
         this.plugins = Objects.requireNonNull(plugins, "plugins");
         this.modrinth = Objects.requireNonNull(modrinth, "modrinth");
@@ -154,8 +158,8 @@ public final class PluginsApi {
         // that are, and marked as not running. No install action - the next update run is what
         // puts them there, if it can.
         final List<String> absent = absentFixed(service, installed.plugins(), published, fixedProjects);
-        final Map<String, Modrinth.Project> titles = identity.projects(absent.stream()
-                .map(fixedProjects::get).filter(Objects::nonNull).toList());
+        final Map<String, Modrinth.Project> titles = identity.projects(
+                absent.stream().map(fixedProjects::get).filter(Objects::nonNull).toList());
         for (final String artifact : absent) {
             final Map<String, Object> described = new LinkedHashMap<>();
             final String nordtal = Topology.nordtalPrefixOf(artifact);
@@ -199,8 +203,11 @@ public final class PluginsApi {
         ctx.json(answer);
     }
 
-    private Map<String, Object> describe(final @Nullable ManagedPlugin plugin, final @Nullable String prefix,
-                                         final @Nullable Installation.Jar jar, final boolean running) {
+    private Map<String, Object> describe(
+            final @Nullable ManagedPlugin plugin,
+            final @Nullable String prefix,
+            final @Nullable Installation.Jar jar,
+            final boolean running) {
         final Map<String, Object> row = new LinkedHashMap<>();
         // The title when there is a row, the filename prefix when there is not. Never the artefact
         // id for an added plugin: "worldedit-bukkit" is what the file is called, "WorldEdit" is
@@ -238,9 +245,12 @@ public final class PluginsApi {
 
     private static @Nullable ManagedPlugin ownerOf(final Installation.Jar jar, final List<ManagedPlugin> added) {
         final String prefix = jar.prefix();
-        return prefix == null ? null : added.stream()
-                .filter(plugin -> plugin.filePrefix().equals(prefix))
-                .findFirst().orElse(null);
+        return prefix == null
+                ? null
+                : added.stream()
+                        .filter(plugin -> plugin.filePrefix().equals(prefix))
+                        .findFirst()
+                        .orElse(null);
     }
 
     /** A jar Nordtal publishes: a season jar ({@code smp-0.9.5.jar}) or the name-tag fork. */
@@ -260,10 +270,11 @@ public final class PluginsApi {
      * starts with the artefact id ({@code CoreProtect-CE}, {@code voicechat-bukkit}). A fixed
      * plugin that is neither, the platform itself for one, is not listed at all.</p>
      */
-    static @NotNull List<String> absentFixed(final @NotNull Topology.Service service,
-                                             final @NotNull List<Installation.Jar> jars,
-                                             final @NotNull Map<String, Modrinth.Project> identified,
-                                             final @NotNull Map<String, String> fixedProjects) {
+    static @NotNull List<String> absentFixed(
+            final @NotNull Topology.Service service,
+            final @NotNull List<Installation.Jar> jars,
+            final @NotNull Map<String, Modrinth.Project> identified,
+            final @NotNull Map<String, String> fixedProjects) {
         final List<String> absent = new ArrayList<>();
         for (final String artifact : service.plugins()) {
             final String nordtal = Topology.nordtalPrefixOf(artifact);
@@ -273,8 +284,11 @@ public final class PluginsApi {
                 present = jars.stream().anyMatch(jar -> nordtal.equals(jar.prefix()));
             } else if (project != null) {
                 present = identified.values().stream().anyMatch(found -> project.equals(found.projectId()))
-                        || jars.stream().anyMatch(jar -> jar.prefix() != null
-                        && jar.prefix().toLowerCase(java.util.Locale.ROOT).startsWith(artifact));
+                        || jars.stream()
+                                .anyMatch(jar -> jar.prefix() != null
+                                        && jar.prefix()
+                                                .toLowerCase(java.util.Locale.ROOT)
+                                                .startsWith(artifact));
             } else {
                 continue;
             }
@@ -321,12 +335,20 @@ public final class PluginsApi {
             // is a plugin this admin added last week, the other is a plugin the network gives and
             // nobody may remove.
             row.put("added", added.stream().anyMatch(plugin -> plugin.artifact().equals(hit.slug())));
-            row.put("fixed", service.plugins().contains(
-                    Topology.addedArtifact(hit.slug(), service.kind())));
+            row.put("fixed", service.plugins().contains(Topology.addedArtifact(hit.slug(), service.kind())));
             rows.add(row);
         }
-        ctx.json(Map.of("service", service.name(), "loader", service.kind().modrinthLoader(),
-                "gameVersion", gameVersion, "query", query, "hits", rows));
+        ctx.json(Map.of(
+                "service",
+                service.name(),
+                "loader",
+                service.kind().modrinthLoader(),
+                "gameVersion",
+                gameVersion,
+                "query",
+                query,
+                "hits",
+                rows));
     }
 
     // ---------------------------------------------------------------- adding one
@@ -360,8 +382,7 @@ public final class PluginsApi {
     public void add(final @NotNull Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
         final Ask ask = ctx.bodyAsClass(Ask.class);
-        if (ask == null || ask.projectId == null || ask.projectId.isBlank()
-                || ask.slug == null || ask.slug.isBlank()) {
+        if (ask == null || ask.projectId == null || ask.projectId.isBlank() || ask.slug == null || ask.slug.isBlank()) {
             throw new BadRequestResponse("projectId and slug are which Modrinth project to install");
         }
         final String slug = ask.slug.strip();
@@ -380,13 +401,12 @@ public final class PluginsApi {
 
         final RemoteFile newest;
         try {
-            newest = modrinth.newest(artifact, ask.projectId.strip(), gameVersion,
-                    service.kind().modrinthLoader());
+            newest = modrinth.newest(
+                    artifact, ask.projectId.strip(), gameVersion, service.kind().modrinthLoader());
         } catch (final Modrinth.Unsupported none) {
             throw new ConflictResponse(none.getMessage());
         } catch (final IOException failed) {
-            throw new BadGatewayResponse("Modrinth could not be asked for " + slug + ": "
-                    + failed.getMessage());
+            throw new BadGatewayResponse("Modrinth could not be asked for " + slug + ": " + failed.getMessage());
         }
 
         final String prefix = JarName.prefixOf(newest.fileName());
@@ -397,27 +417,43 @@ public final class PluginsApi {
                     + " version, so this installation could never be undone. See JarName.");
         }
 
-        plugins.add(new ManagedPlugin(service.name(), slug, ask.projectId.strip(), prefix,
+        plugins.add(new ManagedPlugin(
+                service.name(),
+                slug,
+                ask.projectId.strip(),
+                prefix,
                 blankToNull(ask.title) == null ? slug : ask.title.strip(),
                 icon(ask.iconUrl),
                 // Built here, never taken from the body: this string becomes a link on an admin
                 // page, and the only thing a request may decide is which Modrinth project it
                 // points at.
                 "https://modrinth.com/plugin/" + slug,
-                java.time.Instant.now(), blankToNull(ask.by)));
+                java.time.Instant.now(),
+                blankToNull(ask.by)));
 
-        log.info("{} added {} ({}) to {} - it installs with the next run as {}",
-                blankToNull(ask.by) == null ? "somebody" : ask.by, slug, ask.projectId,
-                service.name(), newest.fileName());
+        log.info(
+                "{} added {} ({}) to {} - it installs with the next run as {}",
+                blankToNull(ask.by) == null ? "somebody" : ask.by,
+                slug,
+                ask.projectId,
+                service.name(),
+                newest.fileName());
 
-        ctx.status(201).json(Map.of(
-                "service", service.name(),
-                "artifact", slug,
-                "filePrefix", prefix,
-                // What would arrive, so the interface can say it rather than "ok".
-                "fileName", newest.fileName(),
-                "version", newest.version(),
-                "running", false));
+        ctx.status(201)
+                .json(Map.of(
+                        "service",
+                        service.name(),
+                        "artifact",
+                        slug,
+                        "filePrefix",
+                        prefix,
+                        // What would arrive, so the interface can say it rather than "ok".
+                        "fileName",
+                        newest.fileName(),
+                        "version",
+                        newest.version(),
+                        "running",
+                        false));
     }
 
     // ---------------------------------------------------------------- removing one
@@ -466,9 +502,11 @@ public final class PluginsApi {
             // resolve() on a name read out of a jar somebody else wrote, so the result is checked
             // to still be inside the plugins folder rather than trusted. `name: ../../world` is a
             // descriptor anybody can ship.
-            if (!directory.normalize().startsWith(pluginsDirectory(service.name()).normalize())) {
-                throw new ConflictResponse(folder + " is not a name a data folder may have."
-                        + " Nothing was deleted beyond the jar.");
+            if (!directory
+                    .normalize()
+                    .startsWith(pluginsDirectory(service.name()).normalize())) {
+                throw new ConflictResponse(
+                        folder + " is not a name a data folder may have." + " Nothing was deleted beyond the jar.");
             }
             try {
                 deleteTree(directory);
@@ -481,7 +519,10 @@ public final class PluginsApi {
         }
 
         plugins.remove(service.name(), artifact);
-        log.info("{} was removed from {} - deleted: {}", artifact, service.name(),
+        log.info(
+                "{} was removed from {} - deleted: {}",
+                artifact,
+                service.name(),
                 deleted.isEmpty() ? "nothing, it had not been installed yet" : String.join(", ", deleted));
         ctx.json(Map.of("service", service.name(), "artifact", artifact, "deleted", deleted));
     }
@@ -498,8 +539,8 @@ public final class PluginsApi {
 
     private Path pluginsDirectory(final String service) {
         if (volumesRoot == null) {
-            throw new ConflictResponse("this worker has no volumes mounted, so it cannot see any"
-                    + " service's plugins folder");
+            throw new ConflictResponse(
+                    "this worker has no volumes mounted, so it cannot see any" + " service's plugins folder");
         }
         return volumesRoot.resolve(service).resolve(Installation.PLUGINS);
     }

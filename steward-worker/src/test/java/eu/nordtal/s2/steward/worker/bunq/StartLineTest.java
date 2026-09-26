@@ -1,22 +1,19 @@
 package eu.nordtal.s2.steward.worker.bunq;
 
-import eu.nordtal.s2.steward.worker.config.StewardSpec;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
-
+import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /**
  * The one line steward-worker says about bunq at startup, seen both ways.
@@ -51,46 +48,44 @@ class StartLineTest {
     @Test
     @DisplayName("with a key: one INFO line naming the account and the poll, and never the key")
     void theOnBranch() {
-        final List<ILoggingEvent> events = capture(() ->
-                new BunqGateway(bunq(API_KEY, "987654")).logStartupLine(POLL));
+        final List<ILoggingEvent> events = capture(() -> new BunqGateway(bunq(API_KEY, "987654")).logStartupLine(POLL));
 
         assertEquals(1, events.size(), "the start line is one line: " + events);
         final ILoggingEvent line = events.getFirst();
         System.out.println("[start line, bunq ON ] " + line.getLevel() + " " + line.getFormattedMessage());
 
-        assertEquals(Level.INFO, line.getLevel(),
-                "a configured bunq is not a warning - it is the expected state");
+        assertEquals(Level.INFO, line.getLevel(), "a configured bunq is not a warning - it is the expected state");
         final String text = line.getFormattedMessage();
-        assertTrue(text.startsWith("bunq is ON"),
-                "the first three words are what somebody greps for: " + text);
-        assertTrue(text.contains("987654"),
+        assertTrue(text.startsWith("bunq is ON"), "the first three words are what somebody greps for: " + text);
+        assertTrue(
+                text.contains("987654"),
                 "the account id belongs in the line - an id pointing at the wrong account is the"
                         + " other way this goes wrong quietly: " + text);
         assertTrue(text.contains("30s"), "the poll interval belongs in the line: " + text);
-        assertFalse(text.contains(API_KEY),
-                "THE API KEY MUST NEVER BE IN A LOG LINE. It was in: " + text);
+        assertFalse(text.contains(API_KEY), "THE API KEY MUST NEVER BE IN A LOG LINE. It was in: " + text);
     }
 
     @Test
     @DisplayName("without a key: one WARN line naming both new variables and the old ones")
     void theOffBranch() {
-        final List<ILoggingEvent> events = capture(() ->
-                new BunqGateway(bunq("", "")).logStartupLine(POLL));
+        final List<ILoggingEvent> events = capture(() -> new BunqGateway(bunq("", "")).logStartupLine(POLL));
 
         assertEquals(1, events.size(), "the start line is one line: " + events);
         final ILoggingEvent line = events.getFirst();
         System.out.println("[start line, bunq OFF] " + line.getLevel() + " " + line.getFormattedMessage());
 
-        assertEquals(Level.WARN, line.getLevel(),
+        assertEquals(
+                Level.WARN,
+                line.getLevel(),
                 "'bunq is OFF' at INFO is a line nobody finds among several hundred at startup,"
                         + " and being found is the entire job of this sentence");
         final String text = line.getFormattedMessage();
         assertTrue(text.startsWith("bunq is OFF"), text);
-        assertTrue(text.contains("NORDTAL_STEWARD_BUNQ_API_KEY")
-                        && text.contains("NORDTAL_STEWARD_BUNQ_ACCOUNT_ID"),
-                "the line has to name the variables to set, or it says only that something is"
-                        + " missing: " + text);
-        assertTrue(text.contains("NORDTAL_BOT_BUNQ_"),
+        assertTrue(
+                text.contains("NORDTAL_STEWARD_BUNQ_API_KEY") && text.contains("NORDTAL_STEWARD_BUNQ_ACCOUNT_ID"),
+                "the line has to name the variables to set, or it says only that something is" + " missing: " + text);
+        assertTrue(
+                text.contains("NORDTAL_BOT_BUNQ_"),
                 "and the OLD names, because the one deployment that will ever read this line in"
                         + " anger is the one whose environment file still uses them: " + text);
     }
@@ -104,7 +99,8 @@ class StartLineTest {
         // reach Long.parseLong("") in its constructor.
         assertFalse(new BunqGateway(bunq(API_KEY, "")).configured());
         assertFalse(new BunqGateway(bunq("", "987654")).configured());
-        assertFalse(new BunqGateway(bunq("   ", "  ")).configured(),
+        assertFalse(
+                new BunqGateway(bunq("   ", "  ")).configured(),
                 "whitespace is not a credential - a blank environment value is unset to jcore");
     }
 
@@ -136,8 +132,8 @@ class StartLineTest {
             }
         };
 
-        final ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger)
-                LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        final ch.qos.logback.classic.Logger root =
+                (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
         appender.setContext(root.getLoggerContext());
         appender.start();
         root.addAppender(appender);

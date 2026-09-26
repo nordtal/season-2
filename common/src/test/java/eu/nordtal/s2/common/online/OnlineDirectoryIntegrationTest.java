@@ -1,7 +1,18 @@
 package eu.nordtal.s2.common.online;
 
-import eu.nordtal.s2.common.access.AccessSchema;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.access.AccessSchema;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Instant;
+import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,19 +22,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Instant;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Exercises {@link OnlineDirectory} against a real PostgreSQL running the real migration.
@@ -43,7 +41,8 @@ class OnlineDirectoryIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed online-count tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -136,7 +135,9 @@ class OnlineDirectoryIntegrationTest {
         online.write(Map.of("smp", 3));
         online.write(Map.of("smp", 9));
 
-        assertEquals(1, count("SELECT count(*) FROM online_count WHERE subject = 'smp'"),
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM online_count WHERE subject = 'smp'"),
                 "still one row, never a second one for the same subject");
         assertEquals(9, online.current().get("smp").players(), "and the newest value wins");
     }
@@ -148,7 +149,9 @@ class OnlineDirectoryIntegrationTest {
         online.write(Map.of("smp", 4));
 
         assertEquals(4, online.current().get("smp").players());
-        assertEquals(1, online.current().get("limbo").players(),
+        assertEquals(
+                1,
+                online.current().get("limbo").players(),
                 "limbo was not in the second write, so its row must still be exactly what it was");
     }
 
@@ -169,8 +172,8 @@ class OnlineDirectoryIntegrationTest {
 
     private long count(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
             assertTrue(rs.next());
             return rs.getLong(1);
         } catch (final SQLException e) {
@@ -180,7 +183,7 @@ class OnlineDirectoryIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException e) {
             throw new IllegalStateException(e);

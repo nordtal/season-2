@@ -8,10 +8,6 @@ import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
-
-import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +15,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 
 /**
  * Every update run in the admin channel, including the ones nobody in Discord started.
@@ -92,8 +90,7 @@ public final class UpdateFeed {
         static Board of(final AdminLog admin) {
             return new Board() {
                 @Override
-                public void post(final MessageEmbed embed,
-                                 final java.util.function.Consumer<String> sentId) {
+                public void post(final MessageEmbed embed, final java.util.function.Consumer<String> sentId) {
                     admin.post(embed, sentId);
                 }
 
@@ -111,8 +108,7 @@ public final class UpdateFeed {
     }
 
     /** A run being drawn: the message showing it, and the report that message currently shows. */
-    private record Drawn(String messageId, String showing) {
-    }
+    private record Drawn(String messageId, String showing) {}
 
     private final UpdateDirectory updates;
     private final Board board;
@@ -132,8 +128,7 @@ public final class UpdateFeed {
     private final Map<Long, Drawn> drawing = new ConcurrentHashMap<>();
 
     /** Whether a pass is running. See {@link #tick()} for why this is a flag and not a lock. */
-    private final java.util.concurrent.atomic.AtomicBoolean ticking =
-            new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean ticking = new java.util.concurrent.atomic.AtomicBoolean();
 
     public UpdateFeed(final UpdateDirectory updates, final Board board, final Messages messages) {
         this.updates = Objects.requireNonNull(updates, "updates");
@@ -161,7 +156,7 @@ public final class UpdateFeed {
                     continue;
                 }
                 // Posted and forgotten: it is over, so there is nothing left to edit into it.
-                board.post(embed(request), messageId -> { });
+                board.post(embed(request), messageId -> {});
             }
             // A run that was still going when this bot went down is the third case, and it fell
             // through both of the others: its id is at or below the mark, so `since(lastSeen)`
@@ -169,20 +164,18 @@ public final class UpdateFeed {
             // The run everybody most wants to watch is exactly the one that outlives a bot
             // restart. Registering it before the mark moves is what makes tick() follow it.
             for (final UpdateRequest request : updates.since(0L)) {
-                if (request.source() == UpdateSource.DISCORD || request.status().isFinished()
-                        || request.id() > mark) {
+                if (request.source() == UpdateSource.DISCORD || request.status().isFinished() || request.id() > mark) {
                     continue;
                 }
-                board.post(embed(request), messageId ->
-                        drawing.put(request.id(), new Drawn(messageId, request.result())));
+                board.post(
+                        embed(request), messageId -> drawing.put(request.id(), new Drawn(messageId, request.result())));
             }
             lastSeen = mark;
         } catch (final RuntimeException failure) {
             // Not fatal. The feed starts from whatever it managed to read - zero, in the worst
             // case, which posts the history once and then behaves. A bot that refuses to start
             // because a channel could not be back-filled would be the worse trade.
-            log.error("Could not read the update history; the feed starts from {}", lastSeen,
-                    failure);
+            log.error("Could not read the update history; the feed starts from {}", lastSeen, failure);
         }
     }
 
@@ -341,8 +334,8 @@ public final class UpdateFeed {
      * this", which is what {@code RESOLVING} says.</p>
      */
     private MessageEmbed embed(final UpdateRequest request) {
-        final UpdateReport report = UpdateReports.parse(request.result())
-                .orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
+        final UpdateReport report =
+                UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
         // With the context the asker's own embed omits: which run, who asked, and from where.
         return UpdateCommand.fields(report, request, messages, Locales.DEFAULT, true);
     }

@@ -1,7 +1,6 @@
 package eu.nordtal.s2.discordbot.config;
 
 import eu.nordtal.s2.common.message.Locales;
-
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -98,8 +97,8 @@ public final class Languages {
                     + copy.stream().map(Language::tag).toList());
         }
         if (copy.stream().noneMatch(language -> FALLBACK_TAG.equals(language.tag()))) {
-            throw new IllegalArgumentException("'" + FALLBACK_TAG + "' is the fallback and must be "
-                    + "present: " + copy.stream().map(Language::tag).toList());
+            throw new IllegalArgumentException("'" + FALLBACK_TAG + "' is the fallback and must be " + "present: "
+                    + copy.stream().map(Language::tag).toList());
         }
         return new Languages(copy);
     }
@@ -218,16 +217,24 @@ public final class Languages {
      *                              optional id here: the bot writes no message into it and simply
      *                              renames nothing when it is empty
      */
-    public record Language(String tag, String roleId, String contributionChannelId, String linkChannelId,
-                            String hungerGamesChannelId, String statusChannelId,
-                            String announcementChannelId) {
+    public record Language(
+            String tag,
+            String roleId,
+            String contributionChannelId,
+            String linkChannelId,
+            String hungerGamesChannelId,
+            String statusChannelId,
+            String announcementChannelId) {
 
         /** The six-id form: no announcement channel, which is the file's default too. */
-        public Language(final String tag, final String roleId, final String contributionChannelId,
-                        final String linkChannelId, final String hungerGamesChannelId,
-                        final String statusChannelId) {
-            this(tag, roleId, contributionChannelId, linkChannelId, hungerGamesChannelId,
-                    statusChannelId, "");
+        public Language(
+                final String tag,
+                final String roleId,
+                final String contributionChannelId,
+                final String linkChannelId,
+                final String hungerGamesChannelId,
+                final String statusChannelId) {
+            this(tag, roleId, contributionChannelId, linkChannelId, hungerGamesChannelId, statusChannelId, "");
         }
 
         /** @return whether this language has a status channel to rename at all */

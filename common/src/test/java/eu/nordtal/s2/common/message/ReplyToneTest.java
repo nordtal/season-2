@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.message;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -16,9 +15,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Every reply a command sends names a {@link Tone}, and the exceptions are named here.
@@ -85,12 +83,18 @@ class ReplyToneTest {
             while (matcher.find()) {
                 final String call = arguments(text, matcher.end() - 1);
                 if (!call.contains("Tone.")) {
-                    offenders.add(name + ":" + (text.substring(0, matcher.start()).chars()
-                            .filter(c -> c == '\n').count() + 1));
+                    offenders.add(name + ":"
+                            + (text.substring(0, matcher.start())
+                                            .chars()
+                                            .filter(c -> c == '\n')
+                                            .count()
+                                    + 1));
                 }
             }
         }
-        assertEquals(List.of(), offenders,
+        assertEquals(
+                List.of(),
+                offenders,
                 "a reply with no tone is drawn in whatever colour the client was already using -"
                         + " add one of Tone's five, or add the file to ALLOWED with the reason it"
                         + " cannot have one");
@@ -100,7 +104,8 @@ class ReplyToneTest {
     @DisplayName("the allowlist names files that exist")
     void theAllowlistIsNotStale() {
         for (final String name : ALLOWED.keySet()) {
-            assertTrue(Files.isRegularFile(RepositoryRoot.resolve(name)),
+            assertTrue(
+                    Files.isRegularFile(RepositoryRoot.resolve(name)),
                     name + " is allowed to send an untoned reply and does not exist - a stale"
                             + " allowlist entry is a hole nobody can see");
         }

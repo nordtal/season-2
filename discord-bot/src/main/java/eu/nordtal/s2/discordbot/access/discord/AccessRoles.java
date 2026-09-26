@@ -1,24 +1,14 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
-import eu.nordtal.s2.discordbot.discord.AdminLog;
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.s2.discordbot.config.AccessSpec;
-import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.Messages;
-
-import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.Role;
-import net.dv8tion.jda.api.exceptions.ErrorResponseException;
-import net.dv8tion.jda.api.requests.ErrorResponse;
-import net.dv8tion.jda.api.utils.TimeFormat;
-import org.jdbi.v3.core.Jdbi;
-
+import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.discordbot.config.Configured;
+import eu.nordtal.s2.discordbot.discord.AdminLog;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -28,8 +18,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
-
-import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.requests.ErrorResponse;
+import net.dv8tion.jda.api.utils.TimeFormat;
+import org.jdbi.v3.core.Jdbi;
 
 /**
  * The two roles, and the messages that go with them.
@@ -67,8 +64,13 @@ public final class AccessRoles {
     private final AdminLog admin;
     private final ReconcileDao dao;
 
-    public AccessRoles(final JDA jda, final AccessSpec config, final AccessDirectory access,
-                       final Messages messages, final AdminLog admin, final Jdbi jdbi) {
+    public AccessRoles(
+            final JDA jda,
+            final AccessSpec config,
+            final AccessDirectory access,
+            final Messages messages,
+            final AdminLog admin,
+            final Jdbi jdbi) {
         this.jda = jda;
         this.config = config;
         this.access = access;
@@ -102,27 +104,33 @@ public final class AccessRoles {
             return;
         }
         final Guild guild = guild();
-        final Role role = guild == null ? null : guild.getRoleById(config.roles().access());
+        final Role role =
+                guild == null ? null : guild.getRoleById(config.roles().access());
         if (guild == null || role == null) {
             admin.alert("The access role " + config.roles().access() + " does not exist. "
                     + "Nobody's access role is being maintained.");
             return;
         }
 
-        guild.retrieveMemberById(discordId).queue(member -> {
-            final boolean has = member.getRoles().contains(role);
-            if (active && !has) {
-                guild.addRoleToMember(member, role).queue(
-                        ok -> log.info("Gave the access role to {}", discordId),
-                        failure -> admin.alert("Could not give the access role to <@" + discordId + ">: "
-                                + failure.getMessage()));
-            } else if (!active && has) {
-                guild.removeRoleFromMember(member, role).queue(
-                        ok -> log.info("Took the access role from {}", discordId),
-                        failure -> admin.alert("Could not take the access role from <@" + discordId + ">: "
-                                + failure.getMessage()));
-            }
-        }, failure -> log.debug("{} is not a member of the guild, so no access role to set", discordId));
+        guild.retrieveMemberById(discordId)
+                .queue(
+                        member -> {
+                            final boolean has = member.getRoles().contains(role);
+                            if (active && !has) {
+                                guild.addRoleToMember(member, role)
+                                        .queue(
+                                                ok -> log.info("Gave the access role to {}", discordId),
+                                                failure -> admin.alert("Could not give the access role to <@"
+                                                        + discordId + ">: " + failure.getMessage()));
+                            } else if (!active && has) {
+                                guild.removeRoleFromMember(member, role)
+                                        .queue(
+                                                ok -> log.info("Took the access role from {}", discordId),
+                                                failure -> admin.alert("Could not take the access role from <@"
+                                                        + discordId + ">: " + failure.getMessage()));
+                            }
+                        },
+                        failure -> log.debug("{} is not a member of the guild, so no access role to set", discordId));
     }
 
     /** Grants the permanent donor role. Never has a counterpart that removes it. */
@@ -132,16 +140,18 @@ public final class AccessRoles {
             return;
         }
         final Guild guild = guild();
-        final Role role = guild == null ? null : guild.getRoleById(config.roles().donor());
+        final Role role =
+                guild == null ? null : guild.getRoleById(config.roles().donor());
         if (guild == null || role == null) {
             admin.alert("The donor role " + config.roles().donor() + " does not exist, so <@" + discordId
                     + "> did not get it. The donor flag in the database is set either way.");
             return;
         }
-        guild.addRoleToMember(net.dv8tion.jda.api.entities.UserSnowflake.fromId(discordId), role).queue(
-                ok -> log.info("Gave the donor role to {}", discordId),
-                failure -> admin.alert("Could not give the donor role to <@" + discordId + ">: "
-                        + failure.getMessage()));
+        guild.addRoleToMember(net.dv8tion.jda.api.entities.UserSnowflake.fromId(discordId), role)
+                .queue(
+                        ok -> log.info("Gave the donor role to {}", discordId),
+                        failure -> admin.alert(
+                                "Could not give the donor role to <@" + discordId + ">: " + failure.getMessage()));
     }
 
     // ---------------------------------------------------------------- the sweeps
@@ -175,10 +185,11 @@ public final class AccessRoles {
 
         for (final Member member : hasRole) {
             if (!shouldHave.remove(member.getId())) {
-                guild.removeRoleFromMember(member, role).queue(
-                        ok -> log.info("Reconcile: took the access role from {}", member.getId()),
-                        failure -> admin.alert("Reconcile could not take the access role from "
-                                + member.getAsMention() + ": " + failure.getMessage()));
+                guild.removeRoleFromMember(member, role)
+                        .queue(
+                                ok -> log.info("Reconcile: took the access role from {}", member.getId()),
+                                failure -> admin.alert("Reconcile could not take the access role from "
+                                        + member.getAsMention() + ": " + failure.getMessage()));
             }
         }
 
@@ -190,10 +201,11 @@ public final class AccessRoles {
                 // and the role is waiting for them if they come back.
                 continue;
             }
-            guild.addRoleToMember(member, role).queue(
-                    ok -> log.info("Reconcile: gave the access role to {}", discordId),
-                    failure -> admin.alert("Reconcile could not give the access role to <@" + discordId
-                            + ">: " + failure.getMessage()));
+            guild.addRoleToMember(member, role)
+                    .queue(
+                            ok -> log.info("Reconcile: gave the access role to {}", discordId),
+                            failure -> admin.alert("Reconcile could not give the access role to <@" + discordId + ">: "
+                                    + failure.getMessage()));
         }
     }
 
@@ -213,18 +225,21 @@ public final class AccessRoles {
                 continue;
             }
             final Locale locale = localeOf(deadline.discordId());
-            final long days = Math.max(1,
-                    Duration.between(Instant.now(), deadline.validUntil()).toDays());
-            dm(deadline.discordId(), messages.format(locale,
-                    MESSAGES.dm().expiring(timestamp(deadline.validUntil()), days)));
+            final long days = Math.max(
+                    1, Duration.between(Instant.now(), deadline.validUntil()).toDays());
+            dm(
+                    deadline.discordId(),
+                    messages.format(locale, MESSAGES.dm().expiring(timestamp(deadline.validUntil()), days)));
         }
 
         for (final AccessDeadline deadline : dao.endedWithin(EXPIRED_LOOKBACK_HOURS)) {
             if (!claim(deadline, "EXPIRED")) {
                 continue;
             }
-            dm(deadline.discordId(), messages.format(localeOf(deadline.discordId()),
-                    MESSAGES.dm().expired()));
+            dm(
+                    deadline.discordId(),
+                    messages.format(
+                            localeOf(deadline.discordId()), MESSAGES.dm().expired()));
         }
     }
 
@@ -237,8 +252,7 @@ public final class AccessRoles {
     }
 
     private boolean claim(final AccessDeadline deadline, final String kind) {
-        return dao.noticeOnce(deadline.discordId(),
-                deadline.validUntil().atOffset(ZoneOffset.UTC), kind) == 1;
+        return dao.noticeOnce(deadline.discordId(), deadline.validUntil().atOffset(ZoneOffset.UTC), kind) == 1;
     }
 
     // ---------------------------------------------------------------- messages
@@ -257,13 +271,15 @@ public final class AccessRoles {
      * </p>
      */
     public void dm(final String discordId, final String text) {
-        jda.openPrivateChannelById(discordId).queue(
-                channel -> channel.sendMessage(text).queue(
-                        ok -> log.debug("DMed {}", discordId),
-                        failure -> admin.alert("Could not DM <@" + discordId + "> - they probably have "
-                                + "direct messages closed. The message was: " + text)),
-                failure -> admin.alert("Could not open a DM channel with <@" + discordId + ">: "
-                        + failure.getMessage()));
+        jda.openPrivateChannelById(discordId)
+                .queue(
+                        channel -> channel.sendMessage(text)
+                                .queue(
+                                        ok -> log.debug("DMed {}", discordId),
+                                        failure -> admin.alert("Could not DM <@" + discordId + "> - they probably have "
+                                                + "direct messages closed. The message was: " + text)),
+                        failure -> admin.alert(
+                                "Could not open a DM channel with <@" + discordId + ">: " + failure.getMessage()));
     }
 
     /** A Discord timestamp, so every reader sees the moment in their own time zone. */

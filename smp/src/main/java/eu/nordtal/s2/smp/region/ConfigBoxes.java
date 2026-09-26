@@ -1,7 +1,6 @@
 package eu.nordtal.s2.smp.region;
 
 import eu.nordtal.s2.smp.config.SmpSpec;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,14 +12,19 @@ import java.util.List;
  */
 public final class ConfigBoxes {
 
-    private ConfigBoxes() {
-    }
+    private ConfigBoxes() {}
 
     public static Boxes spawnRegions(final SmpSpec config) {
         final List<Box> boxes = new ArrayList<>();
         for (final SmpSpec.SpawnRegionSpec region : config.spawnRegions()) {
-            boxes.add(new Box(region.world(), region.minX(), region.minY(), region.minZ(),
-                    region.maxX(), region.maxY(), region.maxZ()));
+            boxes.add(new Box(
+                    region.world(),
+                    region.minX(),
+                    region.minY(),
+                    region.minZ(),
+                    region.maxX(),
+                    region.maxY(),
+                    region.maxZ()));
         }
         return new Boxes(boxes);
     }
@@ -29,8 +33,14 @@ public final class ConfigBoxes {
     public static Boxes wheelRegions(final SmpSpec config) {
         final List<Box> boxes = new ArrayList<>();
         for (final SmpSpec.SpawnRegionSpec region : config.wheelRegions()) {
-            boxes.add(new Box(region.world(), region.minX(), region.minY(), region.minZ(),
-                    region.maxX(), region.maxY(), region.maxZ()));
+            boxes.add(new Box(
+                    region.world(),
+                    region.minX(),
+                    region.minY(),
+                    region.minZ(),
+                    region.maxX(),
+                    region.maxY(),
+                    region.maxZ()));
         }
         return new Boxes(boxes);
     }
@@ -38,8 +48,14 @@ public final class ConfigBoxes {
     public static Boxes balloons(final SmpSpec config) {
         final List<Box> boxes = new ArrayList<>();
         for (final SmpSpec.BalloonSpec balloon : config.balloons()) {
-            boxes.add(new Box(balloon.world(), balloon.minX(), balloon.minY(), balloon.minZ(),
-                    balloon.maxX(), balloon.maxY(), balloon.maxZ()));
+            boxes.add(new Box(
+                    balloon.world(),
+                    balloon.minX(),
+                    balloon.minY(),
+                    balloon.minZ(),
+                    balloon.maxX(),
+                    balloon.maxY(),
+                    balloon.maxZ()));
         }
         return new Boxes(boxes);
     }

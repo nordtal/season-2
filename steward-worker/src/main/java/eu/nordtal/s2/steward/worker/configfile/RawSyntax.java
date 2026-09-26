@@ -2,6 +2,13 @@ package eu.nordtal.s2.steward.worker.configfile;
 
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -11,14 +18,6 @@ import org.yaml.snakeyaml.error.MarkedYAMLException;
 import org.yaml.snakeyaml.error.YAMLException;
 import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
-
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * The raw editor's save-time syntax check (steward/60): a best-effort look at whether the text an
@@ -45,8 +44,7 @@ import java.util.regex.Pattern;
  */
 public final class RawSyntax {
 
-    private RawSyntax() {
-    }
+    private RawSyntax() {}
 
     /** One thing this file's own format disagreed with the text about. */
     public record Warning(int line, @NotNull String message) {
@@ -59,7 +57,11 @@ public final class RawSyntax {
 
     /** The four formats the ticket names, plus the fallback everything else gets. */
     public enum Format {
-        YAML, JSON, TOML, PROPERTIES, TEXT
+        YAML,
+        JSON,
+        TOML,
+        PROPERTIES,
+        TEXT
     }
 
     private static final Pattern BAD_UNICODE_ESCAPE = Pattern.compile("\\\\u(?![0-9a-fA-F]{4})");
@@ -96,8 +98,7 @@ public final class RawSyntax {
      * @return a warning naming what looks wrong, or empty when the format is not checked
      *         ({@link Format#TOML}, {@link Format#TEXT}) or nothing was found
      */
-    public static @NotNull Optional<Warning> check(final @NotNull String fileName,
-                                                    final @NotNull String content) {
+    public static @NotNull Optional<Warning> check(final @NotNull String fileName, final @NotNull String content) {
         return switch (formatOf(fileName)) {
             case YAML -> checkYaml(content);
             case JSON -> checkJson(content);
@@ -128,9 +129,9 @@ public final class RawSyntax {
             return Optional.empty();
         }
         if (!(root instanceof MappingNode)) {
-            return Optional.of(new Warning(root.getStartMark().getLine() + 1,
-                    "the top of the file must be a set of keys, found a " + root.getNodeId()
-                            + " instead"));
+            return Optional.of(new Warning(
+                    root.getStartMark().getLine() + 1,
+                    "the top of the file must be a set of keys, found a " + root.getNodeId() + " instead"));
         }
         return Optional.empty();
     }
@@ -169,8 +170,7 @@ public final class RawSyntax {
             final String[] lines = content.split("\n", -1);
             for (int i = 0; i < lines.length; i++) {
                 if (BAD_UNICODE_ESCAPE.matcher(lines[i]).find()) {
-                    return Optional.of(new Warning(i + 1,
-                            "not valid properties: malformed \\uXXXX encoding"));
+                    return Optional.of(new Warning(i + 1, "not valid properties: malformed \\uXXXX encoding"));
                 }
             }
             // Properties.load threw for a reason this loop did not find a line for - keep the

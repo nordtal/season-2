@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.worker.host;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -11,11 +11,10 @@ import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The parser, fed a {@code /proc} that is a directory of captured text.
@@ -143,9 +142,9 @@ class HostMetricsTest {
         // the one field where a missing line gets a default instead of an exception, and the
         // distinction is worth a test of its own - without it the default is never exercised,
         // because this host's captured file does contain the lines and they say 0 kB.
-        write("meminfo", MEMINFO.lines()
-                .filter(line -> !line.startsWith("Swap"))
-                .reduce("", (a, b) -> a + b + "\n"));
+        write(
+                "meminfo",
+                MEMINFO.lines().filter(line -> !line.startsWith("Swap")).reduce("", (a, b) -> a + b + "\n"));
 
         final HostSnapshot snapshot = metrics().read();
 
@@ -160,7 +159,8 @@ class HostMetricsTest {
 
         // THE POINT OF THE WHOLE OptionalDouble. A first reading is a counter since boot, and there
         // is nothing to subtract it from.
-        assertFalse(metrics.read().cpuPercent().isPresent(),
+        assertFalse(
+                metrics.read().cpuPercent().isPresent(),
                 "the first read has no previous reading and must not invent 0.0");
 
         write("stat", STAT_SECOND);
@@ -190,11 +190,12 @@ class HostMetricsTest {
         // Linux has had MemAvailable since 3.14; its absence means this is not the file we think it
         // is. The record's field is a long, so there is no honest value to put there - and a
         // dashboard reading "0 bytes available" is an incident nobody is having.
-        write("meminfo", MEMINFO.lines()
-                .filter(line -> !line.startsWith("MemAvailable"))
-                .reduce("", (a, b) -> a + b + "\n"));
+        write(
+                "meminfo",
+                MEMINFO.lines().filter(line -> !line.startsWith("MemAvailable")).reduce("", (a, b) -> a + b + "\n"));
 
-        final IOException thrown = assertThrows(IOException.class, () -> metrics().read());
+        final IOException thrown =
+                assertThrows(IOException.class, () -> metrics().read());
 
         assertTrue(thrown.getMessage().contains("MemAvailable"), thrown.getMessage());
         assertTrue(thrown.getMessage().contains("meminfo"), thrown.getMessage());
@@ -205,10 +206,10 @@ class HostMetricsTest {
     void unexpectedUnitThrows() throws IOException {
         // The one edited line in this file. If the kernel ever prints a size in MB, reading it as
         // kilobytes is wrong by 1024 and looks entirely plausible on a chart.
-        write("meminfo", MEMINFO.replace("MemTotal:       16372536 kB",
-                "MemTotal:          15988 MB"));
+        write("meminfo", MEMINFO.replace("MemTotal:       16372536 kB", "MemTotal:          15988 MB"));
 
-        final IOException thrown = assertThrows(IOException.class, () -> metrics().read());
+        final IOException thrown =
+                assertThrows(IOException.class, () -> metrics().read());
 
         assertTrue(thrown.getMessage().contains("15988 MB"), thrown.getMessage());
     }
@@ -250,13 +251,14 @@ class HostMetricsTest {
         // The relationship is the part a refactor could quietly get wrong: used is total minus
         // UNALLOCATED, free is USABLE, and the two therefore do not add up to the total. That gap
         // is the root reserve, and `df` has exactly the same one.
-        assertTrue(snapshot.diskUsedBytes() + snapshot.diskFreeBytes() <= snapshot.diskTotalBytes(),
+        assertTrue(
+                snapshot.diskUsedBytes() + snapshot.diskFreeBytes() <= snapshot.diskTotalBytes(),
                 "used + free may fall short of total by the root reserve, but never exceed it");
     }
 
-    private static void assertBetween(final long a, final long b, final long actual,
-                                      final String what) {
-        assertTrue(actual >= Math.min(a, b) && actual <= Math.max(a, b),
+    private static void assertBetween(final long a, final long b, final long actual, final String what) {
+        assertTrue(
+                actual >= Math.min(a, b) && actual <= Math.max(a, b),
                 what + " was " + actual + ", outside the [" + Math.min(a, b) + ", " + Math.max(a, b)
                         + "] the filesystem reported on either side of the reading");
     }

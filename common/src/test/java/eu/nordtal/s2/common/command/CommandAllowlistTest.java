@@ -1,14 +1,13 @@
 package eu.nordtal.s2.common.command;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The matching rule the whole command gate rests on.
@@ -20,8 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class CommandAllowlistTest {
 
-    private static final CommandAllowlist LIST =
-            CommandAllowlist.parse(List.of("smp status", "msg", "hg ready"));
+    private static final CommandAllowlist LIST = CommandAllowlist.parse(List.of("smp status", "msg", "hg ready"));
 
     @Test
     @DisplayName("everything under an allowed path is allowed")
@@ -52,8 +50,7 @@ class CommandAllowlistTest {
     @Test
     @DisplayName("nothing outside the list is allowed, which is the point of a list of what is")
     void anythingElseIsRefused() {
-        assertFalse(LIST.allows("/server hunger-games"),
-                "this is the command the whole allowlist exists for");
+        assertFalse(LIST.allows("/server hunger-games"), "this is the command the whole allowlist exists for");
         assertFalse(LIST.allows("/me waves"));
         assertFalse(LIST.allows("/help"));
         assertFalse(LIST.allows("/tell Someone hello"));
@@ -113,15 +110,14 @@ class CommandAllowlistTest {
     void blanksAreDropped() {
         final CommandAllowlist parsed = CommandAllowlist.parse(List.of("msg", "", "  ", "/"));
         assertEquals(1, parsed.entries().size());
-        assertFalse(parsed.allows("/server smp"),
-                "a blank entry read as 'no segments' would match every command there is");
+        assertFalse(
+                parsed.allows("/server smp"), "a blank entry read as 'no segments' would match every command there is");
     }
 
     @Test
     @DisplayName("a list survives the round trip through the row the proxy publishes it in")
     void serialisationIsAnInverse() {
-        final CommandAllowlist parsed = CommandAllowlist.parse(
-                List.of("/smp status", "msg", "hg ready", "discord"));
+        final CommandAllowlist parsed = CommandAllowlist.parse(List.of("/smp status", "msg", "hg ready", "discord"));
         assertEquals(parsed, CommandAllowlist.deserialise(parsed.serialise()));
         assertEquals("smp status\nmsg\nhg ready\ndiscord", parsed.serialise());
         // A row that was never written and a list that was emptied on purpose are told apart by the
@@ -129,14 +125,12 @@ class CommandAllowlistTest {
         // legitimately mean "the list allows nothing".
         assertEquals(CommandAllowlist.NOTHING, CommandAllowlist.deserialise(null));
         assertEquals(CommandAllowlist.NOTHING, CommandAllowlist.deserialise(""));
-        assertEquals(CommandAllowlist.NOTHING,
-                CommandAllowlist.deserialise(CommandAllowlist.NOTHING.serialise()));
+        assertEquals(CommandAllowlist.NOTHING, CommandAllowlist.deserialise(CommandAllowlist.NOTHING.serialise()));
     }
 
     @Test
     @DisplayName("an entry with no segments is refused rather than silently allowing everything")
     void theConstructorRefusesTheOneValueItCannotMean() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new CommandAllowlist(List.of(List.of())));
+        assertThrows(IllegalArgumentException.class, () -> new CommandAllowlist(List.of(List.of())));
     }
 }

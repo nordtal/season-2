@@ -7,14 +7,7 @@ import type { Backup, ConfigChanges, ConfigEntry, ParsedConfigDocument, Run } fr
 import { ApiError } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
 import { bytes, count, dateTime, duration, parseInstant, relative } from "@/lib/format"
-import {
-  useBackups,
-  useConfig,
-  useConfigs,
-  useRuns,
-  useSaveConfig,
-  useSchedule,
-} from "@/lib/queries"
+import { useBackups, useConfig, useConfigs, useRuns, useSaveConfig, useSchedule } from "@/lib/queries"
 import { ScalarControl } from "@/components/steward/config-controls"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
@@ -25,13 +18,7 @@ import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AskButton, CopyButton } from "@/pages/operations"
 import {
   ResponsiveDialog,
@@ -41,14 +28,7 @@ import {
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
 } from "@/components/ui/responsive-dialog"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /**
  * Everything about the backups, in one place (steward/95).
@@ -133,8 +113,7 @@ export function BackupsPage() {
 export function useWorkerConfig() {
   const configs = useConfigs()
   const file = configs.data?.find(
-    (location) =>
-      location.service === "steward-worker" && location.name.split("/").pop() === "steward.yml",
+    (location) => location.service === "steward-worker" && location.name.split("/").pop() === "steward.yml",
   )
   const document = useConfig(file?.path ?? "", Boolean(file))
   const parsed = document.data && !document.data.raw ? document.data : undefined
@@ -161,9 +140,7 @@ export function useConfigDraft(document: ParsedConfigDocument | undefined, keys:
   useEffect(() => setDraft({}), [document])
 
   const entries = useMemo(
-    () => keys.map((path) => entryAt(document, path)).filter(
-      (entry): entry is ConfigEntry => entry !== undefined,
-    ),
+    () => keys.map((path) => entryAt(document, path)).filter((entry): entry is ConfigEntry => entry !== undefined),
     [document, keys],
   )
 
@@ -224,11 +201,7 @@ function Summary() {
         tile in this interface means something needs attention tonight. "Not tracked" is a fact
         about the feature, not an alarm about the backups.
       */}
-      <Stat
-        label="Storage available"
-        value="not tracked"
-        hint="steward-worker does not query the Storage Box yet"
-      />
+      <Stat label="Storage available" value="not tracked" hint="steward-worker does not query the Storage Box yet" />
       <Stat
         label="Next"
         value={schedule.data?.nextBackupAt ? relative(schedule.data.nextBackupAt) : "–"}
@@ -294,79 +267,76 @@ function Runs() {
         }}
       >
         {(answer) => (
-        <Table className="steward-table">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[5rem]">Run</TableHead>
-              <TableHead className="w-[12rem]">When</TableHead>
-              <TableHead className="w-[9rem]">Status</TableHead>
-              <TableHead className="w-[7rem] text-right">Archives</TableHead>
-              <TableHead className="w-[7rem] text-right">Took</TableHead>
-              <TableHead>Initiated by</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(answer ? rows : WAITING_BACKUP_RUNS).map((run, index) => {
-              const archives = run ? saved(run) : undefined
-              return (
-                <TableRow
-                  key={run?.id ?? index}
-                  className={run ? "cursor-pointer" : undefined}
-                  onClick={() =>
-                    run &&
-                    navigate({ to: "/operations/backups/$id", params: { id: String(run.id) } })
-                  }
-                >
-                  <TableCell data-label="Run" className="font-medium tnum">
-                    {run ? (
-                      <Link
-                        to="/operations/backups/$id"
-                        params={{ id: String(run.id) }}
-                        className="underline-offset-4 hover:text-primary hover:underline"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        #{run.id}
-                      </Link>
-                    ) : (
-                      <SkeletonText width="short" />
-                    )}
-                  </TableCell>
-                  <TableCell data-label="When">
-                    {run ? dateTime(run.started || run.requested) : <SkeletonText width="long" />}
-                  </TableCell>
-                  <TableCell data-label="Status">
-                    {run ? (
-                      <RunStatus status={run.status} />
-                    ) : (
-                      <Skeleton className="h-5 w-20 rounded-full" />
-                    )}
-                  </TableCell>
-                  <TableCell data-label="Archives" className="text-right tnum">
-                    {archives ? (
-                      archives.total === 0 ? "–" : count(archives.saved)
-                    ) : (
-                      <SkeletonText width="short" className="ml-auto" />
-                    )}
-                  </TableCell>
-                  <TableCell data-label="Took" className="text-right tnum">
-                    {run ? ran(run) : <SkeletonText width="short" className="ml-auto" />}
-                  </TableCell>
-                  <TableCell data-label="Initiated by" className="text-muted-foreground">
-                    {!run ? (
-                      <SkeletonText width="medium" />
-                    ) : (
-                      <Actor
-                        system={run.system}
-                        discordId={run.actorDiscordId}
-                        label={run.actorLabel || run.source}
-                      />
-                    )}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
+          <Table className="steward-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[5rem]">Run</TableHead>
+                <TableHead className="w-[12rem]">When</TableHead>
+                <TableHead className="w-[9rem]">Status</TableHead>
+                <TableHead className="w-[7rem] text-right">Archives</TableHead>
+                <TableHead className="w-[7rem] text-right">Took</TableHead>
+                <TableHead>Initiated by</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(answer ? rows : WAITING_BACKUP_RUNS).map((run, index) => {
+                const archives = run ? saved(run) : undefined
+                return (
+                  <TableRow
+                    key={run?.id ?? index}
+                    className={run ? "cursor-pointer" : undefined}
+                    onClick={() => run && navigate({ to: "/operations/backups/$id", params: { id: String(run.id) } })}
+                  >
+                    <TableCell data-label="Run" className="font-medium tnum">
+                      {run ? (
+                        <Link
+                          to="/operations/backups/$id"
+                          params={{ id: String(run.id) }}
+                          className="underline-offset-4 hover:text-primary hover:underline"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          #{run.id}
+                        </Link>
+                      ) : (
+                        <SkeletonText width="short" />
+                      )}
+                    </TableCell>
+                    <TableCell data-label="When">
+                      {run ? dateTime(run.started || run.requested) : <SkeletonText width="long" />}
+                    </TableCell>
+                    <TableCell data-label="Status">
+                      {run ? <RunStatus status={run.status} /> : <Skeleton className="h-5 w-20 rounded-full" />}
+                    </TableCell>
+                    <TableCell data-label="Archives" className="text-right tnum">
+                      {archives ? (
+                        archives.total === 0 ? (
+                          "–"
+                        ) : (
+                          count(archives.saved)
+                        )
+                      ) : (
+                        <SkeletonText width="short" className="ml-auto" />
+                      )}
+                    </TableCell>
+                    <TableCell data-label="Took" className="text-right tnum">
+                      {run ? ran(run) : <SkeletonText width="short" className="ml-auto" />}
+                    </TableCell>
+                    <TableCell data-label="Initiated by" className="text-muted-foreground">
+                      {!run ? (
+                        <SkeletonText width="medium" />
+                      ) : (
+                        <Actor
+                          system={run.system}
+                          discordId={run.actorDiscordId}
+                          label={run.actorLabel || run.source}
+                        />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
         )}
       </QueryState>
     </Panel>
@@ -466,9 +436,7 @@ function DestinationDialog() {
               >
                 Save
               </Button>
-              {changed > 0 ? (
-                <span className="text-sm text-muted-foreground tnum">{changed} changed</span>
-              ) : null}
+              {changed > 0 ? <span className="text-sm text-muted-foreground tnum">{changed} changed</span> : null}
             </div>
           </div>
         )}
@@ -670,8 +638,8 @@ function ScheduleDialog() {
               />
               {!daysEntry ? (
                 <p className="text-xs text-muted-foreground">
-                  This worker's config has no backup.days yet. A worker that has started since the
-                  key was added writes it in.
+                  This worker's config has no backup.days yet. A worker that has started since the key was added writes
+                  it in.
                 </p>
               ) : days.length === 0 ? (
                 <p className="text-xs text-destructive">No night is picked, so no backup runs.</p>
@@ -718,9 +686,7 @@ function ScheduleDialog() {
               >
                 Save
               </Button>
-              {allChanged > 0 ? (
-                <span className="text-sm text-muted-foreground tnum">{allChanged} changed</span>
-              ) : null}
+              {allChanged > 0 ? <span className="text-sm text-muted-foreground tnum">{allChanged} changed</span> : null}
             </div>
           </div>
         )}
@@ -741,10 +707,7 @@ function ScheduleDialog() {
 function RestoreDialog() {
   const backups = useBackups()
   const [chosen, setChosen] = useState<string>("")
-  const restorable = useMemo(
-    () => (backups.data ?? []).filter((backup) => !backup.partial),
-    [backups.data],
-  )
+  const restorable = useMemo(() => (backups.data ?? []).filter((backup) => !backup.partial), [backups.data])
   const command = `sudo bash deploy/restore.sh ${chosen || "<archive>"}`
 
   return (
@@ -762,7 +725,9 @@ function RestoreDialog() {
         </ResponsiveDialogHeader>
 
         {backups.isPending || backups.error ? (
-          <QueryState query={backups} rows={2}>{() => null}</QueryState>
+          <QueryState query={backups} rows={2}>
+            {() => null}
+          </QueryState>
         ) : restorable.length === 0 ? (
           <Empty
             title="No archive to restore"
@@ -889,71 +854,68 @@ export function BackupRunDetailPage() {
         }}
       >
         {(answer) => (
-        <>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
-            {/* The four figures are the head of the page and are always four, so they keep their
+          <>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
+              {/* The four figures are the head of the page and are always four, so they keep their
                 places while the run is looked up. */}
-            <Stat label="Status" value={run ? <RunStatus status={run.status} /> : undefined} />
-            <Stat label="When" value={run ? dateTime(run.started || run.requested) : undefined} />
-            <Stat label="Took" value={run ? ran(run) : undefined} />
-            <Stat
-              label="Archives"
-              value={answer && backups.data ? count(files.length) : undefined}
-            />
-          </div>
+              <Stat label="Status" value={run ? <RunStatus status={run.status} /> : undefined} />
+              <Stat label="When" value={run ? dateTime(run.started || run.requested) : undefined} />
+              <Stat label="Took" value={run ? ran(run) : undefined} />
+              <Stat label="Archives" value={answer && backups.data ? count(files.length) : undefined} />
+            </div>
 
-          <Panel title="Archives">
-            {answer && backups.data && files.length === 0 ? (
-              <Empty title="No archive matched this run's own window" />
-            ) : (
-              <Table className="steward-table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Archive</TableHead>
-                    <TableHead className="w-[9rem]">Holds</TableHead>
-                    <TableHead className="w-[12rem]">Written</TableHead>
-                    <TableHead className="w-[8rem] text-right">Size</TableHead>
-                    <TableHead className="w-[3rem]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(answer && backups.data ? files : WAITING_ARCHIVES).map((backup, index) => (
-                    <TableRow key={backup?.name ?? index}>
-                      <TableCell data-label="Archive">
-                        {backup ? (
-                          <code className="text-xs">{backup.name}</code>
-                        ) : (
-                          <SkeletonText className="text-xs" width="long" />
-                        )}
-                      </TableCell>
-                      <TableCell data-label="Holds">
-                        {backup ? holds(backup) : <SkeletonText width="medium" />}
-                      </TableCell>
-                      <TableCell data-label="Written">
-                        {backup ? dateTime(backup.modified) : <SkeletonText width="long" />}
-                      </TableCell>
-                      <TableCell data-label="Size" className="text-right tnum">
-                        {backup ? bytes(backup.bytes) : <SkeletonText width="short" className="ml-auto" />}
-                      </TableCell>
-                      <TableCell data-label="Download">
-                        {!backup || backup.partial ? null : (
-                          <a
-                            href={`/api/backups/${encodeURIComponent(backup.name)}/download`}
-                            download={backup.name}
-                            aria-label={`Download ${backup.name}`}
-                            className="inline-flex text-muted-foreground hover:text-foreground"
-                          >
-                            <DownloadIcon className="size-4" />
-                          </a>
-                        )}
-                      </TableCell>
+            <Panel title="Archives">
+              {answer && backups.data && files.length === 0 ? (
+                <Empty title="No archive matched this run's own window" />
+              ) : (
+                <Table className="steward-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Archive</TableHead>
+                      <TableHead className="w-[9rem]">Holds</TableHead>
+                      <TableHead className="w-[12rem]">Written</TableHead>
+                      <TableHead className="w-[8rem] text-right">Size</TableHead>
+                      <TableHead className="w-[3rem]" />
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </Panel>
-        </>
+                  </TableHeader>
+                  <TableBody>
+                    {(answer && backups.data ? files : WAITING_ARCHIVES).map((backup, index) => (
+                      <TableRow key={backup?.name ?? index}>
+                        <TableCell data-label="Archive">
+                          {backup ? (
+                            <code className="text-xs">{backup.name}</code>
+                          ) : (
+                            <SkeletonText className="text-xs" width="long" />
+                          )}
+                        </TableCell>
+                        <TableCell data-label="Holds">
+                          {backup ? holds(backup) : <SkeletonText width="medium" />}
+                        </TableCell>
+                        <TableCell data-label="Written">
+                          {backup ? dateTime(backup.modified) : <SkeletonText width="long" />}
+                        </TableCell>
+                        <TableCell data-label="Size" className="text-right tnum">
+                          {backup ? bytes(backup.bytes) : <SkeletonText width="short" className="ml-auto" />}
+                        </TableCell>
+                        <TableCell data-label="Download">
+                          {!backup || backup.partial ? null : (
+                            <a
+                              href={`/api/backups/${encodeURIComponent(backup.name)}/download`}
+                              download={backup.name}
+                              aria-label={`Download ${backup.name}`}
+                              className="inline-flex text-muted-foreground hover:text-foreground"
+                            >
+                              <DownloadIcon className="size-4" />
+                            </a>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Panel>
+          </>
         )}
       </QueryState>
     </div>

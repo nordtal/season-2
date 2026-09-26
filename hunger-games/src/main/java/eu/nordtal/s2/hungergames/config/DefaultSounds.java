@@ -1,7 +1,6 @@
 package eu.nordtal.s2.hungergames.config;
 
 import eu.nordtal.jcore.config.spec.Specs;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -69,8 +68,7 @@ final class DefaultSounds {
     /** Unreachable on this server - see SoundsSpec. Kept identical to the SMP's all the same. */
     static final SoundsSpec.SoundSpec RECLAIMED = sound("minecraft:entity.skeleton.death", 1.0f);
 
-    private DefaultSounds() {
-    }
+    private DefaultSounds() {}
 
     private static SoundsSpec.SoundSpec sound(final String key, final float pitch) {
         final Map<String, Object> values = new LinkedHashMap<>();
@@ -79,5 +77,4 @@ final class DefaultSounds {
         values.put("pitch", pitch);
         return Specs.createUnsafe(SoundsSpec.SoundSpec.class, values);
     }
-
 }

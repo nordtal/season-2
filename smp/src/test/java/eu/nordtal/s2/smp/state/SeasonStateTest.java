@@ -1,16 +1,14 @@
 package eu.nordtal.s2.smp.state;
 
-import eu.nordtal.s2.smp.milestone.Milestone;
-import eu.nordtal.s2.smp.milestone.MilestoneTrack;
-import eu.nordtal.s2.smp.milestone.Unlock;
-
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.smp.milestone.Milestone;
+import eu.nordtal.s2.smp.milestone.MilestoneTrack;
+import eu.nordtal.s2.smp.milestone.Unlock;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 /**
  * Where the database's progress and the file's definition meet.

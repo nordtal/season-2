@@ -85,7 +85,9 @@ const reasonField = () => screen.getByLabelText("Reason") as HTMLInputElement
 
 /** What the page sent, as the backend would have read it. */
 function sentPhaseChange(fetched: ReturnType<typeof backend>) {
-  const call = fetched.mock.calls.find(([url, init]) => url === "/api/season/phase" && (init as RequestInit | undefined)?.method === "POST")
+  const call = fetched.mock.calls.find(
+    ([url, init]) => url === "/api/season/phase" && (init as RequestInit | undefined)?.method === "POST",
+  )
   if (!call) throw new Error("no phase change was sent at all")
   return JSON.parse(String((call[1] as RequestInit).body))
 }
@@ -187,7 +189,10 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
 
 describe("SeasonPage - a switch the backend refuses", () => {
   it("keeps the dialog open, because the phase has not changed", async () => {
-    vi.stubGlobal("fetch", backend({ phase: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
+    vi.stubGlobal(
+      "fetch",
+      backend({ phase: () => ({ status: 503, body: { error: "The database is not answering." } }) }),
+    )
     draw(<SeasonPage />)
 
     const dialog = await ask("MAINTENANCE")
@@ -207,7 +212,10 @@ describe("SeasonPage - a switch the backend refuses", () => {
      * The refusal is now repeated inside the dialog, and the copy in the card is only drawn while
      * the dialog is shut.
      */
-    vi.stubGlobal("fetch", backend({ phase: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
+    vi.stubGlobal(
+      "fetch",
+      backend({ phase: () => ({ status: 503, body: { error: "The database is not answering." } }) }),
+    )
     draw(<SeasonPage />)
 
     const dialog = await ask("MAINTENANCE")

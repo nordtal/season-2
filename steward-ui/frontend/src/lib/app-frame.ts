@@ -53,11 +53,7 @@ function isEditable(element: Element | null): boolean {
  * therefore neither of them, whoever has focus. Without it, the shell is left standing short of the
  * bottom edge with no event able to correct it - steward/148, and the file header has the numbers.
  */
-export function measuredHeight(
-  view: ViewLike,
-  focused: Element | null,
-  last: number | null = null
-): number | null {
+export function measuredHeight(view: ViewLike, focused: Element | null, last: number | null = null): number | null {
   const visual = view.visualViewport
   if (!visual) return view.innerHeight > 0 ? view.innerHeight : null
   if (visual.height <= 0) return null

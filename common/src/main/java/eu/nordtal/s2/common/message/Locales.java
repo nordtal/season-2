@@ -15,8 +15,7 @@ public final class Locales {
     /** The default and the fallback for every user-visible string in season 2. */
     public static final Locale DEFAULT = Locale.ENGLISH;
 
-    private Locales() {
-    }
+    private Locales() {}
 
     /**
      * Parses a stored language tag such as {@code en} or {@code de}.

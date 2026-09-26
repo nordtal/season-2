@@ -156,9 +156,7 @@ describe("searchAcross", () => {
     const worker = document("steward-worker/steward.yml", [
       entry({ path: "worker.base-url", key: "base-url", value: "http://steward-worker:8081" }),
     ])
-    const bot = document("discord-bot/steward.yml", [
-      entry({ path: "guild-id", key: "guild-id", value: "8081" }),
-    ])
+    const bot = document("discord-bot/steward.yml", [entry({ path: "guild-id", key: "guild-id", value: "8081" })])
     const hits = searchAcross(
       [
         { location: worker, document: worker },
@@ -173,7 +171,11 @@ describe("searchAcross", () => {
   })
 
   it("skips a raw document - there are no entries to search", () => {
-    const raw = { ...location({ path: "steward-worker/README.txt", name: "README.txt" }), raw: true as const, content: "8081" }
+    const raw = {
+      ...location({ path: "steward-worker/README.txt", name: "README.txt" }),
+      raw: true as const,
+      content: "8081",
+    }
     const hits = searchAcross([{ location: raw, document: raw }], "8081")
     expect(hits).toEqual([])
   })
@@ -216,9 +218,7 @@ function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEnt
   return { inBundle: true, args: [], section: [], ...over }
 }
 
-function bundleLocation(
-  over: Partial<MessageBundleLocation> & { path: string },
-): MessageBundleLocation {
+function bundleLocation(over: Partial<MessageBundleLocation> & { path: string }): MessageBundleLocation {
   return { service: "smp", module: "smp", writable: true, ...over }
 }
 
@@ -304,7 +304,7 @@ describe("searchMessagesAcross", () => {
     expect(searchMessagesAcross([{ location: loc, bundle: doc }], "")).toEqual([])
   })
 
-  it("tags every hit with kind: \"message\", so a caller can tell it apart from a config hit", () => {
+  it('tags every hit with kind: "message", so a caller can tell it apart from a config hit', () => {
     const loc = bundleLocation({ path: "smp/smp" })
     const doc = bundle(loc, [messageEntry({ key: "a", english: "wipe" })])
     const [hit] = searchMessagesAcross([{ location: loc, bundle: doc }], "wipe")
@@ -374,11 +374,7 @@ describe("searchSettingsAndMessages - one list, from two suppliers", () => {
     const configDoc = configDocument(loc, [
       configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
     ])
-    const hits = searchSettingsAndMessages(
-      [{ location: loc, document: configDoc }],
-      [],
-      "grave decay enabled",
-    )
+    const hits = searchSettingsAndMessages([{ location: loc, document: configDoc }], [], "grave decay enabled")
     expect(hits).toHaveLength(1)
     expect(hits[0].kind).toBe("config")
   })

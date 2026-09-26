@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.update;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -9,9 +11,6 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
-
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /backup now} - count down, take the servers down, save the volumes, bring them back.
@@ -49,8 +48,10 @@ public final class RunBackup implements NordtalCommand<UpdateEffects> {
                 // once the worker has actually recorded it, which is where that news belongs.
                 // SMALL_SUCCESS rather than BIG_SUCCESS for the same reason: the sound says the
                 // command was taken, not that the network is about to go down.
-                user.reply(MESSAGES.backup().started(UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
-                        Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
+                user.reply(
+                        MESSAGES.backup().started(UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
+                        Feedback.SMALL_SUCCESS,
+                        Tone.NEUTRAL);
             } catch (final RunRefused refused) {
                 user.reply(Refusals.of(refused), Feedback.REFUSED, Tone.BAD);
             } catch (final RuntimeException failure) {

@@ -1,5 +1,15 @@
 package eu.nordtal.s2.hungergames.db;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Map;
+import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
@@ -13,17 +23,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * {@link HungerGamesDao#killCounts} against a real PostgreSQL running the real migrations.
@@ -63,7 +62,8 @@ class KillCountsIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed kill tally tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -105,8 +105,7 @@ class KillCountsIntegrationTest {
                 .onDemand(HungerGamesDao.class);
 
         gameId = uuid("INSERT INTO hg_game (state) VALUES ('RUNNING') RETURNING id");
-        final UUID teamId = uuid("INSERT INTO hg_team (game_id, name) VALUES ('" + gameId
-                + "', 'reds') RETURNING id");
+        final UUID teamId = uuid("INSERT INTO hg_team (game_id, name) VALUES ('" + gameId + "', 'reds') RETURNING id");
         alice = member(teamId, "100000000000000001");
         bob = member(teamId, "100000000000000002");
         carol = member(teamId, "100000000000000003");
@@ -123,7 +122,9 @@ class KillCountsIntegrationTest {
 
         assertEquals(2, tally.get(alice), "count(*) is bigint; this is the mapping that has to hold");
         assertEquals(1, tally.get(bob));
-        assertEquals(Map.of(alice, 2, bob, 1), tally,
+        assertEquals(
+                Map.of(alice, 2, bob, 1),
+                tally,
                 "carol killed nobody and must simply be absent - the ceremony prints only the"
                         + " members above zero, so a zero row would be an extra line saying nothing");
     }
@@ -137,7 +138,9 @@ class KillCountsIntegrationTest {
 
         final Map<UUID, Integer> tally = dao.killCounts(gameId);
         for (final UUID member : java.util.List.of(alice, bob, carol)) {
-            assertEquals(dao.killCount(gameId, member), tally.getOrDefault(member, 0),
+            assertEquals(
+                    dao.killCount(gameId, member),
+                    tally.getOrDefault(member, 0),
                     "killCount decides who wins a tie and killCounts is what players are shown; two"
                             + " answers is a scoreboard contradicting the result printed above it");
         }
@@ -147,20 +150,21 @@ class KillCountsIntegrationTest {
     @DisplayName("only this game's KILL events count")
     void nothingElseIsCounted() {
         kill(alice, bob);
-        execute("INSERT INTO hg_event (game_id, type, actor_id) VALUES ('" + gameId
-                + "', 'BORDER_SHRINK', NULL)");
-        execute("INSERT INTO hg_event (game_id, type, actor_id, victim_id) VALUES ('" + gameId
-                + "', 'DEATH', '" + alice + "', '" + bob + "')");
+        execute("INSERT INTO hg_event (game_id, type, actor_id) VALUES ('" + gameId + "', 'BORDER_SHRINK', NULL)");
+        execute("INSERT INTO hg_event (game_id, type, actor_id, victim_id) VALUES ('" + gameId + "', 'DEATH', '" + alice
+                + "', '" + bob + "')");
 
         final UUID otherGame = uuid("INSERT INTO hg_game (state) VALUES ('DECIDED') RETURNING id");
-        final UUID otherTeam = uuid("INSERT INTO hg_team (game_id, name) VALUES ('" + otherGame
-                + "', 'blues') RETURNING id");
-        execute("INSERT INTO hg_member (team_id, game_id, discord_id) VALUES ('" + otherTeam + "', '"
-                + otherGame + "', '100000000000000001')");
+        final UUID otherTeam =
+                uuid("INSERT INTO hg_team (game_id, name) VALUES ('" + otherGame + "', 'blues') RETURNING id");
+        execute("INSERT INTO hg_member (team_id, game_id, discord_id) VALUES ('" + otherTeam + "', '" + otherGame
+                + "', '100000000000000001')");
         execute("INSERT INTO hg_event (game_id, type, actor_id) SELECT '" + otherGame
                 + "', 'KILL', id FROM hg_member WHERE game_id = '" + otherGame + "'");
 
-        assertEquals(Map.of(alice, 1), dao.killCounts(gameId),
+        assertEquals(
+                Map.of(alice, 1),
+                dao.killCounts(gameId),
                 "a season runs more than one game, and a DEATH is not a KILL");
     }
 
@@ -168,26 +172,28 @@ class KillCountsIntegrationTest {
     @DisplayName("a game nobody killed in answers an empty map, not null")
     void anEmptyGameIsAnEmptyMap() {
         final Map<UUID, Integer> tally = dao.killCounts(gameId);
-        assertTrue(tally.isEmpty(), "the ceremony iterates this; null would be an exception in front"
-                + " of everybody at the end of the event");
+        assertTrue(
+                tally.isEmpty(),
+                "the ceremony iterates this; null would be an exception in front"
+                        + " of everybody at the end of the event");
     }
 
     // --- helpers ---------------------------------------------------------------------------
 
     private UUID member(final UUID teamId, final String discordId) {
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')");
-        return uuid("INSERT INTO hg_member (team_id, game_id, discord_id) VALUES ('" + teamId
-                + "', '" + gameId + "', '" + discordId + "') RETURNING id");
+        return uuid("INSERT INTO hg_member (team_id, game_id, discord_id) VALUES ('" + teamId + "', '" + gameId + "', '"
+                + discordId + "') RETURNING id");
     }
 
     private void kill(final UUID actor, final UUID victim) {
-        execute("INSERT INTO hg_event (game_id, type, actor_id, victim_id) VALUES ('" + gameId
-                + "', 'KILL', '" + actor + "', '" + victim + "')");
+        execute("INSERT INTO hg_event (game_id, type, actor_id, victim_id) VALUES ('" + gameId + "', 'KILL', '" + actor
+                + "', '" + victim + "')");
     }
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException exception) {
             throw new IllegalStateException(sql, exception);
@@ -196,8 +202,8 @@ class KillCountsIntegrationTest {
 
     private static UUID uuid(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rows = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet rows = statement.executeQuery(sql)) {
             rows.next();
             return rows.getObject(1, UUID.class);
         } catch (final SQLException exception) {

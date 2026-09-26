@@ -24,12 +24,10 @@ import java.util.Set;
 public final class HandIn {
 
     /** One stack as it sits in the deposit screen: which slot, what material, how many. */
-    public record Offered(int slot, String material, int amount) {
-    }
+    public record Offered(int slot, String material, int amount) {}
 
     /** What to do with one slot: keep {@code taken} of it, leave the rest with the player. */
-    public record Take(int slot, int taken, int returned) {
-    }
+    public record Take(int slot, int taken, int returned) {}
 
     /**
      * The verdict on a whole deposit.
@@ -44,8 +42,7 @@ public final class HandIn {
         }
     }
 
-    private HandIn() {
-    }
+    private HandIn() {}
 
     /**
      * Sorts a deposit into what is taken and what stays.
@@ -54,8 +51,7 @@ public final class HandIn {
      * @param wanted      the material names the objective accepts, case-insensitively
      * @param stillNeeded how much the objective is still short of its target
      */
-    public static Result sort(final List<Offered> offered, final Set<String> wanted,
-                              final long stillNeeded) {
+    public static Result sort(final List<Offered> offered, final Set<String> wanted, final long stillNeeded) {
         final List<Take> takes = new ArrayList<>();
         long accepted = 0;
 

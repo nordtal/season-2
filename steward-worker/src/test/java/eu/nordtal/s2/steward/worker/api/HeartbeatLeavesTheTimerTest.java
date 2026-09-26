@@ -1,16 +1,15 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The heartbeat timer decides when a comment is written, and never writes one itself.
@@ -64,8 +63,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class HeartbeatLeavesTheTimerTest {
 
-    private final String source =
-            read("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/api/WorkerApi.java");
+    private final String source = read("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/api/WorkerApi.java");
 
     @Test
     @DisplayName("the scheduled task hands the write on rather than doing it")
@@ -75,11 +73,12 @@ class HeartbeatLeavesTheTimerTest {
         // This one first, and deliberately: on the failing path the route contains `sendComment`
         // AND has lost the call to beat(), so whichever is checked first is the message somebody
         // reads. "It no longer contains this string" describes the test; this describes the defect.
-        assertFalse(route.contains("sendComment"),
+        assertFalse(
+                route.contains("sendComment"),
                 "the follow route writes a comment from inside the scheduled task again. That is"
-                + " the one thread every follow in the process shares, so a reader that has stopped"
-                + " reading can hold it - see this class for how far that was and was not"
-                + " reproducible here");
+                        + " the one thread every follow in the process shares, so a reader that has stopped"
+                        + " reading can hold it - see this class for how far that was and was not"
+                        + " reproducible here");
         at(route, "heartbeats.scheduleWithFixedDelay(");
         at(route, "beat(client, name, beating)");
     }
@@ -91,18 +90,21 @@ class HeartbeatLeavesTheTimerTest {
         final int submitted = at(beat, "followers.submit(");
         final int written = at(beat, "client.sendComment(");
 
-        assertTrue(submitted < written,
+        assertTrue(
+                submitted < written,
                 "beat() writes the comment before handing it to `followers`, so it is writing on"
-                + " whichever thread called it - and the only caller is the timer");
-        assertTrue(source.contains("Executors.newVirtualThreadPerTaskExecutor()"),
+                        + " whichever thread called it - and the only caller is the timer");
+        assertTrue(
+                source.contains("Executors.newVirtualThreadPerTaskExecutor()"),
                 "`followers` is no longer a virtual thread per task, so handing the write to it"
-                + " parks a platform thread instead - cheap enough to be worth checking, because"
-                + " the whole argument for this shape is that parking there costs nothing");
-        assertTrue(source.contains("Executors.newSingleThreadScheduledExecutor("),
+                        + " parks a platform thread instead - cheap enough to be worth checking, because"
+                        + " the whole argument for this shape is that parking there costs nothing");
+        assertTrue(
+                source.contains("Executors.newSingleThreadScheduledExecutor("),
                 "the heartbeat scheduler is no longer a single thread. That is the premise of this"
-                + " whole file: with a pool, one parked write costs one thread of it instead of"
-                + " every follow. If that was deliberate, this test is what should have been"
-                + " changed with it");
+                        + " whole file: with a pool, one parked write costs one thread of it instead of"
+                        + " every follow. If that was deliberate, this test is what should have been"
+                        + " changed with it");
     }
 
     @Test
@@ -114,13 +116,15 @@ class HeartbeatLeavesTheTimerTest {
         final int written = at(beat, "client.sendComment(");
         final int released = at(beat, "beating.set(false)");
 
-        assertTrue(guard < submitted,
+        assertTrue(
+                guard < submitted,
                 "the tick is submitted before anything checks whether the last one finished, so a"
-                + " follow nobody is reading accumulates one parked virtual thread per tick with"
-                + " nothing to stop it");
-        assertTrue(written < released,
+                        + " follow nobody is reading accumulates one parked virtual thread per tick with"
+                        + " nothing to stop it");
+        assertTrue(
+                written < released,
                 "`beating` is cleared before the comment has been written, which makes the guard"
-                + " decorative: the next tick is free to start immediately");
+                        + " decorative: the next tick is free to start immediately");
     }
 
     /**
@@ -132,23 +136,31 @@ class HeartbeatLeavesTheTimerTest {
      */
     private String followRoute() {
         final int from = source.indexOf("config.routes.sse(\"/api/services/{name}/logs\"");
-        assertTrue(from > 0, "the log follow route is gone or its path changed. If it moved, this"
-                + " test moves with it - a check that cannot find its subject stops running and"
-                + " says nothing about it");
+        assertTrue(
+                from > 0,
+                "the log follow route is gone or its path changed. If it moved, this"
+                        + " test moves with it - a check that cannot find its subject stops running and"
+                        + " says nothing about it");
         final int to = source.indexOf("config.routes.post(\"/api/services/{name}/console\"");
-        assertTrue(to > from, "the console route is gone or has moved above the follow; this"
-                + " test brackets the follow route and needs both ends");
+        assertTrue(
+                to > from,
+                "the console route is gone or has moved above the follow; this"
+                        + " test brackets the follow route and needs both ends");
         return source.substring(from, to);
     }
 
     /** The body of {@code beat}, for the same reason: the orderings inside it are its own. */
     private String beatMethod() {
         final int from = source.indexOf("private void beat(final SseClient client");
-        assertTrue(from > 0, "WorkerApi#beat is gone. If the heartbeat went back to being written"
-                + " inline, that is the change this file exists to argue with");
+        assertTrue(
+                from > 0,
+                "WorkerApi#beat is gone. If the heartbeat went back to being written"
+                        + " inline, that is the change this file exists to argue with");
         final int to = source.indexOf("\n    private void goneOnShutdown(");
-        assertTrue(to > from, "WorkerApi#goneOnShutdown is gone or has moved above beat; this test"
-                + " brackets one method and needs both ends");
+        assertTrue(
+                to > from,
+                "WorkerApi#goneOnShutdown is gone or has moved above beat; this test"
+                        + " brackets one method and needs both ends");
         return source.substring(from, to);
     }
 
@@ -161,8 +173,10 @@ class HeartbeatLeavesTheTimerTest {
      */
     private static int at(final String haystack, final String token) {
         final int index = haystack.indexOf(token);
-        assertTrue(index >= 0, "WorkerApi no longer contains `" + token + "`. If it was removed the"
-                + " guard is gone; if it was renamed, rename it here too.");
+        assertTrue(
+                index >= 0,
+                "WorkerApi no longer contains `" + token + "`. If it was removed the"
+                        + " guard is gone; if it was renamed, rename it here too.");
         return index;
     }
 

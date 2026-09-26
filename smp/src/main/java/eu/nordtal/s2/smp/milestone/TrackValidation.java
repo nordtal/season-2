@@ -55,8 +55,7 @@ import java.util.Objects;
  */
 public final class TrackValidation {
 
-    private TrackValidation() {
-    }
+    private TrackValidation() {}
 
     /** One reason a reload was refused, written so it can go straight into a command's reply. */
     public record Problem(String milestoneKey, String objectiveKey, String message) {
@@ -90,7 +89,9 @@ public final class TrackValidation {
 
         for (final StoredProgress.StoredMilestone stored : progress.milestones()) {
             if (track.milestone(stored.key()).isEmpty()) {
-                problems.add(new Problem(stored.key(), null,
+                problems.add(new Problem(
+                        stored.key(),
+                        null,
                         "has stored progress but is not declared in the file any more. Renaming a "
                                 + "milestone key orphans everything recorded against it; add the key "
                                 + "back, or delete its rows deliberately if the season really is "
@@ -107,7 +108,9 @@ public final class TrackValidation {
 
             final var declared = milestone.get().objective(stored.key());
             if (declared.isEmpty()) {
-                problems.add(new Problem(stored.milestoneKey(), stored.key(),
+                problems.add(new Problem(
+                        stored.milestoneKey(),
+                        stored.key(),
                         "has stored progress but is not declared in the file any more. This is also "
                                 + "what a renamed objective key looks like from here."));
                 continue;
@@ -115,13 +118,17 @@ public final class TrackValidation {
 
             final Objective objective = declared.get();
             if (objective.type() != stored.type()) {
-                problems.add(new Problem(stored.milestoneKey(), stored.key(),
+                problems.add(new Problem(
+                        stored.milestoneKey(),
+                        stored.key(),
                         "changed type from " + stored.type() + " to " + objective.type()
                                 + ", but " + stored.amount() + " of progress is already recorded "
                                 + "against it - and `amount` means a different thing for each type."));
             }
             if (stored.completed() && objective.target() != stored.target()) {
-                problems.add(new Problem(stored.milestoneKey(), stored.key(),
+                problems.add(new Problem(
+                        stored.milestoneKey(),
+                        stored.key(),
                         "has already completed and paid out at a target of " + stored.target()
                                 + "; changing it to " + objective.target() + " would rewrite the "
                                 + "arithmetic behind aura that is already in the ledger."));
@@ -159,7 +166,9 @@ public final class TrackValidation {
             }
             final int position = track.positionOf(stored.key());
             if (position >= 0 && position < lastUnlockedPosition) {
-                problems.add(new Problem(stored.key(), null,
+                problems.add(new Problem(
+                        stored.key(),
+                        null,
                         "is " + stored.state() + " but the file now places it before a milestone that "
                                 + "is already UNLOCKED. The track is linear and its order is this "
                                 + "file's, so what has been finished has to stay at the front of it."));

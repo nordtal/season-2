@@ -1,12 +1,8 @@
 package eu.nordtal.s2.proxy.update;
 
-import eu.nordtal.s2.proxy.routing.ProxyRole;
-
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-
-import org.slf4j.Logger;
-
+import eu.nordtal.s2.proxy.routing.ProxyRole;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -16,6 +12,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import org.slf4j.Logger;
 
 /**
  * The standby proxy's half of a swap: it holds the network, and it sends it home by itself
@@ -116,9 +113,15 @@ public final class StandbyReturn {
     /** When it started answering again, or {@code null} while it is not. */
     private Instant answeringSince;
 
-    public StandbyReturn(final Object plugin, final ProxyServer proxy, final Logger logger,
-                         final SwapStore seats, final ProxyRole role, final InetSocketAddress home,
-                         final Clock clock, final Homecoming voice) {
+    public StandbyReturn(
+            final Object plugin,
+            final ProxyServer proxy,
+            final Logger logger,
+            final SwapStore seats,
+            final ProxyRole role,
+            final InetSocketAddress home,
+            final Clock clock,
+            final Homecoming voice) {
         this(plugin, proxy, logger, seats, role, home, clock, voice, StandbyReturn::connects);
     }
 
@@ -127,9 +130,16 @@ public final class StandbyReturn {
      *              below is the part worth asserting, and asserting it against a real socket would
      *              mean binding a port in a unit test
      */
-    StandbyReturn(final Object plugin, final ProxyServer proxy, final Logger logger,
-                  final SwapStore seats, final ProxyRole role, final InetSocketAddress home,
-                  final Clock clock, final Homecoming voice, final Probe probe) {
+    StandbyReturn(
+            final Object plugin,
+            final ProxyServer proxy,
+            final Logger logger,
+            final SwapStore seats,
+            final ProxyRole role,
+            final InetSocketAddress home,
+            final Clock clock,
+            final Homecoming voice,
+            final Probe probe) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.voice = Objects.requireNonNull(voice, "voice");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
@@ -191,8 +201,10 @@ public final class StandbyReturn {
 
         if (!answers) {
             if (!outageSeen) {
-                logger.info("{} has stopped answering - this is the swap. {} player(s) stay here"
-                        + " until it is back", home, players.size());
+                logger.info(
+                        "{} has stopped answering - this is the swap. {} player(s) stay here" + " until it is back",
+                        home,
+                        players.size());
             }
             outageSeen = true;
             answeringSince = null;
@@ -222,29 +234,35 @@ public final class StandbyReturn {
      */
     private void announceThenSendHome(final Collection<Player> players) {
         returning = true;
-        final List<Countdown.Beat> beats = notice.beats(++notices, Homecoming.NOTICE)
-                .orElseGet(List::of);
-        logger.info("{} is answering again: telling {} player(s) and handing them back in {}s",
-                home, players.size(), Homecoming.NOTICE.toSeconds());
+        final List<Countdown.Beat> beats =
+                notice.beats(++notices, Homecoming.NOTICE).orElseGet(List::of);
+        logger.info(
+                "{} is answering again: telling {} player(s) and handing them back in {}s",
+                home,
+                players.size(),
+                Homecoming.NOTICE.toSeconds());
 
         for (final Countdown.Beat beat : beats) {
-            proxy.getScheduler().buildTask(plugin, () -> {
-                // Asked again per beat rather than held: somebody who logged out during the
-                // countdown is not a player any more, and somebody who logged in is owed the same
-                // sentence as everybody else.
-                final Collection<Player> here = proxy.getAllPlayers();
-                voice.say(here, beat.announcement());
-                if (beat.announcement().kind() != Announcement.Kind.NOW) {
-                    return;
-                }
-                // The sentence first and the transfer second, which is the opposite of the way
-                // out. There the move is what a player can be hurt by; here the move is what ends
-                // their connection to this proxy, and a message sent after it reaches nobody.
-                sendHome(here);
-                returning = false;
-                outageSeen = false;
-                answeringSince = null;
-            }).delay(beat.delay()).schedule();
+            proxy.getScheduler()
+                    .buildTask(plugin, () -> {
+                        // Asked again per beat rather than held: somebody who logged out during the
+                        // countdown is not a player any more, and somebody who logged in is owed the same
+                        // sentence as everybody else.
+                        final Collection<Player> here = proxy.getAllPlayers();
+                        voice.say(here, beat.announcement());
+                        if (beat.announcement().kind() != Announcement.Kind.NOW) {
+                            return;
+                        }
+                        // The sentence first and the transfer second, which is the opposite of the way
+                        // out. There the move is what a player can be hurt by; here the move is what ends
+                        // their connection to this proxy, and a message sent after it reaches nobody.
+                        sendHome(here);
+                        returning = false;
+                        outageSeen = false;
+                        answeringSince = null;
+                    })
+                    .delay(beat.delay())
+                    .schedule();
         }
     }
 
@@ -301,8 +319,7 @@ public final class StandbyReturn {
      */
     static boolean connects(final InetSocketAddress address, final Duration timeout) {
         try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(address.getHostString(), address.getPort()),
-                    (int) timeout.toMillis());
+            socket.connect(new InetSocketAddress(address.getHostString(), address.getPort()), (int) timeout.toMillis());
             return true;
         } catch (final IOException | RuntimeException refused) {
             return false;

@@ -17,8 +17,11 @@ import org.jetbrains.annotations.Nullable;
  * @param health      Docker's health state, or {@code null} for a service that declares no
  *                    healthcheck. Every one of ours does
  */
-public record ServiceRuntime(@NotNull String service, @Nullable String containerId,
-                             @Nullable String status, @Nullable String health) {
+public record ServiceRuntime(
+        @NotNull String service,
+        @Nullable String containerId,
+        @Nullable String status,
+        @Nullable String health) {
 
     /**
      * Whether this service is back for real.

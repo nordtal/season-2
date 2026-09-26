@@ -4,26 +4,21 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
-import eu.nordtal.s2.steward.worker.configfile.MessageArg;
-import eu.nordtal.s2.steward.worker.configfile.MessageBundle;
-import eu.nordtal.s2.steward.worker.configfile.MessageBundleLocation;
-import eu.nordtal.s2.steward.worker.configfile.MessageBundles;
 import eu.nordtal.s2.common.access.AccessRequest;
 import eu.nordtal.s2.common.access.AccessRequestKind;
 import eu.nordtal.s2.common.access.AccessRequestSource;
 import eu.nordtal.s2.common.access.AccessRequestStatus;
 import eu.nordtal.s2.common.access.AccessRequests;
+import eu.nordtal.s2.steward.worker.configfile.MessageArg;
+import eu.nordtal.s2.steward.worker.configfile.MessageBundle;
+import eu.nordtal.s2.steward.worker.configfile.MessageBundleLocation;
+import eu.nordtal.s2.steward.worker.configfile.MessageBundles;
 import eu.nordtal.s2.steward.worker.configfile.MessageEntry;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.InternalServerErrorResponse;
 import io.javalin.http.NotFoundResponse;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -31,6 +26,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The two routes over {@code eu.nordtal.s2.steward.worker.configfile.MessageBundles} (steward/48).
@@ -94,8 +93,11 @@ public final class MessagesApi {
      *              is actually true there
      * @param console the Minecraft services' consoles, which a saved bundle's reload goes through
      */
-    public MessagesApi(final @NotNull Path configsRoot, final @Nullable Path volumesRoot,
-                       final @Nullable AccessRequests inbox, final @NotNull ConfigApi.ConsoleLine console) {
+    public MessagesApi(
+            final @NotNull Path configsRoot,
+            final @Nullable Path volumesRoot,
+            final @Nullable AccessRequests inbox,
+            final @NotNull ConfigApi.ConsoleLine console) {
         this.configsRoot = configsRoot;
         this.volumesRoot = volumesRoot;
         this.inbox = inbox;
@@ -114,8 +116,7 @@ public final class MessagesApi {
             ctx.json(document(location, MessageBundles.read(location)));
         } catch (final IOException e) {
             log.error("{} could not be read", location.jar(), e);
-            throw new InternalServerErrorResponse(identityOf(location) + " could not be read: "
-                    + e.getMessage());
+            throw new InternalServerErrorResponse(identityOf(location) + " could not be read: " + e.getMessage());
         }
     }
 
@@ -147,8 +148,7 @@ public final class MessagesApi {
             before = MessageBundles.read(location);
         } catch (final IOException e) {
             log.error("{} could not be read", location.jar(), e);
-            throw new InternalServerErrorResponse(identityOf(location) + " could not be read: "
-                    + e.getMessage());
+            throw new InternalServerErrorResponse(identityOf(location) + " could not be read: " + e.getMessage());
         }
         final List<String> warnings = new ArrayList<>();
         for (final Map<String, String> changes : byLanguage.values()) {
@@ -164,8 +164,7 @@ public final class MessagesApi {
             throw new BadRequestResponse(e.getMessage());
         } catch (final IOException e) {
             log.error("{} could not be written", location.overrideDirectory(), e);
-            throw new InternalServerErrorResponse(identityOf(location) + " could not be written: "
-                    + e.getMessage());
+            throw new InternalServerErrorResponse(identityOf(location) + " could not be written: " + e.getMessage());
         }
 
         try {
@@ -175,8 +174,8 @@ public final class MessagesApi {
             ctx.json(answer);
         } catch (final IOException e) {
             log.error("{} could not be read back after saving", location.jar(), e);
-            throw new InternalServerErrorResponse(identityOf(location) + " was saved but could not"
-                    + " be read back: " + e.getMessage());
+            throw new InternalServerErrorResponse(
+                    identityOf(location) + " was saved but could not" + " be read back: " + e.getMessage());
         }
     }
 
@@ -195,39 +194,51 @@ public final class MessagesApi {
      */
     private Map<String, Object> reload(final MessageBundleLocation location) {
         if (!RELOADABLE_SERVICE.equals(location.service())) {
-            final Map<String, Object> answer = ConfigApi.reload(console, identityOf(location),
-                    location.service(), identityOf(location), identityOf(location));
+            final Map<String, Object> answer = ConfigApi.reload(
+                    console, identityOf(location), location.service(), identityOf(location), identityOf(location));
             answer.put("unknown", List.of());
             return answer;
         }
         if (inbox == null) {
-            return outcome("RESTART_REQUIRED", "Nothing was sent: this deployment has no database"
-                    + " to ask the bot through.", List.of());
+            return outcome(
+                    "RESTART_REQUIRED",
+                    "Nothing was sent: this deployment has no database" + " to ask the bot through.",
+                    List.of());
         }
-        final AccessRequest asked = inbox.submit(new AccessRequests.NewAccessRequest(
-                AccessRequestKind.RELOAD_MESSAGES, identityOf(location), null,
-                AccessRequestSource.STEWARD, ASKED_BY), ANSWER_WITHIN);
+        final AccessRequest asked = inbox.submit(
+                new AccessRequests.NewAccessRequest(
+                        AccessRequestKind.RELOAD_MESSAGES,
+                        identityOf(location),
+                        null,
+                        AccessRequestSource.STEWARD,
+                        ASKED_BY),
+                ANSWER_WITHIN);
         final AccessRequest settled = waitFor(asked.id());
         if (settled == null || settled.status() == AccessRequestStatus.EXPIRED) {
-            return outcome("NO_ANSWER", "The bot did not answer, so the text that was saved takes"
-                    + " effect the next time it starts.", List.of());
+            return outcome(
+                    "NO_ANSWER",
+                    "The bot did not answer, so the text that was saved takes" + " effect the next time it starts.",
+                    List.of());
         }
         if (settled.status() != AccessRequestStatus.DONE) {
-            log.warn("{} was saved but the bot could not re-read it: {}", identityOf(location),
-                    settled.result());
-            return outcome("NO_ANSWER", "The bot could not re-read its messages, so the running"
-                    + " ones are unchanged and the saved text takes effect the next time it"
-                    + " starts.", List.of());
+            log.warn("{} was saved but the bot could not re-read it: {}", identityOf(location), settled.result());
+            return outcome(
+                    "NO_ANSWER",
+                    "The bot could not re-read its messages, so the running"
+                            + " ones are unchanged and the saved text takes effect the next time it"
+                            + " starts.",
+                    List.of());
         }
         final List<String> unknown = unknownIn(settled.result());
-        return outcome("APPLIED", unknown.isEmpty()
-                ? "The bot re-read its messages."
-                : "The bot re-read its messages. It has no key called "
-                        + String.join(", ", unknown) + ".", unknown);
+        return outcome(
+                "APPLIED",
+                unknown.isEmpty()
+                        ? "The bot re-read its messages."
+                        : "The bot re-read its messages. It has no key called " + String.join(", ", unknown) + ".",
+                unknown);
     }
 
-    private static Map<String, Object> outcome(final String status, final String message,
-                                               final List<String> unknown) {
+    private static Map<String, Object> outcome(final String status, final String message, final List<String> unknown) {
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("status", status);
         answer.put("message", message);
@@ -274,13 +285,14 @@ public final class MessagesApi {
                 return List.of();
             }
             final JsonElement unknown = parsed.getAsJsonObject().get("unknown");
-            if (unknown == null || !unknown.isJsonPrimitive() || unknown.getAsString().isBlank()) {
+            if (unknown == null
+                    || !unknown.isJsonPrimitive()
+                    || unknown.getAsString().isBlank()) {
                 return List.of();
             }
             return List.of(unknown.getAsString().split(","));
         } catch (final JsonSyntaxException | IllegalStateException malformed) {
-            log.warn("the bot answered a reload with something that is not the expected JSON: {}",
-                    result);
+            log.warn("the bot answered a reload with something that is not the expected JSON: {}", result);
             return List.of();
         }
     }
@@ -290,15 +302,22 @@ public final class MessagesApi {
         for (final Map.Entry<String, String> change : changes.entrySet()) {
             final MessageEntry entry = before.entries().stream()
                     .filter(candidate -> candidate.key().equals(change.getKey()))
-                    .findFirst().orElse(null);
+                    .findFirst()
+                    .orElse(null);
             if (entry == null) {
                 continue;
             }
             final List<String> unknown = MessageBundles.unknownPlaceholders(entry, change.getValue());
             if (!unknown.isEmpty()) {
                 problems.add(change.getKey() + " has no placeholder " + String.join(", ", unknown)
-                        + (entry.args().isEmpty() ? "; it takes none."
-                        : "; it takes " + String.join(", ", entry.args().stream().map(MessageArg::token).toList()) + "."));
+                        + (entry.args().isEmpty()
+                                ? "; it takes none."
+                                : "; it takes "
+                                        + String.join(
+                                                ", ",
+                                                entry.args().stream()
+                                                        .map(MessageArg::token)
+                                                        .toList()) + "."));
             }
         }
         if (!problems.isEmpty()) {
@@ -310,8 +329,8 @@ public final class MessagesApi {
      * A dropped placeholder for every changed key that had one, checked against the packaged text -
      * the "original" the ticket means, not whatever the override said a moment ago.
      */
-    private static List<String> warningsOf(final MessageBundle before, final String language,
-                                           final Map<String, String> changes) {
+    private static List<String> warningsOf(
+            final MessageBundle before, final String language, final Map<String, String> changes) {
         final List<String> warnings = new ArrayList<>();
         for (final Map.Entry<String, String> change : changes.entrySet()) {
             final String edited = change.getValue();
@@ -321,12 +340,12 @@ public final class MessagesApi {
             }
             final MessageEntry entry = before.entries().stream()
                     .filter(candidate -> candidate.key().equals(change.getKey()))
-                    .findFirst().orElse(null);
+                    .findFirst()
+                    .orElse(null);
             if (entry == null) {
                 continue;
             }
-            final String original = "de".equals(language) && entry.german() != null
-                    ? entry.german() : entry.english();
+            final String original = "de".equals(language) && entry.german() != null ? entry.german() : entry.english();
             final List<String> missing = MessageBundles.missingPlaceholders(original, edited);
             if (!missing.isEmpty()) {
                 warnings.add(change.getKey() + " no longer contains " + String.join(", ", missing)
@@ -350,14 +369,12 @@ public final class MessagesApi {
         return locations().stream()
                 .filter(location -> identityOf(location).equals(asked))
                 .findFirst()
-                .orElseThrow(() -> new NotFoundResponse(
-                        "There is no message bundle called " + asked + "."));
+                .orElseThrow(() -> new NotFoundResponse("There is no message bundle called " + asked + "."));
     }
 
     /** How a bundle is named in a URL: {@code <service>/<module>}, or just {@code <service>}. */
     private static String identityOf(final MessageBundleLocation location) {
-        return location.module().isEmpty() ? location.service()
-                : location.service() + "/" + location.module();
+        return location.module().isEmpty() ? location.service() : location.service() + "/" + location.module();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -373,10 +390,10 @@ public final class MessagesApi {
         return row;
     }
 
-    private static Map<String, Object> document(final MessageBundleLocation location,
-                                                final MessageBundle bundle) {
+    private static Map<String, Object> document(final MessageBundleLocation location, final MessageBundle bundle) {
         final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
-        final List<Map<String, Object>> entries = new ArrayList<>(bundle.entries().size());
+        final List<Map<String, Object>> entries =
+                new ArrayList<>(bundle.entries().size());
         for (final MessageEntry entry : bundle.entries()) {
             entries.add(describe(entry));
         }
@@ -448,16 +465,17 @@ public final class MessagesApi {
         final Map<String, Map<String, String>> byLanguage = new LinkedHashMap<>();
         byLanguage.put("en", new LinkedHashMap<>());
         byLanguage.put("de", new LinkedHashMap<>());
-        for (final Map.Entry<String, JsonElement> change : changes.getAsJsonObject().entrySet()) {
+        for (final Map.Entry<String, JsonElement> change :
+                changes.getAsJsonObject().entrySet()) {
             if (!change.getValue().isJsonObject()) {
-                throw new BadRequestResponse(change.getKey() + " has to be an object of language to"
-                        + " text, like {\"en\": \"...\"}.");
+                throw new BadRequestResponse(
+                        change.getKey() + " has to be an object of language to" + " text, like {\"en\": \"...\"}.");
             }
-            for (final Map.Entry<String, JsonElement> text : change.getValue().getAsJsonObject().entrySet()) {
+            for (final Map.Entry<String, JsonElement> text :
+                    change.getValue().getAsJsonObject().entrySet()) {
                 final Map<String, String> into = byLanguage.get(text.getKey());
                 if (into == null) {
-                    throw new BadRequestResponse("A language has to be \"en\" or \"de\", not "
-                            + text.getKey() + ".");
+                    throw new BadRequestResponse("A language has to be \"en\" or \"de\", not " + text.getKey() + ".");
                 }
                 final JsonElement value = text.getValue();
                 into.put(change.getKey(), value == null || value.isJsonNull() ? null : value.getAsString());

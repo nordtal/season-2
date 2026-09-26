@@ -9,9 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 export function NotFoundPage() {
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Page not found"
-      />
+      <PageHeader title="Page not found" />
       <Card className="max-w-2xl">
         <CardContent className="flex flex-col items-start gap-4">
           <div className="flex items-start gap-3">

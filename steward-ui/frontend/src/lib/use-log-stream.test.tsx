@@ -43,7 +43,10 @@ class FakeEventSource {
   }
 
   removeEventListener(type: string, listener: Listener): void {
-    this.listeners.set(type, (this.listeners.get(type) ?? []).filter((one) => one !== listener))
+    this.listeners.set(
+      type,
+      (this.listeners.get(type) ?? []).filter((one) => one !== listener),
+    )
   }
 
   close(): void {

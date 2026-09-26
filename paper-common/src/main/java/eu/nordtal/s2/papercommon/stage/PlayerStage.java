@@ -3,7 +3,8 @@ package eu.nordtal.s2.papercommon.stage;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.stage.Cinematic;
 import eu.nordtal.s2.common.stage.CinematicStage;
-
+import java.time.Duration;
+import java.util.UUID;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
@@ -13,9 +14,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-
-import java.time.Duration;
-import java.util.UUID;
 
 /**
  * One player's screen, as far as a staging is concerned.
@@ -68,7 +66,8 @@ public final class PlayerStage implements CinematicStage {
         player.showTitle(Title.title(
                 image,
                 subtitle == null ? Component.empty() : subtitle,
-                Title.Times.times(Duration.ZERO,
+                Title.Times.times(
+                        Duration.ZERO,
                         Duration.ofMillis(ticks * MILLIS_PER_TICK).plus(OVERHANG),
                         Duration.ZERO)));
     }
@@ -87,8 +86,7 @@ public final class PlayerStage implements CinematicStage {
         // ambient false, particles false, icon false: this is a picture, and a staging that also
         // decorates the player with swirling motes and a status icon in the corner is a staging
         // with the plumbing showing.
-        player.addPotionEffect(new PotionEffect(type, ticks, effect.amplifier(), false, false,
-                false));
+        player.addPotionEffect(new PotionEffect(type, ticks, effect.amplifier(), false, false, false));
     }
 
     @Override
@@ -129,14 +127,16 @@ public final class PlayerStage implements CinematicStage {
         try {
             final PotionEffectType resolved = Registry.MOB_EFFECT.get(Key.key(type));
             if (resolved == null) {
-                plugin.getLogger().warning("a staged moment asked for the potion effect '" + type
-                        + "', which this server does not know - it runs without the effect");
+                plugin.getLogger()
+                        .warning("a staged moment asked for the potion effect '" + type
+                                + "', which this server does not know - it runs without the effect");
             }
             return resolved;
         } catch (final RuntimeException failure) {
-            plugin.getLogger().warning("a staged moment asked for the potion effect '" + type
-                    + "', which is not a namespaced key (" + failure + ") - it runs without the"
-                    + " effect");
+            plugin.getLogger()
+                    .warning("a staged moment asked for the potion effect '" + type
+                            + "', which is not a namespaced key (" + failure + ") - it runs without the"
+                            + " effect");
             return null;
         }
     }

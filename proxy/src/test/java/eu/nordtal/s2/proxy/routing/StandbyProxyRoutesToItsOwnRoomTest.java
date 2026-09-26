@@ -1,13 +1,11 @@
 package eu.nordtal.s2.proxy.routing;
 
-import eu.nordtal.s2.common.SeasonPhase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.s2.common.SeasonPhase;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * A standby proxy puts arrivals in the standby waiting room, and that is the whole safety argument
@@ -22,16 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 class StandbyProxyRoutesToItsOwnRoomTest {
 
-    private static final PhaseServers SERVERS =
-            new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
-    private static final Set<String> BOTH =
-            Set.of("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final Set<String> BOTH = Set.of("limbo", "limbo-standby", "hunger-games", "smp");
 
     @Test
     @DisplayName("the standby prefers its own room even though the live one is up")
     void theStandbyPrefersItsOwnRoom() {
-        assertEquals("limbo-standby",
-                PhaseRouting.waitingRoomAmong(BOTH, SERVERS, ProxyRole.STANDBY));
+        assertEquals("limbo-standby", PhaseRouting.waitingRoomAmong(BOTH, SERVERS, ProxyRole.STANDBY));
     }
 
     @Test
@@ -43,18 +38,17 @@ class StandbyProxyRoutesToItsOwnRoomTest {
     @Test
     @DisplayName("each falls back to the other, which is what makes a limbo swap possible at all")
     void eachFallsBackToTheOther() {
-        assertEquals("limbo-standby", PhaseRouting.waitingRoomAmong(
-                Set.of("limbo-standby", "smp"), SERVERS, ProxyRole.LIVE));
-        assertEquals("limbo", PhaseRouting.waitingRoomAmong(
-                Set.of("limbo", "smp"), SERVERS, ProxyRole.STANDBY));
+        assertEquals(
+                "limbo-standby",
+                PhaseRouting.waitingRoomAmong(Set.of("limbo-standby", "smp"), SERVERS, ProxyRole.LIVE));
+        assertEquals("limbo", PhaseRouting.waitingRoomAmong(Set.of("limbo", "smp"), SERVERS, ProxyRole.STANDBY));
     }
 
     @Test
     @DisplayName("no room at all is still no room")
     void noRoomIsStillNoRoom() {
         assertEquals(null, PhaseRouting.waitingRoomAmong(Set.of("smp"), SERVERS, ProxyRole.LIVE));
-        assertEquals(null, PhaseRouting.waitingRoomAmong(Set.of("smp"), SERVERS,
-                ProxyRole.STANDBY));
+        assertEquals(null, PhaseRouting.waitingRoomAmong(Set.of("smp"), SERVERS, ProxyRole.STANDBY));
     }
 
     @Test
@@ -62,12 +56,12 @@ class StandbyProxyRoutesToItsOwnRoomTest {
     void everyLoginLandsInTheStandbyRoom() {
         final PhaseRouting standby = new PhaseRouting(SERVERS, ProxyRole.STANDBY);
         for (final SeasonPhase phase : SeasonPhase.values()) {
-            assertEquals("limbo-standby",
-                    standby.decideInitial(phase, false, BOTH).server(), phase.toString());
+            assertEquals(
+                    "limbo-standby", standby.decideInitial(phase, false, BOTH).server(), phase.toString());
             // Admins too. A parked admin is going home like everybody else; sending them onward
             // would strand them on the proxy that is about to be stopped.
-            assertEquals("limbo-standby",
-                    standby.decideInitial(phase, true, BOTH).server(), phase.toString());
+            assertEquals(
+                    "limbo-standby", standby.decideInitial(phase, true, BOTH).server(), phase.toString());
         }
     }
 }

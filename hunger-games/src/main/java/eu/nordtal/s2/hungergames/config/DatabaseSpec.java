@@ -4,30 +4,31 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
-import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code config/database.yml} - this plugin's own pool on the shared PostgreSQL database, separate
  * from every other process's. This plugin never migrates anything: {@code discord-bot} owns and
  * applies the schema, and this pool only reads and writes rows in tables that already exist.
  */
-@ConfigSpec(header = {
-        "-------------------------------------------------------------------",
-        "  hunger-games - PostgreSQL connection",
-        "-------------------------------------------------------------------",
-        "In production the password belongs in the environment, not in this",
-        "file. Every setting can be overridden with",
-        "NORDTAL_HUNGER_GAMES_DATABASE_<SETTING>:",
-        "",
-        "  NORDTAL_HUNGER_GAMES_DATABASE_JDBC_URL",
-        "  NORDTAL_HUNGER_GAMES_DATABASE_USERNAME",
-        "  NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD",
-        "",
-        "An overridden value is never written back into this file. This is a",
-        "SEPARATE connection pool from every other process's own database.yml."
-})
+@ConfigSpec(
+        header = {
+            "-------------------------------------------------------------------",
+            "  hunger-games - PostgreSQL connection",
+            "-------------------------------------------------------------------",
+            "In production the password belongs in the environment, not in this",
+            "file. Every setting can be overridden with",
+            "NORDTAL_HUNGER_GAMES_DATABASE_<SETTING>:",
+            "",
+            "  NORDTAL_HUNGER_GAMES_DATABASE_JDBC_URL",
+            "  NORDTAL_HUNGER_GAMES_DATABASE_USERNAME",
+            "  NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD",
+            "",
+            "An overridden value is never written back into this file. This is a",
+            "SEPARATE connection pool from every other process's own database.yml."
+        })
 public interface DatabaseSpec {
 
     @Order(1)
@@ -70,11 +71,11 @@ public interface DatabaseSpec {
     @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
     @Comment({
-            "How long this plugin waits for the database before giving up - applied BOTH to",
-            "acquiring a connection from the pool and, through the PostgreSQL driver's own",
-            "socketTimeout, to a query that is already running. Without the second one a database",
-            "that accepts a connection and then hangs is not caught by the first at all.",
-            "Kept short so a struggling database fails fast rather than queueing joins behind it."
+        "How long this plugin waits for the database before giving up - applied BOTH to",
+        "acquiring a connection from the pool and, through the PostgreSQL driver's own",
+        "socketTimeout, to a query that is already running. Without the second one a database",
+        "that accepts a connection and then hangs is not caught by the first at all.",
+        "Kept short so a struggling database fails fast rather than queueing joins behind it."
     })
     @Explain("Limits both waiting for a free connection and a query already running - not only the query.")
     default int queryTimeoutSeconds() {

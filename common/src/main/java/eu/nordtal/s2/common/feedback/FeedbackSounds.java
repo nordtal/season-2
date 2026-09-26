@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.feedback;
 
-import net.kyori.adventure.key.Key;
-
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import net.kyori.adventure.key.Key;
 
 /**
  * A module's whole sound configuration, parsed once and then answered from memory.
@@ -65,8 +64,7 @@ public final class FeedbackSounds {
      * @param problems where a value that had to be ignored or corrected is reported, once each.
      *                 A plugin passes {@code getLogger()::warning}
      */
-    public static FeedbackSounds parse(final Map<Feedback, FeedbackSound> declared,
-                                       final Consumer<String> problems) {
+    public static FeedbackSounds parse(final Map<Feedback, FeedbackSound> declared, final Consumer<String> problems) {
         final Map<Feedback, FeedbackSound> parsed = new EnumMap<>(Feedback.class);
         for (final Map.Entry<Feedback, FeedbackSound> entry : declared.entrySet()) {
             final Feedback category = entry.getKey();
@@ -83,9 +81,10 @@ public final class FeedbackSounds {
                         + " category is silent until it is corrected.");
                 continue;
             }
-            parsed.put(category, new FeedbackSound(key,
-                    volume(category, sound.volume(), problems),
-                    pitch(category, sound.pitch(), problems)));
+            parsed.put(
+                    category,
+                    new FeedbackSound(
+                            key, volume(category, sound.volume(), problems), pitch(category, sound.pitch(), problems)));
         }
         return new FeedbackSounds(parsed);
     }
@@ -129,28 +128,25 @@ public final class FeedbackSounds {
         return true;
     }
 
-    private static float volume(final Feedback category, final float declared,
-                                final Consumer<String> problems) {
+    private static float volume(final Feedback category, final float declared, final Consumer<String> problems) {
         if (declared >= 0.0f && Float.isFinite(declared)) {
             return declared;
         }
-        problems.accept("the volume for " + category + " is " + declared + ", which is not a volume;"
-                + " using " + FeedbackSound.DEFAULT_VOLUME);
+        problems.accept("the volume for " + category + " is " + declared + ", which is not a volume;" + " using "
+                + FeedbackSound.DEFAULT_VOLUME);
         return FeedbackSound.DEFAULT_VOLUME;
     }
 
-    private static float pitch(final Feedback category, final float declared,
-                               final Consumer<String> problems) {
+    private static float pitch(final Feedback category, final float declared, final Consumer<String> problems) {
         if (!Float.isFinite(declared) || declared <= 0.0f) {
-            problems.accept("the pitch for " + category + " is " + declared + ", which is not a"
-                    + " pitch; using " + FeedbackSound.DEFAULT_PITCH);
+            problems.accept("the pitch for " + category + " is " + declared + ", which is not a" + " pitch; using "
+                    + FeedbackSound.DEFAULT_PITCH);
             return FeedbackSound.DEFAULT_PITCH;
         }
         if (declared < FeedbackSound.MIN_PITCH || declared > FeedbackSound.MAX_PITCH) {
             // Clamped rather than refused: the client clamps it anyway, so refusing would only mean
             // silence where the operator expected the nearest thing they can actually hear.
-            final float clamped = Math.min(FeedbackSound.MAX_PITCH,
-                    Math.max(FeedbackSound.MIN_PITCH, declared));
+            final float clamped = Math.min(FeedbackSound.MAX_PITCH, Math.max(FeedbackSound.MIN_PITCH, declared));
             problems.accept("the pitch for " + category + " is " + declared + ", outside the "
                     + FeedbackSound.MIN_PITCH + " - " + FeedbackSound.MAX_PITCH + " a client will"
                     + " play; using " + clamped);

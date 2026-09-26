@@ -44,10 +44,7 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
 }
 
 /** One `/api/messages/<path>` answer per fixture bundle and one canned PUT answer per path. */
-function backend(
-  bundles: Record<string, unknown>,
-  puts: Record<string, (body: unknown) => unknown> = {},
-) {
+function backend(bundles: Record<string, unknown>, puts: Record<string, (body: unknown) => unknown> = {}) {
   const listing = Object.values(bundles).map((bundle) => {
     const { service, module, path, writable } = bundle as MessageBundleLocation
     return { service, module, path, writable }
@@ -183,9 +180,7 @@ describe("saving a line", () => {
         {
           "smp/smp": () => ({
             ...location({ path: "smp/smp" }),
-            entries: [
-              entry({ key: "greeting", english: "Hello <_sender>", overrideEnglish: "Hello there" }),
-            ],
+            entries: [entry({ key: "greeting", english: "Hello <_sender>", overrideEnglish: "Hello there" })],
             warnings: ["greeting no longer contains <_sender>"],
           }),
         },
@@ -235,9 +230,7 @@ describe("saving a line", () => {
     fireEvent.change(field, { target: { value: "Howdy" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
-    await waitFor(() =>
-      expect(shown).toHaveBeenCalledWith("One text saved.", { description: message }),
-    )
+    await waitFor(() => expect(shown).toHaveBeenCalledWith("One text saved.", { description: message }))
   })
 
   it("names a key the override file has and the bundle does not", async () => {
@@ -253,9 +246,7 @@ describe("saving a line", () => {
         {
           "discord-bot": () => ({
             ...location({ path: "discord-bot", service: "discord-bot", module: "" }),
-            entries: [
-              entry({ key: "dm.granted", english: "You are in", overrideEnglish: "Welcome in" }),
-            ],
+            entries: [entry({ key: "dm.granted", english: "You are in", overrideEnglish: "Welcome in" })],
             warnings: [],
             reload: {
               status: "APPLIED",
@@ -283,9 +274,7 @@ describe("saving a line", () => {
         {
           "smp/smp": {
             ...location({ path: "smp/smp" }),
-            entries: [
-              entry({ key: "welcome", english: "Welcome", overrideEnglish: "Howdy" }),
-            ],
+            entries: [entry({ key: "welcome", english: "Welcome", overrideEnglish: "Howdy" })],
           },
         },
         {

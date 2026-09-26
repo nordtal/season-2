@@ -3,7 +3,6 @@ package eu.nordtal.s2.proxy.routing;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.proxy.gate.GateOutcome;
-
 import java.util.Objects;
 import java.util.Set;
 
@@ -100,8 +99,7 @@ public final class PhaseRouting {
      * @return {@code CONNECT limbo} whenever there is one; for an admin without one, the server the
      *         room would have released them onto; otherwise the refusal that fits the phase
      */
-    public RouteDecision decideInitial(final SeasonPhase phase, final boolean admin,
-                                       final Set<String> available) {
+    public RouteDecision decideInitial(final SeasonPhase phase, final boolean admin, final Set<String> available) {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(available, "available");
 
@@ -130,9 +128,10 @@ public final class PhaseRouting {
             }
         }
 
-        return RouteDecision.of(phase == SeasonPhase.MAINTENANCE
-                ? RouteDecision.Action.REFUSE_MAINTENANCE_UNAVAILABLE
-                : RouteDecision.Action.REFUSE_NO_SERVER);
+        return RouteDecision.of(
+                phase == SeasonPhase.MAINTENANCE
+                        ? RouteDecision.Action.REFUSE_MAINTENANCE_UNAVAILABLE
+                        : RouteDecision.Action.REFUSE_NO_SERVER);
     }
 
     /**
@@ -148,8 +147,7 @@ public final class PhaseRouting {
      * @param available the names of the servers this proxy has registered
      * @return where to put them, never a refusal that has to do with admission
      */
-    public RouteDecision decideAdmitted(final SeasonPhase phase, final boolean admin,
-                                        final Set<String> available) {
+    public RouteDecision decideAdmitted(final SeasonPhase phase, final boolean admin, final Set<String> available) {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(available, "available");
 
@@ -165,9 +163,10 @@ public final class PhaseRouting {
             return RouteDecision.connectTo(destination);
         }
 
-        return RouteDecision.of(phase == SeasonPhase.MAINTENANCE
-                ? RouteDecision.Action.REFUSE_MAINTENANCE_UNAVAILABLE
-                : RouteDecision.Action.REFUSE_NO_SERVER);
+        return RouteDecision.of(
+                phase == SeasonPhase.MAINTENANCE
+                        ? RouteDecision.Action.REFUSE_MAINTENANCE_UNAVAILABLE
+                        : RouteDecision.Action.REFUSE_NO_SERVER);
     }
 
     /**
@@ -184,8 +183,7 @@ public final class PhaseRouting {
      * @return {@code CONNECT} to the phase's backend - the SMP for an admin while the network is
      *         closed - or the refusal for a backend this proxy does not have
      */
-    public RouteDecision decideRelease(final SeasonPhase phase, final boolean admin,
-                                       final Set<String> available) {
+    public RouteDecision decideRelease(final SeasonPhase phase, final boolean admin, final Set<String> available) {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(available, "available");
 
@@ -193,9 +191,10 @@ public final class PhaseRouting {
         if (available.contains(destination)) {
             return RouteDecision.connectTo(destination);
         }
-        return RouteDecision.of(phase == SeasonPhase.MAINTENANCE
-                ? RouteDecision.Action.REFUSE_MAINTENANCE_UNAVAILABLE
-                : RouteDecision.Action.REFUSE_NO_SERVER);
+        return RouteDecision.of(
+                phase == SeasonPhase.MAINTENANCE
+                        ? RouteDecision.Action.REFUSE_MAINTENANCE_UNAVAILABLE
+                        : RouteDecision.Action.REFUSE_NO_SERVER);
     }
 
     public PhaseServers servers() {
@@ -239,8 +238,7 @@ public final class PhaseRouting {
      * @param role      which proxy this is
      * @return a room to put somebody in, or {@code null} if this proxy has neither
      */
-    static String waitingRoomAmong(final Set<String> available, final PhaseServers servers,
-                                   final ProxyRole role) {
+    static String waitingRoomAmong(final Set<String> available, final PhaseServers servers, final ProxyRole role) {
         final String first = role.isStandby() ? servers.limboStandby() : servers.limbo();
         final String second = role.isStandby() ? servers.limbo() : servers.limboStandby();
         if (available.contains(first)) {

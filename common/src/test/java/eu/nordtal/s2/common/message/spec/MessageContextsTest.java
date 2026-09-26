@@ -1,20 +1,19 @@
 package eu.nordtal.s2.common.message.spec;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.context.Contexts;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.common.message.context.TeamContext;
+import java.util.List;
+import java.util.Locale;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MessageContextsTest {
 
@@ -23,8 +22,10 @@ class MessageContextsTest {
 
         @Name("Hit")
         @Shown(Display.TITLE)
-        MessageRef hit(@Arg("attacker") PlayerContext attacker, @Arg("victim") PlayerContext victim,
-                       @Arg("damage") Object damage);
+        MessageRef hit(
+                @Arg("attacker") PlayerContext attacker,
+                @Arg("victim") PlayerContext victim,
+                @Arg("damage") Object damage);
 
         @Name("Bar")
         Bar bar();
@@ -47,20 +48,23 @@ class MessageContextsTest {
 
     @Test
     void aRoleFillsEveryPropertyOfItsContext() {
-        assertEquals("Ada hit Bo for 3.", messages.format(Locale.ENGLISH,
-                fight.hit(new PlayerContext("Ada"), new PlayerContext("Bo"), 3)));
+        assertEquals(
+                "Ada hit Bo for 3.",
+                messages.format(Locale.ENGLISH, fight.hit(new PlayerContext("Ada"), new PlayerContext("Bo"), 3)));
     }
 
     @Test
     void serverAndSeasonAreInEveryMessage() {
         Contexts.server("smp");
-        assertEquals("Season 2 on smp: 40%", messages.format(Locale.ENGLISH, fight.bar().progress(40)));
+        assertEquals(
+                "Season 2 on smp: 40%",
+                messages.format(Locale.ENGLISH, fight.bar().progress(40)));
     }
 
     @Test
     void aContextValueIsEscapedLikeAnyOther() {
-        final Component line = MessageRenderer.of(messages).format(Locale.ENGLISH,
-                fight.hit(new PlayerContext("<red>Ada"), new PlayerContext("Bo"), 1));
+        final Component line = MessageRenderer.of(messages)
+                .format(Locale.ENGLISH, fight.hit(new PlayerContext("<red>Ada"), new PlayerContext("Bo"), 1));
         assertEquals("<red>Ada hit Bo for 1.", plain(line));
     }
 
@@ -68,9 +72,12 @@ class MessageContextsTest {
     void theSchemaNamesRolesTheirTypesFormatAndDisplay() {
         final List<MessageSchema.Entry> entries = MessageSchema.entries(Fight.class);
         final MessageSchema.Entry hit = entries.get(0);
-        assertEquals(List.of(new MessageSchema.Arg("attacker", false, "player"),
-                new MessageSchema.Arg("victim", false, "player"),
-                new MessageSchema.Arg("damage", false, null)), hit.args());
+        assertEquals(
+                List.of(
+                        new MessageSchema.Arg("attacker", false, "player"),
+                        new MessageSchema.Arg("victim", false, "player"),
+                        new MessageSchema.Arg("damage", false, null)),
+                hit.args());
         assertEquals(Display.TITLE, hit.shown());
         assertEquals(TextFormat.MINIMESSAGE, hit.format());
         assertEquals(Display.BOSS_BAR, entries.get(1).shown());
@@ -81,8 +88,10 @@ class MessageContextsTest {
         assertTrue(json.contains("{\"name\": \"attacker\", \"component\": false, \"context\": \"player\"}"), json);
         assertTrue(json.contains("\"format\": \"MINIMESSAGE\", \"shown\": \"TITLE\""), json);
         assertTrue(json.contains("\"player\": {\"name\": \"Player\", \"properties\": [\"name\"]}"), json);
-        assertTrue(json.contains("\"globals\": [{\"name\": \"server\", \"context\": \"service\"}, "
-                + "{\"name\": \"season\", \"context\": \"season\"}]"), json);
+        assertTrue(
+                json.contains("\"globals\": [{\"name\": \"server\", \"context\": \"service\"}, "
+                        + "{\"name\": \"season\", \"context\": \"season\"}]"),
+                json);
     }
 
     @Test
@@ -94,8 +103,10 @@ class MessageContextsTest {
     interface Drifted {
 
         @Name("Hit")
-        MessageRef hit(@Arg("attacker") PlayerContext attacker, @Arg("target") PlayerContext target,
-                       @Arg("damage") Object damage);
+        MessageRef hit(
+                @Arg("attacker") PlayerContext attacker,
+                @Arg("target") PlayerContext target,
+                @Arg("damage") Object damage);
 
         @Name("Bar")
         Bar bar();
@@ -113,7 +124,8 @@ class MessageContextsTest {
     @Test
     void aPropertyTheRoleDoesNotHaveAndAnUnusedRoleAreNamed() {
         final List<String> problems = MessageSpecCheck.problems(Drifted.class);
-        assertTrue(problems.contains("hit (en): the text names {victim.name}, which nothing declares"),
+        assertTrue(
+                problems.contains("hit (en): the text names {victim.name}, which nothing declares"),
                 problems::toString);
         assertTrue(problems.contains("hit (en): the role target is never used"), problems::toString);
         assertEquals(2 * 2, problems.size(), problems::toString);

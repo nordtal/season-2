@@ -91,5 +91,4 @@ describe("the header is gone and does not grow back (steward/89)", () => {
 
     expect(offenders, "The shell comparison is over; there is one frame.").toEqual([])
   })
-
 })

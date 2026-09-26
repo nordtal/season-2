@@ -5,7 +5,11 @@ import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
 import eu.nordtal.s2.smp.player.Identities;
-
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Statistic;
@@ -13,12 +17,6 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Counts {@code STATISTIC} objectives by reading each player's vanilla statistic and crediting the
@@ -55,6 +53,7 @@ public final class StatisticPoller {
      * definitions the server started with, for the rest of the season, and nothing would say so.</p>
      */
     private final java.util.function.Supplier<MilestoneTrack> track;
+
     private final ObjectiveEngine engine;
     private final Identities identities;
 
@@ -74,10 +73,14 @@ public final class StatisticPoller {
      * already costs and for the same reason - see {@link #sample}.</p>
      */
     private MilestoneTrack sampledUnder;
+
     private BukkitTask task;
 
-    public StatisticPoller(final Plugin plugin, final java.util.function.Supplier<MilestoneTrack> track,
-                           final ObjectiveEngine engine, final Identities identities) {
+    public StatisticPoller(
+            final Plugin plugin,
+            final java.util.function.Supplier<MilestoneTrack> track,
+            final ObjectiveEngine engine,
+            final Identities identities) {
         this.plugin = plugin;
         this.track = track;
         this.engine = engine;
@@ -129,8 +132,7 @@ public final class StatisticPoller {
 
     private void sample(final Player player, final Objective objective, final String milestoneKey) {
         final long now = read(player, objective);
-        final Map<String, Long> forPlayer =
-                baselines.computeIfAbsent(player.getUniqueId(), key -> new HashMap<>());
+        final Map<String, Long> forPlayer = baselines.computeIfAbsent(player.getUniqueId(), key -> new HashMap<>());
         final Long previous = forPlayer.put(objective.key(), now);
 
         if (previous == null || now <= previous) {
@@ -143,8 +145,9 @@ public final class StatisticPoller {
         if (discordId == null) {
             return;
         }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin,
-                () -> engine.credit(discordId, objective.key(), delta, player.getUniqueId()));
+        Bukkit.getScheduler()
+                .runTaskAsynchronously(
+                        plugin, () -> engine.credit(discordId, objective.key(), delta, player.getUniqueId()));
     }
 
     /**
@@ -173,10 +176,10 @@ public final class StatisticPoller {
     private long readOne(final Player player, final Statistic statistic, final String subject) {
         try {
             return switch (statistic.getType()) {
-                case BLOCK, ITEM -> player.getStatistic(statistic,
-                        Material.valueOf(subject.toUpperCase(java.util.Locale.ROOT)));
-                case ENTITY -> player.getStatistic(statistic,
-                        EntityType.valueOf(subject.toUpperCase(java.util.Locale.ROOT)));
+                case BLOCK, ITEM ->
+                    player.getStatistic(statistic, Material.valueOf(subject.toUpperCase(java.util.Locale.ROOT)));
+                case ENTITY ->
+                    player.getStatistic(statistic, EntityType.valueOf(subject.toUpperCase(java.util.Locale.ROOT)));
                 case UNTYPED -> player.getStatistic(statistic);
             };
         } catch (final IllegalArgumentException exception) {

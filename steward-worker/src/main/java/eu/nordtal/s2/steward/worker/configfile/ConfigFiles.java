@@ -1,26 +1,14 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import static java.nio.file.StandardOpenOption.WRITE;
+
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SettingKind;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Type;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.LoaderOptions;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.SafeConstructor;
-import org.yaml.snakeyaml.error.Mark;
-import org.yaml.snakeyaml.error.MarkedYAMLException;
-import org.yaml.snakeyaml.error.YAMLException;
-import org.yaml.snakeyaml.nodes.MappingNode;
-import org.yaml.snakeyaml.nodes.Node;
-import org.yaml.snakeyaml.nodes.NodeTuple;
-import org.yaml.snakeyaml.nodes.ScalarNode;
-import org.yaml.snakeyaml.nodes.SequenceNode;
-
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.UncheckedIOException;
@@ -47,10 +35,21 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
-
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
-import static java.nio.file.StandardOpenOption.WRITE;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.error.Mark;
+import org.yaml.snakeyaml.error.MarkedYAMLException;
+import org.yaml.snakeyaml.error.YAMLException;
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.NodeTuple;
+import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.SequenceNode;
 
 /**
  * Reads and writes the YAML jcore writes, without knowing the {@code @ConfigSpec} it came from.
@@ -79,8 +78,7 @@ public final class ConfigFiles {
 
     private static final Logger LOG = LoggerFactory.getLogger(ConfigFiles.class);
 
-    private ConfigFiles() {
-    }
+    private ConfigFiles() {}
 
     // -----------------------------------------------------------------------------------------
     // Reading
@@ -130,8 +128,7 @@ public final class ConfigFiles {
      * The document, plus what only the writer needs: the lines as they stand, and where each
      * scalar's characters are.
      */
-    private record Parsed(ConfigDocument document, List<String> lines, Map<String, Span> spans) {
-    }
+    private record Parsed(ConfigDocument document, List<String> lines, Map<String, Span> spans) {}
 
     /**
      * Where a key and its value sit, 0-based.
@@ -157,9 +154,16 @@ public final class ConfigFiles {
      * @param flow         whether a sequence is written {@code [a, b]} rather than as a block
      * @param block        whether a scalar is written {@code |} or {@code >} rather than inline
      */
-    private record Span(int keyLine, int keyColumn, int keyEndColumn,
-                        int line, int start, int end, int endLine,
-                        boolean flow, boolean block) {
+    private record Span(
+            int keyLine,
+            int keyColumn,
+            int keyEndColumn,
+            int line,
+            int start,
+            int end,
+            int endLine,
+            boolean flow,
+            boolean block) {
 
         boolean multiLine() {
             return endLine > line;
@@ -179,16 +183,17 @@ public final class ConfigFiles {
         try {
             root = new Yaml(new SafeConstructor(new LoaderOptions())).compose(new StringReader(content));
         } catch (final MarkedYAMLException e) {
-            throw new IOException(file + " is not valid YAML: line " + lineOf(e) + ": "
-                    + e.getProblem(), e);
+            throw new IOException(file + " is not valid YAML: line " + lineOf(e) + ": " + e.getProblem(), e);
         } catch (final YAMLException e) {
             throw new IOException(file + " is not valid YAML: " + e.getMessage(), e);
         }
 
         if (root == null) {
             // An empty file, or one that is nothing but comments. Everything in it is the header.
-            return new Parsed(new ConfigDocument(file, revisionOf(content),
-                    headerOf(lines, Integer.MAX_VALUE), List.of()), lines, Map.of());
+            return new Parsed(
+                    new ConfigDocument(file, revisionOf(content), headerOf(lines, Integer.MAX_VALUE), List.of()),
+                    lines,
+                    Map.of());
         }
         if (!(root instanceof MappingNode mapping)) {
             throw new IOException(file + " is not a config file: line "
@@ -206,9 +211,10 @@ public final class ConfigFiles {
         final Optional<Set<String>> overridden = EnvOverrides.read(file);
         collect(file, mapping, "", lines, entries, spans, schema, overridden);
 
-        final int firstKeyLine = entries.isEmpty() ? Integer.MAX_VALUE : entries.getFirst().line() - 1;
-        return new Parsed(new ConfigDocument(file, revisionOf(content),
-                headerOf(lines, firstKeyLine), entries), lines, spans);
+        final int firstKeyLine =
+                entries.isEmpty() ? Integer.MAX_VALUE : entries.getFirst().line() - 1;
+        return new Parsed(
+                new ConfigDocument(file, revisionOf(content), headerOf(lines, firstKeyLine), entries), lines, spans);
     }
 
     /**
@@ -221,27 +227,31 @@ public final class ConfigFiles {
      *                    at this level is then vacuously {@link ConfigEntry#inSchema()}: there is
      *                    nothing here for it to be missing from
      */
-    private static void collect(final Path file,
-                                final MappingNode mapping,
-                                final String prefix,
-                                final List<String> lines,
-                                final List<ConfigEntry> entries,
-                                final Map<String, Span> spans,
-                                final Optional<Map<String, SchemaNode>> schemaLevel,
-                                final Optional<Set<String>> overridden) throws IOException {
+    private static void collect(
+            final Path file,
+            final MappingNode mapping,
+            final String prefix,
+            final List<String> lines,
+            final List<ConfigEntry> entries,
+            final Map<String, Span> spans,
+            final Optional<Map<String, SchemaNode>> schemaLevel,
+            final Optional<Set<String>> overridden)
+            throws IOException {
         final Set<String> matchedSchemaKeys = new HashSet<>();
         for (final NodeTuple tuple : mapping.getValue()) {
             if (!(tuple.getKeyNode() instanceof ScalarNode keyNode)) {
-                throw new IOException(file + ": line " + (tuple.getKeyNode().getStartMark().getLine() + 1)
-                        + ": only plain keys are supported, found a "
-                        + tuple.getKeyNode().getNodeId());
+                throw new IOException(
+                        file + ": line " + (tuple.getKeyNode().getStartMark().getLine() + 1)
+                                + ": only plain keys are supported, found a "
+                                + tuple.getKeyNode().getNodeId());
             }
             final String key = keyNode.getValue();
             final String path = prefix.isEmpty() ? key : prefix + "." + key;
             final Node valueNode = tuple.getValueNode();
             final int keyLine = keyNode.getStartMark().getLine();
 
-            final SchemaNode schemaChild = schemaLevel.map(level -> level.get(key)).orElse(null);
+            final SchemaNode schemaChild =
+                    schemaLevel.map(level -> level.get(key)).orElse(null);
             final boolean inSchema = schemaLevel.isEmpty() || schemaChild != null;
             if (schemaChild != null) {
                 matchedSchemaKeys.add(key);
@@ -284,22 +294,21 @@ public final class ConfigFiles {
                 editable = true;
 
                 final Optional<Map<String, SchemaNode>> elementSchema =
-                        describesSections(schemaChild)
-                                ? Optional.of(schemaChild.children())
-                                : Optional.empty();
+                        describesSections(schemaChild) ? Optional.of(schemaChild.children()) : Optional.empty();
                 final List<List<ConfigEntry>> collected = new ArrayList<>();
                 for (int index = 0; index < sequence.getValue().size(); index++) {
-                    final MappingNode element = (MappingNode) sequence.getValue().get(index);
+                    final MappingNode element =
+                            (MappingNode) sequence.getValue().get(index);
                     final List<ConfigEntry> fields = new ArrayList<>();
-                    collect(file, element, path + "[" + index + "]", lines, fields, spans, elementSchema,
-                            overridden);
+                    collect(file, element, path + "[" + index + "]", lines, fields, spans, elementSchema, overridden);
                     collected.add(List.copyOf(fields));
                 }
                 sections = List.copyOf(collected);
                 // The card's shape comes from the schema, to whatever depth it describes: a field
                 // that is a list of values or a list of sections of its own is part of the card.
                 // Only a nested map inside an element is still "no card fits".
-                template = elementSchema.filter(ConfigFiles::isCardShaped)
+                template = elementSchema
+                        .filter(ConfigFiles::isCardShaped)
                         .map(ConfigFiles::templateOf)
                         .orElse(List.of());
             } else if (valueNode instanceof SequenceNode sequence) {
@@ -344,7 +353,7 @@ public final class ConfigFiles {
                             && sequence.getFlowStyle() == DumperOptions.FlowStyle.FLOW,
                     valueNode instanceof ScalarNode scalar
                             && (scalar.getScalarStyle() == DumperOptions.ScalarStyle.LITERAL
-                            || scalar.getScalarStyle() == DumperOptions.ScalarStyle.FOLDED));
+                                    || scalar.getScalarStyle() == DumperOptions.ScalarStyle.FOLDED));
 
             entries.add(new ConfigEntry(
                     path,
@@ -387,9 +396,12 @@ public final class ConfigFiles {
             final Set<String> extra = new java.util.TreeSet<>(schemaLevel.get().keySet());
             extra.removeAll(matchedSchemaKeys);
             if (!extra.isEmpty()) {
-                LOG.warn("{}: the schema names {} setting(s) the file does not have: {}. The file"
+                LOG.warn(
+                        "{}: the schema names {} setting(s) the file does not have: {}. The file"
                                 + " wins; they are ignored.",
-                        file, extra.size(), String.join(", ", extra));
+                        file,
+                        extra.size(),
+                        String.join(", ", extra));
             }
         }
     }
@@ -399,7 +411,8 @@ public final class ConfigFiles {
         if (schemaChild == null || schemaChild.choices() == null) {
             return null;
         }
-        return new ConfigEntry.Choices(schemaChild.choices().values(), schemaChild.choices().strict());
+        return new ConfigEntry.Choices(
+                schemaChild.choices().values(), schemaChild.choices().strict());
     }
 
     /**
@@ -412,12 +425,15 @@ public final class ConfigFiles {
             return null;
         }
         return new ConfigEntry.Protected(
-                schemaChild.protectedEntry().field(), schemaChild.protectedEntry().value());
+                schemaChild.protectedEntry().field(),
+                schemaChild.protectedEntry().value());
     }
 
     /** Whether a schema entry is a list whose elements are sections - it describes their fields. */
     private static boolean describesSections(final SchemaNode schema) {
-        return schema != null && schema.kind() == SettingKind.LIST && !schema.children().isEmpty();
+        return schema != null
+                && schema.kind() == SettingKind.LIST
+                && !schema.children().isEmpty();
     }
 
     /**
@@ -450,8 +466,7 @@ public final class ConfigFiles {
             final String key = field.getKey();
             final SchemaNode schema = field.getValue();
             final boolean sections = describesSections(schema);
-            final Kind kind = schema.kind() == SettingKind.SCALAR ? Kind.SCALAR
-                    : sections ? Kind.SECTIONS : Kind.LIST;
+            final Kind kind = schema.kind() == SettingKind.SCALAR ? Kind.SCALAR : sections ? Kind.SECTIONS : Kind.LIST;
             fields.add(new ConfigEntry(
                     key,
                     key,
@@ -464,7 +479,9 @@ public final class ConfigFiles {
                     sections ? templateOf(schema.children()) : List.of(),
                     List.of(),
                     kind,
-                    schema.type() != null && !sections ? Type.valueOf(schema.type().name()) : Type.STRING,
+                    schema.type() != null && !sections
+                            ? Type.valueOf(schema.type().name())
+                            : Type.STRING,
                     0,
                     true,
                     ConfigEntry.isSecretKey(key) || schema.secret(),
@@ -563,9 +580,8 @@ public final class ConfigFiles {
         }
         // "The line under the block is the first key", not merely "is not blank": a file that
         // starts with comments and then a `---` still has a header, and that line is not a key.
-        final boolean attachedToAKey = i < lines.size()
-                && !withoutLineEnding(lines.get(i)).isBlank()
-                && i >= firstKeyLine;
+        final boolean attachedToAKey =
+                i < lines.size() && !withoutLineEnding(lines.get(i)).isBlank() && i >= firstKeyLine;
         return attachedToAKey ? List.of() : List.copyOf(header);
     }
 
@@ -606,8 +622,7 @@ public final class ConfigFiles {
      *                                  value that is not of the type that key already has
      * @throws IOException              if the file cannot be read or written
      */
-    static @NotNull ConfigDocument write(final @NotNull Path file,
-                                         final @NotNull Map<String, ConfigChange> changes)
+    static @NotNull ConfigDocument write(final @NotNull Path file, final @NotNull Map<String, ConfigChange> changes)
             throws IOException {
         return write(file, changes, null);
     }
@@ -633,13 +648,14 @@ public final class ConfigFiles {
      *                          {@code null} not to check at all
      * @throws StaleConfigException if the file has been written since
      */
-    public static @NotNull ConfigDocument write(final @NotNull Path file,
-                                                final @NotNull Map<String, ConfigChange> changes,
-                                                final String expectedRevision)
+    public static @NotNull ConfigDocument write(
+            final @NotNull Path file, final @NotNull Map<String, ConfigChange> changes, final String expectedRevision)
             throws IOException {
         final Parsed parsed = parse(file);
-        if (expectedRevision != null && !expectedRevision.equals(parsed.document().revision())) {
-            throw new StaleConfigException(file, expectedRevision, parsed.document().revision());
+        if (expectedRevision != null
+                && !expectedRevision.equals(parsed.document().revision())) {
+            throw new StaleConfigException(
+                    file, expectedRevision, parsed.document().revision());
         }
         if (changes.isEmpty()) {
             return parsed.document();
@@ -649,9 +665,8 @@ public final class ConfigFiles {
         final Map<String, Object> expected = new LinkedHashMap<>();
 
         final List<Map.Entry<String, ConfigChange>> ordered = new ArrayList<>(changes.entrySet());
-        ordered.sort(Comparator.comparingInt(
-                        (final Map.Entry<String, ConfigChange> change) ->
-                                entryOf(parsed, file, change.getKey()).line())
+        ordered.sort(Comparator.comparingInt((final Map.Entry<String, ConfigChange> change) ->
+                        entryOf(parsed, file, change.getKey()).line())
                 .reversed());
 
         for (final Map.Entry<String, ConfigChange> change : ordered) {
@@ -687,10 +702,9 @@ public final class ConfigFiles {
      * @throws StaleConfigException if the file has been written since {@code expectedRevision}
      * @throws IOException          if the file cannot be read or written
      */
-    public static @NotNull String writeRaw(final @NotNull Path file, final @NotNull String content,
-                                           final String expectedRevision) throws IOException {
-        final String current = Files.exists(file)
-                ? Files.readString(file, StandardCharsets.UTF_8) : "";
+    public static @NotNull String writeRaw(
+            final @NotNull Path file, final @NotNull String content, final String expectedRevision) throws IOException {
+        final String current = Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : "";
         final String currentRevision = revisionOf(current);
         if (expectedRevision != null && !expectedRevision.equals(currentRevision)) {
             throw new StaleConfigException(file, expectedRevision, currentRevision);
@@ -700,8 +714,9 @@ public final class ConfigFiles {
     }
 
     private static ConfigEntry entryOf(final Parsed parsed, final Path file, final String path) {
-        return parsed.document().find(path).orElseThrow(() -> new IllegalArgumentException(
-                "There is no setting called " + path + " in " + file));
+        return parsed.document()
+                .find(path)
+                .orElseThrow(() -> new IllegalArgumentException("There is no setting called " + path + " in " + file));
     }
 
     /**
@@ -709,14 +724,15 @@ public final class ConfigFiles {
      * for a scalar, a {@link List} for a sequence of scalars, a {@link List} of {@link Map}s for a
      * {@link Kind#SECTIONS} entry.
      */
-    private static Object apply(final Parsed parsed,
-                                final List<String> lines,
-                                final ConfigEntry entry,
-                                final Span span,
-                                final ConfigChange change) {
+    private static Object apply(
+            final Parsed parsed,
+            final List<String> lines,
+            final ConfigEntry entry,
+            final Span span,
+            final ConfigChange change) {
         if (entry.kind() == Kind.MAP) {
-            throw new IllegalArgumentException(entry.path() + " is a nested section (line "
-                    + entry.line() + ") and has no value of its own - change the keys under it");
+            throw new IllegalArgumentException(entry.path() + " is a nested section (line " + entry.line()
+                    + ") and has no value of its own - change the keys under it");
         }
         if (!entry.editable()) {
             // The one remaining shape that reaches here is a sequence that mixes scalars and
@@ -732,11 +748,11 @@ public final class ConfigFiles {
                     yield scalar(lines, entry, span, text.text());
                 }
                 if (entry.kind() == Kind.SECTIONS) {
-                    throw new IllegalArgumentException(entry.path() + " is a list of sections (line "
-                            + entry.line() + "): send one record per entry, not one value");
+                    throw new IllegalArgumentException(entry.path() + " is a list of sections (line " + entry.line()
+                            + "): send one record per entry, not one value");
                 }
-                throw new IllegalArgumentException(entry.path() + " is a list (line " + entry.line()
-                        + "): send its entries, not one value");
+                throw new IllegalArgumentException(
+                        entry.path() + " is a list (line " + entry.line() + "): send its entries, not one value");
             }
             case ConfigChange.Items items -> {
                 if (entry.kind() == Kind.LIST) {
@@ -752,15 +768,15 @@ public final class ConfigFiles {
                             + entry.line() + "): send one record per entry, not a list of plain"
                             + " values");
                 }
-                throw new IllegalArgumentException(entry.path() + " is a single value (line "
-                        + entry.line() + "): send one value, not a list");
+                throw new IllegalArgumentException(
+                        entry.path() + " is a single value (line " + entry.line() + "): send one value, not a list");
             }
             case ConfigChange.Sections sectionsChange -> {
                 if (entry.kind() == Kind.SECTIONS) {
                     yield sections(parsed, lines, entry, span, sectionsChange.sections());
                 }
-                throw new IllegalArgumentException(entry.path() + " is not a list of sections (line "
-                        + entry.line() + "): send a single value or a list of values instead");
+                throw new IllegalArgumentException(entry.path() + " is not a list of sections (line " + entry.line()
+                        + "): send a single value or a list of values instead");
             }
         };
     }
@@ -769,10 +785,8 @@ public final class ConfigFiles {
     // Writing - scalars
     // -----------------------------------------------------------------------------------------
 
-    private static String scalar(final List<String> lines,
-                                 final ConfigEntry entry,
-                                 final Span span,
-                                 final String value) {
+    private static String scalar(
+            final List<String> lines, final ConfigEntry entry, final Span span, final String value) {
         final boolean multiLine = value.indexOf('\n') >= 0;
         if (multiLine && entry.type() != Type.STRING) {
             throw new IllegalArgumentException(entry.path() + " is a "
@@ -840,10 +854,8 @@ public final class ConfigFiles {
     // Writing - sequences
     // -----------------------------------------------------------------------------------------
 
-    private static List<String> sequence(final List<String> lines,
-                                         final ConfigEntry entry,
-                                         final Span span,
-                                         final List<String> items) {
+    private static List<String> sequence(
+            final List<String> lines, final ConfigEntry entry, final Span span, final List<String> items) {
         final List<String> rendered = new ArrayList<>(items.size());
         for (final String item : items) {
             rendered.add(Scalars.renderItem(entry.type(), item, entry.path(), span.flow()));
@@ -852,8 +864,7 @@ public final class ConfigFiles {
         // A list written `[a, b]` stays written `[a, b]`. Turning it into a block would be a
         // correct file and a diff of five lines where the operator changed one word.
         if (span.flow()) {
-            lines.set(span.line(),
-                    splice(lines.get(span.line()), span, "[" + String.join(", ", rendered) + "]"));
+            lines.set(span.line(), splice(lines.get(span.line()), span, "[" + String.join(", ", rendered) + "]"));
             return List.copyOf(items);
         }
 
@@ -909,11 +920,12 @@ public final class ConfigFiles {
      * remove outright: guessing which of several changed entries was added, removed or edited is
      * how a config editor becomes untrustworthy.</p>
      */
-    private static List<Map<String, Object>> sections(final Parsed parsed,
-                                                      final List<String> lines,
-                                                      final ConfigEntry entry,
-                                                      final Span span,
-                                                      final List<Map<String, Object>> incoming) {
+    private static List<Map<String, Object>> sections(
+            final Parsed parsed,
+            final List<String> lines,
+            final ConfigEntry entry,
+            final Span span,
+            final List<Map<String, Object>> incoming) {
         final List<List<ConfigEntry>> existing = entry.sections();
         if (incoming.size() == existing.size() + 1) {
             return appendSection(parsed, lines, entry, span, incoming);
@@ -930,16 +942,15 @@ public final class ConfigFiles {
                     + " change at a time");
         }
 
-        record PendingEdit(ConfigEntry field, Object value) {
-        }
+        record PendingEdit(ConfigEntry field, Object value) {}
         final List<PendingEdit> edits = new ArrayList<>();
         for (int index = 0; index < existing.size(); index++) {
             final Map<String, Object> wanted = incoming.get(index);
             for (final ConfigEntry field : existing.get(index)) {
                 final Object wantedValue = wanted.get(field.key());
                 if (wantedValue == null) {
-                    throw new IllegalArgumentException(field.path() + " is missing from entry "
-                            + index + " of " + entry.path() + " that was sent to be saved");
+                    throw new IllegalArgumentException(field.path() + " is missing from entry " + index + " of "
+                            + entry.path() + " that was sent to be saved");
                 }
                 if (field.kind() == Kind.MAP || !field.editable()) {
                     throw new IllegalArgumentException(field.path() + " (line " + field.line()
@@ -957,18 +968,21 @@ public final class ConfigFiles {
         // reason: a field rewritten as a block would change how many lines follow it, and every
         // span below it would then point at the wrong line. A nested list only ever changes lines
         // inside its own block, which no other field of these entries shares.
-        edits.sort(Comparator.comparingInt(
-                (final PendingEdit edit) -> parsed.spans().get(edit.field().path()).keyLine()).reversed());
+        edits.sort(Comparator.comparingInt((final PendingEdit edit) ->
+                        parsed.spans().get(edit.field().path()).keyLine())
+                .reversed());
         final Map<String, Object> rendered = new HashMap<>();
         for (final PendingEdit edit : edits) {
             final ConfigEntry field = edit.field();
             final Span fieldSpan = parsed.spans().get(field.path());
-            rendered.put(field.path(), switch (field.kind()) {
-                case SCALAR -> scalar(lines, field, fieldSpan, (String) edit.value());
-                case LIST -> sequence(lines, field, fieldSpan, itemsOf(field, edit.value()));
-                case SECTIONS -> sections(parsed, lines, field, fieldSpan, recordsOf(field, edit.value()));
-                case MAP -> throw new IllegalStateException("unreachable: " + field.path());
-            });
+            rendered.put(
+                    field.path(),
+                    switch (field.kind()) {
+                        case SCALAR -> scalar(lines, field, fieldSpan, (String) edit.value());
+                        case LIST -> sequence(lines, field, fieldSpan, itemsOf(field, edit.value()));
+                        case SECTIONS -> sections(parsed, lines, field, fieldSpan, recordsOf(field, edit.value()));
+                        case MAP -> throw new IllegalStateException("unreachable: " + field.path());
+                    });
         }
 
         final List<Map<String, Object>> written = new ArrayList<>(existing.size());
@@ -992,13 +1006,14 @@ public final class ConfigFiles {
                 if (value instanceof String text) {
                     yield text;
                 }
-                throw new IllegalArgumentException(field.path() + " is a single value (line "
-                        + field.line() + "): send one value, not a list");
+                throw new IllegalArgumentException(
+                        field.path() + " is a single value (line " + field.line() + "): send one value, not a list");
             }
             case LIST -> itemsOf(field, value);
             case SECTIONS -> recordsOf(field, value);
-            case MAP -> throw new IllegalArgumentException(field.path() + " is a nested section"
-                    + " (line " + field.line() + ") and has no value of its own");
+            case MAP ->
+                throw new IllegalArgumentException(field.path() + " is a nested section" + " (line " + field.line()
+                        + ") and has no value of its own");
         };
     }
 
@@ -1007,8 +1022,8 @@ public final class ConfigFiles {
         if (value instanceof List<?> list && list.stream().allMatch(String.class::isInstance)) {
             return (List<String>) list;
         }
-        throw new IllegalArgumentException(field.path() + " is a list (line " + field.line()
-                + "): send its entries as plain values");
+        throw new IllegalArgumentException(
+                field.path() + " is a list (line " + field.line() + "): send its entries as plain values");
     }
 
     /** An empty list is an empty list of sections: JSON's {@code []} does not say which it is. */
@@ -1017,8 +1032,8 @@ public final class ConfigFiles {
         if (value instanceof List<?> list && list.stream().allMatch(Map.class::isInstance)) {
             return (List<Map<String, Object>>) list;
         }
-        throw new IllegalArgumentException(field.path() + " is a list of sections (line "
-                + field.line() + "): send one record per entry, not plain values");
+        throw new IllegalArgumentException(field.path() + " is a list of sections (line " + field.line()
+                + "): send one record per entry, not plain values");
     }
 
     /** What a field reads as, in the shape {@link #shapedFor} compares against. */
@@ -1067,11 +1082,12 @@ public final class ConfigFiles {
      * key's own column; {@code objectives: []} becomes {@code objectives:} with the block under it.
      * Without a schema this refuses rather than inventing a shape.</p>
      */
-    private static List<Map<String, Object>> appendSection(final Parsed parsed,
-                                                           final List<String> lines,
-                                                           final ConfigEntry entry,
-                                                           final Span span,
-                                                           final List<Map<String, Object>> incoming) {
+    private static List<Map<String, Object>> appendSection(
+            final Parsed parsed,
+            final List<String> lines,
+            final ConfigEntry entry,
+            final Span span,
+            final List<Map<String, Object>> incoming) {
         final List<List<ConfigEntry>> existing = entry.sections();
         final List<ConfigEntry> shape = shapeOf(entry);
         if (shape.isEmpty()) {
@@ -1089,8 +1105,8 @@ public final class ConfigFiles {
             for (final ConfigEntry field : existing.get(index)) {
                 final Object wantedValue = wanted.get(field.key());
                 if (wantedValue == null) {
-                    throw new IllegalArgumentException(field.path() + " is missing from entry "
-                            + index + " of " + entry.path() + " that was sent to be saved");
+                    throw new IllegalArgumentException(field.path() + " is missing from entry " + index + " of "
+                            + entry.path() + " that was sent to be saved");
                 }
                 if (!shapedFor(field, wantedValue).equals(valueOf(field))) {
                     throw new IllegalArgumentException(entry.path() + ": adding an entry cannot also"
@@ -1111,10 +1127,11 @@ public final class ConfigFiles {
             final List<ConfigEntry> last = existing.getLast();
             final Span firstFieldSpan = parsed.spans().get(last.getFirst().path());
             dashColumn = span.start();
-            fieldColumn = last.size() > 1
-                    ? parsed.spans().get(last.get(1).path()).keyColumn() : dashColumn + 2;
+            fieldColumn =
+                    last.size() > 1 ? parsed.spans().get(last.get(1).path()).keyColumn() : dashColumn + 2;
             blankLineBefore = firstFieldSpan.keyLine() > 0
-                    && withoutLineEnding(lines.get(firstFieldSpan.keyLine() - 1)).isBlank();
+                    && withoutLineEnding(lines.get(firstFieldSpan.keyLine() - 1))
+                            .isBlank();
         }
         final String inner = dominantEnding(lines);
 
@@ -1122,16 +1139,19 @@ public final class ConfigFiles {
         if (blankLineBefore) {
             newLines.add(inner);
         }
-        final Map<String, Object> newRow = renderSection(shape, incoming.getLast(), dashColumn,
-                fieldColumn, entry.path(), inner, newLines);
+        final Map<String, Object> newRow =
+                renderSection(shape, incoming.getLast(), dashColumn, fieldColumn, entry.path(), inner, newLines);
 
         if (existing.isEmpty()) {
             // `key: []` loses its brackets and gets the block beneath it.
             final String keyLine = lines.get(span.keyLine());
             final String keyBody = withoutLineEnding(keyLine);
             final int colon = colonOf(keyBody, span, entry);
-            lines.set(span.keyLine(), keyBody.substring(0, colon + 1)
-                    + trailingComment(keyBody, span, colon) + keyLine.substring(keyBody.length()));
+            lines.set(
+                    span.keyLine(),
+                    keyBody.substring(0, colon + 1)
+                            + trailingComment(keyBody, span, colon)
+                            + keyLine.substring(keyBody.length()));
             insertLinesAfter(lines, span.keyLine(), newLines);
         } else {
             // The end of THIS list's own block, not of the file - `donation-cents` and everything
@@ -1159,31 +1179,31 @@ public final class ConfigFiles {
      * <p>A list inside the entry is written the way jcore writes one, {@code - } at its key's own
      * column, and an empty one as {@code []} - a bare {@code key:} would read back as null.</p>
      */
-    private static Map<String, Object> renderSection(final List<ConfigEntry> shape,
-                                                     final Map<String, Object> values,
-                                                     final int dashColumn,
-                                                     final int fieldColumn,
-                                                     final String path,
-                                                     final String inner,
-                                                     final List<String> out) {
+    private static Map<String, Object> renderSection(
+            final List<ConfigEntry> shape,
+            final Map<String, Object> values,
+            final int dashColumn,
+            final int fieldColumn,
+            final String path,
+            final String inner,
+            final List<String> out) {
         final Map<String, Object> row = new LinkedHashMap<>();
         boolean first = true;
         for (final ConfigEntry field : shape) {
             final Object value = values.get(field.key());
             if (value == null) {
-                throw new IllegalArgumentException(field.key() + " is missing from the new entry of "
-                        + path + " that was sent to be saved");
+                throw new IllegalArgumentException(
+                        field.key() + " is missing from the new entry of " + path + " that was sent to be saved");
             }
-            final String prefix = (first ? " ".repeat(dashColumn) + "- " : " ".repeat(fieldColumn))
-                    + field.key() + ":";
+            final String prefix = (first ? " ".repeat(dashColumn) + "- " : " ".repeat(fieldColumn)) + field.key() + ":";
             first = false;
             final String fieldPath = path + "." + field.key();
             switch (field.kind()) {
                 case SCALAR -> {
                     final String text = (String) shapedFor(field, value);
                     if (text.indexOf('\n') >= 0) {
-                        throw new IllegalArgumentException(path + ": a new entry cannot hold a"
-                                + " multi-line value (" + field.key() + ")");
+                        throw new IllegalArgumentException(
+                                path + ": a new entry cannot hold a" + " multi-line value (" + field.key() + ")");
                     }
                     out.add(prefix + " " + Scalars.render(field.type(), text, fieldPath) + inner);
                     row.put(field.key(), text);
@@ -1214,14 +1234,15 @@ public final class ConfigFiles {
                     } else {
                         out.add(prefix + inner);
                         for (final Map<String, Object> record : records) {
-                            nestedRows.add(renderSection(nested, record, fieldColumn,
-                                    fieldColumn + 2, fieldPath, inner, out));
+                            nestedRows.add(
+                                    renderSection(nested, record, fieldColumn, fieldColumn + 2, fieldPath, inner, out));
                         }
                     }
                     row.put(field.key(), List.copyOf(nestedRows));
                 }
-                case MAP -> throw new IllegalArgumentException(fieldPath + " is a nested section"
-                        + " and cannot be written into a new entry");
+                case MAP ->
+                    throw new IllegalArgumentException(
+                            fieldPath + " is a nested section" + " and cannot be written into a new entry");
             }
         }
         return Collections.unmodifiableMap(row);
@@ -1232,8 +1253,7 @@ public final class ConfigFiles {
      * newline convention if {@code index} happens to be its very last line - the insert counterpart
      * of {@link #keepEndingOf}, which does the same job for a block rewritten in place.
      */
-    private static void insertLinesAfter(final List<String> lines, final int index,
-                                         final List<String> newLines) {
+    private static void insertLinesAfter(final List<String> lines, final int index, final List<String> newLines) {
         if (index == lines.size() - 1) {
             final String last = lines.get(index);
             final String withoutEnding = withoutLineEnding(last);
@@ -1266,11 +1286,12 @@ public final class ConfigFiles {
      * objectives - goes with it. Removing the last entry of a list leaves {@code key: []}, never
      * a bare {@code key:} that would read back as null.</p>
      */
-    private static List<Map<String, Object>> removeSection(final Parsed parsed,
-                                                           final List<String> lines,
-                                                           final ConfigEntry entry,
-                                                           final Span span,
-                                                           final List<Map<String, Object>> incoming) {
+    private static List<Map<String, Object>> removeSection(
+            final Parsed parsed,
+            final List<String> lines,
+            final ConfigEntry entry,
+            final Span span,
+            final List<Map<String, Object>> incoming) {
         final List<List<ConfigEntry>> existing = entry.sections();
 
         int removedIndex = -1;
@@ -1305,7 +1326,8 @@ public final class ConfigFiles {
         if (existing.size() == 1) {
             sequence(lines, entry, span, List.of());
         } else {
-            final int entryStartLine = parsed.spans().get(removed.getFirst().path()).keyLine();
+            final int entryStartLine =
+                    parsed.spans().get(removed.getFirst().path()).keyLine();
             final int entryEndLine = entryExtent(lines, entryStartLine, span.start());
             final int deleteFrom = commentBlockStartLine(lines, entryStartLine);
             lines.subList(deleteFrom, entryEndLine + 1).clear();
@@ -1361,8 +1383,7 @@ public final class ConfigFiles {
             return;
         }
         for (final ConfigEntry field : removed) {
-            if (field.key().equals(protectedEntry.field())
-                    && field.value().equals(protectedEntry.value())) {
+            if (field.key().equals(protectedEntry.field()) && field.value().equals(protectedEntry.value())) {
                 // The schema's own explanation is deliberately NOT pasted in here. Measured
                 // against the running worker on 2026-09-17, `languages` answered this refusal with
                 // fifteen lines of schema prose, ending mid-sentence in the browser's alert - and
@@ -1550,8 +1571,8 @@ public final class ConfigFiles {
         replacement.set(replacement.size() - 1, withoutLineEnding(lastLine) + ending);
     }
 
-    private static void replaceLines(final List<String> lines, final int from, final int to,
-                                     final List<String> replacement) {
+    private static void replaceLines(
+            final List<String> lines, final int from, final int to, final List<String> replacement) {
         lines.subList(from, to + 1).clear();
         lines.addAll(from, replacement);
     }
@@ -1568,16 +1589,27 @@ public final class ConfigFiles {
         try {
             root = new Yaml(new SafeConstructor(new LoaderOptions())).compose(new StringReader(content));
         } catch (final YAMLException e) {
-            throw new IllegalStateException("Refusing to write " + file
-                    + ": the edited content is not valid YAML. This is a bug in ConfigFiles.", e);
+            throw new IllegalStateException(
+                    "Refusing to write " + file
+                            + ": the edited content is not valid YAML. This is a bug in ConfigFiles.",
+                    e);
         }
         final List<ConfigEntry> entries = new ArrayList<>();
         try {
-            collect(file, (MappingNode) root, "", splitKeepingLineEndings(content), entries, new HashMap<>(),
-                    Optional.empty(), Optional.empty());
+            collect(
+                    file,
+                    (MappingNode) root,
+                    "",
+                    splitKeepingLineEndings(content),
+                    entries,
+                    new HashMap<>(),
+                    Optional.empty(),
+                    Optional.empty());
         } catch (final IOException | ClassCastException e) {
-            throw new IllegalStateException("Refusing to write " + file
-                    + ": the edited content cannot be read back. This is a bug in ConfigFiles.", e);
+            throw new IllegalStateException(
+                    "Refusing to write " + file
+                            + ": the edited content cannot be read back. This is a bug in ConfigFiles.",
+                    e);
         }
         final ConfigDocument document = new ConfigDocument(file, revisionOf(content), List.of(), entries);
         expected.forEach((path, value) -> {
@@ -1656,8 +1688,7 @@ public final class ConfigFiles {
      * instead.</p>
      */
     private static void keepTheOwnerAndMode(final Path file, final Path temp) throws IOException {
-        final PosixFileAttributeView destination =
-                Files.getFileAttributeView(file, PosixFileAttributeView.class);
+        final PosixFileAttributeView destination = Files.getFileAttributeView(file, PosixFileAttributeView.class);
         if (destination == null) {
             // Not a POSIX filesystem. There is nothing to carry across and nothing to report.
             return;
@@ -1672,8 +1703,7 @@ public final class ConfigFiles {
             return;
         }
         Files.setPosixFilePermissions(temp, attributes.permissions());
-        final PosixFileAttributeView temporary =
-                Files.getFileAttributeView(temp, PosixFileAttributeView.class);
+        final PosixFileAttributeView temporary = Files.getFileAttributeView(temp, PosixFileAttributeView.class);
         temporary.setGroup(attributes.group());
         temporary.setOwner(attributes.owner());
     }
@@ -1772,8 +1802,7 @@ public final class ConfigFiles {
                     .filter(path -> isUnderNoScratchDirectory(root, path))
                     .filter(ConfigFiles::isProbablyText)
                     .map(path -> locationOf(root, path))
-                    .sorted(Comparator.comparing(ConfigLocation::service)
-                            .thenComparing(ConfigLocation::name))
+                    .sorted(Comparator.comparing(ConfigLocation::service).thenComparing(ConfigLocation::name))
                     .toList();
         } catch (final IOException e) {
             throw new UncheckedIOException("Cannot list the config files under " + root, e);
@@ -1836,9 +1865,7 @@ public final class ConfigFiles {
     private static ConfigLocation locationOf(final Path root, final Path file) {
         final Path relative = root.relativize(file);
         final String service = relative.getNameCount() > 1 ? relative.getName(0).toString() : "";
-        final Path rest = relative.getNameCount() > 1
-                ? relative.subpath(1, relative.getNameCount())
-                : relative;
+        final Path rest = relative.getNameCount() > 1 ? relative.subpath(1, relative.getNameCount()) : relative;
         final StringBuilder name = new StringBuilder();
         for (final Path segment : rest) {
             if (!name.isEmpty()) {

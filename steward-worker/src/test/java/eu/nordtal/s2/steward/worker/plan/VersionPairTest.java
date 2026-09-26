@@ -1,18 +1,16 @@
 package eu.nordtal.s2.steward.worker.plan;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The version jump in a report (season-2-ops/142).
@@ -30,8 +28,10 @@ class VersionPairTest {
     @Test
     @DisplayName("two builds of one artefact come apart into the part that differs")
     void theVersionIsWhatDiffers() {
-        assertEquals(new VersionPair("2.6.18", "2.7.0"),
-                VersionPair.of("voicechat-bukkit-2.6.18.jar", "voicechat-bukkit-2.7.0.jar").orElseThrow());
+        assertEquals(
+                new VersionPair("2.6.18", "2.7.0"),
+                VersionPair.of("voicechat-bukkit-2.6.18.jar", "voicechat-bukkit-2.7.0.jar")
+                        .orElseThrow());
     }
 
     @Test
@@ -39,7 +39,8 @@ class VersionPairTest {
     void itDoesNotStopInTheMiddleOfANumber() {
         // The naive common prefix ends inside `13` and would answer `3.0 -> 4.0`: a jump that never
         // happened, printed with total confidence. PacketEvents is the artefact that proves it.
-        assertEquals(new VersionPair("2.13.0", "2.14.0"),
+        assertEquals(
+                new VersionPair("2.13.0", "2.14.0"),
                 VersionPair.of("packetevents-spigot-2.13.0.jar", "packetevents-spigot-2.14.0.jar")
                         .orElseThrow());
     }
@@ -49,7 +50,8 @@ class VersionPairTest {
     void itNamesWhatChanged() {
         // 26.2 is on both sides, so it is not the jump - and spending the width on the half that is
         // the same in order to say the half that is not is exactly what this ticket was about.
-        assertEquals(new VersionPair("118", "131"),
+        assertEquals(
+                new VersionPair("118", "131"),
                 VersionPair.of("paper-26.2-118.jar", "paper-26.2-131.jar").orElseThrow());
     }
 
@@ -60,8 +62,9 @@ class VersionPairTest {
         // side is a zip's name. Without the rule these two come apart into "the whole hash" and
         // "the whole filename", both of which contain a digit, and the report prints the pair as if
         // it were a version jump.
-        assertEquals(Optional.empty(), VersionPair.of(
-                "c0bac3a03dad681347cbe4a3bc932aff8ffd8203", "nordtal-resource-pack-0.9.4.zip"));
+        assertEquals(
+                Optional.empty(),
+                VersionPair.of("c0bac3a03dad681347cbe4a3bc932aff8ffd8203", "nordtal-resource-pack-0.9.4.zip"));
     }
 
     @Test
@@ -76,7 +79,9 @@ class VersionPairTest {
         assertEquals(Optional.empty(), VersionPair.of(null, "proxy-0.9.4.jar"));
         assertEquals(Optional.empty(), VersionPair.of("proxy-0.9.3.jar", null));
         assertEquals(Optional.empty(), VersionPair.of("", "proxy-0.9.4.jar"));
-        assertEquals(Optional.empty(), VersionPair.of("proxy-0.9.4.jar", "proxy-0.9.4.jar"),
+        assertEquals(
+                Optional.empty(),
+                VersionPair.of("proxy-0.9.4.jar", "proxy-0.9.4.jar"),
                 "a jump from a version to itself is not a jump");
     }
 
@@ -91,11 +96,11 @@ class VersionPairTest {
     @Test
     @DisplayName("the report carries the jump, not the installed filename")
     void thePlanReportPrintsTheJump() {
-        final UpdateReport report = PlanReport.of(plan(new Change("smp", "smp",
-                Change.Status.OUTDATED, "smp-0.9.3.jar", file("smp", "0.9.4", "smp-0.9.4.jar"),
-                null)));
+        final UpdateReport report = PlanReport.of(plan(new Change(
+                "smp", "smp", Change.Status.OUTDATED, "smp-0.9.3.jar", file("smp", "0.9.4", "smp-0.9.4.jar"), null)));
 
-        final UpdateReport.Change change = report.services().getFirst().changes().getFirst();
+        final UpdateReport.Change change =
+                report.services().getFirst().changes().getFirst();
         assertEquals("0.9.3", change.from());
         assertEquals("0.9.4", change.to());
         assertTrue(report.render().contains("smp 0.9.3 -> 0.9.4"), report.render());
@@ -106,11 +111,16 @@ class VersionPairTest {
     void theFallbackIsTheFilenameAndTheVersion() {
         // The pack again, this time through the report: the hash stays, because an invented version
         // would be worse than an ugly string, and the version is what the source published.
-        final UpdateReport report = PlanReport.of(plan(new Change("proxy", "resource-pack",
-                Change.Status.OUTDATED, "c0bac3a03dad681347cbe4a3bc932aff8ffd8203",
-                file("resource-pack", "0.9.4", "nordtal-resource-pack-0.9.4.zip"), null)));
+        final UpdateReport report = PlanReport.of(plan(new Change(
+                "proxy",
+                "resource-pack",
+                Change.Status.OUTDATED,
+                "c0bac3a03dad681347cbe4a3bc932aff8ffd8203",
+                file("resource-pack", "0.9.4", "nordtal-resource-pack-0.9.4.zip"),
+                null)));
 
-        final UpdateReport.Change change = report.services().getFirst().changes().getFirst();
+        final UpdateReport.Change change =
+                report.services().getFirst().changes().getFirst();
         assertEquals("c0bac3a03dad681347cbe4a3bc932aff8ffd8203", change.from());
         assertEquals("0.9.4", change.to());
     }
@@ -118,13 +128,11 @@ class VersionPairTest {
     // ---------------------------------------------------------------- helpers
 
     private static UpdatePlan plan(final Change... changes) {
-        return new UpdatePlan(Instant.parse("2026-09-20T18:00:00Z"), "v0.9.4", false,
-                List.of(changes), List.of(), List.of());
+        return new UpdatePlan(
+                Instant.parse("2026-09-20T18:00:00Z"), "v0.9.4", false, List.of(changes), List.of(), List.of());
     }
 
-    private static RemoteFile file(final String artifact, final String version,
-                                   final String fileName) {
-        return new RemoteFile(artifact, version, fileName,
-                URI.create("https://example.invalid/" + fileName), null);
+    private static RemoteFile file(final String artifact, final String version, final String fileName) {
+        return new RemoteFile(artifact, version, fileName, URI.create("https://example.invalid/" + fileName), null);
     }
 }

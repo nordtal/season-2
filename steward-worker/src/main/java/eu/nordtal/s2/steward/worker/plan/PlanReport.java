@@ -1,13 +1,11 @@
 package eu.nordtal.s2.steward.worker.plan;
 
 import eu.nordtal.s2.common.update.UpdateReport;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * An {@link UpdatePlan} as the {@link UpdateReport} every surface draws.
@@ -26,8 +24,7 @@ import java.util.Map;
  */
 public final class PlanReport {
 
-    private PlanReport() {
-    }
+    private PlanReport() {}
 
     /**
      * @param plan what was resolved
@@ -87,24 +84,25 @@ public final class PlanReport {
                         .filter(row -> row.state() == UpdateReport.Change.State.MOVING)
                         .map(row -> row.artefact() + " " + row.from() + " -> " + row.to())
                         .toList();
-                report = report.with(new UpdateReport.ServiceLine(service,
+                report = report.with(new UpdateReport.ServiceLine(
+                        service,
                         UpdateReport.State.FAILED,
-                        changes.stream().filter(row -> row.state() != UpdateReport.Change.State.MOVING).toList(),
+                        changes.stream()
+                                .filter(row -> row.state() != UpdateReport.Change.State.MOVING)
+                                .toList(),
                         held.isEmpty() ? why : why + "; held back: " + String.join(", ", held)));
             } else if (why != null) {
                 // A server jar that could not be checked: the build in .server/ stays and the
                 // plugins beside it still move, so the line keeps its MOVING rows.
-                report = report.with(new UpdateReport.ServiceLine(service,
-                        UpdateReport.State.FAILED, changes, why));
+                report = report.with(new UpdateReport.ServiceLine(service, UpdateReport.State.FAILED, changes, why));
             } else {
                 // PLANNED means "this one is going to be stopped and written into". A service whose
                 // only rows are artefacts with no build is UNCHANGED, however many of them there
                 // are - it says something and it does nothing.
-                final boolean moving = changes.stream()
-                        .anyMatch(row -> row.state() == UpdateReport.Change.State.MOVING);
-                report = report.with(new UpdateReport.ServiceLine(service,
-                        moving ? UpdateReport.State.PLANNED : UpdateReport.State.UNCHANGED,
-                        changes, null));
+                final boolean moving =
+                        changes.stream().anyMatch(row -> row.state() == UpdateReport.Change.State.MOVING);
+                report = report.with(new UpdateReport.ServiceLine(
+                        service, moving ? UpdateReport.State.PLANNED : UpdateReport.State.UNCHANGED, changes, null));
             }
         }
 
@@ -140,11 +138,11 @@ public final class PlanReport {
      * ugly name.</p>
      */
     private static UpdateReport.Change moving(final Change change) {
-        final String wantedFile = change.wanted() == null ? null : change.wanted().fileName();
+        final String wantedFile =
+                change.wanted() == null ? null : change.wanted().fileName();
         return VersionPair.of(change.installed(), wantedFile)
                 .map(pair -> new UpdateReport.Change(change.artifact(), pair.from(), pair.to()))
-                .orElseGet(() -> new UpdateReport.Change(
-                        change.artifact(), change.installed(), version(change)));
+                .orElseGet(() -> new UpdateReport.Change(change.artifact(), change.installed(), version(change)));
     }
 
     private static String version(final Change change) {

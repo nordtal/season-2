@@ -1,26 +1,22 @@
 package eu.nordtal.s2.proxy.gate;
 
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+
 import com.velocitypowered.api.event.ResultedEvent.ComponentResult;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
-
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-
-import org.slf4j.Logger;
-
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.slf4j.Logger;
 
 /**
  * The per-plugin disable Velocity does not have: a {@code LoginEvent} handler that refuses
@@ -57,14 +53,16 @@ public final class MisconfiguredGate {
     public MisconfiguredGate(final Logger logger, final Messages messages) {
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(messages, "messages");
-        this.screen = MessageRenderer.of(messages).format(Locale.ENGLISH, MESSAGES.gate().misconfigured())
+        this.screen = MessageRenderer.of(messages)
+                .format(Locale.ENGLISH, MESSAGES.gate().misconfigured())
                 .appendNewline()
-                .append(MessageRenderer.of(messages).format(Locale.GERMAN, MESSAGES.gate().misconfigured())
+                .append(MessageRenderer.of(messages)
+                        .format(Locale.GERMAN, MESSAGES.gate().misconfigured())
                         .color(NamedTextColor.GRAY)
                         .decorate(TextDecoration.ITALIC));
         // English only: a ping carries no player, so there is no language to pick.
-        this.motd = MiniMessage.miniMessage().deserialize(messages.format(Locale.ENGLISH,
-                MESSAGES.motd().misconfigured()));
+        this.motd = MiniMessage.miniMessage()
+                .deserialize(messages.format(Locale.ENGLISH, MESSAGES.motd().misconfigured()));
     }
 
     /**
@@ -73,9 +71,7 @@ public final class MisconfiguredGate {
      */
     @Subscribe
     public void onPing(final ProxyPingEvent event) {
-        event.setPing(event.getPing().asBuilder()
-                .description(motd)
-                .build());
+        event.setPing(event.getPing().asBuilder().description(motd).build());
     }
 
     @Subscribe
@@ -99,9 +95,12 @@ public final class MisconfiguredGate {
     Component refuse(final UUID mcUuid, final String username) {
         final long count = refused.incrementAndGet();
         if (count == 1 || count % REPEAT_LOG_EVERY == 0) {
-            logger.error("Refused {} ({}) - proxy is misconfigured, so NOBODY is being "
+            logger.error(
+                    "Refused {} ({}) - proxy is misconfigured, so NOBODY is being "
                             + "let in. Fix the configuration and restart the proxy. ({} refused so far)",
-                    mcUuid, username, count);
+                    mcUuid,
+                    username,
+                    count);
         }
         return screen;
     }

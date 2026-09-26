@@ -1,16 +1,15 @@
 package eu.nordtal.s2.hungergames.db;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.KeyColumn;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.config.ValueColumn;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * The whole SQL surface this plugin needs, as a JDBI SqlObject interface: a read-mostly DAO over
@@ -49,8 +48,7 @@ public interface HungerGamesDao {
     List<HgTeam> teamsOf(@Bind("gameId") UUID gameId);
 
     @SqlUpdate("UPDATE hg_team SET colour_rgb = :colourRgb, colour_named = :colourNamed WHERE id = :id")
-    void setTeamColour(@Bind("id") UUID id, @Bind("colourRgb") int colourRgb,
-                       @Bind("colourNamed") String colourNamed);
+    void setTeamColour(@Bind("id") UUID id, @Bind("colourRgb") int colourRgb, @Bind("colourNamed") String colourNamed);
 
     // ---------------------------------------------------------------- hg_member
 
@@ -121,9 +119,12 @@ public interface HungerGamesDao {
             INSERT INTO hg_event (game_id, type, actor_id, victim_id, detail)
             VALUES (:gameId, :type, :actorId, :victimId, :detail)
             """)
-    void recordEvent(@Bind("gameId") UUID gameId, @Bind("type") String type,
-                     @Bind("actorId") UUID actorId, @Bind("victimId") UUID victimId,
-                     @Bind("detail") String detail);
+    void recordEvent(
+            @Bind("gameId") UUID gameId,
+            @Bind("type") String type,
+            @Bind("actorId") UUID actorId,
+            @Bind("victimId") UUID victimId,
+            @Bind("detail") String detail);
 
     /** The kill tiebreaker: how many KILL events this member is the actor of, for this game. */
     @SqlQuery("""

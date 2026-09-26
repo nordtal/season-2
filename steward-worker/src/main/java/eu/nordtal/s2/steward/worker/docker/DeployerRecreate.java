@@ -1,15 +1,12 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import com.google.gson.JsonArray;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -18,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.time.Instant;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * {@link ContainerOps#deploy} and {@link ContainerOps#recreate}, asked of
@@ -83,16 +81,23 @@ public final class DeployerRecreate implements ContainerOps {
     private final Duration patience;
     private final Waiting waiting;
 
-    public DeployerRecreate(final @NotNull ContainerOps delegate, final @NotNull String baseUrl,
-                            final @NotNull String token, final @NotNull Duration requestTimeout,
-                            final @NotNull Duration patience) {
+    public DeployerRecreate(
+            final @NotNull ContainerOps delegate,
+            final @NotNull String baseUrl,
+            final @NotNull String token,
+            final @NotNull Duration requestTimeout,
+            final @NotNull Duration patience) {
         this(delegate, baseUrl, token, requestTimeout, patience, Waiting.real());
     }
 
     /** Package-visible so a test can drive the poll loop without sleeping through it. */
-    DeployerRecreate(final @NotNull ContainerOps delegate, final @NotNull String baseUrl,
-                     final @NotNull String token, final @NotNull Duration requestTimeout,
-                     final @NotNull Duration patience, final @NotNull Waiting waiting) {
+    DeployerRecreate(
+            final @NotNull ContainerOps delegate,
+            final @NotNull String baseUrl,
+            final @NotNull String token,
+            final @NotNull Duration requestTimeout,
+            final @NotNull Duration patience,
+            final @NotNull Waiting waiting) {
         this.delegate = delegate;
         this.baseUrl = plaintextOnlyInside(trimmed(baseUrl));
         this.token = token;
@@ -132,10 +137,13 @@ public final class DeployerRecreate implements ContainerOps {
      */
     @Override
     public @NotNull RedeployResult deploy(final @NotNull String service) {
-        return submit(service, "deploy", () -> request("/api/deploy")
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(deployBody(service)))
-                .build());
+        return submit(
+                service,
+                "deploy",
+                () -> request("/api/deploy")
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(deployBody(service)))
+                        .build());
     }
 
     /**
@@ -151,7 +159,9 @@ public final class DeployerRecreate implements ContainerOps {
      */
     @Override
     public @NotNull RedeployResult recreate(final @NotNull String service) {
-        return submit(service, "recreate",
+        return submit(
+                service,
+                "recreate",
                 () -> request("/api/recreate/" + service)
                         .POST(HttpRequest.BodyPublishers.noBody())
                         .build());
@@ -165,47 +175,44 @@ public final class DeployerRecreate implements ContainerOps {
      *             tell which one was asked, because whether an image was fetched is the difference
      *             between the two
      */
-    private RedeployResult submit(final String service, final String what,
-                                  final java.util.function.Supplier<HttpRequest> build) {
+    private RedeployResult submit(
+            final String service, final String what, final java.util.function.Supplier<HttpRequest> build) {
         final Instant deadline = waiting.now().plus(patience);
 
         final HttpResponse<String> accepted;
         try {
             accepted = http.send(build.get(), HttpResponse.BodyHandlers.ofString());
         } catch (final HttpTimeoutException slow) {
-            return RedeployResult.refused("steward-deployer did not accept the " + what + " of "
-                    + service + " within " + requestTimeout.toSeconds() + "s");
+            return RedeployResult.refused("steward-deployer did not accept the " + what + " of " + service + " within "
+                    + requestTimeout.toSeconds() + "s");
         } catch (final IOException unreachable) {
-            return RedeployResult.refused("could not reach steward-deployer to " + what + " "
-                    + service + ": " + unreachable.getMessage());
+            return RedeployResult.refused(
+                    "could not reach steward-deployer to " + what + " " + service + ": " + unreachable.getMessage());
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            return RedeployResult.refused(
-                    "interrupted while asking steward-deployer to " + what + " " + service);
+            return RedeployResult.refused("interrupted while asking steward-deployer to " + what + " " + service);
         }
         if (accepted.statusCode() != 202) {
-            return RedeployResult.refused("steward-deployer answered " + accepted.statusCode()
-                    + " for the " + what + " of " + service + ": " + accepted.body());
+            return RedeployResult.refused("steward-deployer answered " + accepted.statusCode() + " for the " + what
+                    + " of " + service + ": " + accepted.body());
         }
 
         final String jobId;
         try {
             jobId = GSON.fromJson(accepted.body(), JsonObject.class).get("id").getAsString();
         } catch (final RuntimeException malformed) {
-            return RedeployResult.unverified("steward-deployer accepted the " + what + " of "
-                    + service + " but its answer named no job id to follow: " + accepted.body());
+            return RedeployResult.unverified("steward-deployer accepted the " + what + " of " + service
+                    + " but its answer named no job id to follow: " + accepted.body());
         }
         return poll(service, what, jobId, deadline);
     }
 
-    private RedeployResult poll(final String service, final String what,
-                                final String jobId, final Instant deadline) {
+    private RedeployResult poll(final String service, final String what, final String jobId, final Instant deadline) {
         while (true) {
             final JsonObject job;
             try {
-                final HttpResponse<String> response = http.send(
-                        request("/api/jobs/" + jobId).GET().build(),
-                        HttpResponse.BodyHandlers.ofString());
+                final HttpResponse<String> response =
+                        http.send(request("/api/jobs/" + jobId).GET().build(), HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() != 200) {
                     return RedeployResult.unverified("steward-deployer accepted the " + what + " of "
                             + service + " (job " + jobId + ") but answered " + response.statusCode()
@@ -218,19 +225,18 @@ public final class DeployerRecreate implements ContainerOps {
                         + " read back: " + failure.getMessage());
             } catch (final InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
-                return RedeployResult.unverified("interrupted while waiting for steward-deployer's "
-                        + what + " of " + service + " (job " + jobId + ") to finish");
+                return RedeployResult.unverified("interrupted while waiting for steward-deployer's " + what + " of "
+                        + service + " (job " + jobId + ") to finish");
             }
 
             final String state = job.has("state") ? job.get("state").getAsString() : "";
             if ("DONE".equals(state)) {
                 return RedeployResult.triggered(
-                        "steward-deployer finished the " + what + " of " + service
-                                + " (job " + jobId + ")");
+                        "steward-deployer finished the " + what + " of " + service + " (job " + jobId + ")");
             }
             if ("FAILED".equals(state)) {
-                return RedeployResult.refused("steward-deployer's " + what + " of " + service
-                        + " failed (job " + jobId + "): " + lastLine(job));
+                return RedeployResult.refused("steward-deployer's " + what + " of " + service + " failed (job " + jobId
+                        + "): " + lastLine(job));
             }
 
             if (!waiting.now().isBefore(deadline)) {
@@ -240,8 +246,8 @@ public final class DeployerRecreate implements ContainerOps {
                         + " nordtal-s2-steward-deployer-1` or GET /api/jobs/" + jobId);
             }
             if (!waiting.sleep(POLL_INTERVAL)) {
-                return RedeployResult.unverified("interrupted while waiting for steward-deployer's "
-                        + what + " of " + service + " (job " + jobId + ") to finish");
+                return RedeployResult.unverified("interrupted while waiting for steward-deployer's " + what + " of "
+                        + service + " (job " + jobId + ") to finish");
             }
         }
     }
@@ -296,7 +302,8 @@ public final class DeployerRecreate implements ContainerOps {
             return baseUrl;
         }
         final String host = uri.getHost();
-        if ("http".equalsIgnoreCase(uri.getScheme()) && host != null
+        if ("http".equalsIgnoreCase(uri.getScheme())
+                && host != null
                 && (!host.contains(".") || "127.0.0.1".equals(host))) {
             return baseUrl;
         }

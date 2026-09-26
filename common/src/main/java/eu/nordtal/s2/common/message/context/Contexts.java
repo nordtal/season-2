@@ -21,13 +21,12 @@ public final class Contexts {
     /** The order of {@link #GLOBALS}, which {@code Map.of} does not keep. */
     public static final List<String> GLOBAL_ROLES = List.of("server", "season");
 
-    private static final Map<String, MessageContext> GLOBAL_VALUES = new ConcurrentHashMap<>(
-            Map.of("season", SeasonContext.CURRENT));
+    private static final Map<String, MessageContext> GLOBAL_VALUES =
+            new ConcurrentHashMap<>(Map.of("season", SeasonContext.CURRENT));
 
     private static final Map<Class<?>, RecordComponent[]> COMPONENTS = new ConcurrentHashMap<>();
 
-    private Contexts() {
-    }
+    private Contexts() {}
 
     /**
      * Sets which service this process is, for <code>{server.name}</code>. Each process calls it once,
@@ -39,7 +38,8 @@ public final class Contexts {
 
     /** @return whether {@code type} is a context record */
     public static boolean isContext(final Class<?> type) {
-        return type.isRecord() && MessageContext.class.isAssignableFrom(type)
+        return type.isRecord()
+                && MessageContext.class.isAssignableFrom(type)
                 && type.isAnnotationPresent(ContextType.class);
     }
 
@@ -91,7 +91,9 @@ public final class Contexts {
     private static void expand(final Map<String, Object> into, final String role, final MessageContext context) {
         for (final RecordComponent component : components(context.getClass())) {
             try {
-                into.put(role + "." + component.getName(), component.getAccessor().invoke(context));
+                into.put(
+                        role + "." + component.getName(),
+                        component.getAccessor().invoke(context));
             } catch (final ReflectiveOperationException e) {
                 throw new IllegalStateException("cannot read " + component + " of " + context, e);
             }

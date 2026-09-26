@@ -4,20 +4,18 @@ import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
 import eu.nordtal.s2.common.hud.BoardFrame;
 import eu.nordtal.s2.common.message.Tone;
-
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-
+import eu.nordtal.s2.smp.prestige.Prestige;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
 
 /**
  * Where {@code smp}'s config files live, and every rule about what a valid value is.
@@ -32,27 +30,32 @@ import java.util.Map;
  */
 public final class Configs {
 
-    private Configs() {
-    }
+    private Configs() {}
 
     public static @NotNull ConfigHandle<SmpSpec> load(final Path dataFolder, final Logger logger)
             throws ConfigException {
-        return load(dataFolder, logger, "config", SmpSpec.class, "NORDTAL_SMP", Configs::validate,
-                true);
+        return load(dataFolder, logger, "config", SmpSpec.class, "NORDTAL_SMP", Configs::validate, true);
     }
 
     public static @NotNull ConfigHandle<DatabaseSpec> database(final Path dataFolder, final Logger logger)
             throws ConfigException {
-        return load(dataFolder, logger, "database", DatabaseSpec.class, "NORDTAL_SMP_DATABASE", config -> {
-            requireText("jdbc-url", config.jdbcUrl());
-            requireText("username", config.username());
-            if (!config.jdbcUrl().startsWith("jdbc:postgresql:")) {
-                throw new IllegalArgumentException(
-                        "jdbc-url must be a PostgreSQL URL (jdbc:postgresql://host:port/database)");
-            }
-            requirePositive("maximum-pool-size", config.maximumPoolSize());
-            requirePositive("query-timeout-seconds", config.queryTimeoutSeconds());
-        }, false);
+        return load(
+                dataFolder,
+                logger,
+                "database",
+                DatabaseSpec.class,
+                "NORDTAL_SMP_DATABASE",
+                config -> {
+                    requireText("jdbc-url", config.jdbcUrl());
+                    requireText("username", config.username());
+                    if (!config.jdbcUrl().startsWith("jdbc:postgresql:")) {
+                        throw new IllegalArgumentException(
+                                "jdbc-url must be a PostgreSQL URL (jdbc:postgresql://host:port/database)");
+                    }
+                    requirePositive("maximum-pool-size", config.maximumPoolSize());
+                    requirePositive("query-timeout-seconds", config.queryTimeoutSeconds());
+                },
+                false);
     }
 
     /**
@@ -65,14 +68,19 @@ public final class Configs {
      */
     public static @NotNull ConfigHandle<MilestonesSpec> milestones(final Path dataFolder, final Logger logger)
             throws ConfigException {
-        return load(dataFolder, logger, "milestones", MilestonesSpec.class, "NORDTAL_SMP_MILESTONES",
+        return load(
+                dataFolder,
+                logger,
+                "milestones",
+                MilestonesSpec.class,
+                "NORDTAL_SMP_MILESTONES",
                 config -> {
                     final Milestones.Result result = Milestones.read(config);
                     if (!result.problems().isEmpty()) {
-                        throw new IllegalArgumentException(
-                                "the milestone track is not usable:\n" + result.describe());
+                        throw new IllegalArgumentException("the milestone track is not usable:\n" + result.describe());
                     }
-                }, false);
+                },
+                false);
     }
 
     /**
@@ -84,8 +92,7 @@ public final class Configs {
      */
     public static @NotNull ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger)
             throws ConfigException {
-        return load(dataFolder, logger, "sounds", SoundsSpec.class, "NORDTAL_SMP_SOUNDS",
-                config -> { }, false);
+        return load(dataFolder, logger, "sounds", SoundsSpec.class, "NORDTAL_SMP_SOUNDS", config -> {}, false);
     }
 
     /**
@@ -97,8 +104,7 @@ public final class Configs {
      */
     public static @NotNull ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger)
             throws ConfigException {
-        return load(dataFolder, logger, "colours", ColoursSpec.class, "NORDTAL_SMP_COLOURS",
-                config -> { }, false);
+        return load(dataFolder, logger, "colours", ColoursSpec.class, "NORDTAL_SMP_COLOURS", config -> {}, false);
     }
 
     /**
@@ -112,13 +118,15 @@ public final class Configs {
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
         for (final Tone tone : Tone.values()) {
-            declared.put(tone, switch (tone) {
-                case GOOD -> spec.good();
-                case BAD -> spec.bad();
-                case WARN -> spec.warn();
-                case NEUTRAL -> spec.neutral();
-                case MUTED -> spec.muted();
-            });
+            declared.put(
+                    tone,
+                    switch (tone) {
+                        case GOOD -> spec.good();
+                        case BAD -> spec.bad();
+                        case WARN -> spec.warn();
+                        case NEUTRAL -> spec.neutral();
+                        case MUTED -> spec.muted();
+                    });
         }
         return declared;
     }
@@ -132,12 +140,16 @@ public final class Configs {
      * whole rule, and running it here is what makes a ladder that does not rise stop the load
      * rather than the first render.</p>
      */
-    public static @NotNull ConfigHandle<PrestigeSpec> prestige(final Path dataFolder,
-                                                               final Logger logger)
+    public static @NotNull ConfigHandle<PrestigeSpec> prestige(final Path dataFolder, final Logger logger)
             throws ConfigException {
-        return load(dataFolder, logger, "prestige", PrestigeSpec.class,
+        return load(
+                dataFolder,
+                logger,
+                "prestige",
+                PrestigeSpec.class,
                 "NORDTAL_SMP_PRESTIGE",
-                config -> new Prestige(declaredPrestigeHours(config)), false);
+                config -> new Prestige(declaredPrestigeHours(config)),
+                false);
     }
 
     /**
@@ -146,9 +158,20 @@ public final class Configs {
      */
     public static List<String> declaredPrestigeTiers(final PrestigeSpec spec) {
         final PrestigeSpec.TierColoursSpec tiers = spec.colours();
-        return List.of(tiers.tier01(), tiers.tier02(), tiers.tier03(), tiers.tier04(), tiers.tier05(),
-                tiers.tier06(), tiers.tier07(), tiers.tier08(), tiers.tier09(), tiers.tier10(),
-                tiers.tier11(), tiers.tier12(), tiers.tier13());
+        return List.of(
+                tiers.tier01(),
+                tiers.tier02(),
+                tiers.tier03(),
+                tiers.tier04(),
+                tiers.tier05(),
+                tiers.tier06(),
+                tiers.tier07(),
+                tiers.tier08(),
+                tiers.tier09(),
+                tiers.tier10(),
+                tiers.tier11(),
+                tiers.tier12(),
+                tiers.tier13());
     }
 
     /**
@@ -160,9 +183,20 @@ public final class Configs {
      */
     public static List<Integer> declaredPrestigeHours(final PrestigeSpec spec) {
         final PrestigeSpec.TierHoursSpec tiers = spec.hours();
-        return List.of(tiers.tier01(), tiers.tier02(), tiers.tier03(), tiers.tier04(), tiers.tier05(),
-                tiers.tier06(), tiers.tier07(), tiers.tier08(), tiers.tier09(), tiers.tier10(),
-                tiers.tier11(), tiers.tier12(), tiers.tier13());
+        return List.of(
+                tiers.tier01(),
+                tiers.tier02(),
+                tiers.tier03(),
+                tiers.tier04(),
+                tiers.tier05(),
+                tiers.tier06(),
+                tiers.tier07(),
+                tiers.tier08(),
+                tiers.tier09(),
+                tiers.tier10(),
+                tiers.tier11(),
+                tiers.tier12(),
+                tiers.tier13());
     }
 
     private static void validate(final SmpSpec config) {
@@ -209,8 +243,8 @@ public final class Configs {
         }
 
         if (config.wheelPrizes() == null || config.wheelPrizes().isEmpty()) {
-            throw new IllegalArgumentException("wheel-prizes must not be empty; the wheel has to have "
-                    + "something to land on");
+            throw new IllegalArgumentException(
+                    "wheel-prizes must not be empty; the wheel has to have " + "something to land on");
         }
         for (final SmpSpec.WheelPrizeSpec prize : config.wheelPrizes()) {
             requireText("wheel-prizes: item", prize.item());
@@ -231,19 +265,21 @@ public final class Configs {
 
         for (final SmpSpec.SpawnRegionSpec region : config.spawnRegions()) {
             requireText("spawn-regions: world", region.world());
-            if (region.maxX() < region.minX() || region.maxY() < region.minY()
-                    || region.maxZ() < region.minZ()) {
-                throw new IllegalArgumentException(
-                        "spawn-regions: the box in '" + region.world() + "' has a max corner that is "
-                                + "not above its min corner");
+            if (region.maxX() < region.minX() || region.maxY() < region.minY() || region.maxZ() < region.minZ()) {
+                throw new IllegalArgumentException("spawn-regions: the box in '" + region.world()
+                        + "' has a max corner that is " + "not above its min corner");
             }
         }
     }
 
-    private static <T> ConfigHandle<T> load(final Path dataFolder, final Logger logger, final String name,
-                                            final Class<T> specType, final String envPrefix,
-                                            final ConfigValidator<T> validator,
-                                            final boolean defaultsArePlaceholders)
+    private static <T> ConfigHandle<T> load(
+            final Path dataFolder,
+            final Logger logger,
+            final String name,
+            final Class<T> specType,
+            final String envPrefix,
+            final ConfigValidator<T> validator,
+            final boolean defaultsArePlaceholders)
             throws ConfigException {
         final Path file = dataFolder.resolve(name + ".yml");
         final boolean fresh = !Files.isRegularFile(file);
@@ -260,12 +296,16 @@ public final class Configs {
             // trains an operator to read every WARN from this plugin as noise - which is the one
             // thing the loud line cannot afford, because it is the one that is true.
             if (defaultsArePlaceholders) {
-                logger.warn("No config existed at {} - defaults were written and are almost "
-                        + "certainly not what you want, especially the world names and every "
-                        + "coordinate", file.toAbsolutePath());
+                logger.warn(
+                        "No config existed at {} - defaults were written and are almost "
+                                + "certainly not what you want, especially the world names and every "
+                                + "coordinate",
+                        file.toAbsolutePath());
             } else {
-                logger.info("No config existed at {} - it was written with this project's "
-                        + "defaults, which are usable as they stand", file.toAbsolutePath());
+                logger.info(
+                        "No config existed at {} - it was written with this project's "
+                                + "defaults, which are usable as they stand",
+                        file.toAbsolutePath());
             }
         }
         recordEnvironmentOverrides(handle, logger);
@@ -282,8 +322,7 @@ public final class Configs {
         try {
             EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
         } catch (final IOException e) {
-            logger.warn("Could not write the environment-override marker beside {}: {}",
-                    handle.file(), e.getMessage());
+            logger.warn("Could not write the environment-override marker beside {}: {}", handle.file(), e.getMessage());
         }
     }
 

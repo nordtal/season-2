@@ -19,18 +19,19 @@ import java.time.Instant;
  * @param finished    when it reached a terminal state, {@code null} until then
  * @param result      what happened, as JSON. {@code null} until finished
  */
-public record AccessRequest(long id,
-                            AccessRequestKind kind,
-                            AccessRequestStatus status,
-                            String subject,
-                            String argument,
-                            AccessRequestSource source,
-                            String requestedBy,
-                            Instant requested,
-                            Instant expires,
-                            Instant started,
-                            Instant finished,
-                            String result) {
+public record AccessRequest(
+        long id,
+        AccessRequestKind kind,
+        AccessRequestStatus status,
+        String subject,
+        String argument,
+        AccessRequestSource source,
+        String requestedBy,
+        Instant requested,
+        Instant expires,
+        Instant started,
+        Instant finished,
+        String result) {
 
     /**
      * The argument as a number.
@@ -51,8 +52,7 @@ public record AccessRequest(long id,
         try {
             return Long.parseLong(argument.trim());
         } catch (final NumberFormatException notANumber) {
-            throw new IllegalStateException(
-                    kind + " request " + id + " carries a non-numeric argument", notANumber);
+            throw new IllegalStateException(kind + " request " + id + " carries a non-numeric argument", notANumber);
         }
     }
 }

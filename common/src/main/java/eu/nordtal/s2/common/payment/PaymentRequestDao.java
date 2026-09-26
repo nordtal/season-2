@@ -1,13 +1,12 @@
 package eu.nordtal.s2.common.payment;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * The whole SQL surface of {@code payment_request}, as a JDBI SqlObject interface - the same style
@@ -35,12 +34,13 @@ interface PaymentRequestDao {
                       tab_requested, tab_failed, cancel_requested, tab_cancelled,
                       matched_cents, matched_by
             """)
-    PaymentRequest insert(@Bind("reference") String reference,
-                          @Bind("discordId") String discordId,
-                          @Bind("days") int days,
-                          @Bind("amountCents") int amountCents,
-                          @Bind("donationCents") int donationCents,
-                          @Bind("ttlHours") int ttlHours);
+    PaymentRequest insert(
+            @Bind("reference") String reference,
+            @Bind("discordId") String discordId,
+            @Bind("days") int days,
+            @Bind("amountCents") int amountCents,
+            @Bind("donationCents") int donationCents,
+            @Bind("ttlHours") int ttlHours);
 
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
@@ -133,10 +133,11 @@ interface PaymentRequestDao {
             SET days = :days, amount_cents = :amountCents, donation_cents = :donationCents
             WHERE id = :id AND status = 'OPEN' AND bunq_tab_id IS NULL
             """)
-    int reselect(@Bind("id") UUID id,
-                 @Bind("days") int days,
-                 @Bind("amountCents") int amountCents,
-                 @Bind("donationCents") int donationCents);
+    int reselect(
+            @Bind("id") UUID id,
+            @Bind("days") int days,
+            @Bind("amountCents") int amountCents,
+            @Bind("donationCents") int donationCents);
 
     /**
      * Stores the tab steward-worker made, and announces it.
@@ -401,10 +402,11 @@ interface PaymentRequestDao {
                  )
             SELECT count(*) FROM notified
             """)
-    int recordMatch(@Bind("id") UUID id,
-                    @Bind("bunqPaymentId") long bunqPaymentId,
-                    @Bind("matchedCents") int matchedCents,
-                    @Bind("matchedBy") String matchedBy);
+    int recordMatch(
+            @Bind("id") UUID id,
+            @Bind("bunqPaymentId") long bunqPaymentId,
+            @Bind("matchedCents") int matchedCents,
+            @Bind("matchedBy") String matchedBy);
 
     /**
      * The bot's half of the seam: rows steward-worker has attributed a payment to and nobody has
@@ -453,9 +455,8 @@ interface PaymentRequestDao {
                  )
             SELECT count(*) FROM notified
             """)
-    int noticeOnce(@Bind("bunqPaymentId") long bunqPaymentId,
-                   @Bind("reason") String reason,
-                   @Bind("detail") String detail);
+    int noticeOnce(
+            @Bind("bunqPaymentId") long bunqPaymentId, @Bind("reason") String reason, @Bind("detail") String detail);
 
     /** Notices nobody has put in the admin channel yet, oldest first. */
     @SqlQuery("""

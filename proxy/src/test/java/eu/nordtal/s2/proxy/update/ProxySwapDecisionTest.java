@@ -1,16 +1,14 @@
 package eu.nordtal.s2.proxy.update;
 
-import eu.nordtal.s2.proxy.online.OnlineCounts;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.proxy.online.OnlineCounts;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What one pass of the live proxy's swap does, and - the part that cost a release to notice - what
@@ -38,8 +36,7 @@ class ProxySwapDecisionTest {
     void aBackendRunIsIdle() {
         final AtomicInteger asked = new AtomicInteger();
 
-        assertEquals(ProxySwap.Pass.IDLE,
-                ProxySwap.decide(Set.of("smp", "limbo"), false, false, probe(asked, true)));
+        assertEquals(ProxySwap.Pass.IDLE, ProxySwap.decide(Set.of("smp", "limbo"), false, false, probe(asked, true)));
         assertEquals(0, asked.get(), "a pass with nothing to do must not open a socket");
     }
 
@@ -59,8 +56,7 @@ class ProxySwapDecisionTest {
         // compose profile and is stopped for all but a minute of the season. Transferring the
         // whole network to an address nothing listens on drops every single player - strictly
         // worse than the plain restart this feature exists to avoid.
-        assertEquals(ProxySwap.Pass.STANDBY_MISSING,
-                ProxySwap.decide(PROXY_NEXT, false, false, () -> false));
+        assertEquals(ProxySwap.Pass.STANDBY_MISSING, ProxySwap.decide(PROXY_NEXT, false, false, () -> false));
     }
 
     @Test
@@ -89,8 +85,7 @@ class ProxySwapDecisionTest {
         // lasts, and this process is the one the run STARTED - twenty seconds after its own zero.
         // Reading that row as "I am about to stop" shut the door on the player the standby was at
         // that moment handing back.
-        assertEquals(ProxySwap.Pass.ALREADY_MOVED,
-                ProxySwap.decide(PROXY_NEXT, false, true, probe(asked, true)));
+        assertEquals(ProxySwap.Pass.ALREADY_MOVED, ProxySwap.decide(PROXY_NEXT, false, true, probe(asked, true)));
         assertEquals(0, asked.get(), "and it costs no socket either");
         // And the door is OPEN, firmly: a door left shut from an earlier pass would refuse exactly
         // the players the standby is handing back in those seconds.
@@ -103,14 +98,16 @@ class ProxySwapDecisionTest {
     void whoIsTheProcessTheRunMeans() {
         final java.time.Instant zero = java.time.Instant.parse("2026-09-20T18:45:00Z");
 
-        assertFalse(ProxySwap.hasBeenThroughMe(zero.minusSeconds(3600), zero),
+        assertFalse(
+                ProxySwap.hasBeenThroughMe(zero.minusSeconds(3600), zero),
                 "a proxy that was running before the countdown is the one being stopped");
-        assertFalse(ProxySwap.hasBeenThroughMe(zero, zero),
+        assertFalse(
+                ProxySwap.hasBeenThroughMe(zero, zero),
                 "the same instant is not after it, and the safe reading is 'still to come'");
-        assertTrue(ProxySwap.hasBeenThroughMe(zero.plusSeconds(20), zero),
+        assertTrue(
+                ProxySwap.hasBeenThroughMe(zero.plusSeconds(20), zero),
                 "a process that started after the zero can only have been started BY the run");
-        assertFalse(ProxySwap.hasBeenThroughMe(zero, null),
-                "a row with no instant decides nothing");
+        assertFalse(ProxySwap.hasBeenThroughMe(zero, null), "a row with no instant decides nothing");
     }
 
     // ------------------------------------------------------- the door (season-2-ops/151)
@@ -150,12 +147,12 @@ class ProxySwapDecisionTest {
     @Test
     @DisplayName("nothing has been decided yet, so the door is open")
     void aFreshProxyLetsPeopleIn() {
-        assertFalse(ProxySwap.doorAfter(ProxySwap.Pass.ALREADY_DONE, false),
+        assertFalse(
+                ProxySwap.doorAfter(ProxySwap.Pass.ALREADY_DONE, false),
                 "ALREADY_DONE carries the previous answer and invents nothing");
     }
 
-    private static java.util.function.BooleanSupplier probe(final AtomicInteger asked,
-                                                            final boolean answer) {
+    private static java.util.function.BooleanSupplier probe(final AtomicInteger asked, final boolean answer) {
         return () -> {
             asked.incrementAndGet();
             return answer;

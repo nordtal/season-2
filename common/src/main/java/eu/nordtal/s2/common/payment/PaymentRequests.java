@@ -1,8 +1,5 @@
 package eu.nordtal.s2.common.payment;
 
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
-
 import java.security.SecureRandom;
 import java.sql.SQLException;
 import java.util.HexFormat;
@@ -11,6 +8,8 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
 /**
  * The {@code payment_request} table, as the rest of the bot sees it.
@@ -150,8 +149,12 @@ public final class PaymentRequests {
      * @param ttlHours      how long it stays payable
      * @return the row that was written
      */
-    public PaymentRequest open(final String discordId, final int days, final int amountCents,
-                               final int donationCents, final int ttlHours) {
+    public PaymentRequest open(
+            final String discordId,
+            final int days,
+            final int amountCents,
+            final int donationCents,
+            final int ttlHours) {
         for (int attempt = 1; ; attempt++) {
             final String reference = randomReference();
             try {
@@ -349,8 +352,8 @@ public final class PaymentRequests {
      * @throws UnableToExecuteStatementException when that payment is already claimed by another
      *                                           request
      */
-    public boolean recordMatch(final UUID id, final long bunqPaymentId, final int matchedCents,
-                               final PaymentMatch matchedBy) {
+    public boolean recordMatch(
+            final UUID id, final long bunqPaymentId, final int matchedCents, final PaymentMatch matchedBy) {
         return dao.recordMatch(id, bunqPaymentId, matchedCents, matchedBy.name()) == 1;
     }
 
@@ -368,7 +371,6 @@ public final class PaymentRequests {
     }
 
     private static boolean isUniqueViolation(final UnableToExecuteStatementException exception) {
-        return exception.getCause() instanceof SQLException sql
-                && UNIQUE_VIOLATION.equals(sql.getSQLState());
+        return exception.getCause() instanceof SQLException sql && UNIQUE_VIOLATION.equals(sql.getSQLState());
     }
 }

@@ -1,8 +1,5 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -10,6 +7,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * What is actually lying in one service's volume: the jars in {@code plugins/} and the server jar
@@ -28,11 +27,12 @@ import java.util.List;
  * because its volume was left out of the compose file, would be worse than one that says the mount
  * is missing - the first reads as "all up to date" after the swap.
  */
-public record Installation(@NotNull String service,
-                           @NotNull Path directory,
-                           boolean mounted,
-                           @NotNull List<Jar> plugins,
-                           @NotNull List<Jar> serverJars) {
+public record Installation(
+        @NotNull String service,
+        @NotNull Path directory,
+        boolean mounted,
+        @NotNull List<Jar> plugins,
+        @NotNull List<Jar> serverJars) {
 
     /** Where a service keeps its plugin jars, relative to the volume root. */
     public static final String PLUGINS = "plugins";
@@ -70,11 +70,7 @@ public record Installation(@NotNull String service,
             return absent(service, directory);
         }
         return new Installation(
-                service,
-                directory,
-                true,
-                jarsIn(directory.resolve(PLUGINS)),
-                jarsIn(directory.resolve(SERVER_CACHE)));
+                service, directory, true, jarsIn(directory.resolve(PLUGINS)), jarsIn(directory.resolve(SERVER_CACHE)));
     }
 
     /**
@@ -87,8 +83,8 @@ public record Installation(@NotNull String service,
      * and one honest sentence here beats a second field that would be empty for every real server.
      * </p>
      */
-    public static @NotNull Installation scanFlat(final @NotNull String service,
-                                                 final @NotNull Path directory) throws IOException {
+    public static @NotNull Installation scanFlat(final @NotNull String service, final @NotNull Path directory)
+            throws IOException {
         if (!Files.isDirectory(directory)) {
             return absent(service, directory);
         }

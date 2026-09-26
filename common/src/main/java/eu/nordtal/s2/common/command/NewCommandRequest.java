@@ -28,9 +28,16 @@ import java.util.UUID;
  * @param locale       the language tag the answer is rendered in
  * @param expires      when the asker stops waiting, absolute
  */
-public record NewCommandRequest(String target, String command, String arguments, String source,
-                                String requestedBy, Optional<String> discordId,
-                                Optional<UUID> minecraftId, String locale, Instant expires) {
+public record NewCommandRequest(
+        String target,
+        String command,
+        String arguments,
+        String source,
+        String requestedBy,
+        Optional<String> discordId,
+        Optional<UUID> minecraftId,
+        String locale,
+        Instant expires) {
 
     public NewCommandRequest {
         Objects.requireNonNull(target, "target");
@@ -47,8 +54,7 @@ public record NewCommandRequest(String target, String command, String arguments,
             throw new IllegalArgumentException("a command request needs a command");
         }
         if (command.startsWith("/")) {
-            throw new IllegalArgumentException(
-                    "the command is the path without its slash, got: " + command);
+            throw new IllegalArgumentException("the command is the path without its slash, got: " + command);
         }
         // The CHECK in V11 says the same thing, and saying it here as well is what turns a
         // constraint violation from the database into a sentence naming the adapter that built the
@@ -60,13 +66,11 @@ public record NewCommandRequest(String target, String command, String arguments,
         // matching neither, and the row then fails on command_request_source_check with a message
         // about a constraint rather than about the adapter that wrote it.
         if (!SOURCES.contains(source)) {
-            throw new IllegalArgumentException("a command request comes from " + SOURCES + ", got: "
-                    + source);
+            throw new IllegalArgumentException("a command request comes from " + SOURCES + ", got: " + source);
         }
         if ("CONSOLE".equals(source) && (discordId.isPresent() || minecraftId.isPresent())) {
-            throw new IllegalArgumentException(
-                    "a console request carries no identity, got discordId=" + discordId
-                            + " minecraftId=" + minecraftId);
+            throw new IllegalArgumentException("a console request carries no identity, got discordId=" + discordId
+                    + " minecraftId=" + minecraftId);
         }
         if (("DISCORD".equals(source) || "WEB".equals(source)) && discordId.isEmpty()) {
             throw new IllegalArgumentException(
@@ -83,6 +87,5 @@ public record NewCommandRequest(String target, String command, String arguments,
      * command may be registered, and the one command that has it travels as {@code CONSOLE},
      * because nobody typed it.</p>
      */
-    private static final java.util.Set<String> SOURCES =
-            java.util.Set.of("DISCORD", "GAME", "CONSOLE", "WEB");
+    private static final java.util.Set<String> SOURCES = java.util.Set.of("DISCORD", "GAME", "CONSOLE", "WEB");
 }

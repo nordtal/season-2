@@ -1,11 +1,10 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import java.util.List;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.List;
 
 /**
  * The SQL behind {@link PushSubscriptions}. Package-private: {@code PushSubscriptions} is the API.
@@ -36,9 +35,12 @@ interface PushSubscriptionDao {
                 auth = excluded.auth,
                 device = coalesce(excluded.device, steward_push_subscription.device)
             """)
-    void add(@Bind("endpoint") String endpoint, @Bind("discordId") String discordId,
-             @Bind("p256dh") String p256dh, @Bind("auth") String auth,
-             @Bind("device") String device);
+    void add(
+            @Bind("endpoint") String endpoint,
+            @Bind("discordId") String discordId,
+            @Bind("p256dh") String p256dh,
+            @Bind("auth") String auth,
+            @Bind("device") String device);
 
     /** Every subscription, for {@code AlertWatch} - whose it is does not matter on that path. */
     @SqlQuery("""
@@ -68,8 +70,7 @@ interface PushSubscriptionDao {
             FROM steward_push_subscription
             WHERE endpoint = :endpoint AND discord_id = :discordId
             """)
-    PushSubscriptions.Subscription find(@Bind("endpoint") String endpoint,
-                                        @Bind("discordId") String discordId);
+    PushSubscriptions.Subscription find(@Bind("endpoint") String endpoint, @Bind("discordId") String discordId);
 
     /**
      * One subscription of one account, gone - the settings page's own unsubscribe.

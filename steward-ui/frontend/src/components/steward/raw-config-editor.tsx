@@ -55,10 +55,7 @@ export function RawConfigEditor({
   const format = formatOf(document.name)
 
   function submit() {
-    save.mutate(
-      { revision: document.revision, content },
-      { onSuccess: (saved) => setWarnings(saved.warnings) },
-    )
+    save.mutate({ revision: document.revision, content }, { onSuccess: (saved) => setWarnings(saved.warnings) })
   }
 
   return (
@@ -339,7 +336,7 @@ function tokenizeScalarValue(text: string): Token[] {
     value = value.slice(0, hashAt)
   }
 
-  if (value.length > 0) tokens.push(scalarToken(value));
+  if (value.length > 0) tokens.push(scalarToken(value))
   if (comment) tokens.push({ text: comment, className: CLASS.comment })
   return tokens
 }

@@ -1,16 +1,15 @@
 package eu.nordtal.s2.steward.deployer;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Recreate uses the image that is here; deploy is the button that fetches (season-2-ops/134).
@@ -26,16 +25,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RecreateDoesNotPullTest {
 
-    private final Compose compose = new Compose(
-            Path.of("/app/compose.yml"), Path.of("/does/not/exist/.env"), Path.of("/app"), "nordtal-s2");
+    private final Compose compose =
+            new Compose(Path.of("/app/compose.yml"), Path.of("/does/not/exist/.env"), Path.of("/app"), "nordtal-s2");
 
     @Test
     @DisplayName("the recreate command line fetches nothing, by any of compose's spellings")
     void theCommandLineFetchesNothing() {
         final List<String> command = compose.recreateCommand("steward-ui");
 
-        assertTrue(command.containsAll(List.of("up", "--detach", "--no-deps", "--force-recreate")),
-                command.toString());
+        assertTrue(command.containsAll(List.of("up", "--detach", "--no-deps", "--force-recreate")), command.toString());
         assertTrue(command.contains("steward-ui"), command.toString());
         // Not `contains("pull")`: `docker compose up` fetches through `--pull always` as readily as
         // a separate `pull` subcommand does, and a test that only knew the subcommand would let the
@@ -59,14 +57,17 @@ class RecreateDoesNotPullTest {
         // first in the file. Matching that one asserted nothing - it caught this test on the way in.
         final String deploy = lastMethodBody("static int deploy(Compose compose, List<String> requested,");
 
-        assertFalse(recreate.contains("compose.pull("),
+        assertFalse(
+                recreate.contains("compose.pull("),
                 "recreate pulls again, which is season-2-ops/134 coming back:\n" + recreate);
         assertTrue(recreate.contains("compose.recreate("), recreate);
-        assertTrue(recreate.contains("hasLocalImage"),
+        assertTrue(
+                recreate.contains("hasLocalImage"),
                 "recreate has to say why it cannot, instead of letting compose fail:\n" + recreate);
         // And the counterweight: if deploy ever stopped pulling, the split this test protects would
         // be gone in the other direction - two buttons that both only use what is already here.
-        assertTrue(deploy.contains("compose.pull("),
+        assertTrue(
+                deploy.contains("compose.pull("),
                 "deploy is the button that fetches, and it no longer does:\n" + deploy);
     }
 
@@ -81,11 +82,13 @@ class RecreateDoesNotPullTest {
     }
 
     private static String body(final String signature, final boolean last) throws IOException {
-        final Path source = repositoryRoot().resolve(
-                "steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/StewardDeployer.java");
-        assertTrue(Files.isRegularFile(source), source + " no longer exists - if it moved, this path"
-                + " has to move with it, because a missing file is a check that silently stops"
-                + " running");
+        final Path source = repositoryRoot()
+                .resolve("steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/StewardDeployer.java");
+        assertTrue(
+                Files.isRegularFile(source),
+                source + " no longer exists - if it moved, this path"
+                        + " has to move with it, because a missing file is a check that silently stops"
+                        + " running");
         final String text = Files.readString(source, StandardCharsets.UTF_8);
         final int start = last ? text.lastIndexOf(signature) : text.indexOf(signature);
         assertTrue(start >= 0, "no method starting `" + signature + "` in " + source);

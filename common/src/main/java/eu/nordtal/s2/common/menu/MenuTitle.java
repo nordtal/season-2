@@ -1,15 +1,13 @@
 package eu.nordtal.s2.common.menu;
 
 import eu.nordtal.s2.common.Glyphs;
-
+import java.util.ArrayList;
+import java.util.List;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.ShadowColor;
 import net.kyori.adventure.text.format.TextColor;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Composes a chest menu's title so the window is drawn in Nordtal's own frame.
@@ -51,19 +49,18 @@ public final class MenuTitle {
     private static final int[] SHIFTS = {128, 64, 32, 16, 8, 4, 2, 1};
 
     private static final String[] SHIFT_GLYPHS = {
-            Glyphs.GUI_SPACE_MINUS_128, Glyphs.GUI_SPACE_MINUS_64, Glyphs.GUI_SPACE_MINUS_32,
-            Glyphs.GUI_SPACE_MINUS_16, Glyphs.GUI_SPACE_MINUS_8, Glyphs.GUI_SPACE_MINUS_4,
-            Glyphs.GUI_SPACE_MINUS_2, Glyphs.GUI_SPACE_MINUS_1,
+        Glyphs.GUI_SPACE_MINUS_128, Glyphs.GUI_SPACE_MINUS_64, Glyphs.GUI_SPACE_MINUS_32,
+        Glyphs.GUI_SPACE_MINUS_16, Glyphs.GUI_SPACE_MINUS_8, Glyphs.GUI_SPACE_MINUS_4,
+        Glyphs.GUI_SPACE_MINUS_2, Glyphs.GUI_SPACE_MINUS_1,
     };
 
     private static final String[] FORWARD_GLYPHS = {
-            Glyphs.GUI_SPACE_PLUS_128, Glyphs.GUI_SPACE_PLUS_64, Glyphs.GUI_SPACE_PLUS_32,
-            Glyphs.GUI_SPACE_PLUS_16, Glyphs.GUI_SPACE_PLUS_8, Glyphs.GUI_SPACE_PLUS_4,
-            Glyphs.GUI_SPACE_PLUS_2, Glyphs.GUI_SPACE_PLUS_1,
+        Glyphs.GUI_SPACE_PLUS_128, Glyphs.GUI_SPACE_PLUS_64, Glyphs.GUI_SPACE_PLUS_32,
+        Glyphs.GUI_SPACE_PLUS_16, Glyphs.GUI_SPACE_PLUS_8, Glyphs.GUI_SPACE_PLUS_4,
+        Glyphs.GUI_SPACE_PLUS_2, Glyphs.GUI_SPACE_PLUS_1,
     };
 
-    private MenuTitle() {
-    }
+    private MenuTitle() {}
 
     /**
      * The title to hand {@code Bukkit.createInventory}: the panel for this many rows, then the
@@ -76,12 +73,9 @@ public final class MenuTitle {
      */
     public static Component of(final int rows, final Component title) {
         if (rows < 1 || rows > MAX_ROWS) {
-            throw new IllegalArgumentException(
-                    "a chest menu has 1 to " + MAX_ROWS + " rows, not " + rows);
+            throw new IllegalArgumentException("a chest menu has 1 to " + MAX_ROWS + " rows, not " + rows);
         }
-        return Component.empty()
-                .append(panel(rows))
-                .append(title);
+        return Component.empty().append(panel(rows)).append(title);
     }
 
     /**
@@ -111,8 +105,7 @@ public final class MenuTitle {
     /** A canvas on the recess-free panel for {@code rows} rows. */
     public static Canvas onPlain(final int rows) {
         if (rows < 1 || rows > MAX_ROWS) {
-            throw new IllegalArgumentException(
-                    "a chest menu has 1 to " + MAX_ROWS + " rows, not " + rows);
+            throw new IllegalArgumentException("a chest menu has 1 to " + MAX_ROWS + " rows, not " + rows);
         }
         return on(Glyphs.GUI_PANELS_PLAIN[rows - 1]);
     }
@@ -183,8 +176,7 @@ public final class MenuTitle {
      * @param font    the font id to name, or null to inherit {@code nordtal:gui} from the panel
      * @param colour  the colour to paint it, or null to inherit the panel's white
      */
-    private record Overlay(int x, int advance, String content, String font, TextColor colour) {
-    }
+    private record Overlay(int x, int advance, String content, String font, TextColor colour) {}
 
     /**
      * A panel with things drawn on top of it, composed into one title.
@@ -254,8 +246,7 @@ public final class MenuTitle {
         }
 
         /** The same, with the text's <em>right</em> edge at {@code xRight}. */
-        public Canvas rowTextRight(final String text, final int row, final int xRight,
-                                   final TextColor colour) {
+        public Canvas rowTextRight(final String text, final int row, final int xRight, final TextColor colour) {
             final String folded = MenuFont.fold(text);
             return rowText(folded, row, xRight - MenuFont.width(folded), colour);
         }
@@ -267,11 +258,11 @@ public final class MenuTitle {
             return Glyphs.FONT_GUI_ROWS[row];
         }
 
-        private Canvas place(final int x, final int advance, final String content,
-                             final String font, final TextColor colour) {
+        private Canvas place(
+                final int x, final int advance, final String content, final String font, final TextColor colour) {
             if (x < 0 || advance < 1 || x + advance > PANEL_ADVANCE) {
-                throw new IllegalArgumentException("a placement advancing " + advance
-                        + " at x = " + x + " does not fit a 176px window");
+                throw new IllegalArgumentException(
+                        "a placement advancing " + advance + " at x = " + x + " does not fit a 176px window");
             }
             overlays.add(new Overlay(x, advance, content, font, colour));
             return this;
@@ -303,9 +294,7 @@ public final class MenuTitle {
 
         /** The title to hand {@code Bukkit.createInventory}: the surface, then {@code title}. */
         public Component build(final Component title) {
-            return Component.empty()
-                    .append(panel())
-                    .append(title);
+            return Component.empty().append(panel()).append(title);
         }
     }
 }

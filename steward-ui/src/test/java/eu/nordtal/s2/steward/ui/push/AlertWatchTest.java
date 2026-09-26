@@ -1,5 +1,15 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.flywaydb.core.Flyway;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
@@ -10,17 +20,6 @@ import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * {@link AlertWatch}, with the worker and the push protocol both replaced by a fake this test
@@ -73,7 +72,7 @@ class AlertWatchTest {
         // Fresh rows per test: TRUNCATE rather than a new container, which would cost a Postgres
         // start per test rather than per class.
         try (var connection = dataSource.getConnection();
-             var statement = connection.createStatement()) {
+                var statement = connection.createStatement()) {
             statement.execute("TRUNCATE steward_push_subscription");
             statement.execute("TRUNCATE steward_push_preference");
         } catch (final java.sql.SQLException failure) {
@@ -93,8 +92,7 @@ class AlertWatchTest {
     void trafficLightChangeTriggersASend() {
         source.allClear();
         watch.poll();
-        assertEquals(0, sender.sent.size(), "the very first poll has nothing to compare against and"
-                + " sent anyway");
+        assertEquals(0, sender.sent.size(), "the very first poll has nothing to compare against and" + " sent anyway");
 
         source.allClear();
         watch.poll();
@@ -105,9 +103,11 @@ class AlertWatchTest {
         assertEquals(2, sender.sent.size(), "a traffic-light change did not reach both subscriptions");
         assertTrue(sender.sent.stream().anyMatch(call -> call.endpoint.equals("https://push.example/a")));
         assertTrue(sender.sent.stream().anyMatch(call -> call.endpoint.equals("https://push.example/b")));
-        assertTrue(sender.sent.getFirst().payload.contains("down"),
+        assertTrue(
+                sender.sent.getFirst().payload.contains("down"),
                 "the payload does not name the new level: " + sender.sent.getFirst().payload);
-        assertTrue(sender.sent.getFirst().payload.contains("smp"),
+        assertTrue(
+                sender.sent.getFirst().payload.contains("smp"),
                 "the payload does not name the subject: " + sender.sent.getFirst().payload);
     }
 
@@ -122,8 +122,11 @@ class AlertWatchTest {
         watch.poll();
 
         final List<String> left = subscriptions.all().stream()
-                .map(PushSubscriptions.Subscription::endpoint).toList();
-        assertEquals(List.of("https://push.example/b"), left,
+                .map(PushSubscriptions.Subscription::endpoint)
+                .toList();
+        assertEquals(
+                List.of("https://push.example/b"),
+                left,
                 "the subscription that answered EXPIRED was not removed, or the other one was too");
     }
 
@@ -137,7 +140,8 @@ class AlertWatchTest {
         source.next(trigger("service", "down", "smp", "/services/smp"));
         watch.poll();
 
-        assertEquals(List.of("https://push.example/b"),
+        assertEquals(
+                List.of("https://push.example/b"),
                 sender.sent.stream().map(call -> call.endpoint).toList(),
                 "a service alert reached an account that had switched service notifications off,"
                         + " or missed the account that had not");
@@ -151,7 +155,9 @@ class AlertWatchTest {
         source.next(trigger("drift", "warn", "caddy", "/operations"));
         watch.poll();
 
-        assertEquals(0, sender.sent.size(),
+        assertEquals(
+                0,
+                sender.sent.size(),
                 "an image drift was pushed to accounts that never switched drift on - see"
                         + " AlertType's own defaults");
     }
@@ -166,10 +172,10 @@ class AlertWatchTest {
         source.next(trigger("drift", "warn", "caddy", "/operations"));
         watch.poll();
 
-        assertEquals(List.of("https://push.example/b"),
+        assertEquals(
+                List.of("https://push.example/b"),
                 sender.sent.stream().map(call -> call.endpoint).toList(),
-                "the account that switched drift ON did not get it, or the one that did not switch"
-                        + " it on did");
+                "the account that switched drift ON did not get it, or the one that did not switch" + " it on did");
     }
 
     @Test
@@ -186,9 +192,11 @@ class AlertWatchTest {
         // payloads say which is which. Before steward/98's review the worker answered only the
         // worst trigger, so the backup would have been invisible for as long as smp was down.
         assertEquals(4, sender.sent.size(), "a poll in which two types moved did not send both");
-        assertTrue(sender.sent.stream().anyMatch(call -> call.payload.contains("\"service\"")),
+        assertTrue(
+                sender.sent.stream().anyMatch(call -> call.payload.contains("\"service\"")),
                 "no notification named the service type: " + sender.sent);
-        assertTrue(sender.sent.stream().anyMatch(call -> call.payload.contains("\"backup\"")),
+        assertTrue(
+                sender.sent.stream().anyMatch(call -> call.payload.contains("\"backup\"")),
                 "no notification named the backup type: " + sender.sent);
     }
 
@@ -209,9 +217,11 @@ class AlertWatchTest {
         // "Steward is clear" - and the one notification somebody waits for after a service went
         // down is the one saying THAT service is back.
         assertEquals(2, sender.sent.size(), "the all-clear did not reach both subscriptions");
-        assertTrue(sender.sent.getFirst().payload.contains("\"subject\":\"smp\""),
+        assertTrue(
+                sender.sent.getFirst().payload.contains("\"subject\":\"smp\""),
                 "the all-clear forgot what it was clearing: " + sender.sent.getFirst().payload);
-        assertTrue(sender.sent.getFirst().payload.contains("\"level\":\"ok\""),
+        assertTrue(
+                sender.sent.getFirst().payload.contains("\"level\":\"ok\""),
                 "the all-clear is not an ok: " + sender.sent.getFirst().payload);
     }
 
@@ -222,15 +232,16 @@ class AlertWatchTest {
         watch.poll();
         source.next(new AlertReading(List.of(), 84.9, 10.0, 1.0));
         watch.poll();
-        assertEquals(0, sender.sent.size(),
-                "a disk below the configured 85 % was pushed as if it were over");
+        assertEquals(0, sender.sent.size(), "a disk below the configured 85 % was pushed as if it were over");
 
         source.next(new AlertReading(List.of(), 85.0, 10.0, 1.0));
         watch.poll();
-        assertEquals(2, sender.sent.size(),
-                "a disk AT the configured 85 % was not pushed - health.ts compares with >= and so"
-                        + " must this");
-        assertTrue(sender.sent.getFirst().payload.contains("disk"),
+        assertEquals(
+                2,
+                sender.sent.size(),
+                "a disk AT the configured 85 % was not pushed - health.ts compares with >= and so" + " must this");
+        assertTrue(
+                sender.sent.getFirst().payload.contains("disk"),
                 "the payload is not about the disk: " + sender.sent.getFirst().payload);
     }
 
@@ -243,7 +254,8 @@ class AlertWatchTest {
         watch.poll();
 
         assertEquals(2, sender.sent.size(), "a backup past the permitted age did not push");
-        assertTrue(sender.sent.getFirst().payload.contains("\"backup\""),
+        assertTrue(
+                sender.sent.getFirst().payload.contains("\"backup\""),
                 "an old backup was not sent as the backup type: " + sender.sent.getFirst().payload);
     }
 
@@ -258,12 +270,11 @@ class AlertWatchTest {
         source.next(new AlertReading(List.of(), null, null, null));
         watch.poll();
 
-        assertEquals(0, sender.sent.size(),
-                "a reading with no measurements in it woke somebody up: " + sender.sent);
+        assertEquals(0, sender.sent.size(), "a reading with no measurements in it woke somebody up: " + sender.sent);
     }
 
-    private static AlertReading.Trigger trigger(final String kind, final String level,
-                                                final String subject, final String path) {
+    private static AlertReading.Trigger trigger(
+            final String kind, final String level, final String subject, final String path) {
         return new AlertReading.Trigger(kind, level, subject, path);
     }
 
@@ -296,8 +307,7 @@ class AlertWatchTest {
 
     /** A push service that records every call and answers EXPIRED for whichever endpoints asked. */
     private static final class FakeSender implements PushSender {
-        record Call(String endpoint, String payload) {
-        }
+        record Call(String endpoint, String payload) {}
 
         private final CopyOnWriteArrayList<Call> sent = new CopyOnWriteArrayList<>();
         private final Map<String, Boolean> expired = new ConcurrentHashMap<>();
@@ -307,8 +317,8 @@ class AlertWatchTest {
         }
 
         @Override
-        public @NotNull Result send(final @NotNull PushSubscriptions.Subscription subscription,
-                                    final @NotNull String payload) {
+        public @NotNull Result send(
+                final @NotNull PushSubscriptions.Subscription subscription, final @NotNull String payload) {
             sent.add(new Call(subscription.endpoint(), payload));
             return expired.containsKey(subscription.endpoint()) ? Result.EXPIRED : Result.SENT;
         }

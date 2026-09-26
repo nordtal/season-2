@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.nio.file.Path;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * One message bundle found under the mount, before its jar has been opened.
@@ -39,5 +38,4 @@ public record MessageBundleLocation(
         @NotNull String module,
         @NotNull Path jar,
         @NotNull Path overrideDirectory,
-        boolean writable) {
-}
+        boolean writable) {}

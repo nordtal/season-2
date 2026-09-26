@@ -1,11 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -64,9 +58,7 @@ function drawAt(path: string, { open = true }: { open?: boolean } = {}) {
   })
   const children = [
     createRoute({ getParentRoute: () => root, path: "/", component: () => <p>a page</p> }),
-    ...PATHS.map((to) =>
-      createRoute({ getParentRoute: () => root, path: to, component: () => <p>a page</p> }),
-    ),
+    ...PATHS.map((to) => createRoute({ getParentRoute: () => root, path: to, component: () => <p>a page</p> })),
   ]
   const router = createRouter({
     routeTree: root.addChildren(children),
@@ -167,9 +159,7 @@ describe("the frame on a desktop", () => {
     // The state it reports has to change, because it is what a screen reader has instead of the
     // animation.
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded"),
-      ).toBe("false"),
+      expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("false"),
     )
   })
 })

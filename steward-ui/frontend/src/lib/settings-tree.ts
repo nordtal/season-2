@@ -105,12 +105,7 @@ export type ConfigLeafValue =
 
 /** Whether a config entry needs the whole width: a list, a list of sections, several lines. */
 function wideEntry(entry: ConfigEntry): boolean {
-  return (
-    entry.kind === "LIST" ||
-    entry.kind === "SECTIONS" ||
-    !entry.editable ||
-    (entry.value ?? "").includes("\n")
-  )
+  return entry.kind === "LIST" || entry.kind === "SECTIONS" || !entry.editable || (entry.value ?? "").includes("\n")
 }
 
 export function configTree(entries: ConfigEntry[]): TreeNode<ConfigLeafValue>[] {
@@ -227,10 +222,7 @@ export function messageLeafMatches(entry: MessageEntry, query: string): boolean 
 
 /** How many keys a tree draws - what decides whether it starts open. */
 export function leafCount<L>(nodes: TreeNode<L>[]): number {
-  return nodes.reduce(
-    (sum, node) => sum + (node.kind === "leaf" ? node.ids.length : leafCount(node.children)),
-    0,
-  )
+  return nodes.reduce((sum, node) => sum + (node.kind === "leaf" ? node.ids.length : leafCount(node.children)), 0)
 }
 
 /** The keys below a node, for a branch's count of changed ones. */

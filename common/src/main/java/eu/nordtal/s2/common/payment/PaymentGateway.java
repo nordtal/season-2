@@ -1,11 +1,10 @@
 package eu.nordtal.s2.common.payment;
 
+import java.util.Optional;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.Optional;
 
 /**
  * Whether the process that talks to bunq has a bunq to talk to - written by steward-worker at every
@@ -53,8 +52,7 @@ public final class PaymentGateway {
         UNKNOWN
     }
 
-    private PaymentGateway() {
-    }
+    private PaymentGateway() {}
 
     /**
      * Records what steward-worker found. Overwrites: this is the current state of a running

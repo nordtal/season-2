@@ -1,11 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -97,10 +91,7 @@ describe("NavList - the health dot on a service row (steward/83)", () => {
     const fetchImpl = vi.fn(async (url: string) => {
       if (url === "/api/services") {
         return json({
-          services: [
-            service({ service: "smp" }),
-            service({ service: "limbo", state: "exited", status: "Exited (1)" }),
-          ],
+          services: [service({ service: "smp" }), service({ service: "limbo", state: "exited", status: "Exited (1)" })],
           drift: { checkedAt: new Date().toISOString(), reached: true, unverifiable: [] },
         })
       }

@@ -1,18 +1,16 @@
 package eu.nordtal.s2.proxy.gate;
 
-import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.access.AccessState;
-import eu.nordtal.s2.common.access.MemberState;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.Locale;
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.access.AccessState;
+import eu.nordtal.s2.common.access.MemberState;
+import java.util.Locale;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * What the login query is allowed to be remembered for. The one assertion that matters is that an
@@ -45,7 +43,9 @@ class LoginRosterTest {
         roster.remember(PLAYER, state(true, Locale.GERMAN));
 
         assertTrue(roster.isAdmin(PLAYER));
-        assertEquals(DISCORD_ID, roster.of(PLAYER).orElseThrow().discordId(),
+        assertEquals(
+                DISCORD_ID,
+                roster.of(PLAYER).orElseThrow().discordId(),
                 "the actor written into audit_log by /phase set");
         assertEquals(Locale.GERMAN, roster.localeOf(PLAYER));
     }
@@ -55,8 +55,8 @@ class LoginRosterTest {
         roster.remember(PLAYER, state(true, Locale.ENGLISH));
         roster.remember(PLAYER, state(false, Locale.ENGLISH));
 
-        assertFalse(roster.isAdmin(PLAYER),
-                "the flag is a permission mirrored from Discord, so losing the role loses it");
+        assertFalse(
+                roster.isAdmin(PLAYER), "the flag is a permission mirrored from Discord, so losing the role loses it");
     }
 
     @Test
@@ -75,8 +75,8 @@ class LoginRosterTest {
     }
 
     private static AccessState state(final boolean admin, final Locale locale) {
-        return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, admin,
-                locale, SeasonPhase.SMP, null);
+        return new AccessState(
+                PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, admin, locale, SeasonPhase.SMP, null);
     }
 
     // ---------------------------------------------------------------- M9: revocation reaches a live session
@@ -104,7 +104,9 @@ class LoginRosterTest {
         assertEquals(1, roster.refreshAdmins(java.util.Set.of(DISCORD_ID)));
 
         assertTrue(roster.isAdmin(PLAYER));
-        assertEquals(Locale.GERMAN, roster.localeOf(PLAYER),
+        assertEquals(
+                Locale.GERMAN,
+                roster.localeOf(PLAYER),
                 "language is not this refresh's business - it changes on a rhythm nobody needs told"
                         + " about in seconds, and the next login reads it again anyway");
         assertEquals(DISCORD_ID, roster.of(PLAYER).orElseThrow().discordId());
@@ -130,5 +132,4 @@ class LoginRosterTest {
         assertEquals(0, roster.size());
         assertFalse(roster.isAdmin(PLAYER));
     }
-
 }

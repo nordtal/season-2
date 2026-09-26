@@ -1,11 +1,9 @@
 package eu.nordtal.s2.discordbot.config;
 
 import eu.nordtal.s2.common.payment.PaymentGateway;
-
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.ArrayList;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Which Discord ids were actually filled in, and what the bot therefore does not do.
@@ -32,8 +30,7 @@ import java.util.List;
 @Slf4j
 public final class Configured {
 
-    private Configured() {
-    }
+    private Configured() {}
 
     /**
      * Whether an id was configured at all.
@@ -65,15 +62,17 @@ public final class Configured {
         final List<String> off = new ArrayList<>();
 
         switch (gateway) {
-            case OFF -> off.add("bunq in steward-worker's steward.yml - the worker started and "
-                    + "found no key, so nothing is ever polled for and nothing can be bought; the "
-                    + "rest of the bot is unaffected");
+            case OFF ->
+                off.add("bunq in steward-worker's steward.yml - the worker started and "
+                        + "found no key, so nothing is ever polled for and nothing can be bought; the "
+                        + "rest of the bot is unaffected");
             // Not "off": nobody has said. The distinction matters on the day the two variables are
             // renamed, because a worker that never started and a worker that started without a key
             // are different problems with the same symptom.
-            case UNKNOWN -> off.add("bunq - no steward-worker has said whether it has a key since "
-                    + "this database was created. Read steward-worker's own start line: it says "
-                    + "'bunq is ON' or 'bunq is OFF' in one sentence");
+            case UNKNOWN ->
+                off.add("bunq - no steward-worker has said whether it has a key since "
+                        + "this database was created. Read steward-worker's own start line: it says "
+                        + "'bunq is ON' or 'bunq is OFF' in one sentence");
             case ON -> {
                 // Nothing to report. A gateway that is on is not a feature that is switched off.
             }
@@ -94,8 +93,7 @@ public final class Configured {
                     + "logged here instead");
         }
         if (config.tiers().isEmpty()) {
-            off.add("tiers - there is nothing to buy, so the contribution message offers only the "
-                    + "donation");
+            off.add("tiers - there is nothing to buy, so the contribution message offers only the " + "donation");
         }
 
         for (final AccessSpec.LanguageSpec language : config.languages()) {
@@ -104,8 +102,8 @@ public final class Configured {
                 off.add(path + ".role - no member is ever recorded as speaking " + language.tag());
             }
             if (!isSet(language.contributionChannel())) {
-                off.add(path + ".contribution-channel - no contribution message and no public "
-                        + "thank-you in " + language.tag());
+                off.add(path + ".contribution-channel - no contribution message and no public " + "thank-you in "
+                        + language.tag());
             }
             if (!isSet(language.linkChannel())) {
                 off.add(path + ".link-channel - no link message in " + language.tag());
@@ -119,8 +117,10 @@ public final class Configured {
             log.info("Every Discord id in access.yml is filled in; no feature is switched off.");
             return;
         }
-        log.warn("{} setting(s) in access.yml are empty, so the features behind them are not "
-                + "served. Fill them in in Steward, not in a file:\n  {}",
-                off.size(), String.join("\n  ", off));
+        log.warn(
+                "{} setting(s) in access.yml are empty, so the features behind them are not "
+                        + "served. Fill them in in Steward, not in a file:\n  {}",
+                off.size(),
+                String.join("\n  ", off));
     }
 }

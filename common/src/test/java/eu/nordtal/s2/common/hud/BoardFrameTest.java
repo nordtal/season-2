@@ -1,19 +1,15 @@
 package eu.nordtal.s2.common.hud;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.RepositoryRoot;
 import eu.nordtal.s2.common.pack.FontFile;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -22,10 +18,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.imageio.ImageIO;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link BoardFrame} held against the pack rather than against its own constants.
@@ -52,11 +49,15 @@ class BoardFrameTest {
     @Test
     @DisplayName("the three glyph widths are the pack's, not the code's")
     void theWidthsComeFromTheArt() {
-        assertEquals(BoardFrame.CORNER_LEFT_WIDTH, trimmed("ui/board/corner_tl.png"),
+        assertEquals(
+                BoardFrame.CORNER_LEFT_WIDTH,
+                trimmed("ui/board/corner_tl.png"),
                 "corner_tl's stub reaches right across its whole 9px cell, which is why the left"
                         + " corner is wider than the right one");
         assertEquals(BoardFrame.CORNER_LEFT_WIDTH, trimmed("ui/board/corner_bl.png"));
-        assertEquals(BoardFrame.CORNER_RIGHT_WIDTH, trimmed("ui/board/corner_tr.png"),
+        assertEquals(
+                BoardFrame.CORNER_RIGHT_WIDTH,
+                trimmed("ui/board/corner_tr.png"),
                 "corner_tr's stub comes in from the left and stops at the cell centre");
         assertEquals(BoardFrame.CORNER_RIGHT_WIDTH, trimmed("ui/board/corner_br.png"));
         assertEquals(BoardFrame.EDGE_V_WIDTH, trimmed("ui/board/edge_v_l.png"));
@@ -67,7 +68,9 @@ class BoardFrameTest {
     @DisplayName("every tiling segment is exactly as wide as its name says")
     void theSegmentsTile() {
         for (final int power : new int[] {1, 2, 4, 8, 16, 32, 64, 128}) {
-            assertEquals(power, trimmed("ui/board/edge_h_" + power + ".png"),
+            assertEquals(
+                    power,
+                    trimmed("ui/board/edge_h_" + power + ".png"),
                     "edge_h_" + power + " has to be " + power + " pixels wide or a border composed"
                             + " from it lands short, and the corner then sits inside the box");
             assertEquals(power, trimmed("ui/board/divider_" + power + ".png"));
@@ -78,16 +81,20 @@ class BoardFrameTest {
     @DisplayName("a border's edges start at the content column and end exactly one width later")
     void theBorderSpansTheWidth() {
         for (final int width : WIDTHS) {
-            final Walk walk = walk(frameTextOf(BoardFrame.border(width,
-                    Glyphs.BOARD_CORNER_TOP_LEFT, Glyphs.BOARD_CORNER_TOP_RIGHT)));
+            final Walk walk = walk(
+                    frameTextOf(BoardFrame.border(width, Glyphs.BOARD_CORNER_TOP_LEFT, Glyphs.BOARD_CORNER_TOP_RIGHT)));
 
-            assertEquals(BoardFrame.CONTENT_X, walk.drawnAt(Glyphs.BOARD_EDGE_H_128.codePointAt(0),
+            assertEquals(
+                    BoardFrame.CONTENT_X,
+                    walk.drawnAt(
+                            Glyphs.BOARD_EDGE_H_128.codePointAt(0),
                             Glyphs.BOARD_EDGE_H_64.codePointAt(0),
                             Glyphs.BOARD_EDGE_H_32.codePointAt(0),
                             Glyphs.BOARD_EDGE_H_16.codePointAt(0)),
                     "width " + width + ": the first horizontal edge has to begin where the content"
                             + " column does, or the frame and its text are drawn on two grids");
-            assertEquals(BoardFrame.CONTENT_X + width,
+            assertEquals(
+                    BoardFrame.CONTENT_X + width,
                     walk.drawnAt(Glyphs.BOARD_CORNER_TOP_RIGHT.codePointAt(0)),
                     "width " + width + ": the closing corner sits one width past the content"
                             + " column - that is what 'the board is this wide' means");
@@ -101,17 +108,22 @@ class BoardFrameTest {
             final Component row = BoardFrame.row(width, Component.text("x"));
             final Walk walk = walk(frameTextOf(row));
 
-            assertEquals(BoardFrame.CONTENT_X, walk.cursor(),
+            assertEquals(
+                    BoardFrame.CONTENT_X,
+                    walk.cursor(),
                     "width " + width + ": the content is appended after the frame and nothing"
-                            + " shifts it, so the frame has to hand back a cursor at " 
+                            + " shifts it, so the frame has to hand back a cursor at "
                             + BoardFrame.CONTENT_X + ". This is the invariant the whole class"
                             + " exists for - the content's own width is the one thing that cannot"
                             + " be computed, so nothing may be placed after it.");
-            assertEquals(BoardFrame.CONTENT_X + width,
+            assertEquals(
+                    BoardFrame.CONTENT_X + width,
                     walk.drawnAt(Glyphs.BOARD_EDGE_V_RIGHT.codePointAt(0)),
                     "width " + width + ": the right-hand vertical has to line up with the corner"
                             + " above it, or the box is a trapezium");
-            assertEquals(0, walk.drawnAt(Glyphs.BOARD_EDGE_V_LEFT.codePointAt(0)),
+            assertEquals(
+                    0,
+                    walk.drawnAt(Glyphs.BOARD_EDGE_V_LEFT.codePointAt(0)),
                     "the left-hand vertical is the first thing on the line");
         }
     }
@@ -120,15 +132,16 @@ class BoardFrameTest {
     @DisplayName("every line of a board ends at the same pixel")
     void theBoxIsARectangle() {
         for (final int width : WIDTHS) {
-            final Component board = BoardFrame.render(width, Component.text("t"),
-                    List.of(Component.text("body")));
+            final Component board = BoardFrame.render(width, Component.text("t"), List.of(Component.text("body")));
             final List<String> lines = frameLines(board);
             // top border, title, divider, one body line, bottom border
             assertEquals(5, lines.size());
 
             final int expected = BoardFrame.CONTENT_X + width + BoardFrame.EDGE_V_WIDTH;
             for (int index = 0; index < lines.size(); index++) {
-                assertEquals(expected, walk(lines.get(index)).end(),
+                assertEquals(
+                        expected,
+                        walk(lines.get(index)).end(),
                         "width " + width + ", line " + index + ": every line of the box has to end"
                                 + " at the same pixel, or the frame is a trapezium. The corners are"
                                 + " " + BoardFrame.CORNER_RIGHT_WIDTH + " wide and the verticals "
@@ -147,23 +160,24 @@ class BoardFrameTest {
             assertEquals(4, lines.size(), "a board with no body lines is still four lines");
 
             final Walk divider = walk(lines.get(2));
-            assertEquals(BoardFrame.CONTENT_X, divider.drawnAt(
+            assertEquals(
+                    BoardFrame.CONTENT_X,
+                    divider.drawnAt(
                             Glyphs.BOARD_DIVIDER_128.codePointAt(0),
                             Glyphs.BOARD_DIVIDER_64.codePointAt(0),
                             Glyphs.BOARD_DIVIDER_32.codePointAt(0),
                             Glyphs.BOARD_DIVIDER_16.codePointAt(0)),
                     "width " + width + ": the rule is drawn as the row's content, so it starts at"
                             + " the content column - the same x the border's first edge does");
-            assertEquals(BoardFrame.CONTENT_X + width,
-                    divider.drawnAt(Glyphs.BOARD_EDGE_V_RIGHT.codePointAt(0)));
+            assertEquals(BoardFrame.CONTENT_X + width, divider.drawnAt(Glyphs.BOARD_EDGE_V_RIGHT.codePointAt(0)));
         }
     }
 
     @Test
     @DisplayName("a board is a border, a title, a rule, the lines, and a border")
     void theShapeIsFixed() {
-        final Component board = BoardFrame.render(120, Component.text("title"),
-                List.of(Component.text("a"), Component.text("b"), Component.text("c")));
+        final Component board = BoardFrame.render(
+                120, Component.text("title"), List.of(Component.text("a"), Component.text("b"), Component.text("c")));
         assertEquals(7, frameLines(board).size());
     }
 
@@ -171,9 +185,11 @@ class BoardFrameTest {
     @DisplayName("every code point the frame composes is one the font declares")
     void nothingIsUndrawn() {
         final Walk walk = walk(frameTextOf(BoardFrame.row(180, Component.empty()))
-                + frameTextOf(BoardFrame.border(180, Glyphs.BOARD_CORNER_BOTTOM_LEFT,
-                        Glyphs.BOARD_CORNER_BOTTOM_RIGHT)));
-        assertEquals(List.of(), walk.unknown(),
+                + frameTextOf(
+                        BoardFrame.border(180, Glyphs.BOARD_CORNER_BOTTOM_LEFT, Glyphs.BOARD_CORNER_BOTTOM_RIGHT)));
+        assertEquals(
+                List.of(),
+                walk.unknown(),
                 "a code point nordtal:board does not declare renders as a missing-glyph box in the"
                         + " middle of the frame, and the cursor arithmetic behind it is wrong too");
     }
@@ -186,14 +202,19 @@ class BoardFrameTest {
         flatten(row, parts);
 
         final Component frame = parts.stream()
-                .filter(part -> part instanceof TextComponent text && !text.content().isEmpty()
+                .filter(part -> part instanceof TextComponent text
+                        && !text.content().isEmpty()
                         && text.content().codePointAt(0) > 0xFFFF)
-                .findFirst().orElseThrow();
-        assertEquals(Glyphs.FONT_BOARD, String.valueOf(frame.style().font()),
+                .findFirst()
+                .orElseThrow();
+        assertEquals(
+                Glyphs.FONT_BOARD,
+                String.valueOf(frame.style().font()),
                 "a component that names no font resolves its code points in minecraft:default,"
                         + " where they are other glyphs entirely - the U+FE004 collision Glyphs"
                         + " documents");
-        assertTrue(frame.style().color() != null,
+        assertTrue(
+                frame.style().color() != null,
                 "an uncoloured frame inherits the parent's, so a gold heading would drag a gold"
                         + " frame along with it");
     }
@@ -201,9 +222,11 @@ class BoardFrameTest {
     @Test
     @DisplayName("a width the shifts cannot express is refused, not clamped")
     void theWidthIsBounded() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> BoardFrame.render(BoardFrame.MIN_WIDTH - 1, Component.empty(), List.of()));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> BoardFrame.render(BoardFrame.MAX_WIDTH + 1, Component.empty(), List.of()));
         assertThrows(IllegalArgumentException.class, () -> BoardFrame.left(256));
         assertThrows(IllegalArgumentException.class, () -> BoardFrame.right(-1));
@@ -213,7 +236,8 @@ class BoardFrameTest {
     @DisplayName("the widest board still fits inside the leftward shift the font can express")
     void theCeilingIsTheShiftsCeiling() {
         assertEquals(255, 128 + 64 + 32 + 16 + 8 + 4 + 2 + 1);
-        assertTrue(BoardFrame.MAX_WIDTH + BoardFrame.EDGE_V_WIDTH <= 255,
+        assertTrue(
+                BoardFrame.MAX_WIDTH + BoardFrame.EDGE_V_WIDTH <= 255,
                 "a content row walks back width + " + BoardFrame.EDGE_V_WIDTH + " pixels, and the"
                         + " eight negative advances reach 255. MAX_WIDTH is derived from that and"
                         + " is not a taste question.");
@@ -222,8 +246,7 @@ class BoardFrameTest {
     // --- the client's own arithmetic ---------------------------------------------------------
 
     /** A composed string walked with a cursor, the way the client lays it out. */
-    private record Walk(int cursor, int end, Map<Integer, Integer> firstDrawnAt,
-                        List<String> unknown) {
+    private record Walk(int cursor, int end, Map<Integer, Integer> firstDrawnAt, List<String> unknown) {
 
         /** Where the first of these code points was drawn. */
         int drawnAt(final int... codePoints) {
@@ -269,12 +292,13 @@ class BoardFrameTest {
 
     private static Map<Integer, Integer> advances() {
         final Map<Integer, Integer> out = new LinkedHashMap<>();
-        final JsonObject root = JsonParser.parseString(RepositoryRoot.read(FONT)).getAsJsonObject();
+        final JsonObject root =
+                JsonParser.parseString(RepositoryRoot.read(FONT)).getAsJsonObject();
         for (final JsonElement element : root.getAsJsonArray("providers")) {
             final JsonObject provider = element.getAsJsonObject();
             if ("space".equals(provider.get("type").getAsString())) {
-                for (final Map.Entry<String, JsonElement> advance
-                        : provider.getAsJsonObject("advances").entrySet()) {
+                for (final Map.Entry<String, JsonElement> advance :
+                        provider.getAsJsonObject("advances").entrySet()) {
                     out.put(advance.getKey().codePointAt(0), advance.getValue().getAsInt());
                 }
                 continue;
@@ -297,8 +321,10 @@ class BoardFrameTest {
     }
 
     private static int trimmed(final String relative) {
-        return rightmost(read(RepositoryRoot.resolve(ASSETS).resolve("nordtal/textures")
-                .resolve(relative))) + 1;
+        return rightmost(read(RepositoryRoot.resolve(ASSETS)
+                        .resolve("nordtal/textures")
+                        .resolve(relative)))
+                + 1;
     }
 
     private static int rightmost(final BufferedImage image) {

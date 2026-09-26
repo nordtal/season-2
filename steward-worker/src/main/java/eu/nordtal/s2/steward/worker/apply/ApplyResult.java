@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.worker.apply;
 
+import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
 
 /** What a run actually did, one line per artefact. */
 public record ApplyResult(@NotNull List<Outcome> outcomes) {
@@ -28,11 +27,11 @@ public record ApplyResult(@NotNull List<Outcome> outcomes) {
         FAILED
     }
 
-    public record Outcome(@Nullable String service,
-                          @NotNull String artifact,
-                          @NotNull Status status,
-                          @Nullable String detail) {
-    }
+    public record Outcome(
+            @Nullable String service,
+            @NotNull String artifact,
+            @NotNull Status status,
+            @Nullable String detail) {}
 
     public boolean changedAnything() {
         return outcomes.stream().anyMatch(outcome -> outcome.status() == Status.DONE);

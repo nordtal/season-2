@@ -1,5 +1,7 @@
 package eu.nordtal.s2.hungergames.game;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -14,9 +16,12 @@ import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
-
-import net.kyori.adventure.text.Component;
-
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
@@ -24,15 +29,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 /**
  * The start sequence, in one place: teleport to towers, freeze, countdown, release with PvP
@@ -56,10 +52,16 @@ public final class HungerGamesManager {
     /** Frozen players cannot move during the countdown - {@code FreezeListener} consults this. */
     private volatile boolean frozen;
 
-    public HungerGamesManager(final Plugin plugin, final HungerGamesDao dao, final HungerGamesSpec config,
-                              final Messages messages, final PlayerLocales locales, final PlayerBodies bodies,
-                              final GameState state, final BorderController border,
-                              final HungerGamesSounds sounds) {
+    public HungerGamesManager(
+            final Plugin plugin,
+            final HungerGamesDao dao,
+            final HungerGamesSpec config,
+            final Messages messages,
+            final PlayerLocales locales,
+            final PlayerBodies bodies,
+            final GameState state,
+            final BorderController border,
+            final HungerGamesSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
@@ -99,8 +101,7 @@ public final class HungerGamesManager {
         final List<Participant> participants = Demotion.resolve(roster);
 
         if (participants.isEmpty()) {
-            LOGGER.warn("hunger-games start called with zero resolvable (linked) participants for game {}",
-                    gameId);
+            LOGGER.warn("hunger-games start called with zero resolvable (linked) participants for game {}", gameId);
             return;
         }
 
@@ -108,16 +109,16 @@ public final class HungerGamesManager {
         // release still repaints identically.
         assignColours(participants);
 
-        final double step = BorderMath.deathStep(
-                config.borderStartDiameter(), config.borderEndDiameter(), participants.size());
+        final double step =
+                BorderMath.deathStep(config.borderStartDiameter(), config.borderEndDiameter(), participants.size());
 
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             state.reset(gameId, participants.size(), step);
             dao.startGame(gameId, "COUNTDOWN");
 
             final Location centre = world.getSpawnLocation();
-            final List<double[]> towerPositions = SpawnTowers.positions(
-                    participants.size(), centre.getX(), centre.getZ(), config.spawnTowerRadius());
+            final List<double[]> towerPositions =
+                    SpawnTowers.positions(participants.size(), centre.getX(), centre.getZ(), config.spawnTowerRadius());
             final double towerY = centre.getY() + config.spawnTowerHeight();
 
             for (int index = 0; index < participants.size(); index++) {
@@ -130,10 +131,15 @@ public final class HungerGamesManager {
             frozen = true;
             announceDemotions(participants);
             scheduleCountdown(participants);
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                release(gameId, participants);
-                onReleased.run();
-            }, config.countdownSeconds() * 20L);
+            plugin.getServer()
+                    .getScheduler()
+                    .runTaskLater(
+                            plugin,
+                            () -> {
+                                release(gameId, participants);
+                                onReleased.run();
+                            },
+                            config.countdownSeconds() * 20L);
         });
     }
 
@@ -151,8 +157,10 @@ public final class HungerGamesManager {
             if (online != null) {
                 // Deliberately silent: the tower teleport in the same tick already played TRAVEL,
                 // and two sounds a tick apart are one noise.
-                online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
-                        MESSAGES.hg().team().demoted(new TeamContext(participant.teamName()))));
+                online.sendMessage(MessageRenderer.of(messages)
+                        .format(
+                                locales.of(participant.mcUuid()),
+                                MESSAGES.hg().team().demoted(new TeamContext(participant.teamName()))));
             }
         }
     }
@@ -167,23 +175,29 @@ public final class HungerGamesManager {
         final int total = config.countdownSeconds();
         for (final int remaining : Countdown.marks(total)) {
             final long delayTicks = (total - remaining) * 20L;
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                // The game can be over, or never have started, by the time a mark fires.
-                if (!frozen) {
-                    return;
-                }
-                for (final Participant participant : participants) {
-                    final Player online = plugin.getServer().getPlayer(participant.mcUuid());
-                    if (online != null) {
-                        online.sendMessage(MessageRenderer.of(messages).format(
-                                locales.of(participant.mcUuid()),
-                                        MESSAGES.hg().start().countdown(remaining)));
-                        // Not a metronome - the marks are uneven. It is what tells a frozen player
-                        // the server is still running, which chat scrolled past does not.
-                        sounds.play(online, Feedback.COUNTDOWN_TICK);
-                    }
-                }
-            }, delayTicks);
+            plugin.getServer()
+                    .getScheduler()
+                    .runTaskLater(
+                            plugin,
+                            () -> {
+                                // The game can be over, or never have started, by the time a mark fires.
+                                if (!frozen) {
+                                    return;
+                                }
+                                for (final Participant participant : participants) {
+                                    final Player online = plugin.getServer().getPlayer(participant.mcUuid());
+                                    if (online != null) {
+                                        online.sendMessage(MessageRenderer.of(messages)
+                                                .format(
+                                                        locales.of(participant.mcUuid()),
+                                                        MESSAGES.hg().start().countdown(remaining)));
+                                        // Not a metronome - the marks are uneven. It is what tells a frozen player
+                                        // the server is still running, which chat scrolled past does not.
+                                        sounds.play(online, Feedback.COUNTDOWN_TICK);
+                                    }
+                                }
+                            },
+                            delayTicks);
         }
     }
 
@@ -222,9 +236,10 @@ public final class HungerGamesManager {
             // the release runs either way.
             online.teleportAsync(tower).thenAccept(moved -> {
                 if (!moved) {
-                    plugin.getLogger().severe(online.getName() + " could not be placed on their "
-                            + "spawn tower and is invulnerable wherever they are standing. The "
-                            + "head start releases them with everybody else.");
+                    plugin.getLogger()
+                            .severe(online.getName() + " could not be placed on their "
+                                    + "spawn tower and is invulnerable wherever they are standing. The "
+                                    + "head start releases them with everybody else.");
                 }
             });
             online.setInvulnerable(true);
@@ -241,8 +256,10 @@ public final class HungerGamesManager {
 
         // A player who was ready and then disconnected is not dropped: their body waits on its
         // tower. There is no live Player to copy equipment from here, so it starts bare.
-        LOGGER.info("Placing an unequipped body for offline participant on discord id {} on its "
-                + "spawn tower - see PlayerBodies for what this approximates", participant.discordId());
+        LOGGER.info(
+                "Placing an unequipped body for offline participant on discord id {} on its "
+                        + "spawn tower - see PlayerBodies for what this approximates",
+                participant.discordId());
         bodies.spawnBareArmorStand(tower, resolveDisplayName(participant), participant.mcUuid());
     }
 
@@ -268,8 +285,10 @@ public final class HungerGamesManager {
                 // drops them, and by this point the freeze is off.
                 online.setFlying(false);
                 online.setAllowFlight(false);
-                online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
-                        MESSAGES.hg().start().released(config.pvpProtectionSeconds())));
+                online.sendMessage(MessageRenderer.of(messages)
+                        .format(
+                                locales.of(participant.mcUuid()),
+                                MESSAGES.hg().start().released(config.pvpProtectionSeconds())));
                 // The last beat of the countdown, on the same category as the marks before it: a
                 // distinct accent would need a category of its own.
                 sounds.play(online, Feedback.COUNTDOWN_TICK);
@@ -278,7 +297,8 @@ public final class HungerGamesManager {
     }
 
     public Optional<HgMember> activeMemberByDiscordId(final UUID gameId, final String discordId) {
-        return dao.activeMembersOf(gameId).stream().filter(member -> member.discordId().equals(discordId))
+        return dao.activeMembersOf(gameId).stream()
+                .filter(member -> member.discordId().equals(discordId))
                 .findFirst();
     }
 }

@@ -1,15 +1,14 @@
 package eu.nordtal.s2.proxy.update;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The one value in {@code compose.yml} that tells the two proxies apart (season-2-ops/121).
@@ -37,25 +36,30 @@ class ComposeTellsTheStandbyApartTest {
     @Test
     @DisplayName("compose.yml says false for the live proxy and true for the standby, once each")
     void composeNamesTheStandby() throws IOException {
-        final String compose = Files.readString(repositoryRoot().resolve("compose.yml"),
-                StandardCharsets.UTF_8);
+        final String compose = Files.readString(repositoryRoot().resolve("compose.yml"), StandardCharsets.UTF_8);
 
-        assertEquals(1, occurrences(compose, "  proxy:"),
-                "there should be exactly one `proxy` service in compose.yml");
-        assertEquals(1, occurrences(compose, "  proxy-standby:"),
+        assertEquals(1, occurrences(compose, "  proxy:"), "there should be exactly one `proxy` service in compose.yml");
+        assertEquals(
+                1,
+                occurrences(compose, "  proxy-standby:"),
                 "there should be exactly one `proxy-standby` service in compose.yml");
 
-        assertEquals("\"false\"", valueOf(block(compose, "  proxy:"), KEY),
+        assertEquals(
+                "\"false\"",
+                valueOf(block(compose, "  proxy:"), KEY),
                 KEY + " under `proxy` has to be false: that process is the one players connect to,"
                         + " and a live proxy that thinks it is the standby transfers everybody to"
                         + " the address they are already on");
-        assertEquals("\"true\"", valueOf(block(compose, "  proxy-standby:"), KEY),
+        assertEquals(
+                "\"true\"",
+                valueOf(block(compose, "  proxy-standby:"), KEY),
                 KEY + " under `proxy-standby` has to be true, and it is the ONLY thing that makes"
                         + " that container a standby: without it the container starts, looks"
                         + " healthy, releases parked players onto the backends and never sends"
                         + " anybody home");
 
-        assertTrue(block(compose, "  proxy-standby:").contains("<<: *proxy-env"),
+        assertTrue(
+                block(compose, "  proxy-standby:").contains("<<: *proxy-env"),
                 "the standby has to MERGE the shared environment rather than replace it, or every"
                         + " setting the live proxy gains from now on reaches only one of them");
     }

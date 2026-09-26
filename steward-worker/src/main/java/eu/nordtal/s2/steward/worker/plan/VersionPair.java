@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.worker.plan;
 
+import java.util.Optional;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.Optional;
 
 /**
  * The two versions behind two filenames, read against each other rather than parsed out of either
@@ -56,10 +55,12 @@ public record VersionPair(@NotNull String from, @NotNull String to) {
      *         which case the caller keeps the filename, which is the ticket's own fallback and
      *         reads as the stopgap it is
      */
-    public static @NotNull Optional<VersionPair> of(final @Nullable String installed,
-                                                    final @Nullable String wanted) {
-        if (installed == null || wanted == null || installed.equals(wanted)
-                || installed.isEmpty() || wanted.isEmpty()) {
+    public static @NotNull Optional<VersionPair> of(final @Nullable String installed, final @Nullable String wanted) {
+        if (installed == null
+                || wanted == null
+                || installed.equals(wanted)
+                || installed.isEmpty()
+                || wanted.isEmpty()) {
             return Optional.empty();
         }
         if (installed.charAt(0) != wanted.charAt(0)) {
@@ -67,8 +68,7 @@ public record VersionPair(@NotNull String from, @NotNull String to) {
         }
 
         int head = 0;
-        while (head < installed.length() && head < wanted.length()
-                && installed.charAt(head) == wanted.charAt(head)) {
+        while (head < installed.length() && head < wanted.length() && installed.charAt(head) == wanted.charAt(head)) {
             head++;
         }
         // Back out of any number the prefix ended inside, so `...-1.` gives the `1.` back.
@@ -80,9 +80,9 @@ public record VersionPair(@NotNull String from, @NotNull String to) {
         }
 
         int tail = 0;
-        while (tail < installed.length() - head && tail < wanted.length() - head
-                && installed.charAt(installed.length() - 1 - tail)
-                        == wanted.charAt(wanted.length() - 1 - tail)) {
+        while (tail < installed.length() - head
+                && tail < wanted.length() - head
+                && installed.charAt(installed.length() - 1 - tail) == wanted.charAt(wanted.length() - 1 - tail)) {
             tail++;
         }
         // And out of the one the suffix started inside - `.0.jar` gives back `.0`.
@@ -115,7 +115,10 @@ public record VersionPair(@NotNull String from, @NotNull String to) {
     }
 
     private static boolean isEdge(final char character) {
-        return character == '-' || character == '_' || character == '.' || character == '+'
+        return character == '-'
+                || character == '_'
+                || character == '.'
+                || character == '+'
                 || Character.isWhitespace(character);
     }
 

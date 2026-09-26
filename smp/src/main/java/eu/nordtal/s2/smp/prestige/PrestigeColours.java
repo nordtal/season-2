@@ -1,11 +1,10 @@
 package eu.nordtal.s2.smp.prestige;
 
-import net.kyori.adventure.text.format.TextColor;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.format.TextColor;
 
 /**
  * The fourteen colours a player's name is drawn in: one per {@link Prestige} tier, plus the one that
@@ -54,8 +53,8 @@ public final class PrestigeColours {
             required("#dbb043"), // 10 - gold
             required("#e8d35a"), // 11 - bright gold
             required("#f0dc70"), // 12 - radiant gold
-            required("#fff6d8")  // 13 - legend: the brightest, warmest colour of the fourteen
-    );
+            required("#fff6d8") // 13 - legend: the brightest, warmest colour of the fourteen
+            );
 
     /**
      * Vanilla's own {@code NamedTextColor.RED} ({@code #ff5555}), spelled out for the same reason
@@ -87,8 +86,8 @@ public final class PrestigeColours {
      *                                   {@link Prestige#TIER_COUNT} entries - a structural bug in the
      *                                   caller, never a bad value a player or operator typed
      */
-    public static PrestigeColours parse(final List<String> declaredTiers, final String declaredAdmin,
-                                        final Consumer<String> problems) {
+    public static PrestigeColours parse(
+            final List<String> declaredTiers, final String declaredAdmin, final Consumer<String> problems) {
         Objects.requireNonNull(declaredTiers, "declaredTiers");
         Objects.requireNonNull(problems, "problems");
         if (declaredTiers.size() != Prestige.TIER_COUNT) {
@@ -99,8 +98,8 @@ public final class PrestigeColours {
 
         final List<TextColor> parsedTiers = new ArrayList<>(Prestige.TIER_COUNT);
         for (int index = 0; index < Prestige.TIER_COUNT; index++) {
-            parsedTiers.add(parseOne("tier " + (index + 1), declaredTiers.get(index),
-                    DEFAULT_TIERS.get(index), problems));
+            parsedTiers.add(
+                    parseOne("tier " + (index + 1), declaredTiers.get(index), DEFAULT_TIERS.get(index), problems));
         }
         final TextColor parsedAdmin = parseOne("admin", declaredAdmin, DEFAULT_ADMIN, problems);
         return new PrestigeColours(List.copyOf(parsedTiers), parsedAdmin);
@@ -109,8 +108,8 @@ public final class PrestigeColours {
     /** @param tier between {@link Prestige#MINIMUM_TIER} and {@link Prestige#TIER_COUNT} */
     public TextColor tier(final int tier) {
         if (tier < Prestige.MINIMUM_TIER || tier > Prestige.TIER_COUNT) {
-            throw new IllegalArgumentException("tier must be between " + Prestige.MINIMUM_TIER
-                    + " and " + Prestige.TIER_COUNT + ", was " + tier);
+            throw new IllegalArgumentException(
+                    "tier must be between " + Prestige.MINIMUM_TIER + " and " + Prestige.TIER_COUNT + ", was " + tier);
         }
         return tiers.get(tier - 1);
     }
@@ -120,8 +119,8 @@ public final class PrestigeColours {
         return admin;
     }
 
-    private static TextColor parseOne(final String label, final String hex, final TextColor fallback,
-                                      final Consumer<String> problems) {
+    private static TextColor parseOne(
+            final String label, final String hex, final TextColor fallback, final Consumer<String> problems) {
         if (hex == null || hex.isBlank()) {
             return fallback;
         }

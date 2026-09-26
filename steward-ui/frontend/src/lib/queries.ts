@@ -85,8 +85,7 @@ export const keys = {
   activeRun: ["runs", "active"] as const,
   run: (id: string) => ["run", id] as const,
   available: ["available"] as const,
-  metrics: (subject: string, metric: string, hours: number) =>
-    ["metrics", subject, metric, hours] as const,
+  metrics: (subject: string, metric: string, hours: number) => ["metrics", subject, metric, hours] as const,
   season: ["season"] as const,
   people: ["people"] as const,
   payments: ["payments"] as const,
@@ -150,13 +149,14 @@ export function useRegisterKey() {
   return useMutation({
     mutationFn: async (label: string) => {
       if (!browserHasSecurityKeys()) {
-        throw new Error("This browser cannot use security keys, so it cannot sign in to Steward."
-          + " Every current browser can; one in a private window or an old WebView may not.")
+        throw new Error(
+          "This browser cannot use security keys, so it cannot sign in to Steward." +
+            " Every current browser can; one in a private window or an old WebView may not.",
+        )
       }
       // The server's answer is handed to the browser untouched - it is the library's own JSON and
       // this end does not get an opinion about its contents.
-      const started = await api<CreationOptionsJson>("/auth/webauthn/register/start",
-        { method: "POST" })
+      const started = await api<CreationOptionsJson>("/auth/webauthn/register/start", { method: "POST" })
       let credential: string
       try {
         credential = await createSecurityKey(started)
@@ -165,10 +165,10 @@ export function useRegisterKey() {
         // plain Error so the form prints one sentence rather than "NotAllowedError".
         throw new Error(whyTheKeyFailed(refused))
       }
-      const registered = await api<{ label: string; backedUp: boolean }>(
-        "/auth/webauthn/register/finish",
-        { method: "POST", body: { label, credential } },
-      )
+      const registered = await api<{ label: string; backedUp: boolean }>("/auth/webauthn/register/finish", {
+        method: "POST",
+        body: { label, credential },
+      })
       await client.invalidateQueries({ queryKey: keys.me })
       return registered
     },
@@ -198,8 +198,10 @@ export function useRenameKey() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, label }: { id: string; label: string }) => {
-      const renamed = await api<{ label: string }>(`/api/keys/${encodeURIComponent(id)}`,
-        { method: "PUT", body: { label } })
+      const renamed = await api<{ label: string }>(`/api/keys/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        body: { label },
+      })
       await client.invalidateQueries({ queryKey: keys.me })
       return renamed
     },
@@ -211,8 +213,9 @@ export function useRemoveKey() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const removed = await api<{ removed: string; left: number }>(
-        `/api/keys/${encodeURIComponent(id)}`, { method: "DELETE" })
+      const removed = await api<{ removed: string; left: number }>(`/api/keys/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      })
       await client.invalidateQueries({ queryKey: keys.me })
       return removed
     },
@@ -613,8 +616,7 @@ export function useDeployerJob(id: string | null) {
     // A failed poll stops it, for the same reason as `useCommandRun`: the last answer says RUNNING
     // and would keep this asking every second while nothing answers. The dialog shows the failure
     // and offers to ask again.
-    refetchInterval: (query) =>
-      !query.state.error && query.state.data?.state === "RUNNING" ? SECOND : false,
+    refetchInterval: (query) => (!query.state.error && query.state.data?.state === "RUNNING" ? SECOND : false),
   })
 }
 
@@ -888,10 +890,10 @@ export function useCancelRun() {
 export function useConsole(service: string) {
   return useMutation({
     mutationFn: (command: string) =>
-      api<{ sent: string; where: string }>(
-        `/api/services/${encodeURIComponent(service)}/console`,
-        { method: "POST", body: { command } },
-      ),
+      api<{ sent: string; where: string }>(`/api/services/${encodeURIComponent(service)}/console`, {
+        method: "POST",
+        body: { command },
+      }),
   })
 }
 
@@ -925,9 +927,7 @@ export function usePluginSearch(service: string, query: string, enabled: boolean
   return useQuery({
     queryKey: keys.pluginSearch(service, query),
     queryFn: () =>
-      api<PluginSearch>(
-        `/api/services/${encodeURIComponent(service)}/plugins/search?q=${encodeURIComponent(query)}`,
-      ),
+      api<PluginSearch>(`/api/services/${encodeURIComponent(service)}/plugins/search?q=${encodeURIComponent(query)}`),
     enabled,
     // Somebody typing back over a word they just deleted should not wait for the same answer
     // twice.
@@ -1050,10 +1050,7 @@ export function useSaveRawConfig(file: string) {
  * the rule `useCommandRun` follows - inside the mutation, so a dialog that already waits on
  * `isPending` goes on waiting for exactly as long as the change takes, and then says what happened.
  */
-async function askTheBot(
-  path: string,
-  body: unknown,
-): Promise<Record<string, string | undefined>> {
+async function askTheBot(path: string, body: unknown): Promise<Record<string, string | undefined>> {
   const asked = await api<AccessRequestRun>(path, { method: "POST", body })
   for (;;) {
     const row = await api<AccessRequestRun>(`/api/access/requests/${asked.id}`)

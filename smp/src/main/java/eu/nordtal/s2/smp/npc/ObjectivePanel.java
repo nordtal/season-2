@@ -5,10 +5,8 @@ import eu.nordtal.s2.common.menu.MenuFont;
 import eu.nordtal.s2.common.menu.MenuPalette;
 import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.menu.SlotGeometry;
-
-import net.kyori.adventure.text.Component;
-
 import java.util.List;
+import net.kyori.adventure.text.Component;
 
 /**
  * Draws the spawn NPC's surface: the active milestone, four objective cards, and your own share.
@@ -62,6 +60,7 @@ public final class ObjectivePanel {
 
     /** The icon on the share line, and where the sentence beside it starts. */
     private static final int ICON_SIZE = 8;
+
     private static final int SHARE_ICON_X = PILL_X + 3;
     private static final int SHARE_TEXT_X = SHARE_ICON_X + ICON_SIZE + 5;
 
@@ -74,7 +73,7 @@ public final class ObjectivePanel {
 
     /** The two x positions a card sits at; slot column 4 is the gap, as it is on the balloon. */
     public static final int[] CARD_X = {
-            SlotGeometry.x(0) + INSET, SlotGeometry.x(5) + INSET,
+        SlotGeometry.x(0) + INSET, SlotGeometry.x(5) + INSET,
     };
 
     /** The chest row a card's <em>upper</em> half sits on; its lower half is the row after. */
@@ -112,8 +111,7 @@ public final class ObjectivePanel {
     public static final int PREV_SLOT = SlotGeometry.slot(7, SHARE_ROW);
     public static final int NEXT_SLOT = SlotGeometry.slot(8, SHARE_ROW);
 
-    private ObjectivePanel() {
-    }
+    private ObjectivePanel() {}
 
     /**
      * One drawn card.
@@ -124,12 +122,10 @@ public final class ObjectivePanel {
      * @param ratio   0 to 1; the painted bar's width comes from this and from nothing else
      * @param done    whether the green wash goes over it
      */
-    public record Card(String icon, String name, String numbers, double ratio, boolean done) {
-    }
+    public record Card(String icon, String name, String numbers, double ratio, boolean done) {}
 
     /** The pictogram that says what kind of objective this is - or that it is finished. */
-    public static String icon(final eu.nordtal.s2.smp.milestone.ObjectiveType type,
-                              final boolean done) {
+    public static String icon(final eu.nordtal.s2.smp.milestone.ObjectiveType type, final boolean done) {
         if (done) {
             return Glyphs.GUI_ROW_ICON_DONE;
         }
@@ -152,12 +148,17 @@ public final class ObjectivePanel {
      * @param hasPrev   whether there is a page of cards before this one
      * @param hasNext   whether there is a page after this one
      */
-    public static Component title(final Component title, final String milestone, final String bar,
-                                  final String counter, final List<Card> cards, final String share,
-                                  final boolean hasPrev, final boolean hasNext) {
+    public static Component title(
+            final Component title,
+            final String milestone,
+            final String bar,
+            final String counter,
+            final List<Card> cards,
+            final String share,
+            final boolean hasPrev,
+            final boolean hasNext) {
         if (cards.size() > CARDS_PER_PAGE) {
-            throw new IllegalArgumentException(
-                    "a page holds " + CARDS_PER_PAGE + " cards, not " + cards.size());
+            throw new IllegalArgumentException("a page holds " + CARDS_PER_PAGE + " cards, not " + cards.size());
         }
         final MenuTitle.Canvas canvas = MenuTitle.onPlain(ROWS);
 
@@ -170,16 +171,19 @@ public final class ObjectivePanel {
         return canvas.build(title);
     }
 
-    private static void heading(final MenuTitle.Canvas canvas, final String milestone,
-                                final String bar, final String counter) {
+    private static void heading(
+            final MenuTitle.Canvas canvas, final String milestone, final String bar, final String counter) {
         canvas.rowArt(Glyphs.GUI_ROW_PILL_DARK, HEADING_ROW, PILL_X, null);
 
         final String folded = MenuFont.fold(counter);
         canvas.rowTextRight(folded, HEADING_ROW, PILL_RIGHT, MenuPalette.INK);
-        canvas.rowText(MenuFont.fit(bar, PILL_RIGHT - MenuFont.width(folded) - 4 - HEADING_BAR_X),
-                HEADING_ROW, HEADING_BAR_X, MenuPalette.PROGRESS);
-        canvas.rowText(MenuFont.fit(milestone, HEADING_BAR_X - 4 - PILL_TEXT_X),
-                HEADING_ROW, PILL_TEXT_X, MenuPalette.INK);
+        canvas.rowText(
+                MenuFont.fit(bar, PILL_RIGHT - MenuFont.width(folded) - 4 - HEADING_BAR_X),
+                HEADING_ROW,
+                HEADING_BAR_X,
+                MenuPalette.PROGRESS);
+        canvas.rowText(
+                MenuFont.fit(milestone, HEADING_BAR_X - 4 - PILL_TEXT_X), HEADING_ROW, PILL_TEXT_X, MenuPalette.INK);
     }
 
     /**
@@ -196,15 +200,12 @@ public final class ObjectivePanel {
 
         canvas.overlay(top ? Glyphs.GUI_CARD_TOP : Glyphs.GUI_CARD_BOTTOM, x, CARD_WIDTH);
         canvas.rowArt(card.icon(), upper, x + CARD_ICON_DX, MenuPalette.INK);
-        canvas.rowText(MenuFont.fit(card.name(), CARD_NAME_WIDTH), upper, x + CARD_NAME_DX,
-                MenuPalette.INK);
+        canvas.rowText(MenuFont.fit(card.name(), CARD_NAME_WIDTH), upper, x + CARD_NAME_DX, MenuPalette.INK);
         fill(canvas, x + CARD_BAR_DX, top, card.ratio());
-        canvas.rowText(MenuFont.fit(card.numbers(), CARD_NAME_WIDTH), lower, x + CARD_NUMBERS_DX,
-                MenuPalette.SOFT);
+        canvas.rowText(MenuFont.fit(card.numbers(), CARD_NAME_WIDTH), lower, x + CARD_NUMBERS_DX, MenuPalette.SOFT);
 
         if (card.done()) {
-            canvas.overlay(top ? Glyphs.GUI_CARD_DONE_TOP : Glyphs.GUI_CARD_DONE_BOTTOM, x,
-                    CARD_WIDTH);
+            canvas.overlay(top ? Glyphs.GUI_CARD_DONE_TOP : Glyphs.GUI_CARD_DONE_BOTTOM, x, CARD_WIDTH);
         }
     }
 
@@ -215,8 +216,7 @@ public final class ObjectivePanel {
      * way to write any width. A ratio that has started but rounds to nothing still draws one pixel,
      * so "1 of 3000" does not look like "not begun".</p>
      */
-    private static void fill(final MenuTitle.Canvas canvas, final int x, final boolean top,
-                             final double ratio) {
+    private static void fill(final MenuTitle.Canvas canvas, final int x, final boolean top, final double ratio) {
         final double clamped = Math.max(0.0, Math.min(1.0, ratio));
         int width = (int) Math.floor(clamped * BAR_MAX);
         if (width == 0 && clamped > 0.0) {
@@ -234,16 +234,19 @@ public final class ObjectivePanel {
         }
     }
 
-    private static void share(final MenuTitle.Canvas canvas, final String share,
-                              final boolean hasPrev, final boolean hasNext) {
+    private static void share(
+            final MenuTitle.Canvas canvas, final String share, final boolean hasPrev, final boolean hasNext) {
         final boolean paged = hasPrev || hasNext;
         // The plate follows the sentence rather than the row: with the arrows there, both stop at
         // the seventh cell, so the grey is only under something (season-2-ingame/17).
         canvas.rowArt(paged ? Glyphs.GUI_ROW_PILL_SHORT : Glyphs.GUI_ROW_PILL, SHARE_ROW, PILL_X, null);
         canvas.rowArt(Glyphs.GUI_ROW_ICON_AURA, SHARE_ROW, SHARE_ICON_X, MenuPalette.INK);
 
-        canvas.rowText(MenuFont.fit(share, (paged ? PAGED_RIGHT : PILL_RIGHT) - SHARE_TEXT_X),
-                SHARE_ROW, SHARE_TEXT_X, MenuPalette.INK);
+        canvas.rowText(
+                MenuFont.fit(share, (paged ? PAGED_RIGHT : PILL_RIGHT) - SHARE_TEXT_X),
+                SHARE_ROW,
+                SHARE_TEXT_X,
+                MenuPalette.INK);
         if (!paged) {
             return;
         }
@@ -257,12 +260,11 @@ public final class ObjectivePanel {
      * <p>Greyed rather than removed, so a control never appears to have moved. A click on a greyed
      * one is refused with the refusal sound.</p>
      */
-    private static void pageButton(final MenuTitle.Canvas canvas, final int x, final String arrow,
-                                   final boolean enabled) {
-        canvas.rowArt(enabled ? Glyphs.GUI_ROW_BUTTON_SMALL : Glyphs.GUI_ROW_BUTTON_SMALL_OFF,
-                SHARE_ROW, x, null);
-        canvas.rowArt(arrow, SHARE_ROW, x + (BUTTON_WIDTH - ICON_SIZE) / 2,
-                enabled ? MenuPalette.INK : MenuPalette.DISABLED);
+    private static void pageButton(
+            final MenuTitle.Canvas canvas, final int x, final String arrow, final boolean enabled) {
+        canvas.rowArt(enabled ? Glyphs.GUI_ROW_BUTTON_SMALL : Glyphs.GUI_ROW_BUTTON_SMALL_OFF, SHARE_ROW, x, null);
+        canvas.rowArt(
+                arrow, SHARE_ROW, x + (BUTTON_WIDTH - ICON_SIZE) / 2, enabled ? MenuPalette.INK : MenuPalette.DISABLED);
     }
 
     /** The slots one card covers: four columns on each of its two rows. */

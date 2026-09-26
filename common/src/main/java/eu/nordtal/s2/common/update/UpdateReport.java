@@ -76,7 +76,8 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         if (gone.isEmpty()) {
             return this;
         }
-        return new UpdateReport(stage,
+        return new UpdateReport(
+                stage,
                 services.stream().filter(line -> !gone.contains(line.service())).toList(),
                 notes);
     }

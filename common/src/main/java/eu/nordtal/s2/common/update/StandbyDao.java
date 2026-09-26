@@ -1,9 +1,8 @@
 package eu.nordtal.s2.common.update;
 
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
-
-import java.util.Optional;
 
 /**
  * The read half of {@code proxy_standby_state}. The write half is the standby proxy's own

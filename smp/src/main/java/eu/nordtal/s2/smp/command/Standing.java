@@ -24,15 +24,13 @@ public interface Standing {
      * @param percent   how far the active milestone is, 0-100, meaningless when it is empty
      * @param online    how many players are on the SMP right now
      */
-    record Status(String phase, boolean read, Optional<String> milestone, int percent, int online) {
-    }
+    record Status(String phase, boolean read, Optional<String> milestone, int percent, int online) {}
 
     /**
      * One line of the aura leaderboard, already resolved to a name. {@code you} is what lets the
      * asker's own line be coloured differently.
      */
-    record AuraLine(int place, String player, int aura, boolean you) {
-    }
+    record AuraLine(int place, String player, int aura, boolean you) {}
 
     /**
      * Where the asker stands, and who is at the top.
@@ -43,8 +41,7 @@ public interface Standing {
      * @param total how many people have an aura row at all, for "4 of 37"
      * @param top   the highest ten, most first; empty on a season where nobody has any yet
      */
-    record AuraStanding(int aura, int rank, int total, List<AuraLine> top) {
-    }
+    record AuraStanding(int aura, int rank, int total, List<AuraLine> top) {}
 
     /** @param locale the asker's language, for the milestone's name. Off the main thread. */
     Status status(Locale locale);

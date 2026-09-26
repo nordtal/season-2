@@ -18,10 +18,6 @@ import eu.nordtal.s2.steward.ui.data.Data;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -30,6 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The admin commands that also exist in the game, asked for from a browser.
@@ -64,8 +63,7 @@ final class CommandApi {
     /** Who is asking. The same seam {@code StewardUi} uses, so a test can stand in front of it. */
     private final Function<Context, DiscordAuth.Account> accounts;
 
-    CommandApi(final @NotNull Data data,
-               final @NotNull Function<Context, DiscordAuth.Account> accounts) {
+    CommandApi(final @NotNull Data data, final @NotNull Function<Context, DiscordAuth.Account> accounts) {
         this.data = data;
         this.accounts = accounts;
     }
@@ -82,15 +80,13 @@ final class CommandApi {
         final Declaration declaration = available().stream()
                 .filter(candidate -> candidate.name().equals(name))
                 .findFirst()
-                .orElseThrow(() -> new BadRequestResponse(
-                        name + " is not a command this interface may ask for."));
+                .orElseThrow(() -> new BadRequestResponse(name + " is not a command this interface may ask for."));
 
         final JsonElement sent = body.get("arguments");
         if (sent != null && !sent.isJsonNull() && !sent.isJsonObject()) {
             throw new BadRequestResponse("`arguments` is an object of argument name to value.");
         }
-        final long id = submit(ctx, declaration,
-                sent == null || sent.isJsonNull() ? null : sent.getAsJsonObject());
+        final long id = submit(ctx, declaration, sent == null || sent.isJsonNull() ? null : sent.getAsJsonObject());
 
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("id", String.valueOf(id));
@@ -106,8 +102,7 @@ final class CommandApi {
      * the designed controls on the service pages alike - so the refusals, the identity on the row
      * and the journal line cannot differ between them.</p>
      */
-    long submit(final @NotNull Context ctx, final @NotNull Declaration declaration,
-                final JsonObject sent) {
+    long submit(final @NotNull Context ctx, final @NotNull Declaration declaration, final JsonObject sent) {
         if (!declaration.surfaces().contains(Surface.WEB)) {
             // The target refuses a WEB row for a declaration without the surface, and it would do
             // so two minutes from now, as an expired row. Saying it here is the same answer, now.
@@ -132,21 +127,27 @@ final class CommandApi {
         // handler told the operator it had not - and the next thing an operator does when told that
         // is press the button again. CommandRequests#submit(NewCommandRequest, AuditLine) carries
         // the full argument.
-        final long id = data.commands().submit(new NewCommandRequest(
-                declaration.target().name(),
-                String.join(" ", declaration.path()),
-                arguments,
-                "WEB",
-                requestedBy,
-                Optional.of(who.id()),
-                // The Minecraft account is not looked up. The target re-reads what it needs, and an
-                // admin who has never linked one can still press a button.
-                Optional.empty(),
-                "de",
-                Instant.now().plus(PATIENCE)),
-                new AuditLine("COMMAND", who.id(), declaration.name(), null,
-                        "asked by " + who.name() + " from the web interface"
-                                + (arguments.isBlank() ? "" : ": " + arguments)));
+        final long id = data.commands()
+                .submit(
+                        new NewCommandRequest(
+                                declaration.target().name(),
+                                String.join(" ", declaration.path()),
+                                arguments,
+                                "WEB",
+                                requestedBy,
+                                Optional.of(who.id()),
+                                // The Minecraft account is not looked up. The target re-reads what it needs, and an
+                                // admin who has never linked one can still press a button.
+                                Optional.empty(),
+                                "de",
+                                Instant.now().plus(PATIENCE)),
+                        new AuditLine(
+                                "COMMAND",
+                                who.id(),
+                                declaration.name(),
+                                null,
+                                "asked by " + who.name() + " from the web interface"
+                                        + (arguments.isBlank() ? "" : ": " + arguments)));
 
         log.info("{} asked for {} {}", who.name(), declaration.name(), arguments);
         return id;
@@ -160,8 +161,8 @@ final class CommandApi {
         } catch (final NumberFormatException e) {
             throw new BadRequestResponse(ctx.pathParam("id") + " is not a request id.");
         }
-        final CommandOutcome outcome = data.commands().outcome(id)
-                .orElseThrow(() -> new NotFoundResponse("There is no request " + id + "."));
+        final CommandOutcome outcome =
+                data.commands().outcome(id).orElseThrow(() -> new NotFoundResponse("There is no request " + id + "."));
 
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("id", String.valueOf(id));
@@ -219,7 +220,8 @@ final class CommandApi {
         final Map<String, Object> supplied = new LinkedHashMap<>();
         for (final Argument argument : declaration.arguments()) {
             final JsonElement sent = arguments == null ? null : arguments.get(argument.name());
-            if (sent == null || sent.isJsonNull()
+            if (sent == null
+                    || sent.isJsonNull()
                     || (sent.isJsonPrimitive() && sent.getAsString().isBlank())) {
                 continue;
             }
@@ -230,36 +232,39 @@ final class CommandApi {
                 throw new BadRequestResponse(argument.name() + " is a single value, not a "
                         + (sent.isJsonArray() ? "list" : "structure") + ".");
             }
-            supplied.put(argument.name(), switch (argument.kind()) {
-                case INTEGER -> {
-                    try {
-                        yield Integer.valueOf(sent.getAsString().strip());
-                    } catch (final NumberFormatException e) {
-                        throw new BadRequestResponse(argument.name() + " is a whole number between "
-                                + argument.min() + " and " + argument.max() + ".");
-                    }
-                }
-                // A PLAYER is a Minecraft name on a chat surface and a UUID on the row, and
-                // this interface has no roster of online players to pick one from. An ACCOUNT is
-                // different and always was: the row carries a Discord id, /api/people lists them,
-                // and the browser sends the id it picked - so the only thing left to do here is
-                // refuse anything that is not one.
-                case PLAYER -> throw new BadRequestResponse(declaration.name()
-                        + " takes a Minecraft player, and this interface has no way to pick one."
-                        + " Use the command in the game.");
-                case ACCOUNT -> {
-                    final String id = sent.getAsString().strip();
-                    // ASCII digits, exactly as RequestArguments checks on the way out. Doing it
-                    // here as well is what turns a browser's typo into a sentence rather than an
-                    // IllegalArgumentException from two layers down.
-                    if (!id.chars().allMatch(digit -> digit >= '0' && digit <= '9')) {
-                        throw new BadRequestResponse(argument.name()
-                                + " is a Discord id - pick the person from the list.");
-                    }
-                    yield id;
-                }
-                case WORD, GREEDY_STRING, CHOICE, REFERENCE -> sent.getAsString();
-            });
+            supplied.put(
+                    argument.name(),
+                    switch (argument.kind()) {
+                        case INTEGER -> {
+                            try {
+                                yield Integer.valueOf(sent.getAsString().strip());
+                            } catch (final NumberFormatException e) {
+                                throw new BadRequestResponse(argument.name() + " is a whole number between "
+                                        + argument.min() + " and " + argument.max() + ".");
+                            }
+                        }
+                        // A PLAYER is a Minecraft name on a chat surface and a UUID on the row, and
+                        // this interface has no roster of online players to pick one from. An ACCOUNT is
+                        // different and always was: the row carries a Discord id, /api/people lists them,
+                        // and the browser sends the id it picked - so the only thing left to do here is
+                        // refuse anything that is not one.
+                        case PLAYER ->
+                            throw new BadRequestResponse(declaration.name()
+                                    + " takes a Minecraft player, and this interface has no way to pick one."
+                                    + " Use the command in the game.");
+                        case ACCOUNT -> {
+                            final String id = sent.getAsString().strip();
+                            // ASCII digits, exactly as RequestArguments checks on the way out. Doing it
+                            // here as well is what turns a browser's typo into a sentence rather than an
+                            // IllegalArgumentException from two layers down.
+                            if (!id.chars().allMatch(digit -> digit >= '0' && digit <= '9')) {
+                                throw new BadRequestResponse(
+                                        argument.name() + " is a Discord id - pick the person from the list.");
+                            }
+                            yield id;
+                        }
+                        case WORD, GREEDY_STRING, CHOICE, REFERENCE -> sent.getAsString();
+                    });
         }
         try {
             return RequestArguments.encode(declaration, new Values(declaration, supplied));

@@ -2,7 +2,6 @@ package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Tone;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -54,8 +53,7 @@ public final class FakeUser implements NordtalUser {
     }
 
     public static FakeUser inGame() {
-        return new FakeUser(Origin.GAME, "100000000000000001",
-                UUID.fromString("11111111-2222-3333-4444-555555555555"));
+        return new FakeUser(Origin.GAME, "100000000000000001", UUID.fromString("11111111-2222-3333-4444-555555555555"));
     }
 
     public static FakeUser inDiscord() {
@@ -115,8 +113,7 @@ public final class FakeUser implements NordtalUser {
 
     @Override
     public void reply(final MessageRef message, final Tone tone) {
-        replies.add(new Reply(message.key(), Map.copyOf(message.args()),
-                tone == null ? Tone.NEUTRAL : tone));
+        replies.add(new Reply(message.key(), Map.copyOf(message.args()), tone == null ? Tone.NEUTRAL : tone));
     }
 
     /**

@@ -4,8 +4,27 @@
  * whichever of the three made it.
  */
 const ACRONYMS = new Set([
-  "api", "db", "gui", "http", "https", "id", "ip", "json", "jvm", "motd", "mspt", "pvp", "smp",
-  "sql", "tps", "ttl", "ui", "url", "uri", "uuid", "xp",
+  "api",
+  "db",
+  "gui",
+  "http",
+  "https",
+  "id",
+  "ip",
+  "json",
+  "jvm",
+  "motd",
+  "mspt",
+  "pvp",
+  "smp",
+  "sql",
+  "tps",
+  "ttl",
+  "ui",
+  "url",
+  "uri",
+  "uuid",
+  "xp",
 ])
 
 /** A brand spelled with one lower-case letter in front, `bStats`, is one word and keeps its case. */

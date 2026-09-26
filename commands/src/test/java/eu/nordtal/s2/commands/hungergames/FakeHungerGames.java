@@ -1,7 +1,6 @@
 package eu.nordtal.s2.commands.hungergames;
 
 import eu.nordtal.s2.commands.NordtalUser;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -77,8 +76,7 @@ final class FakeHungerGames implements HungerGamesEffects {
     }
 
     @Override
-    public void recordStart(final NordtalUser who, final Registration game,
-                            final boolean confirmedBelowMinimum) {
+    public void recordStart(final NordtalUser who, final Registration game, final boolean confirmedBelowMinimum) {
         did.add("logged " + who.name() + (confirmedBelowMinimum ? " (confirmed)" : ""));
     }
 }

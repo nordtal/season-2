@@ -1,16 +1,14 @@
 package eu.nordtal.s2.hungergames.game;
 
-import eu.nordtal.s2.hungergames.db.MemberState;
-import eu.nordtal.s2.hungergames.db.RosterEntry;
-
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.hungergames.db.MemberState;
+import eu.nordtal.s2.hungergames.db.RosterEntry;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 class DemotionTest {
 
@@ -18,10 +16,10 @@ class DemotionTest {
     private static final UUID TEAM_B = UUID.fromString("22222222-0000-0000-0000-000000000000");
     private static final UUID TEAM_C = UUID.fromString("33333333-0000-0000-0000-000000000000");
 
-    private static RosterEntry entry(final UUID teamId, final String teamName, final String discordId,
-                                      final UUID mcUuid) {
-        return new RosterEntry(UUID.randomUUID(), teamId, teamName, null, null, discordId,
-                MemberState.ACCEPTED, false, mcUuid);
+    private static RosterEntry entry(
+            final UUID teamId, final String teamName, final String discordId, final UUID mcUuid) {
+        return new RosterEntry(
+                UUID.randomUUID(), teamId, teamName, null, null, discordId, MemberState.ACCEPTED, false, mcUuid);
     }
 
     @Test

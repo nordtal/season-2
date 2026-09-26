@@ -1,5 +1,13 @@
 package eu.nordtal.s2.steward.worker.schema;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.sql.SQLException;
+import java.time.Duration;
+import java.util.Optional;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -8,15 +16,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import javax.sql.DataSource;
-import java.sql.SQLException;
-import java.time.Duration;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * That exactly one {@code serve} can run against one database.
@@ -47,7 +46,8 @@ class ServeLockIntegrationTest {
 
     @BeforeAll
     static void startPostgres() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "no Docker daemon - this test can say nothing without one");
         postgres = new PostgreSQLContainer<>("postgres:17-alpine");
         postgres.start();
@@ -71,7 +71,8 @@ class ServeLockIntegrationTest {
     void onlyOneServeAtATime() throws SQLException {
         try (ServeLock first = ServeLock.acquire(dataSource, IMPATIENT).orElseThrow()) {
             final Optional<ServeLock> second = ServeLock.acquire(dataSource, IMPATIENT);
-            assertFalse(second.isPresent(),
+            assertFalse(
+                    second.isPresent(),
                     "a second serve loop took the lock. Both would then settle each other's"
                             + " in-flight requests as failures, and settleOrphans' whole"
                             + " justification stops being true.");
@@ -107,8 +108,7 @@ class ServeLockIntegrationTest {
 
         final Optional<ServeLock> replacement = ServeLock.acquire(dataSource, Duration.ofSeconds(10));
         shutdown.join();
-        assertTrue(replacement.isPresent(),
-                "the replacement gave up while its predecessor was still letting go");
+        assertTrue(replacement.isPresent(), "the replacement gave up while its predecessor was still letting go");
         replacement.get().close();
     }
 
@@ -118,7 +118,7 @@ class ServeLockIntegrationTest {
         // serve takes this lock for its whole life and then runs its own bootstrap, which takes
         // RunLock. One shared key would deadlock the container against itself on every start.
         try (ServeLock serving = ServeLock.acquire(dataSource, IMPATIENT).orElseThrow();
-             RunLock installing = RunLock.tryAcquire(dataSource).orElseThrow()) {
+                RunLock installing = RunLock.tryAcquire(dataSource).orElseThrow()) {
             assertTrue(serving != null && installing != null, "both held at once");
         }
     }

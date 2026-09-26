@@ -19,7 +19,6 @@ import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.BukkitSmpEffects;
 import eu.nordtal.s2.smp.config.DatabaseSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
-import eu.nordtal.s2.smp.db.JoinGate;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.db.SmpPool;
 import eu.nordtal.s2.smp.duel.DuelListener;
@@ -35,6 +34,7 @@ import eu.nordtal.s2.smp.npc.NpcListener;
 import eu.nordtal.s2.smp.npc.NpcProtection;
 import eu.nordtal.s2.smp.npc.SpawnNpc;
 import eu.nordtal.s2.smp.player.Identities;
+import eu.nordtal.s2.smp.player.JoinGate;
 import eu.nordtal.s2.smp.player.PlayerComposition;
 import eu.nordtal.s2.smp.player.PlayerSurfaces;
 import eu.nordtal.s2.smp.player.PresenceListener;
@@ -193,7 +193,7 @@ final class SmpStart {
                                 plugin.locales,
                                 operators,
                                 presence.systemLines(),
-                                presence.welcome()),
+                                presence.welcome()::onLanguageReady),
                         plugin);
         plugin.getServer().getPluginManager().registerEvents(presence.systemLines(), plugin);
         plugin.getServer()

@@ -570,8 +570,8 @@ public interface SmpDao {
             FROM smp_spin
             WHERE discord_id = :discordId
             """)
-    @RegisterConstructorMapper(eu.nordtal.s2.smp.wheel.Spins.class)
-    Optional<eu.nordtal.s2.smp.wheel.Spins> spinsOf(@Bind("discordId") String discordId);
+    @RegisterConstructorMapper(Spins.class)
+    Optional<Spins> spinsOf(@Bind("discordId") String discordId);
 
     /**
      * Takes today's free spin, once.

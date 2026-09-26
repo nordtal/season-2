@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import eu.nordtal.s2.smp.wheel.Spins;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;

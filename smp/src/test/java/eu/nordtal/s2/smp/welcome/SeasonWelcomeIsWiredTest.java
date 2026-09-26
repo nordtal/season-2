@@ -68,7 +68,7 @@ class SeasonWelcomeIsWiredTest {
                         || plugin.contains("new eu.nordtal.s2.smp.welcome.SeasonWelcome("),
                 "nothing builds the season's opening moment");
         assertTrue(
-                plugin.contains("presence.systemLines(), presence.welcome()), plugin)"),
+                plugin.contains("presence.systemLines(), presence.welcome()::onLanguageReady), plugin)"),
                 "the moment is built but never handed to PresenceListener, which is the only place"
                         + " that knows when a player's language has landed");
     }
@@ -78,7 +78,7 @@ class SeasonWelcomeIsWiredTest {
         final String presence = read(PRESENCE);
 
         final int announce = presence.indexOf("lines.announceJoin(player);");
-        final int welcome = presence.indexOf("welcome.onLanguageReady(player);");
+        final int welcome = presence.indexOf("languageReady.accept(player);");
         assertTrue(
                 announce > 0,
                 "PresenceListener no longer announces the join line, which is the"
@@ -88,12 +88,8 @@ class SeasonWelcomeIsWiredTest {
                 "nothing calls the season's opening moment. It is complete, it is tested, and it" + " never happens");
         assertTrue(
                 welcome > announce,
-                "the welcome is called before the join line, which means it is no longer inside the"
-                        + " callback that runs once the player has fully arrived. The moment carries"
-                        + " no language of its own since 2026-09-09 - the owner struck the subtitle -"
-                        + " so this is no longer about finding 96; it is that a staged moment must"
-                        + " not begin while a join is still settling, and that the day the moment"
-                        + " regains a sentence, this is already the only place it could be right");
+                "the welcome is called before the join line, so a staged moment would begin while the join"
+                        + " is still settling");
 
         // The join handler runs immediately; the callback runs once the row is back - calling it from onJoin is wrong.
         final int onJoin = presence.indexOf("public void onJoin(");

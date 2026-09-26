@@ -4,7 +4,7 @@ import eu.nordtal.displaytags.api.events.NameTagCreateEvent;
 import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
-import eu.nordtal.s2.smp.welcome.SeasonWelcome;
+import java.util.function.Consumer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -30,7 +30,8 @@ public final class PresenceListener implements Listener {
     private final PlayerLocales locales;
     private final AdminOperators operators;
     private final SystemLines lines;
-    private final SeasonWelcome welcome;
+    // The season's opening moment; a callback so this package does not depend on the welcome feature.
+    private final Consumer<Player> languageReady;
 
     public PresenceListener(
             final Plugin plugin,
@@ -39,14 +40,14 @@ public final class PresenceListener implements Listener {
             final PlayerLocales locales,
             final AdminOperators operators,
             final SystemLines lines,
-            final SeasonWelcome welcome) {
+            final Consumer<Player> languageReady) {
         this.plugin = plugin;
         this.identities = identities;
         this.surfaces = surfaces;
         this.locales = locales;
         this.operators = operators;
         this.lines = lines;
-        this.welcome = welcome;
+        this.languageReady = languageReady;
     }
 
     @EventHandler
@@ -86,7 +87,7 @@ public final class PresenceListener implements Listener {
                     // Here, not in a join handler.
                     lines.announceJoin(player);
                     // Same reason for the opening moment; PlayerJoinEvent would give every player English.
-                    welcome.onLanguageReady(player);
+                    languageReady.accept(player);
                 }));
     }
 

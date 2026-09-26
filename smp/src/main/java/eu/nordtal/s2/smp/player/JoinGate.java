@@ -1,12 +1,10 @@
-package eu.nordtal.s2.smp.db;
+package eu.nordtal.s2.smp.player;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.smp.player.Identities;
-import eu.nordtal.s2.smp.player.Identity;
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
 import java.util.Locale;
 import java.util.UUID;

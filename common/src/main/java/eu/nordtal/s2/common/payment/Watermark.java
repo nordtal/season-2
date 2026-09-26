@@ -1,16 +1,15 @@
 package eu.nordtal.s2.common.payment;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.sqlobject.customizer.Bind;
-import org.jdbi.v3.sqlobject.statement.SqlQuery;
-import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The cut-off the payment poll applies: payments created before it are ignored, completely and
@@ -39,8 +38,7 @@ public final class Watermark {
 
     private static final String KEY = "payment.watermark";
 
-    private Watermark() {
-    }
+    private Watermark() {}
 
     /**
      * Resolves the cut-off, writing the first-start value if there is none yet.
@@ -57,8 +55,10 @@ public final class Watermark {
         // first start rather than to now.
         final Instant now = Instant.now();
         if (dao.insertIfAbsent(KEY, now.toString()) == 1) {
-            log.info("No payment watermark was stored; this start is the cut-off: {}. "
-                    + "Payments created before it are ignored forever.", now);
+            log.info(
+                    "No payment watermark was stored; this start is the cut-off: {}. "
+                            + "Payments created before it are ignored forever.",
+                    now);
         }
 
         if (configured != null && !configured.isBlank()) {

@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.smp;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -10,11 +12,8 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.context.DiscordMemberContext;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.common.phase.SeasonDates;
-
 import java.util.Optional;
 import java.util.UUID;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /smp access <player>} - why can this person not get in?
@@ -65,14 +64,16 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
             }
 
             final SmpEffects.Access state = access.get();
-            user.reply(MESSAGES.smp().access().linked(new PlayerContext(name), new DiscordMemberContext(state.discordId())),
+            user.reply(
+                    MESSAGES.smp()
+                            .access()
+                            .linked(new PlayerContext(name), new DiscordMemberContext(state.discordId())),
                     Tone.NEUTRAL);
 
             if (state.accessActive() && state.validUntil() != null) {
                 user.reply(MESSAGES.smp().access().active(SeasonDates.format(state.validUntil())), Tone.GOOD);
             } else if (state.validUntil() != null) {
-                user.reply(
-                        MESSAGES.smp().access().expired(SeasonDates.format(state.validUntil())), Tone.WARN);
+                user.reply(MESSAGES.smp().access().expired(SeasonDates.format(state.validUntil())), Tone.WARN);
             } else {
                 user.reply(MESSAGES.smp().access().never(), Tone.WARN);
             }
@@ -91,8 +92,20 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
                             // A request with no bunq tab is somebody who picked a number of days and
                             // never got as far as a payment link, which is a different thing to
                             // chase.
-                            payment.hasTab() ? MESSAGES.smp().access().payment(payment.reference(),
-                                    payment.days(), payment.amount(), SeasonDates.format(payment.created())) : MESSAGES.smp().access().paymentUnstarted(payment.reference(), payment.days(), SeasonDates.format(payment.created())),
+                            payment.hasTab()
+                                    ? MESSAGES.smp()
+                                            .access()
+                                            .payment(
+                                                    payment.reference(),
+                                                    payment.days(),
+                                                    payment.amount(),
+                                                    SeasonDates.format(payment.created()))
+                                    : MESSAGES.smp()
+                                            .access()
+                                            .paymentUnstarted(
+                                                    payment.reference(),
+                                                    payment.days(),
+                                                    SeasonDates.format(payment.created())),
                             Tone.MUTED),
                     () -> user.reply(MESSAGES.smp().access().noPayment(), Tone.MUTED));
         });

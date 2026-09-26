@@ -64,8 +64,7 @@ public final class WheelStrip {
      * strike wants a moment of silence in front of it or it reads as part of the ticking.
      */
     private static final int[] DELAYS = {
-            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-            3, 3, 4, 5, 6, 8, 10, 13, 16, 18,
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 4, 5, 6, 8, 10, 13, 16, 18,
     };
 
     private final int[] sequence;
@@ -86,14 +85,12 @@ public final class WheelStrip {
      *                                  programming errors, and a wheel drawn from a pool it does not
      *                                  have would land on whatever index happened to be in range
      */
-    public static WheelStrip landingOn(final int poolSize, final int winner, final Random random,
-                                       final Shape shape) {
+    public static WheelStrip landingOn(final int poolSize, final int winner, final Random random, final Shape shape) {
         if (poolSize < 1) {
             throw new IllegalArgumentException("a wheel needs at least one prize, not " + poolSize);
         }
         if (winner < 0 || winner >= poolSize) {
-            throw new IllegalArgumentException(
-                    "prize " + winner + " is not in a pool of " + poolSize);
+            throw new IllegalArgumentException("prize " + winner + " is not in a pool of " + poolSize);
         }
 
         // The winner goes in first, at the cell the marker points at on the last frame, and

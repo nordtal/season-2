@@ -3,7 +3,6 @@ package eu.nordtal.s2.steward.ui.auth;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.upokecenter.cbor.CBORObject;
-
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -78,8 +77,8 @@ public final class TestAuthenticator {
      * @param origin          the page the browser claims to have been on
      */
     public String register(final String creationOptions, final String origin) {
-        final JsonObject publicKey = GSON.fromJson(creationOptions, JsonObject.class)
-                .getAsJsonObject("publicKey");
+        final JsonObject publicKey =
+                GSON.fromJson(creationOptions, JsonObject.class).getAsJsonObject("publicKey");
         return register(creationOptions, origin, publicKey.get("challenge").getAsString());
     }
 
@@ -87,20 +86,17 @@ public final class TestAuthenticator {
      * The same, with the challenge chosen by the caller - so that a test can answer a question
      * nobody asked.
      */
-    public String register(final String creationOptions, final String origin,
-                           final String challenge) {
-        final JsonObject publicKey = GSON.fromJson(creationOptions, JsonObject.class)
-                .getAsJsonObject("publicKey");
+    public String register(final String creationOptions, final String origin, final String challenge) {
+        final JsonObject publicKey =
+                GSON.fromJson(creationOptions, JsonObject.class).getAsJsonObject("publicKey");
         final String relyingPartyId = publicKey.getAsJsonObject("rp").get("id").getAsString();
 
-        final String clientData = "{\"type\":\"webauthn.create\",\"challenge\":\"" + challenge
-                + "\",\"origin\":\"" + origin + "\",\"crossOrigin\":false}";
+        final String clientData = "{\"type\":\"webauthn.create\",\"challenge\":\"" + challenge + "\",\"origin\":\""
+                + origin + "\",\"crossOrigin\":false}";
 
         final JsonObject response = new JsonObject();
-        response.addProperty("clientDataJSON",
-                URL.encodeToString(clientData.getBytes(StandardCharsets.UTF_8)));
-        response.addProperty("attestationObject",
-                URL.encodeToString(attestationObject(relyingPartyId)));
+        response.addProperty("clientDataJSON", URL.encodeToString(clientData.getBytes(StandardCharsets.UTF_8)));
+        response.addProperty("attestationObject", URL.encodeToString(attestationObject(relyingPartyId)));
         final com.google.gson.JsonArray transports = new com.google.gson.JsonArray();
         transports.add("usb");
         response.add("transports", transports);
@@ -121,8 +117,8 @@ public final class TestAuthenticator {
      * @param origin         the page the browser claims to have been on
      */
     public String assertion(final String requestOptions, final String origin) {
-        final JsonObject publicKey = GSON.fromJson(requestOptions, JsonObject.class)
-                .getAsJsonObject("publicKey");
+        final JsonObject publicKey =
+                GSON.fromJson(requestOptions, JsonObject.class).getAsJsonObject("publicKey");
         return assertion(requestOptions, origin, publicKey.get("challenge").getAsString(), 0);
     }
 
@@ -133,14 +129,14 @@ public final class TestAuthenticator {
      * has gone backwards - which is what a cloned authenticator looks like and the one thing the
      * counter exists to catch.</p>
      */
-    public String assertion(final String requestOptions, final String origin,
-                            final String challenge, final long signCount) {
-        final JsonObject publicKey = GSON.fromJson(requestOptions, JsonObject.class)
-                .getAsJsonObject("publicKey");
+    public String assertion(
+            final String requestOptions, final String origin, final String challenge, final long signCount) {
+        final JsonObject publicKey =
+                GSON.fromJson(requestOptions, JsonObject.class).getAsJsonObject("publicKey");
         final String relyingPartyId = publicKey.get("rpId").getAsString();
 
-        final String clientData = "{\"type\":\"webauthn.get\",\"challenge\":\"" + challenge
-                + "\",\"origin\":\"" + origin + "\",\"crossOrigin\":false}";
+        final String clientData = "{\"type\":\"webauthn.get\",\"challenge\":\"" + challenge + "\",\"origin\":\""
+                + origin + "\",\"crossOrigin\":false}";
         final byte[] clientDataBytes = clientData.getBytes(StandardCharsets.UTF_8);
         // NO ATTESTED CREDENTIAL DATA, so no AT flag: an assertion carries rpIdHash, flags and the
         // counter and nothing else. Sending the registration's authenticator data here is the
@@ -200,8 +196,7 @@ public final class TestAuthenticator {
      */
     private byte[] authenticatorData(final String relyingPartyId) {
         final byte[] cose = coseKey();
-        final ByteBuffer data = ByteBuffer.allocate(32 + 1 + 4 + 16 + 2 + credentialId.length
-                + cose.length);
+        final ByteBuffer data = ByteBuffer.allocate(32 + 1 + 4 + 16 + 2 + credentialId.length + cose.length);
         data.put(sha256(relyingPartyId.getBytes(StandardCharsets.UTF_8)));
         data.put(FLAGS);
         data.putInt(0);
@@ -216,9 +211,9 @@ public final class TestAuthenticator {
     private byte[] coseKey() {
         final ECPublicKey pub = (ECPublicKey) keyPair.getPublic();
         return CBORObject.NewMap()
-                .Add(1, 2)    // kty: EC2
-                .Add(3, -7)   // alg: ES256
-                .Add(-1, 1)   // crv: P-256
+                .Add(1, 2) // kty: EC2
+                .Add(3, -7) // alg: ES256
+                .Add(-1, 1) // crv: P-256
                 .Add(-2, CBORObject.FromObject(coordinate(pub.getW().getAffineX())))
                 .Add(-3, CBORObject.FromObject(coordinate(pub.getW().getAffineY())))
                 .EncodeToBytes();

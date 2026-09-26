@@ -1,17 +1,15 @@
 package eu.nordtal.s2.commands.remote;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.command.CommandRequest;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link CommandInbox.AdminCheck#of} on its own, which is the authorisation of the whole transport.
@@ -39,14 +37,20 @@ class AdminCheckTest {
     private static final UUID ADMIN_MC = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID OTHER_MC = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
-    private final CommandInbox.AdminCheck check = CommandInbox.AdminCheck.of(
-            () -> Set.of(ADMIN_DISCORD), () -> Set.of(ADMIN_MC));
+    private final CommandInbox.AdminCheck check =
+            CommandInbox.AdminCheck.of(() -> Set.of(ADMIN_DISCORD), () -> Set.of(ADMIN_MC));
 
-    private static CommandRequest request(final String source, final String discordId,
-                                          final UUID minecraftId) {
-        return new CommandRequest(1L, "smp reload", "", source, "someone",
-                Optional.ofNullable(discordId), Optional.ofNullable(minecraftId),
-                "en", Instant.now().plusSeconds(30));
+    private static CommandRequest request(final String source, final String discordId, final UUID minecraftId) {
+        return new CommandRequest(
+                1L,
+                "smp reload",
+                "",
+                source,
+                "someone",
+                Optional.ofNullable(discordId),
+                Optional.ofNullable(minecraftId),
+                "en",
+                Instant.now().plusSeconds(30));
     }
 
     @Test
@@ -94,12 +98,12 @@ class AdminCheckTest {
     void nothingIsCached() {
         final java.util.concurrent.atomic.AtomicReference<Set<String>> held =
                 new java.util.concurrent.atomic.AtomicReference<>(Set.of(ADMIN_DISCORD));
-        final CommandInbox.AdminCheck live =
-                CommandInbox.AdminCheck.of(held::get, java.util.Set::of);
+        final CommandInbox.AdminCheck live = CommandInbox.AdminCheck.of(held::get, java.util.Set::of);
 
         assertTrue(live.isAdmin(request("DISCORD", ADMIN_DISCORD, null)));
         held.set(Set.of());
-        assertFalse(live.isAdmin(request("DISCORD", ADMIN_DISCORD, null)),
+        assertFalse(
+                live.isAdmin(request("DISCORD", ADMIN_DISCORD, null)),
                 "the admin set is captured once, so a revocation would not reach a waiting row");
     }
 }

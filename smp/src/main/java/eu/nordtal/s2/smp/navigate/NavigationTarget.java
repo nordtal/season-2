@@ -1,10 +1,9 @@
 package eu.nordtal.s2.smp.navigate;
 
-import eu.nordtal.s2.common.message.MessageRef;
-
-import java.util.UUID;
-
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
+import eu.nordtal.s2.common.message.MessageRef;
+import java.util.UUID;
 
 /**
  * Somewhere {@code /navigate} can point at.
@@ -39,8 +38,8 @@ public record NavigationTarget(Kind kind, UUID id, String label, String world, i
         return new NavigationTarget(Kind.LAST_DEATH, null, null, world, x, y, z);
     }
 
-    public static NavigationTarget poi(final UUID id, final String name, final String world,
-                                       final int x, final int y, final int z) {
+    public static NavigationTarget poi(
+            final UUID id, final String name, final String world, final int x, final int y, final int z) {
         return new NavigationTarget(Kind.POI, id, name, world, x, y, z);
     }
 

@@ -1,31 +1,23 @@
 package eu.nordtal.s2.proxy.command;
 
-import com.mojang.brigadier.tree.CommandNode;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.mojang.brigadier.tree.CommandNode;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-
-import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.MemberState;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.proxy.config.NetworkSpec;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.time.Instant;
@@ -34,10 +26,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The three commands that came out of {@code :commands} in season-2-ops/155.
@@ -56,11 +50,10 @@ class PrivateMessagesTest {
     private static final UUID TWO = UUID.fromString("00000000-0000-0000-0000-0000000000b2");
     private static final UUID THREE = UUID.fromString("00000000-0000-0000-0000-0000000000b3");
 
-    private final Messages messages =
-            Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
+    private final Messages messages = Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
     private final LoginRoster roster = new LoginRoster();
-    private final PrivateMessages commands = new PrivateMessages(
-            noProxy(), roster, messages, () -> ToneColours.DEFAULTS, LOGGER);
+    private final PrivateMessages commands =
+            new PrivateMessages(noProxy(), roster, messages, () -> ToneColours.DEFAULTS, LOGGER);
 
     // ---------------------------------------------------------------- the tree
 
@@ -71,10 +64,8 @@ class PrivateMessagesTest {
 
         for (final String literal : List.of("msg", "whisper")) {
             final CommandNode<CommandSource> root = node(literal);
-            assertEquals(List.of(PrivateMessages.PLAYER), names(root),
-                    literal + " no longer takes a recipient first");
-            assertEquals(List.of(PrivateMessages.MESSAGE),
-                    names(root.getChild(PrivateMessages.PLAYER)));
+            assertEquals(List.of(PrivateMessages.PLAYER), names(root), literal + " no longer takes a recipient first");
+            assertEquals(List.of(PrivateMessages.MESSAGE), names(root.getChild(PrivateMessages.PLAYER)));
         }
         assertEquals(List.of(PrivateMessages.MESSAGE), names(node("r")));
     }
@@ -99,9 +90,10 @@ class PrivateMessagesTest {
         // CommandGate, so it exists, tab-completes for an admin, and tells everybody else they may
         // not use it. The declaration never protected against that either - but the list and the
         // registration now sit in two different modules, so nothing else holds them together.
-        final List<String> allowed = new NetworkSpec() { }.commandAllowlist();
+        final List<String> allowed = new NetworkSpec() {}.commandAllowlist();
         for (final String literal : literals()) {
-            assertTrue(allowed.contains(literal),
+            assertTrue(
+                    allowed.contains(literal),
                     "/" + literal + " is registered and network.yml's default list omits it");
         }
     }
@@ -114,14 +106,15 @@ class PrivateMessagesTest {
         roster.remember(ONE, session(ONE, Locale.ENGLISH, false));
         roster.remember(TWO, session(TWO, Locale.GERMAN, false));
 
-        final String sent = flat(commands.line(PrivateMessages.Half.SENT, Locale.ENGLISH,
-                player(TWO, "zwei"), "hello"));
+        final String sent =
+                flat(commands.line(PrivateMessages.Half.SENT, Locale.ENGLISH, player(TWO, "zwei"), "hello"));
         assertTrue(sent.startsWith("to "), sent);
-        assertTrue(sent.contains(Glyphs.flagFor(Locale.GERMAN)),
+        assertTrue(
+                sent.contains(Glyphs.flagFor(Locale.GERMAN)),
                 "the flag belongs to the person the line is about, not to the person reading it");
 
-        final String received = flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.GERMAN,
-                player(ONE, "eins"), "hello"));
+        final String received =
+                flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.GERMAN, player(ONE, "eins"), "hello"));
         assertTrue(received.startsWith("von "), received);
         assertTrue(received.contains(Glyphs.flagFor(Locale.ENGLISH)), received);
     }
@@ -132,10 +125,10 @@ class PrivateMessagesTest {
         roster.remember(ONE, session(ONE, Locale.ENGLISH, true));
         roster.remember(TWO, session(TWO, Locale.ENGLISH, false));
 
-        assertTrue(flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.ENGLISH,
-                player(ONE, "eins"), "hi")).contains(Glyphs.TAG_ADMIN));
-        assertFalse(flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.ENGLISH,
-                player(TWO, "zwei"), "hi")).contains(Glyphs.TAG_ADMIN));
+        assertTrue(flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.ENGLISH, player(ONE, "eins"), "hi"))
+                .contains(Glyphs.TAG_ADMIN));
+        assertFalse(flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.ENGLISH, player(TWO, "zwei"), "hi"))
+                .contains(Glyphs.TAG_ADMIN));
     }
 
     @Test
@@ -145,10 +138,11 @@ class PrivateMessagesTest {
         // escaped by MessageRenderer, but escaping is a rule somebody has to remember; a component
         // never reaches the parser at all.
         roster.remember(TWO, session(TWO, Locale.ENGLISH, false));
-        final Component line = commands.line(PrivateMessages.Half.SENT, Locale.ENGLISH,
-                player(TWO, "zwei"), "<red>look at me</red>");
+        final Component line =
+                commands.line(PrivateMessages.Half.SENT, Locale.ENGLISH, player(TWO, "zwei"), "<red>look at me</red>");
 
-        assertTrue(flat(line).contains("<red>look at me</red>"),
+        assertTrue(
+                flat(line).contains("<red>look at me</red>"),
                 "the tags reached the reader as the characters they typed: " + flat(line));
     }
 
@@ -160,7 +154,9 @@ class PrivateMessagesTest {
         commands.remember(ONE, TWO);
 
         assertEquals(Optional.of(TWO), commands.partnerOf(ONE));
-        assertEquals(Optional.of(ONE), commands.partnerOf(TWO),
+        assertEquals(
+                Optional.of(ONE),
+                commands.partnerOf(TWO),
                 "a reply has to work without the recipient ever having typed a name");
     }
 
@@ -171,7 +167,9 @@ class PrivateMessagesTest {
         commands.forget(TWO);
 
         assertEquals(Optional.empty(), commands.partnerOf(TWO));
-        assertEquals(Optional.empty(), commands.partnerOf(ONE),
+        assertEquals(
+                Optional.empty(),
+                commands.partnerOf(ONE),
                 "the one who stayed was left pointing at a UUID that has gone, so every /r they "
                         + "type from now on says 'they are not here' rather than 'nobody has "
                         + "written to you'");
@@ -195,9 +193,15 @@ class PrivateMessagesTest {
     void theMovedSentencesArrived() {
         // They stood in messages/commands until season-2-ops/155. Messages answers a missing key
         // with the key, so a half-finished move reaches a player as the literal chat.no-partner.
-        for (final String key : List.of("chat.msg.sent", "chat.msg.received",
-                "chat.no-partner", "chat.msg.self", "chat.failed",
-                "command.describe.msg", "command.describe.whisper", "command.describe.r")) {
+        for (final String key : List.of(
+                "chat.msg.sent",
+                "chat.msg.received",
+                "chat.no-partner",
+                "chat.msg.self",
+                "chat.failed",
+                "command.describe.msg",
+                "command.describe.whisper",
+                "command.describe.r")) {
             assertTrue(messages.hasTranslation(Locale.ENGLISH, key), key + " is missing in en");
             assertTrue(messages.hasTranslation(Locale.GERMAN, key), key + " is missing in de");
         }
@@ -206,7 +210,9 @@ class PrivateMessagesTest {
     // ---------------------------------------------------------------- helpers
 
     private List<String> literals() {
-        return commands.commands().stream().map(command -> command.getNode().getName()).toList();
+        return commands.commands().stream()
+                .map(command -> command.getNode().getName())
+                .toList();
     }
 
     private CommandNode<CommandSource> node(final String literal) {
@@ -221,8 +227,7 @@ class PrivateMessagesTest {
         return node.getChildren().stream().map(CommandNode::getName).toList();
     }
 
-    private static void walk(final CommandNode<CommandSource> node, final String path,
-                             final List<String> dead) {
+    private static void walk(final CommandNode<CommandSource> node, final String path, final List<String> dead) {
         if (node.getCommand() == null) {
             dead.add(path);
         }
@@ -234,17 +239,25 @@ class PrivateMessagesTest {
     }
 
     /** What a login query would have said about somebody, which is all the roster keeps. */
-    private static AccessState session(final UUID mcUuid, final Locale locale,
-                                       final boolean admin) {
-        return new AccessState(mcUuid, "1", MemberState.MEMBER, true,
-                Instant.now().plus(Duration.ofDays(1)), false, admin, locale, SeasonPhase.SMP, null);
+    private static AccessState session(final UUID mcUuid, final Locale locale, final boolean admin) {
+        return new AccessState(
+                mcUuid,
+                "1",
+                MemberState.MEMBER,
+                true,
+                Instant.now().plus(Duration.ofDays(1)),
+                false,
+                admin,
+                locale,
+                SeasonPhase.SMP,
+                null);
     }
 
     /** A name and a UUID, which is all {@link PrivateMessages#line} asks a player for. */
     private static Player player(final UUID uuid, final String name) {
-        return (Player) Proxy.newProxyInstance(PrivateMessagesTest.class.getClassLoader(),
-                new Class<?>[] {Player.class}, (InvocationHandler) (self, method, arguments) ->
-                        switch (method.getName()) {
+        return (Player) Proxy.newProxyInstance(
+                PrivateMessagesTest.class.getClassLoader(), new Class<?>[] {Player.class}, (InvocationHandler)
+                        (self, method, arguments) -> switch (method.getName()) {
                             case "getUniqueId" -> uuid;
                             case "getUsername" -> name;
                             default -> throw new UnsupportedOperationException(method.getName());
@@ -253,9 +266,10 @@ class PrivateMessagesTest {
 
     /** Never asked anything: every test here is below the point where a player is looked up. */
     private static ProxyServer noProxy() {
-        return (ProxyServer) Proxy.newProxyInstance(PrivateMessagesTest.class.getClassLoader(),
-                new Class<?>[] {ProxyServer.class}, (InvocationHandler) (self, method, arguments) -> {
-                    throw new UnsupportedOperationException(method.getName());
-                });
+        return (ProxyServer) Proxy.newProxyInstance(
+                PrivateMessagesTest.class.getClassLoader(), new Class<?>[] {ProxyServer.class}, (InvocationHandler)
+                        (self, method, arguments) -> {
+                            throw new UnsupportedOperationException(method.getName());
+                        });
     }
 }

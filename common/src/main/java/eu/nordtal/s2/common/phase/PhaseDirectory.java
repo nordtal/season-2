@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
-
-import javax.sql.DataSource;
 import java.time.Instant;
 import java.util.Optional;
+import javax.sql.DataSource;
 
 /**
  * The current {@link SeasonPhase}, as seen by every process. The phase is one row in PostgreSQL and

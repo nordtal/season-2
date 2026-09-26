@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.command;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -8,14 +10,14 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.papercommon.command.PaperUser;
+import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.db.PoiRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -23,21 +25,17 @@ import eu.nordtal.s2.smp.navigate.NavigateGui;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.navigate.NavigationTarget;
 import eu.nordtal.s2.smp.player.Identities;
-
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.UUID;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * {@code /navigate} and {@code /poi}.
@@ -65,10 +63,15 @@ public final class NavigateCommand {
     private final SmpSounds sounds;
     private final java.util.function.Supplier<ToneColours> colours;
 
-    public NavigateCommand(final Plugin plugin, final SmpDao dao, final Navigation navigation,
-                           final Identities identities, final Messages messages,
-                           final PlayerLocales locales, final SmpSounds sounds,
-                           final java.util.function.Supplier<ToneColours> colours) {
+    public NavigateCommand(
+            final Plugin plugin,
+            final SmpDao dao,
+            final Navigation navigation,
+            final Identities identities,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds,
+            final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = plugin;
         this.dao = dao;
         this.navigation = navigation;
@@ -119,7 +122,6 @@ public final class NavigateCommand {
      * telling people to type something that no longer parses.</p>
      */
     private enum Sub {
-
         ADD("add"),
         REMOVE("remove");
 
@@ -156,8 +158,9 @@ public final class NavigateCommand {
         final NordtalUser user = user(context);
         user.reply(CommandMessages.MESSAGES.command().help().header("/poi"), Tone.NEUTRAL);
         for (final Sub sub : Sub.values()) {
-            user.reply(CommandMessages.MESSAGES.command().help().line(sub.usage(),
-                    user.phrase(sub.describe())), Tone.MUTED);
+            user.reply(
+                    CommandMessages.MESSAGES.command().help().line(sub.usage(), user.phrase(sub.describe())),
+                    Tone.MUTED);
         }
         return Command.SINGLE_SUCCESS;
     }
@@ -165,10 +168,8 @@ public final class NavigateCommand {
     /** The usage of one subcommand, plus the sentence saying what it is for. */
     private int usage(final CommandContext<CommandSourceStack> context, final Sub sub) {
         final NordtalUser user = user(context);
-        user.reply(CommandMessages.MESSAGES.command().help().usage(sub.usage()), Feedback.REFUSED,
-                Tone.NEUTRAL);
-        user.reply(CommandMessages.MESSAGES.command().help().what(user.phrase(sub.describe())),
-                Tone.MUTED);
+        user.reply(CommandMessages.MESSAGES.command().help().usage(sub.usage()), Feedback.REFUSED, Tone.NEUTRAL);
+        user.reply(CommandMessages.MESSAGES.command().help().what(user.phrase(sub.describe())), Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -180,9 +181,15 @@ public final class NavigateCommand {
      */
     private NordtalUser user(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
-        return PaperUser.of(plugin, player, locales.of(player.getUniqueId()),
+        return PaperUser.of(
+                plugin,
+                player,
+                locales.of(player.getUniqueId()),
                 identities.of(player.getUniqueId()).admin(),
-                () -> identities.discordIdOf(player.getUniqueId()), messages, sounds::play, colours);
+                () -> identities.discordIdOf(player.getUniqueId()),
+                messages,
+                sounds::play,
+                colours);
     }
 
     // ------------------------------------------------------------------ /navigate
@@ -193,7 +200,8 @@ public final class NavigateCommand {
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final List<PoiRow> pois = dao.allPois();
-            final Optional<NavigationTarget> lastDeath = identities.discordIdOf(uuid)
+            final Optional<NavigationTarget> lastDeath = identities
+                    .discordIdOf(uuid)
                     .flatMap(dao::lastDeathOf)
                     .map(place -> NavigationTarget.lastDeath(place.world(), place.x(), place.y(), place.z()));
 
@@ -201,8 +209,8 @@ public final class NavigateCommand {
                 if (!player.isOnline()) {
                     return;
                 }
-                player.openInventory(new NavigateGui(messages, locales, navigation, player,
-                        lastDeath, pois).getInventory());
+                player.openInventory(
+                        new NavigateGui(messages, locales, navigation, player, lastDeath, pois).getInventory());
             });
         });
         return Command.SINGLE_SUCCESS;
@@ -216,15 +224,20 @@ public final class NavigateCommand {
         final String name = StringArgumentType.getString(context, "name").trim();
 
         if (name.isEmpty() || name.length() > MAX_POI_NAME) {
-            tell(player, MessageRenderer.of(messages).format(locale,
-                    MESSAGES.smp().poi().badName(MAX_POI_NAME)),
+            tell(
+                    player,
+                    MessageRenderer.of(messages)
+                            .format(locale, MESSAGES.smp().poi().badName(MAX_POI_NAME)),
                     Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
 
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().error().noAccountLink()),
+            tell(
+                    player,
+                    MessageRenderer.of(messages)
+                            .format(locale, MESSAGES.smp().error().noAccountLink()),
                     Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
@@ -232,14 +245,19 @@ public final class NavigateCommand {
         final Location at = player.getLocation();
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (dao.allPois().stream().anyMatch(poi -> poi.name().equalsIgnoreCase(name))) {
-                tell(player, MessageRenderer.of(messages).format(locale,
-                        MESSAGES.smp().poi().duplicate(name)),
+                tell(
+                        player,
+                        MessageRenderer.of(messages)
+                                .format(locale, MESSAGES.smp().poi().duplicate(name)),
                         Feedback.REFUSED);
                 return;
             }
-            dao.createPoi(name, at.getWorld().getName(), at.getBlockX(), at.getBlockY(),
-                    at.getBlockZ(), discordId.get());
-            tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().poi().added(name)),
+            dao.createPoi(
+                    name, at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ(), discordId.get());
+            tell(
+                    player,
+                    MessageRenderer.of(messages)
+                            .format(locale, MESSAGES.smp().poi().added(name)),
                     Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;
@@ -257,13 +275,19 @@ public final class NavigateCommand {
                     .filter(poi -> poi.name().equalsIgnoreCase(name))
                     .findFirst();
             if (found.isEmpty()) {
-                tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().poi().notFound(name)),
+                tell(
+                        player,
+                        MessageRenderer.of(messages)
+                                .format(locale, MESSAGES.smp().poi().notFound(name)),
                         Feedback.REFUSED);
                 return;
             }
             final PoiRow poi = found.get();
             if (!admin && !poi.createdBy().equals(discordId.orElse(""))) {
-                tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().poi().notYours()),
+                tell(
+                        player,
+                        MessageRenderer.of(messages)
+                                .format(locale, MESSAGES.smp().poi().notYours()),
                         Feedback.REFUSED);
                 return;
             }
@@ -271,7 +295,10 @@ public final class NavigateCommand {
             Bukkit.getScheduler().runTask(plugin, () -> navigation.clearWorld(poi.world()));
             // The counterpart of smp.poi.added, and it gets the counterpart's sound: a small
             // thing the player asked for that worked.
-            tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().poi().removed(name)),
+            tell(
+                    player,
+                    MessageRenderer.of(messages)
+                            .format(locale, MESSAGES.smp().poi().removed(name)),
                     Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;

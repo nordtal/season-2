@@ -6,8 +6,7 @@ package eu.nordtal.s2.hungergames.border;
  */
 public final class BorderMath {
 
-    private BorderMath() {
-    }
+    private BorderMath() {}
 
     /**
      * The fixed amount of diameter every death removes:
@@ -22,8 +21,8 @@ public final class BorderMath {
      * @throws IllegalArgumentException if {@code effectiveParticipants} is fewer than 2, or the
      *                                   diameters are not a valid start/end pair
      */
-    public static double deathStep(final double startDiameter, final double endDiameter,
-                                    final int effectiveParticipants) {
+    public static double deathStep(
+            final double startDiameter, final double endDiameter, final int effectiveParticipants) {
         if (effectiveParticipants < 2) {
             throw new IllegalArgumentException(
                     "effectiveParticipants must be at least 2, was " + effectiveParticipants);
@@ -60,8 +59,8 @@ public final class BorderMath {
      * @param wallSpeedDiameterPerSecond diameter-blocks per second, always positive
      * @return duration in milliseconds, at least 0
      */
-    public static long shrinkDurationMillis(final double fromDiameter, final double toDiameter,
-                                             final double wallSpeedDiameterPerSecond) {
+    public static long shrinkDurationMillis(
+            final double fromDiameter, final double toDiameter, final double wallSpeedDiameterPerSecond) {
         if (wallSpeedDiameterPerSecond <= 0) {
             throw new IllegalArgumentException("wallSpeedDiameterPerSecond must be positive");
         }
@@ -78,8 +77,8 @@ public final class BorderMath {
      * @param passiveShrinkDiameterPerHour   diameter-blocks per hour, always positive
      * @return duration in milliseconds, at least 0
      */
-    public static long passiveShrinkDurationMillis(final double fromDiameter, final double toDiameter,
-                                                     final double passiveShrinkDiameterPerHour) {
+    public static long passiveShrinkDurationMillis(
+            final double fromDiameter, final double toDiameter, final double passiveShrinkDiameterPerHour) {
         if (passiveShrinkDiameterPerHour <= 0) {
             throw new IllegalArgumentException("passiveShrinkDiameterPerHour must be positive");
         }

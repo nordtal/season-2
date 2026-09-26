@@ -1,18 +1,17 @@
 package eu.nordtal.s2.common.feedback;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The rules that make a wrong sound harmless.
@@ -28,16 +27,19 @@ class FeedbackSoundsTest {
     @DisplayName("an empty key silences that category and complains about nothing")
     void anEmptyKeyIsTheEscapeHatch() {
         final List<String> problems = new ArrayList<>();
-        final FeedbackSounds sounds = FeedbackSounds.parse(Map.of(
-                Feedback.SELECT, new FeedbackSound("", 1.0f, 1.0f),
-                Feedback.REFUSED, new FeedbackSound("   ", 1.0f, 1.0f),
-                Feedback.TRAVEL, new FeedbackSound("minecraft:block.beacon.power_select", 1.0f, 1.0f)),
+        final FeedbackSounds sounds = FeedbackSounds.parse(
+                Map.of(
+                        Feedback.SELECT, new FeedbackSound("", 1.0f, 1.0f),
+                        Feedback.REFUSED, new FeedbackSound("   ", 1.0f, 1.0f),
+                        Feedback.TRAVEL, new FeedbackSound("minecraft:block.beacon.power_select", 1.0f, 1.0f)),
                 problems::add);
 
         assertTrue(sounds.isSilent(Feedback.SELECT));
         assertTrue(sounds.isSilent(Feedback.REFUSED));
         assertFalse(sounds.isSilent(Feedback.TRAVEL));
-        assertEquals(List.of(), problems,
+        assertEquals(
+                List.of(),
+                problems,
                 "blanking a key is how an operator switches a category off. Complaining about it"
                         + " would train them to ignore the console, which is where the complaints"
                         + " that matter go");
@@ -59,12 +61,12 @@ class FeedbackSoundsTest {
     void aMalformedKeyIsReportedAndSilenced() {
         final List<String> problems = new ArrayList<>();
         final FeedbackSounds sounds = FeedbackSounds.parse(
-                Map.of(Feedback.SELECT, new FeedbackSound("UI_BUTTON_CLICK", 1.0f, 1.0f)),
-                problems::add);
+                Map.of(Feedback.SELECT, new FeedbackSound("UI_BUTTON_CLICK", 1.0f, 1.0f)), problems::add);
 
         assertTrue(sounds.isSilent(Feedback.SELECT));
         assertEquals(1, problems.size(), problems.toString());
-        assertTrue(problems.getFirst().contains("UI_BUTTON_CLICK"),
+        assertTrue(
+                problems.getFirst().contains("UI_BUTTON_CLICK"),
                 "the complaint has to name the value, or nobody can find it in the file");
     }
 
@@ -85,16 +87,19 @@ class FeedbackSoundsTest {
                 problems::add);
 
         assertEquals(List.of(), problems);
-        assertEquals("nordtal:milestone.fanfare", sounds.sound(Feedback.NETWORK_EVENT).key());
+        assertEquals(
+                "nordtal:milestone.fanfare",
+                sounds.sound(Feedback.NETWORK_EVENT).key());
     }
 
     @Test
     @DisplayName("a pitch outside what a client plays is clamped, not refused")
     void anImpossiblePitchIsClamped() {
         final List<String> problems = new ArrayList<>();
-        final FeedbackSounds sounds = FeedbackSounds.parse(Map.of(
-                Feedback.SELECT, new FeedbackSound("minecraft:ui.button.click", 1.0f, 9.0f),
-                Feedback.LOSS, new FeedbackSound("minecraft:entity.villager.no", 1.0f, 0.01f)),
+        final FeedbackSounds sounds = FeedbackSounds.parse(
+                Map.of(
+                        Feedback.SELECT, new FeedbackSound("minecraft:ui.button.click", 1.0f, 9.0f),
+                        Feedback.LOSS, new FeedbackSound("minecraft:entity.villager.no", 1.0f, 0.01f)),
                 problems::add);
 
         assertEquals(FeedbackSound.MAX_PITCH, sounds.sound(Feedback.SELECT).pitch());
@@ -107,8 +112,7 @@ class FeedbackSoundsTest {
     void aNonsenseVolumeFallsBack() {
         final List<String> problems = new ArrayList<>();
         final FeedbackSounds sounds = FeedbackSounds.parse(
-                Map.of(Feedback.SELECT, new FeedbackSound("minecraft:ui.button.click", -3.0f, 1.0f)),
-                problems::add);
+                Map.of(Feedback.SELECT, new FeedbackSound("minecraft:ui.button.click", -3.0f, 1.0f)), problems::add);
 
         assertNotNull(sounds.sound(Feedback.SELECT));
         assertEquals(FeedbackSound.DEFAULT_VOLUME, sounds.sound(Feedback.SELECT).volume());
@@ -127,8 +131,7 @@ class FeedbackSoundsTest {
     void aFailureIsReportedOnce() {
         final List<String> problems = new ArrayList<>();
         final FeedbackSounds sounds = FeedbackSounds.parse(
-                Map.of(Feedback.SELECT, new FeedbackSound("minecraft:ui.button.click", 1.0f, 1.0f)),
-                problems::add);
+                Map.of(Feedback.SELECT, new FeedbackSound("minecraft:ui.button.click", 1.0f, 1.0f)), problems::add);
 
         assertTrue(sounds.failed(Feedback.SELECT, new IllegalStateException("boom"), problems::add));
         assertFalse(sounds.failed(Feedback.SELECT, new IllegalStateException("boom"), problems::add));

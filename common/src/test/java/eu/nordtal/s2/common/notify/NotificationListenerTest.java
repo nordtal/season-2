@@ -1,9 +1,9 @@
 package eu.nordtal.s2.common.notify;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.SQLException;
 import java.time.Duration;
@@ -13,11 +13,10 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The reconnect loop in {@link NotificationListener}, against a fake {@link Notifications}.
@@ -42,7 +41,8 @@ class NotificationListenerTest {
     private final AtomicInteger second = new AtomicInteger();
 
     private List<NotificationListener.Refresh> two() {
-        return List.of(new NotificationListener.Refresh("the first thing", first::incrementAndGet),
+        return List.of(
+                new NotificationListener.Refresh("the first thing", first::incrementAndGet),
                 new NotificationListener.Refresh("the second thing", second::incrementAndGet));
     }
 
@@ -57,7 +57,8 @@ class NotificationListenerTest {
 
         runBriefly(listener);
 
-        assertTrue(first.get() >= 1,
+        assertTrue(
+                first.get() >= 1,
                 "notifications are lost while a process is disconnected, so a connect has to re-read"
                         + " whether or not anything arrives afterwards");
     }
@@ -70,8 +71,7 @@ class NotificationListenerTest {
 
         runBriefly(listener);
 
-        assertTrue(first.get() >= 4,
-                "one refresh for the connect plus one per notification; saw " + first.get());
+        assertTrue(first.get() >= 4, "one refresh for the connect plus one per notification; saw " + first.get());
     }
 
     @Test
@@ -79,13 +79,12 @@ class NotificationListenerTest {
     void allRefreshesRideTheSameSignals() throws Exception {
         // The reason several channels share one connection: both halves want the identical thing on
         // a wake-up.
-        final NotificationListener listener = new NotificationListener(
-                () -> FakeChannel.publishing(3), "test", two(), LOGGER, WAIT, BACKOFF);
+        final NotificationListener listener =
+                new NotificationListener(() -> FakeChannel.publishing(3), "test", two(), LOGGER, WAIT, BACKOFF);
 
         runBriefly(listener);
 
-        assertEquals(first.get(), second.get(),
-                "two refreshes on one connection have to see exactly the same signals");
+        assertEquals(first.get(), second.get(), "two refreshes on one connection have to see exactly the same signals");
         assertTrue(first.get() >= 4, "one per connect plus one per notification; saw " + first.get());
     }
 
@@ -94,20 +93,24 @@ class NotificationListenerTest {
     void aBrokenRefreshIsContainedAndRetried() throws Exception {
         // A failure in either refresh must not cost the other its propagation.
         final NotificationListener listener = new NotificationListener(
-                () -> FakeChannel.publishing(3), "test",
-                List.of(new NotificationListener.Refresh("the broken thing", () -> {
+                () -> FakeChannel.publishing(3),
+                "test",
+                List.of(
+                        new NotificationListener.Refresh("the broken thing", () -> {
                             first.incrementAndGet();
                             throw new IllegalStateException("the database went away mid-refresh");
                         }),
                         new NotificationListener.Refresh("the second thing", second::incrementAndGet)),
-                LOGGER, WAIT, BACKOFF);
+                LOGGER,
+                WAIT,
+                BACKOFF);
 
         runBriefly(listener);
 
-        assertTrue(second.get() >= 4,
+        assertTrue(
+                second.get() >= 4,
                 "the second refresh stopped running because the first one threw; saw " + second.get());
-        assertEquals(first.get(), second.get(),
-                "a throwing refresh must not cost itself its next signal either");
+        assertEquals(first.get(), second.get(), "a throwing refresh must not cost itself its next signal either");
     }
 
     @Test
@@ -116,19 +119,25 @@ class NotificationListenerTest {
         // way in, because a change in the gap is never announced again.
         final AtomicInteger opened = new AtomicInteger();
         final CountDownLatch thirdOpened = new CountDownLatch(3);
-        final NotificationListener listener = new NotificationListener(() -> {
-            opened.incrementAndGet();
-            thirdOpened.countDown();
-            return FakeChannel.dying();
-        }, "test", two(), LOGGER, WAIT, BACKOFF);
+        final NotificationListener listener = new NotificationListener(
+                () -> {
+                    opened.incrementAndGet();
+                    thirdOpened.countDown();
+                    return FakeChannel.dying();
+                },
+                "test",
+                two(),
+                LOGGER,
+                WAIT,
+                BACKOFF);
 
         final Thread thread = start(listener);
         assertTrue(thirdOpened.await(30, TimeUnit.SECONDS), "the listener stopped reconnecting");
         stop(listener, thread);
 
         assertTrue(opened.get() >= 3, "reconnected " + opened.get() + " times");
-        assertEquals(opened.get(), first.get(),
-                "exactly one unconditional re-read per connection, no more and no fewer");
+        assertEquals(
+                opened.get(), first.get(), "exactly one unconditional re-read per connection, no more and no fewer");
     }
 
     @Test
@@ -138,11 +147,17 @@ class NotificationListenerTest {
         final Duration slowBackoff = Duration.ofSeconds(10);
         final AtomicInteger attempts = new AtomicInteger();
         final CountDownLatch tried = new CountDownLatch(1);
-        final NotificationListener listener = new NotificationListener(() -> {
-            attempts.incrementAndGet();
-            tried.countDown();
-            throw new SQLException("the database is not there");
-        }, "test", two(), LOGGER, WAIT, slowBackoff);
+        final NotificationListener listener = new NotificationListener(
+                () -> {
+                    attempts.incrementAndGet();
+                    tried.countDown();
+                    throw new SQLException("the database is not there");
+                },
+                "test",
+                two(),
+                LOGGER,
+                WAIT,
+                slowBackoff);
 
         final Thread thread = start(listener);
         assertTrue(tried.await(10, TimeUnit.SECONDS));
@@ -150,7 +165,9 @@ class NotificationListenerTest {
         stop(listener, thread);
 
         assertEquals(0, first.get(), "a connection that never opened has nothing to re-read");
-        assertEquals(1, attempts.get(),
+        assertEquals(
+                1,
+                attempts.get(),
                 "the backoff is what stops a database outage from becoming a connection-attempt storm");
     }
 
@@ -164,7 +181,8 @@ class NotificationListenerTest {
         Thread.sleep(150);
         stop(listener, thread);
 
-        assertFalse(thread.isAlive(),
+        assertFalse(
+                thread.isAlive(),
                 "close() has to end the loop, not merely ask it to - the process shuts down behind it");
         assertTrue(channel.closed, "the dedicated connection is the process's to release on shutdown");
     }
@@ -172,8 +190,9 @@ class NotificationListenerTest {
     @Test
     @DisplayName("a listener with nothing to refresh is refused rather than parked forever")
     void refreshesAreNotOptional() {
-        assertThrows(IllegalArgumentException.class, () -> new NotificationListener(
-                FakeChannel::quiet, "test", List.of(), LOGGER, WAIT, BACKOFF));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new NotificationListener(FakeChannel::quiet, "test", List.of(), LOGGER, WAIT, BACKOFF));
     }
 
     @Test
@@ -181,11 +200,18 @@ class NotificationListenerTest {
     void channelNamesAreCheckedBeforeTheyReachAStatement() {
         // The name goes into `LISTEN <name>` unquoted - it is an identifier, and there is no
         // placeholder for one.
-        assertThrows(IllegalArgumentException.class, () -> PostgresNotifications.connector(
-                "jdbc:postgresql://localhost/x", "u", "p", 3, "test",
-                List.of("nordtal_admin; DROP TABLE discord_user")));
-        assertThrows(IllegalArgumentException.class, () -> PostgresNotifications.connector(
-                "jdbc:postgresql://localhost/x", "u", "p", 3, "test", List.of()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> PostgresNotifications.connector(
+                        "jdbc:postgresql://localhost/x",
+                        "u",
+                        "p",
+                        3,
+                        "test",
+                        List.of("nordtal_admin; DROP TABLE discord_user")));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> PostgresNotifications.connector("jdbc:postgresql://localhost/x", "u", "p", 3, "test", List.of()));
     }
 
     // ---------------------------------------------------------------- driving the loop
@@ -203,8 +229,7 @@ class NotificationListenerTest {
         return thread;
     }
 
-    private static void stop(final NotificationListener listener, final Thread thread)
-            throws InterruptedException {
+    private static void stop(final NotificationListener listener, final Thread thread) throws InterruptedException {
         listener.close();
         thread.join(TimeUnit.SECONDS.toMillis(10));
     }

@@ -70,7 +70,8 @@ describe("no middle dot as a separator, outside the files still tracked for a sw
       offenders(),
       "A middle dot showed up as a separator again. Till's rule (2026-09-16): no separator" +
         " character in the UI at all - drop the second value, or give it its own place, but never" +
-        " another character in the same spot.\n\n" + offenders().join("\n"),
+        " another character in the same spot.\n\n" +
+        offenders().join("\n"),
     ).toEqual([])
   })
 

@@ -3,12 +3,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
 import type { CommandRun, SmpTrack } from "@/lib/api"
-import {
-  useCommandRun,
-  useGameAction,
-  useHungerGamesRound,
-  useSmpTrack,
-} from "@/lib/queries"
+import { useCommandRun, useGameAction, useHungerGamesRound, useSmpTrack } from "@/lib/queries"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import {
   ResponsiveAlertDialog,
@@ -69,9 +64,7 @@ export function SmpActions() {
         >
           {(data) =>
             data ? (
-              data.active.map((milestone) => (
-                <Milestone key={milestone.key} milestone={milestone} onAsk={setAsk} />
-              ))
+              data.active.map((milestone) => <Milestone key={milestone.key} milestone={milestone} onAsk={setAsk} />)
             ) : (
               <SkeletonText width="long" />
             )
@@ -83,13 +76,7 @@ export function SmpActions() {
   )
 }
 
-function Milestone({
-  milestone,
-  onAsk,
-}: {
-  milestone: SmpTrack["active"][number]
-  onAsk: (ask: Ask) => void
-}) {
+function Milestone({ milestone, onAsk }: { milestone: SmpTrack["active"][number]; onAsk: (ask: Ask) => void }) {
   const name = keyName(milestone.key)
   return (
     <section className="flex flex-col gap-2" aria-label={name}>
@@ -104,8 +91,7 @@ function Milestone({
               path: "/api/smp/milestone",
               body: { key: milestone.key },
               title: `Unlock ${name}?`,
-              description:
-                "The track moves on and aura is paid out to everybody who qualified. There is no way back.",
+              description: "The track moves on and aura is paid out to everybody who qualified. There is no way back.",
               confirm: "Unlock",
             })
           }
@@ -117,10 +103,7 @@ function Milestone({
         {milestone.objectives.map((objective) => {
           const objectiveName = keyName(objective.key)
           return (
-            <li
-              key={objective.key}
-              className="flex min-h-11 items-center justify-between gap-3 px-3 py-1.5"
-            >
+            <li key={objective.key} className="flex min-h-11 items-center justify-between gap-3 px-3 py-1.5">
               <div className="flex min-w-0 flex-col">
                 <span className="truncate text-sm">{objectiveName}</span>
                 <span className="text-xs tabular-nums text-muted-foreground">
@@ -169,8 +152,7 @@ export function HungerGamesActions() {
       path: "/api/hunger-games/start",
       body: confirm ? { confirm: true } : {},
       title: confirm ? "Start anyway?" : "Start the round?",
-      description:
-        "Everybody registered is sent into the arena and the countdown begins. There is no way back.",
+      description: "Everybody registered is sent into the arena and the countdown begins. There is no way back.",
       confirm: confirm ? "Start anyway" : "Start",
     })
 
@@ -200,12 +182,7 @@ export function HungerGamesActions() {
             )
           }
         </QueryState>
-        <Button
-          type="button"
-          size="sm"
-          disabled={state !== "REGISTRATION"}
-          onClick={() => start(false)}
-        >
+        <Button type="button" size="sm" disabled={state !== "REGISTRATION"} onClick={() => start(false)}>
           Start round
         </Button>
       </CardContent>
@@ -217,9 +194,7 @@ export function HungerGamesActions() {
         // so in its answer. A round still open for registration after a start is one that did not
         // start - so that is when the second step is offered, and never before the first answer.
         after={(run) =>
-          run.status === "DONE" && ask?.confirm === "Start" ? (
-            <StartAnyway onStart={() => start(true)} />
-          ) : null
+          run.status === "DONE" && ask?.confirm === "Start" ? <StartAnyway onStart={() => start(true)} /> : null
         }
       />
     </Card>
@@ -295,10 +270,7 @@ function ActionDialog({
                 onClick={(event) => {
                   event.preventDefault()
                   if (!ask) return
-                  action.mutate(
-                    { path: ask.path, body: ask.body },
-                    { onSuccess: (answer) => setId(answer.id) },
-                  )
+                  action.mutate({ path: ask.path, body: ask.body }, { onSuccess: (answer) => setId(answer.id) })
                 }}
               >
                 {waiting ? "Sending…" : ask?.confirm}
@@ -325,8 +297,7 @@ export function RequestOutcome({ run }: { run: CommandRun }) {
     RUNNING: "The server is carrying it out.",
     DONE: "The server answered:",
     FAILED: "The server picked it up and failed at it.",
-    EXPIRED:
-      "Nobody picked this up within two minutes: the server is not listening. Nothing was changed.",
+    EXPIRED: "Nobody picked this up within two minutes: the server is not listening. Nothing was changed.",
   }
   const tone =
     run.status === "FAILED" || run.status === "EXPIRED"

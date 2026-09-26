@@ -1,24 +1,22 @@
 package eu.nordtal.s2.steward.ui.discord;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.sun.net.httpserver.HttpServer;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The list of names behind the ids, against a stand-in Discord.
@@ -61,7 +59,8 @@ class DiscordDirectoryTest {
     @DisplayName("no guild is a different sentence, because it is a different mistake")
     void withoutAGuildItSaysSo() {
         assertTrue(new DiscordDirectory(new Values().withBotToken("t"), "https://discord.invalid")
-                .unavailable().contains("discord.guild-id"));
+                .unavailable()
+                .contains("discord.guild-id"));
     }
 
     @Test
@@ -82,7 +81,9 @@ class DiscordDirectoryTest {
 
         final List<DiscordDirectory.Entry> roles = directory.roles();
 
-        assertEquals(List.of("Admin", "Donor"), roles.stream().map(DiscordDirectory.Entry::name).toList());
+        assertEquals(
+                List.of("Admin", "Donor"),
+                roles.stream().map(DiscordDirectory.Entry::name).toList());
     }
 
     @Test
@@ -131,7 +132,8 @@ class DiscordDirectoryTest {
             }
         });
         server.start();
-        return new DiscordDirectory(new Values().withGuildId("1").withBotToken("a-token"),
+        return new DiscordDirectory(
+                new Values().withGuildId("1").withBotToken("a-token"),
                 "http://127.0.0.1:" + server.getAddress().getPort());
     }
 

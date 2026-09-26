@@ -3,21 +3,17 @@ package eu.nordtal.s2.papercommon.command;
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Target;
+import eu.nordtal.s2.commands.remote.CommandInbox;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
-import eu.nordtal.s2.commands.remote.CommandInbox;
-
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.Plugin;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 
 /**
  * A Paper plugin's end of the command channel: the inbox, its poll, and its wake-up.
@@ -49,22 +45,27 @@ public final class PaperCommandInbox {
      * @param access   how the admin flag is re-read after a row is claimed - which is a second check
      *                 and not a duplicate, because the flag can change while a request waits
      */
-    public PaperCommandInbox(final Plugin plugin, final Target here,
-                             final CommandRequests requests, final AccessDirectory access) {
+    public PaperCommandInbox(
+            final Plugin plugin, final Target here, final CommandRequests requests, final AccessDirectory access) {
         this(plugin, here, requests, access, sharedBundle(plugin));
     }
 
     /** The same, with a bundle the plugin already built so that it can reload it. */
-    public PaperCommandInbox(final Plugin plugin, final Target here,
-                             final CommandRequests requests, final AccessDirectory access,
-                             final Messages shared) {
+    public PaperCommandInbox(
+            final Plugin plugin,
+            final Target here,
+            final CommandRequests requests,
+            final AccessDirectory access,
+            final Messages shared) {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(access, "access");
         this.messages = Objects.requireNonNull(shared, "shared");
-        this.inbox = new CommandInbox(here, requests, shared,
+        this.inbox = new CommandInbox(
+                here,
+                requests,
+                shared,
                 CommandInbox.AdminCheck.of(access::admins, access::adminMinecraftAccounts),
-                (message, failure) -> plugin.getLogger()
-                        .log(java.util.logging.Level.WARNING, message, failure));
+                (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
     }
 
     /**
@@ -86,9 +87,12 @@ public final class PaperCommandInbox {
      * bundle, and the plugin's layered {@code Messages} already names the genuinely unknown ones.</p>
      */
     public static Messages sharedBundle(final Plugin plugin) {
-        return Messages.load(plugin.getClass().getClassLoader(), "messages/commands",
+        return Messages.load(
+                plugin.getClass().getClassLoader(),
+                "messages/commands",
                 plugin.getDataFolder().toPath().resolve("messages"),
-                java.util.Locale.ENGLISH, java.util.Locale.GERMAN);
+                java.util.Locale.ENGLISH,
+                java.util.Locale.GERMAN);
     }
 
     /**
@@ -108,10 +112,8 @@ public final class PaperCommandInbox {
         }
     }
 
-
     /** Make a command runnable here. Effects must run their work inline - the inbox checks. */
-    public <E extends CommandEffects> PaperCommandInbox register(final NordtalCommand<E> command,
-                                                                 final E effects) {
+    public <E extends CommandEffects> PaperCommandInbox register(final NordtalCommand<E> command, final E effects) {
         inbox.register(command, effects);
         return this;
     }
@@ -125,8 +127,8 @@ public final class PaperCommandInbox {
     public void start(final Plugin plugin) {
         final long ticks = Math.max(20L, POLL.toSeconds() * 20L);
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, inbox::drain, ticks, ticks);
-        plugin.getLogger().info("the command inbox is listening for " + inbox.size()
-                + " command(s) from other processes");
+        plugin.getLogger()
+                .info("the command inbox is listening for " + inbox.size() + " command(s) from other processes");
     }
 
     /** The wake-up, to hand to {@link eu.nordtal.s2.papercommon.access.AdminWatch}'s listener. */

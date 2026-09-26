@@ -1,7 +1,17 @@
 package eu.nordtal.s2.common.audit;
 
-import eu.nordtal.s2.common.access.AccessSchema;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.access.AccessSchema;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,18 +20,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Exercises {@link AuditDirectory} against a real PostgreSQL instance running the real migrations.
@@ -53,7 +51,8 @@ class AuditDirectoryIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed audit tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -152,8 +151,7 @@ class AuditDirectoryIntegrationTest {
     void searchBySubjectOnly() {
         seedFourEntries();
 
-        assertEquals(List.of("alice-revoke", "alice-grant", "alice-link"),
-                details(directory.search(null, ALICE, 10)));
+        assertEquals(List.of("alice-revoke", "alice-grant", "alice-link"), details(directory.search(null, ALICE, 10)));
     }
 
     @Test
@@ -167,7 +165,9 @@ class AuditDirectoryIntegrationTest {
     void searchByNeitherIsTheWholeJournal() {
         seedFourEntries();
 
-        assertEquals(details(directory.recent(10)), details(directory.search(null, null, 10)),
+        assertEquals(
+                details(directory.recent(10)),
+                details(directory.search(null, null, 10)),
                 "no filter must mean exactly what recent means");
     }
 
@@ -175,7 +175,9 @@ class AuditDirectoryIntegrationTest {
     void aBlankFilterCountsAsNoFilter() {
         seedFourEntries();
 
-        assertEquals(details(directory.recent(10)), details(directory.search("", "   ", 10)),
+        assertEquals(
+                details(directory.recent(10)),
+                details(directory.search("", "   ", 10)),
                 "an empty search box and an absent one are the same intention");
         assertEquals(List.of("bob-link", "alice-link"), details(directory.search("LINK", "  ", 10)));
     }
@@ -220,13 +222,17 @@ class AuditDirectoryIntegrationTest {
      * default: several rows written in one transaction would otherwise share it exactly, and the
      * order these tests assert on would be decided by the {@code id} tiebreak alone.
      */
-    private static void entry(final String occurred, final String action, final String actor,
-                              final String subject, final String mcUuid, final String detail) {
+    private static void entry(
+            final String occurred,
+            final String action,
+            final String actor,
+            final String subject,
+            final String mcUuid,
+            final String detail) {
         execute("""
                 INSERT INTO audit_log (occurred, action, actor, subject, mc_uuid, detail)
                 VALUES (now() + interval '%s', '%s', %s, %s, %s, %s)
-                """.formatted(occurred, action,
-                quoted(actor), quoted(subject), mcUuid, detail));
+                """.formatted(occurred, action, quoted(actor), quoted(subject), mcUuid, detail));
     }
 
     private static String quoted(final String value) {
@@ -235,7 +241,7 @@ class AuditDirectoryIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException exception) {
             throw new IllegalStateException("Test setup statement failed: " + sql, exception);

@@ -1,15 +1,14 @@
 package eu.nordtal.s2.hungergames.game;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * A frozen participant must not be kicked for standing still.
@@ -46,7 +45,8 @@ class FrozenPlayersAreNotKickedTest {
     @DisplayName("a participant put on a tower may fly, so vanilla cannot kick them for hovering")
     void theTowerGrantsFlight() {
         final String body = methodBody(read(MANAGER), "private void placeOnTower(");
-        assertTrue(body.contains("setAllowFlight(true)"),
+        assertTrue(
+                body.contains("setAllowFlight(true)"),
                 "placeOnTower has to grant mayfly: the freeze holds a participant above whatever is"
                         + " (or is not) under their tower, and vanilla kicks a hovering player after"
                         + " about five seconds - which the proxy answers by putting them straight"
@@ -57,10 +57,11 @@ class FrozenPlayersAreNotKickedTest {
     @DisplayName("the release takes it back, and lands them first")
     void theReleaseTakesItBack() {
         final String body = methodBody(read(MANAGER), "private void release(");
-        assertTrue(body.contains("setAllowFlight(false)"),
-                "release has to take mayfly back - it was granted for the countdown, not for the"
-                        + " game");
-        assertTrue(body.indexOf("setFlying(false)") >= 0
+        assertTrue(
+                body.contains("setAllowFlight(false)"),
+                "release has to take mayfly back - it was granted for the countdown, not for the" + " game");
+        assertTrue(
+                body.indexOf("setFlying(false)") >= 0
                         && body.indexOf("setFlying(false)") < body.indexOf("setAllowFlight(false)"),
                 "setFlying(false) has to come first: revoking mayfly from somebody who is actually"
                         + " flying drops them, and by this point the freeze is no longer catching"
@@ -71,7 +72,8 @@ class FrozenPlayersAreNotKickedTest {
     @DisplayName("the freeze is still what makes it necessary - it cancels the fall")
     void theFreezeStillHolds() {
         final String source = read(FREEZE);
-        assertTrue(source.contains("hasChangedPosition()") && source.contains("event.setTo(event.getFrom())"),
+        assertTrue(
+                source.contains("hasChangedPosition()") && source.contains("event.setTo(event.getFrom())"),
                 "this test's whole reason is that the freeze cancels position changes, so a"
                         + " participant above air hovers instead of falling. If that stops being"
                         + " true, re-read the two tests above rather than deleting this one");

@@ -1,14 +1,14 @@
 package eu.nordtal.s2.proxy.command;
 
-import com.mojang.brigadier.tree.CommandNode;
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
+import com.mojang.brigadier.tree.CommandNode;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.command.CommandExecuteEvent;
 import com.velocitypowered.api.event.command.PlayerAvailableCommandsEvent;
 import com.velocitypowered.api.event.permission.PermissionsSetupEvent;
 import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.proxy.Player;
-
 import eu.nordtal.s2.common.command.CommandAllowlist;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
@@ -17,16 +17,12 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Tones;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
-import org.slf4j.Logger;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Supplier;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import org.slf4j.Logger;
 
 /**
  * What a player who is not an admin may type, and what they are told exists.
@@ -100,7 +96,7 @@ public final class CommandGate {
 
         /** For as long as nothing plays a real sound here - see the class javadoc above. */
         static Chime silent() {
-            return (player, feedback) -> { };
+            return (player, feedback) -> {};
         }
     }
 
@@ -121,8 +117,8 @@ public final class CommandGate {
     private final CommandAllowlist allowlist;
 
     /** Without a {@link Chime}: silent, which is every existing caller's behaviour unchanged. */
-    public CommandGate(final LoginRoster roster, final CommandAllowlist allowlist,
-                       final Messages messages, final Logger logger) {
+    public CommandGate(
+            final LoginRoster roster, final CommandAllowlist allowlist, final Messages messages, final Logger logger) {
         this(roster, allowlist, messages, logger, Chime.silent());
     }
 
@@ -131,21 +127,32 @@ public final class CommandGate {
      * behaviour unchanged (season-2-ingame/22) - none of them painted anything but the defaults
      * before this ticket.
      */
-    public CommandGate(final LoginRoster roster, final CommandAllowlist allowlist,
-                       final Messages messages, final Logger logger, final Chime chime) {
+    public CommandGate(
+            final LoginRoster roster,
+            final CommandAllowlist allowlist,
+            final Messages messages,
+            final Logger logger,
+            final Chime chime) {
         this(roster, allowlist, messages, logger, () -> ToneColours.DEFAULTS, chime);
     }
 
     /** Without a {@link Chime}: silent - the real caller, {@code ProxyPlugin}, has none yet. */
-    public CommandGate(final LoginRoster roster, final CommandAllowlist allowlist,
-                       final Messages messages, final Logger logger,
-                       final Supplier<ToneColours> colours) {
+    public CommandGate(
+            final LoginRoster roster,
+            final CommandAllowlist allowlist,
+            final Messages messages,
+            final Logger logger,
+            final Supplier<ToneColours> colours) {
         this(roster, allowlist, messages, logger, colours, Chime.silent());
     }
 
-    public CommandGate(final LoginRoster roster, final CommandAllowlist allowlist,
-                       final Messages messages, final Logger logger,
-                       final Supplier<ToneColours> colours, final Chime chime) {
+    public CommandGate(
+            final LoginRoster roster,
+            final CommandAllowlist allowlist,
+            final Messages messages,
+            final Logger logger,
+            final Supplier<ToneColours> colours,
+            final Chime chime) {
         this.roster = Objects.requireNonNull(roster, "roster");
         this.allowlist = Objects.requireNonNull(allowlist, "allowlist");
         this.messages = Objects.requireNonNull(messages, "messages");
@@ -171,8 +178,8 @@ public final class CommandGate {
         if (!(event.getSubject() instanceof Player player)) {
             return;
         }
-        event.setProvider(subject -> permission ->
-                roster.isAdmin(player.getUniqueId()) ? Tristate.TRUE : Tristate.FALSE);
+        event.setProvider(
+                subject -> permission -> roster.isAdmin(player.getUniqueId()) ? Tristate.TRUE : Tristate.FALSE);
     }
 
     /**
@@ -196,7 +203,9 @@ public final class CommandGate {
         }
         event.setResult(CommandExecuteEvent.CommandResult.denied());
         player.sendMessage(Tones.paint(
-                MessageRenderer.of(messages).format(locale(player), MESSAGES.command().unknown()), Tone.BAD,
+                MessageRenderer.of(messages)
+                        .format(locale(player), MESSAGES.command().unknown()),
+                Tone.BAD,
                 colours.get()));
         chime.play(player, Feedback.REFUSED);
     }
@@ -227,8 +236,11 @@ public final class CommandGate {
         }
         remove.forEach(event.getRootNode()::removeChildByName);
         if (!remove.isEmpty()) {
-            logger.debug("Hid {} command(s) from {}: {}", remove.size(),
-                    event.getPlayer().getUsername(), remove);
+            logger.debug(
+                    "Hid {} command(s) from {}: {}",
+                    remove.size(),
+                    event.getPlayer().getUsername(),
+                    remove);
         }
     }
 

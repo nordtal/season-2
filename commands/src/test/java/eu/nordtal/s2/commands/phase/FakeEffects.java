@@ -6,7 +6,6 @@ import eu.nordtal.s2.common.phase.DateChange;
 import eu.nordtal.s2.common.phase.PhaseChange;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.common.phase.SeasonDateRefused;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,11 +28,13 @@ final class FakeEffects implements PhaseEffects, PhaseDirectory {
     RuntimeException readFailure;
     /** Only the two dates fail - the phase itself is readable. */
     RuntimeException datesFailure;
+
     RuntimeException writeFailure;
     SeasonDateRefused dateRefusal;
 
     /** What {@code setSmpStart} reports as moved, so the "somebody else's money" branch is testable. */
     int grants;
+
     int accounts;
 
     Observation observation;

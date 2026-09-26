@@ -1,15 +1,13 @@
 package eu.nordtal.s2.common.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
-
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.postgres.PostgresPlugin;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
  * The only implementation of {@link PhaseDirectory}. Package-private: consumers get it from the
@@ -70,10 +68,9 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
         refusePast(at, "The network cannot open in the past");
         final Instant smpStart = dao.smpStart().orElse(null);
         if (at != null && smpStart != null && smpStart.isBefore(at)) {
-            throw new SeasonDateRefused(
-                    "The network would open on " + SeasonDates.format(at) + ", after paid access"
-                            + " starts running on " + SeasonDates.format(smpStart) + ". Move the"
-                            + " SMP start first, or clear it.");
+            throw new SeasonDateRefused("The network would open on " + SeasonDates.format(at) + ", after paid access"
+                    + " starts running on " + SeasonDates.format(smpStart) + ". Move the"
+                    + " SMP start first, or clear it.");
         }
         return written(dao.setLaunch(at, actor));
     }
@@ -84,19 +81,17 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
         // this check is the admin who has forgotten which phase the network is in, not two admins
         // racing each other.
         if (currentPhase() == SeasonPhase.SMP) {
-            throw new SeasonDateRefused(
-                    "The season is already in SMP, so paid time is being used up right now."
-                            + " Moving the start date would hand somebody days they have played or"
-                            + " take away days they have not. Change it in the database by hand if"
-                            + " you are certain.");
+            throw new SeasonDateRefused("The season is already in SMP, so paid time is being used up right now."
+                    + " Moving the start date would hand somebody days they have played or"
+                    + " take away days they have not. Change it in the database by hand if"
+                    + " you are certain.");
         }
         refusePast(at, "Paid access cannot start running in the past");
         final Instant launch = dao.launch().orElse(null);
         if (at != null && launch != null && at.isBefore(launch)) {
-            throw new SeasonDateRefused(
-                    "Paid access would start running on " + SeasonDates.format(at) + ", before the"
-                            + " network opens on " + SeasonDates.format(launch) + ". Nobody could"
-                            + " use the days in between.");
+            throw new SeasonDateRefused("Paid access would start running on " + SeasonDates.format(at) + ", before the"
+                    + " network opens on " + SeasonDates.format(launch) + ". Nobody could"
+                    + " use the days in between.");
         }
         return written(dao.setSmpStart(at, actor));
     }

@@ -1,27 +1,25 @@
 package eu.nordtal.s2.commands.access;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
-import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Everything {@code /access} decides, without a guild, a bank or a bot.
@@ -47,8 +45,7 @@ class AccessCommandsTest {
         Instant grantedUntil = Instant.parse("2026-12-01T00:00:00Z");
         int revoked = 3;
         boolean unlinked = true;
-        Settled settlement = new Settled(Settlement.BOOKED,
-                Instant.parse("2026-12-01T00:00:00Z"), 60, "OPEN");
+        Settled settlement = new Settled(Settlement.BOOKED, Instant.parse("2026-12-01T00:00:00Z"), 60, "OPEN");
         boolean reloaded = true;
         List<String> unknownKeys = List.of();
         RuntimeException failure;
@@ -117,8 +114,7 @@ class AccessCommandsTest {
 
     private final FakeBot bot = new FakeBot();
 
-    private FakeUser run(final NordtalCommand<AccessEffects> command,
-                         final Map<String, Object> values) {
+    private FakeUser run(final NordtalCommand<AccessEffects> command, final Map<String, Object> values) {
         final FakeUser user = FakeUser.inGame();
         command.run(user, new Values(command.declaration(), values), bot);
         return user;
@@ -140,7 +136,8 @@ class AccessCommandsTest {
     @Test
     @DisplayName("the four that move money or paid time ask first")
     void whatIsIrreversible() {
-        assertEquals(Set.of("/access grant", "/access revoke", "/access unlink", "/access settle"),
+        assertEquals(
+                Set.of("/access grant", "/access revoke", "/access unlink", "/access settle"),
                 AccessCommands.declarations().stream()
                         .filter(Declaration::irreversible)
                         .map(Declaration::name)
@@ -165,11 +162,13 @@ class AccessCommandsTest {
         // included, even though both only read. See AdminCommandsAreConsoleAndWebOnlyTest for the
         // catalogue-wide version of this assertion; this one is the module-local tripwire.
         for (final Declaration declaration : AccessCommands.declarations()) {
-            assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
+            assertTrue(
+                    declaration.surfaces().contains(Surface.CONSOLE),
                     declaration.name() + " lost the console, which must never happen");
-            assertFalse(declaration.surfaces().contains(Surface.GAME),
-                    declaration.name() + " is still reachable in game");
-            assertFalse(declaration.surfaces().contains(Surface.DISCORD),
+            assertFalse(
+                    declaration.surfaces().contains(Surface.GAME), declaration.name() + " is still reachable in game");
+            assertFalse(
+                    declaration.surfaces().contains(Surface.DISCORD),
                     declaration.name() + " is still reachable from Discord");
         }
     }
@@ -183,7 +182,8 @@ class AccessCommandsTest {
         // took Discord off every admin command including those two - so the set this test used to
         // name is now empty, not because steward/25 was undone but because it was overtaken by a
         // broader decision that does not carve out an exception for reading.
-        assertEquals(Set.of(),
+        assertEquals(
+                Set.of(),
                 AccessCommands.declarations().stream()
                         .filter(declaration -> declaration.surfaces().contains(Surface.DISCORD))
                         .map(Declaration::name)
@@ -203,14 +203,14 @@ class AccessCommandsTest {
             final long subjects = declaration.arguments().stream()
                     .filter(argument -> argument.name().equals("member"))
                     .peek(argument -> assertEquals(
-                            eu.nordtal.s2.commands.Argument.Kind.ACCOUNT, argument.kind(),
+                            eu.nordtal.s2.commands.Argument.Kind.ACCOUNT,
+                            argument.kind(),
                             declaration.name() + " resolves its subject through account_link"))
                     .count();
             // Counted, because a filter that matches nothing passes a forEach silently: renaming
             // the argument from `member` to `player` is the exact regression this exists to catch,
             // and it would have left the loop body unreached and the test green.
-            if (declaration == AccessCommands.SETTLE
-                    || declaration == AccessCommands.RELOAD_MESSAGES) {
+            if (declaration == AccessCommands.SETTLE || declaration == AccessCommands.RELOAD_MESSAGES) {
                 assertEquals(0, subjects, declaration.name() + " takes no member");
                 continue;
             }
@@ -224,34 +224,56 @@ class AccessCommandsTest {
         // The link is still a row and the person is gone. Folding the two would send an admin
         // looking for a link that is right there.
         bot.status = null;
-        assertEquals(List.of("access.no-such-member"),
+        assertEquals(
+                List.of("access.no-such-member"),
                 run(new ShowStatus(), Map.of("member", DISCORD)).keys());
     }
 
     @Test
     @DisplayName("status prints the whole account, in message keys rather than English")
     void status() {
-        bot.status = new AccessEffects.Status("Steve",
-                Optional.of(Instant.parse("2026-12-01T00:00:00Z")), true, Locale.GERMAN,
+        bot.status = new AccessEffects.Status(
+                "Steve",
+                Optional.of(Instant.parse("2026-12-01T00:00:00Z")),
+                true,
+                Locale.GERMAN,
                 Optional.of(PLAYER),
-                List.of(new AccessEffects.Grant(Instant.parse("2026-09-01T00:00:00Z"),
-                        Instant.parse("2026-12-01T00:00:00Z"), "PURCHASE", false)),
+                List.of(new AccessEffects.Grant(
+                        Instant.parse("2026-09-01T00:00:00Z"),
+                        Instant.parse("2026-12-01T00:00:00Z"),
+                        "PURCHASE",
+                        false)),
                 List.of(new AccessEffects.Purchase("NT-A1B2C3", 60, "5.00", "PAID")));
 
-        assertEquals(List.of("access.header", "access.until", "access.donor", "access.language",
-                        "access.linked", "access.grants.header", "access.grants.line",
-                        "access.purchases.header", "access.purchases.line"),
+        assertEquals(
+                List.of(
+                        "access.header",
+                        "access.until",
+                        "access.donor",
+                        "access.language",
+                        "access.linked",
+                        "access.grants.header",
+                        "access.grants.line",
+                        "access.purchases.header",
+                        "access.purchases.line"),
                 run(new ShowStatus(), Map.of("member", DISCORD)).keys());
     }
 
     @Test
     @DisplayName("an account with nothing on it still says so line by line")
     void anEmptyAccount() {
-        bot.status = new AccessEffects.Status("Steve", Optional.empty(), false, Locale.ENGLISH,
-                Optional.empty(), List.of(), List.of());
+        bot.status = new AccessEffects.Status(
+                "Steve", Optional.empty(), false, Locale.ENGLISH, Optional.empty(), List.of(), List.of());
 
-        assertEquals(List.of("access.header", "access.none", "access.donor", "access.language",
-                        "access.linked", "access.grants.none", "access.purchases.none"),
+        assertEquals(
+                List.of(
+                        "access.header",
+                        "access.none",
+                        "access.donor",
+                        "access.language",
+                        "access.linked",
+                        "access.grants.none",
+                        "access.purchases.none"),
                 run(new ShowStatus(), Map.of("member", DISCORD)).keys());
     }
 
@@ -271,7 +293,8 @@ class AccessCommandsTest {
         // "Revoked 0 grant(s)" is a sentence an admin has to work out. An admin who ran this on the
         // wrong person should be told nothing happened.
         bot.revoked = 0;
-        assertEquals(List.of("access.revoked.none"),
+        assertEquals(
+                List.of("access.revoked.none"),
                 run(new RevokeAccess(), Map.of("member", DISCORD)).keys());
 
         bot.revoked = 2;
@@ -284,19 +307,19 @@ class AccessCommandsTest {
     @DisplayName("the three ways a settlement ends are three sentences")
     void settle() {
         bot.settlement = new AccessEffects.Settled(AccessEffects.Settlement.UNKNOWN, null, 0, null);
-        assertEquals(List.of("access.settle.unknown"),
+        assertEquals(
+                List.of("access.settle.unknown"),
                 run(new SettlePayment(), Map.of("reference", "NT-ZZZZZZ")).keys());
 
         // Not open is the automatic path having already dealt with it - the opposite problem from a
         // typo, so it names the status rather than sharing a sentence.
-        bot.settlement = new AccessEffects.Settled(AccessEffects.Settlement.NOT_OPEN, null, 60,
-                "PAID");
+        bot.settlement = new AccessEffects.Settled(AccessEffects.Settlement.NOT_OPEN, null, 60, "PAID");
         final FakeUser notOpen = run(new SettlePayment(), Map.of("reference", "NT-A1B2C3"));
         assertEquals("access.settle.not-open", notOpen.only().key());
         assertEquals("PAID", notOpen.only().of("status"));
 
-        bot.settlement = new AccessEffects.Settled(AccessEffects.Settlement.BOOKED,
-                Instant.parse("2026-12-01T00:00:00Z"), 60, "OPEN");
+        bot.settlement = new AccessEffects.Settled(
+                AccessEffects.Settlement.BOOKED, Instant.parse("2026-12-01T00:00:00Z"), 60, "OPEN");
         final FakeUser booked = run(new SettlePayment(), Map.of("reference", "NT-A1B2C3"));
         assertEquals("access.settle.booked", booked.only().key());
         assertEquals(60, booked.only().of("days"));
@@ -307,7 +330,8 @@ class AccessCommandsTest {
     void reload() {
         // An override key nothing declares is stored and never used, which looks exactly like one
         // that works. The moment somebody edits the file is the only time saying so is useful.
-        assertEquals(List.of("access.messages.reloaded"),
+        assertEquals(
+                List.of("access.messages.reloaded"),
                 run(new ReloadBotMessages(), Map.of()).keys());
 
         bot.unknownKeys = List.of("smp.admin.reloaded.typo");
@@ -316,7 +340,8 @@ class AccessCommandsTest {
         assertEquals("smp.admin.reloaded.typo", user.only().of("keys"));
 
         bot.reloaded = false;
-        assertEquals(List.of("access.messages.reload-failed"),
+        assertEquals(
+                List.of("access.messages.reload-failed"),
                 run(new ReloadBotMessages(), Map.of()).keys());
     }
 
@@ -324,7 +349,8 @@ class AccessCommandsTest {
     @DisplayName("a database that does not answer changes nothing and says so")
     void aFailureChangesNothing() {
         bot.failure = new IllegalStateException("connection refused");
-        assertEquals(List.of("access.failed"),
+        assertEquals(
+                List.of("access.failed"),
                 run(new ShowStatus(), Map.of("member", DISCORD)).keys());
         assertEquals(List.of(), bot.did);
     }

@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.remote;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
@@ -7,9 +9,8 @@ import eu.nordtal.s2.common.command.CommandOutcome;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.command.NewCommandRequest;
 import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.Locales;
-
+import eu.nordtal.s2.common.message.Tone;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -17,8 +18,6 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * The near end of a travelling command: write the request, wait for the answer, say it.
@@ -63,14 +62,20 @@ public final class Outbox {
     private final Duration poll;
     private final BiConsumer<String, Throwable> warn;
 
-    public Outbox(final CommandRequests requests, final ScheduledExecutorService scheduler,
-                  final BiConsumer<String, Throwable> warn) {
+    public Outbox(
+            final CommandRequests requests,
+            final ScheduledExecutorService scheduler,
+            final BiConsumer<String, Throwable> warn) {
         this(requests, scheduler, TIMEOUT, POLL, warn);
     }
 
     /** Package-visible timings, so a test can run the whole wait in milliseconds. */
-    Outbox(final CommandRequests requests, final ScheduledExecutorService scheduler,
-           final Duration timeout, final Duration poll, final BiConsumer<String, Throwable> warn) {
+    Outbox(
+            final CommandRequests requests,
+            final ScheduledExecutorService scheduler,
+            final Duration timeout,
+            final Duration poll,
+            final BiConsumer<String, Throwable> warn) {
         this.requests = Objects.requireNonNull(requests, "requests");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.timeout = Objects.requireNonNull(timeout, "timeout");
@@ -109,10 +114,8 @@ public final class Outbox {
                         arguments,
                         user.origin().name(),
                         user.name(),
-                        user.origin() == NordtalUser.Origin.CONSOLE
-                                ? Optional.empty() : user.discordId(),
-                        user.origin() == NordtalUser.Origin.CONSOLE
-                                ? Optional.empty() : user.minecraftUuid(),
+                        user.origin() == NordtalUser.Origin.CONSOLE ? Optional.empty() : user.discordId(),
+                        user.origin() == NordtalUser.Origin.CONSOLE ? Optional.empty() : user.minecraftUuid(),
                         Locales.tag(user.locale()),
                         Instant.now().plus(timeout)));
             } catch (final RuntimeException failure) {
@@ -123,65 +126,74 @@ public final class Outbox {
             // MUTED: it is the receipt before the wait, not the answer. Colouring it like news
             // would make the line that says nothing yet the brightest one in the exchange.
             user.reply(
-                    MESSAGES.command().remote().sent(user.phrase(declaration.target().message())), Tone.MUTED);
+                    MESSAGES.command()
+                            .remote()
+                            .sent(user.phrase(declaration.target().message())),
+                    Tone.MUTED);
             await(id, declaration, user, Instant.now().plus(timeout));
         });
     }
 
-    private void await(final long id, final Declaration declaration, final NordtalUser user,
-                       final Instant deadline) {
-        scheduler.schedule(() -> {
-            final Optional<CommandOutcome> outcome;
-            try {
-                outcome = requests.outcome(id);
-            } catch (final RuntimeException failure) {
-                warn.accept("could not read the outcome of " + declaration.name(), failure);
-                user.reply(MESSAGES.command().remote().failed(), Feedback.REFUSED, Tone.BAD);
-                return;
-            }
+    private void await(final long id, final Declaration declaration, final NordtalUser user, final Instant deadline) {
+        scheduler.schedule(
+                () -> {
+                    final Optional<CommandOutcome> outcome;
+                    try {
+                        outcome = requests.outcome(id);
+                    } catch (final RuntimeException failure) {
+                        warn.accept("could not read the outcome of " + declaration.name(), failure);
+                        user.reply(MESSAGES.command().remote().failed(), Feedback.REFUSED, Tone.BAD);
+                        return;
+                    }
 
-            if (outcome.isEmpty()) {
-                // The row is gone. Nothing in this repository deletes one, so this is a database
-                // somebody has been in by hand - worth a log line and a plain refusal.
-                warn.accept("command request " + id + " vanished while waiting for it", null);
-                user.reply(MESSAGES.command().remote().failed(), Feedback.REFUSED, Tone.BAD);
-                return;
-            }
+                    if (outcome.isEmpty()) {
+                        // The row is gone. Nothing in this repository deletes one, so this is a database
+                        // somebody has been in by hand - worth a log line and a plain refusal.
+                        warn.accept("command request " + id + " vanished while waiting for it", null);
+                        user.reply(MESSAGES.command().remote().failed(), Feedback.REFUSED, Tone.BAD);
+                        return;
+                    }
 
-            final CommandOutcome answer = outcome.get();
-            if (!answer.pending()) {
-                deliver(answer, user);
-                return;
-            }
+                    final CommandOutcome answer = outcome.get();
+                    if (!answer.pending()) {
+                        deliver(answer, user);
+                        return;
+                    }
 
-            if (Instant.now().isBefore(deadline)) {
-                await(id, declaration, user, deadline);
-                return;
-            }
+                    if (Instant.now().isBefore(deadline)) {
+                        await(id, declaration, user, deadline);
+                        return;
+                    }
 
-            final boolean gaveUp;
-            try {
-                gaveUp = requests.expire(id);
-            } catch (final RuntimeException failure) {
-                // The one call in this loop that used to be unguarded, and it runs exactly once per
-                // command - at the deadline, which is the moment a wobbling database is most likely
-                // to be why the deadline was reached. An exception here killed the scheduled task
-                // silently and the asker was left with no answer at all.
-                warn.accept("could not expire " + declaration.name(), failure);
-                user.reply(MESSAGES.command().remote().failed(), Feedback.REFUSED, Tone.BAD);
-                return;
-            }
+                    final boolean gaveUp;
+                    try {
+                        gaveUp = requests.expire(id);
+                    } catch (final RuntimeException failure) {
+                        // The one call in this loop that used to be unguarded, and it runs exactly once per
+                        // command - at the deadline, which is the moment a wobbling database is most likely
+                        // to be why the deadline was reached. An exception here killed the scheduled task
+                        // silently and the asker was left with no answer at all.
+                        warn.accept("could not expire " + declaration.name(), failure);
+                        user.reply(MESSAGES.command().remote().failed(), Feedback.REFUSED, Tone.BAD);
+                        return;
+                    }
 
-            if (gaveUp) {
-                user.reply(MESSAGES.command().remote().noAnswer(user.phrase(declaration.target().message())),
-                        Feedback.REFUSED, Tone.BAD);
-            } else {
-                // Lost the race, which is the good outcome: it was claimed while the deadline
-                // passed and is running now. The answer just is not coming back here.
-                user.reply(MESSAGES.command().remote().stillRunning(), Feedback.SMALL_SUCCESS,
-                        Tone.WARN);
-            }
-        }, poll.toMillis(), TimeUnit.MILLISECONDS);
+                    if (gaveUp) {
+                        user.reply(
+                                MESSAGES.command()
+                                        .remote()
+                                        .noAnswer(
+                                                user.phrase(declaration.target().message())),
+                                Feedback.REFUSED,
+                                Tone.BAD);
+                    } else {
+                        // Lost the race, which is the good outcome: it was claimed while the deadline
+                        // passed and is running now. The answer just is not coming back here.
+                        user.reply(MESSAGES.command().remote().stillRunning(), Feedback.SMALL_SUCCESS, Tone.WARN);
+                    }
+                },
+                poll.toMillis(),
+                TimeUnit.MILLISECONDS);
     }
 
     private static void deliver(final CommandOutcome outcome, final NordtalUser user) {

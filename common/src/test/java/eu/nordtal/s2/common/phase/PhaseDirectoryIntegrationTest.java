@@ -1,19 +1,15 @@
 package eu.nordtal.s2.common.phase;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessSchema;
-
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.postgresql.PGConnection;
-import org.postgresql.PGNotification;
-import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
-
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -24,14 +20,16 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.postgresql.PGConnection;
+import org.postgresql.PGNotification;
+import org.postgresql.ds.PGSimpleDataSource;
+import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Exercises {@link PhaseDirectory} against a real PostgreSQL instance running the real migrations.
@@ -61,7 +59,8 @@ class PhaseDirectoryIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed phase tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -116,15 +115,17 @@ class PhaseDirectoryIntegrationTest {
     @Test
     void aSecondRowCannotBeInsertedAtAll() {
         // Taking the default id: the boolean primary key is already true.
-        final SQLException duplicate = assertThrows(SQLException.class,
-                () -> executeChecked("INSERT INTO season_phase (phase) VALUES ('SMP')"));
-        assertTrue(duplicate.getMessage().contains("season_phase_pkey"),
+        final SQLException duplicate = assertThrows(
+                SQLException.class, () -> executeChecked("INSERT INTO season_phase (phase) VALUES ('SMP')"));
+        assertTrue(
+                duplicate.getMessage().contains("season_phase_pkey"),
                 "the primary key is the first half of the singleton: " + duplicate.getMessage());
 
         // Dodging the primary key by picking the other boolean value: the CHECK is the other half.
-        final SQLException checkViolation = assertThrows(SQLException.class,
-                () -> executeChecked("INSERT INTO season_phase (id, phase) VALUES (false, 'SMP')"));
-        assertTrue(checkViolation.getMessage().contains("season_phase_singleton"),
+        final SQLException checkViolation = assertThrows(
+                SQLException.class, () -> executeChecked("INSERT INTO season_phase (id, phase) VALUES (false, 'SMP')"));
+        assertTrue(
+                checkViolation.getMessage().contains("season_phase_singleton"),
                 "the CHECK is what stops the second row from sneaking in as id = false: "
                         + checkViolation.getMessage());
 
@@ -137,13 +138,14 @@ class PhaseDirectoryIntegrationTest {
         // The documented last resort during an outage is an UPDATE on this row by hand. The CHECK
         // is what stops a typo in that UPDATE - a hyphen for an underscore, at three in the
         // morning - from putting the network into a phase no process can interpret.
-        final SQLException failure = assertThrows(SQLException.class,
-                () -> executeChecked("UPDATE season_phase SET phase = 'START-EVENT' WHERE id"));
+        final SQLException failure = assertThrows(
+                SQLException.class, () -> executeChecked("UPDATE season_phase SET phase = 'START-EVENT' WHERE id"));
         assertTrue(failure.getMessage().contains("season_phase_phase_check"), failure.getMessage());
 
         // The column is varchar(16), so anything longer than a phase name is refused before the
         // CHECK is even reached. Season 1's retired RESOURCE_PACK_INSTALL is 21 characters.
-        final SQLException tooLong = assertThrows(SQLException.class,
+        final SQLException tooLong = assertThrows(
+                SQLException.class,
                 () -> executeChecked("UPDATE season_phase SET phase = 'RESOURCE_PACK_INSTALL' WHERE id"));
         assertTrue(tooLong.getMessage().contains("character varying(16)"), tooLong.getMessage());
 
@@ -154,7 +156,9 @@ class PhaseDirectoryIntegrationTest {
     void aHandWrittenUpdateIsPickedUpByTheNextRead() {
         execute("UPDATE season_phase SET phase = 'SMP' WHERE id");
 
-        assertEquals(SeasonPhase.SMP, phases.currentPhase(),
+        assertEquals(
+                SeasonPhase.SMP,
+                phases.currentPhase(),
                 "nobody caches the phase as truth - the escape hatch depends on it");
     }
 
@@ -212,7 +216,9 @@ class PhaseDirectoryIntegrationTest {
                 FROM audit_log
                 """);
 
-        assertEquals(List.of("SET_PHASE|" + ADMIN_ID + "|PRE_EVENT -> SMP (the winner is crowned)"), rows,
+        assertEquals(
+                List.of("SET_PHASE|" + ADMIN_ID + "|PRE_EVENT -> SMP (the winner is crowned)"),
+                rows,
                 "the audit entry is part of the same statement as the update - there is no way to "
                         + "issue one without the other, which is the point of a single switch method");
     }
@@ -233,7 +239,9 @@ class PhaseDirectoryIntegrationTest {
 
         assertTrue(change.unchanged());
         assertEquals(SeasonPhase.PRE_EVENT, change.current());
-        assertEquals(List.of("PRE_EVENT -> PRE_EVENT"), query("SELECT detail FROM audit_log"),
+        assertEquals(
+                List.of("PRE_EVENT -> PRE_EVENT"),
+                query("SELECT detail FROM audit_log"),
                 "a switch that changed nothing is still something a human may need to see afterwards");
     }
 
@@ -246,9 +254,8 @@ class PhaseDirectoryIntegrationTest {
         // Compared as a set: audit_log has no sequence and `occurred` is the transaction timestamp,
         // so three separate statements are only microseconds apart. What is being proved is that
         // there are three rows and which three, not the order PostgreSQL happens to return them in.
-        assertEquals(Set.of("PRE_EVENT -> START_EVENT",
-                        "START_EVENT -> SMP",
-                        "SMP -> MAINTENANCE (database maintenance)"),
+        assertEquals(
+                Set.of("PRE_EVENT -> START_EVENT", "START_EVENT -> SMP", "SMP -> MAINTENANCE (database maintenance)"),
                 Set.copyOf(query("SELECT detail FROM audit_log")));
         assertEquals(3, count("SELECT count(*) FROM audit_log"));
         assertEquals(SeasonPhase.MAINTENANCE, phases.currentPhase());
@@ -258,13 +265,16 @@ class PhaseDirectoryIntegrationTest {
     void aSwitchThatFindsNoRowWritesNothingAtAll() {
         execute("DELETE FROM season_phase");
 
-        assertThrows(IllegalStateException.class,
-                () -> phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null));
+        assertThrows(IllegalStateException.class, () -> phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null));
 
-        assertEquals(0, count("SELECT count(*) FROM audit_log"),
+        assertEquals(
+                0,
+                count("SELECT count(*) FROM audit_log"),
                 "no update means no audit entry - the two are one statement, so a failed switch "
                         + "cannot leave a record of something that did not happen");
-        assertEquals(SeasonPhase.MAINTENANCE, phases.currentPhase(),
+        assertEquals(
+                SeasonPhase.MAINTENANCE,
+                phases.currentPhase(),
                 "a phase that cannot be read is MAINTENANCE: the state that lets nobody in is the "
                         + "safe one to guess");
     }
@@ -286,7 +296,9 @@ class PhaseDirectoryIntegrationTest {
             assertNotNull(notifications, "no notification arrived on nordtal_phase within the timeout");
             assertEquals(1, notifications.length);
             assertEquals("nordtal_phase", notifications[0].getName());
-            assertEquals("", notifications[0].getParameter(),
+            assertEquals(
+                    "",
+                    notifications[0].getParameter(),
                     "no payload on purpose - a listener has to re-read the row, because "
                             + "notifications are lost while it is disconnected");
         }
@@ -345,12 +357,12 @@ class PhaseDirectoryIntegrationTest {
         phases.setLaunch(Instant.now().plus(Duration.ofDays(10)), ADMIN_ID);
 
         // The SMP cannot start running before the network it runs on is open.
-        assertThrows(SeasonDateRefused.class,
-                () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(3)), ADMIN_ID));
+        assertThrows(
+                SeasonDateRefused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(3)), ADMIN_ID));
         // And the opening cannot be moved past a start that is already announced.
         phases.setSmpStart(Instant.now().plus(Duration.ofDays(17)), ADMIN_ID);
-        assertThrows(SeasonDateRefused.class,
-                () -> phases.setLaunch(Instant.now().plus(Duration.ofDays(20)), ADMIN_ID));
+        assertThrows(
+                SeasonDateRefused.class, () -> phases.setLaunch(Instant.now().plus(Duration.ofDays(20)), ADMIN_ID));
     }
 
     // ---------------------------------------------------------------- what moves with smp_start
@@ -380,8 +392,8 @@ class PhaseDirectoryIntegrationTest {
         // Anchored on the first period's real end rather than on now() a second time - two
         // statements see two different now()s, and the append rule this imitates chains on
         // max(valid_until) for exactly that reason.
-        final String endOfTheFirst = "(SELECT max(valid_until) FROM access_grant"
-                + " WHERE discord_id = '400000000000000002')";
+        final String endOfTheFirst =
+                "(SELECT max(valid_until) FROM access_grant" + " WHERE discord_id = '400000000000000002')";
         grant("400000000000000002", endOfTheFirst, endOfTheFirst + " + make_interval(hours => 720)");
         final Instant opening = Instant.now().plus(Duration.ofDays(20));
 
@@ -390,16 +402,17 @@ class PhaseDirectoryIntegrationTest {
         assertEquals(2, change.grants());
         assertEquals(1, change.accounts(), "one person, two periods");
         assertWithinSeconds(opening, earliestFrom("400000000000000002"), 2);
-        assertWithinSeconds(opening.plus(Duration.ofDays(60)),
-                latestUntil("400000000000000002"), 2);
+        assertWithinSeconds(opening.plus(Duration.ofDays(60)), latestUntil("400000000000000002"), 2);
         // Nothing but the earliest period may start anywhere other than where the earliest one
         // ends - which with two periods is the whole of "still stacked, and with no gap".
-        assertEquals(0, count("SELECT count(*) FROM access_grant later"
-                + " WHERE later.discord_id = '400000000000000002'"
-                + "   AND later.valid_from <> (SELECT min(valid_from) FROM access_grant"
-                + "                            WHERE discord_id = '400000000000000002')"
-                + "   AND later.valid_from <> (SELECT min(valid_until) FROM access_grant"
-                + "                            WHERE discord_id = '400000000000000002')"),
+        assertEquals(
+                0,
+                count("SELECT count(*) FROM access_grant later"
+                        + " WHERE later.discord_id = '400000000000000002'"
+                        + "   AND later.valid_from <> (SELECT min(valid_from) FROM access_grant"
+                        + "                            WHERE discord_id = '400000000000000002')"
+                        + "   AND later.valid_from <> (SELECT min(valid_until) FROM access_grant"
+                        + "                            WHERE discord_id = '400000000000000002')"),
                 "the second period must still begin exactly where the first one ends");
     }
 
@@ -429,7 +442,8 @@ class PhaseDirectoryIntegrationTest {
         final Instant first = Instant.now().plus(Duration.ofDays(10));
         phases.setSmpStart(first, ADMIN_ID);
         user("400000000000000005");
-        grant("400000000000000005",
+        grant(
+                "400000000000000005",
                 "(SELECT smp_start FROM season_phase WHERE id)",
                 "(SELECT smp_start FROM season_phase WHERE id) + make_interval(hours => 720)");
 
@@ -458,7 +472,8 @@ class PhaseDirectoryIntegrationTest {
     void clearingTheDateMovesNothing() {
         phases.setSmpStart(Instant.now().plus(Duration.ofDays(10)), ADMIN_ID);
         user("400000000000000007");
-        grant("400000000000000007",
+        grant(
+                "400000000000000007",
                 "(SELECT smp_start FROM season_phase WHERE id)",
                 "(SELECT smp_start FROM season_phase WHERE id) + make_interval(hours => 720)");
         final Instant before = validFrom("400000000000000007");
@@ -487,8 +502,8 @@ class PhaseDirectoryIntegrationTest {
     void onceTheSeasonIsRunningTheDateIsRefused() {
         phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, "test");
 
-        assertThrows(SeasonDateRefused.class,
-                () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(5)), ADMIN_ID));
+        assertThrows(
+                SeasonDateRefused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(5)), ADMIN_ID));
 
         assertTrue(phases.smpStart().isEmpty());
     }
@@ -496,14 +511,13 @@ class PhaseDirectoryIntegrationTest {
     // ---------------------------------------------------------------- helpers
 
     private static void user(final String discordId) {
-        execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')"
-                + " ON CONFLICT DO NOTHING");
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')" + " ON CONFLICT DO NOTHING");
     }
 
     /** {@code from} and {@code until} are SQL expressions, so a test can anchor on the row itself. */
     private static void grant(final String discordId, final String from, final String until) {
-        execute("INSERT INTO access_grant (discord_id, valid_from, valid_until, source)"
-                + " VALUES ('" + discordId + "', " + from + ", " + until + ", 'ADMIN')");
+        execute("INSERT INTO access_grant (discord_id, valid_from, valid_until, source)" + " VALUES ('" + discordId
+                + "', " + from + ", " + until + ", 'ADMIN')");
     }
 
     private static Instant validFrom(final String discordId) {
@@ -515,19 +529,17 @@ class PhaseDirectoryIntegrationTest {
     }
 
     private static Instant earliestFrom(final String discordId) {
-        return instant("SELECT min(valid_from) FROM access_grant WHERE discord_id = '"
-                + discordId + "'");
+        return instant("SELECT min(valid_from) FROM access_grant WHERE discord_id = '" + discordId + "'");
     }
 
     private static Instant latestUntil(final String discordId) {
-        return instant("SELECT max(valid_until) FROM access_grant WHERE discord_id = '"
-                + discordId + "'");
+        return instant("SELECT max(valid_until) FROM access_grant WHERE discord_id = '" + discordId + "'");
     }
 
     private static Instant instant(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
             assertTrue(rs.next(), "no row for: " + sql);
             final OffsetDateTime value = rs.getObject(1, OffsetDateTime.class);
             return value == null ? null : value.toInstant();
@@ -546,7 +558,7 @@ class PhaseDirectoryIntegrationTest {
 
     private static void executeChecked(final String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }
@@ -557,8 +569,8 @@ class PhaseDirectoryIntegrationTest {
 
     private static List<String> query(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
             final List<String> values = new ArrayList<>();
             while (rs.next()) {
                 values.add(rs.getString(1));
@@ -572,7 +584,8 @@ class PhaseDirectoryIntegrationTest {
     private static void assertWithinSeconds(final Instant expected, final Instant actual, final long tolerance) {
         assertNotNull(actual, "expected a timestamp around " + expected + ", got null");
         final long off = Math.abs(Duration.between(expected, actual).toSeconds());
-        assertTrue(off <= tolerance,
+        assertTrue(
+                off <= tolerance,
                 "expected " + actual + " to be within " + tolerance + "s of " + expected + ", was off by " + off + "s");
     }
 }

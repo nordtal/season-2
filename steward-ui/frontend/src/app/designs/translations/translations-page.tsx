@@ -38,7 +38,8 @@ export function translationsSearch(search: Record<string, unknown>): Translation
   const answer: TranslationsSearch = {}
   if (typeof search.bundle === "string" && search.bundle) answer.bundle = search.bundle
   if (typeof search.key === "string" && search.key) answer.key = search.key
-  if (search.editor === "visual" || search.editor === "source" || search.editor === "segments") answer.editor = search.editor
+  if (search.editor === "visual" || search.editor === "source" || search.editor === "segments")
+    answer.editor = search.editor
   if (search.lang === "en" || search.lang === "de") answer.lang = search.lang
   return answer
 }
@@ -79,7 +80,11 @@ export function TranslationsPage() {
             ))}
           </SelectContent>
         </Select>
-        <KeyPicker entries={bundle.data?.entries ?? []} value={search.key ?? DEFAULT_KEY} onPick={(key) => go({ key })} />
+        <KeyPicker
+          entries={bundle.data?.entries ?? []}
+          value={search.key ?? DEFAULT_KEY}
+          onPick={(key) => go({ key })}
+        />
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <Tabs value={editor} onValueChange={(value) => go({ editor: value as Editor })}>
@@ -101,16 +106,33 @@ export function TranslationsPage() {
       </div>
       <QueryState query={bundle} rows={6}>
         {(data) => {
-          const entry = data.entries.find((candidate) => candidate.key === (search.key ?? DEFAULT_KEY)) ?? data.entries[0]
+          const entry =
+            data.entries.find((candidate) => candidate.key === (search.key ?? DEFAULT_KEY)) ?? data.entries[0]
           if (!entry) return null
-          return <Workbench key={`${data.path} ${entry.key} ${language}`} bundle={data} entry={entry} language={language} editor={editor} />
+          return (
+            <Workbench
+              key={`${data.path} ${entry.key} ${language}`}
+              bundle={data}
+              entry={entry}
+              language={language}
+              editor={editor}
+            />
+          )
         }}
       </QueryState>
     </div>
   )
 }
 
-function KeyPicker({ entries, value, onPick }: { entries: MessageEntry[]; value: string; onPick: (key: string) => void }) {
+function KeyPicker({
+  entries,
+  value,
+  onPick,
+}: {
+  entries: MessageEntry[]
+  value: string
+  onPick: (key: string) => void
+}) {
   const [open, setOpen] = useState(false)
   const current = entries.find((entry) => entry.key === value)
   return (
@@ -147,7 +169,17 @@ function KeyPicker({ entries, value, onPick }: { entries: MessageEntry[]; value:
   )
 }
 
-function Workbench({ bundle, entry, language, editor }: { bundle: MessageBundle; entry: MessageEntry; language: Language; editor: Editor }) {
+function Workbench({
+  bundle,
+  entry,
+  language,
+  editor,
+}: {
+  bundle: MessageBundle
+  entry: MessageEntry
+  language: Language
+  editor: Editor
+}) {
   const packaged = packagedOf(entry, language) ?? ""
   const stored = overrideOf(entry, language) ?? packaged
   const [text, setText] = useState(stored)
@@ -183,7 +215,11 @@ function Workbench({ bundle, entry, language, editor }: { bundle: MessageBundle;
         {body}
         {unknown.length > 0 ? <p className="text-sm text-destructive">{unknown.join(" ")}</p> : null}
         <div className="flex flex-wrap gap-2">
-          <Button type="button" disabled={!changed || unknown.length > 0 || save.isPending || !bundle.writable} onClick={() => write(text === packaged ? null : text)}>
+          <Button
+            type="button"
+            disabled={!changed || unknown.length > 0 || save.isPending || !bundle.writable}
+            onClick={() => write(text === packaged ? null : text)}
+          >
             Save
           </Button>
           <Button type="button" variant="outline" disabled={!changed} onClick={() => setText(stored)}>
@@ -205,8 +241,17 @@ function Workbench({ bundle, entry, language, editor }: { bundle: MessageBundle;
         </div>
       </section>
       <section className="flex min-w-0 flex-col gap-2">
-        <Preview runs={previewRuns} format={format} shown={entry.shown} keyName={entry.key} fill={fill} glyphs={glyphs} />
-        <pre className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2 font-mono text-xs whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">{text}</pre>
+        <Preview
+          runs={previewRuns}
+          format={format}
+          shown={entry.shown}
+          keyName={entry.key}
+          fill={fill}
+          glyphs={glyphs}
+        />
+        <pre className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2 font-mono text-xs whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
+          {text}
+        </pre>
       </section>
     </div>
   )
@@ -219,7 +264,13 @@ function Workbench({ bundle, entry, language, editor }: { bundle: MessageBundle;
  * A text whose runs read the same as what was stored is written back as it was stored, so opening
  * and closing a text in the visual editor never rewrites how its tags are nested.
  */
-function useRuns(text: string, format: Format, args: MessageArg[], stored: string, setText: (text: string) => void): [Run[], (runs: Run[]) => void] {
+function useRuns(
+  text: string,
+  format: Format,
+  args: MessageArg[],
+  stored: string,
+  setText: (text: string) => void,
+): [Run[], (runs: Run[]) => void] {
   const [runs, setLocal] = useState<Run[]>(() => parse(text, format, args))
   const written = useRef(text)
   const original = useMemo(() => parse(stored, format, args), [stored, format, args])

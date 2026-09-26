@@ -1,5 +1,8 @@
 package eu.nordtal.s2.steward.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Gate;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
@@ -15,19 +18,15 @@ import io.javalin.http.HandlerType;
 import io.javalin.router.Endpoint;
 import io.javalin.security.Roles;
 import io.javalin.security.RouteRole;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * A route that nobody decided about breaks the build.
@@ -69,51 +68,45 @@ class GateTest {
         final UiSpec config = new UiSpec() {
             @Override
             public WorkerSpec worker() {
-                return new WorkerSpec() {
-                };
+                return new WorkerSpec() {};
             }
 
             @Override
             public DiscordSpec discord() {
-                return new DiscordSpec() {
-                };
+                return new DiscordSpec() {};
             }
 
             @Override
             public AlertSpec alerts() {
-                return new AlertSpec() {
-                };
+                return new AlertSpec() {};
             }
 
             @Override
             public DeployerSpec deployer() {
-                return new DeployerSpec() {
-                };
+                return new DeployerSpec() {};
             }
 
             @Override
             public WebAuthnSpec webauthn() {
-                return new WebAuthnSpec() {
-                };
+                return new WebAuthnSpec() {};
             }
 
             @Override
             public AvatarSpec avatars() {
-                return new AvatarSpec() {
-                };
+                return new AvatarSpec() {};
             }
 
             @Override
             public WebPushSpec webPush() {
-                return new WebPushSpec() {
-                };
+                return new WebPushSpec() {};
             }
         };
-        app = new StewardUi(config,
-                new DiscordAuth(config.discord(), config.publicUrl()),
-                new InternalClient("steward-worker", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
-                new InternalClient("steward-deployer", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
-                null)
+        app = new StewardUi(
+                        config,
+                        new DiscordAuth(config.discord(), config.publicUrl()),
+                        new InternalClient("steward-worker", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
+                        new InternalClient("steward-deployer", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
+                        null)
                 // Port 0: the operating system picks a free one. A fixed port here would be a test
                 // that fails when somebody runs two of them, or the interface, at the same time.
                 .start(0);
@@ -131,12 +124,14 @@ class GateTest {
     void everyRouteCarriesExactlyOneDecision() {
         final List<String> undecided = new ArrayList<>();
         for (final Endpoint endpoint : endpoints()) {
-            final long decided = rolesOf(endpoint).stream().filter(Gate.class::isInstance).count();
+            final long decided =
+                    rolesOf(endpoint).stream().filter(Gate.class::isInstance).count();
             if (decided != 1) {
                 undecided.add(endpoint.method + " " + endpoint.path + " carries " + decided);
             }
         }
-        assertTrue(undecided.isEmpty(),
+        assertTrue(
+                undecided.isEmpty(),
                 "Every route in Steward has to say whether it needs a security key, and these do"
                         + " not - add a Gate value to the line that registers each of them:\n  "
                         + String.join("\n  ", undecided));
@@ -177,7 +172,8 @@ class GateTest {
                 loose.add(named + " is in the exception list AND behind the key - decide which");
             }
         }
-        assertTrue(loose.isEmpty(),
+        assertTrue(
+                loose.isEmpty(),
                 "Every writing route needs the key held in the last five minutes, unless it is one"
                         + " of the five that hand the key out. These are neither:\n  "
                         + String.join("\n  ", loose));
@@ -212,7 +208,8 @@ class GateTest {
                 loose.add(named + " is open to anybody");
             }
         }
-        assertTrue(loose.isEmpty(),
+        assertTrue(
+                loose.isEmpty(),
                 "A reading route open to anybody shows a stranger something. These are new:\n  "
                         + String.join("\n  ", loose));
     }
@@ -223,10 +220,12 @@ class GateTest {
         // A GateTest that enumerates nothing is a GateTest that is green about nothing, and that is
         // exactly how a check of this shape dies: somebody changes how routes are registered, the
         // list comes back empty, and three assertions over an empty list all pass.
-        assertTrue(endpoints().size() >= 40,
+        assertTrue(
+                endpoints().size() >= 40,
                 "Steward has about forty routes; this found " + endpoints().size()
                         + ", so the way they are enumerated has stopped working.");
-        assertEquals(EnumSet.allOf(Gate.class),
+        assertEquals(
+                EnumSet.allOf(Gate.class),
                 endpoints().stream()
                         .flatMap(endpoint -> rolesOf(endpoint).stream())
                         .filter(Gate.class::isInstance)
@@ -255,12 +254,15 @@ class GateTest {
         final List<String> outside = new ArrayList<>();
         for (final Endpoint endpoint : endpoints()) {
             final String path = endpoint.path;
-            if (!path.startsWith("/api/") && !path.startsWith("/auth/")
-                    && !path.equals("/api") && !path.equals("/auth")) {
+            if (!path.startsWith("/api/")
+                    && !path.startsWith("/auth/")
+                    && !path.equals("/api")
+                    && !path.equals("/auth")) {
                 outside.add(endpoint.method + " " + path);
             }
         }
-        assertTrue(outside.isEmpty(),
+        assertTrue(
+                outside.isEmpty(),
                 "these endpoints sit outside /api and /auth, so StewardUi#isOurs would hand them "
                         + "ANYONE instead of refusing them: " + outside);
     }

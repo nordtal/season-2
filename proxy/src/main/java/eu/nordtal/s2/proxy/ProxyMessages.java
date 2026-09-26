@@ -330,10 +330,18 @@ public interface ProxyMessages {
         interface Msg {
 
             @Name("Sent")
-            MessageRef sent(@Arg("flag") Object flag, @Arg("partner") PlayerContext partner, @Arg("admin") Object admin, @Arg("_message") Component message);
+            MessageRef sent(
+                    @Arg("flag") Object flag,
+                    @Arg("partner") PlayerContext partner,
+                    @Arg("admin") Object admin,
+                    @Arg("_message") Component message);
 
             @Name("Received")
-            MessageRef received(@Arg("flag") Object flag, @Arg("partner") PlayerContext partner, @Arg("admin") Object admin, @Arg("_message") Component message);
+            MessageRef received(
+                    @Arg("flag") Object flag,
+                    @Arg("partner") PlayerContext partner,
+                    @Arg("admin") Object admin,
+                    @Arg("_message") Component message);
 
             @Name("Self")
             MessageRef self();

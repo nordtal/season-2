@@ -1,16 +1,15 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.access.AccessEffects;
 import eu.nordtal.s2.common.access.AccessRequest;
 import eu.nordtal.s2.common.access.AccessRequestKind;
 import eu.nordtal.s2.common.access.AccessRequestSource;
 import eu.nordtal.s2.common.access.AccessRequestStatus;
 import eu.nordtal.s2.common.access.AccessRequests;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -18,10 +17,9 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /**
  * What the bot does with a row somebody wrote (season-2-community/08).
@@ -58,8 +56,8 @@ class AccessInboxTest {
         @Override
         public AccessEffects.Settled settle(final String reference, final Actor by) {
             carriedOut.add("settle " + reference + " by " + by.filed());
-            return new AccessEffects.Settled(AccessEffects.Settlement.BOOKED,
-                    Instant.parse("2026-11-01T00:00:00Z"), 30, "OPEN");
+            return new AccessEffects.Settled(
+                    AccessEffects.Settlement.BOOKED, Instant.parse("2026-11-01T00:00:00Z"), 30, "OPEN");
         }
 
         @Override
@@ -84,15 +82,27 @@ class AccessInboxTest {
 
     private final Inbox inbox = new Inbox();
 
-    private final AccessInbox subject =
-            new AccessInbox(inbox, effects, LoggerFactory.getLogger(AccessInboxTest.class));
+    private final AccessInbox subject = new AccessInbox(inbox, effects, LoggerFactory.getLogger(AccessInboxTest.class));
 
-    private static AccessRequest row(final long id, final AccessRequestKind kind,
-                                     final String subject, final String argument,
-                                     final String requestedBy) {
-        return new AccessRequest(id, kind, AccessRequestStatus.RUNNING, subject, argument,
-                AccessRequestSource.STEWARD, requestedBy, Instant.now(),
-                Instant.now().plusSeconds(120), Instant.now(), null, null);
+    private static AccessRequest row(
+            final long id,
+            final AccessRequestKind kind,
+            final String subject,
+            final String argument,
+            final String requestedBy) {
+        return new AccessRequest(
+                id,
+                kind,
+                AccessRequestStatus.RUNNING,
+                subject,
+                argument,
+                AccessRequestSource.STEWARD,
+                requestedBy,
+                Instant.now(),
+                Instant.now().plusSeconds(120),
+                Instant.now(),
+                null,
+                null);
     }
 
     @Test
@@ -105,12 +115,14 @@ class AccessInboxTest {
 
         assertEquals(5, subject.drain(), "one pass drains the queue, not one row per wake-up");
 
-        assertEquals(List.of(
-                "grant 400000000000000002 30 by admin",
-                "revoke 400000000000000003 by admin",
-                "unlink 400000000000000004 by admin",
-                "settle NT-7 by admin",
-                "playtime 400000000000000005 7200 by admin"), carriedOut);
+        assertEquals(
+                List.of(
+                        "grant 400000000000000002 30 by admin",
+                        "revoke 400000000000000003 by admin",
+                        "unlink 400000000000000004 by admin",
+                        "settle NT-7 by admin",
+                        "playtime 400000000000000005 7200 by admin"),
+                carriedOut);
     }
 
     @Test
@@ -124,8 +136,9 @@ class AccessInboxTest {
 
         assertEquals("{\"until\":\"2026-10-20T00:00:00Z\"}", inbox.settled.get(1L));
         assertEquals("{\"revoked\":\"2\"}", inbox.settled.get(2L));
-        assertEquals("{\"outcome\":\"BOOKED\",\"days\":\"30\","
-                + "\"until\":\"2026-11-01T00:00:00Z\",\"was\":\"OPEN\"}", inbox.settled.get(3L));
+        assertEquals(
+                "{\"outcome\":\"BOOKED\",\"days\":\"30\"," + "\"until\":\"2026-11-01T00:00:00Z\",\"was\":\"OPEN\"}",
+                inbox.settled.get(3L));
         assertTrue(inbox.ok.get(1L));
     }
 
@@ -136,8 +149,8 @@ class AccessInboxTest {
      */
     @Test
     void aFailureIsRecordedOnTheRowAndTheNextOneStillRuns() {
-        final AccessInbox throwing = new AccessInbox(inbox, new ThrowingOnGrant(),
-                LoggerFactory.getLogger(AccessInboxTest.class));
+        final AccessInbox throwing =
+                new AccessInbox(inbox, new ThrowingOnGrant(), LoggerFactory.getLogger(AccessInboxTest.class));
         inbox.waiting.add(row(1, AccessRequestKind.GRANT, "400000000000000002", "30", "admin"));
         inbox.waiting.add(row(2, AccessRequestKind.GRANT, "400000000000000003", "7", "admin"));
 
@@ -198,7 +211,8 @@ class AccessInboxTest {
         reloadSucceeds = false;
         inbox.waiting.add(row(3, AccessRequestKind.RELOAD_MESSAGES, "access", null, "admin"));
         subject.drain();
-        assertFalse(inbox.ok.get(3L),
+        assertFalse(
+                inbox.ok.get(3L),
                 "a bundle that no longer parses leaves the running one in place; reporting that as"
                         + " a success is how a saved change silently does nothing");
     }
@@ -215,8 +229,8 @@ class AccessInboxTest {
     @Test
     @DisplayName("a quotation mark in a failure does not produce unreadable JSON")
     void theResultIsEscaped() {
-        assertEquals("{\"error\":\"he said \\\"no\\\"\\nand left\"}",
-                AccessInbox.json("error", "he said \"no\"\nand left"));
+        assertEquals(
+                "{\"error\":\"he said \\\"no\\\"\\nand left\"}", AccessInbox.json("error", "he said \"no\"\nand left"));
         assertEquals("{\"until\":null}", AccessInbox.json("until", null));
     }
 

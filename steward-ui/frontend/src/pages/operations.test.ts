@@ -47,10 +47,8 @@ describe("cancellable - the window the backend would still take a row back in", 
     // THE PAIR THAT MATTERS. This row and the first one above are both RUNNING; the only
     // difference is on which side of now `not_before` falls, and only one of them can still be
     // taken back. A button drawn from the status would be on both.
-    expect(cancellable(row({ status: "RUNNING", notBefore: "2026-09-20T20:00:00Z" }), now))
-      .toBe(false)
-    expect(cancellable(row({ notBefore: "2026-09-20T20:00:30Z" }), now))
-      .toBe(false)
+    expect(cancellable(row({ status: "RUNNING", notBefore: "2026-09-20T20:00:00Z" }), now)).toBe(false)
+    expect(cancellable(row({ notBefore: "2026-09-20T20:00:30Z" }), now)).toBe(false)
   })
 
   it("says no to a run that is over, whatever its moment was", () => {

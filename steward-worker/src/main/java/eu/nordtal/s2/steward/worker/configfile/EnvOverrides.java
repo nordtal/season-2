@@ -1,14 +1,13 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
 import eu.nordtal.s2.common.config.EnvOverrideFile;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Set;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reads the {@code <name>.env-overrides.txt} a service writes beside its own config file
@@ -26,8 +25,7 @@ final class EnvOverrides {
 
     private static final Logger LOG = LoggerFactory.getLogger(EnvOverrides.class);
 
-    private EnvOverrides() {
-    }
+    private EnvOverrides() {}
 
     /**
      * @param ymlFile the configuration file
@@ -38,9 +36,12 @@ final class EnvOverrides {
         try {
             return EnvOverrideFile.read(ymlFile).map(Set::copyOf);
         } catch (final IOException e) {
-            LOG.warn("{} could not be read as an environment-override marker; showing {} as though"
+            LOG.warn(
+                    "{} could not be read as an environment-override marker; showing {} as though"
                             + " no service had reported one for it.",
-                    EnvOverrideFile.fileFor(ymlFile), ymlFile, e);
+                    EnvOverrideFile.fileFor(ymlFile),
+                    ymlFile,
+                    e);
             return Optional.empty();
         }
     }

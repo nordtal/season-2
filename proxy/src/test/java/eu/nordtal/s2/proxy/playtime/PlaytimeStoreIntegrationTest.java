@@ -1,14 +1,9 @@
 package eu.nordtal.s2.proxy.playtime;
 
-import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -18,11 +13,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.postgresql.ds.PGSimpleDataSource;
+import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * {@link PlaytimeStore}'s one statement, against a real PostgreSQL running the real {@code V4}.
@@ -53,7 +52,8 @@ class PlaytimeStoreIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed play-time tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -106,7 +106,9 @@ class PlaytimeStoreIntegrationTest {
         store.add(DISCORD_ID, 60);
         store.add(DISCORD_ID, 15);
 
-        assertEquals(135, seconds(DISCORD_ID),
+        assertEquals(
+                135,
+                seconds(DISCORD_ID),
                 "the proxy sends slices, never totals - a writer that replaced would lose a session "
                         + "every time two of them overlapped");
     }
@@ -161,7 +163,9 @@ class PlaytimeStoreIntegrationTest {
 
         execute("DELETE FROM discord_user WHERE discord_id = '" + DISCORD_ID + "'");
 
-        assertEquals(0, count("SELECT count(*) FROM player_playtime"),
+        assertEquals(
+                0,
+                count("SELECT count(*) FROM player_playtime"),
                 "ON DELETE CASCADE, so nothing is left keyed by an account that is gone");
     }
 
@@ -173,7 +177,7 @@ class PlaytimeStoreIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException exception) {
             throw new IllegalStateException("Test setup statement failed: " + sql, exception);
@@ -187,8 +191,8 @@ class PlaytimeStoreIntegrationTest {
 
     private static String single(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
             return rs.next() ? rs.getString(1) : null;
         } catch (final SQLException exception) {
             throw new IllegalStateException("Test query failed: " + sql, exception);

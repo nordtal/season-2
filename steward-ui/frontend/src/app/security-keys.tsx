@@ -1,10 +1,4 @@
-import {
-  FingerprintIcon,
-  KeyIcon,
-  PencilIcon,
-  PlusIcon,
-  TrashIcon,
-} from "@phosphor-icons/react"
+import { FingerprintIcon, KeyIcon, PencilIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import type { Me, SecurityKey } from "@/lib/api"
@@ -190,8 +184,8 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
 
       {onlyOneAndItIsPhysical ? (
         <p className="px-1 text-xs text-muted-foreground">
-          This one key is not backed up anywhere. A second one means nobody has to run a command on
-          the host if it is lost.
+          This one key is not backed up anywhere. A second one means nobody has to run a command on the host if it is
+          lost.
         </p>
       ) : null}
     </div>
@@ -227,8 +221,7 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
             <ResponsiveDialogHeader>
               <ResponsiveDialogTitle>Add a security key</ResponsiveDialogTitle>
               <ResponsiveDialogDescription>
-                Registered to {state.relyingPartyId}, so it keeps working when Steward moves to its
-                production address.
+                Registered to {state.relyingPartyId}, so it keeps working when Steward moves to its production address.
               </ResponsiveDialogDescription>
             </ResponsiveDialogHeader>
 
@@ -272,10 +265,7 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
               event.preventDefault()
               const key = state.renaming
               if (!key) return
-              rename.mutate(
-                { id: key.id, label: state.newLabel.trim() },
-                { onSuccess: () => state.closeRenaming() },
-              )
+              rename.mutate({ id: key.id, label: state.newLabel.trim() }, { onSuccess: () => state.closeRenaming() })
             }}
           >
             <ResponsiveDialogHeader>
@@ -317,18 +307,15 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
         puts this account back at the setup page, which is recoverable - but removing the wrong one
         of two is not, and the two look identical until the name is read.
       */}
-      <ResponsiveAlertDialog
-        open={state.removing !== null}
-        onOpenChange={(open) => open || state.closeRemoving()}
-      >
+      <ResponsiveAlertDialog open={state.removing !== null} onOpenChange={(open) => open || state.closeRemoving()}>
         <ResponsiveAlertDialogContent>
           <ResponsiveAlertDialogHeader>
             <ResponsiveAlertDialogTitle>Remove “{state.removing?.label}”?</ResponsiveAlertDialogTitle>
             <ResponsiveAlertDialogDescription>
               {state.keys.length === 1
-                ? "It is the only key on this account. Removing it sends you back to the setup"
-                  + " page, where you register a new one - you are not locked out, but you will"
-                  + " need an authenticator to hand before you can use Steward again."
+                ? "It is the only key on this account. Removing it sends you back to the setup" +
+                  " page, where you register a new one - you are not locked out, but you will" +
+                  " need an authenticator to hand before you can use Steward again."
                 : "The other keys on this account keep working. This one stops."}
             </ResponsiveAlertDialogDescription>
           </ResponsiveAlertDialogHeader>

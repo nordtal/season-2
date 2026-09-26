@@ -232,7 +232,10 @@ export function searchValue(name: string, ...context: Array<string | undefined |
  * word. A dot is *not* flattened - `roles.donor` is typed as `roles.donor` by anyone who means it.
  */
 function normalise(text: string): string {
-  return text.toLowerCase().replace(/[\s\-_]+/g, " ").trim()
+  return text
+    .toLowerCase()
+    .replace(/[\s\-_]+/g, " ")
+    .trim()
 }
 
 /** Whether the match at `at` starts a word rather than landing in the middle of one. */

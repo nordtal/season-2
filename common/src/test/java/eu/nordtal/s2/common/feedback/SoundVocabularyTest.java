@@ -1,10 +1,8 @@
 package eu.nordtal.s2.common.feedback;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -16,8 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * One sound vocabulary across the whole network: a call site picks a {@link Feedback} category and
@@ -29,8 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class SoundVocabularyTest {
 
     /** Every module that plays a sound to a Minecraft client, or could. */
-    private static final List<String> MODULES =
-            List.of("smp", "limbo", "hunger-games", "proxy");
+    private static final List<String> MODULES = List.of("smp", "limbo", "hunger-games", "proxy");
 
     /**
      * Every way of naming a sound directly, and what to do instead. Substrings and one small regex
@@ -49,8 +46,7 @@ class SoundVocabularyTest {
                     + " platform, a call site owns a category"));
 
     /** A bare {@code Sound.SOMETHING} constant, without matching {@code FeedbackSound.} and friends. */
-    private static final Pattern BARE_SOUND_CONSTANT =
-            Pattern.compile("(?<![A-Za-z0-9_.])Sound\\.");
+    private static final Pattern BARE_SOUND_CONSTANT = Pattern.compile("(?<![A-Za-z0-9_.])Sound\\.");
 
     /**
      * The files that may name a sound, and why: one adapter per Paper module that plays anything.
@@ -63,8 +59,7 @@ class SoundVocabularyTest {
             "hunger-games' sound adapter - the same twenty lines, for the same reason: a shared"
                     + " adapter in :common would put org.bukkit.entity.Player in a jar that is"
                     + " shaded into a Velocity plugin",
-            "proxy/src/main/java/eu/nordtal/s2/proxy/feedback/"
-                    + "ProxySounds.java",
+            "proxy/src/main/java/eu/nordtal/s2/proxy/feedback/" + "ProxySounds.java",
             "proxy's sound adapter (season-2-ingame/28) - the Velocity-side twin of the"
                     + " other two: the proxy holds the client connection itself, so it can call"
                     + " Player#playSound the same way RestartWatch already calls sendMessage and"
@@ -93,7 +88,9 @@ class SoundVocabularyTest {
                 }
             }
         }
-        assertEquals(List.of(), offenders,
+        assertEquals(
+                List.of(),
+                offenders,
                 "the sound vocabulary only means anything while the categories are the only thing a"
                         + " call site can choose. If a new module genuinely needs an adapter of its"
                         + " own, add it to ALLOWED with the reason; if this is a call site, give it"
@@ -110,7 +107,9 @@ class SoundVocabularyTest {
                 })
                 .sorted()
                 .toList();
-        assertEquals(List.of(), gone,
+        assertEquals(
+                List.of(),
+                gone,
                 "an entry here for a file that is gone, or that no longer plays anything, is an"
                         + " exception nobody is taking any more - delete it, so the list keeps"
                         + " meaning what it says");
@@ -124,22 +123,27 @@ class SoundVocabularyTest {
     @Test
     @DisplayName("Feedback carries nothing but its constants")
     void theEnumCarriesNothingButConstants() {
-        assertEquals(12, Feedback.values().length,
+        assertEquals(
+                12,
+                Feedback.values().length,
                 "ten categories, of which open/close is two constants, plus STAGING and RECLAIMED"
                         + " (season-2-ingame/15, Till 2026-09-15 - the owner's decision this guard"
                         + " exists to require). A THIRTEENTH IS A DECISION FOR THE OWNER - a"
                         + " vocabulary that grows to fit each new call site is not a vocabulary");
         // values/valueOf are the enum's own API; $values is javac's array holder, which it does not
         // always flag as synthetic.
-        assertEquals(List.of(), Stream.of(Feedback.class.getDeclaredMethods())
+        assertEquals(
+                List.of(),
+                Stream.of(Feedback.class.getDeclaredMethods())
                         .map(java.lang.reflect.Method::getName)
-                        .filter(name -> !name.equals("values") && !name.equals("valueOf")
-                                && !name.startsWith("$"))
+                        .filter(name -> !name.equals("values") && !name.equals("valueOf") && !name.startsWith("$"))
                         .sorted()
                         .toList(),
                 "Feedback is a name and nothing else - what a category sounds like belongs in a"
                         + " module's config.yml, parsed into FeedbackSounds");
-        assertEquals(List.of(), Stream.of(Feedback.class.getDeclaredFields())
+        assertEquals(
+                List.of(),
+                Stream.of(Feedback.class.getDeclaredFields())
                         .filter(field -> !field.isEnumConstant() && !field.isSynthetic())
                         .map(java.lang.reflect.Field::getName)
                         .sorted()
@@ -155,7 +159,9 @@ class SoundVocabularyTest {
             return List.of();
         }
         try (Stream<Path> walk = Files.walk(root)) {
-            return walk.filter(path -> path.toString().endsWith(".java")).sorted().toList();
+            return walk.filter(path -> path.toString().endsWith(".java"))
+                    .sorted()
+                    .toList();
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot walk " + root, e);
         }
@@ -196,8 +202,7 @@ class SoundVocabularyTest {
                 }
             } else if (c == '/' && i + 1 < source.length() && source.charAt(i + 1) == '*') {
                 while (i < source.length()
-                        && !(source.charAt(i) == '*' && i + 1 < source.length()
-                                && source.charAt(i + 1) == '/')) {
+                        && !(source.charAt(i) == '*' && i + 1 < source.length() && source.charAt(i + 1) == '/')) {
                     out.append(source.charAt(i) == '\n' ? '\n' : ' ');
                     i++;
                 }

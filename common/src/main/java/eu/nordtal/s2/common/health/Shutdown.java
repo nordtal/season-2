@@ -19,8 +19,7 @@ import java.util.function.BiConsumer;
  */
 public final class Shutdown {
 
-    private Shutdown() {
-    }
+    private Shutdown() {}
 
     /**
      * Loads this class while the jar it comes from still exists. <b>Call it from {@code onEnable}.</b>
@@ -46,8 +45,7 @@ public final class Shutdown {
      * @param step the step
      * @param warn where the line goes: message and cause
      */
-    public static void quietly(final String what, final Runnable step,
-                               final BiConsumer<String, Throwable> warn) {
+    public static void quietly(final String what, final Runnable step, final BiConsumer<String, Throwable> warn) {
         Objects.requireNonNull(what, "what");
         Objects.requireNonNull(step, "step");
         Objects.requireNonNull(warn, "warn");

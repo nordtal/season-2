@@ -1,24 +1,21 @@
 package eu.nordtal.s2.steward.ui;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import javax.imageio.ImageIO;
-
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.imageio.ImageIO;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Steward's mark is the server icon, and this is the test that keeps it one picture.
@@ -55,7 +52,9 @@ class MarkIsTheServerIconTest {
     @Test
     @DisplayName("the favicon is the server icon, byte for byte")
     void theCopyIsTheOriginal() throws IOException {
-        assertArrayEquals(bytes(SOURCE), bytes(COPY),
+        assertArrayEquals(
+                bytes(SOURCE),
+                bytes(COPY),
                 COPY + " is no longer " + SOURCE + ". It is a copy because a Vite build cannot"
                         + " read across the repository - copy the file again rather than editing"
                         + " one of the two.");
@@ -75,7 +74,9 @@ class MarkIsTheServerIconTest {
             for (int x = 0; x < big.getWidth(); x++) {
                 final int expected = source.getRGB(x / FACTOR, y / FACTOR);
                 if (big.getRGB(x, y) != expected) {
-                    assertEquals(String.format("%08x", expected), String.format("%08x", big.getRGB(x, y)),
+                    assertEquals(
+                            String.format("%08x", expected),
+                            String.format("%08x", big.getRGB(x, y)),
                             BIG + " at " + x + "," + y + " is not " + SOURCE + " at "
                                     + (x / FACTOR) + "," + (y / FACTOR) + ". It was made with a"
                                     + " smoothing resampler, or from a different picture: 21"
@@ -91,28 +92,33 @@ class MarkIsTheServerIconTest {
     void thePagePointsAtThem() throws IOException {
         final String page = Files.readString(repository().resolve(PAGE), StandardCharsets.UTF_8);
         assertTrue(page.contains("href=\"/icon.png\""), "index.html has no favicon");
-        assertTrue(page.contains("rel=\"apple-touch-icon\" href=\"/icon-512.png\""),
+        assertTrue(
+                page.contains("rel=\"apple-touch-icon\" href=\"/icon-512.png\""),
                 "index.html has no apple-touch-icon, so a home screen gets a screenshot of the page");
         assertTrue(page.contains("href=\"/manifest.webmanifest\""), "index.html has no manifest");
-        assertTrue(page.contains("viewport-fit=cover"),
+        assertTrue(
+                page.contains("viewport-fit=cover"),
                 "without viewport-fit=cover the status bar style below letterboxes the page");
-        assertTrue(page.contains("apple-mobile-web-app-capable"),
+        assertTrue(
+                page.contains("apple-mobile-web-app-capable"),
                 "without this, iOS opens the home-screen icon in Safari with its address bar");
-        assertTrue(!page.contains("favicon.svg"),
-                "index.html still asks for the placeholder mark, which was deleted");
+        assertTrue(!page.contains("favicon.svg"), "index.html still asks for the placeholder mark, which was deleted");
     }
 
     @Test
     @DisplayName("the manifest parses, and every icon in it exists")
     void theManifestIsReal() throws IOException {
-        final JsonObject manifest = new Gson().fromJson(
-                Files.readString(repository().resolve(MANIFEST), StandardCharsets.UTF_8),
-                JsonObject.class);
+        final JsonObject manifest = new Gson()
+                .fromJson(Files.readString(repository().resolve(MANIFEST), StandardCharsets.UTF_8), JsonObject.class);
 
-        assertEquals("standalone", manifest.get("display").getAsString(),
+        assertEquals(
+                "standalone",
+                manifest.get("display").getAsString(),
                 "anything but standalone and the home-screen icon opens Safari's chrome");
         assertEquals("/", manifest.get("scope").getAsString());
-        assertEquals("#0d0d0d", manifest.get("background_color").getAsString(),
+        assertEquals(
+                "#0d0d0d",
+                manifest.get("background_color").getAsString(),
                 "the launch screen must be the interface's own background, or it flashes white");
 
         final JsonArray icons = manifest.getAsJsonArray("icons");
@@ -120,8 +126,7 @@ class MarkIsTheServerIconTest {
         for (final JsonElement element : icons) {
             final String source = element.getAsJsonObject().get("src").getAsString();
             final Path file = repository().resolve("steward-ui/frontend/public" + source);
-            assertTrue(Files.isRegularFile(file),
-                    "the manifest names " + source + " and there is no such file");
+            assertTrue(Files.isRegularFile(file), "the manifest names " + source + " and there is no such file");
         }
     }
 
@@ -147,7 +152,8 @@ class MarkIsTheServerIconTest {
         while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
             directory = directory.getParent();
         }
-        assertTrue(directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        assertTrue(
+                directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         return directory;
     }
 }

@@ -1,12 +1,10 @@
 package eu.nordtal.s2.steward.ui.discord;
 
 import io.javalin.http.Context;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Two routes over {@link DiscordDirectory}: what the guild's roles are called, and its channels.
@@ -43,9 +41,11 @@ public final class DiscordApi {
             return;
         }
         try {
-            ctx.json(Map.of("available", true, "entries", lookup.get().stream()
-                    .map(DiscordApi::describe)
-                    .toList()));
+            ctx.json(Map.of(
+                    "available",
+                    true,
+                    "entries",
+                    lookup.get().stream().map(DiscordApi::describe).toList()));
         } catch (final DiscordDirectory.DirectoryException failure) {
             ctx.json(Map.of("available", false, "reason", failure.getMessage(), "entries", List.of()));
         }

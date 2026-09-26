@@ -1,17 +1,15 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
-import eu.nordtal.s2.steward.worker.plan.Topology;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.update.UpdateReport;
+import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
+import eu.nordtal.s2.steward.worker.plan.Topology;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * How a run that stopped servers is settled, and the one rule in it that is not about a failed line.
@@ -70,10 +68,13 @@ class UnverifiedStopSettlesFailedTest {
     void anUnverifiedStopIsEnoughByItself() {
         final UpdateReport settled = Runner.settle(green(), List.of(Topology.SMP), ARCHIVES, false, FAILS);
 
-        assertEquals(UpdateReport.Stage.FAILED, settled.stage(),
+        assertEquals(
+                UpdateReport.Stage.FAILED,
+                settled.stage(),
                 "every line of this report is green and the run is still not a success: nothing in"
                         + " it knows whether the world had finished writing when the tar ran");
-        assertTrue(note(settled).contains(Topology.SMP),
+        assertTrue(
+                note(settled).contains(Topology.SMP),
                 "and the note has to name the server, so somebody can go and read that server's own"
                         + " log rather than all four: " + note(settled));
     }
@@ -86,14 +87,17 @@ class UnverifiedStopSettlesFailedTest {
         final UpdateReport settled = Runner.settle(green(), List.of(Topology.SMP), ARCHIVES, false, FAILS);
 
         assertEquals(UpdateReport.Stage.FAILED, settled.stage());
-        assertEquals(1, settled.notes().size(),
-                "exactly one note, on the one report that is published: " + settled.notes());
-        assertTrue(note(settled).startsWith("UNVERIFIED STOP."),
+        assertEquals(
+                1, settled.notes().size(), "exactly one note, on the one report that is published: " + settled.notes());
+        assertTrue(
+                note(settled).startsWith("UNVERIFIED STOP."),
                 "the first words decide whether anybody reads the rest: " + note(settled));
-        assertTrue(note(settled).contains("Nothing was thrown away and nothing was undone"),
+        assertTrue(
+                note(settled).contains("Nothing was thrown away and nothing was undone"),
                 "without this sentence a FAILED backup reads as a night with nothing saved, and the"
                         + " next person restores from an older archive: " + note(settled));
-        assertTrue(note(settled).contains("nothing counts this archive as one"),
+        assertTrue(
+                note(settled).contains("nothing counts this archive as one"),
                 "and it has to say what failing costs, or somebody spends the morning looking for a"
                         + " reset that was never going to run: " + note(settled));
     }
@@ -101,10 +105,11 @@ class UnverifiedStopSettlesFailedTest {
     @Test
     @DisplayName("the note names every service whose ending was unread, not just the first")
     void everyUnverifiedServiceIsNamed() {
-        final UpdateReport settled = Runner.settle(green(),
-                List.of(Topology.SMP, Topology.LIMBO), ARCHIVES, false, FAILS);
+        final UpdateReport settled =
+                Runner.settle(green(), List.of(Topology.SMP, Topology.LIMBO), ARCHIVES, false, FAILS);
 
-        assertTrue(note(settled).contains(Topology.SMP) && note(settled).contains(Topology.LIMBO),
+        assertTrue(
+                note(settled).contains(Topology.SMP) && note(settled).contains(Topology.LIMBO),
                 "two servers were stopped without anybody seeing how, and a note naming one of them"
                         + " sends an admin to look at half the problem: " + note(settled));
     }
@@ -120,9 +125,9 @@ class UnverifiedStopSettlesFailedTest {
 
         assertTrue(note(backup).contains("restore.sh --list"), note(backup));
         assertTrue(note(update).contains("plugins directory"), note(update));
-        assertFalse(note(update).contains("restore.sh"),
-                "the update path did not write an archive and must not be sent to look for one: "
-                        + note(update));
+        assertFalse(
+                note(update).contains("restore.sh"),
+                "the update path did not write an archive and must not be sent to look for one: " + note(update));
     }
 
     @Test
@@ -136,9 +141,9 @@ class UnverifiedStopSettlesFailedTest {
         final UpdateReport settled = Runner.settle(swept, List.of(Topology.SMP), ARCHIVES, false, FAILS);
 
         assertEquals(2, settled.notes().size(), settled.notes().toString());
-        assertTrue(settled.notes().getFirst().startsWith("kept the newest"),
-                "the retention line is gone, and it is the only record of what was deleted: "
-                        + settled.notes());
+        assertTrue(
+                settled.notes().getFirst().startsWith("kept the newest"),
+                "the retention line is gone, and it is the only record of what was deleted: " + settled.notes());
     }
 
     // ---------------------------------------------------------------- the ordinary night
@@ -152,8 +157,7 @@ class UnverifiedStopSettlesFailedTest {
         final UpdateReport settled = Runner.settle(green(), List.of(), ARCHIVES, false, FAILS);
 
         assertEquals(UpdateReport.Stage.DONE, settled.stage());
-        assertEquals(List.of(), settled.notes(),
-                "a good run's report says what it did and adds no warnings to it");
+        assertEquals(List.of(), settled.notes(), "a good run's report says what it did and adds no warnings to it");
     }
 
     // ---------------------------------------------------------------- the other two conditions
@@ -167,7 +171,9 @@ class UnverifiedStopSettlesFailedTest {
         // because nothing else in the report shows it.
         final UpdateReport settled = Runner.settle(green(), List.of(), JARS, true, FAILS);
 
-        assertEquals(UpdateReport.Stage.FAILED, settled.stage(),
+        assertEquals(
+                UpdateReport.Stage.FAILED,
+                settled.stage(),
                 "an artefact that could not be downloaded is a failed update, and the report's"
                         + " lines are all about services rather than about downloads");
     }
@@ -190,13 +196,15 @@ class UnverifiedStopSettlesFailedTest {
         // The condition that was here before any of this, and the one most likely to be dropped
         // while rearranging the other two: the database dump that did not run is a FAILED line and
         // nothing else in the call says so.
-        final UpdateReport report = green().with(new UpdateReport.ServiceLine(DatabaseDump.NAME,
-                UpdateReport.State.FAILED, List.of(), "pg_dump exited 1"));
+        final UpdateReport report = green().with(new UpdateReport.ServiceLine(
+                DatabaseDump.NAME, UpdateReport.State.FAILED, List.of(), "pg_dump exited 1"));
 
         final UpdateReport settled = Runner.settle(report, List.of(), ARCHIVES, false, FAILS);
 
         assertEquals(UpdateReport.Stage.FAILED, settled.stage());
-        assertEquals(List.of(), settled.notes(),
+        assertEquals(
+                List.of(),
+                settled.notes(),
                 "and the failure explains itself on its own line, so no note is added over it");
     }
 
@@ -207,9 +215,14 @@ class UnverifiedStopSettlesFailedTest {
         // its branches would publish a finished run still saying "Waiting for the servers to come
         // back", which is how a row looks when the worker died mid-run.
         assertEquals(UpdateReport.Stage.VERIFYING, green().stage(), "the fixture is the input shape");
-        assertTrue(Runner.settle(green(), List.of(), ARCHIVES, false, FAILS).stage().isFinished());
-        assertTrue(Runner.settle(green(), List.of(Topology.SMP), ARCHIVES, false, FAILS).stage().isFinished());
-        assertTrue(Runner.settle(green(), List.of(), ARCHIVES, true, FAILS).stage().isFinished());
+        assertTrue(Runner.settle(green(), List.of(), ARCHIVES, false, FAILS)
+                .stage()
+                .isFinished());
+        assertTrue(Runner.settle(green(), List.of(Topology.SMP), ARCHIVES, false, FAILS)
+                .stage()
+                .isFinished());
+        assertTrue(
+                Runner.settle(green(), List.of(), ARCHIVES, true, FAILS).stage().isFinished());
     }
 
     // ---------------------------------------------------------------- the restart's half
@@ -220,18 +233,21 @@ class UnverifiedStopSettlesFailedTest {
         // Both halves on one returned object, because either alone is a defect that reads as
         // working. DONE with no note is the silence the owner ruled against; a note on a run that
         // was failed anyway would be the rule the restart path was deliberately kept out of.
-        final UpdateReport settled = Runner.settle(green(), List.of(Topology.SMP), SAME_WORLD,
-                false, SAID);
+        final UpdateReport settled = Runner.settle(green(), List.of(Topology.SMP), SAME_WORLD, false, SAID);
 
-        assertEquals(UpdateReport.Stage.DONE, settled.stage(),
+        assertEquals(
+                UpdateReport.Stage.DONE,
+                settled.stage(),
                 "a restart leaves nothing behind that anybody has to decide whether to trust, so"
                         + " failing it would condemn a run that wrote nothing");
-        assertTrue(note(settled).startsWith("UNVERIFIED STOP."),
+        assertTrue(
+                note(settled).startsWith("UNVERIFIED STOP."),
                 "and it is still said: the server may have been killed mid-save and started again"
                         + " on that world, and this is the run somebody asked for BECAUSE it was"
                         + " already misbehaving");
         assertTrue(note(settled).contains(Topology.SMP), note(settled));
-        assertTrue(note(settled).contains("started again on the same world"),
+        assertTrue(
+                note(settled).contains("started again on the same world"),
                 "the restart's own sentence, not the archive one: " + note(settled));
     }
 
@@ -241,23 +257,23 @@ class UnverifiedStopSettlesFailedTest {
         // A note that tells somebody the run was reported FAILED when it was not is worse than no
         // note: it sends them to look for a failure that is not in the row, and the next time they
         // see the words they will not believe them.
-        final UpdateReport failing = Runner.settle(green(), List.of(Topology.SMP), ARCHIVES,
-                false, FAILS);
-        final UpdateReport saying = Runner.settle(green(), List.of(Topology.SMP), SAME_WORLD,
-                false, SAID);
+        final UpdateReport failing = Runner.settle(green(), List.of(Topology.SMP), ARCHIVES, false, FAILS);
+        final UpdateReport saying = Runner.settle(green(), List.of(Topology.SMP), SAME_WORLD, false, SAID);
 
-        assertTrue(note(failing).contains("reported as FAILED for that reason alone"),
-                note(failing));
+        assertTrue(note(failing).contains("reported as FAILED for that reason alone"), note(failing));
         assertTrue(note(failing).contains("nothing counts this archive as one"), note(failing));
-        assertFalse(note(failing).contains("not reported as a failure"),
+        assertFalse(
+                note(failing).contains("not reported as a failure"),
                 "the failing mode must not also claim it did not fail: " + note(failing));
 
         assertTrue(note(saying).contains("not reported as a failure over it"), note(saying));
         assertTrue(note(saying).contains("left nothing behind"), note(saying));
-        assertFalse(note(saying).contains("reported as FAILED"),
+        assertFalse(
+                note(saying).contains("reported as FAILED"),
                 "this run settled DONE. A note saying it was reported FAILED would send somebody"
                         + " looking for a failure that is not in the row: " + note(saying));
-        assertFalse(note(saying).contains("nothing counts this archive as one"),
+        assertFalse(
+                note(saying).contains("nothing counts this archive as one"),
                 "and nothing was blocked, so promising a consequence that did not happen is the"
                         + " same lie in the other direction: " + note(saying));
     }
@@ -268,13 +284,14 @@ class UnverifiedStopSettlesFailedTest {
         // One parenthesis. `doubt == FAILS_THE_RUN && (unverified || alreadyFailed || lines)`
         // compiles, reads almost the same, and makes every restart a success no matter what
         // happened in it - including the one where a server never came back.
-        final UpdateReport report = green().with(new UpdateReport.ServiceLine(Topology.LIMBO,
-                UpdateReport.State.FAILED, List.of(), "did not come back within 5 minutes"));
+        final UpdateReport report = green().with(new UpdateReport.ServiceLine(
+                Topology.LIMBO, UpdateReport.State.FAILED, List.of(), "did not come back within 5 minutes"));
 
-        final UpdateReport settled = Runner.settle(report, List.of(Topology.SMP), SAME_WORLD,
-                false, SAID);
+        final UpdateReport settled = Runner.settle(report, List.of(Topology.SMP), SAME_WORLD, false, SAID);
 
-        assertEquals(UpdateReport.Stage.FAILED, settled.stage(),
+        assertEquals(
+                UpdateReport.Stage.FAILED,
+                settled.stage(),
                 "limbo did not come back. That is a failed restart whatever an unverified stop"
                         + " does or does not cost on this path");
     }
@@ -282,11 +299,11 @@ class UnverifiedStopSettlesFailedTest {
     @Test
     @DisplayName("and a caller that had already failed still fails under the quieter mode")
     void theModeDoesNotSwallowAnAlreadyFailedRun() {
-        final UpdateReport settled = Runner.settle(green(), List.of(Topology.SMP), SAME_WORLD,
-                true, SAID);
+        final UpdateReport settled = Runner.settle(green(), List.of(Topology.SMP), SAME_WORLD, true, SAID);
 
         assertEquals(UpdateReport.Stage.FAILED, settled.stage());
-        assertTrue(note(settled).contains("not reported as a failure over it"),
+        assertTrue(
+                note(settled).contains("not reported as a failure over it"),
                 "the run IS a failure, for another reason, and the note has to keep saying 'over"
                         + " it' or it contradicts the stage printed above it: " + note(settled));
     }
@@ -311,19 +328,18 @@ class UnverifiedStopSettlesFailedTest {
      */
     private static UpdateReport green() {
         return UpdateReport.at(UpdateReport.Stage.VERIFYING)
-                .with(new UpdateReport.ServiceLine("mc-smp", UpdateReport.State.SAVED,
+                .with(new UpdateReport.ServiceLine(
+                        "mc-smp",
+                        UpdateReport.State.SAVED,
                         List.of(new UpdateReport.Change("backup", null, "saved 1.2 GiB in 12s")),
                         null))
-                .with(new UpdateReport.ServiceLine(Topology.SMP, UpdateReport.State.HEALTHY,
-                        List.of(), null))
-                .with(new UpdateReport.ServiceLine(Topology.LIMBO, UpdateReport.State.HEALTHY,
-                        List.of(), null));
+                .with(new UpdateReport.ServiceLine(Topology.SMP, UpdateReport.State.HEALTHY, List.of(), null))
+                .with(new UpdateReport.ServiceLine(Topology.LIMBO, UpdateReport.State.HEALTHY, List.of(), null));
     }
 
     /** The one note a settled report has, or a failure saying there was none. */
     private static String note(final UpdateReport settled) {
-        assertFalse(settled.notes().isEmpty(),
-                "no note was added at all, so the run is a failure nobody can explain");
+        assertFalse(settled.notes().isEmpty(), "no note was added at all, so the run is a failure nobody can explain");
         return settled.notes().getLast();
     }
 }

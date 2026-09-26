@@ -1,6 +1,9 @@
 package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.Gson;
+import com.yubico.webauthn.data.ByteArray;
+import com.yubico.webauthn.data.exception.Base64UrlException;
+import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AdminTree;
 import eu.nordtal.s2.common.roster.Person;
@@ -9,41 +12,34 @@ import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
-import eu.nordtal.s2.steward.ui.data.Data;
-import eu.nordtal.s2.steward.ui.data.ExampleValues;
 import eu.nordtal.s2.steward.ui.auth.Credentials;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Gate;
-import com.yubico.webauthn.data.ByteArray;
-import com.yubico.webauthn.data.exception.Base64UrlException;
 import eu.nordtal.s2.steward.ui.auth.Sessions;
 import eu.nordtal.s2.steward.ui.auth.WebAuthn;
+import eu.nordtal.s2.steward.ui.config.Configs;
+import eu.nordtal.s2.steward.ui.config.UiSpec;
+import eu.nordtal.s2.steward.ui.data.Data;
+import eu.nordtal.s2.steward.ui.data.ExampleValues;
 import eu.nordtal.s2.steward.ui.discord.DiscordApi;
 import eu.nordtal.s2.steward.ui.discord.DiscordDirectory;
+import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import eu.nordtal.s2.steward.ui.push.AlertType;
 import eu.nordtal.s2.steward.ui.push.AlertWatch;
 import eu.nordtal.s2.steward.ui.push.PushPreferences;
 import eu.nordtal.s2.steward.ui.push.PushSubscriptions;
-import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.s2.steward.ui.config.Configs;
-import eu.nordtal.s2.steward.ui.config.UiSpec;
-import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import io.javalin.Javalin;
-import io.javalin.http.Context;
-import io.javalin.http.Cookie;
-import io.javalin.http.SameSite;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;
+import io.javalin.http.Context;
+import io.javalin.http.Cookie;
 import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.InternalServerErrorResponse;
 import io.javalin.http.NotFoundResponse;
+import io.javalin.http.SameSite;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JavalinGson;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -53,8 +49,8 @@ import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +63,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Nordtal Steward - the web interface.
@@ -82,7 +81,8 @@ public final class StewardUi {
     private static final Logger log = LoggerFactory.getLogger(StewardUi.class);
     private static final Gson GSON = new Gson();
     /** The Javalin mapper drops nulls; `/api/updates/active` answers "none" as an explicit null. */
-    private static final Gson ACTIVE_JSON = new com.google.gson.GsonBuilder().serializeNulls().create();
+    private static final Gson ACTIVE_JSON =
+            new com.google.gson.GsonBuilder().serializeNulls().create();
 
     /**
      * Where this request's session is parked once it has been read.
@@ -166,6 +166,7 @@ public final class StewardUi {
      * signs nobody in.</p>
      */
     private final Credentials credentials;
+
     private final WebAuthn webauthn;
 
     /**
@@ -178,6 +179,7 @@ public final class StewardUi {
      * {@code UiSpec.WebPushSpec}'s own comment.</p>
      */
     private final PushSubscriptions pushSubscriptions;
+
     private final PushPreferences pushPreferences;
     private final ExampleValues exampleValues;
     private final com.interaso.webpush.VapidKeys vapidKeys;
@@ -198,13 +200,16 @@ public final class StewardUi {
     private final GameActions games;
     /** Announcements written by hand, over the same rows as {@link #commands}. */
     private final Announcements announcements;
+
     private final AccessApi access;
     /** Who may sign in, and who stays signed in. Null only in a test without a database. */
     private final AdminTree admins;
+
     private final AdminApi adminApi;
 
     /** The one service allowed to create a container, asked for exactly one thing (10a.4). */
     private final DeployerApi deployments;
+
     private final ExecutorService streams = Executors.newVirtualThreadPerTaskExecutor();
 
     /**
@@ -230,37 +235,41 @@ public final class StewardUi {
      */
     private static final Duration ALERT_POLL = Duration.ofSeconds(30);
 
-    private final ScheduledExecutorService heartbeats = Executors.newSingleThreadScheduledExecutor(
-            runnable -> {
-                final Thread thread = new Thread(runnable, "steward-ui-sse-heartbeat");
-                thread.setDaemon(true);
-                return thread;
-            });
+    private final ScheduledExecutorService heartbeats = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        final Thread thread = new Thread(runnable, "steward-ui-sse-heartbeat");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private Javalin app;
 
-    public StewardUi(final UiSpec config, final DiscordAuth discord, final InternalClient worker,
-                     final InternalClient deployer, final Data data) {
+    public StewardUi(
+            final UiSpec config,
+            final DiscordAuth discord,
+            final InternalClient worker,
+            final InternalClient deployer,
+            final Data data) {
         this.config = config;
         this.discord = discord;
         this.worker = worker;
         this.data = data;
-        this.sessions = data == null
-                ? null
-                : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
+        this.sessions = data == null ? null : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
         this.credentials = data == null ? null : new Credentials(data.dataSource());
-        this.webauthn = data == null ? null : new WebAuthn(config.webauthn().relyingPartyId(),
-                config.publicUrl(), credentials);
-        this.guild = new DiscordApi(
-                new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API));
+        this.webauthn =
+                data == null ? null : new WebAuthn(config.webauthn().relyingPartyId(), config.publicUrl(), credentials);
+        this.guild = new DiscordApi(new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
         this.announcements = new Announcements(data == null ? null : data.dataSource(), commands);
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.admins = data == null ? null : AdminTree.using(data.dataSource());
-        this.adminApi = data == null ? null
+        this.adminApi = data == null
+                ? null
                 : new AdminApi(admins, data.audit(), ctx -> account(ctx).orElseThrow());
-        this.deployments = new DeployerApi(deployer, data, ctx -> account(ctx).orElseThrow(),
+        this.deployments = new DeployerApi(
+                deployer,
+                data,
+                ctx -> account(ctx).orElseThrow(),
                 !config.deployer().token().isBlank());
         this.pushSubscriptions = data == null ? null : new PushSubscriptions(data.dataSource());
         this.pushPreferences = data == null ? null : new PushPreferences(data.dataSource());
@@ -269,10 +278,16 @@ public final class StewardUi {
         // THE SAME THREE NUMBERS /api/settings ALREADY ANSWERS, and the same three the start page's
         // tile compares against - handed to the watch rather than re-read anywhere, so that a lock
         // screen and a browser tab can never disagree about what "full" means. See Alerts.
-        this.alertWatch = (data == null || vapidKeys == null) ? null
-                : new AlertWatch(worker, pushSubscriptions, pushPreferences,
-                        config.webPush().subject(), vapidKeys,
-                        config.alerts().diskPercent(), config.alerts().memoryPercent(),
+        this.alertWatch = (data == null || vapidKeys == null)
+                ? null
+                : new AlertWatch(
+                        worker,
+                        pushSubscriptions,
+                        pushPreferences,
+                        config.webPush().subject(),
+                        vapidKeys,
+                        config.alerts().diskPercent(),
+                        config.alerts().memoryPercent(),
                         config.alerts().backupAgeHours());
     }
 
@@ -306,8 +321,7 @@ public final class StewardUi {
      * whoever clicks first.</p>
      */
     public static void main(final String[] args) {
-        final Path directory = Path.of(System.getenv().getOrDefault(
-                "NORDTAL_STEWARD_UI_CONFIG_DIR", "config"));
+        final Path directory = Path.of(System.getenv().getOrDefault("NORDTAL_STEWARD_UI_CONFIG_DIR", "config"));
         // ONE PROGRAM WITH A SUBCOMMAND, not a second tool. `forget-factors` needs this jar's
         // database configuration, its DAOs and its journal, and a separate binary would be a
         // second copy of all three that nothing keeps in step.
@@ -337,22 +351,27 @@ public final class StewardUi {
             // morning that lands on whoever is on call.
             data = new Data(Configs.database(directory, log).get());
         } catch (ConfigException failure) {
-            log.error("The configuration in {} could not be read, so nothing is being served.",
-                    directory.toAbsolutePath(), failure);
+            log.error(
+                    "The configuration in {} could not be read, so nothing is being served.",
+                    directory.toAbsolutePath(),
+                    failure);
             System.exit(1);
             return;
         }
 
-        final InternalClient worker = new InternalClient("steward-worker",
-                config.worker().baseUrl(), config.worker().token(), Duration.ofSeconds(10));
+        final InternalClient worker = new InternalClient(
+                "steward-worker", config.worker().baseUrl(), config.worker().token(), Duration.ofSeconds(10));
         if (config.worker().token().isBlank()) {
             log.warn("worker.token is empty, so nothing about a container can be read. Every page"
                     + " that would show one says so instead of drawing an empty table.");
         }
         // A SECOND CLIENT AND A SECOND SECRET, deliberately. The deployer may create containers and
         // the worker may not; one token for both would make that boundary a comment.
-        final InternalClient deployer = new InternalClient("steward-deployer",
-                config.deployer().baseUrl(), config.deployer().token(), Duration.ofSeconds(10));
+        final InternalClient deployer = new InternalClient(
+                "steward-deployer",
+                config.deployer().baseUrl(),
+                config.deployer().token(),
+                Duration.ofSeconds(10));
         if (config.deployer().token().isBlank()) {
             log.warn("deployer.token is empty, so no container can be recreated from here. The"
                     + " button is not drawn and the page says why.");
@@ -363,8 +382,8 @@ public final class StewardUi {
                     + " lines it prints into steward-ui.yml's web-push section.");
         }
         Runtime.getRuntime().addShutdownHook(new Thread(data::close, "steward-ui-shutdown"));
-        new StewardUi(config, new DiscordAuth(config.discord(), config.publicUrl()), worker,
-                deployer, data).start(config.port());
+        new StewardUi(config, new DiscordAuth(config.discord(), config.publicUrl()), worker, deployer, data)
+                .start(config.port());
     }
 
     /**
@@ -422,610 +441,744 @@ public final class StewardUi {
             }
             // Written AFTER the deletes, so a row can never claim something that did not happen.
             // The other order would record an intention.
-            data.audit().record("FORGET_FACTORS", "host", discordId, null,
-                    keys + " security key(s) and " + signedOut + " session(s) of " + discordId
-                            + " were cleared from the host");
-            System.out.println("Cleared " + keys + " security key(s) and " + signedOut
-                    + " session(s) of " + discordId + ".");
+            data.audit()
+                    .record(
+                            "FORGET_FACTORS",
+                            "host",
+                            discordId,
+                            null,
+                            keys + " security key(s) and " + signedOut + " session(s) of " + discordId
+                                    + " were cleared from the host");
+            System.out.println(
+                    "Cleared " + keys + " security key(s) and " + signedOut + " session(s) of " + discordId + ".");
             System.out.println("Its next sign-in will ask for Discord and then register a new key.");
             return 0;
         } catch (ConfigException failure) {
-            log.error("The database configuration in {} could not be read, so nothing was cleared.",
-                    directory.toAbsolutePath(), failure);
+            log.error(
+                    "The database configuration in {} could not be read, so nothing was cleared.",
+                    directory.toAbsolutePath(),
+                    failure);
             return 1;
         }
     }
 
     public Javalin start(final int port) {
         app = Javalin.create(cfg -> {
-            cfg.jsonMapper(new JavalinGson(new Gson(), true));
-            cfg.startup.showJavalinBanner = false;
+                    cfg.jsonMapper(new JavalinGson(new Gson(), true));
+                    cfg.startup.showJavalinBanner = false;
 
-            // The built frontend, out of the jar. `/web` is where Gradle's vite build lands.
-            cfg.staticFiles.add(staticFiles -> {
-                staticFiles.hostedPath = "/";
-                staticFiles.directory = "/web";
-                staticFiles.location = Location.CLASSPATH;
-                // THE BUNDLE CARRIES ITS DECISION TOO, AND IT HAS TO BE SAID HERE.
-                //
-                // `guard` hangs on `beforeMatched`, which runs in front of static files as well -
-                // and a static file is not registered through `cfg.routes`, so it cannot pick up a
-                // Gate the way a route does. Left empty, `gateOf` finds zero decisions and refuses
-                // `/` with a 500: no sign-in page, no Discord button, a white screen apologising
-                // for itself. That is what happened on 2026-09-15, the first day this service ran
-                // an image built after the gatekeeper landed.
-                //
-                // ANYONE is not a concession, it is the same answer `/auth/login` and `/api/me`
-                // give: whoever cannot sign in yet has to be able to read the page that offers it.
-                // The bundle holds no data - every byte it shows arrives later, through /api, and
-                // every one of those doors is shut.
-                staticFiles.roles = Set.of(Gate.ANYONE);
-            });
-            // A client-side router owns every path that is not an API call or a file, so an
-            // unknown path is index.html rather than a 404 - which is what makes a reload of
-            // /operations/updates/27 land on the page it names instead of on nothing.
-            //
-            // It carries no Gate and cannot: `SinglePageHandler` has no roles field (checked
-            // against javalin 7.2.3). `gateOf` answers for it, and for the static files, by the
-            // one rule below - not by guessing.
-            cfg.spaRoot.addFile("/", "/web/index.html", Location.CLASSPATH);
+                    // The built frontend, out of the jar. `/web` is where Gradle's vite build lands.
+                    cfg.staticFiles.add(staticFiles -> {
+                        staticFiles.hostedPath = "/";
+                        staticFiles.directory = "/web";
+                        staticFiles.location = Location.CLASSPATH;
+                        // THE BUNDLE CARRIES ITS DECISION TOO, AND IT HAS TO BE SAID HERE.
+                        //
+                        // `guard` hangs on `beforeMatched`, which runs in front of static files as well -
+                        // and a static file is not registered through `cfg.routes`, so it cannot pick up a
+                        // Gate the way a route does. Left empty, `gateOf` finds zero decisions and refuses
+                        // `/` with a 500: no sign-in page, no Discord button, a white screen apologising
+                        // for itself. That is what happened on 2026-09-15, the first day this service ran
+                        // an image built after the gatekeeper landed.
+                        //
+                        // ANYONE is not a concession, it is the same answer `/auth/login` and `/api/me`
+                        // give: whoever cannot sign in yet has to be able to read the page that offers it.
+                        // The bundle holds no data - every byte it shows arrives later, through /api, and
+                        // every one of those doors is shut.
+                        staticFiles.roles = Set.of(Gate.ANYONE);
+                    });
+                    // A client-side router owns every path that is not an API call or a file, so an
+                    // unknown path is index.html rather than a 404 - which is what makes a reload of
+                    // /operations/updates/27 land on the page it names instead of on nothing.
+                    //
+                    // It carries no Gate and cannot: `SinglePageHandler` has no roles field (checked
+                    // against javalin 7.2.3). `gateOf` answers for it, and for the static files, by the
+                    // one rule below - not by guessing.
+                    cfg.spaRoot.addFile("/", "/web/index.html", Location.CLASSPATH);
 
-            // THE FRONTEND'S CACHE HEADERS, SAID ONCE, FOR BOTH WAYS IN. Jetty's own default for
-            // everything under `cfg.staticFiles` and `cfg.spaRoot` - measured on this Javalin
-            // version - is a literal `Cache-Control: max-age=0`, on the bundle and on the document
-            // alike. `after` runs once every request has been answered, including a static file or
-            // the single-page fallback, which neither carries a Gate nor a place of its own to set
-            // a header from - so this is the one hook that sees both. See `cacheHeaders`.
-            cfg.routes.after(StewardUi::cacheHeaders);
+                    // THE FRONTEND'S CACHE HEADERS, SAID ONCE, FOR BOTH WAYS IN. Jetty's own default for
+                    // everything under `cfg.staticFiles` and `cfg.spaRoot` - measured on this Javalin
+                    // version - is a literal `Cache-Control: max-age=0`, on the bundle and on the document
+                    // alike. `after` runs once every request has been answered, including a static file or
+                    // the single-page fallback, which neither carries a Gate nor a place of its own to set
+                    // a header from - so this is the one hook that sees both. See `cacheHeaders`.
+                    cfg.routes.after(StewardUi::cacheHeaders);
 
-            cfg.routes.get("/api/health", this::health, Gate.ANYONE);
-            // steward/85: Javalin discards the BODY of a HEAD request at the wire layer, but its
-            // own routing never carries that far - `guard`, on `beforeMatched`, reads
-            // `ctx.routeRoles()` before any handler runs, and that lookup is keyed to the exact
-            // HTTP method. With no route ever registered for HEAD, it saw zero decided roles and
-            // `gateOf` refused the request as an undecided route: a 500 that named a fault this
-            // service does not have, on the one path a monitor tries first because it is cheaper
-            // than GET. Confirmed generic to every `/api` GET route (`/api/me` breaks the same
-            // way) and not caused by the `after`-stage steward/79 added - `guard` throws before
-            // `after` ever runs, over a mechanism that predates it. The general fix would be a
-            // stage that answers every HEAD from its GET's own decision; that is a bigger change
-            // than this ticket asks for, so only the one route an outside watcher would actually
-            // reach is given its own explicit HEAD registration. If a monitor is ever pointed at
-            // another `/api` route, HEAD on it still 500s - failing closed, loudly, not open.
-            cfg.routes.head("/api/health", this::health, Gate.ANYONE);
+                    cfg.routes.get("/api/health", this::health, Gate.ANYONE);
+                    // steward/85: Javalin discards the BODY of a HEAD request at the wire layer, but its
+                    // own routing never carries that far - `guard`, on `beforeMatched`, reads
+                    // `ctx.routeRoles()` before any handler runs, and that lookup is keyed to the exact
+                    // HTTP method. With no route ever registered for HEAD, it saw zero decided roles and
+                    // `gateOf` refused the request as an undecided route: a 500 that named a fault this
+                    // service does not have, on the one path a monitor tries first because it is cheaper
+                    // than GET. Confirmed generic to every `/api` GET route (`/api/me` breaks the same
+                    // way) and not caused by the `after`-stage steward/79 added - `guard` throws before
+                    // `after` ever runs, over a mechanism that predates it. The general fix would be a
+                    // stage that answers every HEAD from its GET's own decision; that is a bigger change
+                    // than this ticket asks for, so only the one route an outside watcher would actually
+                    // reach is given its own explicit HEAD registration. If a monitor is ever pointed at
+                    // another `/api` route, HEAD on it still 500s - failing closed, loudly, not open.
+                    cfg.routes.head("/api/health", this::health, Gate.ANYONE);
 
-            // WHO MAY SIGN IN IS ANSWERED BEFORE ANYTHING ELSE IS SERVED. The sign-in page itself
-            // needs to be readable without a session, and so does the static bundle - everything
-            // under /api that is not health or this does not.
-            cfg.routes.get("/api/me", this::whoAmI, Gate.ANYONE);
+                    // WHO MAY SIGN IN IS ANSWERED BEFORE ANYTHING ELSE IS SERVED. The sign-in page itself
+                    // needs to be readable without a session, and so does the static bundle - everything
+                    // under /api that is not health or this does not.
+                    cfg.routes.get("/api/me", this::whoAmI, Gate.ANYONE);
 
-            // THE ONE DOOR, AND IT READS THE DECISION OFF THE ROUTE IT IS ABOUT TO RUN.
-            //
-            // `beforeMatched` rather than `before("/api/*")`: the old filter guarded a path
-            // prefix, which meant every route outside it - signing out, both ceremonies - repeated
-            // the same two checks by hand, and a new route outside /api would have repeated
-            // nothing at all. This one runs in front of EVERY matched endpoint and asks the
-            // endpoint itself what it requires, so a route cannot be outside the arrangement; it
-            // can only be inside it with a value somebody chose. See Gate.
-            cfg.routes.beforeMatched(this::guard);
+                    // THE ONE DOOR, AND IT READS THE DECISION OFF THE ROUTE IT IS ABOUT TO RUN.
+                    //
+                    // `beforeMatched` rather than `before("/api/*")`: the old filter guarded a path
+                    // prefix, which meant every route outside it - signing out, both ceremonies - repeated
+                    // the same two checks by hand, and a new route outside /api would have repeated
+                    // nothing at all. This one runs in front of EVERY matched endpoint and asks the
+                    // endpoint itself what it requires, so a route cannot be outside the arrangement; it
+                    // can only be inside it with a value somebody chose. See Gate.
+                    cfg.routes.beforeMatched(this::guard);
 
-            cfg.routes.get("/auth/login", this::login, Gate.ANYONE);
-            cfg.routes.get("/auth/callback", this::callback, Gate.ANYONE);
-            cfg.routes.post("/auth/logout", ctx -> {
-                // The CSRF token is `guard`'s, on every write, including this one - it used to be
-                // repeated here because the old filter only covered /api/*. It matters as much as
-                // it ever did: the cookie is SameSite=Lax, which allows exactly the kind of
-                // top-level POST a form on another site performs, so without it a stranger's page
-                // could sign an admin out in the middle of a deployment they are watching.
-                sessions.end(ctx.cookie(Sessions.COOKIE));
-                ctx.removeCookie(Sessions.COOKIE, "/");
-                ctx.status(204);
-            }, Gate.SIGNED_IN);
+                    cfg.routes.get("/auth/login", this::login, Gate.ANYONE);
+                    cfg.routes.get("/auth/callback", this::callback, Gate.ANYONE);
+                    cfg.routes.post(
+                            "/auth/logout",
+                            ctx -> {
+                                // The CSRF token is `guard`'s, on every write, including this one - it used to be
+                                // repeated here because the old filter only covered /api/*. It matters as much as
+                                // it ever did: the cookie is SameSite=Lax, which allows exactly the kind of
+                                // top-level POST a form on another site performs, so without it a stranger's page
+                                // could sign an admin out in the middle of a deployment they are watching.
+                                sessions.end(ctx.cookie(Sessions.COOKIE));
+                                ctx.removeCookie(Sessions.COOKIE, "/");
+                                ctx.status(204);
+                            },
+                            Gate.SIGNED_IN);
 
-            // --- the second factor (§10a) ------------------------------------------------------
-            //
-            // SIGNED_IN AND NOT KEY_HELD, which is the whole exception list the plan asks for: a
-            // door cannot ask for the key it exists to hand out, and a person part-way through the
-            // key ceremony must still be able to sign out. Everything else in this service is
-            // above that line.
-            cfg.routes.post("/auth/webauthn/register/start", this::beginRegistration, Gate.SIGNED_IN);
-            cfg.routes.post("/auth/webauthn/register/finish", this::finishRegistration, Gate.SIGNED_IN);
-            cfg.routes.post("/auth/webauthn/authenticate/start", this::beginAssertion, Gate.SIGNED_IN);
-            cfg.routes.post("/auth/webauthn/authenticate/finish", this::finishAssertion, Gate.SIGNED_IN);
+                    // --- the second factor (§10a) ------------------------------------------------------
+                    //
+                    // SIGNED_IN AND NOT KEY_HELD, which is the whole exception list the plan asks for: a
+                    // door cannot ask for the key it exists to hand out, and a person part-way through the
+                    // key ceremony must still be able to sign out. Everything else in this service is
+                    // above that line.
+                    cfg.routes.post("/auth/webauthn/register/start", this::beginRegistration, Gate.SIGNED_IN);
+                    cfg.routes.post("/auth/webauthn/register/finish", this::finishRegistration, Gate.SIGNED_IN);
+                    cfg.routes.post("/auth/webauthn/authenticate/start", this::beginAssertion, Gate.SIGNED_IN);
+                    cfg.routes.post("/auth/webauthn/authenticate/finish", this::finishAssertion, Gate.SIGNED_IN);
 
-            // --- the keys themselves (package F) ----------------------------------------------
-            //
-            // KEY_FRESH, which is the plan's own §8: managing the keys is one of the dangerous
-            // things, and it is the most dangerous of them - a stolen session that could add a key
-            // would be a stolen session that has made itself permanent. Adding one goes through
-            // the ceremony above and is checked in the handler; these two are the rest of it.
-            //
-            // The list they act on is in /api/me, not in a route of its own: it is part of the
-            // answer to "who am I", the shell already has it, and a second endpoint would be a
-            // second thing to keep in step.
-            cfg.routes.put("/api/keys/{id}", this::renameKey, Gate.KEY_FRESH);
-            cfg.routes.delete("/api/keys/{id}", this::removeKey, Gate.KEY_FRESH);
+                    // --- the keys themselves (package F) ----------------------------------------------
+                    //
+                    // KEY_FRESH, which is the plan's own §8: managing the keys is one of the dangerous
+                    // things, and it is the most dangerous of them - a stolen session that could add a key
+                    // would be a stolen session that has made itself permanent. Adding one goes through
+                    // the ceremony above and is checked in the handler; these two are the rest of it.
+                    //
+                    // The list they act on is in /api/me, not in a route of its own: it is part of the
+                    // answer to "who am I", the shell already has it, and a second endpoint would be a
+                    // second thing to keep in step.
+                    cfg.routes.put("/api/keys/{id}", this::renameKey, Gate.KEY_FRESH);
+                    cfg.routes.delete("/api/keys/{id}", this::removeKey, Gate.KEY_FRESH);
 
-            // --- web push (steward/98, concept §10c) --------------------------------------------
-            //
-            // The public key is a read, like the config a KEY_HELD page already shows; subscribing
-            // and unsubscribing change a row, so they wear KEY_FRESH like every other write here.
-            cfg.routes.get("/api/web-push/public-key", this::webPushPublicKey, Gate.KEY_HELD);
-            cfg.routes.post("/api/web-push/subscribe", this::subscribeWebPush, Gate.KEY_FRESH);
-            cfg.routes.delete("/api/web-push/subscribe", this::unsubscribeWebPush, Gate.KEY_FRESH);
+                    // --- web push (steward/98, concept §10c) --------------------------------------------
+                    //
+                    // The public key is a read, like the config a KEY_HELD page already shows; subscribing
+                    // and unsubscribing change a row, so they wear KEY_FRESH like every other write here.
+                    cfg.routes.get("/api/web-push/public-key", this::webPushPublicKey, Gate.KEY_HELD);
+                    cfg.routes.post("/api/web-push/subscribe", this::subscribeWebPush, Gate.KEY_FRESH);
+                    cfg.routes.delete("/api/web-push/subscribe", this::unsubscribeWebPush, Gate.KEY_FRESH);
 
-            // The notifications dialog behind the avatar (steward/98, Till's review of 2026-09-18):
-            // every browser of this account, which kinds of alert it wants, and one send it asked
-            // for. Reading is KEY_HELD, the two writes are KEY_FRESH - and a test send IS a write:
-            // it makes this service reach out to a push service in somebody's name.
-            cfg.routes.get("/api/web-push/devices", this::webPushDevices, Gate.KEY_HELD);
-            cfg.routes.get("/api/web-push/preferences", this::webPushPreferences, Gate.KEY_HELD);
-            cfg.routes.put("/api/web-push/preferences", this::setWebPushPreference, Gate.KEY_FRESH);
-            cfg.routes.post("/api/web-push/test", this::testWebPush, Gate.KEY_FRESH);
+                    // The notifications dialog behind the avatar (steward/98, Till's review of 2026-09-18):
+                    // every browser of this account, which kinds of alert it wants, and one send it asked
+                    // for. Reading is KEY_HELD, the two writes are KEY_FRESH - and a test send IS a write:
+                    // it makes this service reach out to a push service in somebody's name.
+                    cfg.routes.get("/api/web-push/devices", this::webPushDevices, Gate.KEY_HELD);
+                    cfg.routes.get("/api/web-push/preferences", this::webPushPreferences, Gate.KEY_HELD);
+                    cfg.routes.put("/api/web-push/preferences", this::setWebPushPreference, Gate.KEY_FRESH);
+                    cfg.routes.post("/api/web-push/test", this::testWebPush, Gate.KEY_FRESH);
 
-            // --- everything about a container comes from steward-worker -----------------------
-            cfg.routes.get("/api/services", ctx -> passThrough(ctx, "/api/services"), Gate.KEY_HELD);
-            cfg.routes.get("/api/services/{name}", ctx ->
-                    passThrough(ctx, "/api/services/" + ctx.pathParam("name")), Gate.KEY_HELD);
-            cfg.routes.post("/api/services/{name}/console", ctx -> {
-                final String answer = worker.post(
-                        "/api/services/" + ctx.pathParam("name") + "/console", ctx.body());
-                ctx.status(202).contentType("application/json").result(answer);
-            }, Gate.KEY_FRESH);
-            // season-2-ops/129: the plugins on one Minecraft server. Three reads and two writes,
-            // and the split of gates is the usual one - looking at a list is KEY_HELD, changing
-            // what a server runs is KEY_FRESH.
-            //
-            // These are NOT the door an update goes through and they do not need to be: installing
-            // writes a row that the next ordinary run picks up, so the countdown, the wait in limbo
-            // and the report all still happen, and none of it happens here.
-            cfg.routes.get("/api/services/{name}/plugins", ctx ->
-                    passThrough(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins"),
-                    Gate.KEY_HELD);
-            // `?q=` has to survive, so this goes through forwardedQuery like the log search does -
-            // a passThrough naming the bare path drops the query string silently, and the worker
-            // would answer the most popular plugins while the browser believed it had searched.
-            cfg.routes.get("/api/services/{name}/plugins/search", ctx ->
-                    passThrough(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins/search"
-                            + forwardedQuery(ctx.queryString())), Gate.KEY_HELD);
-            // The name on the row is taken from the session and written into the body HERE, not
-            // accepted from the browser. Everything else in `by`'s shape is the same as
-            // `update_request.requested_by`, and a field a request may fill in is a field that says
-            // whatever the request wanted it to.
-            cfg.routes.post("/api/services/{name}/plugins", ctx -> {
-                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                final Map<String, Object> body = new java.util.LinkedHashMap<>(
-                        GSON.<Map<String, Object>>fromJson(ctx.body(), Map.class));
-                body.put("by", who.name() + " (" + who.id() + ")");
-                forwardWorker(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins",
-                        GSON.toJson(body), 201);
-            }, Gate.KEY_FRESH);
-            cfg.routes.delete("/api/services/{name}/plugins/{artifact}", ctx ->
-                    forwardWorker(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins/"
-                            + ctx.pathParam("artifact"), null, 200), Gate.KEY_FRESH);
+                    // --- everything about a container comes from steward-worker -----------------------
+                    cfg.routes.get("/api/services", ctx -> passThrough(ctx, "/api/services"), Gate.KEY_HELD);
+                    cfg.routes.get(
+                            "/api/services/{name}",
+                            ctx -> passThrough(ctx, "/api/services/" + ctx.pathParam("name")),
+                            Gate.KEY_HELD);
+                    cfg.routes.post(
+                            "/api/services/{name}/console",
+                            ctx -> {
+                                final String answer =
+                                        worker.post("/api/services/" + ctx.pathParam("name") + "/console", ctx.body());
+                                ctx.status(202).contentType("application/json").result(answer);
+                            },
+                            Gate.KEY_FRESH);
+                    // season-2-ops/129: the plugins on one Minecraft server. Three reads and two writes,
+                    // and the split of gates is the usual one - looking at a list is KEY_HELD, changing
+                    // what a server runs is KEY_FRESH.
+                    //
+                    // These are NOT the door an update goes through and they do not need to be: installing
+                    // writes a row that the next ordinary run picks up, so the countdown, the wait in limbo
+                    // and the report all still happen, and none of it happens here.
+                    cfg.routes.get(
+                            "/api/services/{name}/plugins",
+                            ctx -> passThrough(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins"),
+                            Gate.KEY_HELD);
+                    // `?q=` has to survive, so this goes through forwardedQuery like the log search does -
+                    // a passThrough naming the bare path drops the query string silently, and the worker
+                    // would answer the most popular plugins while the browser believed it had searched.
+                    cfg.routes.get(
+                            "/api/services/{name}/plugins/search",
+                            ctx -> passThrough(
+                                    ctx,
+                                    "/api/services/" + ctx.pathParam("name") + "/plugins/search"
+                                            + forwardedQuery(ctx.queryString())),
+                            Gate.KEY_HELD);
+                    // The name on the row is taken from the session and written into the body HERE, not
+                    // accepted from the browser. Everything else in `by`'s shape is the same as
+                    // `update_request.requested_by`, and a field a request may fill in is a field that says
+                    // whatever the request wanted it to.
+                    cfg.routes.post(
+                            "/api/services/{name}/plugins",
+                            ctx -> {
+                                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                                final Map<String, Object> body = new java.util.LinkedHashMap<>(
+                                        GSON.<Map<String, Object>>fromJson(ctx.body(), Map.class));
+                                body.put("by", who.name() + " (" + who.id() + ")");
+                                forwardWorker(
+                                        ctx,
+                                        "/api/services/" + ctx.pathParam("name") + "/plugins",
+                                        GSON.toJson(body),
+                                        201);
+                            },
+                            Gate.KEY_FRESH);
+                    cfg.routes.delete(
+                            "/api/services/{name}/plugins/{artifact}",
+                            ctx -> forwardWorker(
+                                    ctx,
+                                    "/api/services/" + ctx.pathParam("name") + "/plugins/" + ctx.pathParam("artifact"),
+                                    null,
+                                    200),
+                            Gate.KEY_FRESH);
 
-            // --- and creating one comes from steward-deployer, which is a different service ---
-            //
-            // Not the same door as an update: an update is a countable, cancellable row that
-            // steward-worker carries out with a countdown in front of every player online. This is
-            // one container, made again from the image that is already on the host, and the only
-            // process in the stack allowed to do it is the deployer (8a).
-            cfg.routes.get("/api/deployer", deployments::state, Gate.KEY_HELD);
-            cfg.routes.get("/api/deployer/services", deployments::services, Gate.KEY_HELD);
-            cfg.routes.post("/api/deployer/recreate/{service}", deployments::recreate, Gate.KEY_FRESH);
-            cfg.routes.get("/api/deployer/jobs", deployments::jobs, Gate.KEY_HELD);
-            cfg.routes.get("/api/deployer/jobs/{id}", deployments::job, Gate.KEY_HELD);
+                    // --- and creating one comes from steward-deployer, which is a different service ---
+                    //
+                    // Not the same door as an update: an update is a countable, cancellable row that
+                    // steward-worker carries out with a countdown in front of every player online. This is
+                    // one container, made again from the image that is already on the host, and the only
+                    // process in the stack allowed to do it is the deployer (8a).
+                    cfg.routes.get("/api/deployer", deployments::state, Gate.KEY_HELD);
+                    cfg.routes.get("/api/deployer/services", deployments::services, Gate.KEY_HELD);
+                    cfg.routes.post("/api/deployer/recreate/{service}", deployments::recreate, Gate.KEY_FRESH);
+                    cfg.routes.get("/api/deployer/jobs", deployments::jobs, Gate.KEY_HELD);
+                    cfg.routes.get("/api/deployer/jobs/{id}", deployments::job, Gate.KEY_HELD);
 
-            // The unified "latest actions" feed (steward/82). It carries `?limit=`, so it goes
-            // through forwardedQuery like the log search does - a passThrough that names the bare
-            // path drops the query string silently, and the worker would answer its own default
-            // while the browser believed it had asked for a number.
-            cfg.routes.get("/api/actions", ctx -> passThrough(ctx,
-                    "/api/actions" + forwardedQuery(ctx.queryString())), Gate.KEY_HELD);
-            cfg.routes.get("/api/host", ctx -> passThrough(ctx, "/api/host"), Gate.KEY_HELD);
-            // What "tonight" means on the host, rather than in whatever zone the browser is in.
-            cfg.routes.get("/api/schedule", ctx -> passThrough(ctx, "/api/schedule"), Gate.KEY_HELD);
-            cfg.routes.get("/api/backups", ctx -> passThrough(ctx, "/api/backups"), Gate.KEY_HELD);
+                    // The unified "latest actions" feed (steward/82). It carries `?limit=`, so it goes
+                    // through forwardedQuery like the log search does - a passThrough that names the bare
+                    // path drops the query string silently, and the worker would answer its own default
+                    // while the browser believed it had asked for a number.
+                    cfg.routes.get(
+                            "/api/actions",
+                            ctx -> passThrough(ctx, "/api/actions" + forwardedQuery(ctx.queryString())),
+                            Gate.KEY_HELD);
+                    cfg.routes.get("/api/host", ctx -> passThrough(ctx, "/api/host"), Gate.KEY_HELD);
+                    // What "tonight" means on the host, rather than in whatever zone the browser is in.
+                    cfg.routes.get("/api/schedule", ctx -> passThrough(ctx, "/api/schedule"), Gate.KEY_HELD);
+                    cfg.routes.get("/api/backups", ctx -> passThrough(ctx, "/api/backups"), Gate.KEY_HELD);
 
-            // steward/95's download: reading a backup off the disk is no more a write than
-            // watching its log is, so this is KEY_HELD like every other read here - not
-            // KEY_FRESH, which is for the routes that change something on the other side.
-            cfg.routes.get("/api/backups/{name}/download",
-                    ctx -> downloadBackup(ctx, ctx.pathParam("name")), Gate.KEY_HELD);
+                    // steward/95's download: reading a backup off the disk is no more a write than
+                    // watching its log is, so this is KEY_HELD like every other read here - not
+                    // KEY_FRESH, which is for the routes that change something on the other side.
+                    cfg.routes.get(
+                            "/api/backups/{name}/download",
+                            ctx -> downloadBackup(ctx, ctx.pathParam("name")),
+                            Gate.KEY_HELD);
 
-            // The log follow, proxied line by line. A redirect would be simpler and would hand the
-            // browser the worker's address and its token, which is the one thing this whole split
-            // exists to avoid.
-            cfg.routes.sse("/api/services/{name}/logs", client -> {
-                if (account(client.ctx()).isEmpty()) {
-                    client.close();
-                    return;
-                }
-                final String name = client.ctx().pathParam("name");
-                final String query = client.ctx().queryString();
-                // TWO SOCKETS, AND ONLY ONE OF THEM NOTICES A CLOSED TAB. The browser's end going
-                // away tells this process nothing about the worker's end, which stays blocked in
-                // readLine() until the container it is following stops - so every reload left a
-                // connection and a thread behind, and a person clicking through four services left
-                // four. Registered BEFORE the follow is submitted, because the other order has a
-                // gap in it: a browser that leaves in that gap would find nothing to cancel.
-                final Upstream upstream = new Upstream();
-                final ScheduledFuture<?> heartbeat = heartbeats.scheduleWithFixedDelay(
-                        () -> client.sendComment("open"), HEARTBEAT.toSeconds(),
-                        HEARTBEAT.toSeconds(), TimeUnit.SECONDS);
-                client.onClose(() -> {
-                    heartbeat.cancel(false);
-                    upstream.close();
-                });
-                client.keepAlive();
-                streams.submit(() -> follow(client, upstream, name, query));
-            }, Gate.KEY_HELD);
+                    // The log follow, proxied line by line. A redirect would be simpler and would hand the
+                    // browser the worker's address and its token, which is the one thing this whole split
+                    // exists to avoid.
+                    cfg.routes.sse(
+                            "/api/services/{name}/logs",
+                            client -> {
+                                if (account(client.ctx()).isEmpty()) {
+                                    client.close();
+                                    return;
+                                }
+                                final String name = client.ctx().pathParam("name");
+                                final String query = client.ctx().queryString();
+                                // TWO SOCKETS, AND ONLY ONE OF THEM NOTICES A CLOSED TAB. The browser's end going
+                                // away tells this process nothing about the worker's end, which stays blocked in
+                                // readLine() until the container it is following stops - so every reload left a
+                                // connection and a thread behind, and a person clicking through four services left
+                                // four. Registered BEFORE the follow is submitted, because the other order has a
+                                // gap in it: a browser that leaves in that gap would find nothing to cancel.
+                                final Upstream upstream = new Upstream();
+                                final ScheduledFuture<?> heartbeat = heartbeats.scheduleWithFixedDelay(
+                                        () -> client.sendComment("open"),
+                                        HEARTBEAT.toSeconds(),
+                                        HEARTBEAT.toSeconds(),
+                                        TimeUnit.SECONDS);
+                                client.onClose(() -> {
+                                    heartbeat.cancel(false);
+                                    upstream.close();
+                                });
+                                client.keepAlive();
+                                streams.submit(() -> follow(client, upstream, name, query));
+                            },
+                            Gate.KEY_HELD);
 
-            // --- what is in the database, which is where the curves and the runs live ---------
-            //
-            // §10c: the interface reads its graphs OUT OF POSTGRES, never out of Docker. Docker
-            // answers "now" and has no history behind it, so a page drawing its curves from the
-            // daemon would draw one point and call it a line.
-            cfg.routes.get("/api/metrics", ctx -> {
-                final String subject = ctx.queryParamAsClass("subject", String.class)
-                        .getOrDefault("host");
-                final String metric = ctx.queryParam("metric");
-                if (metric == null || metric.isBlank()) {
-                    throw new BadRequestResponse("metric is which number to draw");
-                }
-                final int hours = ctx.queryParamAsClass("hours", Integer.class).getOrDefault(6);
-                final Instant now = Instant.now();
-                ctx.json(Map.of(
-                        "subject", subject,
-                        "metric", metric,
-                        "from", now.minus(Duration.ofHours(hours)).toString(),
-                        "points", data.metrics().range(subject, metric,
-                                now.minus(Duration.ofHours(hours)), now)));
-            }, Gate.KEY_HELD);
+                    // --- what is in the database, which is where the curves and the runs live ---------
+                    //
+                    // §10c: the interface reads its graphs OUT OF POSTGRES, never out of Docker. Docker
+                    // answers "now" and has no history behind it, so a page drawing its curves from the
+                    // daemon would draw one point and call it a line.
+                    cfg.routes.get(
+                            "/api/metrics",
+                            ctx -> {
+                                final String subject = ctx.queryParamAsClass("subject", String.class)
+                                        .getOrDefault("host");
+                                final String metric = ctx.queryParam("metric");
+                                if (metric == null || metric.isBlank()) {
+                                    throw new BadRequestResponse("metric is which number to draw");
+                                }
+                                final int hours = ctx.queryParamAsClass("hours", Integer.class)
+                                        .getOrDefault(6);
+                                final Instant now = Instant.now();
+                                ctx.json(Map.of(
+                                        "subject",
+                                        subject,
+                                        "metric",
+                                        metric,
+                                        "from",
+                                        now.minus(Duration.ofHours(hours)).toString(),
+                                        "points",
+                                        data.metrics()
+                                                .range(subject, metric, now.minus(Duration.ofHours(hours)), now)));
+                            },
+                            Gate.KEY_HELD);
 
-            cfg.routes.get("/api/updates", ctx -> {
-                // The same helper every other list on this class uses. It used to clamp only the
-                // top end, which left `?limit=0` and `?limit=-5` to be reinterpreted three layers
-                // down in the directory - so one endpoint had its floor somewhere else than all
-                // the others, and nothing said where.
-                ctx.json(data.updates().recent(limit(ctx, 20, 200)).stream()
-                        .map(this::describe).toList());
-            }, Gate.KEY_HELD);
+                    cfg.routes.get(
+                            "/api/updates",
+                            ctx -> {
+                                // The same helper every other list on this class uses. It used to clamp only the
+                                // top end, which left `?limit=0` and `?limit=-5` to be reinterpreted three layers
+                                // down in the directory - so one endpoint had its floor somewhere else than all
+                                // the others, and nothing said where.
+                                ctx.json(data.updates().recent(limit(ctx, 20, 200)).stream()
+                                        .map(this::describe)
+                                        .toList());
+                            },
+                            Gate.KEY_HELD);
 
-            // The one open run, or none - what every service page reads to say what the network is
-            // doing and to lock the buttons a second run would be refused on. One row rather than
-            // the whole list, and registered before `/api/updates/{id}` for the same reason as
-            // `available` below. A map because `run` must be present as null, not dropped.
-            cfg.routes.get("/api/updates/active", ctx -> {
-                final Map<String, Object> answer = new java.util.HashMap<>();
-                answer.put("run", data.updates().open().map(this::describe).orElse(null));
-                ctx.contentType("application/json").result(ACTIVE_JSON.toJson(answer));
-            }, Gate.KEY_HELD);
+                    // The one open run, or none - what every service page reads to say what the network is
+                    // doing and to lock the buttons a second run would be refused on. One row rather than
+                    // the whole list, and registered before `/api/updates/{id}` for the same reason as
+                    // `available` below. A map because `run` must be present as null, not dropped.
+                    cfg.routes.get(
+                            "/api/updates/active",
+                            ctx -> {
+                                final Map<String, Object> answer = new java.util.HashMap<>();
+                                answer.put(
+                                        "run",
+                                        data.updates()
+                                                .open()
+                                                .map(this::describe)
+                                                .orElse(null));
+                                ctx.contentType("application/json").result(ACTIVE_JSON.toJson(answer));
+                            },
+                            Gate.KEY_HELD);
 
-            // season-2-ops/128: WHAT A RUN WOULD DO, WITHOUT DOING IT. Registered BEFORE
-            // `/api/updates/{id}` on purpose - Javalin matches in registration order, and the
-            // other way round `available` is a path parameter that fails as a number.
-            //
-            // KEY_HELD and not KEY_FRESH: the worker resolves and writes nothing. Nothing on the
-            // other side of this route can start a run; asking for one is still POST /api/updates.
-            // `refresh` is passed on rather than swallowed, and it is the one query parameter
-            // this route has: with it the worker drops its six-hour cache and asks every source
-            // again on the thread this call is waiting on, which is why it gets a deadline of its
-            // own instead of the ten seconds every other pass-through uses.
-            cfg.routes.get("/api/updates/available", ctx -> {
-                final boolean again = ctx.queryParam("refresh") != null;
-                ctx.contentType("application/json").result(again
-                        ? worker.get("/api/updates/available?refresh", RESOLVE_DEADLINE)
-                        : worker.get("/api/updates/available"));
-            }, Gate.KEY_HELD);
+                    // season-2-ops/128: WHAT A RUN WOULD DO, WITHOUT DOING IT. Registered BEFORE
+                    // `/api/updates/{id}` on purpose - Javalin matches in registration order, and the
+                    // other way round `available` is a path parameter that fails as a number.
+                    //
+                    // KEY_HELD and not KEY_FRESH: the worker resolves and writes nothing. Nothing on the
+                    // other side of this route can start a run; asking for one is still POST /api/updates.
+                    // `refresh` is passed on rather than swallowed, and it is the one query parameter
+                    // this route has: with it the worker drops its six-hour cache and asks every source
+                    // again on the thread this call is waiting on, which is why it gets a deadline of its
+                    // own instead of the ten seconds every other pass-through uses.
+                    cfg.routes.get(
+                            "/api/updates/available",
+                            ctx -> {
+                                final boolean again = ctx.queryParam("refresh") != null;
+                                ctx.contentType("application/json")
+                                        .result(
+                                                again
+                                                        ? worker.get("/api/updates/available?refresh", RESOLVE_DEADLINE)
+                                                        : worker.get("/api/updates/available"));
+                            },
+                            Gate.KEY_HELD);
 
-            cfg.routes.get("/api/updates/{id}", ctx -> {
-                final long id = Long.parseLong(ctx.pathParam("id"));
-                ctx.json(data.updates().find(id)
-                        .map(this::describe)
-                        .orElseThrow(() -> new NotFoundResponse("no request " + id)));
-            }, Gate.KEY_HELD);
+                    cfg.routes.get(
+                            "/api/updates/{id}",
+                            ctx -> {
+                                final long id = Long.parseLong(ctx.pathParam("id"));
+                                ctx.json(data.updates()
+                                        .find(id)
+                                        .map(this::describe)
+                                        .orElseThrow(() -> new NotFoundResponse("no request " + id)));
+                            },
+                            Gate.KEY_HELD);
 
-            // Asking for an update, a backup or a restart is writing a row - the same row /update
-            // in Discord writes. Nothing here talks to a container.
-            cfg.routes.post("/api/updates", ctx -> {
-                final Ask ask = ctx.bodyAsClass(Ask.class);
-                if (ask == null || ask.kind == null) {
-                    throw new BadRequestResponse("kind is UPDATE, BACKUP, RESTART, DOWN or START");
-                }
-                final UpdateKind kind;
-                try {
-                    kind = UpdateKind.valueOf(ask.kind.trim().toUpperCase(java.util.Locale.ROOT));
-                } catch (IllegalArgumentException e) {
-                    throw new BadRequestResponse(ask.kind + " is not a kind of run");
-                }
-                // season-2-ops/125. The worker refuses this too, and refuses it properly - but a
-                // run that fails is a row somebody has to go and read, and this one can be answered
-                // here with the button still under their finger. An unnamed scope is the whole
-                // network everywhere else in this mechanism, and DOWN is the one kind where that
-                // reading would be a network stopped until somebody presses Start.
-                if (kind == UpdateKind.DOWN && (ask.services == null || ask.services.isEmpty())) {
-                    throw new BadRequestResponse("a DOWN has to name the services it puts down");
-                }
-                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                // `not_before` is what §10a.4 calls scheduling: the worker refuses to claim the row
-                // until then, so "tonight at 04:00" is a value in a column rather than somebody
-                // staying awake.
-                final Duration delay = ask.delaySeconds == null || ask.delaySeconds <= 0
-                        ? Duration.ZERO : Duration.ofSeconds(ask.delaySeconds);
-                final UpdateRequest written;
-                try {
-                    written = data.updates().submit(kind, UpdateSource.CONSOLE,
-                            who.name() + " (" + who.id() + ")", delay, ask.services);
-                } catch (final RunRefused refused) {
-                    // One run in the whole network, decided in :common where every source submits.
-                    throw new ConflictResponse(refusal(refused));
-                }
-                log.info("{} asked for {} as request {}{}", who.name(), kind, written.id(),
-                        ask.services == null || ask.services.isEmpty() ? ""
-                                : " for " + String.join(", ", ask.services));
-                ctx.status(202).json(describe(written));
-            }, Gate.KEY_FRESH);
+                    // Asking for an update, a backup or a restart is writing a row - the same row /update
+                    // in Discord writes. Nothing here talks to a container.
+                    cfg.routes.post(
+                            "/api/updates",
+                            ctx -> {
+                                final Ask ask = ctx.bodyAsClass(Ask.class);
+                                if (ask == null || ask.kind == null) {
+                                    throw new BadRequestResponse("kind is UPDATE, BACKUP, RESTART, DOWN or START");
+                                }
+                                final UpdateKind kind;
+                                try {
+                                    kind = UpdateKind.valueOf(ask.kind.trim().toUpperCase(java.util.Locale.ROOT));
+                                } catch (IllegalArgumentException e) {
+                                    throw new BadRequestResponse(ask.kind + " is not a kind of run");
+                                }
+                                // season-2-ops/125. The worker refuses this too, and refuses it properly - but a
+                                // run that fails is a row somebody has to go and read, and this one can be answered
+                                // here with the button still under their finger. An unnamed scope is the whole
+                                // network everywhere else in this mechanism, and DOWN is the one kind where that
+                                // reading would be a network stopped until somebody presses Start.
+                                if (kind == UpdateKind.DOWN && (ask.services == null || ask.services.isEmpty())) {
+                                    throw new BadRequestResponse("a DOWN has to name the services it puts down");
+                                }
+                                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                                // `not_before` is what §10a.4 calls scheduling: the worker refuses to claim the row
+                                // until then, so "tonight at 04:00" is a value in a column rather than somebody
+                                // staying awake.
+                                final Duration delay = ask.delaySeconds == null || ask.delaySeconds <= 0
+                                        ? Duration.ZERO
+                                        : Duration.ofSeconds(ask.delaySeconds);
+                                final UpdateRequest written;
+                                try {
+                                    written = data.updates()
+                                            .submit(
+                                                    kind,
+                                                    UpdateSource.CONSOLE,
+                                                    who.name() + " (" + who.id() + ")",
+                                                    delay,
+                                                    ask.services);
+                                } catch (final RunRefused refused) {
+                                    // One run in the whole network, decided in :common where every source submits.
+                                    throw new ConflictResponse(refusal(refused));
+                                }
+                                log.info(
+                                        "{} asked for {} as request {}{}",
+                                        who.name(),
+                                        kind,
+                                        written.id(),
+                                        ask.services == null || ask.services.isEmpty()
+                                                ? ""
+                                                : " for " + String.join(", ", ask.services));
+                                ctx.status(202).json(describe(written));
+                            },
+                            Gate.KEY_FRESH);
 
-            // Taking it back (steward/131). The only thing `/update` in Discord could do that this
-            // interface could not - and the one moment somebody needs it is the one right after
-            // they notice they pressed the wrong button.
-            //
-            // The whole mechanism is one statement in :common: `cancelCountdown` takes the earliest
-            // row that is PENDING or RUNNING with `not_before` still in the future, which covers
-            // both the countdown that is running now and the run somebody scheduled for tonight.
-            // An empty answer is not an error in this process - it means the countdown reached zero
-            // while the request was in flight, and "too late" is exactly the sentence the admin
-            // needs instead of a claim that something was stopped.
-            cfg.routes.post("/api/updates/cancel", ctx -> {
-                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                final var cancelled = data.updates()
-                        .cancelCountdown("Cancelled in Steward by " + who.name()
-                                + " (" + who.id() + ")");
-                if (cancelled.isEmpty()) {
-                    throw new ConflictResponse("too late - the countdown has already run out");
-                }
-                // The actor is the Discord id and never the composed "name (id)":
-                // `audit_log.actor` is varchar(32) and a display name of eleven characters was
-                // enough to overflow it once already, taking the write it was recording with it.
-                data.audit().record("CANCEL_RUN", who.id(),
-                        String.valueOf(cancelled.get().id()), null,
-                        cancelled.get().kind() + " request " + cancelled.get().id()
-                                + " cancelled by " + who.name() + " from the web interface");
-                log.info("{} cancelled {} request {}", who.name(), cancelled.get().kind(),
-                        cancelled.get().id());
-                ctx.json(describe(cancelled.get()));
-            }, Gate.KEY_FRESH);
+                    // Taking it back (steward/131). The only thing `/update` in Discord could do that this
+                    // interface could not - and the one moment somebody needs it is the one right after
+                    // they notice they pressed the wrong button.
+                    //
+                    // The whole mechanism is one statement in :common: `cancelCountdown` takes the earliest
+                    // row that is PENDING or RUNNING with `not_before` still in the future, which covers
+                    // both the countdown that is running now and the run somebody scheduled for tonight.
+                    // An empty answer is not an error in this process - it means the countdown reached zero
+                    // while the request was in flight, and "too late" is exactly the sentence the admin
+                    // needs instead of a claim that something was stopped.
+                    cfg.routes.post(
+                            "/api/updates/cancel",
+                            ctx -> {
+                                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                                final var cancelled = data.updates()
+                                        .cancelCountdown(
+                                                "Cancelled in Steward by " + who.name() + " (" + who.id() + ")");
+                                if (cancelled.isEmpty()) {
+                                    throw new ConflictResponse("too late - the countdown has already run out");
+                                }
+                                // The actor is the Discord id and never the composed "name (id)":
+                                // `audit_log.actor` is varchar(32) and a display name of eleven characters was
+                                // enough to overflow it once already, taking the write it was recording with it.
+                                data.audit()
+                                        .record(
+                                                "CANCEL_RUN",
+                                                who.id(),
+                                                String.valueOf(cancelled.get().id()),
+                                                null,
+                                                cancelled.get().kind() + " request "
+                                                        + cancelled.get().id() + " cancelled by " + who.name()
+                                                        + " from the web interface");
+                                log.info(
+                                        "{} cancelled {} request {}",
+                                        who.name(),
+                                        cancelled.get().kind(),
+                                        cancelled.get().id());
+                                ctx.json(describe(cancelled.get()));
+                            },
+                            Gate.KEY_FRESH);
 
-            // --- the thresholds the start page judges by ---------------------------------------
-            //
-            // Read from this service's own config rather than kept in the browser, because the
-            // traffic light has to be able to fire into Discord as well, and a number in
-            // somebody's localStorage cannot be read by anything that is not that browser.
-            // --- the five admin commands that stayed in the game (§10b) ------------------------
-            //
-            // A row in `command_request`, not a connection to a server: the interface holds none.
-            // `source = WEB` rather than CONSOLE, because V11 pins a CONSOLE row to having no
-            // identity at all - every admin command from here would otherwise be anonymous, which
-            // is the question the journal exists to answer. V18 adds the value and the CHECK.
-            cfg.routes.get("/api/commands", commands::list, Gate.KEY_HELD);
-            cfg.routes.post("/api/commands", commands::ask, Gate.KEY_FRESH);
-            cfg.routes.get("/api/commands/{id}", commands::outcome, Gate.KEY_HELD);
+                    // --- the thresholds the start page judges by ---------------------------------------
+                    //
+                    // Read from this service's own config rather than kept in the browser, because the
+                    // traffic light has to be able to fire into Discord as well, and a number in
+                    // somebody's localStorage cannot be read by anything that is not that browser.
+                    // --- the five admin commands that stayed in the game (§10b) ------------------------
+                    //
+                    // A row in `command_request`, not a connection to a server: the interface holds none.
+                    // `source = WEB` rather than CONSOLE, because V11 pins a CONSOLE row to having no
+                    // identity at all - every admin command from here would otherwise be anonymous, which
+                    // is the question the journal exists to answer. V18 adds the value and the CHECK.
+                    cfg.routes.get("/api/commands", commands::list, Gate.KEY_HELD);
+                    cfg.routes.post("/api/commands", commands::ask, Gate.KEY_FRESH);
+                    cfg.routes.get("/api/commands/{id}", commands::outcome, Gate.KEY_HELD);
 
-            // --- the SMP's and the hunger games' actions, on their service pages -------------
-            //
-            // The same rows as above, asked for by what they act on rather than by command name.
-            cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);
-            cfg.routes.post("/api/smp/objective", games::completeObjective, Gate.KEY_FRESH);
-            cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH);
-            cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
-            cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_FRESH);
-            cfg.routes.get("/api/announcements", announcements::recent, Gate.KEY_HELD);
-            cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH);
+                    // --- the SMP's and the hunger games' actions, on their service pages -------------
+                    //
+                    // The same rows as above, asked for by what they act on rather than by command name.
+                    cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);
+                    cfg.routes.post("/api/smp/objective", games::completeObjective, Gate.KEY_FRESH);
+                    cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH);
+                    cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
+                    cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_FRESH);
+                    cfg.routes.get("/api/announcements", announcements::recent, Gate.KEY_HELD);
+                    cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH);
 
-            // --- the configuration of every service in the stack ------------------------------
-            //
-            // Till's decision, 2026-09-13: every config in the stack is editable from here, with
-            // labels a person can read. What makes that possible without steward-ui depending on
-            // six other modules - one of which would drag a Paper API onto a web server's
-            // classpath - is that jcore writes its comments into the YAML. The file is the model.
-            cfg.routes.get("/api/config", ctx -> forwardConfig(ctx, "/api/config", null),
-                    Gate.KEY_HELD);
-            cfg.routes.get("/api/config/<file>",
-                    ctx -> forwardConfig(ctx, configPath(ctx), null), Gate.KEY_HELD);
-            cfg.routes.put("/api/config/<file>",
-                    ctx -> forwardConfig(ctx, configPath(ctx), ctx.body()), Gate.KEY_FRESH);
+                    // --- the configuration of every service in the stack ------------------------------
+                    //
+                    // Till's decision, 2026-09-13: every config in the stack is editable from here, with
+                    // labels a person can read. What makes that possible without steward-ui depending on
+                    // six other modules - one of which would drag a Paper API onto a web server's
+                    // classpath - is that jcore writes its comments into the YAML. The file is the model.
+                    cfg.routes.get("/api/config", ctx -> forwardConfig(ctx, "/api/config", null), Gate.KEY_HELD);
+                    cfg.routes.get(
+                            "/api/config/<file>", ctx -> forwardConfig(ctx, configPath(ctx), null), Gate.KEY_HELD);
+                    cfg.routes.put(
+                            "/api/config/<file>",
+                            ctx -> forwardConfig(ctx, configPath(ctx), ctx.body()),
+                            Gate.KEY_FRESH);
 
-            // The raw editor's own save (steward/60), proxied the same way as the parsed one right
-            // above it - same gate, same worker, its own path because the body it carries (text and
-            // a revision, never `changes`) is a different shape than a parsed save's.
-            cfg.routes.put("/api/config-raw/<file>",
-                    ctx -> forwardConfig(ctx, workerPath("/api/config-raw", ctx, "file"),
-                            ctx.body()), Gate.KEY_FRESH);
+                    // The raw editor's own save (steward/60), proxied the same way as the parsed one right
+                    // above it - same gate, same worker, its own path because the body it carries (text and
+                    // a revision, never `changes`) is a different shape than a parsed save's.
+                    cfg.routes.put(
+                            "/api/config-raw/<file>",
+                            ctx -> forwardConfig(ctx, workerPath("/api/config-raw", ctx, "file"), ctx.body()),
+                            Gate.KEY_FRESH);
 
-            // The message bundles (steward/48) are the same arrangement one path along: the worker
-            // holds the jars and the file permissions, this side holds the security key. They are
-            // three routes of their own and not part of /api/config because a bundle is not a YAML
-            // file - it has two languages, a packaged half nobody may write, and no revision.
-            //
-            // The same two gates for the same reason: reading is KEY_HELD, writing is KEY_FRESH.
-            cfg.routes.get("/api/messages", ctx -> forwardConfig(ctx, "/api/messages", null),
-                    Gate.KEY_HELD);
-            cfg.routes.get("/api/messages/<bundle>",
-                    ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"), null),
-                    Gate.KEY_HELD);
-            cfg.routes.put("/api/messages/<bundle>",
-                    ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"),
-                            ctx.body()), Gate.KEY_FRESH);
-            // What an editor fills each placeholder type with. Answered here, not by the worker:
-            // the best example player is the admin asking, and only this side knows who that is.
-            cfg.routes.get("/api/message-examples", this::messageExamples, Gate.KEY_HELD);
+                    // The message bundles (steward/48) are the same arrangement one path along: the worker
+                    // holds the jars and the file permissions, this side holds the security key. They are
+                    // three routes of their own and not part of /api/config because a bundle is not a YAML
+                    // file - it has two languages, a packaged half nobody may write, and no revision.
+                    //
+                    // The same two gates for the same reason: reading is KEY_HELD, writing is KEY_FRESH.
+                    cfg.routes.get("/api/messages", ctx -> forwardConfig(ctx, "/api/messages", null), Gate.KEY_HELD);
+                    cfg.routes.get(
+                            "/api/messages/<bundle>",
+                            ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"), null),
+                            Gate.KEY_HELD);
+                    cfg.routes.put(
+                            "/api/messages/<bundle>",
+                            ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"), ctx.body()),
+                            Gate.KEY_FRESH);
+                    // What an editor fills each placeholder type with. Answered here, not by the worker:
+                    // the best example player is the admin asking, and only this side knows who that is.
+                    cfg.routes.get("/api/message-examples", this::messageExamples, Gate.KEY_HELD);
 
-            // The names behind the ids, so the editor above can offer a list instead of a field.
-            // Never a failure: an unreachable Discord is `available: false` and a typed id.
-            cfg.routes.get("/api/discord/roles", guild::roles, Gate.KEY_HELD);
-            cfg.routes.get("/api/discord/channels", guild::channels, Gate.KEY_HELD);
+                    // The names behind the ids, so the editor above can offer a list instead of a field.
+                    // Never a failure: an unreachable Discord is `available: false` and a typed id.
+                    cfg.routes.get("/api/discord/roles", guild::roles, Gate.KEY_HELD);
+                    cfg.routes.get("/api/discord/channels", guild::channels, Gate.KEY_HELD);
 
-            cfg.routes.get("/api/settings", ctx -> ctx.json(Map.of(
-                    "disk", config.alerts().diskPercent(),
-                    "memory", config.alerts().memoryPercent(),
-                    "backupAgeHours", config.alerts().backupAgeHours(),
-                    // steward/45: the base a Minecraft head is composed from, never the image
-                    // itself - see AvatarSpec's javadoc for why this is configuration and not a
-                    // column.
-                    "minecraftHeadBaseUrl", config.avatars().minecraftHeadBaseUrl())),
-                    Gate.KEY_HELD);
+                    cfg.routes.get(
+                            "/api/settings",
+                            ctx -> ctx.json(Map.of(
+                                    "disk", config.alerts().diskPercent(),
+                                    "memory", config.alerts().memoryPercent(),
+                                    "backupAgeHours", config.alerts().backupAgeHours(),
+                                    // steward/45: the base a Minecraft head is composed from, never the image
+                                    // itself - see AvatarSpec's javadoc for why this is configuration and not a
+                                    // column.
+                                    "minecraftHeadBaseUrl", config.avatars().minecraftHeadBaseUrl())),
+                            Gate.KEY_HELD);
 
-            // --- who is in the guild, what they paid, what they may ----------------------------
-            cfg.routes.get("/api/people", ctx -> ctx.json(
-                    data.roster().people(limit(ctx, 500, 2000))), Gate.KEY_HELD);
+                    // --- who is in the guild, what they paid, what they may ----------------------------
+                    cfg.routes.get(
+                            "/api/people", ctx -> ctx.json(data.roster().people(limit(ctx, 500, 2000))), Gate.KEY_HELD);
 
-            cfg.routes.get("/api/people/{id}/grants", ctx -> ctx.json(
-                    data.roster().grantsOf(ctx.pathParam("id"))), Gate.KEY_HELD);
+                    cfg.routes.get(
+                            "/api/people/{id}/grants",
+                            ctx -> ctx.json(data.roster().grantsOf(ctx.pathParam("id"))),
+                            Gate.KEY_HELD);
 
-            cfg.routes.get("/api/payments", ctx -> ctx.json(
-                    data.roster().payments(limit(ctx, 200, 1000))), Gate.KEY_HELD);
+                    cfg.routes.get(
+                            "/api/payments",
+                            ctx -> ctx.json(data.roster().payments(limit(ctx, 200, 1000))),
+                            Gate.KEY_HELD);
 
-            // What `access settle` may be pointed at. A list and not a limit: see
-            // RosterDirectory#openPayments for why, and CommandApi for what draws from it.
-            cfg.routes.get("/api/payments/open", ctx -> ctx.json(
-                    data.roster().openPayments()), Gate.KEY_HELD);
+                    // What `access settle` may be pointed at. A list and not a limit: see
+                    // RosterDirectory#openPayments for why, and CommandApi for what draws from it.
+                    cfg.routes.get(
+                            "/api/payments/open", ctx -> ctx.json(data.roster().openPayments()), Gate.KEY_HELD);
 
-            cfg.routes.get("/api/journal", ctx -> ctx.json(data.audit().search(
-                    ctx.queryParam("action"), ctx.queryParam("subject"),
-                    limit(ctx, 200, 1000))), Gate.KEY_HELD);
+                    cfg.routes.get(
+                            "/api/journal",
+                            ctx -> ctx.json(data.audit()
+                                    .search(
+                                            ctx.queryParam("action"),
+                                            ctx.queryParam("subject"),
+                                            limit(ctx, 200, 1000))),
+                            Gate.KEY_HELD);
 
-            // Granting, revoking, play time, settling and unlinking: each is one access_request
-            // row the bot carries out, so the role, the DM and the admin note follow from here
-            // exactly as they do from /access in Discord. AccessApi says why nothing is written
-            // directly any more.
-            cfg.routes.post("/api/access/grant", access::grant, Gate.KEY_FRESH);
-            cfg.routes.post("/api/access/revoke", access::revoke, Gate.KEY_FRESH);
-            cfg.routes.post("/api/access/unlink", access::unlink, Gate.KEY_FRESH);
-            cfg.routes.post("/api/access/settle", access::settle, Gate.KEY_FRESH);
-            cfg.routes.post("/api/people/{id}/playtime", access::playtime, Gate.KEY_FRESH);
-            cfg.routes.get("/api/access/requests/{id}", access::outcome, Gate.KEY_HELD);
+                    // Granting, revoking, play time, settling and unlinking: each is one access_request
+                    // row the bot carries out, so the role, the DM and the admin note follow from here
+                    // exactly as they do from /access in Discord. AccessApi says why nothing is written
+                    // directly any more.
+                    cfg.routes.post("/api/access/grant", access::grant, Gate.KEY_FRESH);
+                    cfg.routes.post("/api/access/revoke", access::revoke, Gate.KEY_FRESH);
+                    cfg.routes.post("/api/access/unlink", access::unlink, Gate.KEY_FRESH);
+                    cfg.routes.post("/api/access/settle", access::settle, Gate.KEY_FRESH);
+                    cfg.routes.post("/api/people/{id}/playtime", access::playtime, Gate.KEY_FRESH);
+                    cfg.routes.get("/api/access/requests/{id}", access::outcome, Gate.KEY_HELD);
 
-            // Admin is a tree decided here and nowhere else - AdminApi writes it directly, and the
-            // bot only makes the Discord role follow.
-            cfg.routes.post("/api/admins/grant", ctx -> adminApi.grant(ctx), Gate.KEY_FRESH);
-            cfg.routes.post("/api/admins/revoke", ctx -> adminApi.revoke(ctx), Gate.KEY_FRESH);
+                    // Admin is a tree decided here and nowhere else - AdminApi writes it directly, and the
+                    // bot only makes the Discord role follow.
+                    cfg.routes.post("/api/admins/grant", ctx -> adminApi.grant(ctx), Gate.KEY_FRESH);
+                    cfg.routes.post("/api/admins/revoke", ctx -> adminApi.revoke(ctx), Gate.KEY_FRESH);
 
-            // --- the season ------------------------------------------------------------------
-            //
-            // PhaseDirectory writes its own audit_log row inside the statement that performs the
-            // change, so nothing is recorded twice here. That is also why the actor has to be
-            // passed in rather than recorded afterwards - and why it is the Discord id: the
-            // parameter is documented as one, and the SQL casts it to varchar(32), which
-            // truncates silently.
-            cfg.routes.post("/api/season/phase", ctx -> {
-                final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
-                if (ask == null || ask.phase == null) {
-                    throw new BadRequestResponse("phase is which phase to switch to");
-                }
-                final SeasonPhase phase;
-                try {
-                    phase = SeasonPhase.valueOf(ask.phase.trim().toUpperCase(java.util.Locale.ROOT));
-                } catch (IllegalArgumentException e) {
-                    throw new BadRequestResponse(ask.phase + " is not a phase");
-                }
-                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                final var change = data.phase().switchPhase(phase, who.id(),
-                        ask.reason == null ? "" : ask.reason);
-                ctx.json(change);
-            }, Gate.KEY_FRESH);
+                    // --- the season ------------------------------------------------------------------
+                    //
+                    // PhaseDirectory writes its own audit_log row inside the statement that performs the
+                    // change, so nothing is recorded twice here. That is also why the actor has to be
+                    // passed in rather than recorded afterwards - and why it is the Discord id: the
+                    // parameter is documented as one, and the SQL casts it to varchar(32), which
+                    // truncates silently.
+                    cfg.routes.post(
+                            "/api/season/phase",
+                            ctx -> {
+                                final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
+                                if (ask == null || ask.phase == null) {
+                                    throw new BadRequestResponse("phase is which phase to switch to");
+                                }
+                                final SeasonPhase phase;
+                                try {
+                                    phase = SeasonPhase.valueOf(ask.phase.trim().toUpperCase(java.util.Locale.ROOT));
+                                } catch (IllegalArgumentException e) {
+                                    throw new BadRequestResponse(ask.phase + " is not a phase");
+                                }
+                                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                                final var change =
+                                        data.phase().switchPhase(phase, who.id(), ask.reason == null ? "" : ask.reason);
+                                ctx.json(change);
+                            },
+                            Gate.KEY_FRESH);
 
-            cfg.routes.post("/api/season/date", ctx -> {
-                final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
-                if (ask == null) throw new BadRequestResponse("The body is empty.");
-                // A null `at` is "no date": the state the start page and the MOTD countdown read
-                // before anything is announced, and the one `/phase ... clear` writes. A blank
-                // string is not that - it is a field somebody forgot to fill.
-                final Instant at;
-                if (ask.at == null) {
-                    at = null;
-                } else if (ask.at.isBlank()) {
-                    throw new BadRequestResponse("at is the instant, as ISO-8601, or null to remove it");
-                } else {
-                    try {
-                        at = Instant.parse(ask.at.trim());
-                    } catch (java.time.format.DateTimeParseException e) {
-                        throw new BadRequestResponse(ask.at + " is not an ISO-8601 instant");
-                    }
-                }
-                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                // PhaseDirectory documents this parameter as the admin's Discord id, and its SQL
-                // casts it to varchar(32) - an explicit cast, which PostgreSQL TRUNCATES rather
-                // than refusing. The composed "name (id)" therefore did not fail here; it wrote a
-                // half-name into the journal and said nothing. The id is what the column means.
-                final String actor = who.id();
-                // NOT A TERNARY. An `equals` and an `else` made "smpstart", "launchh" and a
-                // missing field all mean "launch", so a typo overwrote the wrong one of the two
-                // dates the whole season hangs off - and answered 200 while doing it.
-                final var change = switch (ask.which == null ? "" : ask.which.trim()) {
-                    case "smpStart" -> data.phase().setSmpStart(at, actor);
-                    case "launch" -> data.phase().setLaunch(at, actor);
-                    default -> throw new BadRequestResponse("which is smpStart or launch");
-                };
-                ctx.json(change);
-            }, Gate.KEY_FRESH);
+                    cfg.routes.post(
+                            "/api/season/date",
+                            ctx -> {
+                                final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
+                                if (ask == null) throw new BadRequestResponse("The body is empty.");
+                                // A null `at` is "no date": the state the start page and the MOTD countdown read
+                                // before anything is announced, and the one `/phase ... clear` writes. A blank
+                                // string is not that - it is a field somebody forgot to fill.
+                                final Instant at;
+                                if (ask.at == null) {
+                                    at = null;
+                                } else if (ask.at.isBlank()) {
+                                    throw new BadRequestResponse(
+                                            "at is the instant, as ISO-8601, or null to remove it");
+                                } else {
+                                    try {
+                                        at = Instant.parse(ask.at.trim());
+                                    } catch (java.time.format.DateTimeParseException e) {
+                                        throw new BadRequestResponse(ask.at + " is not an ISO-8601 instant");
+                                    }
+                                }
+                                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                                // PhaseDirectory documents this parameter as the admin's Discord id, and its SQL
+                                // casts it to varchar(32) - an explicit cast, which PostgreSQL TRUNCATES rather
+                                // than refusing. The composed "name (id)" therefore did not fail here; it wrote a
+                                // half-name into the journal and said nothing. The id is what the column means.
+                                final String actor = who.id();
+                                // NOT A TERNARY. An `equals` and an `else` made "smpstart", "launchh" and a
+                                // missing field all mean "launch", so a typo overwrote the wrong one of the two
+                                // dates the whole season hangs off - and answered 200 while doing it.
+                                final var change = switch (ask.which == null ? "" : ask.which.trim()) {
+                                    case "smpStart" -> data.phase().setSmpStart(at, actor);
+                                    case "launch" -> data.phase().setLaunch(at, actor);
+                                    default -> throw new BadRequestResponse("which is smpStart or launch");
+                                };
+                                ctx.json(change);
+                            },
+                            Gate.KEY_FRESH);
 
-            cfg.routes.get("/api/season", ctx -> {
-                final Map<String, Object> season = new LinkedHashMap<>();
-                season.put("phase", data.phase().currentPhase().name());
-                data.phase().launch().ifPresent(at -> season.put("launch", at.toString()));
-                data.phase().smpStart().ifPresent(at -> season.put("smpStart", at.toString()));
-                ctx.json(season);
-            }, Gate.KEY_HELD);
+                    cfg.routes.get(
+                            "/api/season",
+                            ctx -> {
+                                final Map<String, Object> season = new LinkedHashMap<>();
+                                season.put("phase", data.phase().currentPhase().name());
+                                data.phase().launch().ifPresent(at -> season.put("launch", at.toString()));
+                                data.phase().smpStart().ifPresent(at -> season.put("smpStart", at.toString()));
+                                ctx.json(season);
+                            },
+                            Gate.KEY_HELD);
 
-            // --- a call to an endpoint that is not there, and these two go LAST ---------------
-            //
-            // Javalin takes the first route that matches, so these greedy ones have to come after
-            // every real one; registered earlier they would swallow the lot.
-            //
-            // WHY THEY EXIST AT ALL. The single-page fallback claims every unmatched GET, /api
-            // included, and it carries no Gate - so a mistyped or retired endpoint came out of
-            // `gateOf` as a 500 reading "this route was built without a decision", which is a
-            // sentence about a route nobody ever wrote. It put an ERROR in the log Till reads and
-            // sent the next person after a fault that was not there. A 404 is the true answer.
-            //
-            // ANYONE is right for the same reason 404 is: this hands out no data and reaches no
-            // database. It says one thing, that there is nothing at this address, and somebody
-            // who is not signed in may hear that as readily as anybody else.
-            cfg.routes.get("/api/<path>", ctx -> {
-                throw new NotFoundResponse("no such endpoint: " + ctx.path());
-            }, Gate.ANYONE);
-            cfg.routes.get("/auth/<path>", ctx -> {
-                throw new NotFoundResponse("no such endpoint: " + ctx.path());
-            }, Gate.ANYONE);
+                    // --- a call to an endpoint that is not there, and these two go LAST ---------------
+                    //
+                    // Javalin takes the first route that matches, so these greedy ones have to come after
+                    // every real one; registered earlier they would swallow the lot.
+                    //
+                    // WHY THEY EXIST AT ALL. The single-page fallback claims every unmatched GET, /api
+                    // included, and it carries no Gate - so a mistyped or retired endpoint came out of
+                    // `gateOf` as a 500 reading "this route was built without a decision", which is a
+                    // sentence about a route nobody ever wrote. It put an ERROR in the log Till reads and
+                    // sent the next person after a fault that was not there. A 404 is the true answer.
+                    //
+                    // ANYONE is right for the same reason 404 is: this hands out no data and reaches no
+                    // database. It says one thing, that there is nothing at this address, and somebody
+                    // who is not signed in may hear that as readily as anybody else.
+                    cfg.routes.get(
+                            "/api/<path>",
+                            ctx -> {
+                                throw new NotFoundResponse("no such endpoint: " + ctx.path());
+                            },
+                            Gate.ANYONE);
+                    cfg.routes.get(
+                            "/auth/<path>",
+                            ctx -> {
+                                throw new NotFoundResponse("no such endpoint: " + ctx.path());
+                            },
+                            Gate.ANYONE);
 
-            cfg.routes.exception(SecondFactorMissing.class, (missing, ctx) ->
-                    ctx.status(403).json(Map.of(
-                            "error", missing.getMessage(),
-                            "code", "SECOND_FACTOR_MISSING")));
+                    cfg.routes.exception(
+                            SecondFactorMissing.class,
+                            (missing, ctx) -> ctx.status(403)
+                                    .json(Map.of("error", missing.getMessage(), "code", "SECOND_FACTOR_MISSING")));
 
-            // The refusal the interface RECOVERS FROM rather than reports: it opens the key
-            // dialog, runs the ceremony and sends the same request again. `retryable` is not
-            // decoration - it is the difference between "hold your key and this will go through"
-            // and "hold your key and then find this page again yourself".
-            cfg.routes.exception(SecondFactorRequired.class, (required, ctx) ->
-                    ctx.status(403).json(Map.of(
-                            "error", required.getMessage(),
-                            "code", "SECOND_FACTOR_REQUIRED",
-                            "retryable", true)));
+                    // The refusal the interface RECOVERS FROM rather than reports: it opens the key
+                    // dialog, runs the ceremony and sends the same request again. `retryable` is not
+                    // decoration - it is the difference between "hold your key and this will go through"
+                    // and "hold your key and then find this page again yourself".
+                    cfg.routes.exception(
+                            SecondFactorRequired.class,
+                            (required, ctx) -> ctx.status(403)
+                                    .json(Map.of(
+                                            "error",
+                                            required.getMessage(),
+                                            "code",
+                                            "SECOND_FACTOR_REQUIRED",
+                                            "retryable",
+                                            true)));
 
-            cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
-                // The interface has to say which half is down, BY NAME. "steward-worker is not
-                // answering" and "steward-deployer is not answering" are two different evenings -
-                // the first is a stack nobody can see, the second is a stack nobody can change -
-                // and an empty table says neither.
-                log.warn("{} did not answer: {}", failure.where(), failure.getMessage());
-                ctx.status(failure.status() == 0 ? 502 : failure.status())
-                        .json(Map.of("error", failure.getMessage(),
-                                "where", failure.where(),
-                                "detail", failure.body() == null ? "" : failure.body()));
-            });
-        }).start(port);
+                    cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
+                        // The interface has to say which half is down, BY NAME. "steward-worker is not
+                        // answering" and "steward-deployer is not answering" are two different evenings -
+                        // the first is a stack nobody can see, the second is a stack nobody can change -
+                        // and an empty table says neither.
+                        log.warn("{} did not answer: {}", failure.where(), failure.getMessage());
+                        ctx.status(failure.status() == 0 ? 502 : failure.status())
+                                .json(Map.of(
+                                        "error",
+                                        failure.getMessage(),
+                                        "where",
+                                        failure.where(),
+                                        "detail",
+                                        failure.body() == null ? "" : failure.body()));
+                    });
+                })
+                .start(port);
 
         if (sessions != null) {
             // Once at startup and then hourly, on the scheduler that is already here. Not a
@@ -1034,18 +1187,17 @@ public final class StewardUi {
             //
             // It is housekeeping and nothing depends on it: an expired session is refused by the
             // lookup itself, whether this has ever run or not. See Sessions#sweep.
-            heartbeats.scheduleWithFixedDelay(this::sweepSessions, 0,
-                    SWEEP.toSeconds(), TimeUnit.SECONDS);
+            heartbeats.scheduleWithFixedDelay(this::sweepSessions, 0, SWEEP.toSeconds(), TimeUnit.SECONDS);
         }
         if (alertWatch != null) {
             // Same scheduler as the sweep above, for the same reason: this is one small GET every
             // 30 seconds, not a workload that earns its own thread pool. See AlertWatch's own class
             // note for why the first poll never sends anything.
-            heartbeats.scheduleWithFixedDelay(alertWatch::poll, 0,
-                    ALERT_POLL.toSeconds(), TimeUnit.SECONDS);
+            heartbeats.scheduleWithFixedDelay(alertWatch::poll, 0, ALERT_POLL.toSeconds(), TimeUnit.SECONDS);
         }
-        discord.whatIsMissing().ifPresent(missing -> log.warn(
-                "Nobody can sign in yet: {} is empty. Everything else is running.", missing));
+        discord.whatIsMissing()
+                .ifPresent(missing ->
+                        log.warn("Nobody can sign in yet: {} is empty. Everything else is running.", missing));
         log.info("Nordtal Steward is on {} - public address {}", port, config.publicUrl());
         return app;
     }
@@ -1087,8 +1239,8 @@ public final class StewardUi {
      * this container from inside the network.
      */
     private void setSessionCookie(final Context ctx, final String id) {
-        final Cookie cookie = new Cookie(Sessions.COOKIE, id, "/", (int) lifetime().toSeconds(),
-                overTls(ctx), true, null, SameSite.LAX);
+        final Cookie cookie = new Cookie(
+                Sessions.COOKIE, id, "/", (int) lifetime().toSeconds(), overTls(ctx), true, null, SameSite.LAX);
         ctx.cookie(cookie);
     }
 
@@ -1119,8 +1271,7 @@ public final class StewardUi {
         try {
             sessions.sweep();
         } catch (RuntimeException e) {
-            log.warn("could not sweep expired sessions - trying again in {}: {}",
-                    SWEEP, e.toString());
+            log.warn("could not sweep expired sessions - trying again in {}: {}", SWEEP, e.toString());
         }
     }
 
@@ -1145,8 +1296,8 @@ public final class StewardUi {
         final Optional<String> expected = sessions.consumeState(started);
         final String state = ctx.queryParam("state");
         if (expected.isEmpty() || !expected.get().equals(state)) {
-            ctx.status(400).json(Map.of("error",
-                    "this sign-in did not start in this browser - try again from the start"));
+            ctx.status(400)
+                    .json(Map.of("error", "this sign-in did not start in this browser - try again from the start"));
             return;
         }
         final String code = ctx.queryParam("code");
@@ -1165,8 +1316,7 @@ public final class StewardUi {
         final String signingIn = outcome.account().id();
         if (admins == null || !(admins.isAdmin(signingIn) || claimRoot(outcome.account()))) {
             log.info("refused {} ({}): not an admin", outcome.account().name(), signingIn);
-            ctx.status(403).json(Map.of("error",
-                    outcome.account().name() + " is in the guild but is not an admin"));
+            ctx.status(403).json(Map.of("error", outcome.account().name() + " is in the guild but is not an admin"));
             return;
         }
         // A NEW ROW WITH A NEW ID, and the one the sign-in started in is dropped. The row that
@@ -1185,10 +1335,11 @@ public final class StewardUi {
         if (!admins.claimRootIfNobody(who.id())) {
             return false;
         }
-        log.warn("{} ({}) signed in while nobody was an admin and is now the root of the admin tree",
-                who.name(), who.id());
-        data.audit().record("ADMIN_ROOT", who.id(), who.id(), null,
-                "first sign-in while nobody was an admin");
+        log.warn(
+                "{} ({}) signed in while nobody was an admin and is now the root of the admin tree",
+                who.name(),
+                who.id());
+        data.audit().record("ADMIN_ROOT", who.id(), who.id(), null, "first sign-in while nobody was an admin");
         return true;
     }
 
@@ -1214,8 +1365,7 @@ public final class StewardUi {
         if (gate == Gate.ANYONE) {
             return;
         }
-        final Sessions.Session who = session(ctx)
-                .orElseThrow(() -> new UnauthorizedResponse("sign in first"));
+        final Sessions.Session who = session(ctx).orElseThrow(() -> new UnauthorizedResponse("sign in first"));
         if (isWrite(ctx)) {
             requireCsrfToken(ctx);
         }
@@ -1247,8 +1397,11 @@ public final class StewardUi {
         if (decided.isEmpty() && !isOurs(ctx.path())) {
             return Gate.ANYONE;
         }
-        log.error("{} {} carries {} of Steward's own route decisions and has to carry exactly"
-                + " one - refusing it rather than guessing.", ctx.method(), ctx.path(),
+        log.error(
+                "{} {} carries {} of Steward's own route decisions and has to carry exactly"
+                        + " one - refusing it rather than guessing.",
+                ctx.method(),
+                ctx.path(),
                 decided.size());
         throw new UndecidedRoute();
     }
@@ -1274,8 +1427,7 @@ public final class StewardUi {
      * method is what has to change, and the test says so by name.</p>
      */
     private static boolean isOurs(final String path) {
-        return path.startsWith("/api/") || path.startsWith("/auth/") || path.equals("/api")
-                || path.equals("/auth");
+        return path.startsWith("/api/") || path.startsWith("/auth/") || path.equals("/api") || path.equals("/auth");
     }
 
     /**
@@ -1302,9 +1454,7 @@ public final class StewardUi {
         if (isOurs(ctx.path())) {
             return;
         }
-        ctx.header("Cache-Control", ctx.path().startsWith("/assets/")
-                ? "max-age=31536000, immutable"
-                : "no-cache");
+        ctx.header("Cache-Control", ctx.path().startsWith("/assets/") ? "max-age=31536000, immutable" : "no-cache");
     }
 
     /**
@@ -1441,8 +1591,7 @@ public final class StewardUi {
             throw new ForbiddenResponse("This account already has a key, so adding another one"
                     + " needs the key you already have. Sign in again and use it first.");
         }
-        final WebAuthn.Ceremony ceremony = webauthn.startRegistration(
-                who.discordId(), who.displayName());
+        final WebAuthn.Ceremony ceremony = webauthn.startRegistration(who.discordId(), who.displayName());
         sessions.startCeremony(who.id(), ceremony.parked());
         // The library's own JSON, straight through. Nothing on this side parses it and Gson never
         // sees it - see WebAuthn's class note on why that boundary is one class wide.
@@ -1467,11 +1616,11 @@ public final class StewardUi {
         }
         final String label = answer.label == null ? "" : answer.label.trim();
         if (label.isEmpty() || label.length() > 64) {
-            throw new BadRequestResponse("a key needs a name of 1 to 64 characters, so that it can"
-                    + " be told apart from the next one");
+            throw new BadRequestResponse(
+                    "a key needs a name of 1 to 64 characters, so that it can" + " be told apart from the next one");
         }
-        final String parked = sessions.consumeCeremony(who.id()).orElseThrow(
-                () -> new BadRequestResponse("that registration was not started in this browser,"
+        final String parked = sessions.consumeCeremony(who.id())
+                .orElseThrow(() -> new BadRequestResponse("that registration was not started in this browser,"
                         + " or it was already finished, or it sat unanswered for ten minutes -"
                         + " start it again"));
 
@@ -1489,10 +1638,14 @@ public final class StewardUi {
         // The journal, in the same shape as GRANT_ACCESS beside it: the actor is the Discord id
         // and never the composed "name (id)", because `audit_log.actor` is varchar(32) and the
         // composed form silently truncated for any display name of eleven characters or more.
-        data.audit().record("REGISTER_KEY", who.discordId(), who.discordId(), null,
-                "registered the security key \"" + key.label() + "\"");
-        ctx.json(Map.of("label", key.label(), "userVerified", key.userVerified(),
-                "backedUp", key.backedUp()));
+        data.audit()
+                .record(
+                        "REGISTER_KEY",
+                        who.discordId(),
+                        who.discordId(),
+                        null,
+                        "registered the security key \"" + key.label() + "\"");
+        ctx.json(Map.of("label", key.label(), "userVerified", key.userVerified(), "backedUp", key.backedUp()));
     }
 
     /** The body of {@code /auth/webauthn/register/finish}. See the method's note on the string. */
@@ -1543,8 +1696,8 @@ public final class StewardUi {
         if (answer == null || answer.credential == null || answer.credential.isBlank()) {
             throw new BadRequestResponse("no credential in that answer");
         }
-        final String parked = sessions.consumeCeremony(who.id()).orElseThrow(
-                () -> new BadRequestResponse("that sign-in was not started in this browser, or it"
+        final String parked = sessions.consumeCeremony(who.id())
+                .orElseThrow(() -> new BadRequestResponse("that sign-in was not started in this browser, or it"
                         + " was already finished, or it sat unanswered for ten minutes - start it"
                         + " again"));
         final WebAuthn.Held held;
@@ -1555,9 +1708,14 @@ public final class StewardUi {
             return;
         }
         sessions.markVerified(who.id());
-        data.audit().record("HELD_KEY", who.discordId(), who.discordId(), null,
-                "held the security key \"" + held.label() + "\""
-                        + (held.userVerified() ? " and unlocked it" : ""));
+        data.audit()
+                .record(
+                        "HELD_KEY",
+                        who.discordId(),
+                        who.discordId(),
+                        null,
+                        "held the security key \"" + held.label() + "\""
+                                + (held.userVerified() ? " and unlocked it" : ""));
         ctx.json(Map.of("label", held.label(), "userVerified", held.userVerified()));
     }
 
@@ -1572,8 +1730,8 @@ public final class StewardUi {
         try {
             return ByteArray.fromBase64Url(ctx.pathParam("id"));
         } catch (Base64UrlException malformed) {
-            throw new BadRequestResponse("that is not the id of a key - the list in /api/me is"
-                    + " where those come from");
+            throw new BadRequestResponse(
+                    "that is not the id of a key - the list in /api/me is" + " where those come from");
         }
     }
 
@@ -1583,14 +1741,19 @@ public final class StewardUi {
         final Answer body = ctx.bodyAsClass(Answer.class);
         final String label = body == null || body.label == null ? "" : body.label.trim();
         if (label.isEmpty() || label.length() > 64) {
-            throw new BadRequestResponse("a key needs a name of 1 to 64 characters, so that it can"
-                    + " be told apart from the next one");
+            throw new BadRequestResponse(
+                    "a key needs a name of 1 to 64 characters, so that it can" + " be told apart from the next one");
         }
         if (!credentials.rename(who.discordId(), keyIdOf(ctx), label)) {
             throw new NotFoundResponse("this account has no key of that id");
         }
-        data.audit().record("RENAME_KEY", who.discordId(), who.discordId(), null,
-                "renamed a security key to \"" + label + "\"");
+        data.audit()
+                .record(
+                        "RENAME_KEY",
+                        who.discordId(),
+                        who.discordId(),
+                        null,
+                        "renamed a security key to \"" + label + "\"");
         ctx.json(Map.of("label", label));
     }
 
@@ -1612,8 +1775,13 @@ public final class StewardUi {
             throw new NotFoundResponse("this account has no key of that id");
         }
         final int left = credentials.of(who.discordId()).size();
-        data.audit().record("REMOVE_KEY", who.discordId(), who.discordId(), null,
-                "removed the security key \"" + label + "\" - " + left + " left on this account");
+        data.audit()
+                .record(
+                        "REMOVE_KEY",
+                        who.discordId(),
+                        who.discordId(),
+                        null,
+                        "removed the security key \"" + label + "\" - " + left + " left on this account");
         ctx.json(Map.of("removed", label, "left", left));
     }
 
@@ -1629,10 +1797,11 @@ public final class StewardUi {
      */
     private void webPushPublicKey(final Context ctx) {
         if (vapidKeys == null) {
-            throw new NotFoundResponse("web-push is not configured on this deployment yet - see"
-                    + " web-push in steward-ui.yml");
+            throw new NotFoundResponse(
+                    "web-push is not configured on this deployment yet - see" + " web-push in steward-ui.yml");
         }
-        ctx.json(Map.of("publicKey",
+        ctx.json(Map.of(
+                "publicKey",
                 Base64.getUrlEncoder().withoutPadding().encodeToString(vapidKeys.getApplicationServerKey())));
     }
 
@@ -1643,18 +1812,28 @@ public final class StewardUi {
     private void subscribeWebPush(final Context ctx) {
         final Sessions.Session who = requireSession(ctx);
         final PushSubscriptionBody body = ctx.bodyAsClass(PushSubscriptionBody.class);
-        if (body == null || body.endpoint == null || body.endpoint.isBlank()
-                || body.keys == null || body.keys.p256dh == null || body.keys.p256dh.isBlank()
-                || body.keys.auth == null || body.keys.auth.isBlank()) {
-            throw new BadRequestResponse("that is not a PushSubscription - endpoint and"
-                    + " keys.p256dh/keys.auth are required");
+        if (body == null
+                || body.endpoint == null
+                || body.endpoint.isBlank()
+                || body.keys == null
+                || body.keys.p256dh == null
+                || body.keys.p256dh.isBlank()
+                || body.keys.auth == null
+                || body.keys.auth.isBlank()) {
+            throw new BadRequestResponse(
+                    "that is not a PushSubscription - endpoint and" + " keys.p256dh/keys.auth are required");
         }
         // The User-Agent is read here and stored nowhere: PushSubscriptions turns it into a short
         // name for the device list and keeps only that. See Devices for what that name is.
-        pushSubscriptions.subscribe(who.discordId(), body.endpoint, body.keys.p256dh, body.keys.auth,
-                ctx.header("User-Agent"));
-        data.audit().record("WEB_PUSH_SUBSCRIBE", who.discordId(), who.discordId(), null,
-                "subscribed a browser to the traffic light's web push");
+        pushSubscriptions.subscribe(
+                who.discordId(), body.endpoint, body.keys.p256dh, body.keys.auth, ctx.header("User-Agent"));
+        data.audit()
+                .record(
+                        "WEB_PUSH_SUBSCRIBE",
+                        who.discordId(),
+                        who.discordId(),
+                        null,
+                        "subscribed a browser to the traffic light's web push");
         ctx.status(204);
     }
 
@@ -1668,8 +1847,13 @@ public final class StewardUi {
         if (!pushSubscriptions.unsubscribe(who.discordId(), body.endpoint)) {
             throw new NotFoundResponse("this account has no web push subscription of that endpoint");
         }
-        data.audit().record("WEB_PUSH_UNSUBSCRIBE", who.discordId(), who.discordId(), null,
-                "unsubscribed a browser from the traffic light's web push");
+        data.audit()
+                .record(
+                        "WEB_PUSH_UNSUBSCRIBE",
+                        who.discordId(),
+                        who.discordId(),
+                        null,
+                        "unsubscribed a browser from the traffic light's web push");
         ctx.status(204);
     }
 
@@ -1717,8 +1901,7 @@ public final class StewardUi {
     private void webPushPreferences(final Context ctx) {
         final Sessions.Session who = requireSession(ctx);
         final Map<String, Boolean> answer = new LinkedHashMap<>();
-        pushPreferences.of(who.discordId())
-                .forEach((type, enabled) -> answer.put(type.key(), enabled));
+        pushPreferences.of(who.discordId()).forEach((type, enabled) -> answer.put(type.key(), enabled));
         ctx.json(answer);
     }
 
@@ -1728,8 +1911,7 @@ public final class StewardUi {
         final PushPreferenceBody body = ctx.bodyAsClass(PushPreferenceBody.class);
         final AlertType type = body == null ? null : AlertType.of(body.type);
         if (type == null || body.enabled == null) {
-            throw new BadRequestResponse("a notification preference is a known type and an enabled"
-                    + " flag");
+            throw new BadRequestResponse("a notification preference is a known type and an enabled" + " flag");
         }
         pushPreferences.set(who.discordId(), type, body.enabled);
         ctx.json(Map.of("type", type.key(), "enabled", body.enabled));
@@ -1747,17 +1929,16 @@ public final class StewardUi {
     private void testWebPush(final Context ctx) {
         final Sessions.Session who = requireSession(ctx);
         if (alertWatch == null) {
-            throw new NotFoundResponse("web-push is not configured on this deployment yet - see"
-                    + " web-push in steward-ui.yml");
+            throw new NotFoundResponse(
+                    "web-push is not configured on this deployment yet - see" + " web-push in steward-ui.yml");
         }
         final PushTestBody body = ctx.bodyAsClass(PushTestBody.class);
         final AlertType type = body == null ? null : AlertType.of(body.type);
         if (body == null || body.endpoint == null || body.endpoint.isBlank() || type == null) {
-            throw new BadRequestResponse("a test send is an endpoint of this account and a known"
-                    + " notification type");
+            throw new BadRequestResponse(
+                    "a test send is an endpoint of this account and a known" + " notification type");
         }
-        final PushSubscriptions.Subscription subscription =
-                pushSubscriptions.find(who.discordId(), body.endpoint);
+        final PushSubscriptions.Subscription subscription = pushSubscriptions.find(who.discordId(), body.endpoint);
         if (subscription == null) {
             throw new NotFoundResponse("this account has no web push subscription of that endpoint");
         }
@@ -1766,15 +1947,20 @@ public final class StewardUi {
             // The row is already gone - sendSample removed it, the same way a failed alert push
             // does. Saying so is the point: the browser's next question is whether to subscribe
             // again, and a silent 204 here would have it wait for a notification that can never come.
-            throw new NotFoundResponse("that browser's subscription no longer exists and has been"
-                    + " removed - subscribe again on it");
+            throw new NotFoundResponse(
+                    "that browser's subscription no longer exists and has been" + " removed - subscribe again on it");
         }
         if (delivery == AlertWatch.Delivery.FAILED) {
-            throw new BadRequestResponse("the push service did not accept it - see the log of"
-                    + " steward-ui for what it said");
+            throw new BadRequestResponse(
+                    "the push service did not accept it - see the log of" + " steward-ui for what it said");
         }
-        data.audit().record("WEB_PUSH_TEST", who.discordId(), who.discordId(), null,
-                "sent a test " + type.key() + " notification to one of its own browsers");
+        data.audit()
+                .record(
+                        "WEB_PUSH_TEST",
+                        who.discordId(),
+                        who.discordId(),
+                        null,
+                        "sent a test " + type.key() + " notification to one of its own browsers");
         ctx.status(204);
     }
 
@@ -1848,7 +2034,8 @@ public final class StewardUi {
      */
     private Optional<String> avatarOf(final String discordId) {
         try {
-            return data.roster().personOf(discordId)
+            return data.roster()
+                    .personOf(discordId)
                     .map(Person::discordAvatarUrl)
                     .filter(url -> url != null && !url.isBlank());
         } catch (final RuntimeException e) {
@@ -1894,9 +2081,11 @@ public final class StewardUi {
         discord.whatIsMissing().ifPresent(missing -> answer.put("signInUnavailable", missing));
         // Said out loud rather than in a footnote, and since packages C and D it is the whole of
         // §10a rather than half of it. A whole sentence, because several places print it as one.
-        answer.put("webauthn", "A security key is required: it is asked for at every sign-in, and"
-                + " again before anything that changes something - one touch covers the next "
-                + STEP_UP.toMinutes() + " minutes.");
+        answer.put(
+                "webauthn",
+                "A security key is required: it is asked for at every sign-in, and"
+                        + " again before anything that changes something - one touch covers the next "
+                        + STEP_UP.toMinutes() + " minutes.");
         // How long one touch lasts, as a number, so the dialog can say it rather than repeat a
         // literal that would then disagree with this service on the day somebody changes it.
         answer.put("stepUpMinutes", STEP_UP.toMinutes());
@@ -1926,10 +2115,15 @@ public final class StewardUi {
         // Admin is re-read on every request, not taken from the sign-in: a revocation - or a
         // departure from the guild, which drops the branch - ends every session of that account
         // at its next request rather than when the cookie runs out.
-        if (found.isPresent() && found.get().signedIn() && admins != null
+        if (found.isPresent()
+                && found.get().signedIn()
+                && admins != null
                 && !admins.isAdmin(found.get().discordId())) {
             final int ended = sessions.endAllOf(found.get().discordId());
-            log.info("ended {} session(s) of {}: no longer an admin", ended, found.get().discordId());
+            log.info(
+                    "ended {} session(s) of {}: no longer an admin",
+                    ended,
+                    found.get().discordId());
             found = Optional.empty();
         }
         found.ifPresent(session -> ctx.attribute(PARKED, session));
@@ -1947,10 +2141,12 @@ public final class StewardUi {
     /** One sentence for a refused run: which run is in the way, or which service is already down. */
     static String refusal(final RunRefused refused) {
         return switch (refused.reason()) {
-            case RUN_OPEN -> "Run #" + refused.open().id() + " is still "
-                    + refused.open().status().name().toLowerCase(java.util.Locale.ROOT);
-            case ALREADY_HELD -> String.join(", ", refused.services())
-                    + (refused.services().size() == 1 ? " is" : " are") + " already down";
+            case RUN_OPEN ->
+                "Run #" + refused.open().id() + " is still "
+                        + refused.open().status().name().toLowerCase(java.util.Locale.ROOT);
+            case ALREADY_HELD ->
+                String.join(", ", refused.services()) + (refused.services().size() == 1 ? " is" : " are")
+                        + " already down";
         };
     }
 
@@ -1983,12 +2179,13 @@ public final class StewardUi {
         row.put("started", String.valueOf(request.started()));
         row.put("finished", String.valueOf(request.finished()));
         if (request.result() != null && !request.result().isBlank()) {
-            UpdateReports.parse(request.result()).ifPresentOrElse(
-                    report -> {
-                        row.put("report", report);
-                        row.put("savedSomething", report.savedSomething());
-                    },
-                    () -> row.put("resultText", request.result()));
+            UpdateReports.parse(request.result())
+                    .ifPresentOrElse(
+                            report -> {
+                                row.put("report", report);
+                                row.put("savedSomething", report.savedSomething());
+                            },
+                            () -> row.put("resultText", request.result()));
         }
         return row;
     }
@@ -2053,8 +2250,9 @@ public final class StewardUi {
      * container to hold a million of them; the number is capped here rather than trusted.</p>
      */
     private static int limit(final Context ctx, final int fallback, final int ceiling) {
-        return Math.min(ceiling, Math.max(1,
-                ctx.queryParamAsClass("limit", Integer.class).getOrDefault(fallback)));
+        return Math.min(
+                ceiling,
+                Math.max(1, ctx.queryParamAsClass("limit", Integer.class).getOrDefault(fallback)));
     }
 
     /**
@@ -2072,8 +2270,7 @@ public final class StewardUi {
 
     private static boolean isWrite(final Context ctx) {
         final String method = ctx.method().name();
-        return method.equals("POST") || method.equals("PUT") || method.equals("PATCH")
-                || method.equals("DELETE");
+        return method.equals("POST") || method.equals("PUT") || method.equals("PATCH") || method.equals("DELETE");
     }
 
     // --- the worker ------------------------------------------------------------------------
@@ -2141,8 +2338,9 @@ public final class StewardUi {
     private static String workerPath(final String prefix, final Context ctx, final String param) {
         final StringBuilder path = new StringBuilder(prefix);
         for (final String segment : ctx.pathParam(param).split("/", -1)) {
-            path.append('/').append(java.net.URLEncoder
-                    .encode(segment, StandardCharsets.UTF_8).replace("+", "%20"));
+            path.append('/')
+                    .append(java.net.URLEncoder.encode(segment, StandardCharsets.UTF_8)
+                            .replace("+", "%20"));
         }
         return path.toString();
     }
@@ -2210,12 +2408,14 @@ public final class StewardUi {
     /** What a name is allowed to be made of before it becomes a URL segment and a header value. */
     private static final Pattern FILENAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
 
-    private void follow(final io.javalin.http.sse.SseClient client, final Upstream upstream,
-                        final String name, final String query) {
+    private void follow(
+            final io.javalin.http.sse.SseClient client,
+            final Upstream upstream,
+            final String name,
+            final String query) {
         final String path = "/api/services/" + name + "/logs" + forwardedQuery(query);
         try (InputStream stream = worker.stream(path);
-             BufferedReader reader = new BufferedReader(
-                     new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
             upstream.hold(stream);
             String line;
             String event = "line";
@@ -2290,8 +2490,7 @@ public final class StewardUi {
         try {
             return sessions.find(client.ctx().cookie(Sessions.COOKIE)).isPresent();
         } catch (RuntimeException gone) {
-            log.warn("could not re-check a log follower's session, so it is being ended: {}",
-                    gone.getMessage());
+            log.warn("could not re-check a log follower's session, so it is being ended: {}", gone.getMessage());
             return false;
         }
     }

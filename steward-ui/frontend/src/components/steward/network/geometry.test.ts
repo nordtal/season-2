@@ -70,12 +70,8 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     const { width, height } = geometryOf(placed)
     for (const [id, box] of Object.entries(regionsOf(placed))) {
       expect(`${id} left ${box.x}`).toBe(`${id} left ${Math.max(box.x, 0)}`)
-      expect(`${id} right ${box.x + box.width}`).toBe(
-        `${id} right ${Math.min(box.x + box.width, width)}`,
-      )
-      expect(`${id} bottom ${box.y + box.height}`).toBe(
-        `${id} bottom ${Math.min(box.y + box.height, height)}`,
-      )
+      expect(`${id} right ${box.x + box.width}`).toBe(`${id} right ${Math.min(box.x + box.width, width)}`)
+      expect(`${id} bottom ${box.y + box.height}`).toBe(`${id} bottom ${Math.min(box.y + box.height, height)}`)
     }
   })
 

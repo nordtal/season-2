@@ -1,14 +1,12 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
 import eu.nordtal.s2.common.message.Locales;
-
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
-
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
 /**
  * Team registration over {@code hg_game}/{@code hg_team}/{@code hg_member}, from the Discord side.
@@ -108,7 +106,8 @@ public final class Teams {
 
         final UUID gameId = openGame();
         final Optional<UUID> ownerMemberId = dao.activeMembershipId(gameId, ownerDiscordId);
-        if (ownerMemberId.isEmpty() || !"OWNER".equals(dao.stateOfMember(ownerMemberId.get()).orElse(""))) {
+        if (ownerMemberId.isEmpty()
+                || !"OWNER".equals(dao.stateOfMember(ownerMemberId.get()).orElse(""))) {
             return InviteResult.notOwner();
         }
         final UUID teamId = dao.teamIdOfMember(ownerMemberId.get()).orElseThrow();

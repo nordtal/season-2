@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.List;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * One module's message bundle as a form: every key the jar declares, plus whatever an operator has

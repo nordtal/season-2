@@ -3,15 +3,12 @@ package eu.nordtal.s2.limbo.net;
 import eu.nordtal.s2.common.limbo.LimboProtocol;
 import eu.nordtal.s2.common.limbo.WaitReason;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
-
+import java.util.Objects;
+import java.util.Optional;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
-
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Objects;
-import java.util.Optional;
 
 /**
  * This module's end of {@code nordtal:limbo}: it listens for the proxy's {@code WAIT} and answers
@@ -45,8 +42,7 @@ public final class LimboChannel implements PluginMessageListener {
     /** Registers both directions of the channel with Bukkit's messenger. */
     public void register() {
         plugin.getServer().getMessenger().registerOutgoingPluginChannel(plugin, LimboProtocol.CHANNEL);
-        plugin.getServer().getMessenger()
-                .registerIncomingPluginChannel(plugin, LimboProtocol.CHANNEL, this);
+        plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, LimboProtocol.CHANNEL, this);
     }
 
     /** Unregisters both directions. */
@@ -78,16 +74,16 @@ public final class LimboChannel implements PluginMessageListener {
     }
 
     @Override
-    public void onPluginMessageReceived(final @NotNull String channel, final @NotNull Player player,
-                                        final byte @NotNull [] message) {
+    public void onPluginMessageReceived(
+            final @NotNull String channel, final @NotNull Player player, final byte @NotNull [] message) {
         if (!LimboProtocol.CHANNEL.equals(channel)) {
             return;
         }
 
         final Optional<LimboProtocol.Message> decoded = LimboProtocol.decode(message);
         if (decoded.isEmpty()) {
-            plugin.getLogger().warning("Dropped an unreadable " + LimboProtocol.CHANNEL
-                    + " message for " + player.getName());
+            plugin.getLogger()
+                    .warning("Dropped an unreadable " + LimboProtocol.CHANNEL + " message for " + player.getName());
             return;
         }
         if (decoded.get().type() != LimboProtocol.Type.READY) {
@@ -100,7 +96,6 @@ public final class LimboChannel implements PluginMessageListener {
 
         // READY runs limbo -> proxy only. Nothing sends one to us; if something does, it is a bug
         // in whatever sent it and not something to act on.
-        plugin.getLogger().warning("Ignored a READY on " + LimboProtocol.CHANNEL
-                + ", which only this server sends");
+        plugin.getLogger().warning("Ignored a READY on " + LimboProtocol.CHANNEL + ", which only this server sends");
     }
 }

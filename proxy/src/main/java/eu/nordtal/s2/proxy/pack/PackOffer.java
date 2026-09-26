@@ -2,9 +2,7 @@ package eu.nordtal.s2.proxy.pack;
 
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.player.ResourcePackInfo;
-
 import eu.nordtal.s2.proxy.config.PackSpec;
-
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
@@ -53,8 +51,8 @@ public final class PackOffer {
         this.messages = Objects.requireNonNull(messages, "messages");
         this.hash = decodeHex(config.sha1());
         // Name-based (version 3) from the hash bytes: same pack, same id, every time, everywhere.
-        this.packId = UUID.nameUUIDFromBytes(config.sha1().toLowerCase(Locale.ROOT)
-                .getBytes(StandardCharsets.US_ASCII));
+        this.packId =
+                UUID.nameUUIDFromBytes(config.sha1().toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII));
     }
 
     /**
@@ -63,13 +61,14 @@ public final class PackOffer {
      */
     public ResourcePackInfo forLocale(final Locale locale) {
         final String language = locale == null ? "en" : locale.getLanguage().toLowerCase(Locale.ROOT);
-        return byLanguage.computeIfAbsent(language, ignored -> proxy
-                .createResourcePackBuilder(config.url())
-                .setId(packId)
-                .setHash(hash)
-                .setShouldForce(config.force())
-                .setPrompt(messages.prompt(locale))
-                .build());
+        return byLanguage.computeIfAbsent(
+                language,
+                ignored -> proxy.createResourcePackBuilder(config.url())
+                        .setId(packId)
+                        .setHash(hash)
+                        .setShouldForce(config.force())
+                        .setPrompt(messages.prompt(locale))
+                        .build());
     }
 
     /** @return the id every offer this proxy sends carries, derived from the pack's own hash */

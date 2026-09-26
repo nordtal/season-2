@@ -1,7 +1,8 @@
 package eu.nordtal.s2.smp.npc;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -9,10 +10,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The figure in the tavern survives being hit, and the guard that makes that true is switched on.
@@ -49,14 +48,17 @@ class NpcSurvivesTest {
     void theGuardRefusesTheThreeWaysToLoseIt() {
         final String guard = read(GUARD);
 
-        assertTrue(guard.contains("EntityDamageEvent"),
+        assertTrue(
+                guard.contains("EntityDamageEvent"),
                 "nothing cancels damage to the NPC, so a creative-mode hit or a step into the void"
                         + " removes the only entity a HAND_IN objective can be handed to");
-        assertTrue(guard.contains("EntityCombustEvent"),
+        assertTrue(
+                guard.contains("EntityCombustEvent"),
                 "the NPC can still catch fire. With damage cancelled it would burn for the rest of"
                         + " the season without ever dying, which reads as broken to everybody who"
                         + " walks past the tavern");
-        assertTrue(guard.contains("EntityKnockbackEvent"),
+        assertTrue(
+                guard.contains("EntityKnockbackEvent"),
                 "nothing refuses a shove that is not damage - an explosion, a piston, a wind"
                         + " charge - so the figure can end up inside the tavern wall");
     }
@@ -69,10 +71,13 @@ class NpcSurvivesTest {
         // with whatever is written next to it.
         final String guard = code(read(GUARD));
 
-        assertEquals(3, count(guard, "npc.is("),
+        assertEquals(
+                3,
+                count(guard, "npc.is("),
                 "each of the three handlers has to ask SpawnNpc#is; a handler that does not is"
                         + " either protecting nothing or protecting everything");
-        assertFalse(guard.contains("instanceof Mannequin"),
+        assertFalse(
+                guard.contains("instanceof Mannequin"),
                 "the guard recognises the NPC by type. That protects every mannequin on the"
                         + " server - a decoration in somebody's base included - and turns an"
                         + " ordinary entity into one nobody can ever remove");
@@ -83,12 +88,13 @@ class NpcSurvivesTest {
     void theGuardIsWired() {
         final String plugin = read(PLUGIN);
 
-        assertTrue(plugin.contains("new NpcProtection(npc)"),
+        assertTrue(
+                plugin.contains("new NpcProtection(npc)"),
                 "SmpPlugin never registers NpcProtection. The handlers are then perfect and never"
                         + " run, which looks exactly like having no guard at all");
-        assertTrue(plugin.contains("registerEvents(new NpcProtection(npc)"),
-                "NpcProtection is constructed but not handed to the plugin manager, so no event"
-                        + " ever reaches it");
+        assertTrue(
+                plugin.contains("registerEvents(new NpcProtection(npc)"),
+                "NpcProtection is constructed but not handed to the plugin manager, so no event" + " ever reaches it");
     }
 
     @Test
@@ -105,16 +111,20 @@ class NpcSurvivesTest {
         // that start gave it. Findings 100 and 106 are both about this spot.
         final String figure = read(FIGURE);
 
-        assertEquals(1, count(figure, "world.spawn("),
+        assertEquals(
+                1,
+                count(figure, "world.spawn("),
                 "the figure is created in more than one place. Every one of them has to set"
                         + " immovable, invulnerable, silent and persistent, and the second one is"
                         + " where that is forgotten");
-        assertTrue(figure.contains("spawned = figure.getUniqueId()"),
+        assertTrue(
+                figure.contains("spawned = figure.getUniqueId()"),
                 "SpawnNpc no longer remembers what it spawned, so NpcProtection#npc.is answers"
                         + " false for the figure it is meant to defend and the guard is a no-op");
-        for (final String flag : List.of("setImmovable(true)", "setInvulnerable(true)",
-                "setSilent(true)", "setPersistent(true)")) {
-            assertTrue(figure.contains("mannequin." + flag),
+        for (final String flag :
+                List.of("setImmovable(true)", "setInvulnerable(true)", "setSilent(true)", "setPersistent(true)")) {
+            assertTrue(
+                    figure.contains("mannequin." + flag),
                     "the figure is spawned without " + flag + ", and the guard is a second line of"
                             + " defence rather than the first");
         }
@@ -128,9 +138,7 @@ class NpcSurvivesTest {
      * of a text search is that it is smaller than the thing it checks.
      */
     private static String code(final String source) {
-        return source
-                .replaceAll("(?s)/\\*.*?\\*/", " ")
-                .replaceAll("(?m)//.*$", " ");
+        return source.replaceAll("(?s)/\\*.*?\\*/", " ").replaceAll("(?m)//.*$", " ");
     }
 
     private static int count(final String haystack, final String needle) {
@@ -147,8 +155,7 @@ class NpcSurvivesTest {
     private static String read(final String relative) {
         try {
             Path candidate = Path.of("").toAbsolutePath();
-            while (candidate != null
-                    && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
+            while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
                 candidate = candidate.getParent();
             }
             if (candidate == null) {

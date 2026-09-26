@@ -73,12 +73,7 @@ describe("ServiceConsole", () => {
     const texts = [...document.querySelectorAll("section[aria-label=Console] .grid > div")].map(
       (row) => row.textContent,
     )
-    expect(texts).toEqual([
-      "19:44:31smpsecond",
-      "19:44:30smpfirst",
-      "Earlier run, 22 Sep 19:44",
-      "Nothing older.",
-    ])
+    expect(texts).toEqual(["19:44:31smpsecond", "19:44:30smpfirst", "Earlier run, 22 Sep 19:44", "Nothing older."])
   })
 
   it("colours the text by level and lets a stack trace keep its error's colour", () => {

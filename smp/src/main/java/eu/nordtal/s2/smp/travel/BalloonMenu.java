@@ -3,7 +3,6 @@ package eu.nordtal.s2.smp.travel;
 import eu.nordtal.s2.common.menu.SlotGeometry;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.world.WorldRole;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -66,6 +65,7 @@ public final class BalloonMenu {
 
     /** A card is three slot rows tall and four slot columns wide. */
     public static final int CARD_ROWS = 3;
+
     public static final int CARD_COLUMNS = 4;
 
     /** The slot column each card column starts at: 0..3 and 5..8, leaving 4 as the gap. */
@@ -81,12 +81,11 @@ public final class BalloonMenu {
      * to draw.</p>
      */
     private static final WorldRole[][] PLACES = {
-            {WorldRole.NORDTAL, WorldRole.NETHER},
-            {WorldRole.END},
+        {WorldRole.NORDTAL, WorldRole.NETHER},
+        {WorldRole.END},
     };
 
-    private BalloonMenu() {
-    }
+    private BalloonMenu() {}
 
     /**
      * Builds the grid for a player standing at the balloon in {@code here}.
@@ -99,8 +98,8 @@ public final class BalloonMenu {
         for (int row = 0; row < PLACES.length; row++) {
             for (int column = 0; column < PLACES[row].length; column++) {
                 final WorldRole destination = PLACES[row][column];
-                entries.add(new Entry(destination, state(here, destination, unlocked),
-                        column, row, slots(column, row)));
+                entries.add(
+                        new Entry(destination, state(here, destination, unlocked), column, row, slots(column, row)));
             }
         }
         return List.copyOf(entries);

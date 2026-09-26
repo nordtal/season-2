@@ -1,7 +1,20 @@
 package eu.nordtal.s2.common.update;
 
-import eu.nordtal.s2.common.access.AccessSchema;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.access.AccessSchema;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,21 +26,6 @@ import org.postgresql.PGNotification;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Exercises {@link UpdateDirectory} against a real PostgreSQL running the real migrations.
@@ -53,7 +51,8 @@ class UpdateDirectoryIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed update tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -87,8 +86,7 @@ class UpdateDirectoryIntegrationTest {
      * both is the honest version of that - {@code CASCADE} would silently take whatever else grows
      * a foreign key here later.</p>
      */
-    private static final String FRESH_INBOX =
-            "TRUNCATE TABLE service_hold, update_request RESTART IDENTITY";
+    private static final String FRESH_INBOX = "TRUNCATE TABLE service_hold, update_request RESTART IDENTITY";
 
     @BeforeEach
     void freshInbox() {
@@ -101,12 +99,12 @@ class UpdateDirectoryIntegrationTest {
      * For the tests about what the table does with several open rows - a state the table still
      * allows, and which only submitting refuses.
      */
-    private UpdateRequest queued(final UpdateKind kind, final UpdateSource source, final String by,
-                                 final Duration delay) {
+    private UpdateRequest queued(
+            final UpdateKind kind, final UpdateSource source, final String by, final Duration delay) {
         try (Connection connection = dataSource.getConnection();
-             java.sql.PreparedStatement insert = connection.prepareStatement(
-                     "INSERT INTO update_request (kind, source, requested_by, not_before) "
-                             + "VALUES (?, ?, ?, now() + make_interval(secs => ?)) RETURNING id")) {
+                java.sql.PreparedStatement insert = connection.prepareStatement(
+                        "INSERT INTO update_request (kind, source, requested_by, not_before) "
+                                + "VALUES (?, ?, ?, now() + make_interval(secs => ?)) RETURNING id")) {
             insert.setString(1, kind.name());
             insert.setString(2, source.name());
             insert.setString(3, by);
@@ -136,7 +134,9 @@ class UpdateDirectoryIntegrationTest {
         assertNull(request.finished());
         assertNull(request.result());
 
-        assertEquals(request, updates.find(request.id()).orElseThrow(),
+        assertEquals(
+                request,
+                updates.find(request.id()).orElseThrow(),
                 "reading it back gives the same row the insert returned");
     }
 
@@ -148,8 +148,7 @@ class UpdateDirectoryIntegrationTest {
         // defensible; only one of them is written down, and this is the one - clamped, like the
         // journal next door, so the two lists cannot drift apart on a query nobody thinks about.
         queued(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
-        final UpdateRequest newest =
-                queued(UpdateKind.BACKUP, UpdateSource.CONSOLE, "b", Duration.ZERO);
+        final UpdateRequest newest = queued(UpdateKind.BACKUP, UpdateSource.CONSOLE, "b", Duration.ZERO);
 
         assertEquals(List.of(newest.id()), ids(updates.recent(0)));
         assertEquals(List.of(newest.id()), ids(updates.recent(-5)));
@@ -170,8 +169,7 @@ class UpdateDirectoryIntegrationTest {
         // moment somebody presses the button. BACKUP is what V14 added; APPLY is retired and
         // still has to map, because rows carrying it are in the deployed table.
         for (final UpdateKind kind : UpdateKind.values()) {
-            final UpdateRequest written =
-                    queued(kind, UpdateSource.CONSOLE, null, Duration.ZERO);
+            final UpdateRequest written = queued(kind, UpdateSource.CONSOLE, null, Duration.ZERO);
             assertEquals(kind, written.kind(), kind + " did not survive the round trip");
         }
     }
@@ -181,10 +179,11 @@ class UpdateDirectoryIntegrationTest {
         // The countdown is why this table exists in the shape it does. make_interval(secs => N) is
         // real seconds - not calendar arithmetic - so the answer must not depend on the time zone
         // the JVM running this test happens to be in.
-        final UpdateRequest request = updates.submit(
-                UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
+        final UpdateRequest request =
+                updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
 
-        final long gap = request.notBefore().getEpochSecond() - request.requested().getEpochSecond();
+        final long gap =
+                request.notBefore().getEpochSecond() - request.requested().getEpochSecond();
         assertEquals(60L, gap, "not_before is requested + 60s exactly");
     }
 
@@ -192,8 +191,8 @@ class UpdateDirectoryIntegrationTest {
     void aNegativeDelayIsTreatedAsNow() {
         // A caller computing a delay from two clocks that disagree gets "now", not an exception on
         // the path that is asking for a restart.
-        final UpdateRequest request = updates.submit(
-                UpdateKind.RESTART, UpdateSource.DISCORD, null, Duration.ofSeconds(-30));
+        final UpdateRequest request =
+                updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, null, Duration.ofSeconds(-30));
 
         assertEquals(request.requested().getEpochSecond(), request.notBefore().getEpochSecond());
         assertNull(request.requestedBy(), "the console has no name and that is allowed");
@@ -215,8 +214,7 @@ class UpdateDirectoryIntegrationTest {
             assertNotNull(received, "the LISTEN connection was told about the insert");
             assertEquals(1, received.length);
             assertEquals(UpdateDirectory.CHANNEL, received[0].getName());
-            assertEquals("", received[0].getParameter(),
-                    "no payload, on purpose - a listener must re-read the table");
+            assertEquals("", received[0].getParameter(), "no payload, on purpose - a listener must re-read the table");
         }
     }
 
@@ -241,11 +239,10 @@ class UpdateDirectoryIntegrationTest {
      * 13. BACKUP is only the kind Till happened to be testing when he noticed.</p>
      */
     @Test
-    @DisplayName("starting a countdown announces itself on the channel, exactly like submitting"
-            + " does - season-2-ops/19")
+    @DisplayName(
+            "starting a countdown announces itself on the channel, exactly like submitting" + " does - season-2-ops/19")
     void startingTheCountdownAnnouncesItselfOnTheChannel() throws Exception {
-        final UpdateRequest submitted =
-                updates.submit(UpdateKind.BACKUP, UpdateSource.CONSOLE, null, Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.BACKUP, UpdateSource.CONSOLE, null, Duration.ZERO);
         updates.claimNext().orElseThrow();
 
         try (Connection listener = dataSource.getConnection()) {
@@ -257,10 +254,12 @@ class UpdateDirectoryIntegrationTest {
 
             final PGNotification[] received =
                     listener.unwrap(PGConnection.class).getNotifications(5000);
-            assertNotNull(received, "the LISTEN connection was told the countdown had started -"
-                    + " without this, a proxy only learns of it on its next five-second poll, by"
-                    + " which time fewer than thirty seconds are left and the chat line for 30 is"
-                    + " silently dropped (Countdown#beats requires millisLeft >= 30_000)");
+            assertNotNull(
+                    received,
+                    "the LISTEN connection was told the countdown had started -"
+                            + " without this, a proxy only learns of it on its next five-second poll, by"
+                            + " which time fewer than thirty seconds are left and the chat line for 30 is"
+                            + " silently dropped (Countdown#beats requires millisLeft >= 30_000)");
             assertEquals(1, received.length);
             assertEquals(UpdateDirectory.CHANNEL, received[0].getName());
             assertEquals("", received[0].getParameter());
@@ -272,10 +271,11 @@ class UpdateDirectoryIntegrationTest {
     @Test
     @DisplayName("a second run is refused while the first is pending, and the refusal names it")
     void aSecondRunIsRefusedWhileOneIsPending() {
-        final UpdateRequest first = updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO,
-                List.of("smp"));
+        final UpdateRequest first =
+                updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp"));
 
-        final RunRefused refused = assertThrows(RunRefused.class,
+        final RunRefused refused = assertThrows(
+                RunRefused.class,
                 () -> updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp")));
 
         assertEquals(RunRefused.Reason.RUN_OPEN, refused.reason());
@@ -290,8 +290,10 @@ class UpdateDirectoryIntegrationTest {
         updates.claimNext().orElseThrow();
 
         for (final UpdateSource source : UpdateSource.values()) {
-            assertThrows(RunRefused.class,
-                    () -> updates.submit(UpdateKind.REPORT, source, "b", Duration.ZERO), source.name());
+            assertThrows(
+                    RunRefused.class,
+                    () -> updates.submit(UpdateKind.REPORT, source, "b", Duration.ZERO),
+                    source.name());
         }
     }
 
@@ -319,18 +321,20 @@ class UpdateDirectoryIntegrationTest {
     @Test
     @DisplayName("taking down a service that is already held is refused, even with no run open")
     void takingDownAHeldServiceIsRefused() {
-        final UpdateRequest down = updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO,
-                List.of("smp"));
+        final UpdateRequest down =
+                updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp"));
         updates.claimNext().orElseThrow();
         updates.hold("smp", "a", down.id());
         updates.finish(down.id(), UpdateStatus.DONE, "{}");
 
-        final RunRefused refused = assertThrows(RunRefused.class,
+        final RunRefused refused = assertThrows(
+                RunRefused.class,
                 () -> updates.submit(UpdateKind.DOWN, UpdateSource.GAME, "b", Duration.ZERO, List.of("limbo", "smp")));
         assertEquals(RunRefused.Reason.ALREADY_HELD, refused.reason());
         assertEquals(List.of("smp"), refused.services());
 
-        assertNotNull(updates.submit(UpdateKind.DOWN, UpdateSource.GAME, "b", Duration.ZERO, List.of("limbo")),
+        assertNotNull(
+                updates.submit(UpdateKind.DOWN, UpdateSource.GAME, "b", Duration.ZERO, List.of("limbo")),
                 "a service that is not held can still be taken down");
     }
 
@@ -341,8 +345,8 @@ class UpdateDirectoryIntegrationTest {
         final java.util.concurrent.Callable<Boolean> press = () -> {
             together.await();
             try {
-                UpdateDirectory.using(dataSource).submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a",
-                        Duration.ZERO, List.of("smp"));
+                UpdateDirectory.using(dataSource)
+                        .submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp"));
                 return true;
             } catch (final RunRefused refused) {
                 return false;
@@ -409,8 +413,7 @@ class UpdateDirectoryIntegrationTest {
 
             // SKIP LOCKED means this does not block and does not duplicate: it finds nothing else
             // to take. Blocking here would be the failure - the test would hang rather than fail.
-            assertTrue(updates.claimNext().isEmpty(),
-                    "the locked row is skipped rather than waited for");
+            assertTrue(updates.claimNext().isEmpty(), "the locked row is skipped rather than waited for");
 
             holder.rollback();
         }
@@ -425,8 +428,8 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
         updates.claimNext().orElseThrow();
 
-        final UpdateRequest finished =
-                updates.finish(submitted.id(), UpdateStatus.DONE, "smp  0.1.0 -> 0.2.0").orElseThrow();
+        final UpdateRequest finished = updates.finish(submitted.id(), UpdateStatus.DONE, "smp  0.1.0 -> 0.2.0")
+                .orElseThrow();
 
         assertEquals(UpdateStatus.DONE, finished.status());
         assertEquals("smp  0.1.0 -> 0.2.0", finished.result());
@@ -438,12 +441,14 @@ class UpdateDirectoryIntegrationTest {
     void onlyARunningRequestCanBeFinished() {
         final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
 
-        assertTrue(updates.finish(submitted.id(), UpdateStatus.DONE, "x").isEmpty(),
+        assertTrue(
+                updates.finish(submitted.id(), UpdateStatus.DONE, "x").isEmpty(),
                 "it was never claimed, so there is no answer to write");
 
         updates.claimNext().orElseThrow();
         assertTrue(updates.finish(submitted.id(), UpdateStatus.DONE, "x").isPresent());
-        assertTrue(updates.finish(submitted.id(), UpdateStatus.FAILED, "y").isEmpty(),
+        assertTrue(
+                updates.finish(submitted.id(), UpdateStatus.FAILED, "y").isEmpty(),
                 "and an answer that is already there is not overwritten by a second worker");
     }
 
@@ -454,9 +459,11 @@ class UpdateDirectoryIntegrationTest {
 
         // CANCELLED is reachable only through cancelCountdown, which is a person withdrawing one.
         // Letting it in here would mean a worker could report its own work as somebody's cancel.
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> updates.finish(submitted.id(), UpdateStatus.CANCELLED, "too late"));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> updates.finish(submitted.id(), UpdateStatus.RUNNING, "still going"));
     }
 
@@ -466,7 +473,8 @@ class UpdateDirectoryIntegrationTest {
     void aCountdownCanBeStoppedWhileItIsStillRunning() {
         updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
 
-        final UpdateRequest cancelled = updates.cancelCountdown("Till changed their mind").orElseThrow();
+        final UpdateRequest cancelled =
+                updates.cancelCountdown("Till changed their mind").orElseThrow();
         assertEquals(UpdateStatus.CANCELLED, cancelled.status());
         assertEquals("Till changed their mind", cancelled.result());
 
@@ -480,25 +488,25 @@ class UpdateDirectoryIntegrationTest {
         // The whole of V13, driven end to end. The row is written due immediately, claimed, and
         // only then given a countdown - which is the order that stops a run finding nothing new
         // from counting thirty seconds down to everybody playing first.
-        final UpdateRequest submitted =
-                updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
-        assertTrue(updates.countingDown().isEmpty(),
-                "a request nobody has resolved yet is not counting down");
+        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        assertTrue(updates.countingDown().isEmpty(), "a request nobody has resolved yet is not counting down");
 
         updates.claimNext().orElseThrow();
-        assertTrue(updates.countingDown().isEmpty(),
-                "and neither is one that has only been claimed");
+        assertTrue(updates.countingDown().isEmpty(), "and neither is one that has only been claimed");
 
         final UpdateRequest counting =
                 updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
-        assertEquals(UpdateStatus.RUNNING, counting.status(),
+        assertEquals(
+                UpdateStatus.RUNNING,
+                counting.status(),
                 "a counting-down row is RUNNING, which is why the partial index had to widen");
         assertEquals(submitted.id(), updates.countingDown().orElseThrow().id());
 
-        assertEquals(submitted.id(), updates.cancelCountdown("stop").orElseThrow().id());
-        assertFalse(updates.commitCountdown(submitted.id()),
-                "and the run must then stop nothing at all");
-        assertTrue(updates.finish(submitted.id(), UpdateStatus.DONE, "{}").isEmpty(),
+        assertEquals(
+                submitted.id(), updates.cancelCountdown("stop").orElseThrow().id());
+        assertFalse(updates.commitCountdown(submitted.id()), "and the run must then stop nothing at all");
+        assertTrue(
+                updates.finish(submitted.id(), UpdateStatus.DONE, "{}").isEmpty(),
                 "the cancellation is the answer; a late finish must not overwrite it");
         assertEquals("stop", updates.find(submitted.id()).orElseThrow().result());
     }
@@ -526,12 +534,13 @@ class UpdateDirectoryIntegrationTest {
                 continue;
             }
             execute(FRESH_INBOX);
-            final UpdateRequest submitted =
-                    updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
+            final UpdateRequest submitted = updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
             updates.claimNext().orElseThrow();
             updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
 
-            assertEquals(submitted.id(), updates.countingDown()
+            assertEquals(
+                    submitted.id(),
+                    updates.countingDown()
                             .orElseThrow(() -> new AssertionError(kind
                                     + " stops servers and is counting down, but nobody can see it"
                                     + " - players get no warning at all before it fires"))
@@ -556,17 +565,20 @@ class UpdateDirectoryIntegrationTest {
                 continue;
             }
             execute(FRESH_INBOX);
-            final UpdateRequest submitted =
-                    updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
+            final UpdateRequest submitted = updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
             updates.claimNext().orElseThrow();
             updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
 
-            assertEquals(submitted.id(), updates.cancelCountdown("Till changed their mind")
+            assertEquals(
+                    submitted.id(),
+                    updates.cancelCountdown("Till changed their mind")
                             .orElseThrow(() -> new AssertionError(kind
                                     + " is counting down and the cancel cannot reach it - the"
                                     + " button would answer \"too late\" while it was still early"))
                             .id());
-            assertEquals(UpdateStatus.CANCELLED, updates.find(submitted.id()).orElseThrow().status(),
+            assertEquals(
+                    UpdateStatus.CANCELLED,
+                    updates.find(submitted.id()).orElseThrow().status(),
                     kind + " has to end up withdrawn, not merely unannounced");
         }
     }
@@ -575,29 +587,28 @@ class UpdateDirectoryIntegrationTest {
     @Test
     @DisplayName("a kind that stops nothing is not announced")
     void aReportIsNeverAnnounced() {
-        final UpdateRequest submitted =
-                updates.submit(UpdateKind.REPORT, UpdateSource.GAME, "Till", Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.REPORT, UpdateSource.GAME, "Till", Duration.ZERO);
         assertFalse(UpdateKind.REPORT.stopsServers(), "the premise of this test");
         updates.claimNext().orElseThrow();
         updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
 
-        assertTrue(updates.countingDown().isEmpty(),
-                "a report moves nothing, so counting down to it would be a lie");
+        assertTrue(updates.countingDown().isEmpty(), "a report moves nothing, so counting down to it would be a lie");
     }
 
     @Test
     @DisplayName("committing the countdown takes it out of the set the cancel can reach")
     void committingEndsTheCancelWindow() {
-        final UpdateRequest submitted =
-                updates.submit(UpdateKind.UPDATE, UpdateSource.GAME, "Till", Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, UpdateSource.GAME, "Till", Duration.ZERO);
         updates.claimNext().orElseThrow();
         updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
 
         assertTrue(updates.commitCountdown(submitted.id()), "the run holds the right to proceed");
         assertTrue(updates.countingDown().isEmpty(), "nothing is counting down any more");
-        assertTrue(updates.cancelCountdown("too late").isEmpty(),
+        assertTrue(
+                updates.cancelCountdown("too late").isEmpty(),
                 "which is the sentence the admin needs, and not an error");
-        assertEquals(UpdateStatus.RUNNING, updates.find(submitted.id()).orElseThrow().status());
+        assertEquals(
+                UpdateStatus.RUNNING, updates.find(submitted.id()).orElseThrow().status());
     }
 
     @Test
@@ -607,8 +618,11 @@ class UpdateDirectoryIntegrationTest {
                 updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
         updates.cancelCountdown("changed my mind").orElseThrow();
 
-        assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).isEmpty());
-        assertEquals(UpdateStatus.CANCELLED, updates.find(submitted.id()).orElseThrow().status());
+        assertTrue(
+                updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).isEmpty());
+        assertEquals(
+                UpdateStatus.CANCELLED,
+                updates.find(submitted.id()).orElseThrow().status());
     }
 
     @Test
@@ -625,11 +639,11 @@ class UpdateDirectoryIntegrationTest {
     void aReportIsNotCancelledByTheRestartCancel() {
         // "Stop the countdown" must not quietly withdraw somebody else's report. A report has no
         // countdown to stop - it takes nothing down - so it is not in the cancellable set at all.
-        final UpdateRequest report = updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a",
-                Duration.ZERO);
+        final UpdateRequest report = updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
 
         assertTrue(updates.cancelCountdown("nope").isEmpty());
-        assertEquals(UpdateStatus.PENDING, updates.find(report.id()).orElseThrow().status());
+        assertEquals(
+                UpdateStatus.PENDING, updates.find(report.id()).orElseThrow().status());
     }
 
     @Test
@@ -640,13 +654,16 @@ class UpdateDirectoryIntegrationTest {
         // servers and carries the same not_before - so the old scope would have counted down before
         // a restart and said NOTHING before the one that also replaces jars, and the button
         // offering to stop it could not have.
-        final UpdateRequest update = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a",
-                Duration.ofSeconds(30));
+        final UpdateRequest update =
+                updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ofSeconds(30));
 
-        assertEquals(update.id(), updates.countingDown().orElseThrow().id(),
+        assertEquals(
+                update.id(),
+                updates.countingDown().orElseThrow().id(),
                 "the proxy counts down towards whatever is about to take servers away");
         assertEquals(update.id(), updates.cancelCountdown("stop").orElseThrow().id());
-        assertEquals(UpdateStatus.CANCELLED, updates.find(update.id()).orElseThrow().status());
+        assertEquals(
+                UpdateStatus.CANCELLED, updates.find(update.id()).orElseThrow().status());
     }
 
     @Test
@@ -667,23 +684,30 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest first = queued(UpdateKind.REPORT, UpdateSource.GAME, "a", Duration.ZERO);
         final UpdateRequest second = queued(UpdateKind.UPDATE, UpdateSource.CONSOLE, null, Duration.ZERO);
 
-        assertEquals(List.of(first.id(), second.id()),
+        assertEquals(
+                List.of(first.id(), second.id()),
                 updates.since(0L).stream().map(UpdateRequest::id).toList(),
                 "zero means everything, which is what a database with no history answers with");
-        assertEquals(List.of(second.id()),
+        assertEquals(
+                List.of(second.id()),
                 updates.since(first.id()).stream().map(UpdateRequest::id).toList());
-        assertEquals(List.of(), updates.since(second.id()),
+        assertEquals(
+                List.of(),
+                updates.since(second.id()),
                 "and the ordinary tick, for the whole of a season, answers nothing at all");
 
-        assertEquals(second.id(), updates.latestId(),
+        assertEquals(
+                second.id(),
+                updates.latestId(),
                 "which is where a restarting bot begins, so it does not post the history again");
     }
 
     @Test
     void latestIdOfAnEmptyTableIsZero() {
-        assertEquals(0L, updates.latestId(),
-                "a fresh deployment has no history, and the feed must not be given null to reason"
-                        + " about");
+        assertEquals(
+                0L,
+                updates.latestId(),
+                "a fresh deployment has no history, and the feed must not be given null to reason" + " about");
     }
 
     @Test
@@ -695,11 +719,15 @@ class UpdateDirectoryIntegrationTest {
 
         final UpdateRequest open = updates.submit(UpdateKind.REPORT, UpdateSource.GAME, "b", Duration.ZERO);
 
-        assertEquals(List.of(done.id()),
+        assertEquals(
+                List.of(done.id()),
                 updates.finishedWithin(Duration.ofMinutes(12)).stream()
-                        .map(UpdateRequest::id).toList(),
+                        .map(UpdateRequest::id)
+                        .toList(),
                 "a request that has not finished is not a result to post");
-        assertEquals(List.of(), updates.finishedWithin(Duration.ZERO),
+        assertEquals(
+                List.of(),
+                updates.finishedWithin(Duration.ZERO),
                 "and a window of nothing finds nothing, rather than everything");
         assertEquals(UpdateStatus.PENDING, updates.find(open.id()).orElseThrow().status());
     }
@@ -711,7 +739,8 @@ class UpdateDirectoryIntegrationTest {
     void anOrphanedRestartIsAFailureToo() {
         // It was read as SUCCESS until this change, and the inference was right at the time: a
         // RESTART was one redeploy of the whole project asked for over HTTP, which took the
-        // container running it down every time by design. A restart now cycles the four Minecraft services one at a time
+        // container running it down every time by design. A restart now cycles the four Minecraft services one at a
+        // time
         // and never stops the worker, so an orphaned one means what every other kind means - the
         // worker died in the middle of it. Reporting that as "the redeploy happened" is the one
         // reading nobody can act on.
@@ -745,7 +774,8 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest waiting = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
 
         assertEquals(0, updates.settleOrphans("failed"));
-        assertEquals(UpdateStatus.PENDING, updates.find(waiting.id()).orElseThrow().status());
+        assertEquals(
+                UpdateStatus.PENDING, updates.find(waiting.id()).orElseThrow().status());
     }
 
     // ---------------------------------------------------------------- when to wake up
@@ -761,7 +791,9 @@ class UpdateDirectoryIntegrationTest {
         assertEquals(now.notBefore(), updates.nextDue().orElseThrow(), "the sooner of the two");
 
         updates.claimNext().orElseThrow();
-        assertEquals(restart.notBefore(), updates.nextDue().orElseThrow(),
+        assertEquals(
+                restart.notBefore(),
+                updates.nextDue().orElseThrow(),
                 "a claimed row is not pending any more, so the restart is next again");
     }
 
@@ -770,13 +802,24 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void secondsUntilDueNeverGoesNegative() {
         final Instant notBefore = Instant.parse("2026-09-01T12:00:00Z");
-        final UpdateRequest request = new UpdateRequest(1L, UpdateKind.RESTART, UpdateStatus.PENDING,
-                UpdateSource.GAME, "Till", notBefore.minusSeconds(60), notBefore, null, null, null);
+        final UpdateRequest request = new UpdateRequest(
+                1L,
+                UpdateKind.RESTART,
+                UpdateStatus.PENDING,
+                UpdateSource.GAME,
+                "Till",
+                notBefore.minusSeconds(60),
+                notBefore,
+                null,
+                null,
+                null);
 
         assertEquals(60L, request.secondsUntilDue(notBefore.minusSeconds(60)));
         assertEquals(1L, request.secondsUntilDue(notBefore.minusSeconds(1)));
         assertEquals(0L, request.secondsUntilDue(notBefore));
-        assertEquals(0L, request.secondsUntilDue(notBefore.plusSeconds(3600)),
+        assertEquals(
+                0L,
+                request.secondsUntilDue(notBefore.plusSeconds(3600)),
                 "a countdown that has run out reads zero, not minus an hour");
     }
 
@@ -784,16 +827,20 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void theCheckConstraintsRefuseValuesNoBuildCanRead() {
-        final SQLException kind = assertThrows(SQLException.class, () -> executeChecked(
-                "INSERT INTO update_request (kind, source) VALUES ('REBOOT', 'DISCORD')"));
+        final SQLException kind = assertThrows(
+                SQLException.class,
+                () -> executeChecked("INSERT INTO update_request (kind, source) VALUES ('REBOOT', 'DISCORD')"));
         assertTrue(kind.getMessage().contains("update_request_kind_check"), kind.getMessage());
 
-        final SQLException status = assertThrows(SQLException.class, () -> executeChecked(
-                "INSERT INTO update_request (kind, source, status) VALUES ('APPLY', 'DISCORD', 'MAYBE')"));
+        final SQLException status = assertThrows(
+                SQLException.class,
+                () -> executeChecked(
+                        "INSERT INTO update_request (kind, source, status) VALUES ('APPLY', 'DISCORD', 'MAYBE')"));
         assertTrue(status.getMessage().contains("update_request_status_check"), status.getMessage());
 
-        final SQLException source = assertThrows(SQLException.class, () -> executeChecked(
-                "INSERT INTO update_request (kind, source) VALUES ('APPLY', 'CRON')"));
+        final SQLException source = assertThrows(
+                SQLException.class,
+                () -> executeChecked("INSERT INTO update_request (kind, source) VALUES ('APPLY', 'CRON')"));
         assertTrue(source.getMessage().contains("update_request_source_check"), source.getMessage());
 
         assertFalse(updates.claimNext().isPresent(), "none of the three got in");
@@ -819,8 +866,11 @@ class UpdateDirectoryIntegrationTest {
      */
     private static UpdateReport report(final UpdateReport.State volume) {
         return UpdateReport.at(UpdateReport.Stage.DONE)
-                .with(new UpdateReport.ServiceLine("nordtal-s2_mc-smp", volume,
-                        List.of(new UpdateReport.Change("backup", null, "1.2 GiB in 41s")), null))
+                .with(new UpdateReport.ServiceLine(
+                        "nordtal-s2_mc-smp",
+                        volume,
+                        List.of(new UpdateReport.Change("backup", null, "1.2 GiB in 41s")),
+                        null))
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));
     }
 
@@ -841,7 +891,8 @@ class UpdateDirectoryIntegrationTest {
     void aBackupThatSavedSomethingCounts() {
         final long id = backupRow("DONE", 0.25, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
 
-        final UpdateRequest found = updates.lastSuccessfulBackup(Duration.ofHours(12)).orElseThrow();
+        final UpdateRequest found =
+                updates.lastSuccessfulBackup(Duration.ofHours(12)).orElseThrow();
         assertEquals(id, found.id());
         assertEquals(UpdateKind.BACKUP, found.kind());
     }
@@ -851,7 +902,8 @@ class UpdateDirectoryIntegrationTest {
     void aRunThatSavedNothingIsNotABackup() {
         backupRow("DONE", 0.25, UpdateReports.toJson(reportWithNoVolumes()));
 
-        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
+        assertTrue(
+                updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
                 "a DONE row whose report lists no saved volume was accepted as a backup. That is"
                         + " exactly run 23: every service healthy, every snapshot missing.");
     }
@@ -861,7 +913,8 @@ class UpdateDirectoryIntegrationTest {
     void aRunWhoseVolumesAllFailedIsNotABackup() {
         backupRow("DONE", 0.25, UpdateReports.toJson(report(UpdateReport.State.FAILED)));
 
-        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
+        assertTrue(
+                updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
                 "the report is read, not just the status column");
     }
 
@@ -881,10 +934,11 @@ class UpdateDirectoryIntegrationTest {
     void anOldBackupIsOutsideTheWindow() {
         backupRow("DONE", 25.0, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
 
-        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
-                "the whole point of the window is that yesterday's backup does not authorise"
-                        + " today's reset");
-        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(48)).isPresent(),
+        assertTrue(
+                updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
+                "the whole point of the window is that yesterday's backup does not authorise" + " today's reset");
+        assertTrue(
+                updates.lastSuccessfulBackup(Duration.ofHours(48)).isPresent(),
                 "and the row is still there - it is the window that excluded it, not the filter");
     }
 
@@ -907,7 +961,9 @@ class UpdateDirectoryIntegrationTest {
 
         // A LIMIT 1 on the SQL would answer with the one-hour-old row, find nothing saved in it,
         // and report no backup at all - while a provable one sat two rows down inside the window.
-        assertEquals(good, updates.lastSuccessfulBackup(Duration.ofHours(24)).orElseThrow().id());
+        assertEquals(
+                good,
+                updates.lastSuccessfulBackup(Duration.ofHours(24)).orElseThrow().id());
     }
 
     @Test
@@ -942,8 +998,8 @@ class UpdateDirectoryIntegrationTest {
         // season-2-ops/125. The whole reason this state is in the database and not in a field is
         // that it has to outlive a restart of the worker and of the interface, so the only test
         // worth having is one against a real table.
-        final UpdateRequest down = updates.submit(
-                UpdateKind.DOWN, UpdateSource.CONSOLE, "Till", Duration.ZERO, List.of("smp"));
+        final UpdateRequest down =
+                updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "Till", Duration.ZERO, List.of("smp"));
 
         updates.hold("smp", "Till", down.id());
         assertTrue(updates.isHeld("smp"));
@@ -971,8 +1027,8 @@ class UpdateDirectoryIntegrationTest {
     void theHoldOutlivesItsExplanation() {
         // ON DELETE SET NULL, and it is the deliberate direction: a hold that vanished with its
         // row would leave a service that the next run starts with nobody having asked for it.
-        final UpdateRequest down = updates.submit(
-                UpdateKind.DOWN, UpdateSource.CONSOLE, "Till", Duration.ZERO, List.of("limbo"));
+        final UpdateRequest down =
+                updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "Till", Duration.ZERO, List.of("limbo"));
         updates.hold("limbo", "Till", down.id());
 
         execute("DELETE FROM update_request WHERE id = " + down.id());
@@ -985,9 +1041,8 @@ class UpdateDirectoryIntegrationTest {
 
     private static long lastId() {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             java.sql.ResultSet rows = statement.executeQuery(
-                     "SELECT max(id) FROM update_request")) {
+                Statement statement = connection.createStatement();
+                java.sql.ResultSet rows = statement.executeQuery("SELECT max(id) FROM update_request")) {
             rows.next();
             return rows.getLong(1);
         } catch (final SQLException failure) {
@@ -1007,7 +1062,7 @@ class UpdateDirectoryIntegrationTest {
 
     private static void executeChecked(final String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }

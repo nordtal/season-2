@@ -1,16 +1,14 @@
 package eu.nordtal.s2.steward.worker.source;
 
-import eu.nordtal.s2.steward.worker.http.FakeHttp;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.steward.worker.http.FakeHttp;
+import java.io.IOException;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /** The releases API, against what {@code nordtal/season-2} and the fork really published. */
 class GitHubReleasesTest {
@@ -18,8 +16,8 @@ class GitHubReleasesTest {
     @Test
     @DisplayName("the season release's seven assets are read, sizes included")
     void readsTheSeasonRelease() throws IOException {
-        final GitHubReleases github = new GitHubReleases(
-                new FakeHttp().serving("/releases/latest", "github-season-v0.1.0.json"));
+        final GitHubReleases github =
+                new GitHubReleases(new FakeHttp().serving("/releases/latest", "github-season-v0.1.0.json"));
 
         final GitHubReleases.Release release = github.latest("nordtal/season-2");
 
@@ -34,15 +32,16 @@ class GitHubReleasesTest {
         // that day was 4 820 904. Nothing in the API says so, which is the point: only a person
         // comparing the number against a build notices, and no person was going to.
         assertEquals(51_273, smp.size());
-        assertTrue(smp.url().toString().startsWith("https://github.com/nordtal/season-2/releases/download/"),
+        assertTrue(
+                smp.url().toString().startsWith("https://github.com/nordtal/season-2/releases/download/"),
                 smp.url().toString());
     }
 
     @Test
     @DisplayName("the fork's tag has no leading v, and that is read rather than assumed")
     void readsTheForkRelease() throws IOException {
-        final GitHubReleases github = new GitHubReleases(
-                new FakeHttp().serving("/releases/latest", "github-display-tags.json"));
+        final GitHubReleases github =
+                new GitHubReleases(new FakeHttp().serving("/releases/latest", "github-display-tags.json"));
 
         final GitHubReleases.Release release = github.latest("nordtal/papermc-display-tags");
 
@@ -64,7 +63,8 @@ class GitHubReleasesTest {
         github.latest("nordtal/season-2");
 
         assertEquals(1, http.requested().size());
-        assertEquals("https://api.github.com/repos/nordtal/season-2/releases/latest",
+        assertEquals(
+                "https://api.github.com/repos/nordtal/season-2/releases/latest",
                 http.requested().get(0).toString());
     }
 

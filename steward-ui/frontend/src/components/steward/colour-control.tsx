@@ -1,12 +1,7 @@
 import { useState } from "react"
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import type { ConfigEntry } from "@/lib/api"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 
 /**
  * A hex colour, picked with a wheel or typed by hand, previewed on the background it will actually
@@ -169,10 +164,7 @@ export function ColourControl({
  * blank by hand would hit it, and the honest answer is: it drops out of the row until it holds a
  * hex value again.
  */
-export function colourRuns(
-  entries: ConfigEntry[],
-  isColour: (entry: ConfigEntry) => boolean,
-): ConfigEntry[][] {
+export function colourRuns(entries: ConfigEntry[], isColour: (entry: ConfigEntry) => boolean): ConfigEntry[][] {
   const runs: ConfigEntry[][] = []
   let current: ConfigEntry[] = []
 

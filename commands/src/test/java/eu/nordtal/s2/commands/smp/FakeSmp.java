@@ -1,7 +1,6 @@
 package eu.nordtal.s2.commands.smp;
 
 import eu.nordtal.s2.common.access.OpenPayment;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -15,6 +14,7 @@ final class FakeSmp implements SmpEffects {
 
     /** Every effect that actually happened, in order. */
     final List<String> did = new ArrayList<>();
+
     final List<String> warnings = new ArrayList<>();
 
     final Map<UUID, String> names = new LinkedHashMap<>();
@@ -92,8 +92,7 @@ final class FakeSmp implements SmpEffects {
     }
 
     @Override
-    public void changeAura(final UUID player, final String discordId, final int delta,
-                           final String by) {
+    public void changeAura(final UUID player, final String discordId, final int delta, final String by) {
         throwIfAsked();
         did.add("aura " + discordId + " " + delta + " by " + by);
     }

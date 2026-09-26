@@ -7,13 +7,12 @@ import eu.nordtal.s2.common.access.AccessRequests;
 import eu.nordtal.s2.common.audit.AuditDirectory;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.metric.MetricDirectory;
-import eu.nordtal.s2.common.roster.RosterDirectory;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
+import eu.nordtal.s2.common.roster.RosterDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
-import org.jetbrains.annotations.NotNull;
-
 import java.time.Duration;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The database, opened once, read through the directories {@code :common} already owns.

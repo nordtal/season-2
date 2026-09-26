@@ -132,9 +132,7 @@ public final class Confirmations {
      * which is enough: there is one console per process.</p>
      */
     private static String identityOf(final NordtalUser user) {
-        return user.minecraftUuid().map(UUID::toString)
-                .or(user::discordId)
-                .orElseGet(() -> "console:" + user.name());
+        return user.minecraftUuid().map(UUID::toString).or(user::discordId).orElseGet(() -> "console:" + user.name());
     }
 
     /**

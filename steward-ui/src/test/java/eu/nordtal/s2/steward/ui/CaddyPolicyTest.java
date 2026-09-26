@@ -1,15 +1,14 @@
 package eu.nordtal.s2.steward.ui;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * If Caddy ever grows a Content-Security-Policy, it has to allow Modrinth's image CDN.
@@ -47,8 +46,11 @@ class CaddyPolicyTest {
 
     /** Every line whose first non-blank character is a {@code #}, gone. */
     private static String withoutComments(final String text) {
-        return text.lines().filter(line -> !line.strip().startsWith("#"))
-                .reduce(new StringBuilder(), (builder, line) -> builder.append(line).append('\n'),
+        return text.lines()
+                .filter(line -> !line.strip().startsWith("#"))
+                .reduce(
+                        new StringBuilder(),
+                        (builder, line) -> builder.append(line).append('\n'),
                         StringBuilder::append)
                 .toString();
     }
@@ -64,8 +66,7 @@ class CaddyPolicyTest {
         // so a search over the raw file would find the host inside the warning and pass for a
         // policy that does not name it at all - a test that cannot fail. Comment lines are
         // therefore removed before anything is looked for.
-        final String compose =
-                withoutComments(caddyfileIn(Files.readString(COMPOSE, StandardCharsets.UTF_8)));
+        final String compose = withoutComments(caddyfileIn(Files.readString(COMPOSE, StandardCharsets.UTF_8)));
 
         // The header can be spelled by Caddy's own `header` directive or inside a `header {}`
         // block, and in either case the name is what is searched for. Lowercased so that neither
@@ -78,7 +79,8 @@ class CaddyPolicyTest {
             return;
         }
 
-        assertTrue(lower.contains(CDN),
+        assertTrue(
+                lower.contains(CDN),
                 "compose.yml sets a Content-Security-Policy and does not name " + CDN + " in it."
                         + " The plugin thumbnails on every service page (season-2-ops/129) are"
                         + " loaded from that host by the browser, and a policy without it does not"
@@ -93,7 +95,8 @@ class CaddyPolicyTest {
 
         // The comment is the thing that reaches somebody BEFORE they write the header - the
         // assertion above only catches them afterwards, and only if they run this module's tests.
-        assertTrue(compose.contains(CDN),
+        assertTrue(
+                compose.contains(CDN),
                 "the Caddyfile in compose.yml no longer mentions " + CDN + ". That note is what"
                         + " tells whoever adds a Content-Security-Policy that the plugin"
                         + " thumbnails depend on it (season-2-ops/129).");

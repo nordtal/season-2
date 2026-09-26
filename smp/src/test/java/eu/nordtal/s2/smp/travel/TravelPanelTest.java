@@ -1,21 +1,15 @@
 package eu.nordtal.s2.smp.travel;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.world.WorldRole;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -26,9 +20,11 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.imageio.ImageIO;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Holds {@link TravelPanel}'s geometry against the panel the pack actually draws.
@@ -64,9 +60,13 @@ class TravelPanelTest {
             final int[] box = boundingBox(panel, COLOURS.get(entry.destination()));
             assertEquals(TravelPanel.x(entry.column()), box[0], entry.destination() + "'s left edge");
             assertEquals(TravelPanel.y(entry.row()), box[1], entry.destination() + "'s top edge");
-            assertEquals(TravelPanel.x(entry.column()) + TravelPanel.CARD_WIDTH - 1, box[2],
+            assertEquals(
+                    TravelPanel.x(entry.column()) + TravelPanel.CARD_WIDTH - 1,
+                    box[2],
                     entry.destination() + "'s right edge");
-            assertEquals(TravelPanel.y(entry.row()) + TravelPanel.CARD_HEIGHT - 1, box[3],
+            assertEquals(
+                    TravelPanel.y(entry.row()) + TravelPanel.CARD_HEIGHT - 1,
+                    box[3],
                     entry.destination() + "'s bottom edge");
         }
     }
@@ -76,13 +76,21 @@ class TravelPanelTest {
     void theOverlaysLandOnTheCards() {
         final Map<Integer, JsonObject> providers = providers();
         final Map<String, Integer> rows = Map.of(
-                Glyphs.GUI_TRAVEL_LOCKED_TOP, 0, Glyphs.GUI_TRAVEL_HERE_TOP, 0,
-                Glyphs.GUI_TRAVEL_LOCKED_BOTTOM, 1, Glyphs.GUI_TRAVEL_HERE_BOTTOM, 1);
+                Glyphs.GUI_TRAVEL_LOCKED_TOP,
+                0,
+                Glyphs.GUI_TRAVEL_HERE_TOP,
+                0,
+                Glyphs.GUI_TRAVEL_LOCKED_BOTTOM,
+                1,
+                Glyphs.GUI_TRAVEL_HERE_BOTTOM,
+                1);
         rows.forEach((glyph, row) -> {
             final JsonObject provider = providers.get(glyph.codePointAt(0));
             assertTrue(provider != null, "U+%X is not in gui.json".formatted(glyph.codePointAt(0)));
             // A glyph's top sits at the title baseline (13) minus its ascent.
-            assertEquals(TravelPanel.y(row), 13 - provider.get("ascent").getAsInt(),
+            assertEquals(
+                    TravelPanel.y(row),
+                    13 - provider.get("ascent").getAsInt(),
                     "U+%X does not land on card row %d".formatted(glyph.codePointAt(0), row));
             final BufferedImage image = read(texture(provider.get("file").getAsString()));
             assertEquals(TravelPanel.CARD_WIDTH, image.getWidth());
@@ -110,7 +118,9 @@ class TravelPanelTest {
         final Component title = TravelPanel.title(BalloonMenu.of(WorldRole.NORDTAL, EnumSet.noneOf(Unlock.class)));
         assertTrue(!title.children().isEmpty());
         for (final Component child : title.children()) {
-            assertEquals(Glyphs.FONT_GUI, child.style().font() == null ? null : child.style().font().asString(),
+            assertEquals(
+                    Glyphs.FONT_GUI,
+                    child.style().font() == null ? null : child.style().font().asString(),
                     "the balloon has no title strip and no readable title (owner's call, 2026-09-05);"
                             + " anything outside nordtal:gui would be drawn over the cards");
         }
@@ -140,7 +150,8 @@ class TravelPanelTest {
 
     private static Map<Integer, JsonObject> providers() {
         final Map<Integer, JsonObject> out = new HashMap<>();
-        final JsonObject root = JsonParser.parseString(readText(ASSETS.resolve("font/gui.json"))).getAsJsonObject();
+        final JsonObject root = JsonParser.parseString(readText(ASSETS.resolve("font/gui.json")))
+                .getAsJsonObject();
         for (final JsonElement element : root.getAsJsonArray("providers")) {
             final JsonObject provider = element.getAsJsonObject();
             if ("bitmap".equals(provider.get("type").getAsString())) {
@@ -155,7 +166,9 @@ class TravelPanelTest {
     }
 
     private static int count(final String text, final String glyph) {
-        return (int) text.codePoints().filter(codePoint -> codePoint == glyph.codePointAt(0)).count();
+        return (int) text.codePoints()
+                .filter(codePoint -> codePoint == glyph.codePointAt(0))
+                .count();
     }
 
     /**
@@ -184,7 +197,8 @@ class TravelPanelTest {
             at = at.getParent();
         }
         if (at == null) {
-            throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+            throw new IllegalStateException(
+                    "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         }
         return at;
     }

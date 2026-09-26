@@ -2,12 +2,10 @@ package eu.nordtal.s2.proxy.ping;
 
 import eu.nordtal.s2.common.network.NetworkSnapshot;
 import eu.nordtal.s2.common.network.SnapshotDirectory;
-
-import org.slf4j.Logger;
-
-import javax.sql.DataSource;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.sql.DataSource;
+import org.slf4j.Logger;
 
 /**
  * Holds the last snapshot that came back, and refreshes it on a timer.
@@ -64,8 +62,9 @@ public final class SnapshotStore {
         } catch (final RuntimeException failure) {
             // Nothing is retried and nothing is cleared: the next tick is the retry, and the
             // snapshot that is already there is better than no MOTD numbers at all.
-            logger.warn("Could not refresh the MOTD snapshot; the server browser keeps showing the "
-                    + "previous numbers", failure);
+            logger.warn(
+                    "Could not refresh the MOTD snapshot; the server browser keeps showing the " + "previous numbers",
+                    failure);
         }
     }
 }

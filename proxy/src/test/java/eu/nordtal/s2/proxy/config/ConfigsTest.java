@@ -1,25 +1,22 @@
 package eu.nordtal.s2.proxy.config;
 
-import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.jcore.config.exception.ConfigValidationException;
-import eu.nordtal.s2.common.SeasonPhase;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.jcore.config.exception.ConfigValidationException;
+import eu.nordtal.s2.common.SeasonPhase;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The fail-fast for {@code proxy}'s own config files: every value here must stop the gate
@@ -41,7 +38,8 @@ class ConfigsTest {
         assertEquals("nordtal", config.username());
         assertEquals(5, config.maximumPoolSize());
         assertEquals(3, config.queryTimeoutSeconds());
-        assertTrue(Files.isRegularFile(directory.resolve("database.yml")),
+        assertTrue(
+                Files.isRegularFile(directory.resolve("database.yml")),
                 "a fresh load must write the defaults out, the same as every other config in this repo");
     }
 
@@ -55,8 +53,8 @@ class ConfigsTest {
                 query-timeout-seconds: 3
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.database(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.database(directory, LOGGER));
         assertTrue(error.getMessage().contains("jdbc-url"), error.getMessage());
     }
 
@@ -70,8 +68,8 @@ class ConfigsTest {
                 query-timeout-seconds: 0
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.database(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.database(directory, LOGGER));
         assertTrue(error.getMessage().contains("query-timeout-seconds"), error.getMessage());
     }
 
@@ -81,18 +79,22 @@ class ConfigsTest {
     void aFreshGateConfigGetsTheDocumentedDefaults() throws Exception {
         final GateSpec config = Configs.gate(directory, LOGGER).get();
 
-        assertEquals("https://nordtal.eu", config.discordInviteUrl(),
+        assertEquals(
+                "https://nordtal.eu",
+                config.discordInviteUrl(),
                 "the website, not an invite link, decided 2026-09-03: nordtal.eu forwards to the "
                         + "Discord and an address that never changes beats one that can expire");
         assertEquals(10, config.linkCodeTtlMinutes());
         assertEquals(15, config.fallbackCacheWindowMinutes());
         assertEquals(60, config.expiryCheckIntervalSeconds());
         assertEquals(5, config.expiryWarningLeadMinutes());
-        assertEquals(30, config.phasePollIntervalSeconds(),
-                "thirty seconds is the decided poll interval");
-        assertTrue(config.phaseListenEnabled(),
+        assertEquals(30, config.phasePollIntervalSeconds(), "thirty seconds is the decided poll interval");
+        assertTrue(
+                config.phaseListenEnabled(),
                 "LISTEN/NOTIFY is built in the first pass rather than deferred, so it is on by default");
-        assertEquals(300, config.playtimeFlushIntervalSeconds(),
+        assertEquals(
+                300,
+                config.playtimeFlushIntervalSeconds(),
                 "five minutes is the decided flush interval, settled 2026-08-31 - a proxy crash "
                         + "costing up to five minutes of play time is the accepted trade");
         assertEquals("limbo", config.serverLimbo());
@@ -117,8 +119,8 @@ class ConfigsTest {
         // name that simply does not match this proxy's velocity.toml - which is not checkable here.
         writeGate("server-limbo: ''");
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.gate(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.gate(directory, LOGGER));
         assertTrue(error.getMessage().contains("server-limbo"), error.getMessage());
     }
 
@@ -126,8 +128,8 @@ class ConfigsTest {
     void aNegativeFallbackWindowIsRejected() throws Exception {
         writeGate("fallback-cache-window-minutes: -1");
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.gate(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.gate(directory, LOGGER));
         assertTrue(error.getMessage().contains("fallback-cache-window-minutes"), error.getMessage());
     }
 
@@ -135,8 +137,8 @@ class ConfigsTest {
     void aZeroLinkCodeTtlIsRejected() throws Exception {
         writeGate("link-code-ttl-minutes: 0");
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.gate(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.gate(directory, LOGGER));
         assertTrue(error.getMessage().contains("link-code-ttl-minutes"), error.getMessage());
     }
 
@@ -146,8 +148,8 @@ class ConfigsTest {
         // whatever phase it read at startup - the one failure mode the poll exists to prevent.
         writeGate("phase-poll-interval-seconds: 0");
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.gate(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.gate(directory, LOGGER));
         assertTrue(error.getMessage().contains("phase-poll-interval-seconds"), error.getMessage());
     }
 
@@ -155,8 +157,8 @@ class ConfigsTest {
     void aNegativePlaytimeFlushIntervalIsRejected() throws Exception {
         writeGate("playtime-flush-interval-seconds: -30");
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.gate(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.gate(directory, LOGGER));
         assertTrue(error.getMessage().contains("playtime-flush-interval-seconds"), error.getMessage());
     }
 
@@ -164,7 +166,8 @@ class ConfigsTest {
     void turningTheListenerOffIsAllowedBecauseThePollIsTheGuarantee() throws Exception {
         writeGate("phase-listen-enabled: false");
 
-        assertFalse(Configs.gate(directory, LOGGER).get().phaseListenEnabled(),
+        assertFalse(
+                Configs.gate(directory, LOGGER).get().phaseListenEnabled(),
                 "the fallback is to drop NOTIFY and keep the poll");
     }
 
@@ -182,14 +185,19 @@ class ConfigsTest {
         // a default pointing at somebody's release would be worse than none. So a fresh install
         // fails closed rather than letting everybody in without the pack.
         assertThrows(ConfigValidationException.class, () -> Configs.pack(directory, LOGGER));
-        assertTrue(Files.isRegularFile(directory.resolve("pack.yml")),
+        assertTrue(
+                Files.isRegularFile(directory.resolve("pack.yml")),
                 "the defaults must still be written out, or there is nothing to fill in");
     }
 
     @Test
     void aFilledInPackConfigLoadsWithTheDocumentedDefaults() throws Exception {
-        writePack("https://github.com/nordtal/season-2/releases/download/v0.1.0/pack.zip",
-                REAL_LOOKING_SHA1, true, true, 180);
+        writePack(
+                "https://github.com/nordtal/season-2/releases/download/v0.1.0/pack.zip",
+                REAL_LOOKING_SHA1,
+                true,
+                true,
+                180);
 
         final PackSpec config = Configs.pack(directory, LOGGER).get();
 
@@ -215,8 +223,8 @@ class ConfigsTest {
     void anEmptyUrlIsRejectedWhileThePackIsEnabled() throws Exception {
         writePack("", REAL_LOOKING_SHA1, true, true, 180);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.pack(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.pack(directory, LOGGER));
         assertTrue(error.getMessage().contains("url"), error.getMessage());
     }
 
@@ -226,8 +234,8 @@ class ConfigsTest {
         // INVALID_URL for every player at the same moment.
         writePack("/var/www/pack.zip", REAL_LOOKING_SHA1, true, true, 180);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.pack(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.pack(directory, LOGGER));
         assertTrue(error.getMessage().contains("url"), error.getMessage());
     }
 
@@ -236,12 +244,13 @@ class ConfigsTest {
         // Length and alphabet are all that can be checked here. Whether it is the hash of the zip
         // at `url` only the client answers, with FAILED_DOWNLOAD - which reads as a network problem
         // and is not one.
-        for (final String wrong : new String[]{"deadbeef", REAL_LOOKING_SHA1 + "0", "sha1-" + REAL_LOOKING_SHA1,
-                "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3g"}) {
+        for (final String wrong : new String[] {
+            "deadbeef", REAL_LOOKING_SHA1 + "0", "sha1-" + REAL_LOOKING_SHA1, "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3g"
+        }) {
             writePack("https://example.invalid/pack.zip", wrong, true, true, 180);
 
-            final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                    () -> Configs.pack(directory, LOGGER), wrong);
+            final ConfigValidationException error =
+                    assertThrows(ConfigValidationException.class, () -> Configs.pack(directory, LOGGER), wrong);
             assertTrue(error.getMessage().contains("sha1"), error.getMessage());
         }
     }
@@ -249,10 +258,15 @@ class ConfigsTest {
     @Test
     void anUppercaseHashIsAccepted() throws Exception {
         // Some tools write it uppercase. Refusing that would be a rule about typography, not safety.
-        writePack("https://example.invalid/pack.zip", REAL_LOOKING_SHA1.toUpperCase(java.util.Locale.ROOT),
-                true, true, 180);
+        writePack(
+                "https://example.invalid/pack.zip",
+                REAL_LOOKING_SHA1.toUpperCase(java.util.Locale.ROOT),
+                true,
+                true,
+                180);
 
-        assertEquals(REAL_LOOKING_SHA1.toUpperCase(java.util.Locale.ROOT),
+        assertEquals(
+                REAL_LOOKING_SHA1.toUpperCase(java.util.Locale.ROOT),
                 Configs.pack(directory, LOGGER).get().sha1());
     }
 
@@ -263,13 +277,14 @@ class ConfigsTest {
         // regardless of which way `enabled` is set.
         writePack("", "", false, true, 0);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.pack(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.pack(directory, LOGGER));
         assertTrue(error.getMessage().contains("apply-timeout-seconds"), error.getMessage());
     }
 
-    private void writePack(final String url, final String sha1, final boolean enabled,
-                           final boolean force, final int timeout) throws Exception {
+    private void writePack(
+            final String url, final String sha1, final boolean enabled, final boolean force, final int timeout)
+            throws Exception {
         Files.writeString(directory.resolve("pack.yml"), """
                 enabled: %s
                 url: '%s'
@@ -286,7 +301,8 @@ class ConfigsTest {
         final NetworkSpec config = Configs.network(directory, LOGGER).get();
 
         assertEquals(500, config.maxPlayers());
-        assertTrue(Files.isRegularFile(directory.resolve("network.yml")),
+        assertTrue(
+                Files.isRegularFile(directory.resolve("network.yml")),
                 "a fresh load must write the defaults out - and this file is also the only place the"
                         + " placeholder list is documented");
 
@@ -307,7 +323,9 @@ class ConfigsTest {
         for (final SeasonPhase phase : SeasonPhase.values()) {
             distinct.add(motdFor(config, phase));
         }
-        assertEquals(SeasonPhase.values().length, distinct.size(),
+        assertEquals(
+                SeasonPhase.values().length,
+                distinct.size(),
                 "two phases ship the same default MOTD, so one of them is not saying anything");
     }
 
@@ -331,13 +349,16 @@ class ConfigsTest {
         final NetworkSpec config = Configs.network(directory, LOGGER).get();
 
         assertAll(
-                () -> assertEquals(500, config.maxPlayers(),
+                () -> assertEquals(
+                        500,
+                        config.maxPlayers(),
                         "the one number there is has to survive the deletion of the retired one"),
-                () -> assertFalse(Files.readString(directory.resolve("network.yml")).contains("backend-limit"),
+                () -> assertFalse(
+                        Files.readString(directory.resolve("network.yml")).contains("backend-limit"),
                         "the retired key stays in the file, still looking like a setting"),
-                () -> assertTrue(Files.readString(directory.resolve("network.yml.bak")).contains("backend-limit"),
-                        "what was deleted has to be recoverable")
-        );
+                () -> assertTrue(
+                        Files.readString(directory.resolve("network.yml.bak")).contains("backend-limit"),
+                        "what was deleted has to be recoverable"));
     }
 
     @Test
@@ -347,8 +368,8 @@ class ConfigsTest {
         // full - /help lists what a player may not run, and /tell is replaced by /msg.
         final NetworkSpec config = Configs.network(directory, LOGGER).get();
 
-        assertEquals(List.of("smp status", "navigate", "poi", "hg ready", "aura",
-                        "msg", "whisper", "r", "discord", "rules"),
+        assertEquals(
+                List.of("smp status", "navigate", "poi", "hg ready", "aura", "msg", "whisper", "r", "discord", "rules"),
                 config.commandAllowlist());
     }
 
@@ -372,8 +393,8 @@ class ConfigsTest {
                   maintenance: 'e'
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.network(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.network(directory, LOGGER));
         assertTrue(error.getMessage().contains("command-allowlist"), error.getMessage());
     }
 
@@ -410,8 +431,8 @@ class ConfigsTest {
                   maintenance: 'e'
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.network(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.network(directory, LOGGER));
         assertTrue(error.getMessage().contains("motd.pre-launch"), error.getMessage());
     }
 
@@ -427,17 +448,17 @@ class ConfigsTest {
 
     private void writeGate(final String override) throws Exception {
         final String[] defaults = {
-                "discord-invite-url: 'https://nordtal.eu'",
-                "link-code-ttl-minutes: 10",
-                "fallback-cache-window-minutes: 15",
-                "expiry-check-interval-seconds: 60",
-                "expiry-warning-lead-minutes: 5",
-                "phase-poll-interval-seconds: 30",
-                "phase-listen-enabled: true",
-                "playtime-flush-interval-seconds: 300",
-                "server-limbo: limbo",
-                "server-hunger-games: hunger-games",
-                "server-smp: smp",
+            "discord-invite-url: 'https://nordtal.eu'",
+            "link-code-ttl-minutes: 10",
+            "fallback-cache-window-minutes: 15",
+            "expiry-check-interval-seconds: 60",
+            "expiry-warning-lead-minutes: 5",
+            "phase-poll-interval-seconds: 30",
+            "phase-listen-enabled: true",
+            "playtime-flush-interval-seconds: 300",
+            "server-limbo: limbo",
+            "server-hunger-games: hunger-games",
+            "server-smp: smp",
         };
         final String key = override.substring(0, override.indexOf(':') + 1);
         final StringBuilder yaml = new StringBuilder();

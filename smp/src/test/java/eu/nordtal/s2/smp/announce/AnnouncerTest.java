@@ -1,5 +1,8 @@
 package eu.nordtal.s2.smp.announce;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.announce.AnnounceCommands;
 import eu.nordtal.s2.commands.remote.RequestArguments;
 import eu.nordtal.s2.common.audit.AuditLine;
@@ -9,16 +12,12 @@ import eu.nordtal.s2.common.command.NewCommandRequest;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.smp.SmpMessages;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * One row per language, in the shape the bot's inbox decodes, rendered from the real bundle.
@@ -29,8 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class AnnouncerTest {
 
-    private static final Messages MESSAGES = Messages.load(AnnouncerTest.class.getClassLoader(),
-            "messages/smp", Locale.GERMAN, Locale.ENGLISH);
+    private static final Messages MESSAGES =
+            Messages.load(AnnouncerTest.class.getClassLoader(), "messages/smp", Locale.GERMAN, Locale.ENGLISH);
 
     private static final class Rows implements CommandRequests {
         final List<NewCommandRequest> submitted = new ArrayList<>();
@@ -53,8 +52,8 @@ class AnnouncerTest {
          */
         @Override
         public long submit(final NewCommandRequest request, final AuditLine journal) {
-            throw new UnsupportedOperationException("the SMP never writes a journal line with a"
-                    + " request; only steward-ui does");
+            throw new UnsupportedOperationException(
+                    "the SMP never writes a journal line with a" + " request; only steward-ui does");
         }
 
         @Override
@@ -63,8 +62,7 @@ class AnnouncerTest {
         }
 
         @Override
-        public void finish(final long id, final boolean ok, final String result) {
-        }
+        public void finish(final long id, final boolean ok, final String result) {}
 
         @Override
         public boolean expire(final long id) {
@@ -82,8 +80,7 @@ class AnnouncerTest {
         }
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 
     @Test
@@ -91,10 +88,13 @@ class AnnouncerTest {
     void oneRowPerLanguage() {
         final Rows rows = new Rows();
         final List<String> warnings = new ArrayList<>();
-        final Announcer announcer = new Announcer(rows, MESSAGES, Runnable::run,
-                (message, failure) -> warnings.add(message));
+        final Announcer announcer =
+                new Announcer(rows, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message));
 
-        announcer.announce(locale -> SmpMessages.MESSAGES.smp().announce().milestoneSection()
+        announcer.announce(locale -> SmpMessages.MESSAGES
+                .smp()
+                .announce()
+                .milestoneSection()
                 .border(new MilestoneContext(locale.getLanguage().equals("de") ? "Aufbruch" : "Departure")));
 
         assertEquals(List.of(), warnings);
@@ -108,8 +108,11 @@ class AnnouncerTest {
             // The bot decodes what the SMP encoded: same declaration, same codec, no JSON.
             final var values = RequestArguments.decode(AnnounceCommands.ANNOUNCE, row.arguments());
             assertEquals(row.locale(), values.string("language"));
-            assertEquals(row.locale().equals("de") ? "Aufbruch ist geschafft - die Grenze wächst."
-                    : "Departure is complete - the border grows.", values.string("text"));
+            assertEquals(
+                    row.locale().equals("de")
+                            ? "Aufbruch ist geschafft - die Grenze wächst."
+                            : "Departure is complete - the border grows.",
+                    values.string("text"));
         }
     }
 

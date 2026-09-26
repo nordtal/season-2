@@ -1,19 +1,28 @@
 package eu.nordtal.s2.smp.board;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.hud.BoardFrame;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
+import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.smp.SmpMessages;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.AuraRow;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.state.SeasonState;
-
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -23,17 +32,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
-
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The two boards at the spawn, rendered <b>per player, in their own language</b>.
@@ -73,6 +71,7 @@ public final class Boards {
      * that exists.
      */
     private static final int NO_WRAPPING = 10_000;
+
     private static final int LEADERBOARD_SIZE = 10;
 
     private final Plugin plugin;
@@ -83,12 +82,17 @@ public final class Boards {
 
     /** viewer -> board kind -> their own display. */
     private final Map<UUID, Map<BoardKind, TextDisplay>> displays = new HashMap<>();
+
     private volatile List<AuraRow> leaderboard = List.of();
     private final Map<UUID, String> namesByUuid = new HashMap<>();
     private BukkitTask task;
 
-    public Boards(final Plugin plugin, final SmpSpec config, final SeasonState season,
-                  final Messages messages, final PlayerLocales locales) {
+    public Boards(
+            final Plugin plugin,
+            final SmpSpec config,
+            final SeasonState season,
+            final Messages messages,
+            final PlayerLocales locales) {
         this.plugin = plugin;
         this.config = config;
         this.season = season;
@@ -147,8 +151,8 @@ public final class Boards {
         }
 
         final Location at = new Location(world, spec.x(), spec.y(), spec.z(), spec.yaw(), 0f);
-        final TextDisplay display = displays
-                .computeIfAbsent(player.getUniqueId(), key -> new EnumMap<>(BoardKind.class))
+        final TextDisplay display = displays.computeIfAbsent(
+                        player.getUniqueId(), key -> new EnumMap<>(BoardKind.class))
                 .computeIfAbsent(kind, key -> spawn(player, at));
 
         display.text(text(kind, locales.of(player.getUniqueId()), spec.width()));
@@ -195,7 +199,8 @@ public final class Boards {
     // than as literal text. Nothing here composes a component by hand any more.
     private Component objectiveText(final Locale locale, final int width) {
         final MessageRenderer renderer = MessageRenderer.of(messages);
-        final Component title = renderer.format(locale, MESSAGES.smp().board().objective().title());
+        final Component title =
+                renderer.format(locale, MESSAGES.smp().board().objective().title());
         final List<Component> lines = new ArrayList<>();
 
         // One read: the name and the rows under it have to be the same milestone's.
@@ -209,18 +214,22 @@ public final class Boards {
             return BoardFrame.render(width, title, lines);
         }
 
-        lines.add(renderer.format(locale,
-                MESSAGES.smp().board().objective().milestone(new MilestoneContext(milestoneName(active.key(), locale)))));
+        lines.add(renderer.format(
+                locale,
+                MESSAGES.smp()
+                        .board()
+                        .objective()
+                        .milestone(new MilestoneContext(milestoneName(active.key(), locale)))));
         for (final ObjectiveRow objective : active.objectives()) {
-            lines.add(renderer.format(locale,
-                    row(objective.key(), objective)));
+            lines.add(renderer.format(locale, row(objective.key(), objective)));
         }
         return BoardFrame.render(width, title, lines);
     }
 
     private Component auraText(final Locale locale, final int width) {
         final MessageRenderer renderer = MessageRenderer.of(messages);
-        final Component title = renderer.format(locale, MESSAGES.smp().board().aura().title());
+        final Component title =
+                renderer.format(locale, MESSAGES.smp().board().aura().title());
         final List<Component> lines = new ArrayList<>();
 
         final List<AuraRow> rows = leaderboard;
@@ -231,10 +240,17 @@ public final class Boards {
 
         int place = 1;
         for (final AuraRow row : rows.subList(0, Math.min(LEADERBOARD_SIZE, rows.size()))) {
-            lines.add(renderer.format(locale,
-                    row.aura() > 0 ? MESSAGES.smp().board().aura().row(place, new PlayerContext(nameOf(row.mcUuid())),
-                            row.aura()) : MESSAGES.smp().board().aura().rowZero(place, new PlayerContext(nameOf(row.mcUuid())),
-                            row.aura())));
+            lines.add(renderer.format(
+                    locale,
+                    row.aura() > 0
+                            ? MESSAGES.smp()
+                                    .board()
+                                    .aura()
+                                    .row(place, new PlayerContext(nameOf(row.mcUuid())), row.aura())
+                            : MESSAGES.smp()
+                                    .board()
+                                    .aura()
+                                    .rowZero(place, new PlayerContext(nameOf(row.mcUuid())), row.aura())));
             place++;
         }
         return BoardFrame.render(width, title, lines);
@@ -266,5 +282,4 @@ public final class Boards {
                 ? lines.rowDone(name, bar, objective.amount(), objective.target())
                 : lines.row(name, bar, objective.amount(), objective.target());
     }
-
 }

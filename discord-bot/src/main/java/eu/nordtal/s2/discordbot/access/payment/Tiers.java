@@ -1,9 +1,7 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
 import eu.nordtal.s2.common.payment.PaymentRequest;
-
 import eu.nordtal.s2.discordbot.config.AccessSpec;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -59,7 +57,8 @@ public final class Tiers {
      * @return the price list
      */
     public static Tiers of(final AccessSpec config) {
-        return of(config.tiers().stream()
+        return of(
+                config.tiers().stream()
                         .map(tier -> new Tier(tier.days(), tier.priceCents()))
                         .toList(),
                 config.donationCents());
@@ -150,8 +149,8 @@ public final class Tiers {
         for (final Tier tier : byPriceDescending) {
             if (receivedCents >= tier.priceCents()) {
                 final int surplus = receivedCents - tier.priceCents();
-                return Optional.of(new Settlement(tier.days(), tier.priceCents(),
-                        surplus >= donationCents ? surplus : 0, false));
+                return Optional.of(
+                        new Settlement(tier.days(), tier.priceCents(), surplus >= donationCents ? surplus : 0, false));
             }
         }
         return Optional.empty();
@@ -185,9 +184,7 @@ public final class Tiers {
          * @return the order it recorded
          */
         public static Order of(final PaymentRequest request) {
-            return new Order(request.days(),
-                    request.amountCents() - request.donationCents(),
-                    request.donationCents());
+            return new Order(request.days(), request.amountCents() - request.donationCents(), request.donationCents());
         }
 
         /** @return whether the surcharge was part of the order */

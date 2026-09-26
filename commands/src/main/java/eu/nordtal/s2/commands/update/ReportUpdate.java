@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.update;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -8,9 +10,6 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateKind;
-
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /** {@code /update} - ask what is newer than what the network is running. Changes nothing. */
 public final class ReportUpdate implements NordtalCommand<UpdateEffects> {

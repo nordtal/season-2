@@ -23,7 +23,8 @@ import org.jetbrains.annotations.NotNull;
  * @param message   one sentence for the request row, and from there for a Discord embed or a chat
  *                  line. Says what to do next when {@code triggered} is false
  */
-public record RedeployResult(boolean triggered, boolean verified, @NotNull String message) {
+public record RedeployResult(
+        boolean triggered, boolean verified, @NotNull String message) {
 
     public static RedeployResult triggered(final @NotNull String message) {
         return new RedeployResult(true, true, message);

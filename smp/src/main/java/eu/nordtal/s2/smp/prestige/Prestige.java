@@ -64,10 +64,9 @@ public final class Prestige {
                 throw new IllegalArgumentException("A threshold cannot be negative, was " + hours);
             }
             if (index > 0 && hours <= thresholdHours.get(index - 1)) {
-                throw new IllegalArgumentException(
-                        "Thresholds must rise strictly: tier " + (index + 1) + " is " + hours
-                                + " hours, which is not above tier " + index + "'s "
-                                + thresholdHours.get(index - 1));
+                throw new IllegalArgumentException("Thresholds must rise strictly: tier " + (index + 1) + " is " + hours
+                        + " hours, which is not above tier " + index + "'s "
+                        + thresholdHours.get(index - 1));
             }
             this.thresholdSeconds[index] = hours * 3600L;
         }
@@ -103,8 +102,8 @@ public final class Prestige {
      */
     public long secondsFor(final int tier) {
         if (tier < MINIMUM_TIER || tier > TIER_COUNT) {
-            throw new IllegalArgumentException("Tier must be between " + MINIMUM_TIER + " and "
-                    + TIER_COUNT + ", was " + tier);
+            throw new IllegalArgumentException(
+                    "Tier must be between " + MINIMUM_TIER + " and " + TIER_COUNT + ", was " + tier);
         }
         return thresholdSeconds[tier - 1];
     }

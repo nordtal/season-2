@@ -1,14 +1,14 @@
 package eu.nordtal.s2.steward.worker.config;
 
-import eu.nordtal.jcore.config.schema.SchemaNode;
-import eu.nordtal.jcore.config.schema.SchemaWriter;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.jcore.config.schema.SchemaNode;
+import eu.nordtal.jcore.config.schema.SchemaWriter;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@code backup.remote} - the offsite target steward/95 put on the backup page.
@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BackupRemoteSpecTest {
 
     private static SchemaNode remote() {
-        final SchemaNode backup = SchemaWriter.build(StewardSpec.class).children().get("backup");
+        final SchemaNode backup =
+                SchemaWriter.build(StewardSpec.class).children().get("backup");
         assertNotNull(backup, "StewardSpec's schema has no 'backup' entry at all");
         final SchemaNode remote = backup.children().get("remote");
         assertNotNull(remote, "BackupSpec's schema has no 'remote' section");
@@ -57,8 +58,10 @@ class BackupRemoteSpecTest {
         for (final String key : new String[] {"endpoint", "bucket", "prefix"}) {
             final SchemaNode node = remote().children().get(key);
             assertNotNull(node, "RemoteSpec's schema has no '" + key + "' entry");
-            assertFalse(node.secret(), key + " is where the copy goes, not a credential - masking it"
-                    + " would hide the one thing an operator needs to read back");
+            assertFalse(
+                    node.secret(),
+                    key + " is where the copy goes, not a credential - masking it"
+                            + " would hide the one thing an operator needs to read back");
         }
     }
 

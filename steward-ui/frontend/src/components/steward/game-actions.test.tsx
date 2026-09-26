@@ -100,9 +100,7 @@ describe("SmpActions", () => {
     expect(sent).toHaveLength(0)
     fireEvent.click(within(dialog).getByRole("button", { name: "Complete" }))
 
-    await waitFor(() =>
-      expect(sent).toEqual([{ url: "/api/smp/objective", body: { key: "netherite-scrap" } }]),
-    )
+    await waitFor(() => expect(sent).toEqual([{ url: "/api/smp/objective", body: { key: "netherite-scrap" } }]))
     expect(await within(dialog).findByText("Objective closed.")).toBeTruthy()
   })
 
@@ -114,9 +112,7 @@ describe("SmpActions", () => {
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: "Unlock" }))
 
-    await waitFor(() =>
-      expect(sent).toEqual([{ url: "/api/smp/milestone", body: { key: "frontier" } }]),
-    )
+    await waitFor(() => expect(sent).toEqual([{ url: "/api/smp/milestone", body: { key: "frontier" } }]))
   })
 
   it("says so when nobody picked the row up, rather than that it failed", async () => {

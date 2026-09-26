@@ -13,7 +13,6 @@ import eu.nordtal.s2.common.message.spec.Name;
 import eu.nordtal.s2.common.message.spec.Shown;
 import eu.nordtal.s2.common.message.spec.TextFormat;
 import eu.nordtal.s2.smp.world.WorldRole;
-
 import java.util.Optional;
 
 /**
@@ -245,10 +244,18 @@ public interface SmpMessages {
                 MessageRef milestone(@Arg("milestone") MilestoneContext milestone);
 
                 @Name("Row")
-                MessageRef row(@Arg("objective") Object objective, @Arg("bar") Object bar, @Arg("amount") Object amount, @Arg("target") Object target);
+                MessageRef row(
+                        @Arg("objective") Object objective,
+                        @Arg("bar") Object bar,
+                        @Arg("amount") Object amount,
+                        @Arg("target") Object target);
 
                 @Name("Row done")
-                MessageRef rowDone(@Arg("objective") Object objective, @Arg("bar") Object bar, @Arg("amount") Object amount, @Arg("target") Object target);
+                MessageRef rowDone(
+                        @Arg("objective") Object objective,
+                        @Arg("bar") Object bar,
+                        @Arg("amount") Object amount,
+                        @Arg("target") Object target);
             }
 
             Aura aura();
@@ -263,10 +270,12 @@ public interface SmpMessages {
                 MessageRef empty();
 
                 @Name("Row")
-                MessageRef row(@Arg("place") Object place, @Arg("player") PlayerContext player, @Arg("aura") Object aura);
+                MessageRef row(
+                        @Arg("place") Object place, @Arg("player") PlayerContext player, @Arg("aura") Object aura);
 
                 @Name("Row zero")
-                MessageRef rowZero(@Arg("place") Object place, @Arg("player") PlayerContext player, @Arg("aura") Object aura);
+                MessageRef rowZero(
+                        @Arg("place") Object place, @Arg("player") PlayerContext player, @Arg("aura") Object aura);
             }
         }
 
@@ -362,17 +371,18 @@ public interface SmpMessages {
          * shows under its config key.
          */
         default Optional<MessageRef> milestoneName(final String key) {
-            return Optional.ofNullable(switch (key) {
-                case "waiting" -> milestone().waiting();
-                case "departure" -> milestone().departure();
-                case "foothold" -> milestone().foothold();
-                case "settlement" -> milestone().settlement();
-                case "nether" -> milestone().nether();
-                case "end" -> milestone().end();
-                case "expanse" -> milestone().expanse();
-                case "frontier" -> milestone().frontier();
-                default -> null;
-            });
+            return Optional.ofNullable(
+                    switch (key) {
+                        case "waiting" -> milestone().waiting();
+                        case "departure" -> milestone().departure();
+                        case "foothold" -> milestone().foothold();
+                        case "settlement" -> milestone().settlement();
+                        case "nether" -> milestone().nether();
+                        case "end" -> milestone().end();
+                        case "expanse" -> milestone().expanse();
+                        case "frontier" -> milestone().frontier();
+                        default -> null;
+                    });
         }
 
         @Name("Milestone")

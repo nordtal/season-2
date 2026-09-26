@@ -1,16 +1,15 @@
 package eu.nordtal.s2.smp.duel;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Logging out of a duel has to cost the same as losing one.
@@ -32,10 +31,12 @@ class DuelStakeSurvivesAQuitTest {
     @DisplayName("the duel carries its fighters' discord ids, captured when it starts")
     void theDuelCarriesTheIds() {
         final String source = read(DUELS);
-        assertTrue(source.contains("Map<UUID, String> discordIds"),
+        assertTrue(
+                source.contains("Map<UUID, String> discordIds"),
                 "ActiveDuel has to carry the two discord ids itself; without them the booking has"
                         + " nowhere to read an id from once a fighter has disconnected");
-        assertTrue(source.contains("identities.discordIdOf(first.getUniqueId())")
+        assertTrue(
+                source.contains("identities.discordIdOf(first.getUniqueId())")
                         && source.contains("identities.discordIdOf(second.getUniqueId())"),
                 "the ids have to be read while both fighters are still online - that is, where the"
                         + " ActiveDuel is built, not where it is settled");
@@ -45,13 +46,13 @@ class DuelStakeSurvivesAQuitTest {
     @DisplayName("the booking never asks Identities, because a quit has already cleared it")
     void theBookingDoesNotAskTheCache() {
         final String body = methodBody(read(DUELS), "private void book(");
-        assertFalse(body.contains("identities.discordIdOf"),
+        assertFalse(
+                body.contains("identities.discordIdOf"),
                 "book() read the discord ids out of Identities, which JoinGate's quit handler has"
                         + " already cleared by the time a mid-fight disconnect gets here - so the"
                         + " loser paid nothing and the winner was paid nothing, silently. Take them"
                         + " from the duel (ActiveDuel#discordIds) instead.");
-        assertTrue(body.contains("duel.discordIds()"),
-                "book() has to take the ids from the duel it is settling");
+        assertTrue(body.contains("duel.discordIds()"), "book() has to take the ids from the duel it is settling");
     }
 
     /** The text between a method's signature and the first line that closes it at its own indent. */

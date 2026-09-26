@@ -1,14 +1,13 @@
 package eu.nordtal.s2.common.update;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.Arrays;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Arrays;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The two halves of {@code update_request.scope} (season-2-ops/127).
@@ -43,7 +42,8 @@ class UpdateScopeTextTest {
     void nothingIsEverything() {
         final List<List<String>> everyWay = Arrays.asList(null, List.of(), List.of("", "  "));
         for (final List<String> nothing : everyWay) {
-            assertNull(JdbiUpdateDirectory.scopeText(nothing),
+            assertNull(
+                    JdbiUpdateDirectory.scopeText(nothing),
                     "an empty scope was written as a value. A row that names no service is a run"
                             + " that stops nothing while claiming to be scoped - and the column's"
                             + " CHECK would refuse it anyway.");

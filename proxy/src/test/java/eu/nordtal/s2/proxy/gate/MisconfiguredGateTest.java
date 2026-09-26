@@ -1,21 +1,18 @@
 package eu.nordtal.s2.proxy.gate;
 
-import eu.nordtal.s2.common.message.Messages;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.message.Messages;
+import java.util.Locale;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Locale;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The fail-closed handler.
@@ -48,7 +45,8 @@ class MisconfiguredGateTest {
         // The whole point: this screen has to render on a path where the configuration is what is
         // broken. A resource bundle needs the classpath and nothing else.
         assertNotNull(messages.get(Locale.ENGLISH, "gate.misconfigured"));
-        assertTrue(messages.hasTranslation(Locale.GERMAN, "gate.misconfigured"),
+        assertTrue(
+                messages.hasTranslation(Locale.GERMAN, "gate.misconfigured"),
                 "the screen is bilingual, so the German half has to exist");
     }
 
@@ -58,10 +56,8 @@ class MisconfiguredGateTest {
 
         // Compared against the DRAWN text, not the raw bundle value: the screen carries markup, and
         // a raw comparison would fail on colour as though it were a missing translation.
-        assertTrue(rendered.contains(drawn(messages.get(Locale.ENGLISH, "gate.misconfigured"))),
-                rendered);
-        assertTrue(rendered.contains(drawn(messages.get(Locale.GERMAN, "gate.misconfigured"))),
-                rendered);
+        assertTrue(rendered.contains(drawn(messages.get(Locale.ENGLISH, "gate.misconfigured"))), rendered);
+        assertTrue(rendered.contains(drawn(messages.get(Locale.GERMAN, "gate.misconfigured"))), rendered);
     }
 
     @Test
@@ -69,7 +65,9 @@ class MisconfiguredGateTest {
         final Component first = gate.refuse(UUID.randomUUID(), "a-player");
         final Component second = gate.refuse(UUID.randomUUID(), "an-admin");
 
-        assertEquals(first, second,
+        assertEquals(
+                first,
+                second,
                 "there is no admin exemption and there cannot be one: the admin flag lives in the "
                         + "database a broken database.yml cannot reach");
     }
@@ -80,7 +78,9 @@ class MisconfiguredGateTest {
             gate.refuse(UUID.randomUUID(), "player-" + attempt);
         }
 
-        assertEquals(60, gate.refusedCount(),
+        assertEquals(
+                60,
+                gate.refusedCount(),
                 "the count is what makes 'the proxy is up but nobody can join' announce itself");
     }
 

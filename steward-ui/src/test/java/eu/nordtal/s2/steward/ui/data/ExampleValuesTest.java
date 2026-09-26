@@ -1,5 +1,10 @@
 package eu.nordtal.s2.steward.ui.data;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.sql.SQLException;
+import java.util.Map;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -9,12 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.SQLException;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The example values an editor fills placeholders with: real rows first, the admin's own before
@@ -78,7 +77,8 @@ class ExampleValuesTest {
         assertEquals(Map.of("name", "Till"), examples.get("player"));
         assertEquals(Map.of("name", "@Till H"), examples.get("discord-member"));
 
-        assertEquals(Map.of("name", "Other"),
+        assertEquals(
+                Map.of("name", "Other"),
                 new ExampleValues(dataSource).of("5", "Ada").get("player"),
                 "an admin without a link gets a real player rather than the fallback");
     }
@@ -97,7 +97,8 @@ class ExampleValuesTest {
     }
 
     private static void sql(final String statement) {
-        try (var connection = dataSource.getConnection(); var sql = connection.createStatement()) {
+        try (var connection = dataSource.getConnection();
+                var sql = connection.createStatement()) {
             sql.execute(statement);
         } catch (final SQLException failure) {
             throw new RuntimeException(failure);

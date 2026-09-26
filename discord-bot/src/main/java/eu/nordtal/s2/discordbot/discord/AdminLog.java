@@ -2,15 +2,13 @@ package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
-
+import java.util.UUID;
+import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.jdbi.v3.core.Jdbi;
-
-import java.util.UUID;
-import java.util.function.Consumer;
 
 /**
  * The admin surface: one row in {@code audit_log} and, when a human is needed, one line in the
@@ -49,9 +47,10 @@ public final class AdminLog {
      * channel can read; an alert that was not posted is nothing.</p>
      */
     public void alert(final String text) {
-        post(Configured.isSet(config.roles().adminPing())
-                ? "<@&" + config.roles().adminPing() + "> " + text
-                : text);
+        post(
+                Configured.isSet(config.roles().adminPing())
+                        ? "<@&" + config.roles().adminPing() + "> " + text
+                        : text);
     }
 
     /** Something happened that should be readable later. No mention. */
@@ -77,9 +76,10 @@ public final class AdminLog {
         if (channel == null) {
             return;
         }
-        channel.sendMessageEmbeds(embed).queue(
-                sent -> sentId.accept(sent.getId()),
-                failure -> log.error("Could not post an embed to the admin channel", failure));
+        channel.sendMessageEmbeds(embed)
+                .queue(
+                        sent -> sentId.accept(sent.getId()),
+                        failure -> log.error("Could not post an embed to the admin channel", failure));
     }
 
     /**
@@ -93,10 +93,10 @@ public final class AdminLog {
         if (channel == null) {
             return;
         }
-        channel.editMessageEmbedsById(messageId, embed).queue(
-                success -> {
-                },
-                failure -> log.error("Could not edit admin-channel message {}", messageId, failure));
+        channel.editMessageEmbedsById(messageId, embed)
+                .queue(
+                        success -> {},
+                        failure -> log.error("Could not edit admin-channel message {}", messageId, failure));
     }
 
     /**
@@ -108,8 +108,8 @@ public final class AdminLog {
      * @param mcUuid  the Minecraft account, for link and unlink
      * @param detail  free text for whoever reads the table later
      */
-    public void record(final String action, final String actor, final String subject,
-                       final UUID mcUuid, final String detail) {
+    public void record(
+            final String action, final String actor, final String subject, final UUID mcUuid, final String detail) {
         try {
             dao.record(action, actor, subject, mcUuid, detail);
         } catch (final RuntimeException exception) {
@@ -129,7 +129,8 @@ public final class AdminLog {
         final MessageChannel channel =
                 jda.getChannelById(MessageChannel.class, config.channels().admin());
         if (channel == null) {
-            log.error("Admin channel {} does not exist or the bot cannot see it",
+            log.error(
+                    "Admin channel {} does not exist or the bot cannot see it",
                     config.channels().admin());
         }
         return channel;
@@ -143,9 +144,7 @@ public final class AdminLog {
             log.warn("No admin channel, so this was not posted to Discord: {}", text);
             return;
         }
-        channel.sendMessage(text).queue(
-                success -> {
-                },
-                failure -> log.error("Could not write to the admin channel: {}", text, failure));
+        channel.sendMessage(text)
+                .queue(success -> {}, failure -> log.error("Could not write to the admin channel: {}", text, failure));
     }
 }

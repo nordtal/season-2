@@ -28,8 +28,7 @@ public final class SlotGeometry {
     /** Slots per chest row. */
     public static final int COLUMNS = 9;
 
-    private SlotGeometry() {
-    }
+    private SlotGeometry() {}
 
     /** @return the x of column {@code column}'s cell */
     public static int x(final int column) {

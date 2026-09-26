@@ -1,22 +1,20 @@
 package eu.nordtal.s2.proxy.command;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.context.ServiceContext;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The proxy console can answer at all.
@@ -41,8 +39,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ConsoleUserTest {
 
-    private static final Messages MESSAGES = Messages.load(ConsoleUserTest.class.getClassLoader(),
-            "messages/commands", Locale.ENGLISH, Locale.GERMAN);
+    private static final Messages MESSAGES =
+            Messages.load(ConsoleUserTest.class.getClassLoader(), "messages/commands", Locale.ENGLISH, Locale.GERMAN);
 
     /** Collects what was sent, the way the container log would receive it. */
     private static final class Spy implements Audience {

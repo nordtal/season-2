@@ -1,11 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import {
-  RepeatableCards,
-  blankSection,
-  sectionsFromEntry,
-} from "@/components/steward/repeatable-cards"
+import { RepeatableCards, blankSection, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import type { ConfigEntry } from "@/lib/api"
 
 /**
@@ -55,9 +51,7 @@ afterEach(cleanup)
 
 describe("sectionsFromEntry", () => {
   it("reads one flat record per section, keyed by each field's own key", () => {
-    const entry = sectionsEntry([
-      [field({ key: "tag", value: "en" }), field({ key: "role", value: "123" })],
-    ])
+    const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role", value: "123" })]])
     expect(sectionsFromEntry(entry)).toEqual([{ tag: "en", role: "123" }])
   })
 
@@ -511,7 +505,10 @@ describe("RepeatableCards - sections inside sections", () => {
             ],
           }),
         ],
-        [field({ key: "key", value: "waiting" }), field({ key: "objectives", kind: "SECTIONS", template: OBJECTIVE, sections: [] })],
+        [
+          field({ key: "key", value: "waiting" }),
+          field({ key: "objectives", kind: "SECTIONS", template: OBJECTIVE, sections: [] }),
+        ],
       ],
       MILESTONE,
     )
@@ -532,8 +529,14 @@ describe("RepeatableCards - sections inside sections", () => {
   it("titles every card with its key, at every level", () => {
     const entry = track()
     render(
-      <RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false}
-        roles={undefined} channels={undefined} onChange={() => {}} />,
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+      />,
     )
     expect(screen.getByText("foothold")).toBeTruthy()
     expect(screen.getByText("waiting")).toBeTruthy()
@@ -545,8 +548,14 @@ describe("RepeatableCards - sections inside sections", () => {
     const entry = track()
     const onChange = vi.fn()
     render(
-      <RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false}
-        roles={undefined} channels={undefined} onChange={onChange} />,
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={onChange}
+      />,
     )
     fireEvent.change(screen.getByDisplayValue("SPRUCE_LOG"), { target: { value: "BIRCH_LOG" } })
     expect(onChange).toHaveBeenCalledWith([
@@ -559,8 +568,14 @@ describe("RepeatableCards - sections inside sections", () => {
     const entry = track()
     const onChange = vi.fn()
     render(
-      <RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false}
-        roles={undefined} channels={undefined} onChange={onChange} />,
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={onChange}
+      />,
     )
     fireEvent.click(screen.getByRole("button", { name: "Add to waiting" }))
     expect(onChange).toHaveBeenCalledWith([
@@ -572,8 +587,14 @@ describe("RepeatableCards - sections inside sections", () => {
   it("draws no card inside a card", () => {
     const entry = track()
     const { container } = render(
-      <RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false}
-        roles={undefined} channels={undefined} onChange={() => {}} />,
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+      />,
     )
     expect(container.querySelectorAll('[data-slot="card"] [data-slot="card"]').length).toBe(0)
   })

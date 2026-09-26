@@ -1,18 +1,17 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.audit.AuditEntry;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link ActionsApi#recent(int)}: one sorted list out of two tables, which is the whole reason this
@@ -21,9 +20,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ActionsApiTest {
 
     private static UpdateRequest run(final long id, final Instant finished, final UpdateKind kind) {
-        return new UpdateRequest(id, kind, UpdateStatus.DONE, UpdateSource.CONSOLE, null,
-                finished.minusSeconds(30), finished.minusSeconds(30), finished.minusSeconds(20),
-                finished, "{\"stage\":\"DONE\",\"services\":[],\"notes\":[]}");
+        return new UpdateRequest(
+                id,
+                kind,
+                UpdateStatus.DONE,
+                UpdateSource.CONSOLE,
+                null,
+                finished.minusSeconds(30),
+                finished.minusSeconds(30),
+                finished.minusSeconds(20),
+                finished,
+                "{\"stage\":\"DONE\",\"services\":[],\"notes\":[]}");
     }
 
     private static AuditEntry audit(final Instant occurred, final String action) {
@@ -78,9 +85,7 @@ class ActionsApiTest {
         final Instant now = Instant.parse("2026-09-16T12:00:00Z");
         final ActionsApi api = new ActionsApi(
                 FakeDirectories.updates(),
-                FakeDirectories.audit(
-                        audit(now, "HELD_KEY"),
-                        audit(now.minusSeconds(60), "GRANT_ACCESS")));
+                FakeDirectories.audit(audit(now, "HELD_KEY"), audit(now.minusSeconds(60), "GRANT_ACCESS")));
 
         final List<ActionEntry> entries = api.recent(5);
         assertEquals(1, entries.size());

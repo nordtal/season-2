@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.worker.http;
 
-import lombok.Getter;
-
 import java.io.IOException;
 import java.net.URI;
+import lombok.Getter;
 
 /**
  * A request that reached a server and came back as something other than success.
@@ -33,22 +32,24 @@ public class HttpException extends IOException {
     }
 
     private static String explain(final URI uri, final int status, final String body) {
-        final StringBuilder message = new StringBuilder("HTTP ").append(status).append(" from ").append(uri);
+        final StringBuilder message =
+                new StringBuilder("HTTP ").append(status).append(" from ").append(uri);
         switch (status) {
-            case 404 -> message.append(" - the resource does not exist. For a GitHub release this"
-                    + " usually means the tag is not published (a draft is invisible to the API),"
-                    + " and for Modrinth it means the project id is wrong.");
-            case 403, 429 -> message.append(" - rate limited. GitHub allows 60 unauthenticated"
-                    + " requests per hour per IP; set github-token in steward.yml if this host"
-                    + " shares its address.");
-            default -> { }
+            case 404 ->
+                message.append(" - the resource does not exist. For a GitHub release this"
+                        + " usually means the tag is not published (a draft is invisible to the API),"
+                        + " and for Modrinth it means the project id is wrong.");
+            case 403, 429 ->
+                message.append(" - rate limited. GitHub allows 60 unauthenticated"
+                        + " requests per hour per IP; set github-token in steward.yml if this host"
+                        + " shares its address.");
+            default -> {}
         }
         // Trimmed hard: an API error body is one useful sentence wrapped in a page of JSON, and
         // this string ends up in a Discord embed with a 4096 character budget.
         final String trimmed = body == null ? "" : body.strip();
         if (!trimmed.isEmpty()) {
-            message.append(" Body: ")
-                    .append(trimmed.length() > 300 ? trimmed.substring(0, 300) + "..." : trimmed);
+            message.append(" Body: ").append(trimmed.length() > 300 ? trimmed.substring(0, 300) + "..." : trimmed);
         }
         return message.toString();
     }

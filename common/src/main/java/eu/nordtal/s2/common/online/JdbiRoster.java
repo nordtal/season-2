@@ -1,10 +1,5 @@
 package eu.nordtal.s2.common.online;
 
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -15,6 +10,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.postgres.PostgresPlugin;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
  * The only implementation of {@link OnlineRoster}. Package-private for {@link JdbiOnline}'s reason:
@@ -50,11 +49,9 @@ final class JdbiRoster implements OnlineRoster {
                 // Loudly, and before anything is written: with an UPSERT a duplicate would simply
                 // let the last one win, silently, and a proxy that reported the same account twice
                 // is a bug worth seeing rather than a row worth picking.
-                throw new IllegalArgumentException(
-                        "the same player appears twice in one write: " + presence.uuid());
+                throw new IllegalArgumentException("the same player appears twice in one write: " + presence.uuid());
             }
-            rows.add(new OnlineRosterDao.BoundPresence(
-                    presence.uuid(), presence.name(), presence.subject(), now));
+            rows.add(new OnlineRosterDao.BoundPresence(presence.uuid(), presence.name(), presence.subject(), now));
         }
         // No early return for an empty collection - unlike JdbiOnline#write, an empty roster is a
         // statement ("nobody is connected") and the prune is what makes the table say it.

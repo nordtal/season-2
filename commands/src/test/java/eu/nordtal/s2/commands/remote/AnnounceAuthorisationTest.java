@@ -1,5 +1,8 @@
 package eu.nordtal.s2.commands.remote;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.announce.AnnounceCommands;
@@ -7,10 +10,6 @@ import eu.nordtal.s2.commands.announce.AnnounceEffects;
 import eu.nordtal.s2.common.command.CommandOutcome;
 import eu.nordtal.s2.common.command.NewCommandRequest;
 import eu.nordtal.s2.common.message.Messages;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,9 +17,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@code /announce} became {@code adminOnly} on 2026-09-14, through the evaluation that decides it.
@@ -51,8 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AnnounceAuthorisationTest {
 
     private static final Messages MESSAGES = Messages.load(
-            AnnounceAuthorisationTest.class.getClassLoader(), "messages/commands",
-            Locale.ENGLISH, Locale.GERMAN);
+            AnnounceAuthorisationTest.class.getClassLoader(), "messages/commands", Locale.ENGLISH, Locale.GERMAN);
 
     private static final String ADMIN = "100000000000000001";
     private static final String NO_LONGER_ADMIN = "200000000000000002";
@@ -72,8 +69,7 @@ class AnnounceAuthorisationTest {
         }
 
         @Override
-        public void warn(final String what, final Throwable failure) {
-        }
+        public void warn(final String what, final Throwable failure) {}
     }
 
     private final FakeRequests requests = new FakeRequests();
@@ -81,8 +77,12 @@ class AnnounceAuthorisationTest {
 
     /** The bot's inbox, with the roster it would read out of the database on every claim. */
     private CommandInbox inboxWhereTheAdminsAre(final Set<String> admins) {
-        final CommandInbox inbox = new CommandInbox(Target.BOT, requests, MESSAGES,
-                CommandInbox.AdminCheck.of(() -> admins, Set::of), (message, cause) -> { });
+        final CommandInbox inbox = new CommandInbox(
+                Target.BOT,
+                requests,
+                MESSAGES,
+                CommandInbox.AdminCheck.of(() -> admins, Set::of),
+                (message, cause) -> {});
         AnnounceCommands.all().forEach(command -> inbox.register(command, effects));
         return inbox;
     }
@@ -91,9 +91,9 @@ class AnnounceAuthorisationTest {
         return requests.submit(new NewCommandRequest(
                 AnnounceCommands.ANNOUNCE.target().name(),
                 String.join(" ", AnnounceCommands.ANNOUNCE.path()),
-                RequestArguments.encode(AnnounceCommands.ANNOUNCE,
-                        new Values(AnnounceCommands.ANNOUNCE,
-                                Map.of("language", "de", "text", text))),
+                RequestArguments.encode(
+                        AnnounceCommands.ANNOUNCE,
+                        new Values(AnnounceCommands.ANNOUNCE, Map.of("language", "de", "text", text))),
                 source,
                 "smp".equals(source) ? "smp" : "Till (" + discordId + ")",
                 Optional.ofNullable(discordId),
@@ -132,8 +132,7 @@ class AnnounceAuthorisationTest {
 
         assertEquals(1, inboxWhereTheAdminsAre(Set.of(ADMIN)).drain());
 
-        assertEquals(List.of(), effects.lines(),
-                "a revoked admin's line was posted into an announcement channel");
+        assertEquals(List.of(), effects.lines(), "a revoked admin's line was posted into an announcement channel");
         // DONE and not FAILED: the command was answered, and the answer is no. A FAILED row would
         // read, to whoever is looking at the table afterwards, like the bot could not reach Discord.
         assertEquals(CommandOutcome.Status.DONE, requests.statusOf(id));

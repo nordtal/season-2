@@ -1,13 +1,12 @@
 package eu.nordtal.s2.smp.aura;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 /**
  * What a death costs, and the one exemption there is.
@@ -17,8 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class DeathPenaltyTest {
 
-    private final DeathPenalty penalty = new DeathPenalty(5, 20,
-            Set.of("lava", "cactus", "in_wall"));
+    private final DeathPenalty penalty = new DeathPenalty(5, 20, Set.of("lava", "cactus", "in_wall"));
 
     @Test
     void anOrdinaryDeathCostsFive() {

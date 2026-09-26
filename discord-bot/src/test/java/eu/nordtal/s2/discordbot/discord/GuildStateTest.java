@@ -1,10 +1,10 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The one rule in {@link GuildState} that can be wrong catastrophically rather than untidily.

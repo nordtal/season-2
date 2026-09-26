@@ -4,13 +4,12 @@ import com.google.gson.Gson;
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
 import io.javalin.json.JavalinGson;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The one service allowed to create containers (§8a, §8b).
@@ -41,8 +40,7 @@ public final class StewardDeployer {
 
     private static final int DEFAULT_PORT = 8081;
 
-    private StewardDeployer() {
-    }
+    private StewardDeployer() {}
 
     public static void main(String[] args) throws Exception {
         String mode = args.length == 0 ? "serve" : args[0];
@@ -80,8 +78,8 @@ public final class StewardDeployer {
      *                  script runs, which is allowed to create steward-deployer because it is not
      *                  the compose-managed one. Every other caller is, and must not.
      */
-    static int deploy(Compose compose, List<String> requested,
-                      java.util.function.Consumer<String> output, boolean bootstrap)
+    static int deploy(
+            Compose compose, List<String> requested, java.util.function.Consumer<String> output, boolean bootstrap)
             throws Exception {
         List<String> services = servicesToDeploy(compose.services().keySet(), requested, bootstrap);
 
@@ -111,8 +109,7 @@ public final class StewardDeployer {
      * service with no local image cannot be recreated - which is why the refusal below names deploy
      * rather than leaving compose to fail in its own words.</p>
      */
-    static int recreate(Compose compose, String service,
-                        java.util.function.Consumer<String> output) throws Exception {
+    static int recreate(Compose compose, String service, java.util.function.Consumer<String> output) throws Exception {
         if (!compose.hasLocalImage(service)) {
             output.accept("no image for " + service + " on this host, and recreate does not fetch "
                     + "one. Deploy " + service + " instead - that is the button that pulls. "
@@ -138,8 +135,7 @@ public final class StewardDeployer {
      * longer there. Asking for something this program will not do is an error with a sentence, not
      * a request silently turned into a different one.</p>
      */
-    static List<String> servicesToDeploy(java.util.Collection<String> all, List<String> requested,
-                                         boolean bootstrap) {
+    static List<String> servicesToDeploy(java.util.Collection<String> all, List<String> requested, boolean bootstrap) {
         List<String> services = requested.isEmpty() ? new ArrayList<>(all) : new ArrayList<>(requested);
         if (!bootstrap) {
             if (!requested.isEmpty() && services.contains(Compose.SELF)) {
@@ -160,7 +156,7 @@ public final class StewardDeployer {
             // steps, and a service that merely logs a warning about that gets deployed anyway.
             throw new IllegalStateException(
                     "NORDTAL_STEWARD_DEPLOYER_TOKEN is not set. steward-deployer creates containers "
-                    + "and will not serve without a shared secret; the setup script writes one.");
+                            + "and will not serve without a shared secret; the setup script writes one.");
         }
         // steward/102: checked again before every `up`/`recreate` inside Compose itself, because
         // this process serves for days and a rotation can land at any point in that time - but
@@ -171,70 +167,73 @@ public final class StewardDeployer {
         Jobs jobs = new Jobs();
 
         Javalin.create(config -> {
-            config.jsonMapper(new JavalinGson(new Gson(), true));
-            config.startup.showJavalinBanner = false;
+                    config.jsonMapper(new JavalinGson(new Gson(), true));
+                    config.startup.showJavalinBanner = false;
 
-            config.routes.before("/api/*", ctx -> {
-                if (ctx.path().equals("/api/health")) {
-                    return;
-                }
-                if (!token.equals(ctx.header("X-Steward-Token"))) {
-                    throw new io.javalin.http.UnauthorizedResponse("bad or missing X-Steward-Token");
-                }
-            });
+                    config.routes.before("/api/*", ctx -> {
+                        if (ctx.path().equals("/api/health")) {
+                            return;
+                        }
+                        if (!token.equals(ctx.header("X-Steward-Token"))) {
+                            throw new io.javalin.http.UnauthorizedResponse("bad or missing X-Steward-Token");
+                        }
+                    });
 
-            config.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
+                    config.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
 
-            // What compose thinks is running. steward-ui draws the service list from the worker's
-            // docker view, not from here - this is the deployer's own answer to "did my deployment
-            // arrive", which is a different question.
-            config.routes.get("/api/state", ctx -> ctx.contentType("application/json")
-                    .result(compose.state()));
+                    // What compose thinks is running. steward-ui draws the service list from the worker's
+                    // docker view, not from here - this is the deployer's own answer to "did my deployment
+                    // arrive", which is a different question.
+                    config.routes.get(
+                            "/api/state",
+                            ctx -> ctx.contentType("application/json").result(compose.state()));
 
-            config.routes.get("/api/services", ctx -> ctx.json(compose.services()));
+                    config.routes.get("/api/services", ctx -> ctx.json(compose.services()));
 
-            config.routes.post("/api/deploy", ctx -> {
-                Request request = ctx.bodyAsClass(Request.class);
-                List<String> services = request == null || request.services == null
-                        ? List.of() : request.services;
-                Jobs.Job job = jobs.start("deploy", services,
-                        output -> deploy(compose, services, output));
-                ctx.status(HttpStatus.ACCEPTED).json(job.summary());
-            });
+                    config.routes.post("/api/deploy", ctx -> {
+                        Request request = ctx.bodyAsClass(Request.class);
+                        List<String> services =
+                                request == null || request.services == null ? List.of() : request.services;
+                        Jobs.Job job = jobs.start("deploy", services, output -> deploy(compose, services, output));
+                        ctx.status(HttpStatus.ACCEPTED).json(job.summary());
+                    });
 
-            config.routes.post("/api/recreate/{service}", ctx -> {
-                String service = ctx.pathParam("service");
-                Jobs.Job job = jobs.start("recreate", List.of(service),
-                        output -> recreate(compose, service, output));
-                ctx.status(HttpStatus.ACCEPTED).json(job.summary());
-            });
+                    config.routes.post("/api/recreate/{service}", ctx -> {
+                        String service = ctx.pathParam("service");
+                        Jobs.Job job =
+                                jobs.start("recreate", List.of(service), output -> recreate(compose, service, output));
+                        ctx.status(HttpStatus.ACCEPTED).json(job.summary());
+                    });
 
-            config.routes.get("/api/jobs", ctx ->
-                    ctx.json(jobs.all().stream().map(Jobs.Job::summary).toList()));
+                    config.routes.get(
+                            "/api/jobs",
+                            ctx -> ctx.json(
+                                    jobs.all().stream().map(Jobs.Job::summary).toList()));
 
-            config.routes.get("/api/jobs/{id}", ctx -> {
-                Jobs.Job job = jobs.get(ctx.pathParam("id"));
-                if (job == null) {
-                    throw new io.javalin.http.NotFoundResponse("no such job");
-                }
-                Map<String, Object> answer = new java.util.LinkedHashMap<>(job.summary());
-                answer.put("lines", job.lines());
-                ctx.json(answer);
-            });
+                    config.routes.get("/api/jobs/{id}", ctx -> {
+                        Jobs.Job job = jobs.get(ctx.pathParam("id"));
+                        if (job == null) {
+                            throw new io.javalin.http.NotFoundResponse("no such job");
+                        }
+                        Map<String, Object> answer = new java.util.LinkedHashMap<>(job.summary());
+                        answer.put("lines", job.lines());
+                        ctx.json(answer);
+                    });
 
-            // SSE rather than a websocket: one direction, reconnects by itself, and it passes
-            // through a reverse proxy without a special rule.
-            config.routes.sse("/api/jobs/{id}/stream", client -> {
-                Jobs.Job job = jobs.get(client.ctx().pathParam("id"));
-                if (job == null) {
-                    client.close();
-                    return;
-                }
-                client.keepAlive();
-                Runnable stop = job.follow(line -> client.sendEvent("line", line));
-                client.onClose(stop::run);
-            });
-        }).start(port());
+                    // SSE rather than a websocket: one direction, reconnects by itself, and it passes
+                    // through a reverse proxy without a special rule.
+                    config.routes.sse("/api/jobs/{id}/stream", client -> {
+                        Jobs.Job job = jobs.get(client.ctx().pathParam("id"));
+                        if (job == null) {
+                            client.close();
+                            return;
+                        }
+                        client.keepAlive();
+                        Runnable stop = job.follow(line -> client.sendEvent("line", line));
+                        client.onClose(stop::run);
+                    });
+                })
+                .start(port());
 
         log.info("steward-deployer listening on {}", port());
     }

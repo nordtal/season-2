@@ -1,20 +1,18 @@
 package eu.nordtal.s2.commands;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The "type it again" confirmation, driven by a settable clock rather than by sleeping.
@@ -63,7 +61,8 @@ class ConfirmationsTest {
         // one confirmation wide.
         confirmations.confirm(TILL, "/phase set SMP");
         assertTrue(confirmations.confirm(TILL, "/phase set SMP"));
-        assertFalse(confirmations.confirm(TILL, "/phase set SMP"),
+        assertFalse(
+                confirmations.confirm(TILL, "/phase set SMP"),
                 "a confirmed command has to be asked for again from scratch");
     }
 
@@ -74,7 +73,8 @@ class ConfirmationsTest {
         // disconnects everybody without access. Keying on the person alone would let the second one
         // ride the first one's confirmation.
         assertFalse(confirmations.confirm(TILL, "/phase set MAINTENANCE"));
-        assertFalse(confirmations.confirm(TILL, "/phase set SMP"),
+        assertFalse(
+                confirmations.confirm(TILL, "/phase set SMP"),
                 "a different command must not be confirmed by a pending one");
         assertTrue(confirmations.confirm(TILL, "/phase set SMP"));
     }
@@ -92,7 +92,8 @@ class ConfirmationsTest {
     void theWindowIsEnforced() {
         assertFalse(confirmations.confirm(TILL, "/phase set SMP"));
         now = now.plusSeconds(31);
-        assertFalse(confirmations.confirm(TILL, "/phase set SMP"),
+        assertFalse(
+                confirmations.confirm(TILL, "/phase set SMP"),
                 "walking away from a keyboard must not leave a phase switch armed");
         assertTrue(confirmations.confirm(TILL, "/phase set SMP"));
     }
@@ -133,7 +134,8 @@ class ConfirmationsTest {
         // /hg start confirm typed twice would then start a game below the recommended minimum
         // having never shown the warning.
         assertFalse(confirmations.consume(TILL, "/hg start"));
-        assertFalse(confirmations.consume(TILL, "/hg start"),
+        assertFalse(
+                confirmations.consume(TILL, "/hg start"),
                 "consume must not leave anything behind for the next call to find");
         assertEquals(0, confirmations.size());
     }
@@ -143,7 +145,8 @@ class ConfirmationsTest {
     void armAndConsume() {
         confirmations.arm(TILL, "/hg start");
         assertTrue(confirmations.consume(TILL, "/hg start"));
-        assertFalse(confirmations.consume(TILL, "/hg start"),
+        assertFalse(
+                confirmations.consume(TILL, "/hg start"),
                 "one arming is one confirmation, not a window during which the command is open");
     }
 
@@ -160,8 +163,8 @@ class ConfirmationsTest {
     void theConsoleIsAnIdentityToo() {
         final NordtalUser console = new StubUser(null, null, "console");
         assertFalse(confirmations.confirm(console, "/phase set SMP"));
-        assertFalse(confirmations.confirm(TILL, "/phase set SMP"),
-                "a player must not confirm what the console asked for");
+        assertFalse(
+                confirmations.confirm(TILL, "/phase set SMP"), "a player must not confirm what the console asked for");
         assertTrue(confirmations.confirm(console, "/phase set SMP"));
     }
 

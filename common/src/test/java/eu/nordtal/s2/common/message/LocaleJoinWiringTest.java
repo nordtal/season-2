@@ -1,16 +1,15 @@
 package eu.nordtal.s2.common.message;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That every Paper backend actually asks {@link PlayerLocales} for the language at join, and lets go
@@ -41,17 +40,20 @@ class LocaleJoinWiringTest {
     void allThreeJoinAndQuit() throws IOException {
         for (final String relative : PRESENCE_LISTENERS) {
             final String text = read(relative);
-            assertTrue(text.contains("locales.joinAsync("),
+            assertTrue(
+                    text.contains("locales.joinAsync("),
                     relative + " never calls PlayerLocales#joinAsync, so of() answers English for"
                             + " every player on this server for the whole session. docs/i18n.md's"
                             + " whole design rests on this one call per join.");
-            assertFalse(text.contains("locales.join("),
+            assertFalse(
+                    text.contains("locales.join("),
                     relative + " calls the blocking PlayerLocales#join on what is presumably the"
                             + " main thread - one database round trip per login, and the pool's"
                             + " whole connection timeout with the server stopped behind it on a"
                             + " database that has stopped answering. joinAsync is the only form"
                             + " a Paper plugin may use (decided 2026-09-01).");
-            assertTrue(text.contains("locales.quit("),
+            assertTrue(
+                    text.contains("locales.quit("),
                     relative + " never calls PlayerLocales#quit, so the map grows by one entry per"
                             + " login for the life of the process.");
         }
@@ -74,23 +76,27 @@ class LocaleJoinWiringTest {
         final int join = lines.indexOf("public void onJoin(");
         assertTrue(join >= 0, "SystemLines has no onJoin");
         final String body = lines.substring(join, lines.indexOf("\n    }\n", join));
-        assertFalse(body.contains("broadcast("),
+        assertFalse(
+                body.contains("broadcast("),
                 "SystemLines#onJoin broadcasts the join line at join, which is one moment before"
                         + " the joining player's language is known");
-        assertTrue(lines.contains("public void announceJoin("),
+        assertTrue(
+                lines.contains("public void announceJoin("),
                 "SystemLines has no announceJoin for the callback to call");
 
         for (final String presence : List.of(
                 "smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java",
                 "hunger-games/src/main/java/eu/nordtal/s2/hungergames/listener/PresenceListener.java")) {
             final String source = read(presence);
-            assertTrue(source.contains("lines.announceJoin("),
+            assertTrue(
+                    source.contains("lines.announceJoin("),
                     presence + " never calls announceJoin, so that server prints no join line at"
                             + " all - which is what makes this worth a test rather than a comment");
             // Inside the locale callback, not in onJoin. Both files reach the callback through
             // joinAsync, so "after it" in the file is the whole of what can be checked from here -
             // and it is the ordering that was got wrong the first time.
-            assertTrue(source.indexOf("joinAsync(") < source.indexOf("lines.announceJoin("),
+            assertTrue(
+                    source.indexOf("joinAsync(") < source.indexOf("lines.announceJoin("),
                     presence + " announces the join line before joinAsync, which is the one moment"
                             + " at which the joining player's own language is not known yet");
         }
@@ -98,9 +104,11 @@ class LocaleJoinWiringTest {
 
     private static String read(final String relative) throws IOException {
         final Path path = repositoryRoot().resolve(relative);
-        assertTrue(Files.isRegularFile(path), relative + " no longer exists - if a module was renamed"
-                + " this list has to move with it, because a missing file is a check that silently"
-                + " stops running");
+        assertTrue(
+                Files.isRegularFile(path),
+                relative + " no longer exists - if a module was renamed"
+                        + " this list has to move with it, because a missing file is a check that silently"
+                        + " stops running");
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 
@@ -111,7 +119,8 @@ class LocaleJoinWiringTest {
             candidate = candidate.getParent();
         }
         if (candidate == null) {
-            throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+            throw new IllegalStateException(
+                    "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         }
         return candidate;
     }

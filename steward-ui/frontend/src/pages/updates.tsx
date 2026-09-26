@@ -8,14 +8,7 @@ import type { AvailableChange, ConfigChanges, Run, ServiceTable } from "@/lib/ap
 import { ApiError } from "@/lib/api"
 import { LOCALE, count, dateTime, relative } from "@/lib/format"
 import { versionJump } from "@/lib/version-jump"
-import {
-  useAvailable,
-  useRefreshAvailable,
-  useRuns,
-  useSaveConfig,
-  useSchedule,
-  useServices,
-} from "@/lib/queries"
+import { useAvailable, useRefreshAvailable, useRuns, useSaveConfig, useSchedule, useServices } from "@/lib/queries"
 import { ScalarControl } from "@/components/steward/config-controls"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
@@ -34,14 +27,7 @@ import {
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
 } from "@/components/ui/responsive-dialog"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AskButton, CancelButton, ENDINGS, Notes, StageBadge, cancellable, summaryOf } from "@/pages/operations"
 import { DayPicker, chosenDays, entryAt, useConfigDraft, useWorkerConfig } from "@/pages/backups"
 
@@ -130,9 +116,7 @@ function Summary() {
               ? "not scheduled"
               : undefined
         }
-        hint={
-          schedule.data?.nextUpdateAt ? `${schedule.data.updateAt} ${schedule.data.zone}` : undefined
-        }
+        hint={schedule.data?.nextUpdateAt ? `${schedule.data.updateAt} ${schedule.data.zone}` : undefined}
       />
     </div>
   )
@@ -320,8 +304,7 @@ function Available() {
 
               {plan && plan.unclaimed.length > 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Claimed by nothing:{" "}
-                  {plan.unclaimed.map((one) => `${one.service}/${one.fileName}`).join(", ")}
+                  Claimed by nothing: {plan.unclaimed.map((one) => `${one.service}/${one.fileName}`).join(", ")}
                 </p>
               ) : null}
               {plan ? <Notes notes={plan.notes} /> : null}
@@ -424,9 +407,7 @@ function Images() {
                       - not reached{table.drift.reason ? ` (${table.drift.reason})` : ""}
                     </span>
                   ) : null}
-                  {table.drift.unverifiable.length > 0
-                    ? `. Unchecked: ${table.drift.unverifiable.join(", ")}`
-                    : null}
+                  {table.drift.unverifiable.length > 0 ? `. Unchecked: ${table.drift.unverifiable.join(", ")}` : null}
                 </p>
               ) : (
                 <SkeletonText className="text-xs" width="long" />
@@ -481,9 +462,7 @@ function Runs() {
                 <TableRow
                   key={run?.id ?? index}
                   className={run ? "cursor-pointer" : undefined}
-                  onClick={() =>
-                    run && navigate({ to: "/operations/updates/$id", params: { id: String(run.id) } })
-                  }
+                  onClick={() => run && navigate({ to: "/operations/updates/$id", params: { id: String(run.id) } })}
                 >
                   <TableCell data-label="Run" className="font-medium tnum">
                     {run ? (
@@ -509,9 +488,7 @@ function Runs() {
                     {run ? (
                       <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
                         <RunStatus status={run.status} />
-                        {run.report && !ENDINGS.has(run.report.stage) ? (
-                          <StageBadge stage={run.report.stage} />
-                        ) : null}
+                        {run.report && !ENDINGS.has(run.report.stage) ? <StageBadge stage={run.report.stage} /> : null}
                         {cancellable(run) ? <CancelButton run={run} /> : null}
                       </div>
                     ) : (
@@ -625,7 +602,7 @@ function ScheduleDialog() {
                 <ScalarControl
                   id={entry.path}
                   entry={entry}
-                  value={draft[entry.path] ?? (entry.value ?? "")}
+                  value={draft[entry.path] ?? entry.value ?? ""}
                   edited={draft[entry.path] !== undefined}
                   disabled={!document.writable || save.isPending}
                   roles={undefined}
@@ -655,9 +632,7 @@ function ScheduleDialog() {
               >
                 Save
               </Button>
-              {allChanged > 0 ? (
-                <span className="text-sm text-muted-foreground tnum">{allChanged} changed</span>
-              ) : null}
+              {allChanged > 0 ? <span className="text-sm text-muted-foreground tnum">{allChanged} changed</span> : null}
             </div>
           </div>
         )}

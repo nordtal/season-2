@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.command;
 
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.Optional;
 
 /**
  * The three statements behind {@link AllowlistDirectory}. Package-private: the interface is the API.

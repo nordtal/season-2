@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.travel;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -9,8 +11,6 @@ import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
-
-import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -22,8 +22,6 @@ import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.plugin.Plugin;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The three portal rules, each of them deliberate.
@@ -55,8 +53,13 @@ public final class PortalGate implements Listener {
     private final PlayerLocales locales;
     private final SmpSounds sounds;
 
-    public PortalGate(final Plugin plugin, final Worlds worlds, final SeasonState season,
-                      final Messages messages, final PlayerLocales locales, final SmpSounds sounds) {
+    public PortalGate(
+            final Plugin plugin,
+            final Worlds worlds,
+            final SeasonState season,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds) {
         this.plugin = plugin;
         this.worlds = worlds;
         this.season = season;
@@ -82,8 +85,10 @@ public final class PortalGate implements Listener {
         event.setCancelled(true);
         putOutTheFire(event);
         if (event.getEntity() instanceof Player player) {
-            player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
-                    MESSAGES.smp().portal().netherLocked()));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(
+                            locales.of(player.getUniqueId()),
+                            MESSAGES.smp().portal().netherLocked()));
             sounds.play(player, Feedback.REFUSED);
         }
     }
@@ -101,12 +106,14 @@ public final class PortalGate implements Listener {
      */
     private void putOutTheFire(final PortalCreateEvent event) {
         final World world = event.getWorld();
-        final java.util.List<org.bukkit.block.BlockState> blocks =
-                java.util.List.copyOf(event.getBlocks());
-        org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> blocks.stream()
-                .map(state -> world.getBlockAt(state.getX(), state.getY(), state.getZ()))
-                .filter(block -> block.getType() == Material.FIRE)
-                .forEach(block -> block.setType(Material.AIR, false)));
+        final java.util.List<org.bukkit.block.BlockState> blocks = java.util.List.copyOf(event.getBlocks());
+        org.bukkit.Bukkit.getScheduler()
+                .runTask(
+                        plugin,
+                        () -> blocks.stream()
+                                .map(state -> world.getBlockAt(state.getX(), state.getY(), state.getZ()))
+                                .filter(block -> block.getType() == Material.FIRE)
+                                .forEach(block -> block.setType(Material.AIR, false)));
     }
 
     /** An End portal frame never takes an eye. */
@@ -122,8 +129,11 @@ public final class PortalGate implements Listener {
             return;
         }
         event.setCancelled(true);
-        event.getPlayer().sendMessage(MessageRenderer.of(messages).format(
-                locales.of(event.getPlayer().getUniqueId()), MESSAGES.smp().portal().endInactive()));
+        event.getPlayer()
+                .sendMessage(MessageRenderer.of(messages)
+                        .format(
+                                locales.of(event.getPlayer().getUniqueId()),
+                                MESSAGES.smp().portal().endInactive()));
         sounds.play(event.getPlayer(), Feedback.REFUSED);
     }
 
@@ -138,8 +148,11 @@ public final class PortalGate implements Listener {
             // Belt and braces: the frame should never have lit, but a portal that predates the
             // plugin, or an admin's, must not become a way past the milestone either.
             event.setCancelled(true);
-            event.getPlayer().sendMessage(MessageRenderer.of(messages).format(
-                    locales.of(event.getPlayer().getUniqueId()), MESSAGES.smp().portal().netherLocked()));
+            event.getPlayer()
+                    .sendMessage(MessageRenderer.of(messages)
+                            .format(
+                                    locales.of(event.getPlayer().getUniqueId()),
+                                    MESSAGES.smp().portal().netherLocked()));
             sounds.play(event.getPlayer(), Feedback.REFUSED);
         }
     }

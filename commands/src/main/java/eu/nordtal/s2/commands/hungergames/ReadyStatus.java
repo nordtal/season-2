@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.hungergames;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -7,11 +9,8 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.context.TeamContext;
-
 import java.util.List;
 import java.util.Optional;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /hg ready-status} - which teams have said they are ready.
@@ -28,8 +27,7 @@ public final class ReadyStatus implements NordtalCommand<HungerGamesEffects> {
     }
 
     @Override
-    public void run(final NordtalUser user, final Values values,
-                    final HungerGamesEffects effects) {
+    public void run(final NordtalUser user, final Values values, final HungerGamesEffects effects) {
         effects.async(() -> {
             final Optional<HungerGamesEffects.Registration> registration = effects.registration();
             if (registration.isEmpty()) {
@@ -43,11 +41,21 @@ public final class ReadyStatus implements NordtalCommand<HungerGamesEffects> {
             // The tone is the whole point of this list: the admin is looking for who is NOT ready
             // yet, and reading a word at the end of forty identically shaped lines is what the
             // colour saves them from.
-            teams.forEach(team -> user.reply(MESSAGES.hg().readyStatus().line(new TeamContext(team.team()),
-                            // A nested message, resolved in the reader's own language: this is what
-                            // NordtalUser#phrase exists for.
-                            user.phrase(team.ready() ? MESSAGES.hg().readyStatus().ready()
-                                    : MESSAGES.hg().readyStatus().notReady())),
+            teams.forEach(team -> user.reply(
+                    MESSAGES.hg()
+                            .readyStatus()
+                            .line(
+                                    new TeamContext(team.team()),
+                                    // A nested message, resolved in the reader's own language: this is what
+                                    // NordtalUser#phrase exists for.
+                                    user.phrase(
+                                            team.ready()
+                                                    ? MESSAGES.hg()
+                                                            .readyStatus()
+                                                            .ready()
+                                                    : MESSAGES.hg()
+                                                            .readyStatus()
+                                                            .notReady())),
                     team.ready() ? Tone.GOOD : Tone.MUTED));
         });
     }

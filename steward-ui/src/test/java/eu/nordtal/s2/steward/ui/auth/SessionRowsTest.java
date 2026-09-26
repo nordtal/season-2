@@ -1,5 +1,15 @@
 package eu.nordtal.s2.steward.ui.auth;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -8,17 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The three one-time values {@code steward_session} carries, against a real PostgreSQL.
@@ -83,14 +82,18 @@ class SessionRowsTest {
         sessions.startCeremony(id, "{\"challenge\":\"abc\"}");
 
         assertEquals(Optional.of("{\"challenge\":\"abc\"}"), sessions.consumeCeremony(id));
-        assertEquals(Optional.empty(), sessions.consumeCeremony(id),
+        assertEquals(
+                Optional.empty(),
+                sessions.consumeCeremony(id),
                 "a challenge that can be answered twice is a challenge whoever saw it can answer");
 
         // And the clock. Eleven minutes is past the window; the browser's own dialog gives two, so
         // this only ever catches a ceremony nobody is still looking at.
         sessions.startCeremony(id, "{\"challenge\":\"def\"}");
         sessions.ceremonyStartedAt(id, Instant.now().minus(11, ChronoUnit.MINUTES));
-        assertEquals(Optional.empty(), sessions.consumeCeremony(id),
+        assertEquals(
+                Optional.empty(),
+                sessions.consumeCeremony(id),
                 "a challenge issued eleven minutes ago was still answerable");
     }
 
@@ -101,7 +104,9 @@ class SessionRowsTest {
         sessions.startCeremony(id, "first");
         sessions.startCeremony(id, "second");
 
-        assertEquals(Optional.of("second"), sessions.consumeCeremony(id),
+        assertEquals(
+                Optional.of("second"),
+                sessions.consumeCeremony(id),
                 "two challenges were outstanding at once, and the older one is the one somebody"
                         + " else may have seen");
     }
@@ -125,14 +130,14 @@ class SessionRowsTest {
     @DisplayName("a session starts unverified and stays that way until a key is held")
     void verificationIsRecordedOnTheRow() {
         final String id = sessions.signIn("45", "Unverified", List.of("4711"));
-        assertFalse(sessions.find(id).orElseThrow().verified(),
-                "a session was verified before anybody touched a key");
+        assertFalse(sessions.find(id).orElseThrow().verified(), "a session was verified before anybody touched a key");
 
         sessions.markVerified(id);
 
         final Sessions.Session after = sessions.find(id).orElseThrow();
         assertTrue(after.verified());
-        assertTrue(after.verifiedAt().isAfter(Instant.now().minus(1, ChronoUnit.MINUTES)),
+        assertTrue(
+                after.verifiedAt().isAfter(Instant.now().minus(1, ChronoUnit.MINUTES)),
                 "verified_at is not now(): " + after.verifiedAt());
     }
 }

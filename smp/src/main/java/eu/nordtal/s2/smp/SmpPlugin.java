@@ -1,19 +1,13 @@
 package eu.nordtal.s2.smp;
 
 import com.zaxxer.hikari.HikariDataSource;
-
-import java.util.concurrent.ScheduledExecutorService;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
-import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
-import eu.nordtal.s2.smp.command.BukkitSmpEffects;
-import eu.nordtal.s2.papercommon.access.AdminWatch;
-import eu.nordtal.s2.papercommon.access.BukkitOps;
+import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Locales;
@@ -21,6 +15,18 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.papercommon.access.AdminWatch;
+import eu.nordtal.s2.papercommon.access.BukkitOps;
+import eu.nordtal.s2.papercommon.chat.SystemLines;
+import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
+import eu.nordtal.s2.papercommon.command.UpdateWatcher;
+import eu.nordtal.s2.papercommon.stage.BukkitCinematics;
+import eu.nordtal.s2.smp.aura.DeathPenalty;
+import eu.nordtal.s2.smp.board.Boards;
+import eu.nordtal.s2.smp.command.BukkitSmpEffects;
+import eu.nordtal.s2.smp.command.NavigateCommand;
+import eu.nordtal.s2.smp.command.SmpCommand;
 import eu.nordtal.s2.smp.config.ColoursSpec;
 import eu.nordtal.s2.smp.config.Configs;
 import eu.nordtal.s2.smp.config.DatabaseSpec;
@@ -29,33 +35,24 @@ import eu.nordtal.s2.smp.config.MilestonesSpec;
 import eu.nordtal.s2.smp.config.PrestigeSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.config.SoundsSpec;
-import eu.nordtal.s2.smp.milestone.MilestoneNames;
-import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import eu.nordtal.s2.smp.db.JoinGate;
 import eu.nordtal.s2.smp.db.SmpDao;
-import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.smp.db.SmpPool;
-import eu.nordtal.s2.smp.milestone.Milestone;
-import eu.nordtal.s2.smp.milestone.MilestoneState;
-import eu.nordtal.s2.smp.milestone.MilestoneTrack;
-import eu.nordtal.s2.smp.milestone.StoredProgress;
-import eu.nordtal.s2.smp.milestone.TrackValidation;
-import eu.nordtal.s2.smp.aura.DeathPenalty;
-import eu.nordtal.s2.smp.board.Boards;
-import eu.nordtal.s2.smp.command.NavigateCommand;
-import eu.nordtal.s2.smp.command.SmpCommand;
-import eu.nordtal.s2.papercommon.command.UpdateWatcher;
-import eu.nordtal.s2.papercommon.chat.SystemLines;
-import eu.nordtal.s2.papercommon.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
-import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.feedback.SurfaceListener;
+import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.grave.GraveListener;
 import eu.nordtal.s2.smp.grave.Graves;
 import eu.nordtal.s2.smp.headstart.HeadStart;
 import eu.nordtal.s2.smp.hud.SmpHud;
+import eu.nordtal.s2.smp.milestone.Milestone;
+import eu.nordtal.s2.smp.milestone.MilestoneNames;
+import eu.nordtal.s2.smp.milestone.MilestoneState;
+import eu.nordtal.s2.smp.milestone.MilestoneTrack;
+import eu.nordtal.s2.smp.milestone.StoredProgress;
+import eu.nordtal.s2.smp.milestone.TrackValidation;
 import eu.nordtal.s2.smp.navigate.NavigateListener;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.npc.NpcListener;
@@ -66,35 +63,35 @@ import eu.nordtal.s2.smp.player.PlayerComposition;
 import eu.nordtal.s2.smp.player.PlayerSurfaces;
 import eu.nordtal.s2.smp.player.PresenceListener;
 import eu.nordtal.s2.smp.prestige.Prestige;
+import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import eu.nordtal.s2.smp.progress.AdvancementListener;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
 import eu.nordtal.s2.smp.progress.StatisticPoller;
-import eu.nordtal.s2.smp.wheel.Wheel;
-import eu.nordtal.s2.smp.wheel.WheelListener;
 import eu.nordtal.s2.smp.protect.ProtectionListener;
 import eu.nordtal.s2.smp.region.Box;
 import eu.nordtal.s2.smp.region.Boxes;
 import eu.nordtal.s2.smp.region.ConfigBoxes;
 import eu.nordtal.s2.smp.state.SeasonState;
-import eu.nordtal.s2.smp.welcome.SeasonWelcome;
 import eu.nordtal.s2.smp.travel.BalloonDisplay;
 import eu.nordtal.s2.smp.travel.BalloonListener;
 import eu.nordtal.s2.smp.travel.PortalGate;
+import eu.nordtal.s2.smp.welcome.SeasonWelcome;
+import eu.nordtal.s2.smp.wheel.Wheel;
+import eu.nordtal.s2.smp.wheel.WheelListener;
 import eu.nordtal.s2.smp.world.Datapacks;
 import eu.nordtal.s2.smp.world.Worlds;
-
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ScheduledExecutorService;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
-import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.Locale;
 
 /**
  * The season 2 SMP: Nordtal, the Nether and the End, plus milestones, aura,
@@ -172,6 +169,7 @@ public final class SmpPlugin extends JavaPlugin {
      * returns. {@code CommandInbox#register} refuses the wrong one at startup.</p>
      */
     private BukkitSmpEffects chatEffects;
+
     private Outbox outbox;
     private ScheduledExecutorService commandWaiter;
     private SmpDao dao;
@@ -189,6 +187,7 @@ public final class SmpPlugin extends JavaPlugin {
 
     /** {@code :commands}' bundle as the inbox renders it - a second view of the same files. */
     private Messages sharedMessages;
+
     private PlayerLocales locales;
 
     /**
@@ -199,6 +198,7 @@ public final class SmpPlugin extends JavaPlugin {
      * the server thread, once per keystroke.</p>
      */
     private volatile MilestoneTrack track;
+
     private Worlds worlds;
     private final SeasonState season = new SeasonState();
     private Identities identities;
@@ -212,6 +212,7 @@ public final class SmpPlugin extends JavaPlugin {
     private SpawnNpc npc;
     /** The staging device - see BukkitCinematics. Stopped at disable, while players are still here. */
     private BukkitCinematics cinematics;
+
     private BalloonDisplay balloonDisplay;
     private org.bukkit.scheduler.BukkitTask heartbeat;
 
@@ -253,8 +254,7 @@ public final class SmpPlugin extends JavaPlugin {
             coloursHandle = Configs.colours(getDataFolder().toPath(), logger());
             prestigeHandle = Configs.prestige(getDataFolder().toPath(), logger());
         } catch (final ConfigException exception) {
-            severe("smp is not starting because its configuration could not be read: "
-                    + exception.getMessage());
+            severe("smp is not starting because its configuration could not be read: " + exception.getMessage());
             return;
         }
 
@@ -276,7 +276,8 @@ public final class SmpPlugin extends JavaPlugin {
         // the same treatment the tone palette above gets.
         this.prestigeColours = PrestigeColours.parse(
                 Configs.declaredPrestigeTiers(prestigeHandle.get()),
-                prestigeHandle.get().admin(), getLogger()::warning);
+                prestigeHandle.get().admin(),
+                getLogger()::warning);
         this.prestige = new Prestige(Configs.declaredPrestigeHours(prestigeHandle.get()));
 
         // ---- refusal 1: the datapacks -------------------------------------------------------
@@ -307,10 +308,11 @@ public final class SmpPlugin extends JavaPlugin {
         // the first new player of the season - Configs.validate can only ask whether the key names
         // something, since the three worlds above do not exist until bootstrap has run.
         if (Bukkit.getWorld(config.firstJoinSpawn().world()) == null) {
-            getLogger().warning("first-join-spawn names the world '"
-                    + config.firstJoinSpawn().world() + "', which does not exist on this server. "
-                    + "First joins will not be moved anywhere. The build world is called '"
-                    + config.worldNordtal() + "'.");
+            getLogger()
+                    .warning("first-join-spawn names the world '"
+                            + config.firstJoinSpawn().world() + "', which does not exist on this server. "
+                            + "First joins will not be moved anywhere. The build world is called '"
+                            + config.worldNordtal() + "'.");
         }
         worlds.applyFixedBorders();
 
@@ -323,18 +325,19 @@ public final class SmpPlugin extends JavaPlugin {
         }
 
         pool = SmpPool.open(databaseHandle.get());
-        jdbi = Jdbi.create(pool)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin());
+        jdbi = Jdbi.create(pool).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
         dao = jdbi.onDemand(SmpDao.class);
         identities = new Identities(dao);
 
         // Three roots, most general first, so a shared mechanism says the same thing on every
         // surface. Later roots win, so this module's own keys beat both - the mechanism for
         // rewording a shared line here, not a way of adding one.
-        messages = Messages.load(getClass().getClassLoader(),
+        messages = Messages.load(
+                getClass().getClassLoader(),
                 java.util.List.of("messages/paper-common", "messages/commands", "messages/smp"),
-                getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
+                getDataFolder().toPath().resolve("messages"),
+                Locale.ENGLISH,
+                Locale.GERMAN);
         reportUnknownOverrides();
         locales = new PlayerLocales(mcUuid -> dao.discordIdOf(mcUuid)
                 .map(id -> Locales.parse(dao.localeOf(id).orElse(null)))
@@ -349,7 +352,9 @@ public final class SmpPlugin extends JavaPlugin {
         // The SMP's line into Discord: one command_request row per language, fire and forget.
         // Built before the two things that have a moment to announce.
         requests = eu.nordtal.s2.common.command.CommandRequests.borrowing(pool);
-        announcer = new eu.nordtal.s2.smp.announce.Announcer(requests, messages,
+        announcer = new eu.nordtal.s2.smp.announce.Announcer(
+                requests,
+                messages,
                 BukkitSmpEffects.async(this),
                 (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
 
@@ -358,8 +363,7 @@ public final class SmpPlugin extends JavaPlugin {
         final WorldEffects effects = new WorldEffects(this);
         getServer().getPluginManager().registerEvents(effects, this);
 
-        final PlayerComposition composition =
-                new PlayerComposition(() -> prestige, () -> prestigeColours);
+        final PlayerComposition composition = new PlayerComposition(() -> prestige, () -> prestigeColours);
         final PlayerSurfaces surfaces =
                 new PlayerSurfaces(this, identities, composition, new MessageRenderer(messages));
 
@@ -370,8 +374,8 @@ public final class SmpPlugin extends JavaPlugin {
         // halves change a few times an hour and are drawn several times a second.
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::refreshSurfaceData, 100L, 100L);
         // The one main-thread read of the player collection, for /smp status - see the field.
-        Bukkit.getScheduler().runTaskTimer(this, () -> online = Bukkit.getOnlinePlayers().size(),
-                20L, 20L);
+        Bukkit.getScheduler()
+                .runTaskTimer(this, () -> online = Bukkit.getOnlinePlayers().size(), 20L, 20L);
 
         final Boxes regions = ConfigBoxes.spawnRegions(config);
 
@@ -385,34 +389,36 @@ public final class SmpPlugin extends JavaPlugin {
         // fullness check reads would be the stale one.
         final FullServerAdmission admission = new FullServerAdmission();
 
-        getServer().getPluginManager().registerEvents(
-                new JoinGate(identities, admission, messages, logger()), this);
+        getServer().getPluginManager().registerEvents(new JoinGate(identities, admission, messages, logger()), this);
         // The composition is this server's half of the shared lines; everything around it is
         // :paper-common's and is the same on every backend.
         final SystemLines systemLines = new SystemLines(
-                player -> composition.chatPrefix(player.getName(),
-                        identities.of(player.getUniqueId())),
-                messages, locales);
+                player -> composition.chatPrefix(player.getName(), identities.of(player.getUniqueId())),
+                messages,
+                locales);
 
         // Registered as a listener because a staging ends when the player leaves or dies, and
         // stopped at disable because Paper disables plugins before it saves players - a blindness
         // still running then would be written to disk with them.
         cinematics = new BukkitCinematics(this, sounds::play);
         getServer().getPluginManager().registerEvents(cinematics, this);
-        final SeasonWelcome welcome =
-                new SeasonWelcome(this, dao, identities, locales, cinematics, config, worlds);
+        final SeasonWelcome welcome = new SeasonWelcome(this, dao, identities, locales, cinematics, config, worlds);
 
-        getServer().getPluginManager().registerEvents(
-                new PresenceListener(this, identities, surfaces, locales, operators,
-                        systemLines, welcome), this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new PresenceListener(this, identities, surfaces, locales, operators, systemLines, welcome),
+                        this);
         getServer().getPluginManager().registerEvents(systemLines, this);
-        getServer().getPluginManager().registerEvents(
-                new NavigateListener(this, dao, navigation, identities, locales, sounds), this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(new NavigateListener(this, dao, navigation, identities, locales, sounds), this);
         // The start event's winner is paid on their FIRST join here, and never by hunger-games -
         // see HeadStart for why the dependency points this way round.
-        getServer().getPluginManager().registerEvents(
-                new HeadStart(this, dao, identities, surfaces, config, messages, locales, sounds),
-                this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new HeadStart(this, dao, identities, surfaces, config, messages, locales, sounds), this);
 
         // ...and keeps being one only for as long as the database says so; without this a revoked
         // admin keeps operator until they disconnect.
@@ -420,8 +426,11 @@ public final class SmpPlugin extends JavaPlugin {
         // The extra cache is Identities, which holds the admin flag for the player composition, so
         // the admin tag on a nametag is drawn from it. The redraw is conditional so an unchanged
         // roster costs nothing on every tick of the timer.
-        adminWatch = new AdminWatch(this, eu.nordtal.s2.common.access.AccessDirectory.using(pool),
-                operators, admission,
+        adminWatch = new AdminWatch(
+                this,
+                eu.nordtal.s2.common.access.AccessDirectory.using(pool),
+                operators,
+                admission,
                 admins -> {
                     if (identities.recordAdmins(admins)) {
                         surfaces.refreshAll();
@@ -430,8 +439,19 @@ public final class SmpPlugin extends JavaPlugin {
                 logger());
 
         // ---- block 3: the activities -----------------------------------------------------
-        engine = new ObjectiveEngine(this, dao, () -> track, season, worlds, identities, messages,
-                locales, config, sounds, effects, announcer);
+        engine = new ObjectiveEngine(
+                this,
+                dao,
+                () -> track,
+                season,
+                worlds,
+                identities,
+                messages,
+                locales,
+                config,
+                sounds,
+                effects,
+                announcer);
         poller = new StatisticPoller(this, () -> track, engine, identities);
         poller.start();
 
@@ -442,62 +462,80 @@ public final class SmpPlugin extends JavaPlugin {
         // nothing. The first sweep is immediate rather than delayed by a minute: a server that was
         // down over the weekend has graves that expired while it was off, and they should not stand
         // for another minute after it comes back.
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this,
-                () -> graves.expire(config.graveMaxAgeHours()), 20L, 20L * 60L);
+        Bukkit.getScheduler()
+                .runTaskTimerAsynchronously(this, () -> graves.expire(config.graveMaxAgeHours()), 20L, 20L * 60L);
         // The hologram countdown over each grave (season-2-ingame/19). Once a second on the main
         // thread - it has to be, TextDisplay#text is a packet - but graves.tickHolograms() only
         // actually writes one out once a minute per grave, or once a second inside its last minute,
         // so this tick is a map lookup for everything further out than that.
         Bukkit.getScheduler().runTaskTimer(this, graves::tickHolograms, 20L, 20L);
-        duels = new Duels(this, dao, config, worlds, identities, messages, locales, sounds,
-                effects);
+        duels = new Duels(this, dao, config, worlds, identities, messages, locales, sounds, effects);
 
-        final DeathPenalty penalty = new DeathPenalty(config.deathPenalty(),
-                config.deathPenaltyListed(), java.util.Set.copyOf(config.deathCausesListed()));
+        final DeathPenalty penalty = new DeathPenalty(
+                config.deathPenalty(), config.deathPenaltyListed(), java.util.Set.copyOf(config.deathCausesListed()));
         final Wheel wheel = new Wheel(this, dao, config, identities, messages, locales, sounds);
 
-        getServer().getPluginManager().registerEvents(
-                new AdvancementListener(this, dao, engine, identities, config, messages, locales,
-                        sounds), this);
-        getServer().getPluginManager().registerEvents(
-                new GraveListener(this, dao, graves, identities, penalty, duels::isInArena,
-                        messages, locales, sounds), this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new AdvancementListener(this, dao, engine, identities, config, messages, locales, sounds),
+                        this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new GraveListener(
+                                this, dao, graves, identities, penalty, duels::isInArena, messages, locales, sounds),
+                        this);
         getServer().getPluginManager().registerEvents(new DuelListener(this, config, duels), this);
 
         // The figure in the tavern, and the only way a HAND_IN objective can be fulfilled.
         npc = new SpawnNpc(this, config);
         npc.spawn();
-        getServer().getPluginManager().registerEvents(
-                new NpcListener(this, dao, npc, () -> track, engine, identities,
-                        config::wheelExtraSpinPercents, messages, locales, sounds), this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new NpcListener(
+                                this,
+                                dao,
+                                npc,
+                                () -> track,
+                                engine,
+                                identities,
+                                config::wheelExtraSpinPercents,
+                                messages,
+                                locales,
+                                sounds),
+                        this);
         // Separate from NpcListener: that one is what the figure is FOR, this one keeps it
         // standing. Invulnerable survives neither a creative-mode hit nor the void, and the spawn
         // protection covers blocks rather than entities.
         getServer().getPluginManager().registerEvents(new NpcProtection(npc), this);
-        getServer().getPluginManager().registerEvents(
-                new WheelListener(ConfigBoxes.wheelRegions(config), wheel), this);
+        getServer().getPluginManager().registerEvents(new WheelListener(ConfigBoxes.wheelRegions(config), wheel), this);
 
         // Graves outlive a restart, so they are read back once the world is up.
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             final var rows = dao.openGraves();
             Bukkit.getScheduler().runTask(this, () -> graves.restore(rows));
         });
-        getServer().getPluginManager().registerEvents(
-                new ProtectionListener(regions, identities, messages, locales, sounds), this);
-        getServer().getPluginManager().registerEvents(
-                new BalloonListener(balloons, worlds, season, () -> track, messages, locales, sounds,
-                        effects), this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(new ProtectionListener(regions, identities, messages, locales, sounds), this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new BalloonListener(balloons, worlds, season, () -> track, messages, locales, sounds, effects),
+                        this);
         // The balloon a player sees, as opposed to the box they step into: one item display per
         // configured box, wearing the pack's model.
         balloonDisplay = new BalloonDisplay(this, balloons);
         balloonDisplay.spawn();
-        getServer().getPluginManager().registerEvents(
-                new PortalGate(this, worlds, season, messages, locales, sounds), this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(new PortalGate(this, worlds, season, messages, locales, sounds), this);
 
         // One listener for SURFACE_OPEN and SURFACE_CLOSE across every menu this plugin opens. The
         // grave inventory has a null holder and is recognised by identity, hence the predicate.
-        getServer().getPluginManager().registerEvents(
-                new SurfaceListener(sounds, graves::isShowingGrave), this);
+        getServer().getPluginManager().registerEvents(new SurfaceListener(sounds, graves::isShowingGrave), this);
 
         // ---- block 4: the commands ------------------------------------------------------
         //
@@ -506,26 +544,34 @@ public final class SmpPlugin extends JavaPlugin {
         // LISTEN connection - one connection carrying nordtal_admin and nordtal_command.
         final eu.nordtal.s2.common.access.AccessDirectory access =
                 eu.nordtal.s2.common.access.AccessDirectory.using(pool);
-        chatEffects = new BukkitSmpEffects(this, BukkitSmpEffects.async(this), jdbi, dao, engine,
-                identities, access, this::reloadTrack, this::status);
+        chatEffects = new BukkitSmpEffects(
+                this,
+                BukkitSmpEffects.async(this),
+                jdbi,
+                dao,
+                engine,
+                identities,
+                access,
+                this::reloadTrack,
+                this::status);
 
         commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
             final Thread thread = new Thread(task, getName() + "-command-waiter");
             thread.setDaemon(true);
             return thread;
         });
-        outbox = new Outbox(requests, commandWaiter,
-                (message, failure) -> getLogger()
-                        .log(java.util.logging.Level.WARNING, message, failure));
+        outbox = new Outbox(
+                requests,
+                commandWaiter,
+                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
 
         // Built here rather than inside the inbox so /smp reload can replace it; one that never
         // reloaded would answer a Discord admin with the wording this process started with.
         sharedMessages = PaperCommandInbox.sharedBundle(this);
-        final PaperCommandInbox inbox =
-                new PaperCommandInbox(this, Target.SMP, requests, access, sharedMessages);
+        final PaperCommandInbox inbox = new PaperCommandInbox(this, Target.SMP, requests, access, sharedMessages);
         // Inline, on purpose - see the field comment.
-        final SmpEffects inboxEffects = new BukkitSmpEffects(this, Runnable::run, jdbi, dao, engine,
-                identities, access, this::reloadTrack, this::status);
+        final SmpEffects inboxEffects = new BukkitSmpEffects(
+                this, Runnable::run, jdbi, dao, engine, identities, access, this::reloadTrack, this::status);
         SmpCommands.all().forEach(command -> inbox.register(command, inboxEffects));
         inbox.start(this);
 
@@ -534,28 +580,39 @@ public final class SmpPlugin extends JavaPlugin {
         // The command allowlist. The proxy's refusal is the enforcement; this is the half the proxy
         // cannot do - what this server tells a client exists at all. CommandFilter fails OPEN and
         // says so when no list has been published yet.
-        commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(this,
+        commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(
+                this,
                 eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
                         eu.nordtal.s2.common.command.AllowlistDirectory.using(pool)),
-                adminWatch::isAdmin, locales, messages, logger(), () -> colours, sounds::play);
+                adminWatch::isAdmin,
+                locales,
+                messages,
+                logger(),
+                () -> colours,
+                sounds::play);
         getServer().getPluginManager().registerEvents(commandFilter, this);
         commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 
-        adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
+        adminWatch.start(
+                java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
                 config.adminListenEnabled()
-                        ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
-                                databaseHandle.get().username(), databaseHandle.get().password(),
+                        ? new AdminWatch.DatabaseConnection(
+                                databaseHandle.get().jdbcUrl(),
+                                databaseHandle.get().username(),
+                                databaseHandle.get().password(),
                                 databaseHandle.get().queryTimeoutSeconds())
                         : null,
-                java.util.stream.Stream.concat(inbox.refreshes().stream(),
-                        commandFilter.refreshes().stream()).toList(),
-                java.util.stream.Stream.concat(inbox.channels().stream(),
-                        commandFilter.channels().stream()).toList());
+                java.util.stream.Stream.concat(inbox.refreshes().stream(), commandFilter.refreshes().stream())
+                        .toList(),
+                java.util.stream.Stream.concat(inbox.channels().stream(), commandFilter.channels().stream())
+                        .toList());
 
         startHeartbeat();
 
-        getLogger().info("smp enabled - " + track.size() + " milestones, "
-                + regions.all().size() + " protected boxes, " + balloons.all().size() + " balloons");
+        getLogger()
+                .info("smp enabled - " + track.size() + " milestones, "
+                        + regions.all().size() + " protected boxes, "
+                        + balloons.all().size() + " balloons");
     }
 
     /**
@@ -570,8 +627,7 @@ public final class SmpPlugin extends JavaPlugin {
     private void startHeartbeat() {
         final Readiness readiness = Readiness.onDefaultPath(getLogger()::warning);
         final long ticks = Readiness.BEAT.toSeconds() * 20L;
-        heartbeat = getServer().getScheduler()
-                .runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
+        heartbeat = getServer().getScheduler().runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
     }
 
     /**
@@ -647,27 +703,35 @@ public final class SmpPlugin extends JavaPlugin {
 
     /** One disable step, isolated from the next - see {@link eu.nordtal.s2.common.health.Shutdown}. */
     private void quietly(final String what, final Runnable step) {
-        eu.nordtal.s2.common.health.Shutdown.quietly(what, step,
-                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
+        eu.nordtal.s2.common.health.Shutdown.quietly(
+                what, step, (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
     }
 
     private void registerCommands(final SmpSounds sounds) {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final NavigateCommand commands =
-                    new NavigateCommand(this, dao, navigation, identities, messages, locales, sounds,
-                            () -> colours);
+                    new NavigateCommand(this, dao, navigation, identities, messages, locales, sounds, () -> colours);
             // Not folded into :commands: /navigate opens an inventory and /poi add reads the
             // caller's position, so a Discord half of either would be a different command wearing
             // the same name.
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
 
-            SmpCommand.build(this, messages, locales, identities, sounds, outbox, chatEffects,
+            SmpCommand.build(
+                            this,
+                            messages,
+                            locales,
+                            identities,
+                            sounds,
+                            outbox,
+                            chatEffects,
                             // steward-worker is a different container and this is how it is reached:
                             // a row and a notification, never a call.
                             new UpdateWatcher(this, UpdateDirectory.using(pool)),
                             // A supplier and not the field: /smp reload replaces it.
-                            () -> track, season, () -> colours)
+                            () -> track,
+                            season,
+                            () -> colours)
                     .forEach(node -> event.registrar().register(node));
         });
     }
@@ -711,14 +775,16 @@ public final class SmpPlugin extends JavaPlugin {
      * hand has no player standing behind it.
      */
     private void completeWhateverTheNewTargetsAlreadyReach() {
-        dao.activeMilestoneKey().ifPresent(milestoneKey -> dao.objectivesOf(milestoneKey).stream()
-                .filter(row -> !row.completed())
-                .filter(row -> row.amount() >= row.target())
-                .forEach(row -> {
-                    getLogger().info("objective '" + row.key() + "' is already at " + row.amount()
-                            + " of its new target " + row.target() + " - completing it now");
-                    engine.finishObjective(milestoneKey, row, null);
-                }));
+        dao.activeMilestoneKey()
+                .ifPresent(milestoneKey -> dao.objectivesOf(milestoneKey).stream()
+                        .filter(row -> !row.completed())
+                        .filter(row -> row.amount() >= row.target())
+                        .forEach(row -> {
+                            getLogger()
+                                    .info("objective '" + row.key() + "' is already at " + row.amount()
+                                            + " of its new target " + row.target() + " - completing it now");
+                            engine.finishObjective(milestoneKey, row, null);
+                        }));
     }
 
     private List<String> reloadTrack() {
@@ -729,8 +795,9 @@ public final class SmpPlugin extends JavaPlugin {
             sounds.reload(soundsHandle.get());
             getLogger().info("the sounds were reloaded");
         } catch (final ConfigException | RuntimeException exception) {
-            getLogger().severe("the sounds could not be reloaded, the running ones are unchanged: "
-                    + exception.getMessage());
+            getLogger()
+                    .severe("the sounds could not be reloaded, the running ones are unchanged: "
+                            + exception.getMessage());
         }
 
         try {
@@ -738,41 +805,47 @@ public final class SmpPlugin extends JavaPlugin {
             colours = ToneColours.parse(Configs.declared(coloursHandle.get()), getLogger()::warning);
             getLogger().info("the tone colours were reloaded");
         } catch (final ConfigException | RuntimeException exception) {
-            getLogger().severe("the tone colours could not be reloaded, the running ones are "
-                    + "unchanged: " + exception.getMessage());
+            getLogger()
+                    .severe("the tone colours could not be reloaded, the running ones are " + "unchanged: "
+                            + exception.getMessage());
         }
 
         try {
             prestigeHandle.reload();
             prestigeColours = PrestigeColours.parse(
                     Configs.declaredPrestigeTiers(prestigeHandle.get()),
-                    prestigeHandle.get().admin(), getLogger()::warning);
+                    prestigeHandle.get().admin(),
+                    getLogger()::warning);
             // The hours were in config.yml until steward/130 and were therefore read once, at
             // enable. Now that they live beside the colours they reload with them - which is what
             // makes "change a tier, save, look in the game" a sentence somebody can follow.
             prestige = new Prestige(Configs.declaredPrestigeHours(prestigeHandle.get()));
             getLogger().info("the prestige name colours were reloaded");
         } catch (final ConfigException | RuntimeException exception) {
-            getLogger().severe("the prestige name colours could not be reloaded, the running ones "
-                    + "are unchanged: " + exception.getMessage());
+            getLogger()
+                    .severe("the prestige name colours could not be reloaded, the running ones " + "are unchanged: "
+                            + exception.getMessage());
         }
 
         try {
             milestonesHandle.reload();
-            final MilestoneTrack candidate = Milestones.read(milestonesHandle.get()).track();
+            final MilestoneTrack candidate =
+                    Milestones.read(milestonesHandle.get()).track();
 
             // "May this file replace the running one?" - asked against the rows, which is the only
             // place the answer lives: a renamed milestone key orphans everything recorded against
             // it, a changed type carries progress that now means something else, and a completed
             // objective whose target moved rewrites arithmetic already in the aura ledger.
-            final List<TrackValidation.Problem> problems = TrackValidation.validate(candidate,
-                    new StoredProgress(dao.storedMilestones(), dao.storedObjectives()));
+            final List<TrackValidation.Problem> problems = TrackValidation.validate(
+                    candidate, new StoredProgress(dao.storedMilestones(), dao.storedObjectives()));
             if (!problems.isEmpty()) {
-                getLogger().severe("the milestone track was NOT reloaded - the file disagrees with"
-                        + " progress this season has already recorded, and the running track is"
-                        + " unchanged:");
+                getLogger()
+                        .severe("the milestone track was NOT reloaded - the file disagrees with"
+                                + " progress this season has already recorded, and the running track is"
+                                + " unchanged:");
                 problems.forEach(problem -> getLogger().severe("  " + problem));
-                trackProblems = problems.stream().map(TrackValidation.Problem::toString).toList();
+                trackProblems =
+                        problems.stream().map(TrackValidation.Problem::toString).toList();
                 // No early return: the three fail independently, and a milestones.yml somebody is
                 // still fixing must not hold back a corrected message.
             } else {
@@ -784,12 +857,12 @@ public final class SmpPlugin extends JavaPlugin {
                 track = candidate;
                 completeWhateverTheNewTargetsAlreadyReach();
                 Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
-                getLogger().info("the milestone track was reloaded: " + track.size()
-                        + " milestones");
+                getLogger().info("the milestone track was reloaded: " + track.size() + " milestones");
             }
         } catch (final ConfigException | RuntimeException exception) {
-            getLogger().severe("the milestone track could not be reloaded, the running one is "
-                    + "unchanged: " + exception.getMessage());
+            getLogger()
+                    .severe("the milestone track could not be reloaded, the running one is " + "unchanged: "
+                            + exception.getMessage());
         }
 
         // The wording is reloaded in the same breath and reported separately, because the two fail
@@ -805,8 +878,9 @@ public final class SmpPlugin extends JavaPlugin {
             reportUnknownOverrides();
             getLogger().info("the message bundles were reloaded");
         } catch (final RuntimeException exception) {
-            getLogger().severe("the messages could not be reloaded, the running ones are "
-                    + "unchanged: " + exception.getMessage());
+            getLogger()
+                    .severe("the messages could not be reloaded, the running ones are " + "unchanged: "
+                            + exception.getMessage());
         }
 
         return trackProblems;
@@ -819,9 +893,10 @@ public final class SmpPlugin extends JavaPlugin {
      * a line that does not change and no error anywhere.
      */
     private void reportUnknownOverrides() {
-        messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
-                "the message override names " + key + ", which no bundle declares - it is stored"
-                        + " and never used; check the spelling"));
+        messages.unknownOverrideKeys()
+                .forEach(key -> getLogger()
+                        .warning("the message override names " + key + ", which no bundle declares - it is stored"
+                                + " and never used; check the spelling"));
     }
 
     /**
@@ -835,12 +910,15 @@ public final class SmpPlugin extends JavaPlugin {
      * read of {@code season_phase}, and the effects only ever call this from their executor.
      */
     private eu.nordtal.s2.smp.command.Standing.Status status(final java.util.Locale locale) {
-        final String phase = eu.nordtal.s2.common.phase.PhaseDirectory.using(pool).currentPhase().name();
+        final String phase = eu.nordtal.s2.common.phase.PhaseDirectory.using(pool)
+                .currentPhase()
+                .name();
         final SeasonState.Active active = season.active();
-        final java.util.Optional<String> milestone = active.key() == null ? java.util.Optional.empty()
+        final java.util.Optional<String> milestone = active.key() == null
+                ? java.util.Optional.empty()
                 : java.util.Optional.of(MilestoneNames.of(messages, locale, active.key()));
-        return new eu.nordtal.s2.smp.command.Standing.Status(phase, !active.unread(), milestone, (int) Math.round(active.progress() * 100),
-                online);
+        return new eu.nordtal.s2.smp.command.Standing.Status(
+                phase, !active.unread(), milestone, (int) Math.round(active.progress() * 100), online);
     }
 
     /**
@@ -875,8 +953,8 @@ public final class SmpPlugin extends JavaPlugin {
             for (final Milestone milestone : definition.milestones()) {
                 transactional.ensureMilestone(milestone.key(), MilestoneState.LOCKED.name());
                 for (final eu.nordtal.s2.smp.milestone.Objective objective : milestone.objectives()) {
-                    transactional.ensureObjective(milestone.key(), objective.key(),
-                            objective.type().name(), objective.target());
+                    transactional.ensureObjective(
+                            milestone.key(), objective.key(), objective.type().name(), objective.target());
                 }
             }
         });
@@ -892,9 +970,10 @@ public final class SmpPlugin extends JavaPlugin {
             if (diameter > 0) {
                 worlds.expandNordtal(diameter, false);
             }
-            getLogger().info("season state: " + completed.size() + " milestones complete, unlocks "
-                    + season.unlocked() + ", Nordtal's border "
-                    + (diameter > 0 ? String.valueOf(diameter) : "untouched"));
+            getLogger()
+                    .info("season state: " + completed.size() + " milestones complete, unlocks "
+                            + season.unlocked() + ", Nordtal's border "
+                            + (diameter > 0 ? String.valueOf(diameter) : "untouched"));
         });
     }
 
@@ -911,18 +990,20 @@ public final class SmpPlugin extends JavaPlugin {
     private String checkNordtalBalloon(final SmpSpec config, final Boxes balloons) {
         final List<Box> inNordtal = balloons.in(config.worldNordtal());
         if (inNordtal.isEmpty()) {
-            return "no balloon is configured in '" + config.worldNordtal() + "', so nobody could "
-                    + "ever leave it.";
+            return "no balloon is configured in '" + config.worldNordtal() + "', so nobody could " + "ever leave it.";
         }
         for (final Box box : inNordtal) {
             final double distance = box.horizontalDistanceFrom(config.borderCentreX(), config.borderCentreZ());
             if (distance <= 10.0 || distance >= 21.5) {
-                return String.format(Locale.ROOT,
+                return String.format(
+                        Locale.ROOT,
                         "Nordtal's balloon sits at radius %.1f of the border centre %d/%d. It has to "
                                 + "be outside 10 and inside 21.5, because that is what makes border "
                                 + "20 withhold travel and the opening expansion to 43 hand it "
                                 + "over.",
-                        distance, config.borderCentreX(), config.borderCentreZ());
+                        distance,
+                        config.borderCentreX(),
+                        config.borderCentreZ());
             }
         }
         return null;
@@ -951,6 +1032,4 @@ public final class SmpPlugin extends JavaPlugin {
     private Logger logger() {
         return LoggerFactory.getLogger(getClass());
     }
-
-
 }

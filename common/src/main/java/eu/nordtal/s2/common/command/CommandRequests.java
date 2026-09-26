@@ -1,10 +1,8 @@
 package eu.nordtal.s2.common.command;
 
 import eu.nordtal.s2.common.audit.AuditLine;
-
-import javax.sql.DataSource;
-
 import java.util.Optional;
+import javax.sql.DataSource;
 
 /**
  * The inbox every process shares: one admin command, addressed to the JVM that can carry it out.

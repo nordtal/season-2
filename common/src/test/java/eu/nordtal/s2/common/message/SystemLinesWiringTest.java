@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.message;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -20,9 +19,8 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That both Paper servers with players on them actually write the five system lines.
@@ -60,9 +58,8 @@ class SystemLinesWiringTest {
     private static final String BUNDLE = "paper-common/src/main/resources/messages/paper-common";
 
     /** Every key {@code SystemLines} names. A missing one reaches a player as the key itself. */
-    private static final List<String> KEYS = List.of(
-            "system.chat.line", "system.join", "system.leave", "system.death",
-            "system.advancement");
+    private static final List<String> KEYS =
+            List.of("system.chat.line", "system.join", "system.leave", "system.death", "system.advancement");
 
     /** {@code {name}} - a value substituted before the MiniMessage is parsed, and escaped. */
     private static final Pattern PARAMETER = Pattern.compile("\\{([a-zA-Z][a-zA-Z0-9]*)}");
@@ -113,10 +110,10 @@ class SystemLinesWiringTest {
             assertTrue(english.containsKey(key), "messages/paper-common/en.properties has no " + key);
             assertTrue(german.containsKey(key), "messages/paper-common/de.properties has no " + key);
         }
-        assertEquals(new TreeSet<>(english.stringPropertyNames()),
+        assertEquals(
+                new TreeSet<>(english.stringPropertyNames()),
                 new TreeSet<>(german.stringPropertyNames()),
-                "the two languages declare different keys, so one of them reaches somebody as the"
-                        + " key itself");
+                "the two languages declare different keys, so one of them reaches somebody as the" + " key itself");
     }
 
     @Test
@@ -134,7 +131,9 @@ class SystemLinesWiringTest {
                 wrong.add(key + ": en " + left + " vs de " + right);
             }
         }
-        assertEquals(List.of(), wrong,
+        assertEquals(
+                List.of(),
+                wrong,
                 "a parameter or a component slot in one language and not the other is either a"
                         + " printed {placeholder} or, for a slot, silence where a name should be");
     }
@@ -155,8 +154,7 @@ class SystemLinesWiringTest {
     private static Properties load(final String language) {
         final Properties properties = new Properties();
         final Path file = RepositoryRoot.resolve(BUNDLE + "/" + language + ".properties");
-        try (Reader reader = new InputStreamReader(Files.newInputStream(file),
-                StandardCharsets.UTF_8)) {
+        try (Reader reader = new InputStreamReader(Files.newInputStream(file), StandardCharsets.UTF_8)) {
             properties.load(reader);
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + file, e);
@@ -165,8 +163,9 @@ class SystemLinesWiringTest {
     }
 
     private static String read(final Path source) {
-        assertTrue(Files.isRegularFile(source), source + " no longer exists - a missing file is a"
-                + " check that silently stops running");
+        assertTrue(
+                Files.isRegularFile(source),
+                source + " no longer exists - a missing file is a" + " check that silently stops running");
         try {
             return Files.readString(source, StandardCharsets.UTF_8);
         } catch (final IOException e) {

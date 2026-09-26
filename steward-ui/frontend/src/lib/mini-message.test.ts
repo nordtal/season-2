@@ -8,7 +8,11 @@ function seen(source: string, args: MessageArg[] = []) {
   return previewSegments(source, args).map((segment) =>
     segment.kind === "placeholder"
       ? `{${segment.name}}`
-      : [segment.text, segment.colour ?? "", [segment.bold && "b", segment.italic && "i", segment.underlined && "u"].filter(Boolean).join("")].join("|"),
+      : [
+          segment.text,
+          segment.colour ?? "",
+          [segment.bold && "b", segment.italic && "i", segment.underlined && "u"].filter(Boolean).join(""),
+        ].join("|"),
   )
 }
 
@@ -32,11 +36,18 @@ describe("previewSegments", () => {
   })
 
   it("draws the declared placeholders, braced and component, as placeholders", () => {
-    expect(seen("<white>{world}</white> by <_player>", [{ name: "world", component: false }, { name: "_player", component: true }])).toEqual(["{world}", " by ||", "{player}"])
+    expect(
+      seen("<white>{world}</white> by <_player>", [
+        { name: "world", component: false },
+        { name: "_player", component: true },
+      ]),
+    ).toEqual(["{world}", " by ||", "{player}"])
   })
 
   it("draws a role's property as one placeholder, dot and all", () => {
-    expect(seen("{winner.name} won", [{ name: "winner.name", component: false, type: "player", global: false }])).toEqual(["{winner.name}", " won||"])
+    expect(
+      seen("{winner.name} won", [{ name: "winner.name", component: false, type: "player", global: false }]),
+    ).toEqual(["{winner.name}", " won||"])
   })
 
   it("leaves an undeclared brace as text", () => {

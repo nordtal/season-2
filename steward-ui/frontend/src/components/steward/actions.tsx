@@ -1,4 +1,3 @@
-
 import {
   ArchiveIcon,
   ArrowClockwiseIcon,
@@ -126,11 +125,7 @@ export function ActionRow({
           {!action ? (
             <SkeletonText className="w-32 text-xs" />
           ) : (
-            <Actor
-              system={action.system}
-              discordId={action.actorDiscordId}
-              label={action.actorLabel || "console"}
-            />
+            <Actor system={action.system} discordId={action.actorDiscordId} label={action.actorLabel || "console"} />
           )}
           {action ? (
             <>

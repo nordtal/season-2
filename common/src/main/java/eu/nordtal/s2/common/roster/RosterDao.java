@@ -1,11 +1,10 @@
 package eu.nordtal.s2.common.roster;
 
+import java.util.List;
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
-
-import java.util.List;
-import java.util.Optional;
 
 /**
  * The whole SQL surface of the roster, as a JDBI SqlObject interface. Package-private on purpose:

@@ -28,27 +28,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
  * itself has no picture for, answers with the field simply absent - the initials fallback below is
  * that same case, not a degraded one.
  */
-export function UserAvatar({
-  me,
-  url,
-  className,
-}: {
-  me: Me | undefined
-  url?: string
-  className?: string
-}) {
+export function UserAvatar({ me, url, className }: { me: Me | undefined; url?: string; className?: string }) {
   const [broken, setBroken] = useState(false)
   const size = className ?? "size-control"
 
   if (url && !broken) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- this is not Next.js
-      <img
-        src={url}
-        alt=""
-        onError={() => setBroken(true)}
-        className={`${size} shrink-0 rounded-full object-cover`}
-      />
+      <img src={url} alt="" onError={() => setBroken(true)} className={`${size} shrink-0 rounded-full object-cover`} />
     )
   }
 
@@ -114,17 +101,12 @@ export function UserMenu({
           thing in here that can be long, and they truncate rather than pushing the two buttons
           beside them off the edge.
         */}
-        <PopoverContent
-          align={align}
-          className="flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-3"
-        >
+        <PopoverContent align={align} className="flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-3">
           <div className="flex items-center gap-2">
             <UserAvatar me={me} url={me?.discordAvatarUrl} className="size-8" />
             <div className="flex min-w-0 flex-col">
               <span className="truncate text-sm font-medium">{me?.name ?? "unknown"}</span>
-              <span className="truncate font-mono text-xs text-muted-foreground">
-                Discord {me?.id ?? "–"}
-              </span>
+              <span className="truncate font-mono text-xs text-muted-foreground">Discord {me?.id ?? "–"}</span>
             </div>
           </div>
 

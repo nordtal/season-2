@@ -1,18 +1,15 @@
 package eu.nordtal.s2.commands.update;
 
-import eu.nordtal.s2.commands.FakeUser;
-import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.update.UpdateKind;
-import eu.nordtal.s2.common.update.UpdateSource;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+
+import eu.nordtal.s2.commands.FakeUser;
+import eu.nordtal.s2.common.update.UpdateKind;
+import eu.nordtal.s2.common.update.UpdateSource;
+import java.time.Duration;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The row says who asked and from where, and it says it from the user - not from a constant each
@@ -21,8 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class DirectoryUpdateEffectsTest {
 
     private final FakeUpdateDirectory directory = new FakeUpdateDirectory();
-    private final DirectoryUpdateEffects effects = new DirectoryUpdateEffects(directory,
-            Runnable::run, (what, failure) -> { }, (id, user) -> { });
+    private final DirectoryUpdateEffects effects =
+            new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> {}, (id, user) -> {});
 
     @Test
     @DisplayName("a player is GAME and recorded by name")
@@ -63,9 +60,11 @@ class DirectoryUpdateEffectsTest {
         effects.submit(UpdateKind.UPDATE, FakeUser.inGame());
         effects.submit(UpdateKind.RESTART, FakeUser.inGame());
 
-        assertEquals(List.of(Duration.ZERO, Duration.ZERO, Duration.ZERO),
+        assertEquals(
+                List.of(Duration.ZERO, Duration.ZERO, Duration.ZERO),
                 directory.submitted.stream()
-                        .map(FakeUpdateDirectory.Submitted::delay).toList(),
+                        .map(FakeUpdateDirectory.Submitted::delay)
+                        .toList(),
                 "the countdown is UpdateDirectory#startCountdown's, on the row the worker has"
                         + " claimed and resolved");
     }

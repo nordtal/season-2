@@ -1,14 +1,13 @@
 package eu.nordtal.s2.steward.worker.schema;
 
-import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
+import javax.sql.DataSource;
+import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * "Exactly one steward-worker is moving jars right now", held by PostgreSQL.
@@ -59,11 +58,9 @@ public final class RunLock implements AutoCloseable {
      *         and the second one has a stale plan by the time it starts
      * @throws SQLException if the database could not be asked
      */
-    public static @NotNull Optional<RunLock> tryAcquire(final @NotNull DataSource dataSource)
-            throws SQLException {
+    public static @NotNull Optional<RunLock> tryAcquire(final @NotNull DataSource dataSource) throws SQLException {
         final Connection connection = dataSource.getConnection();
-        try (PreparedStatement statement =
-                     connection.prepareStatement("SELECT pg_try_advisory_lock(?)")) {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT pg_try_advisory_lock(?)")) {
             statement.setLong(1, KEY);
             try (ResultSet result = statement.executeQuery()) {
                 if (result.next() && result.getBoolean(1)) {
@@ -83,13 +80,13 @@ public final class RunLock implements AutoCloseable {
     public void close() {
         // Unlocking explicitly rather than relying on the close: the connection goes back to a
         // pool, and a pool that reuses the session would otherwise carry the lock with it.
-        try (PreparedStatement statement =
-                     connection.prepareStatement("SELECT pg_advisory_unlock(?)")) {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT pg_advisory_unlock(?)")) {
             statement.setLong(1, KEY);
             statement.execute();
         } catch (final SQLException failure) {
-            log.warn("Could not release the steward-worker lock cleanly; it goes away with the"
-                    + " connection", failure);
+            log.warn(
+                    "Could not release the steward-worker lock cleanly; it goes away with the" + " connection",
+                    failure);
         }
         close(connection);
     }

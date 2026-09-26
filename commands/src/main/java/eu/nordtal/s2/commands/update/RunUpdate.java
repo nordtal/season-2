@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.update;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -9,9 +11,6 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
-
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /update now} and {@code /update restart} - the two that take servers away.
@@ -38,8 +37,7 @@ public final class RunUpdate implements NordtalCommand<UpdateEffects> {
 
     @Override
     public void run(final NordtalUser user, final Values values, final UpdateEffects effects) {
-        final UpdateKind kind = declaration == UpdateCommands.RESTART
-                ? UpdateKind.RESTART : UpdateKind.UPDATE;
+        final UpdateKind kind = declaration == UpdateCommands.RESTART ? UpdateKind.RESTART : UpdateKind.UPDATE;
 
         effects.async(() -> {
             try {
@@ -53,8 +51,10 @@ public final class RunUpdate implements NordtalCommand<UpdateEffects> {
                 // row; the worker can still find nothing to do, or refuse the run before any
                 // countdown. update.started already words it conditionally ("if there is
                 // anything"), so only the tone was overclaiming.
-                user.reply(MESSAGES.update().started(UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
-                        Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
+                user.reply(
+                        MESSAGES.update().started(UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
+                        Feedback.SMALL_SUCCESS,
+                        Tone.NEUTRAL);
             } catch (final RunRefused refused) {
                 user.reply(Refusals.of(refused), Feedback.REFUSED, Tone.BAD);
             } catch (final RuntimeException failure) {

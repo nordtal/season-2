@@ -1,12 +1,11 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link RawSyntax} - the raw editor's save-time warning, never a refusal (steward/60).
@@ -24,8 +23,7 @@ class RawSyntaxTest {
         assertEquals(RawSyntax.Format.YAML, RawSyntax.formatOf("smp/smp/config.yaml"));
         assertEquals(RawSyntax.Format.JSON, RawSyntax.formatOf("spark/config.json"));
         assertEquals(RawSyntax.Format.TOML, RawSyntax.formatOf("some/plugin/settings.toml"));
-        assertEquals(RawSyntax.Format.PROPERTIES,
-                RawSyntax.formatOf("voice-chat/voicechat-server.properties"));
+        assertEquals(RawSyntax.Format.PROPERTIES, RawSyntax.formatOf("voice-chat/voicechat-server.properties"));
         assertEquals(RawSyntax.Format.TEXT, RawSyntax.formatOf("plugins/README.txt"));
         assertEquals(RawSyntax.Format.TEXT, RawSyntax.formatOf("no-extension-at-all"));
     }
@@ -62,7 +60,8 @@ class RawSyntaxTest {
     @Test
     @DisplayName("a YAML file whose root is not a mapping is named too")
     void nonMappingRootIsNamed() {
-        final RawSyntax.Warning warning = RawSyntax.check("a.yml", "- one\n- two\n").orElseThrow();
+        final RawSyntax.Warning warning =
+                RawSyntax.check("a.yml", "- one\n- two\n").orElseThrow();
         assertEquals(1, warning.line());
         assertTrue(warning.sentence().contains("set of keys"), warning.sentence());
     }
@@ -100,15 +99,15 @@ class RawSyntaxTest {
     @Test
     @DisplayName("ordinary properties text gets no warning")
     void ordinaryPropertiesIsSilent() {
-        assertEquals(Optional.empty(),
-                RawSyntax.check("a.properties", "one=1\ntwo=two\n# a comment\nthree: 3\n"));
+        assertEquals(Optional.empty(), RawSyntax.check("a.properties", "one=1\ntwo=two\n# a comment\nthree: 3\n"));
     }
 
     @Test
     @DisplayName("a malformed unicode escape names its line")
     void malformedUnicodeEscapeNamesTheLine() {
         final String content = "one=1\ntwo=\\uZZZZ\nthree=3\n";
-        final RawSyntax.Warning warning = RawSyntax.check("a.properties", content).orElseThrow();
+        final RawSyntax.Warning warning =
+                RawSyntax.check("a.properties", content).orElseThrow();
         assertEquals(2, warning.line(), warning.sentence());
         assertTrue(warning.sentence().contains("uXXXX"), warning.sentence());
     }

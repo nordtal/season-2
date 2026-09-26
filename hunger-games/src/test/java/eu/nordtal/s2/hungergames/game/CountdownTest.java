@@ -1,11 +1,10 @@
 package eu.nordtal.s2.hungergames.game;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class CountdownTest {
 
@@ -46,8 +45,7 @@ class CountdownTest {
     void everyMarkIsStrictlyDescendingAndPositive() {
         final List<Integer> marks = Countdown.marks(60);
         for (int index = 1; index < marks.size(); index++) {
-            assertTrue(marks.get(index) < marks.get(index - 1),
-                    "mark " + index + " is not below its predecessor");
+            assertTrue(marks.get(index) < marks.get(index - 1), "mark " + index + " is not below its predecessor");
         }
         assertTrue(marks.stream().allMatch(mark -> mark > 0));
     }

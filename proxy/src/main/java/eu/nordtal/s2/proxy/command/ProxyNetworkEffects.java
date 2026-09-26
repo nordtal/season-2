@@ -1,13 +1,10 @@
 package eu.nordtal.s2.proxy.command;
 
 import com.velocitypowered.api.proxy.ProxyServer;
-
 import eu.nordtal.s2.commands.network.NetworkEffects;
 import eu.nordtal.s2.common.message.Messages;
-
-import org.slf4j.Logger;
-
 import java.util.concurrent.Executor;
+import org.slf4j.Logger;
 
 /**
  * {@link NetworkEffects} against this proxy.
@@ -29,8 +26,8 @@ public final class ProxyNetworkEffects implements NetworkEffects {
      *                 same files, so a reload that moved only one of them would leave a command
      *                 answering differently in chat and in Discord
      */
-    public ProxyNetworkEffects(final Executor executor, final Messages messages,
-                               final Messages shared, final Logger logger) {
+    public ProxyNetworkEffects(
+            final Executor executor, final Messages messages, final Messages shared, final Logger logger) {
         this.executor = executor;
         this.messages = messages;
         this.shared = shared;
@@ -60,13 +57,14 @@ public final class ProxyNetworkEffects implements NetworkEffects {
             // deliberately not reported: it holds one root, so a key this module declares would be
             // named as unknown by it and is not.
             shared.reload();
-            messages.unknownOverrideKeys().forEach(unknown -> logger.warn(
-                    "the message override names {}, which no bundle declares - it is stored and"
-                            + " never used; check the spelling", unknown));
+            messages.unknownOverrideKeys()
+                    .forEach(unknown -> logger.warn(
+                            "the message override names {}, which no bundle declares - it is stored and"
+                                    + " never used; check the spelling",
+                            unknown));
             return true;
         } catch (final RuntimeException failure) {
-            logger.error("the messages could not be reloaded, the running ones are unchanged",
-                    failure);
+            logger.error("the messages could not be reloaded, the running ones are unchanged", failure);
             return false;
         }
     }

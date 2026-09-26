@@ -1,14 +1,13 @@
 package eu.nordtal.s2.hungergames.listener;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That a body's death reaches the kill feed, and that both sentences exist to reach it with.
@@ -30,21 +29,26 @@ class BodyDeathIsAnnouncedTest {
     @Test
     @DisplayName("a body's death is announced, from the handler that books it")
     void theMarkerDeathAnnounces() throws IOException {
-        final String source = read("hunger-games/src/main/java/eu/nordtal/s2/hungergames/"
-                + "listener/CombatListener.java");
+        final String source =
+                read("hunger-games/src/main/java/eu/nordtal/s2/hungergames/" + "listener/CombatListener.java");
 
         final int marker = source.indexOf("public void onMarkerDeath");
-        assertTrue(marker > 0, "onMarkerDeath is gone - if it was renamed, this test moves with it,"
-                + " because a check that cannot find its subject silently stops running");
+        assertTrue(
+                marker > 0,
+                "onMarkerDeath is gone - if it was renamed, this test moves with it,"
+                        + " because a check that cannot find its subject silently stops running");
 
         // Ends at the helper's DECLARATION, not at the next method: the declaration contains the
         // string this test searches for, so a slice that reaches past it goes green even when
         // onMarkerDeath has stopped calling it - the same way an indexOf of -1 does.
         final int helper = source.indexOf("private void announceBodyDeath");
-        assertTrue(helper > marker, "announceBodyDeath is gone or has moved above onMarkerDeath;"
-                + " this test brackets the handler and needs the helper below it");
+        assertTrue(
+                helper > marker,
+                "announceBodyDeath is gone or has moved above onMarkerDeath;"
+                        + " this test brackets the handler and needs the helper below it");
         final String body = source.substring(marker, helper);
-        assertTrue(body.contains("announceBodyDeath("),
+        assertTrue(
+                body.contains("announceBodyDeath("),
                 "onMarkerDeath books the death without announcing it. That is the state this file"
                         + " was in until 2026-09-09: the sound plays, the roster updates, the body"
                         + " disappears, and the kill feed says nothing at all.");
@@ -53,9 +57,9 @@ class BodyDeathIsAnnouncedTest {
     @Test
     @DisplayName("the two sentences are two, because 'by nobody' is not a sentence")
     void bothKeysExistInBothLanguages() throws IOException {
-        for (final String language : new String[]{"en", "de"}) {
-            final String bundle = read("hunger-games/src/main/resources/messages/hunger-games/"
-                    + language + ".properties");
+        for (final String language : new String[] {"en", "de"}) {
+            final String bundle =
+                    read("hunger-games/src/main/resources/messages/hunger-games/" + language + ".properties");
             // Two keys rather than one with an empty slot: a body that fell to the border and a body
             // somebody killed are different sentences, and no bundle can make that choice for the
             // caller with a placeholder that is sometimes blank.

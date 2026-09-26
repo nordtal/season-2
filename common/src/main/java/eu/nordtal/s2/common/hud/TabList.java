@@ -3,11 +3,9 @@ package eu.nordtal.s2.common.hud;
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
-
-import net.kyori.adventure.text.Component;
-
 import java.util.Locale;
 import java.util.function.Function;
+import net.kyori.adventure.text.Component;
 
 /**
  * The tab list's header and footer, composed once for every server on the network.
@@ -36,8 +34,7 @@ import java.util.function.Function;
  */
 public final class TabList {
 
-    private TabList() {
-    }
+    private TabList() {}
 
     /**
      * @param messages the renderer; the keys are MiniMessage, so this is not {@code Messages}
@@ -45,9 +42,8 @@ public final class TabList {
      * @param header   the server's own header message, given the logo
      * @return the header, with the logo glyph substituted
      */
-    public static Component header(final MessageRenderer messages, final Locale locale,
-                                   final Function<Object, MessageRef> header) {
+    public static Component header(
+            final MessageRenderer messages, final Locale locale, final Function<Object, MessageRef> header) {
         return messages.format(locale, header.apply(Glyphs.LOGO_HEIGHT_32));
     }
-
 }

@@ -1,5 +1,8 @@
 package eu.nordtal.s2.commands;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.hungergames.StartGame;
@@ -7,16 +10,11 @@ import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.commands.phase.PhaseEffects;
 import eu.nordtal.s2.commands.phase.SetPhase;
 import eu.nordtal.s2.common.message.MessageRef;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link NordtalCommand#check}: the generic argument checks, and how they meet a command's own.
@@ -40,8 +38,8 @@ class ChoiceCheckTest {
     @Test
     @DisplayName("a value that is not one of the declared choices names itself and the list")
     void anUnknownChoiceIsRefused() {
-        final Optional<MessageRef> problem = START.check(
-                new Values(HungerGamesCommands.START, Map.of("confirm", "yes")));
+        final Optional<MessageRef> problem =
+                START.check(new Values(HungerGamesCommands.START, Map.of("confirm", "yes")));
 
         assertTrue(problem.isPresent(), "/hg start yes was accepted as a confirmation");
         assertEquals("command.not-a-choice", problem.get().key());
@@ -64,14 +62,15 @@ class ChoiceCheckTest {
         // /phase set takes a CHOICE over the phase names, so its own problem() and this one look at
         // the same argument. Both have to fire, and the generic one first: SetPhase#problem is what
         // produces phase.unknown, and it would never be reached for a value the choices refuse.
-        final Optional<MessageRef> problem =
-                SET.check(new Values(PhaseCommands.SET, Map.of("phase", "NOT_A_PHASE")));
+        final Optional<MessageRef> problem = SET.check(new Values(PhaseCommands.SET, Map.of("phase", "NOT_A_PHASE")));
 
         assertTrue(problem.isPresent());
         assertEquals("command.not-a-choice", problem.get().key());
 
         for (final String phase : List.of("SMP", "MAINTENANCE")) {
-            assertTrue(SET.check(new Values(PhaseCommands.SET, Map.of("phase", phase))).isEmpty(),
+            assertTrue(
+                    SET.check(new Values(PhaseCommands.SET, Map.of("phase", phase)))
+                            .isEmpty(),
                     phase + " is a declared choice and was refused");
         }
     }
@@ -83,13 +82,14 @@ class ChoiceCheckTest {
         // SetPhase#parse compares phase names case-insensitively. The generic check that replaced
         // that adapter briefly refused it, on the one command an admin runs while the network is
         // already misbehaving.
-        assertTrue(SET.check(new Values(PhaseCommands.SET, Map.of("phase", "maintenance"))).isEmpty(),
+        assertTrue(
+                SET.check(new Values(PhaseCommands.SET, Map.of("phase", "maintenance")))
+                        .isEmpty(),
                 "a lowercase phase name was refused");
 
         // And what the command reads is the DECLARED spelling, so it can compare against its own
         // constants without every command remembering to be lenient.
-        assertEquals("MAINTENANCE",
-                new Values(PhaseCommands.SET, Map.of("phase", "MaInTeNaNcE")).string("phase"));
+        assertEquals("MAINTENANCE", new Values(PhaseCommands.SET, Map.of("phase", "MaInTeNaNcE")).string("phase"));
     }
 
     @Test
@@ -97,8 +97,7 @@ class ChoiceCheckTest {
     void anUnknownValueIsNotNormalised() {
         // The refusal names it, so it has to survive unchanged - normalising would be normalising
         // toward something it is not.
-        final Optional<MessageRef> problem =
-                SET.check(new Values(PhaseCommands.SET, Map.of("phase", "MaIntenanz")));
+        final Optional<MessageRef> problem = SET.check(new Values(PhaseCommands.SET, Map.of("phase", "MaIntenanz")));
         assertTrue(problem.isPresent());
         assertEquals("MaIntenanz", problem.get().args().get("typed"));
     }
@@ -113,7 +112,8 @@ class ChoiceCheckTest {
                 if (argument.kind() != Argument.Kind.CHOICE) {
                     continue;
                 }
-                assertTrue(!argument.choices().isEmpty(),
+                assertTrue(
+                        !argument.choices().isEmpty(),
                         declaration.name() + ": '" + argument.name() + "' offers nothing");
             }
         }

@@ -1,8 +1,24 @@
 package eu.nordtal.s2.common.access;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.PlayerLocales;
-
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,24 +28,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Locale;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Exercises {@link AccessDirectory} against a real PostgreSQL instance running the real migration.
@@ -58,7 +56,8 @@ class AccessDirectoryIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed access tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -109,8 +108,7 @@ class AccessDirectoryIntegrationTest {
 
     /** Announces when paid access starts running - {@code V9__smp_start.sql}, set by hand in life. */
     private static void smpStartsIn(final Duration fromNow) {
-        execute("UPDATE season_phase SET smp_start = now() + interval '"
-                + fromNow.toSeconds() + " seconds' WHERE id");
+        execute("UPDATE season_phase SET smp_start = now() + interval '" + fromNow.toSeconds() + " seconds' WHERE id");
     }
 
     // ---------------------------------------------------------------- appending
@@ -311,7 +309,9 @@ class AccessDirectoryIntegrationTest {
         directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
         directory.link(DISCORD_ID, MC_UUID);
 
-        assertEquals(2, directory.revokeAccess(DISCORD_ID),
+        assertEquals(
+                2,
+                directory.revokeAccess(DISCORD_ID),
                 "a revoke that left the appended tail behind would report access as active later");
         assertFalse(directory.accessState(MC_UUID).accessActive());
     }
@@ -397,7 +397,9 @@ class AccessDirectoryIntegrationTest {
         phase(SeasonPhase.START_EVENT);
 
         assertEquals(SeasonPhase.START_EVENT, directory.accessState(MC_UUID).phase());
-        assertEquals(SeasonPhase.START_EVENT, directory.accessState(UUID.randomUUID()).phase(),
+        assertEquals(
+                SeasonPhase.START_EVENT,
+                directory.accessState(UUID.randomUUID()).phase(),
                 "an unlinked UUID still has to learn the phase - the disconnect screen depends on it");
     }
 
@@ -423,7 +425,8 @@ class AccessDirectoryIntegrationTest {
 
         for (final SeasonPhase each : SeasonPhase.values()) {
             phase(each);
-            assertFalse(directory.accessState(stranger).mayJoin(),
+            assertFalse(
+                    directory.accessState(stranger).mayJoin(),
                     "linking is the one requirement no phase waives, and " + each + " is no exception");
         }
     }
@@ -437,7 +440,8 @@ class AccessDirectoryIntegrationTest {
 
         for (final SeasonPhase each : SeasonPhase.values()) {
             phase(each);
-            assertFalse(directory.accessState(MC_UUID).mayJoin(),
+            assertFalse(
+                    directory.accessState(MC_UUID).mayJoin(),
                     "a ban outranks paid access and the admin flag, in " + each);
         }
     }
@@ -453,7 +457,8 @@ class AccessDirectoryIntegrationTest {
         directory.link(DISCORD_ID, MC_UUID);
         phase(SeasonPhase.MAINTENANCE);
 
-        assertTrue(directory.accessState(MC_UUID).mayJoin(),
+        assertTrue(
+                directory.accessState(MC_UUID).mayJoin(),
                 "a linked member is let in during maintenance and then routed to limbo");
 
         directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
@@ -469,7 +474,8 @@ class AccessDirectoryIntegrationTest {
         setAdmin(DISCORD_ID, true);
 
         phase(SeasonPhase.MAINTENANCE);
-        assertTrue(directory.accessState(MC_UUID).mayJoin(),
+        assertTrue(
+                directory.accessState(MC_UUID).mayJoin(),
                 "an admin gets in during maintenance - as does everybody else, since 2026-08-31");
 
         // Reversed 2026-09-05. This asserted the opposite - "the admin flag is not a free access
@@ -477,10 +483,10 @@ class AccessDirectoryIntegrationTest {
         // disconnected by the switch they had just confirmed. The owner decided the flag is a free
         // pass; the same query, read against the real row, is what has to say so.
         phase(SeasonPhase.SMP);
-        assertTrue(directory.accessState(MC_UUID).mayJoin(),
-                "the admin flag is an access period since 2026-09-05");
+        assertTrue(directory.accessState(MC_UUID).mayJoin(), "the admin flag is an access period since 2026-09-05");
         setAdmin(DISCORD_ID, false);
-        assertFalse(directory.accessState(MC_UUID).mayJoin(),
+        assertFalse(
+                directory.accessState(MC_UUID).mayJoin(),
                 "and losing the role loses the pass, with nothing bought underneath it");
     }
 
@@ -551,7 +557,9 @@ class AccessDirectoryIntegrationTest {
         assertEquals(Locale.ENGLISH, directory.locale(MC_UUID), "the column defaults to 'en'");
 
         directory.setLocale(DISCORD_ID, Locale.GERMANY);
-        assertEquals(Locale.GERMAN, directory.locale(MC_UUID),
+        assertEquals(
+                Locale.GERMAN,
+                directory.locale(MC_UUID),
                 "only the language is stored, so de-DE and de-AT are one bundle");
     }
 
@@ -566,7 +574,8 @@ class AccessDirectoryIntegrationTest {
     void nobodyIsAnAdminUntilTheMirrorSaysSo() {
         directory.link(DISCORD_ID, MC_UUID);
 
-        assertFalse(directory.accessState(MC_UUID).admin(),
+        assertFalse(
+                directory.accessState(MC_UUID).admin(),
                 "the column defaults to false - a user the mirror has never run for is not an admin");
     }
 
@@ -577,9 +586,10 @@ class AccessDirectoryIntegrationTest {
 
         final AccessState state = directory.accessState(MC_UUID);
 
-        assertTrue(state.admin(),
-                "this is what MAINTENANCE and the proxy's emergency /phase command are authorised by");
-        assertTrue(state.mayJoin(),
+        assertTrue(
+                state.admin(), "this is what MAINTENANCE and the proxy's emergency /phase command are authorised by");
+        assertTrue(
+                state.mayJoin(),
                 "and since 2026-09-05 it is also an access period: the seeded phase is PRE_LAUNCH, "
                         + "where the flag is the admission rule, and in SMP it stands in for a grant");
     }
@@ -708,7 +718,8 @@ class AccessDirectoryIntegrationTest {
         // own, distinct Minecraft account. The lookup below is keyed on discordId, never on the name
         // both of them happen to carry; that is the property this whole test exists to pin down.
         assertEquals(MC_UUID, directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow());
-        assertEquals(otherMcUuid, directory.linkedMinecraftAccount(otherDiscordId).orElseThrow());
+        assertEquals(
+                otherMcUuid, directory.linkedMinecraftAccount(otherDiscordId).orElseThrow());
         assertEquals(DISCORD_ID, directory.linkedDiscordAccount(MC_UUID).orElseThrow());
         assertEquals(otherDiscordId, directory.linkedDiscordAccount(otherMcUuid).orElseThrow());
 
@@ -743,7 +754,9 @@ class AccessDirectoryIntegrationTest {
 
         // The player picks the English role in Discord; the bot mirrors it.
         directory.setLocale(DISCORD_ID, Locale.ENGLISH);
-        assertEquals(Locale.GERMAN, locales.of(MC_UUID),
+        assertEquals(
+                Locale.GERMAN,
+                locales.of(MC_UUID),
                 "docs/i18n.md: a language changed mid-session takes effect on the next join, which is "
                         + "the trade for not re-querying on every message");
 
@@ -762,8 +775,10 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void playtimeHangsOffDiscordUserAndNotOffTheMinecraftUuid() throws SQLException {
-        final SQLException orphan = assertThrows(SQLException.class,
-                () -> executeChecked("INSERT INTO player_playtime (discord_id, seconds) VALUES ('999999999999999999', 60)"));
+        final SQLException orphan = assertThrows(
+                SQLException.class,
+                () -> executeChecked(
+                        "INSERT INTO player_playtime (discord_id, seconds) VALUES ('999999999999999999', 60)"));
         assertTrue(orphan.getMessage().contains("player_playtime_discord_id_fkey"), orphan.getMessage());
 
         directory.ensureUser(DISCORD_ID);
@@ -775,8 +790,10 @@ class AccessDirectoryIntegrationTest {
     void playtimeIsAnIntegerCountOfSecondsThatCannotGoBackwardsPastZero() {
         directory.ensureUser(DISCORD_ID);
 
-        final SQLException negative = assertThrows(SQLException.class,
-                () -> executeChecked("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', -1)"));
+        final SQLException negative = assertThrows(
+                SQLException.class,
+                () -> executeChecked(
+                        "INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', -1)"));
         assertTrue(negative.getMessage().contains("player_playtime_seconds_not_negative"), negative.getMessage());
 
         // Seconds, not an interval: the proxy's periodic flush is a plain addition, and no part of
@@ -797,12 +814,16 @@ class AccessDirectoryIntegrationTest {
         directory.ensureUser(DISCORD_ID);
 
         directory.setPlaytimeSeconds(DISCORD_ID, 32400);
-        assertEquals(32400, count("SELECT seconds FROM player_playtime WHERE discord_id = '"
-                + DISCORD_ID + "'"), "the first write makes the row");
+        assertEquals(
+                32400,
+                count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"),
+                "the first write makes the row");
 
         directory.setPlaytimeSeconds(DISCORD_ID, 60);
-        assertEquals(60, count("SELECT seconds FROM player_playtime WHERE discord_id = '"
-                + DISCORD_ID + "'"), "the second replaces it rather than adding to it");
+        assertEquals(
+                60,
+                count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"),
+                "the second replaces it rather than adding to it");
     }
 
     // ---------------------------------------------------------------- the double-booking guard
@@ -812,10 +833,10 @@ class AccessDirectoryIntegrationTest {
         directory.ensureUser(DISCORD_ID);
         insertSettledRequest("NT-AAAAAA", 4242L);
 
-        final SQLException failure = assertThrows(SQLException.class,
-                () -> insertSettledRequest("NT-BBBBBB", 4242L));
+        final SQLException failure = assertThrows(SQLException.class, () -> insertSettledRequest("NT-BBBBBB", 4242L));
 
-        assertTrue(failure.getMessage().contains("payment_request_bunq_payment_id_key"),
+        assertTrue(
+                failure.getMessage().contains("payment_request_bunq_payment_id_key"),
                 "the partial unique index is what refuses the second booking, not application code: "
                         + failure.getMessage());
     }
@@ -836,12 +857,11 @@ class AccessDirectoryIntegrationTest {
         directory.ensureUser(DISCORD_ID);
         insertOpenRequest(DISCORD_ID, "NT-EEEEEE");
 
-        final SQLException failure = assertThrows(SQLException.class,
-                () -> insertOpenRequest(DISCORD_ID, "NT-FFFFFF"));
+        final SQLException failure = assertThrows(SQLException.class, () -> insertOpenRequest(DISCORD_ID, "NT-FFFFFF"));
 
-        assertTrue(failure.getMessage().contains("payment_request_one_open_per_user_key"),
-                "starting a new request has to supersede the old one in the same transaction: "
-                        + failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("payment_request_one_open_per_user_key"),
+                "starting a new request has to supersede the old one in the same transaction: " + failure.getMessage());
     }
 
     @Test
@@ -851,7 +871,8 @@ class AccessDirectoryIntegrationTest {
 
         directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, requestId);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(
+                RuntimeException.class,
                 () -> directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, requestId),
                 "access_grant_payment_request_id_key is the second half of the double-booking guard");
         assertEquals(1, directory.grantsOf(DISCORD_ID).size());
@@ -866,7 +887,7 @@ class AccessDirectoryIntegrationTest {
 
     private UUID insertSettledRequest(final String reference, final long bunqPaymentId) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             var statement = connection.prepareStatement("""
+                var statement = connection.prepareStatement("""
                      INSERT INTO payment_request
                          (reference, discord_id, days, amount_cents, status, bunq_payment_id, expires, settled)
                      VALUES (?, ?, 30, 300, 'PAID', ?, now() + interval '24 hours', now())
@@ -891,7 +912,8 @@ class AccessDirectoryIntegrationTest {
         // that does not match the record is exactly the kind of thing that compiles, passes every
         // unit test, and throws the first time an admin runs it.
         directory.ensureUser(DISCORD_ID);
-        assertTrue(directory.openPayment(DISCORD_ID).isEmpty(),
+        assertTrue(
+                directory.openPayment(DISCORD_ID).isEmpty(),
                 "an account that has started nothing has no open purchase");
 
         insertOpenRequest(DISCORD_ID, "NT-A1B2C3");
@@ -902,7 +924,8 @@ class AccessDirectoryIntegrationTest {
         assertEquals(300, pending.amountCents());
         assertEquals("3.00", pending.amount());
         assertNotNull(pending.created());
-        assertFalse(pending.hasTab(),
+        assertFalse(
+                pending.hasTab(),
                 "bunq_tab_id IS NULL is the difference between 'chose 30 days' and 'asked for a"
                         + " payment link', and it is what an admin chasing a stuck purchase needs");
 
@@ -913,14 +936,13 @@ class AccessDirectoryIntegrationTest {
         // pending would send an admin looking for a payment that already arrived. `settled` moves
         // with the status because payment_request_settled_iff_paid ties the two together - which is
         // itself worth knowing here: there is no way to write a PAID row that looks unsettled.
-        execute("UPDATE payment_request SET status = 'PAID', settled = now()"
-                + " WHERE reference = 'NT-A1B2C3'");
+        execute("UPDATE payment_request SET status = 'PAID', settled = now()" + " WHERE reference = 'NT-A1B2C3'");
         assertTrue(directory.openPayment(DISCORD_ID).isEmpty());
     }
 
     private void insertOpenRequest(final String discordId, final String reference) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             var statement = connection.prepareStatement("""
+                var statement = connection.prepareStatement("""
                      INSERT INTO payment_request (reference, discord_id, days, amount_cents, expires)
                      VALUES (?, ?, 30, 300, now() + interval '24 hours')
                      """)) {
@@ -944,7 +966,8 @@ class AccessDirectoryIntegrationTest {
             return;
         }
         directory.setMemberState(discordId, MemberState.MEMBER);
-        assertEquals(AdminTree.Grant.GRANTED, tree.grant(tree.admins().getFirst().discordId(), discordId));
+        assertEquals(
+                AdminTree.Grant.GRANTED, tree.grant(tree.admins().getFirst().discordId(), discordId));
     }
 
     private static void execute(final String sql) {
@@ -958,15 +981,15 @@ class AccessDirectoryIntegrationTest {
     /** Like {@link #execute(String)}, but hands the failure back so a constraint can be asserted on. */
     private static void executeChecked(final String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }
 
     private static long count(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             var rs = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                var rs = statement.executeQuery(sql)) {
             assertTrue(rs.next(), "expected a row from: " + sql);
             return rs.getLong(1);
         } catch (final SQLException exception) {
@@ -977,7 +1000,8 @@ class AccessDirectoryIntegrationTest {
     private static void assertWithinSeconds(final Instant expected, final Instant actual, final long tolerance) {
         assertNotNull(actual, "expected a timestamp around " + expected + ", got null");
         final long off = Math.abs(Duration.between(expected, actual).toSeconds());
-        assertTrue(off <= tolerance,
+        assertTrue(
+                off <= tolerance,
                 "expected " + actual + " to be within " + tolerance + "s of " + expected + ", was off by " + off + "s");
     }
 
@@ -1002,14 +1026,15 @@ class AccessDirectoryIntegrationTest {
 
             setAdmin(DISCORD_ID, true);
 
-            final org.postgresql.PGNotification[] arrived = listening
-                    .unwrap(org.postgresql.PGConnection.class)
-                    .getNotifications(5000);
+            final org.postgresql.PGNotification[] arrived =
+                    listening.unwrap(org.postgresql.PGConnection.class).getNotifications(5000);
 
             assertNotNull(arrived, "no notification arrived on nordtal_admin within 5s");
             assertEquals(1, arrived.length);
             assertEquals("nordtal_admin", arrived[0].getName());
-            assertEquals(DISCORD_ID, arrived[0].getParameter(),
+            assertEquals(
+                    DISCORD_ID,
+                    arrived[0].getParameter(),
                     "the payload is the Discord id - the proxy does not act on it, but a payload"
                             + " that names the wrong account is worse than none");
         }
@@ -1027,12 +1052,12 @@ class AccessDirectoryIntegrationTest {
 
             setAdmin(DISCORD_ID, false);
 
-            final org.postgresql.PGNotification[] arrived = listening
-                    .unwrap(org.postgresql.PGConnection.class)
-                    .getNotifications(5000);
+            final org.postgresql.PGNotification[] arrived =
+                    listening.unwrap(org.postgresql.PGConnection.class).getNotifications(5000);
 
-            assertNotNull(arrived, "a revocation produced no notification, which is the direction"
-                    + " that actually matters");
+            assertNotNull(
+                    arrived,
+                    "a revocation produced no notification, which is the direction" + " that actually matters");
             assertEquals(DISCORD_ID, arrived[0].getParameter());
         }
     }
@@ -1046,7 +1071,9 @@ class AccessDirectoryIntegrationTest {
         setAdmin("100000000000000002", true);
         setAdmin("100000000000000003", false);
 
-        assertEquals(java.util.Set.of(DISCORD_ID, "100000000000000002"), directory.admins(),
+        assertEquals(
+                java.util.Set.of(DISCORD_ID, "100000000000000002"),
+                directory.admins(),
                 "one query for the whole set is what makes the refresh idempotent - a lost"
                         + " notification then costs latency rather than correctness");
 
@@ -1063,7 +1090,8 @@ class AccessDirectoryIntegrationTest {
         assertTrue(directory.adminMinecraftAccounts().isEmpty());
 
         setAdmin(DISCORD_ID, true);
-        assertTrue(directory.adminMinecraftAccounts().isEmpty(),
+        assertTrue(
+                directory.adminMinecraftAccounts().isEmpty(),
                 "an admin with no account link cannot be online anywhere, so nothing on a backend"
                         + " should be told about them");
 
@@ -1073,9 +1101,9 @@ class AccessDirectoryIntegrationTest {
         // The direction that actually matters: this is what removes operator from somebody who is
         // online right now, without waiting for them to disconnect.
         setAdmin(DISCORD_ID, false);
-        assertTrue(directory.adminMinecraftAccounts().isEmpty(),
+        assertTrue(
+                directory.adminMinecraftAccounts().isEmpty(),
                 "a revoked admin has to leave this set immediately - AdminWatch hands it straight to"
                         + " AdminOperators#refresh, and whoever is not in it loses operator");
     }
-
 }

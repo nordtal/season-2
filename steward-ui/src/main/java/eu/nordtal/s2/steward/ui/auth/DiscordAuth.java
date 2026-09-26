@@ -5,10 +5,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -20,6 +16,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Signing in with Discord, and reading the signer's roles without holding the bot's token.
@@ -50,6 +49,7 @@ public final class DiscordAuth {
 
     /** Discord's API, and the one system boundary this class has. */
     public static final String DISCORD_API = "https://discord.com/api/v10";
+
     private static final String AUTHORIZE = "https://discord.com/oauth2/authorize";
     private static final String SCOPES = "identify guilds.members.read";
     private static final Gson GSON = new Gson();
@@ -87,8 +87,8 @@ public final class DiscordAuth {
      * and the real cookie - which is the half that has actually had bugs in it. Stubbing anything
      * further in would prove only that the stub agrees with itself.</p>
      */
-    public DiscordAuth(final @NotNull UiSpec.DiscordSpec config, final @NotNull String publicUrl,
-                       final @NotNull String api) {
+    public DiscordAuth(
+            final @NotNull UiSpec.DiscordSpec config, final @NotNull String publicUrl, final @NotNull String api) {
         this.config = config;
         this.redirectUri = publicUrl + "/auth/callback";
         this.api = plaintextOnlyToOurselves(api);
@@ -112,11 +112,13 @@ public final class DiscordAuth {
         }
         final String host = uri.getHost();
         if ("http".equalsIgnoreCase(uri.getScheme())
-                && ("127.0.0.1".equals(host) || "localhost".equals(host)
+                && ("127.0.0.1".equals(host)
+                        || "localhost".equals(host)
                         // With the brackets: URI.getHost() answers "[::1]", never "::1", so the
                         // bare form this line used to carry matched nothing and IPv6 loopback was
                         // refused despite being listed.
-                        || "[::1]".equals(host) || "[0:0:0:0:0:0:0:1]".equalsIgnoreCase(host))) {
+                        || "[::1]".equals(host)
+                        || "[0:0:0:0:0:0:0:1]".equalsIgnoreCase(host))) {
             return api;
         }
         throw new IllegalArgumentException(api + " is not an address this sign-in will send a client"
@@ -181,8 +183,7 @@ public final class DiscordAuth {
     public @NotNull Outcome signIn(final @NotNull String code) {
         final Optional<String> missing = whatIsMissing();
         if (missing.isPresent()) {
-            return Outcome.refused("this interface is not configured for sign-in yet: "
-                    + missing.get() + " is empty");
+            return Outcome.refused("this interface is not configured for sign-in yet: " + missing.get() + " is empty");
         }
         final String accessToken;
         try {
@@ -199,9 +200,7 @@ public final class DiscordAuth {
         } catch (AuthException e) {
             // A 404 here is the ordinary case of somebody who is simply not in the guild, and it
             // has to read like that rather than like an outage.
-            return Outcome.refused(e.status() == 404
-                    ? "you are not a member of the Nordtal guild"
-                    : e.getMessage());
+            return Outcome.refused(e.status() == 404 ? "you are not a member of the Nordtal guild" : e.getMessage());
         }
 
         final List<String> roles = new ArrayList<>();
@@ -230,10 +229,11 @@ public final class DiscordAuth {
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(form)));
         if (response.statusCode() != 200) {
-            throw new AuthException(response.statusCode(),
+            throw new AuthException(
+                    response.statusCode(),
                     "Discord refused the sign-in (" + response.statusCode() + "). The usual cause "
-                    + "is a redirect URI that is not registered on the application: this one sends "
-                    + redirectUri);
+                            + "is a redirect URI that is not registered on the application: this one sends "
+                            + redirectUri);
         }
         final JsonObject json = GSON.fromJson(response.body(), JsonObject.class);
         if (json == null || !json.has("access_token")) {
@@ -247,8 +247,8 @@ public final class DiscordAuth {
                 .header("Authorization", "Bearer " + accessToken)
                 .GET());
         if (response.statusCode() != 200) {
-            throw new AuthException(response.statusCode(),
-                    "Discord answered " + response.statusCode() + " for " + path);
+            throw new AuthException(
+                    response.statusCode(), "Discord answered " + response.statusCode() + " for " + path);
         }
         return GSON.fromJson(response.body(), JsonObject.class);
     }
@@ -270,7 +270,10 @@ public final class DiscordAuth {
     }
 
     /** Who signed in. Roles are kept so a later refusal can say which one was missing. */
-    public record Account(@NotNull String id, @NotNull String name, @NotNull List<String> roles) { }
+    public record Account(
+            @NotNull String id,
+            @NotNull String name,
+            @NotNull List<String> roles) {}
 
     /** Signed in, or refused with a reason a person can act on. */
     public record Outcome(Account account, String refusal) {

@@ -1,23 +1,21 @@
 package eu.nordtal.s2.smp.player;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
-
+import java.util.Locale;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * What a player looks like on the three surfaces they appear on.
@@ -55,8 +53,7 @@ class PlayerCompositionTest {
     void theLadderIsReadThroughTheSupplierEveryTime() {
         final java.util.concurrent.atomic.AtomicReference<Prestige> ladder =
                 new java.util.concurrent.atomic.AtomicReference<>(Prestige.defaults());
-        final PlayerComposition live =
-                new PlayerComposition(ladder::get, () -> PrestigeColours.DEFAULTS);
+        final PlayerComposition live = new PlayerComposition(ladder::get, () -> PrestigeColours.DEFAULTS);
         // Two hours of play time: tier 2 on the shipped ladder (0, 2, 5, ...).
         final Identity player = new Identity(Locale.GERMAN, false, false, 0, 2 * 3600L);
         final TextColor before = colourOfName(live.chatPrefix("Alice", player), "Alice");
@@ -68,7 +65,9 @@ class PlayerCompositionTest {
         final TextColor after = colourOfName(live.chatPrefix("Alice", player), "Alice");
 
         assertNotNull(before, "the name segment lost its own colour");
-        assertNotEquals(before, after,
+        assertNotEquals(
+                before,
+                after,
                 "the hours moved into the reloadable file so that a saved change is visible after"
                         + " /smp reload; a composition that captured the table would still draw"
                         + " tier 2");
@@ -121,8 +120,8 @@ class PlayerCompositionTest {
         assertTrue(tag.contains(Glyphs.FLAG_GERMANY));
         assertTrue(tag.contains("Till"));
         assertTrue(tag.contains(Glyphs.PRESTIGE_CRESTS[0]));
-        assertFalse(tag.contains("42"),
-                "aura on a nametag is a packet to everyone in range on every death and hand-in");
+        assertFalse(
+                tag.contains("42"), "aura on a nametag is a packet to everyone in range on every death and hand-in");
     }
 
     @Test
@@ -156,8 +155,8 @@ class PlayerCompositionTest {
 
         final long manyHours = Prestige.defaults().secondsFor(Prestige.TIER_COUNT);
         final Identity veteran = new Identity(Locale.GERMAN, false, false, 0, manyHours);
-        assertTrue(plain(composition.nameTag("Till", veteran))
-                .contains(Glyphs.PRESTIGE_CRESTS[Prestige.TIER_COUNT - 1]));
+        assertTrue(
+                plain(composition.nameTag("Till", veteran)).contains(Glyphs.PRESTIGE_CRESTS[Prestige.TIER_COUNT - 1]));
     }
 
     @Test
@@ -175,16 +174,17 @@ class PlayerCompositionTest {
     @Test
     void twoDifferentPrestigeTiersAreColouredDifferently() {
         final Identity tierOne = new Identity(Locale.GERMAN, false, false, 0, 0L);
-        final Identity tierThirteen = new Identity(Locale.GERMAN, false, false, 0,
-                Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
+        final Identity tierThirteen =
+                new Identity(Locale.GERMAN, false, false, 0, Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
 
         final TextColor colourOne = colourOfName(composition.chatPrefix("Alice", tierOne), "Alice");
-        final TextColor colourThirteen =
-                colourOfName(composition.chatPrefix("Bob", tierThirteen), "Bob");
+        final TextColor colourThirteen = colourOfName(composition.chatPrefix("Bob", tierThirteen), "Bob");
 
         assertNotNull(colourOne, "the name segment lost its own colour");
         assertNotNull(colourThirteen, "the name segment lost its own colour");
-        assertNotEquals(colourOne, colourThirteen,
+        assertNotEquals(
+                colourOne,
+                colourThirteen,
                 "tier 1 and tier 13 read as the same colour, so a player cannot tell prestige apart"
                         + " by looking at a name");
     }
@@ -196,8 +196,8 @@ class PlayerCompositionTest {
      */
     @Test
     void everySurfacePaintsTheSameTierTheSameColour() {
-        final Identity tierFive = new Identity(Locale.GERMAN, false, false, 0,
-                Prestige.defaults().secondsFor(5));
+        final Identity tierFive =
+                new Identity(Locale.GERMAN, false, false, 0, Prestige.defaults().secondsFor(5));
         final TextColor expected = PrestigeColours.DEFAULTS.tier(5);
 
         assertEquals(expected, colourOfName(composition.chatPrefix("Cara", tierFive), "Cara"));
@@ -211,13 +211,15 @@ class PlayerCompositionTest {
      */
     @Test
     void theAdminColourWinsOverTheProminentTier() {
-        final Identity adminAtTopTier = new Identity(Locale.GERMAN, true, false, 0,
-                Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
+        final Identity adminAtTopTier =
+                new Identity(Locale.GERMAN, true, false, 0, Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
 
         final TextColor colour = colourOfName(composition.tabList("Root", adminAtTopTier), "Root");
 
         assertEquals(PrestigeColours.DEFAULTS.admin(), colour);
-        assertNotEquals(PrestigeColours.DEFAULTS.tier(Prestige.TIER_COUNT), colour,
+        assertNotEquals(
+                PrestigeColours.DEFAULTS.tier(Prestige.TIER_COUNT),
+                colour,
                 "an admin at the top tier still showed the tier's own colour, so the admin override"
                         + " is being treated as if it were a fourteenth tier rather than winning"
                         + " over all thirteen");

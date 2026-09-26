@@ -1,15 +1,13 @@
 package eu.nordtal.s2.proxy.routing;
 
-import eu.nordtal.s2.common.SeasonPhase;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.SeasonPhase;
+import java.util.Set;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * "Is this player waiting" has two right answers now (season-2-ops/120).
@@ -22,8 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class WaitingRoomIsEitherTest {
 
-    private static final PhaseServers SERVERS =
-            new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     @Test
     @DisplayName("both rooms are the waiting room, and nothing else is")
@@ -47,10 +44,12 @@ class WaitingRoomIsEitherTest {
         // What a proxy has registered mid-swap: the limbo is stopped, the standby is up.
         final Set<String> midSwap = Set.of("limbo-standby", "smp", "hunger-games");
 
-        assertEquals("limbo-standby",
+        assertEquals(
+                "limbo-standby",
                 routing.decideInitial(SeasonPhase.MAINTENANCE, false, midSwap).server(),
                 "a player joining while the waiting room is being replaced was refused outright");
-        assertEquals("limbo-standby",
+        assertEquals(
+                "limbo-standby",
                 routing.decideInitial(SeasonPhase.SMP, false, midSwap).server());
     }
 
@@ -60,6 +59,7 @@ class WaitingRoomIsEitherTest {
         final PhaseRouting routing = new PhaseRouting(SERVERS);
         final Set<String> both = Set.of("limbo", "limbo-standby", "smp", "hunger-games");
 
-        assertEquals("limbo", routing.decideInitial(SeasonPhase.SMP, false, both).server());
+        assertEquals(
+                "limbo", routing.decideInitial(SeasonPhase.SMP, false, both).server());
     }
 }

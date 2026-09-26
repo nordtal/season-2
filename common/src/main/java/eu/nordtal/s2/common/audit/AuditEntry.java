@@ -27,11 +27,4 @@ import java.util.UUID;
  * @param detail   free text, {@code null} when the action says everything
  */
 public record AuditEntry(
-        UUID id,
-        Instant occurred,
-        String action,
-        String actor,
-        String subject,
-        UUID mcUuid,
-        String detail) {
-}
+        UUID id, Instant occurred, String action, String actor, String subject, UUID mcUuid, String detail) {}

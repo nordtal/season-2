@@ -1,5 +1,12 @@
 package eu.nordtal.s2.proxy.command;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.velocitypowered.api.command.BrigadierCommand;
+import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -13,23 +20,13 @@ import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
-import com.velocitypowered.api.command.BrigadierCommand;
-import com.velocitypowered.api.command.CommandSource;
-import com.velocitypowered.api.proxy.Player;
-import com.velocitypowered.api.proxy.ProxyServer;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The same hole as {@code PaperCommandsRootGateTest}, on the adapter that matters more: Velocity
@@ -42,8 +39,7 @@ class VelocityCommandsRootGateTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000003");
 
-    private final Messages messages = Messages.load(getClass().getClassLoader(),
-            "messages/commands", Locale.ENGLISH);
+    private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locale.ENGLISH);
 
     @Test
     @DisplayName("/update, entirely admin-only, is closed to a player who is not on the roster as one")
@@ -55,7 +51,8 @@ class VelocityCommandsRootGateTest {
         final BrigadierCommand update = root(commands.build(), "update");
 
         assertFalse(update.getNode().getRequirement().test(player()));
-        assertTrue(update.getNode().getRequirement().test(silent(CommandSource.class)),
+        assertTrue(
+                update.getNode().getRequirement().test(silent(CommandSource.class)),
                 "the console is not a Player, and on the proxy that is the operator");
     }
 
@@ -69,24 +66,24 @@ class VelocityCommandsRootGateTest {
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
         }
-        final Declaration open = new Declaration(List.of("smp", "open"), Target.SMP,
-                Set.of(Surface.GAME, Surface.CONSOLE), false, false, List.of());
-        commands.local(new NordtalCommand<SmpEffects>() {
-            @Override
-            public Declaration declaration() {
-                return open;
-            }
+        final Declaration open = new Declaration(
+                List.of("smp", "open"), Target.SMP, Set.of(Surface.GAME, Surface.CONSOLE), false, false, List.of());
+        commands.local(
+                new NordtalCommand<SmpEffects>() {
+                    @Override
+                    public Declaration declaration() {
+                        return open;
+                    }
 
-            @Override
-            public void run(final NordtalUser user, final Values values, final SmpEffects effects) {
-            }
-        }, silent(SmpEffects.class));
+                    @Override
+                    public void run(final NordtalUser user, final Values values, final SmpEffects effects) {}
+                },
+                silent(SmpEffects.class));
         assertTrue(root(commands.build(), "smp").getNode().getRequirement().test(player()));
     }
 
     private VelocityCommands adapter() {
-        return new VelocityCommands(silent(ProxyServer.class), new LoginRoster(), messages,
-                () -> ToneColours.DEFAULTS);
+        return new VelocityCommands(silent(ProxyServer.class), new LoginRoster(), messages, () -> ToneColours.DEFAULTS);
     }
 
     private static BrigadierCommand root(final List<BrigadierCommand> roots, final String literal) {
@@ -98,16 +95,15 @@ class VelocityCommandsRootGateTest {
 
     @SuppressWarnings("unchecked")
     private static <T> T silent(final Class<T> type) {
-        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                (proxy, method, args) -> {
-                    throw new UnsupportedOperationException("building a tree must not call "
-                            + type.getSimpleName() + "#" + method.getName());
-                });
+        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
+            throw new UnsupportedOperationException(
+                    "building a tree must not call " + type.getSimpleName() + "#" + method.getName());
+        });
     }
 
     private static CommandSource player() {
-        return (CommandSource) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[]{Player.class}, (proxy, method, args) -> {
+        return (CommandSource) Proxy.newProxyInstance(
+                Player.class.getClassLoader(), new Class<?>[] {Player.class}, (proxy, method, args) -> {
                     if ("getUniqueId".equals(method.getName())) {
                         return SOMEBODY;
                     }

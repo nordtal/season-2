@@ -1,14 +1,13 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That one outage produces one explanation.
@@ -39,12 +38,15 @@ class ReportTest {
     void oneOutageIsExplainedOnce() {
         final String rendered = Report.render(githubIsDown());
 
-        assertTrue(rendered.length() < DESCRIPTION_BUDGET,
+        assertTrue(
+                rendered.length() < DESCRIPTION_BUDGET,
                 "the report is " + rendered.length() + " characters, and a Discord embed keeps only"
                         + " the first " + DESCRIPTION_BUDGET + ". Everything after the rows - the"
                         + " summary and the unclaimed jars - is what gets cut.");
 
-        assertEquals(1, occurrences(rendered, "rate limited"),
+        assertEquals(
+                1,
+                occurrences(rendered, "rate limited"),
                 "the same reason is printed more than once. Eight copies of it is the whole bug.");
         assertTrue(rendered.contains("[1]"), "the rows no longer reference the reason: " + rendered);
         assertTrue(rendered.contains("why:"), "the reason is not printed anywhere at all");
@@ -55,10 +57,10 @@ class ReportTest {
     void theSummarySurvives() {
         final String rendered = Report.render(githubIsDown());
 
-        assertTrue(rendered.contains("could not be checked at all"),
+        assertTrue(
+                rendered.contains("could not be checked at all"),
                 "the summary that says the list is not the whole picture is missing");
-        assertTrue(rendered.contains("jars nothing accounts for"),
-                "the unclaimed list is missing");
+        assertTrue(rendered.contains("jars nothing accounts for"), "the unclaimed list is missing");
     }
 
     @Test
@@ -66,9 +68,13 @@ class ReportTest {
     void aLoneReasonStaysInline() {
         // A footnote for a single occurrence is worse than the sentence itself: the reader has to
         // go and find it, and there is nothing to deduplicate.
-        final UpdatePlan plan = new UpdatePlan(Instant.EPOCH, "v0.2.1", false,
+        final UpdatePlan plan = new UpdatePlan(
+                Instant.EPOCH,
+                "v0.2.1",
+                false,
                 List.of(Change.unresolved("smp", "packetevents", "Modrinth answered 503")),
-                List.of(), List.of());
+                List.of(),
+                List.of());
 
         final String rendered = Report.render(plan);
         assertTrue(rendered.contains("Modrinth answered 503"), rendered);
@@ -81,20 +87,23 @@ class ReportTest {
         // The summary is the line people read; the rows are the line people scan. "Everything is up
         // to date" printed above a row reading "no build yet" is true about the artefacts that HAVE
         // a build and is read as a statement about all of them.
-        final UpdatePlan plan = new UpdatePlan(Instant.EPOCH, "v0.7.1", false,
-                List.of(new Change("smp", "smp", Change.Status.UP_TO_DATE, "smp-0.7.1.jar",
-                                null, null),
-                        Change.unsupported("smp", "coreprotect",
-                                "no stable release is tagged for this platform")),
-                List.of(), List.of());
+        final UpdatePlan plan = new UpdatePlan(
+                Instant.EPOCH,
+                "v0.7.1",
+                false,
+                List.of(
+                        new Change("smp", "smp", Change.Status.UP_TO_DATE, "smp-0.7.1.jar", null, null),
+                        Change.unsupported("smp", "coreprotect", "no stable release is tagged for this platform")),
+                List.of(),
+                List.of());
 
         final String rendered = Report.render(plan);
 
         assertTrue(rendered.contains("no build yet"), rendered);
         assertTrue(rendered.contains("have none yet"), rendered);
-        assertTrue(!rendered.contains("Everything is up to date."),
-                "the summary overclaims: " + rendered);
-        assertTrue(!rendered.contains("could not be checked"),
+        assertTrue(!rendered.contains("Everything is up to date."), "the summary overclaims: " + rendered);
+        assertTrue(
+                !rendered.contains("could not be checked"),
                 "an artefact with no build is not an artefact that could not be checked: " + rendered);
     }
 
@@ -108,8 +117,13 @@ class ReportTest {
         changes.add(Change.unresolved("smp", "display-tags", GITHUB_403));
         changes.add(Change.unresolved("discord-bot", "discord-bot", GITHUB_403));
         changes.add(Change.unresolved("steward-worker", "steward-worker", GITHUB_403));
-        return new UpdatePlan(Instant.EPOCH, null, false, changes,
-                List.of(new UpdatePlan.Unclaimed("smp", "SomebodysPlugin-1.0.0.jar")), List.of());
+        return new UpdatePlan(
+                Instant.EPOCH,
+                null,
+                false,
+                changes,
+                List.of(new UpdatePlan.Unclaimed("smp", "SomebodysPlugin-1.0.0.jar")),
+                List.of());
     }
 
     private static int occurrences(final String text, final String needle) {

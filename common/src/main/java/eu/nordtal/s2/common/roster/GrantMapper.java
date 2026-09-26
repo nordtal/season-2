@@ -1,11 +1,10 @@
 package eu.nordtal.s2.common.roster;
 
-import org.jdbi.v3.core.mapper.RowMapper;
-import org.jdbi.v3.core.statement.StatementContext;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 /** Maps an {@code access_grant} row; see {@link PersonMapper} for why it is written out. */
 public final class GrantMapper implements RowMapper<Grant> {

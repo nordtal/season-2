@@ -1,16 +1,15 @@
 package eu.nordtal.s2.steward.worker.backup;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.time.ZoneId;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * A schedule saved in Steward has to reach the clocks without a restart.
@@ -23,6 +22,7 @@ class SchedulesTest {
 
     /** What the two sections say right now; changed by the test between arms. */
     private String backupAt = "04:45";
+
     private String updateAt = "";
 
     @Test
@@ -30,26 +30,33 @@ class SchedulesTest {
     void armingAgainReadsTheConfigAgain() {
         try (Schedules schedules = new Schedules(noDirectory(), config(), ZoneId.of("Europe/Berlin"))) {
             schedules.arm();
-            assertArrayEquals(new boolean[]{true, false}, schedules.running(),
-                    "by default only the backup runs on a clock");
+            assertArrayEquals(
+                    new boolean[] {true, false}, schedules.running(), "by default only the backup runs on a clock");
 
             updateAt = "03:30";
             backupAt = "";
             schedules.arm();
-            assertArrayEquals(new boolean[]{false, true}, schedules.running(),
+            assertArrayEquals(
+                    new boolean[] {false, true},
+                    schedules.running(),
                     "the saved schedule has to be the one that is armed now");
         }
     }
 
     /** A StewardSpec whose two schedule sections read the fields above; everything else defaults. */
     private StewardSpec config() {
-        final StewardSpec.BackupSpec backup = section(StewardSpec.BackupSpec.class,
-                (proxy, method, args) -> method.getName().equals("at") ? backupAt
+        final StewardSpec.BackupSpec backup = section(
+                StewardSpec.BackupSpec.class,
+                (proxy, method, args) -> method.getName().equals("at")
+                        ? backupAt
                         : InvocationHandler.invokeDefault(proxy, method, args));
-        final StewardSpec.UpdateSpec update = section(StewardSpec.UpdateSpec.class,
-                (proxy, method, args) -> method.getName().equals("at") ? updateAt
-                        : method.getName().equals("days") ? List.of("SUNDAY")
-                        : InvocationHandler.invokeDefault(proxy, method, args));
+        final StewardSpec.UpdateSpec update = section(
+                StewardSpec.UpdateSpec.class,
+                (proxy, method, args) -> method.getName().equals("at")
+                        ? updateAt
+                        : method.getName().equals("days")
+                                ? List.of("SUNDAY")
+                                : InvocationHandler.invokeDefault(proxy, method, args));
         return section(StewardSpec.class, (proxy, method, args) -> switch (method.getName()) {
             case "backup" -> backup;
             case "update" -> update;
@@ -58,7 +65,7 @@ class SchedulesTest {
     }
 
     private static <T> T section(final Class<T> type, final InvocationHandler handler) {
-        return type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type}, handler));
+        return type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, handler));
     }
 
     /** Arming never writes a row - only firing does, and nothing here waits long enough to fire. */

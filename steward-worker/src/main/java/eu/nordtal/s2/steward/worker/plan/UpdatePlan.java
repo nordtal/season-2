@@ -1,11 +1,10 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The whole answer to "what would a run do", and nothing more: resolving writes nothing.
@@ -28,15 +27,16 @@ import java.util.List;
  *                         artefact. Decided here and only drawn by {@link PlanReport}, so that no
  *                         surface composes a second opinion of its own.
  */
-public record UpdatePlan(@NotNull Instant resolvedAt,
-                         @Nullable String seasonTag,
-                         boolean seasonPrerelease,
-                         @NotNull List<Change> changes,
-                         @NotNull List<Unclaimed> unclaimed,
-                         @NotNull List<String> notes) {
+public record UpdatePlan(
+        @NotNull Instant resolvedAt,
+        @Nullable String seasonTag,
+        boolean seasonPrerelease,
+        @NotNull List<Change> changes,
+        @NotNull List<Unclaimed> unclaimed,
+        @NotNull List<String> notes) {
 
-    public record Unclaimed(@NotNull String service, @NotNull String fileName) {
-    }
+    public record Unclaimed(
+            @NotNull String service, @NotNull String fileName) {}
 
     /**
      * The row that makes a run leave {@code service} alone entirely, or {@code null} when a run
@@ -48,7 +48,9 @@ public record UpdatePlan(@NotNull Instant resolvedAt,
      * report and the plugin list draw it, so all three agree on what a run would install.</p>
      */
     public @Nullable Change blocker(final @NotNull String service) {
-        return blocker(changes.stream().filter(change -> service.equals(change.service())).toList());
+        return blocker(changes.stream()
+                .filter(change -> service.equals(change.service()))
+                .toList());
     }
 
     /** {@link #blocker(String)} for one service's rows. */
@@ -125,13 +127,15 @@ public record UpdatePlan(@NotNull Instant resolvedAt,
             return this;
         }
         final java.util.Set<String> wanted = java.util.Set.copyOf(services);
-        return new UpdatePlan(resolvedAt, seasonTag, seasonPrerelease,
+        return new UpdatePlan(
+                resolvedAt,
+                seasonTag,
+                seasonPrerelease,
                 // The null check is load-bearing twice over: it is what drops the resource pack
                 // (see above), and Set.copyOf returns an immutable set whose contains(null) throws
                 // rather than answering false.
                 changes.stream()
-                        .filter(change -> change.service() != null
-                                && wanted.contains(change.service()))
+                        .filter(change -> change.service() != null && wanted.contains(change.service()))
                         .toList(),
                 unclaimed.stream().filter(one -> wanted.contains(one.service())).toList(),
                 notes);
@@ -157,12 +161,14 @@ public record UpdatePlan(@NotNull Instant resolvedAt,
             return this;
         }
         final java.util.Set<String> gone = java.util.Set.copyOf(services);
-        return new UpdatePlan(resolvedAt, seasonTag, seasonPrerelease,
+        return new UpdatePlan(
+                resolvedAt,
+                seasonTag,
+                seasonPrerelease,
                 // Same null check as onlyServices, and here it keeps the resource pack rather than
                 // dropping it: the pack belongs to no service, so no hold can be about it.
                 changes.stream()
-                        .filter(change -> change.service() == null
-                                || !gone.contains(change.service()))
+                        .filter(change -> change.service() == null || !gone.contains(change.service()))
                         .toList(),
                 unclaimed.stream().filter(one -> !gone.contains(one.service())).toList(),
                 notes);

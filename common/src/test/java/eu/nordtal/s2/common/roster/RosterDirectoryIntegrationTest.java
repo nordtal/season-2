@@ -1,7 +1,19 @@
 package eu.nordtal.s2.common.roster;
 
-import eu.nordtal.s2.common.access.AccessSchema;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.access.AccessSchema;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,20 +22,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Exercises {@link RosterDirectory} against a real PostgreSQL instance running the real migrations.
@@ -56,7 +54,8 @@ class RosterDirectoryIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed roster tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -127,9 +126,13 @@ class RosterDirectoryIntegrationTest {
 
         final List<Person> people = directory.people(10);
         final Person alice = people.stream()
-                .filter(person -> person.discordId().equals(ALICE)).findFirst().orElseThrow();
+                .filter(person -> person.discordId().equals(ALICE))
+                .findFirst()
+                .orElseThrow();
         final Person bob = people.stream()
-                .filter(person -> person.discordId().equals(BOB)).findFirst().orElseThrow();
+                .filter(person -> person.discordId().equals(BOB))
+                .findFirst()
+                .orElseThrow();
 
         assertEquals(7200L, alice.playtimeSeconds());
         assertNull(bob.playtimeSeconds(), "no player_playtime row is not a play time of zero");
@@ -140,8 +143,7 @@ class RosterDirectoryIntegrationTest {
         person(ALICE);
         execute("UPDATE discord_user SET donor = true, admin = true, admin_granted_at = now(), locale = 'de', "
                 + "member_state = 'BANNED' WHERE discord_id = '" + ALICE + "'");
-        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('"
-                + ALICE + "', '" + ALICE_MC + "')");
+        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + ALICE + "', '" + ALICE_MC + "')");
 
         final Person alice = directory.people(10).getFirst();
 
@@ -210,7 +212,8 @@ class RosterDirectoryIntegrationTest {
 
         final Person alice = directory.people(10).getFirst();
 
-        assertTrue(alice.accessUntil().isAfter(Instant.now().plusSeconds(25 * 24 * 3600)),
+        assertTrue(
+                alice.accessUntil().isAfter(Instant.now().plusSeconds(25 * 24 * 3600)),
                 "max(valid_until), not whichever row the planner reached first: " + alice.accessUntil());
     }
 
@@ -243,15 +246,14 @@ class RosterDirectoryIntegrationTest {
         // needs them in the same statement people() already is, for the reason the class comment
         // gives: a few hundred round trips for a page nobody scrolls to the end of.
         person(ALICE);
-        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('"
-                + ALICE + "', '" + ALICE_MC + "')");
+        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + ALICE + "', '" + ALICE_MC + "')");
         execute("UPDATE discord_user SET discord_username = 'alice#0', "
                 + "discord_username_updated = now(), discord_display_name = 'Ally', "
                 + "discord_display_name_updated = now(), "
                 + "discord_avatar_url = 'https://cdn.discordapp.com/a.png', "
                 + "discord_avatar_url_updated = now() WHERE discord_id = '" + ALICE + "'");
-        execute("UPDATE account_link SET mc_name = 'AliceMC', mc_name_updated = now() "
-                + "WHERE discord_id = '" + ALICE + "'");
+        execute("UPDATE account_link SET mc_name = 'AliceMC', mc_name_updated = now() " + "WHERE discord_id = '" + ALICE
+                + "'");
 
         final Person alice = directory.people(10).getFirst();
 
@@ -288,8 +290,7 @@ class RosterDirectoryIntegrationTest {
         grant(ALICE, "-30 days", "-10 days", true);
         grant(ALICE, "-1 hours", "+47 hours", false);
 
-        assertEquals(1, directory.people(10).size(),
-                "the lateral must not multiply the person out once per grant");
+        assertEquals(1, directory.people(10).size(), "the lateral must not multiply the person out once per grant");
     }
 
     @Test
@@ -297,8 +298,7 @@ class RosterDirectoryIntegrationTest {
         // steward/91: /api/me reads this row by discord id rather than paging the whole roster for
         // one avatar. Same columns, same joins - proven here by comparing it against people().
         person(ALICE);
-        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('"
-                + ALICE + "', '" + ALICE_MC + "')");
+        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + ALICE + "', '" + ALICE_MC + "')");
         execute("UPDATE discord_user SET discord_avatar_url = 'https://cdn.discordapp.com/a.png', "
                 + "discord_avatar_url_updated = now() WHERE discord_id = '" + ALICE + "'");
         grant(ALICE, "-1 hours", "+47 hours", false);
@@ -306,8 +306,12 @@ class RosterDirectoryIntegrationTest {
 
         final Person alice = directory.personOf(ALICE).orElseThrow();
 
-        assertEquals(directory.people(10).stream()
-                        .filter(p -> p.discordId().equals(ALICE)).findFirst().orElseThrow(), alice);
+        assertEquals(
+                directory.people(10).stream()
+                        .filter(p -> p.discordId().equals(ALICE))
+                        .findFirst()
+                        .orElseThrow(),
+                alice);
         assertEquals("https://cdn.discordapp.com/a.png", alice.discordAvatarUrl());
         assertTrue(alice.accessActive());
     }
@@ -341,7 +345,9 @@ class RosterDirectoryIntegrationTest {
 
         final List<Payment> payments = directory.payments(10);
 
-        assertEquals(List.of("NT-BBBBBB", "NT-AAAAAA"), payments.stream().map(Payment::reference).toList());
+        assertEquals(
+                List.of("NT-BBBBBB", "NT-AAAAAA"),
+                payments.stream().map(Payment::reference).toList());
 
         final Payment open = payments.getFirst();
         assertEquals(BOB, open.discordId());
@@ -375,7 +381,8 @@ class RosterDirectoryIntegrationTest {
                        ('NT-000003', '%1$s', 30, 500, 'OPEN',    now() - interval '1 days', now() + interval '1 days')
                 """.formatted(ALICE));
 
-        assertEquals(List.of("NT-000003", "NT-000002"),
+        assertEquals(
+                List.of("NT-000003", "NT-000002"),
                 directory.payments(2).stream().map(Payment::reference).toList());
         assertEquals(1, directory.payments(0).size());
     }
@@ -420,8 +427,8 @@ class RosterDirectoryIntegrationTest {
 
     /** Moves a person's {@code updated} column, which is what {@code people} orders by. */
     private static void touched(final String discordId, final String interval) {
-        execute("UPDATE discord_user SET updated = now() + interval '" + interval
-                + "' WHERE discord_id = '" + discordId + "'");
+        execute("UPDATE discord_user SET updated = now() + interval '" + interval + "' WHERE discord_id = '" + discordId
+                + "'");
     }
 
     /**
@@ -430,8 +437,7 @@ class RosterDirectoryIntegrationTest {
      * whatever is already there and anchors on {@code season_phase.smp_start}, so it cannot express
      * "a window that ended yesterday", which is half of what is being tested here.
      */
-    private static void grant(final String discordId, final String from, final String until,
-                              final boolean revoked) {
+    private static void grant(final String discordId, final String from, final String until, final boolean revoked) {
         execute("""
                 INSERT INTO access_grant (discord_id, valid_from, valid_until, source, revoked)
                 VALUES ('%s', now() + interval '%s', now() + interval '%s', 'PURCHASE', %s)
@@ -440,7 +446,7 @@ class RosterDirectoryIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException exception) {
             throw new IllegalStateException("Test setup statement failed: " + sql, exception);

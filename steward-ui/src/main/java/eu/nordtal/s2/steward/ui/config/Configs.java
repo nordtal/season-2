@@ -4,14 +4,13 @@ import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
 
 /**
  * The two files this service reads, and what has to be true of them before it starts.
@@ -22,11 +21,9 @@ import java.nio.file.Path;
  */
 public final class Configs {
 
-    private Configs() {
-    }
+    private Configs() {}
 
-    public static @NotNull ConfigHandle<UiSpec> ui(final @NotNull Path directory,
-                                                   final @NotNull Logger logger)
+    public static @NotNull ConfigHandle<UiSpec> ui(final @NotNull Path directory, final @NotNull Logger logger)
             throws ConfigException {
         final Path file = directory.resolve("steward-ui.yml");
         final boolean fresh = !Files.isRegularFile(file);
@@ -45,8 +42,8 @@ public final class Configs {
                                 + " - a session lasting longer than a season is not a session");
                     }
                     requirePublicUrl(config.publicUrl());
-                    requireRelyingParty(config.webauthn() == null
-                            ? null : config.webauthn().relyingPartyId(), config.publicUrl());
+                    requireRelyingParty(
+                            config.webauthn() == null ? null : config.webauthn().relyingPartyId(), config.publicUrl());
                     if (config.worker() == null || config.worker().baseUrl().isBlank()) {
                         throw new IllegalArgumentException("worker.base-url is empty");
                     }
@@ -54,17 +51,17 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            logger.info("No config existed at {} - it was written with this project's defaults."
-                    + " The two secrets are environment variables and are not in it.",
+            logger.info(
+                    "No config existed at {} - it was written with this project's defaults."
+                            + " The two secrets are environment variables and are not in it.",
                     file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
         return handle;
     }
 
-    public static @NotNull ConfigHandle<DatabaseSpec> database(final @NotNull Path directory,
-                                                               final @NotNull Logger logger)
-            throws ConfigException {
+    public static @NotNull ConfigHandle<DatabaseSpec> database(
+            final @NotNull Path directory, final @NotNull Logger logger) throws ConfigException {
         final Path file = directory.resolve("database.yml");
         final boolean fresh = !Files.isRegularFile(file);
 
@@ -90,8 +87,9 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            logger.warn("No database config existed at {} - defaults were written, and localhost"
-                    + " is not where the database is from inside a container",
+            logger.warn(
+                    "No database config existed at {} - defaults were written, and localhost"
+                            + " is not where the database is from inside a container",
                     file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
@@ -108,8 +106,7 @@ public final class Configs {
         try {
             EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
         } catch (final IOException e) {
-            logger.warn("Could not write the environment-override marker beside {}: {}",
-                    handle.file(), e.getMessage());
+            logger.warn("Could not write the environment-override marker beside {}: {}", handle.file(), e.getMessage());
         }
     }
 
@@ -133,8 +130,7 @@ public final class Configs {
                     + " interface answers on, e.g. https://steward.dev.nordtal.eu");
         }
         if (url.endsWith("/")) {
-            throw new IllegalArgumentException(
-                    "public-url must not end with a slash, or the redirect URI would "
+            throw new IllegalArgumentException("public-url must not end with a slash, or the redirect URI would "
                     + "have two and Discord would not match it");
         }
         final URI parsed;
@@ -145,8 +141,7 @@ public final class Configs {
         }
         final String scheme = parsed.getScheme();
         if (scheme == null || !(scheme.equals("http") || scheme.equals("https"))) {
-            throw new IllegalArgumentException(
-                    "public-url must start with http:// or https:// - Discord is given "
+            throw new IllegalArgumentException("public-url must start with http:// or https:// - Discord is given "
                     + "it verbatim as the redirect URI and refuses anything else, was " + url);
         }
         if (parsed.getHost() == null || parsed.getHost().isBlank()) {

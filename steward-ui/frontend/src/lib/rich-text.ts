@@ -87,7 +87,7 @@ function parsePlain(source: string, args: MessageArg[]): Run[] {
     if (pending) out.push({ kind: "text", text: pending, style: {} })
     pending = ""
   }
-  for (let index = 0; index < source.length; ) {
+  for (let index = 0; index < source.length;) {
     const char = source[index]
     if (char === "\n") {
       flush()
@@ -125,7 +125,7 @@ function parseMini(source: string, args: MessageArg[]): Run[] {
     pending = ""
   }
 
-  for (let index = 0; index < source.length; ) {
+  for (let index = 0; index < source.length;) {
     const char = source[index]
     if (char === "\\" && (source[index + 1] === "<" || source[index + 1] === "\\")) {
       pending += source[index + 1]
@@ -159,7 +159,8 @@ function parseMini(source: string, args: MessageArg[]): Run[] {
           const closing = tag.slice(1).split(":")[0].toLowerCase()
           const at = findLast(stack, (frame) => closes(frame.name, closing))
           if (at >= 0) stack.length = at
-          else if (!KNOWN.has(closing.replace(/^!/, "")) && !closing.startsWith("#")) out.push({ kind: "raw", source: `<${tag}>`, style: style() })
+          else if (!KNOWN.has(closing.replace(/^!/, "")) && !closing.startsWith("#"))
+            out.push({ kind: "raw", source: `<${tag}>`, style: style() })
           continue
         }
         if (head === "reset") {
@@ -188,13 +189,38 @@ function parseMini(source: string, args: MessageArg[]): Run[] {
 }
 
 const KNOWN = new Set([
-  "color", "colour", "c", "gradient", "hover", "click", ...Object.keys(NAMED_COLOURS),
-  "bold", "b", "italic", "i", "em", "underlined", "u", "strikethrough", "st", "obfuscated", "obf",
+  "color",
+  "colour",
+  "c",
+  "gradient",
+  "hover",
+  "click",
+  ...Object.keys(NAMED_COLOURS),
+  "bold",
+  "b",
+  "italic",
+  "i",
+  "em",
+  "underlined",
+  "u",
+  "strikethrough",
+  "st",
+  "obfuscated",
+  "obf",
 ])
 
 const DECORATION_NAMES: Record<string, Decoration> = {
-  bold: "bold", b: "bold", italic: "italic", i: "italic", em: "italic", underlined: "underlined", u: "underlined",
-  strikethrough: "strikethrough", st: "strikethrough", obfuscated: "obfuscated", obf: "obfuscated",
+  bold: "bold",
+  b: "bold",
+  italic: "italic",
+  i: "italic",
+  em: "italic",
+  underlined: "underlined",
+  u: "underlined",
+  strikethrough: "strikethrough",
+  st: "strikethrough",
+  obfuscated: "obfuscated",
+  obf: "obfuscated",
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/
@@ -207,7 +233,8 @@ function opening(parts: string[], args: MessageArg[]): { name: string; apply: (s
   const [head, ...rest] = parts
   const lower = head.toLowerCase()
   if (HEX.test(head)) return { name: lower, apply: (style) => ({ ...style, colour: head, gradient: undefined }) }
-  if (lower in NAMED_COLOURS) return { name: lower, apply: (style) => ({ ...style, colour: lower, gradient: undefined }) }
+  if (lower in NAMED_COLOURS)
+    return { name: lower, apply: (style) => ({ ...style, colour: lower, gradient: undefined }) }
   if (lower === "color" || lower === "colour" || lower === "c") {
     const value = rest[0] ?? ""
     if (!isColour(value)) return null
@@ -241,7 +268,8 @@ const CLICK_ACTIONS = new Set<string>(["open_url", "run_command", "suggest_comma
 function closes(frame: string, closing: string): boolean {
   const lower = closing.replace(/^!/, "")
   if (frame === lower) return true
-  if (lower === "color" || lower === "colour" || lower === "c") return frame === "color" || frame.startsWith("#") || frame in NAMED_COLOURS
+  if (lower === "color" || lower === "colour" || lower === "c")
+    return frame === "color" || frame.startsWith("#") || frame in NAMED_COLOURS
   const decoration = DECORATION_NAMES[lower]
   return decoration !== undefined && DECORATION_NAMES[frame] === decoration
 }
@@ -311,7 +339,7 @@ function parseMarkdown(source: string, args: MessageArg[]): Run[] {
     pending = ""
   }
 
-  for (let index = 0; index < source.length; ) {
+  for (let index = 0; index < source.length;) {
     const char = source[index]
     if (char === "\\" && /[\\*_~`[\]]/.test(source[index + 1] ?? "")) {
       pending += source[index + 1]
@@ -349,7 +377,8 @@ function parseMarkdown(source: string, args: MessageArg[]): Run[] {
       if (link) {
         flush()
         const click: Click = { action: "open_url", value: link[2] }
-        for (const run of parseMarkdown(link[1], args)) out.push({ ...run, style: { ...run.style, ...style, click } } as Run)
+        for (const run of parseMarkdown(link[1], args))
+          out.push({ ...run, style: { ...run.style, ...style, click } } as Run)
         index += link[0].length
         continue
       }
@@ -401,7 +430,8 @@ const MINI_LEVELS: Level[] = [
   },
   {
     of: (style) => style.hover,
-    open: (hover: Run[], format, tokens) => `<hover:show_text:'${quote(group(hover, MINI_LEVELS, 0, tokens, format))}'>`,
+    open: (hover: Run[], format, tokens) =>
+      `<hover:show_text:'${quote(group(hover, MINI_LEVELS, 0, tokens, format))}'>`,
     close: () => "</hover>",
   },
   {
@@ -447,7 +477,8 @@ function group(runs: Run[], levels: Level[], depth: number, tokens: Map<string, 
     // A break carries no style of its own worth splitting a tag over.
     while (end < runs.length && same(level.of(runs[end].style), value)) end += 1
     const inner = group(runs.slice(start, end), levels, depth + 1, tokens, format)
-    out += value === undefined ? inner : level.open(value as never, format, tokens) + inner + level.close(value as never)
+    out +=
+      value === undefined ? inner : level.open(value as never, format, tokens) + inner + level.close(value as never)
     start = end
   }
   return out
@@ -456,7 +487,11 @@ function group(runs: Run[], levels: Level[], depth: number, tokens: Map<string, 
 function leaf(run: Run, tokens: Map<string, string>, format: Format): string {
   switch (run.kind) {
     case "text":
-      return format === "MINIMESSAGE" ? run.text.replace(/\\/g, "\\\\").replace(/</g, "\\<") : format === "DISCORD_MARKDOWN" ? run.text.replace(/([\\*_~`[\]])/g, "\\$1") : run.text
+      return format === "MINIMESSAGE"
+        ? run.text.replace(/\\/g, "\\\\").replace(/</g, "\\<")
+        : format === "DISCORD_MARKDOWN"
+          ? run.text.replace(/([\\*_~`[\]])/g, "\\$1")
+          : run.text
     case "placeholder":
       return tokens.get(run.name) ?? `{${run.name}}`
     case "glyph":
@@ -558,7 +593,8 @@ export function commonStyle(runs: Run[], from: number, to: number): Style {
   let position = 0
   for (const run of runs) {
     const length = lengthOf(run)
-    const overlaps = to > from ? position < to && position + length > from : position < from && position + length >= from
+    const overlaps =
+      to > from ? position < to && position + length > from : position < from && position + length >= from
     if (overlaps) covered.push(run.style)
     position += length
   }
@@ -566,7 +602,10 @@ export function commonStyle(runs: Run[], from: number, to: number): Style {
   const [first, ...rest] = covered
   return cleanStyle(
     Object.fromEntries(
-      Object.entries(first).map(([key, value]) => [key, rest.every((style) => same(style[key as keyof Style], value)) ? value : undefined]),
+      Object.entries(first).map(([key, value]) => [
+        key,
+        rest.every((style) => same(style[key as keyof Style], value)) ? value : undefined,
+      ]),
     ) as Style,
   )
 }
@@ -575,7 +614,15 @@ export function commonStyle(runs: Run[], from: number, to: number): Style {
 export function plainText(runs: Run[], fill: (name: string) => string = (name) => `{${name}}`): string {
   return runs
     .map((run) =>
-      run.kind === "text" ? run.text : run.kind === "placeholder" ? fill(run.name) : run.kind === "break" ? "\n" : run.kind === "glyph" ? "□" : "",
+      run.kind === "text"
+        ? run.text
+        : run.kind === "placeholder"
+          ? fill(run.name)
+          : run.kind === "break"
+            ? "\n"
+            : run.kind === "glyph"
+              ? "□"
+              : "",
     )
     .join("")
 }
@@ -599,7 +646,13 @@ export function gradientAt(colours: string[], t: number): string {
   const local = scaled - at
   const [a, b] = [channels(hexOf(colours[at])), channels(hexOf(colours[at + 1]))]
   const mixed = a.map((channel, index) => Math.round(channel + (b[index] - channel) * local))
-  return "#" + mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("").toUpperCase()
+  return (
+    "#" +
+    mixed
+      .map((channel) => channel.toString(16).padStart(2, "0"))
+      .join("")
+      .toUpperCase()
+  )
 }
 
 /** Minecraft's text shadow: the same colour at a quarter of its brightness. */

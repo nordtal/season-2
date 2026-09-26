@@ -2,11 +2,6 @@ package eu.nordtal.s2.steward.worker.api;
 
 import eu.nordtal.s2.steward.worker.plan.Installation;
 import eu.nordtal.s2.steward.worker.source.Modrinth;
-
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -24,6 +19,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Which Modrinth project a jar on the disk came from, told by its hash.
@@ -45,11 +43,9 @@ final class JarIdentity {
 
     static final Duration PROJECT_TTL = Duration.ofDays(1);
 
-    private record FileKey(String path, long size, long modified) {
-    }
+    private record FileKey(String path, long size, long modified) {}
 
-    private record Kept(Modrinth.Project project, Instant fetched) {
-    }
+    private record Kept(Modrinth.Project project, Instant fetched) {}
 
     private final Modrinth modrinth;
     private final Supplier<Instant> clock;
@@ -67,7 +63,8 @@ final class JarIdentity {
     }
 
     /** The Modrinth project of each jar Modrinth published, keyed by file name. Never throws. */
-    @NotNull Map<String, Modrinth.Project> identify(final @NotNull List<Installation.Jar> jars) {
+    @NotNull
+    Map<String, Modrinth.Project> identify(final @NotNull List<Installation.Jar> jars) {
         final Map<String, String> projectOfJar = new LinkedHashMap<>();
         for (final Installation.Jar jar : jars) {
             final String hash = hash(jar);
@@ -102,7 +99,8 @@ final class JarIdentity {
      * Name and icon of each of these Modrinth projects, keyed by id, from the same day-long cache.
      * Never throws: an id Modrinth could not be asked about is simply missing from the answer.
      */
-    @NotNull Map<String, Modrinth.Project> projects(final @NotNull java.util.Collection<String> ids) {
+    @NotNull
+    Map<String, Modrinth.Project> projects(final @NotNull java.util.Collection<String> ids) {
         final Instant now = clock.get();
         final Set<String> stale = new LinkedHashSet<>();
         for (final String id : ids) {
@@ -134,7 +132,9 @@ final class JarIdentity {
     private String hash(final Installation.Jar jar) {
         final FileKey key;
         try {
-            key = new FileKey(jar.path().toString(), Files.size(jar.path()),
+            key = new FileKey(
+                    jar.path().toString(),
+                    Files.size(jar.path()),
                     Files.getLastModifiedTime(jar.path()).toMillis());
         } catch (final IOException gone) {
             return null;
@@ -143,8 +143,8 @@ final class JarIdentity {
     }
 
     private static String sha512(final Installation.Jar jar) {
-        try (DigestInputStream in = new DigestInputStream(Files.newInputStream(jar.path()),
-                MessageDigest.getInstance("SHA-512"))) {
+        try (DigestInputStream in =
+                new DigestInputStream(Files.newInputStream(jar.path()), MessageDigest.getInstance("SHA-512"))) {
             in.transferTo(OutputStream.nullOutputStream());
             return HexFormat.of().formatHex(in.getMessageDigest().digest());
         } catch (final IOException | NoSuchAlgorithmException unreadable) {

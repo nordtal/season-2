@@ -1,20 +1,16 @@
 package eu.nordtal.s2.smp.command;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.mojang.brigadier.tree.CommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
-
 import eu.nordtal.s2.common.message.Messages;
-
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That every node of this plugin's two hand-built command trees can be typed on its own.
@@ -30,8 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class EveryNodeAnswersTest {
 
-    private final NavigateCommand commands =
-            new NavigateCommand(null, null, null, null, null, null, null, null);
+    private final NavigateCommand commands = new NavigateCommand(null, null, null, null, null, null, null, null);
 
     @Test
     @DisplayName("/poi answers at every depth, bare root and bare subcommand included")
@@ -52,7 +47,8 @@ class EveryNodeAnswersTest {
         // next to the pair rather than through it - which would be a branch the help never names.
         final List<String> literals = new ArrayList<>();
         commands.poi().getChildren().forEach(child -> literals.add(child.getName()));
-        assertTrue(literals.size() == 2 && literals.contains("add") && literals.contains("remove"),
+        assertTrue(
+                literals.size() == 2 && literals.contains("add") && literals.contains("remove"),
                 "/poi's subcommands are " + literals + ", and its help is built from an enum that"
                         + " does not know about that. Add it to NavigateCommand.Sub instead.");
     }
@@ -65,15 +61,23 @@ class EveryNodeAnswersTest {
         // half raw keys is exactly what a test on one bundle alone would miss. Messages degrades
         // to the key rather than throwing, which is the right runtime behaviour and the reason
         // this has to fail here instead.
-        final Messages messages = Messages.load(EveryNodeAnswersTest.class.getClassLoader(),
+        final Messages messages = Messages.load(
+                EveryNodeAnswersTest.class.getClassLoader(),
                 List.of("messages/paper-common", "messages/commands", "messages/smp"),
-                null, Locale.ENGLISH, Locale.GERMAN);
-        final List<String> keys = List.of("command.help.header", "command.help.line",
-                "command.help.usage", "command.help.what",
-                "command.describe.poi.add", "command.describe.poi.remove");
+                null,
+                Locale.ENGLISH,
+                Locale.GERMAN);
+        final List<String> keys = List.of(
+                "command.help.header",
+                "command.help.line",
+                "command.help.usage",
+                "command.help.what",
+                "command.describe.poi.add",
+                "command.describe.poi.remove");
         for (final String key : keys) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-                assertTrue(messages.hasTranslation(locale, key),
+                assertTrue(
+                        messages.hasTranslation(locale, key),
                         key + " is missing in " + locale.getLanguage() + ", so /poi's help would"
                                 + " print that key at somebody who has just mistyped the command");
             }
@@ -85,7 +89,8 @@ class EveryNodeAnswersTest {
     }
 
     private static void walk(final CommandNode<CommandSourceStack> node, final String path) {
-        assertTrue(node.getCommand() != null,
+        assertTrue(
+                node.getCommand() != null,
                 path + " runs nothing when it is typed on its own, so Brigadier refuses to parse it"
                         + " and the player is told \"That command does not exist\". Give it an"
                         + " executes() that answers with its usage, or with what it takes.");

@@ -1,10 +1,10 @@
 package eu.nordtal.s2.steward.worker.serve;
 
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.update.ServiceHold;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
-import eu.nordtal.s2.common.update.ServiceHold;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
@@ -12,9 +12,9 @@ import eu.nordtal.s2.steward.worker.backup.Backups;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.backup.Retention;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
+import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
-import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
 import eu.nordtal.s2.steward.worker.plan.PlanReport;
 import eu.nordtal.s2.steward.worker.plan.Report;
@@ -22,10 +22,6 @@ import eu.nordtal.s2.steward.worker.plan.Topology;
 import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
 import eu.nordtal.s2.steward.worker.run.Runs;
 import eu.nordtal.s2.steward.worker.schema.RunLock;
-
-import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
@@ -33,6 +29,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
+import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Carries out one claimed {@link UpdateRequest} and says what happened.
@@ -112,31 +110,51 @@ public final class Runner implements RequestRunner {
         return occupancy;
     }
 
-    public Runner(final @NotNull StewardSpec config, final @NotNull Database database,
-                  final @NotNull ContainerOps containers, final @NotNull Backups backups,
-                  final @NotNull UpdateDirectory directory) {
+    public Runner(
+            final @NotNull StewardSpec config,
+            final @NotNull Database database,
+            final @NotNull ContainerOps containers,
+            final @NotNull Backups backups,
+            final @NotNull UpdateDirectory directory) {
         this(config, database, containers, backups, directory, UpdateRun.Waiting.real());
     }
 
-    public Runner(final @NotNull StewardSpec config, final @NotNull Database database,
-                  final @NotNull ContainerOps containers, final @NotNull Backups backups,
-                  final @NotNull UpdateDirectory directory,
-                  final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+    public Runner(
+            final @NotNull StewardSpec config,
+            final @NotNull Database database,
+            final @NotNull ContainerOps containers,
+            final @NotNull Backups backups,
+            final @NotNull UpdateDirectory directory,
+            final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
         this(config, database, containers, backups, directory, UpdateRun.Waiting.real(), plugins);
     }
 
     /** Package-visible so a test can drive a thirty-second countdown without waiting for one. */
-    Runner(final @NotNull StewardSpec config, final @NotNull Database database,
-           final @NotNull ContainerOps containers, final @NotNull Backups backups,
-           final @NotNull UpdateDirectory directory, final @NotNull UpdateRun.Waiting waiting) {
-        this(config, database, containers, backups, directory, waiting,
+    Runner(
+            final @NotNull StewardSpec config,
+            final @NotNull Database database,
+            final @NotNull ContainerOps containers,
+            final @NotNull Backups backups,
+            final @NotNull UpdateDirectory directory,
+            final @NotNull UpdateRun.Waiting waiting) {
+        this(
+                config,
+                database,
+                containers,
+                backups,
+                directory,
+                waiting,
                 eu.nordtal.s2.common.plugin.PluginDirectory.NONE);
     }
 
-    Runner(final @NotNull StewardSpec config, final @NotNull Database database,
-           final @NotNull ContainerOps containers, final @NotNull Backups backups,
-           final @NotNull UpdateDirectory directory, final @NotNull UpdateRun.Waiting waiting,
-           final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+    Runner(
+            final @NotNull StewardSpec config,
+            final @NotNull Database database,
+            final @NotNull ContainerOps containers,
+            final @NotNull Backups backups,
+            final @NotNull UpdateDirectory directory,
+            final @NotNull UpdateRun.Waiting waiting,
+            final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
         this.plugins = plugins;
         this.config = config;
         this.database = database;
@@ -147,19 +165,18 @@ public final class Runner implements RequestRunner {
     }
 
     @Override
-    public @NotNull Outcome run(final @NotNull UpdateRequest request,
-                                final @NotNull Consumer<UpdateReport> progress) {
+    public @NotNull Outcome run(final @NotNull UpdateRequest request, final @NotNull Consumer<UpdateReport> progress) {
         try {
             return switch (request.kind()) {
                 case REPORT -> report();
                 // Retired 2026-09-07 and refused rather than run. The rows are still in the table
                 // and still map (see UpdateKind.APPLY), but nothing may submit one, and the one
                 // thing this must not do is quietly perform the sequence that caused finding 147.
-                case APPLY -> Outcome.failed(UpdateReports.toJson(UpdateReport
-                        .at(UpdateReport.Stage.FAILED)
-                        .withNote("This request asks for the retired 'install without stopping'"
-                                + " step, which replaced jars underneath running servers. Ask for"
-                                + " an update instead - it stops each server first.")));
+                case APPLY ->
+                    Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                            .withNote("This request asks for the retired 'install without stopping'"
+                                    + " step, which replaced jars underneath running servers. Ask for"
+                                    + " an update instead - it stops each server first.")));
                 case UPDATE -> update(request, progress);
                 case RESTART -> restart(request, progress);
                 case BACKUP -> backup(request, progress);
@@ -168,8 +185,7 @@ public final class Runner implements RequestRunner {
             };
         } catch (final RuntimeException failure) {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
-            return Outcome.failed("This request failed: " + failure
-                    + "\nSteward-worker's log has the stack trace.");
+            return Outcome.failed("This request failed: " + failure + "\nSteward-worker's log has the stack trace.");
         }
     }
 
@@ -183,8 +199,8 @@ public final class Runner implements RequestRunner {
         // A plan full of rows that could not be checked is still a report, and the report says so
         // in the service lines. Marking the request FAILED would make "GitHub was briefly
         // unreachable" look like a broken steward-worker.
-        return Outcome.done(UpdateReports.toJson(report.withStage(report.isWork()
-                ? UpdateReport.Stage.PLANNED : UpdateReport.Stage.NOTHING_TO_DO)));
+        return Outcome.done(UpdateReports.toJson(
+                report.withStage(report.isWork() ? UpdateReport.Stage.PLANNED : UpdateReport.Stage.NOTHING_TO_DO)));
     }
 
     // ---------------------------------------------------------------- images
@@ -224,8 +240,8 @@ public final class Runner implements RequestRunner {
      *              server get stopped, and a run that says "smp" must not take the proxy down
      *              because its image moved.
      */
-    private static UpdateReport withImages(final UpdateReport planned, final ImageResult images,
-                                           final List<String> scope) {
+    private static UpdateReport withImages(
+            final UpdateReport planned, final ImageResult images, final List<String> scope) {
         UpdateReport report = planned;
 
         // Named first and not returned on: a service whose image could not be compared is UNKNOWN
@@ -250,7 +266,8 @@ public final class Runner implements RequestRunner {
         }
 
         final List<String> foreign = new java.util.ArrayList<>();
-        for (final java.util.Map.Entry<String, ImageResult.State> entry : images.services().entrySet()) {
+        for (final java.util.Map.Entry<String, ImageResult.State> entry :
+                images.services().entrySet()) {
             if (entry.getValue() != ImageResult.State.OUTDATED) {
                 continue;
             }
@@ -278,8 +295,7 @@ public final class Runner implements RequestRunner {
             if (!scope.isEmpty() && !scope.contains(service)) {
                 continue;
             }
-            report = report.with(report.line(service)
-                    .with(new UpdateReport.Change("image", null, "newer image")));
+            report = report.with(report.line(service).with(new UpdateReport.Change("image", null, "newer image")));
         }
 
         if (!foreign.isEmpty()) {
@@ -363,9 +379,11 @@ public final class Runner implements RequestRunner {
      * that could not be renewed is a run that did not do what it said. It does not roll anything
      * back: the old container is still running, which is the same outcome as never having asked.
      */
-    private UpdateReport renewForeign(final UpdateRun run, final UpdateReport before,
-                                      final List<String> services,
-                                      final Consumer<UpdateReport> progress) {
+    private UpdateReport renewForeign(
+            final UpdateRun run,
+            final UpdateReport before,
+            final List<String> services,
+            final Consumer<UpdateReport> progress) {
         if (services.isEmpty()) {
             return before;
         }
@@ -374,20 +392,21 @@ public final class Runner implements RequestRunner {
         for (final String service : services) {
             // Written before the call, not after, for the reason UpdateRun#start gives: a recreate
             // that never returns leaves this as the report's last word.
-            report = report.with(new UpdateReport.ServiceLine(service,
+            report = report.with(new UpdateReport.ServiceLine(
+                    service,
                     UpdateReport.State.STARTING,
                     List.of(new UpdateReport.Change("image", null, "newer image")),
                     "pulling its image and recreating the container"));
             progress.accept(report);
-            final eu.nordtal.s2.steward.worker.ops.RedeployResult result =
-                    containers.deploy(service);
+            final eu.nordtal.s2.steward.worker.ops.RedeployResult result = containers.deploy(service);
             if (result.triggered()) {
                 asked.add(service);
                 continue;
             }
-            report = report.with(report.line(service).failed("its image is out of date and the"
-                    + " container could not be recreated: " + result.message()
-                    + ". It is still running the image it had."));
+            report = report.with(report.line(service)
+                    .failed("its image is out of date and the"
+                            + " container could not be recreated: " + result.message()
+                            + ". It is still running the image it had."));
             progress.accept(report);
         }
         // The wait is not politeness. This process writes the run's final report through postgres
@@ -414,8 +433,8 @@ public final class Runner implements RequestRunner {
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(runtime.message())));
+            return Outcome.failed(UpdateReports.toJson(
+                    UpdateReport.at(UpdateReport.Stage.FAILED).withNote(runtime.message())));
         }
 
         progress.accept(UpdateReport.at(UpdateReport.Stage.RESOLVING));
@@ -425,8 +444,7 @@ public final class Runner implements RequestRunner {
             lock = RunLock.tryAcquire(database.dataSource());
         } catch (final SQLException failure) {
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("Could not reach the database to take the steward-worker lock: "
-                            + failure)));
+                    .withNote("Could not reach the database to take the steward-worker lock: " + failure)));
         }
         if (lock.isEmpty()) {
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
@@ -452,8 +470,10 @@ public final class Runner implements RequestRunner {
             // anything is stopped. Installing into it would mean starting it again to verify, and
             // starting it again is precisely what the hold forbids.
             final List<String> holds = held();
-            final UpdatePlan plan = Runs.resolve(config, plugins).onlyServices(scope).withoutServices(holds);
-            UpdateReport planned = withImages(PlanReport.of(plan), images, scope).withoutLines(holds);
+            final UpdatePlan plan =
+                    Runs.resolve(config, plugins).onlyServices(scope).withoutServices(holds);
+            UpdateReport planned =
+                    withImages(PlanReport.of(plan), images, scope).withoutLines(holds);
             final List<String> skipped = holds.stream()
                     .filter(service -> scope.isEmpty() || scope.contains(service))
                     .toList();
@@ -479,10 +499,14 @@ public final class Runner implements RequestRunner {
                 // is nobody to warn and nothing to count down. Counting down here would take a
                 // minute of every player's evening to tell them that a web server was being
                 // replaced.
-                final UpdateReport renewed = renewForeign(run,
-                        planned.withStage(UpdateReport.Stage.INSTALLING), foreign, progress);
-                final UpdateReport settled = settle(renewed, run.unverifiedStops(),
-                        "its image was renewed", plan.hasFailures(), Doubt.FAILS_THE_RUN);
+                final UpdateReport renewed =
+                        renewForeign(run, planned.withStage(UpdateReport.Stage.INSTALLING), foreign, progress);
+                final UpdateReport settled = settle(
+                        renewed,
+                        run.unverifiedStops(),
+                        "its image was renewed",
+                        plan.hasFailures(),
+                        Doubt.FAILS_THE_RUN);
                 return settled.stage() == UpdateReport.Stage.FAILED
                         ? Outcome.failed(UpdateReports.toJson(settled))
                         : Outcome.done(UpdateReports.toJson(settled));
@@ -496,8 +520,8 @@ public final class Runner implements RequestRunner {
                 // And nothing was counted down to reach it, which is the whole of V13: this is the
                 // ordinary outcome of /update now, and it used to cost every player on the network
                 // thirty seconds of being told the servers were going down.
-                return Outcome.done(UpdateReports.toJson(planned.withStage(plan.hasFailures()
-                        ? UpdateReport.Stage.FAILED : UpdateReport.Stage.NOTHING_TO_DO)));
+                return Outcome.done(UpdateReports.toJson(planned.withStage(
+                        plan.hasFailures() ? UpdateReport.Stage.FAILED : UpdateReport.Stage.NOTHING_TO_DO)));
             }
 
             // season-2-ops/122: THE STANDBYS COME UP BEFORE ANYBODY IS WARNED. A run that stops
@@ -513,8 +537,7 @@ public final class Runner implements RequestRunner {
             final Choreography choreography = new Choreography(containers, occupancy(), waiting);
             final Choreography.Window window = choreography.open(movingServices(planned));
             if (!window.opened()) {
-                return Outcome.failed(UpdateReports.toJson(planned
-                        .withStage(UpdateReport.Stage.FAILED)
+                return Outcome.failed(UpdateReports.toJson(planned.withStage(UpdateReport.Stage.FAILED)
                         .withNote("NOTHING WAS STOPPED AND NOTHING WAS INSTALLED. " + window.refusal()
                                 + ". This run stops a service whose players have to go somewhere,"
                                 + " and the somewhere is that standby - so a standby that does not"
@@ -566,14 +589,16 @@ public final class Runner implements RequestRunner {
                         .toList();
                 if (!notStopped.isEmpty()) {
                     final UpdateReport back = run.start(new UpdateRun.Stopped(
-                            stopped.report().withNote("NOTHING WAS INSTALLED. " + String.join(", ",
-                                    notStopped) + " could not be stopped, and installing into a server"
-                                    + " that is still running is the failure this sequence exists to"
-                                    + " prevent. Every service that did stop has been started again."),
-                            stopped.services(), runtime));
-                    return Outcome.failed(UpdateReports.toJson(run
-                            .verify(back, stopped.services(), UpdateRun.Waiting.real())
-                            .withStage(UpdateReport.Stage.FAILED)));
+                            stopped.report()
+                                    .withNote("NOTHING WAS INSTALLED. " + String.join(", ", notStopped)
+                                            + " could not be stopped, and installing into a server"
+                                            + " that is still running is the failure this sequence exists to"
+                                            + " prevent. Every service that did stop has been started again."),
+                            stopped.services(),
+                            runtime));
+                    return Outcome.failed(
+                            UpdateReports.toJson(run.verify(back, stopped.services(), UpdateRun.Waiting.real())
+                                    .withStage(UpdateReport.Stage.FAILED)));
                 }
 
                 try {
@@ -584,11 +609,12 @@ public final class Runner implements RequestRunner {
                     // reported. Leaving a stopped network behind because a migration failed would turn
                     // a refused update into an outage.
                     final UpdateReport back = run.start(new UpdateRun.Stopped(
-                            stopped.report().withNote("THE MIGRATION FAILED AND NOTHING WAS INSTALLED: "
-                                    + failure), stopped.services(), runtime));
-                    return Outcome.failed(UpdateReports.toJson(run
-                            .verify(back, stopped.services(), UpdateRun.Waiting.real())
-                            .withStage(UpdateReport.Stage.FAILED)));
+                            stopped.report().withNote("THE MIGRATION FAILED AND NOTHING WAS INSTALLED: " + failure),
+                            stopped.services(),
+                            runtime));
+                    return Outcome.failed(
+                            UpdateReports.toJson(run.verify(back, stopped.services(), UpdateRun.Waiting.real())
+                                    .withStage(UpdateReport.Stage.FAILED)));
                 }
 
                 UpdateReport report = stopped.report().withStage(UpdateReport.Stage.INSTALLING);
@@ -601,24 +627,27 @@ public final class Runner implements RequestRunner {
                     // BEFORE start() and verify() could correct the line, so that claim is what an
                     // admin watching the embed read while the run was still going.
                     final String failure = failureFor(result, service);
-                    report = report.with(failure == null
-                            ? report.line(service).at(UpdateReport.State.INSTALLED)
-                            : report.line(service).failed(failure));
+                    report = report.with(
+                            failure == null
+                                    ? report.line(service).at(UpdateReport.State.INSTALLED)
+                                    : report.line(service).failed(failure));
                 }
                 progress.accept(report);
 
-                final UpdateReport started = run.start(
-                        new UpdateRun.Stopped(report, stopped.services(), runtime), images);
-                final UpdateReport verified = run.verify(started, stopped.services(),
-                        UpdateRun.Waiting.real());
+                final UpdateReport started =
+                        run.start(new UpdateRun.Stopped(report, stopped.services(), runtime), images);
+                final UpdateReport verified = run.verify(started, stopped.services(), UpdateRun.Waiting.real());
 
                 // season-2-ops/127: last, once the Minecraft services are healthy again. See
                 // FOREIGN_IMAGES for why postgres is the last of the three and why it is waited for.
                 final UpdateReport renewed = renewForeign(run, verified, foreign, progress);
 
                 final UpdateReport told = noteStandbys(renewed, choreography.close());
-                final UpdateReport finished = settle(told, run.unverifiedStops(),
-                        "the jars were moved into its plugins directory", result.hasFailures(),
+                final UpdateReport finished = settle(
+                        told,
+                        run.unverifiedStops(),
+                        "the jars were moved into its plugins directory",
+                        result.hasFailures(),
                         Doubt.FAILS_THE_RUN);
                 return finished.stage() == UpdateReport.Stage.FAILED
                         ? Outcome.failed(UpdateReports.toJson(finished))
@@ -647,10 +676,8 @@ public final class Runner implements RequestRunner {
      * @return {@code true} when the countdown ran out and this run holds the right to proceed;
      *         {@code false} when somebody cancelled, in which case <b>nothing may be stopped</b>
      */
-    private boolean countDown(final long id, final UpdateReport planned,
-                              final Consumer<UpdateReport> progress) {
-        final Optional<UpdateRequest> counting =
-                directory.startCountdown(id, UpdateDirectory.UPDATE_COUNTDOWN);
+    private boolean countDown(final long id, final UpdateReport planned, final Consumer<UpdateReport> progress) {
+        final Optional<UpdateRequest> counting = directory.startCountdown(id, UpdateDirectory.UPDATE_COUNTDOWN);
         if (counting.isEmpty()) {
             // Not RUNNING any more between the claim and here. Cancelled, in practice.
             log.info("Request {} is no longer running, so no countdown was started", id);
@@ -668,7 +695,8 @@ public final class Runner implements RequestRunner {
             // A cancel ends the wait here rather than at the bottom. commitCountdown would refuse
             // it either way, but a run that sits silent for the rest of the countdown after
             // somebody pressed "Stop the countdown" reads as one that ignored them.
-            final boolean stillRunning = directory.find(id)
+            final boolean stillRunning = directory
+                    .find(id)
                     .map(row -> row.status() == UpdateStatus.RUNNING)
                     .orElse(false);
             if (!stillRunning) {
@@ -744,10 +772,14 @@ public final class Runner implements RequestRunner {
      * @param doubt      what an unverified stop costs here
      * @return the report with its stage set, and the note on it when there was one to make
      */
-    static UpdateReport settle(final UpdateReport verified, final List<String> unverified,
-                               final String whatIsAtRisk, final boolean alreadyFailed,
-                               final Doubt doubt) {
-        final UpdateReport told = unverified.isEmpty() ? verified
+    static UpdateReport settle(
+            final UpdateReport verified,
+            final List<String> unverified,
+            final String whatIsAtRisk,
+            final boolean alreadyFailed,
+            final Doubt doubt) {
+        final UpdateReport told = unverified.isEmpty()
+                ? verified
                 : verified.withNote("UNVERIFIED STOP. " + String.join(", ", unverified)
                         + " stopped, and how it ended could not be read back, so nothing here knows"
                         + " whether the server had finished writing when " + whatIsAtRisk + "."
@@ -759,11 +791,9 @@ public final class Runner implements RequestRunner {
                                         + " behind that anybody has to decide whether to trust."));
         final boolean failed = (doubt == Doubt.FAILS_THE_RUN && !unverified.isEmpty())
                 || alreadyFailed
-                || told.services().stream()
-                        .anyMatch(line -> line.state() == UpdateReport.State.FAILED);
+                || told.services().stream().anyMatch(line -> line.state() == UpdateReport.State.FAILED);
         return told.withStage(failed ? UpdateReport.Stage.FAILED : UpdateReport.Stage.DONE);
     }
-
 
     /**
      * Which of the services this run asked to stop are not among the ones that did.
@@ -780,8 +810,7 @@ public final class Runner implements RequestRunner {
      * who put "steward-worker" into {@code backup.stop-services} would otherwise get a run that
      * saves nothing and blames a service for not doing something nobody asked it to do.</p>
      */
-    static List<String> servicesThatRefused(final UpdateReport planned,
-                                            final Collection<String> stopped) {
+    static List<String> servicesThatRefused(final UpdateReport planned, final Collection<String> stopped) {
         return planned.services().stream()
                 .filter(line -> line.state() == UpdateReport.State.PLANNED)
                 .map(UpdateReport.ServiceLine::service)
@@ -792,8 +821,7 @@ public final class Runner implements RequestRunner {
 
     private static Outcome cancelled() {
         return Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.CANCELLED)
-                .withNote("Stopped during the countdown. Nothing was stopped and nothing was"
-                        + " installed.")));
+                .withNote("Stopped during the countdown. Nothing was stopped and nothing was" + " installed.")));
     }
 
     /**
@@ -809,12 +837,13 @@ public final class Runner implements RequestRunner {
     private static String failureFor(final ApplyResult result, final String service) {
         return result.outcomes().stream()
                 .filter(outcome -> service.equals(outcome.service()))
-                .filter(outcome -> outcome.status() == ApplyResult.Status.FAILED
-                        || outcome.status() == ApplyResult.Status.SKIPPED)
+                .filter(outcome ->
+                        outcome.status() == ApplyResult.Status.FAILED || outcome.status() == ApplyResult.Status.SKIPPED)
                 .findFirst()
-                .map(outcome -> outcome.artifact() + ": " + (outcome.detail() == null
-                        ? outcome.status().name().toLowerCase(java.util.Locale.ROOT)
-                        : outcome.detail()))
+                .map(outcome -> outcome.artifact() + ": "
+                        + (outcome.detail() == null
+                                ? outcome.status().name().toLowerCase(java.util.Locale.ROOT)
+                                : outcome.detail()))
                 .orElse(null);
     }
 
@@ -846,8 +875,8 @@ public final class Runner implements RequestRunner {
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(runtime.message())));
+            return Outcome.failed(UpdateReports.toJson(
+                    UpdateReport.at(UpdateReport.Stage.FAILED).withNote(runtime.message())));
         }
 
         final List<String> volumes = config.backup().volumes().stream()
@@ -869,8 +898,7 @@ public final class Runner implements RequestRunner {
             lock = RunLock.tryAcquire(database.dataSource());
         } catch (final SQLException failure) {
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("Could not reach the database to take the steward-worker lock: "
-                            + failure)));
+                    .withNote("Could not reach the database to take the steward-worker lock: " + failure)));
         }
         if (lock.isEmpty()) {
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
@@ -884,9 +912,12 @@ public final class Runner implements RequestRunner {
         }
     }
 
-    private Outcome backupUnderLock(final UpdateRequest request, final UpdateRun run,
-                                    final RuntimeResult runtime, final List<String> volumes,
-                                    final Consumer<UpdateReport> progress) {
+    private Outcome backupUnderLock(
+            final UpdateRequest request,
+            final UpdateRun run,
+            final RuntimeResult runtime,
+            final List<String> volumes,
+            final Consumer<UpdateReport> progress) {
 
         // THE DATABASE FIRST, WITH EVERYTHING STILL RUNNING.
         //
@@ -896,7 +927,8 @@ public final class Runner implements RequestRunner {
         // still exists.
         final SnapshotResult dumped = backups.saveDatabase();
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING)
-                .with(new UpdateReport.ServiceLine(DatabaseDump.NAME,
+                .with(new UpdateReport.ServiceLine(
+                        DatabaseDump.NAME,
                         dumped.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
                         List.of(new UpdateReport.Change("backup", null, dumped.message())),
                         dumped.ok() ? null : dumped.message()));
@@ -906,9 +938,11 @@ public final class Runner implements RequestRunner {
             if (service == null || service.isBlank()) {
                 continue;
             }
-            planned = planned.with(new UpdateReport.ServiceLine(service.trim(),
+            planned = planned.with(new UpdateReport.ServiceLine(
+                    service.trim(),
                     UpdateReport.State.PLANNED,
-                    List.of(new UpdateReport.Change("backup", null, "stopped while saving")), null));
+                    List.of(new UpdateReport.Change("backup", null, "stopped while saving")),
+                    null));
         }
 
         // season-2-ops/122, and it is Till's own correction of 2026-09-20: A BACKUP RUNS THE SAME
@@ -918,8 +952,7 @@ public final class Runner implements RequestRunner {
         final Choreography choreography = new Choreography(containers, occupancy(), waiting);
         final Choreography.Window window = choreography.open(movingServices(planned));
         if (!window.opened()) {
-            return Outcome.failed(UpdateReports.toJson(planned
-                    .withStage(UpdateReport.Stage.FAILED)
+            return Outcome.failed(UpdateReports.toJson(planned.withStage(UpdateReport.Stage.FAILED)
                     .withNote("NOTHING WAS STOPPED AND NOTHING WAS SAVED. " + window.refusal()
                             + ". The database dump above was taken with everything running and is"
                             + " real; the volumes were not touched.")));
@@ -949,14 +982,16 @@ public final class Runner implements RequestRunner {
             final List<String> notStopped = servicesThatRefused(planned, stopped.services());
             if (!notStopped.isEmpty()) {
                 final UpdateReport back = run.start(new UpdateRun.Stopped(
-                        stopped.report().withNote("NOTHING WAS SAVED. " + String.join(", ", notStopped)
-                                + " could not be stopped, and a snapshot of a running server is one"
-                                + " that fails when somebody tries to restore it. Every service that"
-                                + " did stop has been started again."),
-                        stopped.services(), runtime));
-                return Outcome.failed(UpdateReports.toJson(run
-                        .verify(back, stopped.services(), UpdateRun.Waiting.real())
-                        .withStage(UpdateReport.Stage.FAILED)));
+                        stopped.report()
+                                .withNote("NOTHING WAS SAVED. " + String.join(", ", notStopped)
+                                        + " could not be stopped, and a snapshot of a running server is one"
+                                        + " that fails when somebody tries to restore it. Every service that"
+                                        + " did stop has been started again."),
+                        stopped.services(),
+                        runtime));
+                return Outcome.failed(
+                        UpdateReports.toJson(run.verify(back, stopped.services(), UpdateRun.Waiting.real())
+                                .withStage(UpdateReport.Stage.FAILED)));
             }
 
             final UpdateReport saved = run.save(stopped.report(), volumes);
@@ -966,24 +1001,26 @@ public final class Runner implements RequestRunner {
             // after it. What was deleted goes into the report - a retention nobody sees is one that
             // has been deleting the wrong thing for months.
             final StewardSpec.BackupSpec.RetentionSpec keep = config.backup().retention();
-            final Retention policy = new Retention(keep.daily(), keep.weekly(), keep.monthly(),
-                    keep.collapseAfterDays());
+            final Retention policy =
+                    new Retention(keep.daily(), keep.weekly(), keep.monthly(), keep.collapseAfterDays());
             final List<String> pruned = backups.volumes().prune(policy);
-            final UpdateReport swept = pruned.isEmpty() ? saved
+            final UpdateReport swept = pruned.isEmpty()
+                    ? saved
                     : saved.withNote("kept " + policy.daily() + " daily, " + policy.weekly()
                             + " weekly and " + policy.monthly() + " monthly of each series, and removed "
                             + pruned.size() + ": " + String.join(", ", pruned));
 
-            final UpdateReport started = run.start(
-                    new UpdateRun.Stopped(swept, stopped.services(), runtime));
-            final UpdateReport verified = run.verify(started, stopped.services(),
-                    UpdateRun.Waiting.real());
+            final UpdateReport started = run.start(new UpdateRun.Stopped(swept, stopped.services(), runtime));
+            final UpdateReport verified = run.verify(started, stopped.services(), UpdateRun.Waiting.real());
 
             final UpdateReport told = noteStandbys(verified, choreography.close());
-            final UpdateReport finished = settle(told, run.unverifiedStops(),
+            final UpdateReport finished = settle(
+                    told,
+                    run.unverifiedStops(),
                     "the archives were taken - they were kept, and each one has a .unverified file"
                             + " beside it saying so, which `deploy/restore.sh --list` prints",
-                    false, Doubt.FAILS_THE_RUN);
+                    false,
+                    Doubt.FAILS_THE_RUN);
             return finished.stage() == UpdateReport.Stage.FAILED
                     ? Outcome.failed(UpdateReports.toJson(finished))
                     : Outcome.done(UpdateReports.toJson(finished));
@@ -1008,8 +1045,8 @@ public final class Runner implements RequestRunner {
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(runtime.message())));
+            return Outcome.failed(UpdateReports.toJson(
+                    UpdateReport.at(UpdateReport.Stage.FAILED).withNote(runtime.message())));
         }
 
         // The same lock an update takes, and for a reason a restart makes worse rather than
@@ -1022,8 +1059,7 @@ public final class Runner implements RequestRunner {
             lock = RunLock.tryAcquire(database.dataSource());
         } catch (final SQLException failure) {
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("Could not reach the database to take the steward-worker lock: "
-                            + failure)));
+                    .withNote("Could not reach the database to take the steward-worker lock: " + failure)));
         }
         if (lock.isEmpty()) {
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
@@ -1057,9 +1093,11 @@ public final class Runner implements RequestRunner {
                 .toList();
     }
 
-    private Outcome restartUnderLock(final UpdateRequest request, final UpdateRun run,
-                                     final RuntimeResult runtime,
-                                     final Consumer<UpdateReport> progress) {
+    private Outcome restartUnderLock(
+            final UpdateRequest request,
+            final UpdateRun run,
+            final RuntimeResult runtime,
+            final Consumer<UpdateReport> progress) {
 
         // A restart has no plan, so every Minecraft service the request is for is named as work
         // with no changes against it - which is what makes stop() take them and the report show a
@@ -1080,21 +1118,24 @@ public final class Runner implements RequestRunner {
         final List<String> scope = directory.scopeOf(request.id());
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
         for (final String service : restarted(scope, holds)) {
-            planned = planned.with(new UpdateReport.ServiceLine(service,
+            planned = planned.with(new UpdateReport.ServiceLine(
+                    service,
                     UpdateReport.State.PLANNED,
-                    List.of(new UpdateReport.Change("restart", null, "no change")), null));
+                    List.of(new UpdateReport.Change("restart", null, "no change")),
+                    null));
         }
         if (planned.services().isEmpty()) {
-            return Outcome.done(UpdateReports.toJson(UpdateReport
-                    .at(UpdateReport.Stage.NOTHING_TO_DO)
-                    .withNote(scope.isEmpty()
-                            ? "Every Minecraft service is being held down, so there was nothing to"
-                                    + " restart. Nothing was stopped."
-                            : "Nothing in " + String.join(", ", scope) + " is a Minecraft service"
-                                    + " this run may restart - either it is not one, or it is being"
-                                    + " held down. Nothing was stopped.")));
+            return Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
+                    .withNote(
+                            scope.isEmpty()
+                                    ? "Every Minecraft service is being held down, so there was nothing to"
+                                            + " restart. Nothing was stopped."
+                                    : "Nothing in " + String.join(", ", scope) + " is a Minecraft service"
+                                            + " this run may restart - either it is not one, or it is being"
+                                            + " held down. Nothing was stopped.")));
         }
-        final List<String> untouched = Topology.SERVICES.stream().map(Topology.Service::name)
+        final List<String> untouched = Topology.SERVICES.stream()
+                .map(Topology.Service::name)
                 .filter(holds::contains)
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 .toList();
@@ -1105,8 +1146,7 @@ public final class Runner implements RequestRunner {
         final Choreography choreography = new Choreography(containers, occupancy(), waiting);
         final Choreography.Window window = choreography.open(movingServices(planned));
         if (!window.opened()) {
-            return Outcome.failed(UpdateReports.toJson(planned
-                    .withStage(UpdateReport.Stage.FAILED)
+            return Outcome.failed(UpdateReports.toJson(planned.withStage(UpdateReport.Stage.FAILED)
                     .withNote("NOTHING WAS RESTARTED. " + window.refusal()
                             + ". Every service is still running exactly as it was.")));
         }
@@ -1131,15 +1171,18 @@ public final class Runner implements RequestRunner {
 
             final UpdateRun.Stopped stopped = run.stop(planned, runtime);
             final UpdateReport started = run.start(stopped);
-            final UpdateReport verified = run.verify(started, stopped.services(),
-                    UpdateRun.Waiting.real());
+            final UpdateReport verified = run.verify(started, stopped.services(), UpdateRun.Waiting.real());
 
-            final UpdateReport told = untouched.isEmpty() ? verified
+            final UpdateReport told = untouched.isEmpty()
+                    ? verified
                     : verified.withNote(String.join(", ", untouched) + " is being held down and was not"
                             + " restarted. It stays down until somebody starts it.");
-            final UpdateReport finished = settle(noteStandbys(told, choreography.close()),
+            final UpdateReport finished = settle(
+                    noteStandbys(told, choreography.close()),
                     run.unverifiedStops(),
-                    "it was started again on the same world", false, Doubt.IS_ONLY_SAID);
+                    "it was started again on the same world",
+                    false,
+                    Doubt.IS_ONLY_SAID);
             return finished.stage() == UpdateReport.Stage.FAILED
                     ? Outcome.failed(UpdateReports.toJson(finished))
                     : Outcome.done(UpdateReports.toJson(finished));
@@ -1202,8 +1245,8 @@ public final class Runner implements RequestRunner {
         final UpdateRun run = new UpdateRun(containers, backups.volumes(), progress);
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(runtime.message())));
+            return Outcome.failed(UpdateReports.toJson(
+                    UpdateReport.at(UpdateReport.Stage.FAILED).withNote(runtime.message())));
         }
 
         final Optional<RunLock> lock;
@@ -1224,21 +1267,25 @@ public final class Runner implements RequestRunner {
         }
     }
 
-    private Outcome downUnderLock(final UpdateRequest request, final List<String> scope,
-                                  final UpdateRun run, final RuntimeResult runtime,
-                                  final Consumer<UpdateReport> progress) {
+    private Outcome downUnderLock(
+            final UpdateRequest request,
+            final List<String> scope,
+            final UpdateRun run,
+            final RuntimeResult runtime,
+            final Consumer<UpdateReport> progress) {
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
         for (final String service : scope) {
-            planned = planned.with(new UpdateReport.ServiceLine(service,
+            planned = planned.with(new UpdateReport.ServiceLine(
+                    service,
                     UpdateReport.State.PLANNED,
-                    List.of(new UpdateReport.Change("down", null, "stays down")), null));
+                    List.of(new UpdateReport.Change("down", null, "stays down")),
+                    null));
         }
 
         // Only when somebody could be standing on one of them. Counting down thirty seconds before
         // stopping the pack host would be a warning about something no player can tell happened -
         // and the countdown is the players' warning, not the run's ceremony.
-        if (scope.stream().anyMatch(Runner::isMinecraft)
-                && !countDown(request.id(), planned, progress)) {
+        if (scope.stream().anyMatch(Runner::isMinecraft) && !countDown(request.id(), planned, progress)) {
             return cancelled();
         }
 
@@ -1256,8 +1303,8 @@ public final class Runner implements RequestRunner {
                     + ". Nothing starts a held service again on its own: not a later update run,"
                     + " not a restart, and not this worker coming back.");
         }
-        final UpdateReport finished = settle(report, run.unverifiedStops(),
-                "it was put down on purpose", false, Doubt.IS_ONLY_SAID);
+        final UpdateReport finished =
+                settle(report, run.unverifiedStops(), "it was put down on purpose", false, Doubt.IS_ONLY_SAID);
         return finished.stage() == UpdateReport.Stage.FAILED
                 ? Outcome.failed(UpdateReports.toJson(finished))
                 : Outcome.done(UpdateReports.toJson(finished));
@@ -1280,16 +1327,15 @@ public final class Runner implements RequestRunner {
         final List<String> holds = held();
         final List<String> services = asked.isEmpty() ? holds : asked;
         if (services.isEmpty()) {
-            return Outcome.done(UpdateReports.toJson(UpdateReport
-                    .at(UpdateReport.Stage.NOTHING_TO_DO)
+            return Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
                     .withNote("No service is being held down, so there was nothing to start.")));
         }
 
         final UpdateRun run = new UpdateRun(containers, backups.volumes(), progress);
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(runtime.message())));
+            return Outcome.failed(UpdateReports.toJson(
+                    UpdateReport.at(UpdateReport.Stage.FAILED).withNote(runtime.message())));
         }
 
         final Optional<RunLock> lock;
@@ -1308,9 +1354,11 @@ public final class Runner implements RequestRunner {
         try (RunLock held = lock.get()) {
             UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STARTING);
             for (final String service : services) {
-                planned = planned.with(new UpdateReport.ServiceLine(service,
+                planned = planned.with(new UpdateReport.ServiceLine(
+                        service,
                         UpdateReport.State.STOPPED,
-                        List.of(new UpdateReport.Change("down", "stays down", "starting")), null));
+                        List.of(new UpdateReport.Change("down", "stays down", "starting")),
+                        null));
             }
             // The hold comes off BEFORE the start, not after: a start that never returns must not
             // leave a service running with a row still claiming somebody is holding it down. The
@@ -1320,8 +1368,8 @@ public final class Runner implements RequestRunner {
             }
             final UpdateReport started = run.start(new UpdateRun.Stopped(planned, services, runtime));
             final UpdateReport verified = run.verify(started, services, UpdateRun.Waiting.real());
-            final UpdateReport finished = settle(verified, List.of(),
-                    "it was started again", false, Doubt.IS_ONLY_SAID);
+            final UpdateReport finished =
+                    settle(verified, List.of(), "it was started again", false, Doubt.IS_ONLY_SAID);
             return finished.stage() == UpdateReport.Stage.FAILED
                     ? Outcome.failed(UpdateReports.toJson(finished))
                     : Outcome.done(UpdateReports.toJson(finished));
@@ -1366,5 +1414,4 @@ public final class Runner implements RequestRunner {
         }
         return told;
     }
-
 }

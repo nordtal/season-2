@@ -1,15 +1,14 @@
 package eu.nordtal.s2.common.update;
 
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.Optional;
+import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.postgres.PostgresPlugin;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
  * The only implementation of {@link UpdateDirectory}. Package-private: consumers get it from the
@@ -32,9 +31,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     JdbiUpdateDirectory(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.jdbi = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin());
+        this.jdbi = Jdbi.create(dataSource).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
         this.dao = jdbi.onDemand(UpdateDao.class);
     }
 
@@ -49,8 +46,10 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
      * several rows is still a legal state for everything that reads the table - it is only
      * submitting into one that is refused.
      */
-    private UpdateRequest guarded(final UpdateKind kind, final java.util.List<String> services,
-                                  final java.util.function.Function<UpdateDao, UpdateRequest> write) {
+    private UpdateRequest guarded(
+            final UpdateKind kind,
+            final java.util.List<String> services,
+            final java.util.function.Function<UpdateDao, UpdateRequest> write) {
         return jdbi.inTransaction(handle -> {
             handle.execute("SELECT pg_advisory_xact_lock(?)", SUBMIT_LOCK);
             final UpdateDao locked = handle.attach(UpdateDao.class);
@@ -72,8 +71,8 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
-                                final String requestedBy, final Duration delay) {
+    public UpdateRequest submit(
+            final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(source, "source");
         // Clamped rather than rejected: a caller computing a delay from two clocks that disagree
@@ -83,9 +82,12 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
-                                final String requestedBy, final Duration delay,
-                                final java.util.List<String> services) {
+    public UpdateRequest submit(
+            final UpdateKind kind,
+            final UpdateSource source,
+            final String requestedBy,
+            final Duration delay,
+            final java.util.List<String> services) {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(source, "source");
         final long seconds = delay == null ? 0L : Math.max(0L, delay.toSeconds());
@@ -93,9 +95,12 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         // The unscoped statement, not the scoped one with a NULL bind. They are the same row today;
         // keeping "everything" on the path every existing caller already takes means a change to
         // one can never quietly become a change to the other.
-        return guarded(kind, services, locked -> scope == null
-                ? locked.submit(kind.name(), source.name(), requestedBy, seconds)
-                : locked.submitScoped(kind.name(), source.name(), requestedBy, seconds, scope));
+        return guarded(
+                kind,
+                services,
+                locked -> scope == null
+                        ? locked.submit(kind.name(), source.name(), requestedBy, seconds)
+                        : locked.submitScoped(kind.name(), source.name(), requestedBy, seconds, scope));
     }
 
     @Override
@@ -215,8 +220,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
             // CANCELLED is reachable only through cancelCountdown, which is a person withdrawing
             // a countdown. Letting it in here would mean a worker could report work it had
             // already started as somebody else's cancellation.
-            throw new IllegalArgumentException(
-                    "A claimed request finishes as DONE or FAILED, not as " + status);
+            throw new IllegalArgumentException("A claimed request finishes as DONE or FAILED, not as " + status);
         }
         return dao.finish(id, status.name(), result);
     }

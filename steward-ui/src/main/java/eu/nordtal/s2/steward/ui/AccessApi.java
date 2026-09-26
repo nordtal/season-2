@@ -12,13 +12,12 @@ import eu.nordtal.s2.steward.ui.data.Data;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Granting, revoking, play time, settling and unlinking - asked of the bot, never done here.
@@ -60,8 +59,7 @@ final class AccessApi {
     /** Who is asking. The same seam {@code StewardUi} uses, so a test can stand in front of it. */
     private final Function<Context, DiscordAuth.Account> accounts;
 
-    AccessApi(final @NotNull Data data,
-              final @NotNull Function<Context, DiscordAuth.Account> accounts) {
+    AccessApi(final @NotNull Data data, final @NotNull Function<Context, DiscordAuth.Account> accounts) {
         this.data = data;
         this.accounts = accounts;
     }
@@ -71,8 +69,8 @@ final class AccessApi {
         final Body ask = bodyOf(ctx);
         final String discordId = discordId(ask);
         if (ask.days == null || ask.days <= 0 || ask.days > MOST_DAYS) {
-            throw new BadRequestResponse("A grant is between 1 and " + MOST_DAYS
-                    + " days. A longer period is two grants.");
+            throw new BadRequestResponse(
+                    "A grant is between 1 and " + MOST_DAYS + " days. A longer period is two grants.");
         }
         submit(ctx, AccessRequestKind.GRANT, discordId, (long) ask.days);
     }
@@ -118,7 +116,8 @@ final class AccessApi {
         } catch (final NumberFormatException e) {
             throw new BadRequestResponse(ctx.pathParam("id") + " is not a request id.");
         }
-        final AccessRequest row = data.accessRequests().outcome(id)
+        final AccessRequest row = data.accessRequests()
+                .outcome(id)
                 .orElseThrow(() -> new NotFoundResponse("There is no request " + id + "."));
 
         final Map<String, Object> answer = new LinkedHashMap<>();
@@ -131,16 +130,13 @@ final class AccessApi {
 
     // ---------------------------------------------------------------------------------------
 
-    private void submit(final Context ctx, final AccessRequestKind kind, final String subject,
-                        final Long argument) {
+    private void submit(final Context ctx, final AccessRequestKind kind, final String subject, final Long argument) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final NewAccessRequest request = argument == null
                 ? NewAccessRequest.of(kind, subject, AccessRequestSource.STEWARD, who.id())
-                : NewAccessRequest.of(kind, subject, argument, AccessRequestSource.STEWARD,
-                        who.id());
+                : NewAccessRequest.of(kind, subject, argument, AccessRequestSource.STEWARD, who.id());
         final AccessRequest written = data.accessRequests().submit(request);
-        log.info("{} asked the bot for {} {}{}", who.name(), kind, subject,
-                argument == null ? "" : " " + argument);
+        log.info("{} asked the bot for {} {}{}", who.name(), kind, subject, argument == null ? "" : " " + argument);
 
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("id", String.valueOf(written.id()));

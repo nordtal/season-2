@@ -1,10 +1,10 @@
 name: limbo
-version: '${version}'
+version: "${version}"
 main: eu.nordtal.s2.limbo.LimboPlugin
 description: The season 2 waiting room - black, silent, and one title in the player's language.
 author: nordtal
 website: https://nordtal.eu
-api-version: '26.2'
+api-version: "26.2"
 
 # NO PERMISSIONS, and this repository now owns none at all.
 #

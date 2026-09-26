@@ -1,16 +1,15 @@
 package eu.nordtal.s2.common.access;
 
-import org.jdbi.v3.core.Handle;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-
-import javax.sql.DataSource;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import javax.sql.DataSource;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.postgres.PostgresPlugin;
 
 /**
  * The only implementation of {@link AdminTree}.
@@ -66,8 +65,8 @@ final class JdbiAdminTree implements AdminTree {
     private final Jdbi jdbi;
 
     JdbiAdminTree(final DataSource dataSource) {
-        this.jdbi = Jdbi.create(Objects.requireNonNull(dataSource, "dataSource"))
-                .installPlugin(new PostgresPlugin());
+        this.jdbi =
+                Jdbi.create(Objects.requireNonNull(dataSource, "dataSource")).installPlugin(new PostgresPlugin());
     }
 
     @Override
@@ -81,7 +80,8 @@ final class JdbiAdminTree implements AdminTree {
         return jdbi.inTransaction(handle -> {
             handle.execute(LOCK);
             final boolean anybody = handle.createQuery("SELECT EXISTS (SELECT 1 FROM discord_user WHERE admin)")
-                    .mapTo(Boolean.class).one();
+                    .mapTo(Boolean.class)
+                    .one();
             if (anybody) {
                 return false;
             }
@@ -98,9 +98,7 @@ final class JdbiAdminTree implements AdminTree {
                                      SELECT pg_notify('nordtal_admin', discord_id) FROM upserted
                                  )
                             SELECT count(*) FROM notified
-                            """)
-                    .bind("id", discordId)
-                    .mapTo(Integer.class).one();
+                            """).bind("id", discordId).mapTo(Integer.class).one();
             return true;
         });
     }
@@ -120,13 +118,15 @@ final class JdbiAdminTree implements AdminTree {
             final boolean member = handle.createQuery(
                             "SELECT EXISTS (SELECT 1 FROM discord_user WHERE discord_id = :id AND member_state = 'MEMBER')")
                     .bind("id", target)
-                    .mapTo(Boolean.class).one();
+                    .mapTo(Boolean.class)
+                    .one();
             if (!member) {
                 return Grant.NOT_A_MEMBER;
             }
             final int lastHour = handle.createQuery(
                             "SELECT count(*) FROM admin_grant WHERE granted > now() - interval '1 hour'")
-                    .mapTo(Integer.class).one();
+                    .mapTo(Integer.class)
+                    .one();
             if (lastHour >= GRANTS_PER_HOUR) {
                 return Grant.RATE_LIMITED;
             }
@@ -149,7 +149,8 @@ final class JdbiAdminTree implements AdminTree {
                             """)
                     .bind("actor", actor)
                     .bind("target", target)
-                    .mapTo(Integer.class).one();
+                    .mapTo(Integer.class)
+                    .one();
             return Grant.GRANTED;
         });
     }
@@ -169,7 +170,8 @@ final class JdbiAdminTree implements AdminTree {
             final boolean below = handle.createQuery(BELOW)
                     .bind("actor", actor)
                     .bind("target", target)
-                    .mapTo(Boolean.class).one();
+                    .mapTo(Boolean.class)
+                    .one();
             if (!below) {
                 return Revocation.refused(Revocation.Outcome.NOT_BELOW);
             }
@@ -204,7 +206,8 @@ final class JdbiAdminTree implements AdminTree {
     private static boolean admin(final Handle handle, final String discordId) {
         return handle.createQuery("SELECT EXISTS (SELECT 1 FROM discord_user WHERE discord_id = :id AND admin)")
                 .bind("id", discordId)
-                .mapTo(Boolean.class).one();
+                .mapTo(Boolean.class)
+                .one();
     }
 
     private static List<String> dropBranch(final Handle handle, final String target) {

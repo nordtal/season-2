@@ -4,17 +4,14 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.proxy.Player;
-
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
-import org.slf4j.Logger;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
 
 /**
  * Counts network-wide online time and writes it to {@code player_playtime}.
@@ -51,8 +48,7 @@ public final class PlaytimeWriter {
     }
 
     /** Package-visible so tests can advance time instead of sleeping through it. */
-    PlaytimeWriter(final PlaytimeStore store, final LoginRoster roster, final Logger logger,
-                   final Clock clock) {
+    PlaytimeWriter(final PlaytimeStore store, final LoginRoster roster, final Logger logger, final Clock clock) {
         this.store = Objects.requireNonNull(store, "store");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -91,12 +87,16 @@ public final class PlaytimeWriter {
 
     /** Package-visible entry point for the two events above, so tests need no Velocity types. */
     void begin(final UUID mcUuid, final String username) {
-        final String discordId = roster.of(mcUuid).map(LoginRoster.Session::discordId).orElse(null);
+        final String discordId =
+                roster.of(mcUuid).map(LoginRoster.Session::discordId).orElse(null);
         if (discordId == null) {
             // A login admitted by the fallback cache has no Discord id to key the row by. Logged
             // rather than guessed: a wrong key would corrupt somebody else's total.
-            logger.warn("Not counting play time for {} ({}): the login path never learned a Discord "
-                    + "id for this account", mcUuid, username);
+            logger.warn(
+                    "Not counting play time for {} ({}): the login path never learned a Discord "
+                            + "id for this account",
+                    mcUuid,
+                    username);
             return;
         }
         sessions.put(mcUuid, new Session(discordId, clock.instant()));
@@ -141,7 +141,8 @@ public final class PlaytimeWriter {
         // The session and not the whole class: flushAll walks every player, and one slow database
         // write must not hold up the rest.
         synchronized (session) {
-            final long seconds = Duration.between(session.since, clock.instant()).toSeconds();
+            final long seconds =
+                    Duration.between(session.since, clock.instant()).toSeconds();
             if (seconds <= 0) {
                 return false;
             }
@@ -151,8 +152,12 @@ public final class PlaytimeWriter {
             } catch (final RuntimeException exception) {
                 // The marker is deliberately NOT advanced: the seconds are still owed and the next
                 // flush writes them along with everything since.
-                logger.warn("Could not write {}s of play time for {} ({}); it will be written with "
-                        + "the next flush", seconds, mcUuid, session.discordId, exception);
+                logger.warn(
+                        "Could not write {}s of play time for {} ({}); it will be written with " + "the next flush",
+                        seconds,
+                        mcUuid,
+                        session.discordId,
+                        exception);
                 return false;
             }
 

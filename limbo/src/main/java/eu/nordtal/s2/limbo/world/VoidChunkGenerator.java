@@ -1,11 +1,10 @@
 package eu.nordtal.s2.limbo.world;
 
-import org.bukkit.generator.ChunkGenerator;
-import org.bukkit.generator.WorldInfo;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import org.bukkit.generator.ChunkGenerator;
+import org.bukkit.generator.WorldInfo;
 
 /**
  * A chunk generator that generates nothing at all.
@@ -74,8 +73,12 @@ public final class VoidChunkGenerator extends ChunkGenerator {
     }
 
     @Override
-    public int getBaseHeight(final WorldInfo world, final Random random, final int x, final int z,
-                             final org.bukkit.HeightMap heightMap) {
+    public int getBaseHeight(
+            final WorldInfo world,
+            final Random random,
+            final int x,
+            final int z,
+            final org.bukkit.HeightMap heightMap) {
         return world.getMinHeight();
     }
 }

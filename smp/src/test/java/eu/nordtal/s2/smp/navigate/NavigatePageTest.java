@@ -1,20 +1,18 @@
 package eu.nordtal.s2.smp.navigate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.message.Messages;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What one page of {@code /navigate} contains, which is the half of that menu a test can hold.
@@ -28,15 +26,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class NavigatePageTest {
 
-    private static final Messages MESSAGES = Messages.load(NavigatePageTest.class.getClassLoader(),
-            "messages/smp", Locale.GERMAN, Locale.ENGLISH);
+    private static final Messages MESSAGES =
+            Messages.load(NavigatePageTest.class.getClassLoader(), "messages/smp", Locale.GERMAN, Locale.ENGLISH);
 
     private static final String WORLD = "nordtal";
 
     @Test
     @DisplayName("an empty list is still one page, and a full one rounds up")
     void thePageCountRoundsUp() {
-        assertEquals(1, NavigatePage.pages(0),
+        assertEquals(
+                1,
+                NavigatePage.pages(0),
                 "zero destinations is impossible in practice - the world spawn is always there -"
                         + " but a page count of zero would put the window at page -1");
         assertEquals(1, NavigatePage.pages(1));
@@ -63,7 +63,9 @@ class NavigatePageTest {
         assertEquals(5, NavigatePage.slice(twelve, 0).size());
         assertEquals(5, NavigatePage.slice(twelve, 1).size());
         assertEquals(2, NavigatePage.slice(twelve, 2).size());
-        assertEquals(List.of(), NavigatePage.slice(twelve, 3),
+        assertEquals(
+                List.of(),
+                NavigatePage.slice(twelve, 3),
                 "a page past the end is empty rather than an IndexOutOfBoundsException in a menu");
         assertEquals("POI 11", NavigatePage.slice(twelve, 2).get(1).label());
     }
@@ -71,9 +73,9 @@ class NavigatePageTest {
     @Test
     @DisplayName("a destination in another world is named, not measured")
     void anotherWorldIsNotADistance() {
-        final NavigationTarget elsewhere = NavigationTarget.poi(UUID.randomUUID(), "Hub",
-                "farm", 0, 64, 0);
-        assertEquals(MESSAGES.get(Locale.ENGLISH, "smp.navigate.other-world"),
+        final NavigationTarget elsewhere = NavigationTarget.poi(UUID.randomUUID(), "Hub", "farm", 0, 64, 0);
+        assertEquals(
+                MESSAGES.get(Locale.ENGLISH, "smp.navigate.other-world"),
                 NavigatePage.distance(elsewhere, WORLD, 0, 64, 0, MESSAGES, Locale.ENGLISH),
                 "a straight-line number to a point in a dimension the player is not in is worse"
                         + " than no number: it reads as walkable and it is not");
@@ -82,12 +84,10 @@ class NavigatePageTest {
     @Test
     @DisplayName("a distance is three-dimensional and rounded")
     void theDistanceIsWhatItSays() {
-        final NavigationTarget target = NavigationTarget.poi(UUID.randomUUID(), "Mine",
-                WORLD, 30, 64, 40);
+        final NavigationTarget target = NavigationTarget.poi(UUID.randomUUID(), "Mine", WORLD, 30, 64, 40);
         assertEquals("50 m", NavigatePage.distance(target, WORLD, 0, 64, 0, MESSAGES, Locale.ENGLISH));
         // Height counts. A POI at the bottom of a shaft is not "0 m away" from the surface.
-        final NavigationTarget below = NavigationTarget.poi(UUID.randomUUID(), "Shaft",
-                WORLD, 0, 4, 0);
+        final NavigationTarget below = NavigationTarget.poi(UUID.randomUUID(), "Shaft", WORLD, 0, 4, 0);
         assertEquals("60 m", NavigatePage.distance(below, WORLD, 0, 64, 0, MESSAGES, Locale.ENGLISH));
     }
 
@@ -98,11 +98,13 @@ class NavigatePageTest {
         final NavigationTarget active = twelve.get(7);
 
         final List<NavigatePanel.Entry> first = entries(twelve, 0, Optional.of(active));
-        assertTrue(first.stream().noneMatch(NavigatePanel.Entry::active),
+        assertTrue(
+                first.stream().noneMatch(NavigatePanel.Entry::active),
                 "the active destination is not on page one, so nothing on page one is framed");
 
         final List<NavigatePanel.Entry> second = entries(twelve, 1, Optional.of(active));
-        assertEquals(List.of(false, false, true, false, false),
+        assertEquals(
+                List.of(false, false, true, false, false),
                 second.stream().map(NavigatePanel.Entry::active).toList(),
                 "the eighth destination is the third row of the second page - the marker follows"
                         + " the destination and not the index within the whole list");
@@ -125,11 +127,15 @@ class NavigatePageTest {
 
         // A POI's label IS its name; the two built-in kinds carry a message key instead, and
         // printing that key on the row is exactly what happens if this branch is dropped.
-        assertEquals("Baeckerei", NavigatePage.label(
-                NavigationTarget.poi(UUID.randomUUID(), "Baeckerei", WORLD, 0, 0, 0),
-                MESSAGES, Locale.ENGLISH));
-        assertEquals(MESSAGES.get(Locale.GERMAN, "smp.navigate.world-spawn"), NavigatePage.label(
-                NavigationTarget.worldSpawn(WORLD, 0, 0, 0), MESSAGES, Locale.GERMAN));
+        assertEquals(
+                "Baeckerei",
+                NavigatePage.label(
+                        NavigationTarget.poi(UUID.randomUUID(), "Baeckerei", WORLD, 0, 0, 0),
+                        MESSAGES,
+                        Locale.ENGLISH));
+        assertEquals(
+                MESSAGES.get(Locale.GERMAN, "smp.navigate.world-spawn"),
+                NavigatePage.label(NavigationTarget.worldSpawn(WORLD, 0, 0, 0), MESSAGES, Locale.GERMAN));
     }
 
     @Test
@@ -142,17 +148,15 @@ class NavigatePageTest {
 
     // --- helpers ---------------------------------------------------------------------------
 
-    private static List<NavigatePanel.Entry> entries(final List<NavigationTarget> targets,
-                                                     final int page,
-                                                     final Optional<NavigationTarget> active) {
+    private static List<NavigatePanel.Entry> entries(
+            final List<NavigationTarget> targets, final int page, final Optional<NavigationTarget> active) {
         return NavigatePage.entries(targets, page, WORLD, 0, 64, 0, active, MESSAGES, Locale.ENGLISH);
     }
 
     private static List<NavigationTarget> targets(final int count) {
         final List<NavigationTarget> out = new ArrayList<>();
         for (int index = 0; index < count; index++) {
-            out.add(NavigationTarget.poi(UUID.randomUUID(), "POI " + index, WORLD,
-                    index * 10, 64, 0));
+            out.add(NavigationTarget.poi(UUID.randomUUID(), "POI " + index, WORLD, index * 10, 64, 0));
         }
         return List.copyOf(out);
     }

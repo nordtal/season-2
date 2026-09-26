@@ -81,7 +81,8 @@ function opening(tag: string): { name: string; apply: (style: PreviewStyle) => P
 function closes(frame: string, closing: string): boolean {
   const lower = closing.toLowerCase()
   if (frame === lower) return true
-  if (lower === "color" || lower === "colour" || lower === "c") return frame === "color" || frame.startsWith("#") || frame in NAMED_COLOURS
+  if (lower === "color" || lower === "colour" || lower === "c")
+    return frame === "color" || frame.startsWith("#") || frame in NAMED_COLOURS
   const decoration = DECORATIONS[lower]
   return decoration !== undefined && DECORATIONS[frame] === decoration
 }

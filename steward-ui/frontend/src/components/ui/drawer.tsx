@@ -52,20 +52,13 @@ function DrawerOverlay({ className, ...props }: React.ComponentProps<typeof Draw
   return (
     <DrawerPrimitive.Overlay
       data-slot="drawer-overlay"
-      className={cn(
-        "fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs",
-        className
-      )}
+      className={cn("fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs", className)}
       {...props}
     />
   )
 }
 
-function DrawerContent({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+function DrawerContent({ className, children, ...props }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
   return (
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />
@@ -75,7 +68,7 @@ function DrawerContent({
           // `max-h-[90svh]`, not `vh`: on iOS the visual viewport shrinks when the address bar is
           // out and a sheet sized in `vh` puts its own footer under the browser chrome.
           "fixed inset-x-0 bottom-0 z-50 flex max-h-[90svh] flex-col gap-4 rounded-t-xl bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
-          className
+          className,
         )}
         {...props}
       >
@@ -84,10 +77,7 @@ function DrawerContent({
           not a button and is not focusable: `vaul` takes the drag from the whole sheet, so this is
           a picture of an affordance rather than the control itself.
         */}
-        <div
-          aria-hidden
-          className="mx-auto h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30"
-        />
+        <div aria-hidden className="mx-auto h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30" />
         {children}
       </DrawerPrimitive.Content>
     </DrawerPortal>
@@ -111,7 +101,7 @@ function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="drawer-footer"
       className={cn(
         "-mx-4 -mb-4 mt-auto flex flex-col-reverse gap-2 border-t bg-muted/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
-        className
+        className,
       )}
       {...props}
     />
@@ -128,16 +118,13 @@ function DrawerTitle({ className, ...props }: React.ComponentProps<typeof Drawer
   )
 }
 
-function DrawerDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Description>) {
+function DrawerDescription({ className, ...props }: React.ComponentProps<typeof DrawerPrimitive.Description>) {
   return (
     <DrawerPrimitive.Description
       data-slot="drawer-description"
       className={cn(
         "text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
-        className
+        className,
       )}
       {...props}
     />

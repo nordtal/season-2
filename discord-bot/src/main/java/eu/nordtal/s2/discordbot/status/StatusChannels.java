@@ -1,25 +1,22 @@
 package eu.nordtal.s2.discordbot.status;
 
-import eu.nordtal.s2.discordbot.config.Languages;
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.network.NetworkSnapshot;
 import eu.nordtal.s2.common.network.SnapshotDirectory;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
-
-import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
-
+import eu.nordtal.s2.discordbot.config.Languages;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 
 /**
  * Renames one channel per language so the guild's sidebar says what the network is doing.
@@ -79,9 +76,13 @@ public final class StatusChannels {
      */
     private final Map<String, Rename> attempts = new ConcurrentHashMap<>();
 
-    public StatusChannels(final JDA jda, final Languages languages, final Messages messages,
-                          final PhaseDirectory phases, final SnapshotDirectory snapshots,
-                          final Clock clock) {
+    public StatusChannels(
+            final JDA jda,
+            final Languages languages,
+            final Messages messages,
+            final PhaseDirectory phases,
+            final SnapshotDirectory snapshots,
+            final Clock clock) {
         this(jda, languages, messages, phases, snapshots, clock, null);
     }
 
@@ -91,9 +92,14 @@ public final class StatusChannels {
      *                      already reads the phase every minute; a second reader for the same row
      *                      would be a second opinion on when it changed
      */
-    public StatusChannels(final JDA jda, final Languages languages, final Messages messages,
-                          final PhaseDirectory phases, final SnapshotDirectory snapshots,
-                          final Clock clock, final eu.nordtal.s2.discordbot.announce.Announcements announcements) {
+    public StatusChannels(
+            final JDA jda,
+            final Languages languages,
+            final Messages messages,
+            final PhaseDirectory phases,
+            final SnapshotDirectory snapshots,
+            final Clock clock,
+            final eu.nordtal.s2.discordbot.announce.Announcements announcements) {
         this.jda = jda;
         this.languages = languages;
         this.messages = messages;
@@ -109,8 +115,9 @@ public final class StatusChannels {
 
     /** @return whether any language has a status channel configured at all */
     public boolean configured() {
-        return languages.all().stream().anyMatch(language ->
-                language.hasStatusChannel() || (announcements != null && language.hasAnnouncementChannel()));
+        return languages.all().stream()
+                .anyMatch(language ->
+                        language.hasStatusChannel() || (announcements != null && language.hasAnnouncementChannel()));
     }
 
     /**
@@ -151,8 +158,8 @@ public final class StatusChannels {
         if (announcements == null || previous == null || previous == phase) {
             return;
         }
-        announcements.postAll(language -> messages.format(language.locale(),
-                MESSAGES.announce().phase(phase.name(), previous.name())));
+        announcements.postAll(language ->
+                messages.format(language.locale(), MESSAGES.announce().phase(phase.name(), previous.name())));
     }
 
     private static boolean needsCounts(final SeasonPhase phase) {
@@ -165,8 +172,7 @@ public final class StatusChannels {
         if (previous != null && name.equals(previous.confirmed())) {
             return;
         }
-        if (previous != null
-                && Duration.between(previous.at(), now).toMinutes() < MINIMUM_RENAME_MINUTES) {
+        if (previous != null && Duration.between(previous.at(), now).toMinutes() < MINIMUM_RENAME_MINUTES) {
             // The name is stale by design for a few minutes. The next tick tries again; nothing is
             // lost, because the value it would have written is recomputed from scratch each time.
             // This is also what stops a channel Discord keeps refusing from being retried every
@@ -176,8 +182,12 @@ public final class StatusChannels {
 
         final GuildChannel channel = jda.getGuildChannelById(channelId);
         if (channel == null) {
-            log.error("Status channel {} for '{}' does not exist or the bot cannot see it;"
-                    + " it would have been named \"{}\"", channelId, language.tag(), name);
+            log.error(
+                    "Status channel {} for '{}' does not exist or the bot cannot see it;"
+                            + " it would have been named \"{}\"",
+                    channelId,
+                    language.tag(),
+                    name);
             return;
         }
 
@@ -186,9 +196,9 @@ public final class StatusChannels {
         // failure takes it back again - see below.
         final Rename sent = new Rename(name, now);
         attempts.put(channelId, sent);
-        channel.getManager().setName(name).queue(
-                success -> log.debug("Status channel for '{}' is now \"{}\"", language.tag(), name),
-                failure -> {
+        channel.getManager()
+                .setName(name)
+                .queue(success -> log.debug("Status channel for '{}' is now \"{}\"", language.tag(), name), failure -> {
                     // Forget the name but keep the attempt time. Without this the entry would still
                     // claim the channel is called `name`, and the next tick would return at the
                     // equality check above - so a channel that failed once would stay stale until
@@ -196,8 +206,12 @@ public final class StatusChannels {
                     // an hour and for MAINTENANCE is for ever. Conditional, so a callback arriving
                     // after a later tick has already written something else cannot undo it.
                     attempts.replace(channelId, sent, new Rename(null, sent.at()));
-                    log.warn("Could not rename the status channel for '{}' to \"{}\"; it will be"
-                            + " retried once the cooldown is up", language.tag(), name, failure);
+                    log.warn(
+                            "Could not rename the status channel for '{}' to \"{}\"; it will be"
+                                    + " retried once the cooldown is up",
+                            language.tag(),
+                            name,
+                            failure);
                 });
     }
 
@@ -208,6 +222,5 @@ public final class StatusChannels {
      *                  attempt failed - which makes the next eligible tick send it again
      * @param at        when that attempt was made, successful or not; the cooldown runs off this
      */
-    private record Rename(String confirmed, Instant at) {
-    }
+    private record Rename(String confirmed, Instant at) {}
 }

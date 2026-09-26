@@ -1,14 +1,13 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Supplier;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A value that goes out of date on a timer and is made new beside the reader, never by them.
@@ -49,8 +48,11 @@ final class Refreshed<T> {
     private Instant refreshedAt;
     private boolean refreshing;
 
-    Refreshed(final @NotNull Supplier<T> read, final @NotNull Duration ttl,
-              final @NotNull Executor background, final @NotNull Supplier<Instant> clock) {
+    Refreshed(
+            final @NotNull Supplier<T> read,
+            final @NotNull Duration ttl,
+            final @NotNull Executor background,
+            final @NotNull Supplier<Instant> clock) {
         this.read = read;
         this.ttl = ttl;
         this.background = background;
@@ -109,8 +111,10 @@ final class Refreshed<T> {
         } catch (RuntimeException failed) {
             // Warned rather than swallowed, and it is actionable: the answer on the page is the
             // one from before, and its age is on the page beside it.
-            log.warn("could not refresh a cached answer - the one from {} stays on the page: {}",
-                    refreshedAt(), failed.toString());
+            log.warn(
+                    "could not refresh a cached answer - the one from {} stays on the page: {}",
+                    refreshedAt(),
+                    failed.toString());
         }
         synchronized (this) {
             if (fresh != null) {

@@ -3,7 +3,6 @@ package eu.nordtal.s2.proxy.pack;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.limbo.WaitReason;
 import eu.nordtal.s2.proxy.routing.ProxyRole;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -90,8 +89,12 @@ public final class WaitingBook {
      *                     (season-2-ops/121)
      * @param clock        the clock both periods are measured on
      */
-    public WaitingBook(final boolean packOffered, final Duration applyTimeout,
-                       final Duration readyGrace, final ProxyRole role, final Clock clock) {
+    public WaitingBook(
+            final boolean packOffered,
+            final Duration applyTimeout,
+            final Duration readyGrace,
+            final ProxyRole role,
+            final Clock clock) {
         this.packOffered = packOffered;
         this.applyTimeout = Objects.requireNonNull(applyTimeout, "applyTimeout");
         this.readyGrace = Objects.requireNonNull(readyGrace, "readyGrace");
@@ -257,10 +260,14 @@ public final class WaitingBook {
      *         ends the visit, so a second concurrent caller gets {@code IDLE} and the player is not
      *         connected onward twice
      */
-    public WaitingDecision decide(final UUID uuid, final SeasonPhase phase, final boolean admin,
-                                  final boolean destinationAvailable, final String destination,
-                                  final boolean destinationUpdating,
-                                  final boolean destinationHeld) {
+    public WaitingDecision decide(
+            final UUID uuid,
+            final SeasonPhase phase,
+            final boolean admin,
+            final boolean destinationAvailable,
+            final String destination,
+            final boolean destinationUpdating,
+            final boolean destinationHeld) {
         Objects.requireNonNull(phase, "phase");
         final Session session = sessions.get(uuid);
         if (session == null) {
@@ -286,9 +293,8 @@ public final class WaitingBook {
                     && java.util.Objects.equals(session.backendDown, destination)
                     && clock.instant().isBefore(session.backendDownUntil);
             final boolean available = destinationAvailable && !stillDown;
-            final Optional<WaitReason> reason =
-                    LimboHold.reason(packSettled, phase, admin, role.isStandby(), available,
-                            destinationUpdating, destinationHeld);
+            final Optional<WaitReason> reason = LimboHold.reason(
+                    packSettled, phase, admin, role.isStandby(), available, destinationUpdating, destinationHeld);
             if (reason.isPresent()) {
                 // Something other than READY is still in the way, so the grace period restarts.
                 session.settledAt = null;
@@ -326,7 +332,6 @@ public final class WaitingBook {
     }
 
     private Session session(final UUID uuid) {
-        return sessions.computeIfAbsent(Objects.requireNonNull(uuid, "uuid"),
-                ignored -> new Session());
+        return sessions.computeIfAbsent(Objects.requireNonNull(uuid, "uuid"), ignored -> new Session());
     }
 }

@@ -1,17 +1,15 @@
 package eu.nordtal.s2.steward.worker.source;
 
-import eu.nordtal.s2.steward.worker.http.FakeHttp;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.steward.worker.http.FakeHttp;
+import java.io.IOException;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The two Modrinth traps, against the payloads the live API returned on 2026-09-01.
@@ -26,8 +24,8 @@ class ModrinthTest {
         // The single most valuable assertion in this module. PacketEvents publishes two files under
         // one version; matching on '.jar' alone puts source code in a plugins folder, where it
         // loads as a plugin with no code in it and DisplayTags fails to find its packet library.
-        final Modrinth modrinth = new Modrinth(
-                new FakeHttp().serving("/project/HYKaKraK/version", "modrinth-packetevents.json"));
+        final Modrinth modrinth =
+                new Modrinth(new FakeHttp().serving("/project/HYKaKraK/version", "modrinth-packetevents.json"));
 
         final RemoteFile file = modrinth.newest("packetevents", "HYKaKraK", MC, "paper");
 
@@ -40,8 +38,8 @@ class ModrinthTest {
     @Test
     @DisplayName("Simple Voice Chat: filename and version differ, and the filename is what is used")
     void usesThePublishedFilename() throws IOException {
-        final Modrinth modrinth = new Modrinth(
-                new FakeHttp().serving("/project/9eGKb6K1/version", "modrinth-voicechat.json"));
+        final Modrinth modrinth =
+                new Modrinth(new FakeHttp().serving("/project/9eGKb6K1/version", "modrinth-voicechat.json"));
 
         final RemoteFile file = modrinth.newest("voicechat", "9eGKb6K1", MC, "paper");
 
@@ -68,8 +66,8 @@ class ModrinthTest {
     void refusesWhenNothingMatchesThePlatform() {
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", "[]"));
 
-        final IOException failure = assertThrows(IOException.class,
-                () -> modrinth.newest("voicechat", "9eGKb6K1", "27.0", "paper"));
+        final IOException failure =
+                assertThrows(IOException.class, () -> modrinth.newest("voicechat", "9eGKb6K1", "27.0", "paper"));
 
         // "The plugin has no 26.2 build yet" must not become "install the 26.1 build instead".
         assertTrue(failure.getMessage().contains("no stable release"), failure.getMessage());
@@ -112,8 +110,7 @@ class ModrinthTest {
         // therefore one public UDP port per backend for the rest of the season.
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", VELOCITY_PRE_RELEASES));
 
-        final RemoteFile file =
-                modrinth.newest("voicechat-velocity", "9eGKb6K1", MC, "velocity");
+        final RemoteFile file = modrinth.newest("voicechat-velocity", "9eGKb6K1", MC, "velocity");
 
         assertEquals("voicechat-velocity-2.6.18.jar", file.fileName());
         // Newest by date, not first in the list and not the highest version_type - the same
@@ -133,17 +130,18 @@ class ModrinthTest {
         // The id is written out here rather than imported, so that `source` keeps depending on
         // nothing but `http`. This is what stops the two spellings drifting apart - and a drift
         // would be silent: an id nothing resolves under simply never gets the exception.
-        assertEquals(List.of(eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT_PROXY),
+        assertEquals(
+                List.of(eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT_PROXY),
                 Modrinth.PRE_RELEASE_EXCEPTIONS,
                 "the exception names an artefact the topology does not");
 
         // And every other artefact the resolver asks Modrinth for still refuses the same payload.
         // Same body, same loader, same everything but the id.
         for (final String artifact : List.of("packetevents", "voicechat", "coreprotect")) {
-            final Modrinth modrinth =
-                    new Modrinth(new FakeHttp().answering("/version", VELOCITY_PRE_RELEASES));
+            final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", VELOCITY_PRE_RELEASES));
 
-            final IOException refused = assertThrows(Modrinth.Unsupported.class,
+            final IOException refused = assertThrows(
+                    Modrinth.Unsupported.class,
                     () -> modrinth.newest(artifact, "9eGKb6K1", MC, "velocity"),
                     artifact + " accepted a pre-release. The exception is meant to be one artefact,"
                             + " named, and this is the test that keeps it one.");
@@ -158,8 +156,8 @@ class ModrinthTest {
         // counts, and it must not become a way to install a 26.1 build on a 26.2 proxy.
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", "[]"));
 
-        final IOException refused = assertThrows(Modrinth.Unsupported.class,
-                () -> modrinth.newest("voicechat-velocity", "9eGKb6K1", MC, "velocity"));
+        final IOException refused = assertThrows(
+                Modrinth.Unsupported.class, () -> modrinth.newest("voicechat-velocity", "9eGKb6K1", MC, "velocity"));
         assertTrue(refused.getMessage().contains("no version of any kind"), refused.getMessage());
     }
 
@@ -178,7 +176,9 @@ class ModrinthTest {
                 """;
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", body));
 
-        assertEquals("voicechat-bukkit-1.5.3.jar", modrinth.newest("voicechat", "9eGKb6K1", MC, "paper").fileName());
+        assertEquals(
+                "voicechat-bukkit-1.5.3.jar",
+                modrinth.newest("voicechat", "9eGKb6K1", MC, "paper").fileName());
     }
 
     @Test
@@ -191,8 +191,8 @@ class ModrinthTest {
                 """;
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", body));
 
-        final IOException failure = assertThrows(IOException.class,
-                () -> modrinth.newest("packetevents", "HYKaKraK", MC, "paper"));
+        final IOException failure =
+                assertThrows(IOException.class, () -> modrinth.newest("packetevents", "HYKaKraK", MC, "paper"));
         assertTrue(failure.getMessage().contains("primary"), failure.getMessage());
     }
 }

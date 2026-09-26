@@ -1,12 +1,11 @@
 package eu.nordtal.s2.steward.ui.auth;
 
+import java.util.List;
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.List;
-import java.util.Optional;
 
 /**
  * The SQL behind {@link Credentials}. Package-private: {@code Credentials} is the API.
@@ -28,14 +27,15 @@ interface CredentialDao {
             VALUES (:credentialId, :discordId, :publicKey, :signatureCount, :label, :transports,
                     :backupEligible, :backedUp, now())
             """)
-    void add(@Bind("credentialId") byte[] credentialId,
-             @Bind("discordId") String discordId,
-             @Bind("publicKey") byte[] publicKey,
-             @Bind("signatureCount") long signatureCount,
-             @Bind("label") String label,
-             @Bind("transports") String transports,
-             @Bind("backupEligible") Boolean backupEligible,
-             @Bind("backedUp") Boolean backedUp);
+    void add(
+            @Bind("credentialId") byte[] credentialId,
+            @Bind("discordId") String discordId,
+            @Bind("publicKey") byte[] publicKey,
+            @Bind("signatureCount") long signatureCount,
+            @Bind("label") String label,
+            @Bind("transports") String transports,
+            @Bind("backupEligible") Boolean backupEligible,
+            @Bind("backedUp") Boolean backedUp);
 
     /** Every key of one account, oldest first - which is the order somebody registered them in. */
     @SqlQuery("""
@@ -100,8 +100,10 @@ interface CredentialDao {
             UPDATE steward_credential SET label = :label
             WHERE credential_id = :credentialId AND discord_id = :discordId
             """)
-    int rename(@Bind("credentialId") byte[] credentialId, @Bind("discordId") String discordId,
-               @Bind("label") String label);
+    int rename(
+            @Bind("credentialId") byte[] credentialId,
+            @Bind("discordId") String discordId,
+            @Bind("label") String label);
 
     /**
      * The counter and the time, written after a successful assertion.
@@ -117,6 +119,5 @@ interface CredentialDao {
                 last_used_at = now()
             WHERE credential_id = :credentialId
             """)
-    int used(@Bind("credentialId") byte[] credentialId,
-             @Bind("signatureCount") long signatureCount);
+    int used(@Bind("credentialId") byte[] credentialId, @Bind("signatureCount") long signatureCount);
 }

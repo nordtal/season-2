@@ -1,17 +1,16 @@
 package eu.nordtal.s2.steward.ui.internal;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.http.HttpConnectTimeoutException;
-import java.net.http.HttpTimeoutException;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * How the interface reaches the two services behind it: steward-worker and steward-deployer.
@@ -55,11 +54,13 @@ public final class InternalClient {
      *                stream is the exception and carries {@link #FOLLOW_DEADLINE} instead, because
      *                a log follow is allowed to take hours over saying nothing
      */
-    public InternalClient(final @NotNull String name, final @NotNull String baseUrl,
-                          final @NotNull String token, final @NotNull Duration timeout) {
+    public InternalClient(
+            final @NotNull String name,
+            final @NotNull String baseUrl,
+            final @NotNull String token,
+            final @NotNull Duration timeout) {
         this.name = name;
-        final String trimmed = baseUrl.endsWith("/")
-                ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        final String trimmed = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.baseUrl = token.isBlank() ? trimmed : plaintextOnlyInside(name, trimmed);
         this.token = token;
         this.timeout = timeout;
@@ -123,8 +124,9 @@ public final class InternalClient {
     /** Whether it is there at all - asked so the start page can say which half is down. */
     public boolean isReachable() {
         try {
-            return http.send(request("/api/health").GET().build(),
-                    HttpResponse.BodyHandlers.discarding()).statusCode() == 200;
+            return http.send(request("/api/health").GET().build(), HttpResponse.BodyHandlers.discarding())
+                            .statusCode()
+                    == 200;
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -150,10 +152,12 @@ public final class InternalClient {
      */
     public @NotNull String get(final @NotNull String path, final @NotNull Duration deadline) {
         try {
-            final HttpResponse<String> response = http.send(request(path, deadline).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
+            final HttpResponse<String> response =
+                    http.send(request(path, deadline).GET().build(), HttpResponse.BodyHandlers.ofString());
             if (isNotSuccess(response.statusCode())) {
-                throw new Failure(name, response.statusCode(),
+                throw new Failure(
+                        name,
+                        response.statusCode(),
                         name + " answered " + response.statusCode() + " for " + path,
                         response.body());
             }
@@ -170,15 +174,19 @@ public final class InternalClient {
 
     public @NotNull String post(final @NotNull String path, final @NotNull String json) {
         try {
-            final HttpResponse<String> response = http.send(request(path)
+            final HttpResponse<String> response = http.send(
+                    request(path)
                             .header("Content-Type", "application/json")
-                            .POST(HttpRequest.BodyPublishers.ofString(json)).build(),
+                            .POST(HttpRequest.BodyPublishers.ofString(json))
+                            .build(),
                     HttpResponse.BodyHandlers.ofString());
             if (isNotSuccess(response.statusCode())) {
                 // The same sentence `get` builds. The body used to be the message, and most of the
                 // statuses this now catches have no body at all - a 307 from a proxy, a bodiless
                 // 502 - so the browser was handed {"error":""} and the log line ended in a colon.
-                throw new Failure(name, response.statusCode(),
+                throw new Failure(
+                        name,
+                        response.statusCode(),
                         name + " answered " + response.statusCode() + " for " + path,
                         response.body());
             }
@@ -202,10 +210,12 @@ public final class InternalClient {
      */
     public @NotNull String delete(final @NotNull String path) {
         try {
-            final HttpResponse<String> response = http.send(request(path).DELETE().build(),
-                    HttpResponse.BodyHandlers.ofString());
+            final HttpResponse<String> response =
+                    http.send(request(path).DELETE().build(), HttpResponse.BodyHandlers.ofString());
             if (isNotSuccess(response.statusCode())) {
-                throw new Failure(name, response.statusCode(),
+                throw new Failure(
+                        name,
+                        response.statusCode(),
                         name + " answered " + response.statusCode() + " for " + path,
                         response.body());
             }
@@ -229,12 +239,16 @@ public final class InternalClient {
      */
     public @NotNull String put(final @NotNull String path, final @NotNull String json) {
         try {
-            final HttpResponse<String> response = http.send(request(path)
+            final HttpResponse<String> response = http.send(
+                    request(path)
                             .header("Content-Type", "application/json")
-                            .PUT(HttpRequest.BodyPublishers.ofString(json)).build(),
+                            .PUT(HttpRequest.BodyPublishers.ofString(json))
+                            .build(),
                     HttpResponse.BodyHandlers.ofString());
             if (isNotSuccess(response.statusCode())) {
-                throw new Failure(name, response.statusCode(),
+                throw new Failure(
+                        name,
+                        response.statusCode(),
                         name + " answered " + response.statusCode() + " for " + path,
                         response.body());
             }
@@ -269,7 +283,10 @@ public final class InternalClient {
     public @NotNull InputStream stream(final @NotNull String path) {
         try {
             final HttpResponse<InputStream> response = http.send(
-                    request(path, FOLLOW_DEADLINE).header("Accept", "text/event-stream").GET().build(),
+                    request(path, FOLLOW_DEADLINE)
+                            .header("Accept", "text/event-stream")
+                            .GET()
+                            .build(),
                     HttpResponse.BodyHandlers.ofInputStream());
             if (isNotSuccess(response.statusCode())) {
                 // ofInputStream hands back an open body for a failure too, and this branch used to
@@ -280,8 +297,11 @@ public final class InternalClient {
                 } catch (IOException ignored) {
                     // The status is the diagnosis; a body we could not drain does not change it.
                 }
-                throw new Failure(name, response.statusCode(),
-                        name + " answered " + response.statusCode() + " for " + path, null);
+                throw new Failure(
+                        name,
+                        response.statusCode(),
+                        name + " answered " + response.statusCode() + " for " + path,
+                        null);
             }
             return response.body();
         } catch (HttpConnectTimeoutException unanswered) {
@@ -364,8 +384,7 @@ public final class InternalClient {
         private final int status;
         private final @Nullable String body;
 
-        Failure(final String where, final int status, final String message,
-                final @Nullable String body) {
+        Failure(final String where, final int status, final String message, final @Nullable String body) {
             super(message);
             this.where = where;
             this.status = status;

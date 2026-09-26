@@ -39,7 +39,14 @@ const PLUGINS = {
       pageUrl: "https://modrinth.com/plugin/chunky",
       group: "preinstalled",
     },
-    { name: "Display Tags", running: true, removable: false, fileName: "papermc-display-tags-2.2.0.jar", group: "nordtal", rank: 0 },
+    {
+      name: "Display Tags",
+      running: true,
+      removable: false,
+      fileName: "papermc-display-tags-2.2.0.jar",
+      group: "nordtal",
+      rank: 0,
+    },
     {
       name: "CoreProtect",
       running: false,
@@ -72,15 +79,42 @@ const AVAILABLE = {
   unclaimed: [],
   notes: [],
   changes: [
-    { service: "smp", artifact: "packetevents", status: "OUTDATED", work: true, failure: false,
-      installed: "packetevents-spigot-2.13.0.jar", fileName: "packetevents-spigot-2.14.0.jar" },
-    { service: "smp", artifact: "chunky", status: "UP_TO_DATE", work: false, failure: false,
-      installed: "Chunky-Bukkit-1.5.3.jar", fileName: "Chunky-Bukkit-1.5.3.jar" },
-    { service: "smp", artifact: "coreprotect", status: "MISSING", work: true, failure: false,
-      version: "24.1", fileName: "CoreProtect-CE-24.1.jar" },
+    {
+      service: "smp",
+      artifact: "packetevents",
+      status: "OUTDATED",
+      work: true,
+      failure: false,
+      installed: "packetevents-spigot-2.13.0.jar",
+      fileName: "packetevents-spigot-2.14.0.jar",
+    },
+    {
+      service: "smp",
+      artifact: "chunky",
+      status: "UP_TO_DATE",
+      work: false,
+      failure: false,
+      installed: "Chunky-Bukkit-1.5.3.jar",
+      fileName: "Chunky-Bukkit-1.5.3.jar",
+    },
+    {
+      service: "smp",
+      artifact: "coreprotect",
+      status: "MISSING",
+      work: true,
+      failure: false,
+      version: "24.1",
+      fileName: "CoreProtect-CE-24.1.jar",
+    },
     { service: "smp", artifact: "smp", status: "UNRESOLVED", work: false, failure: true, installed: "smp-0.9.4.jar" },
-    { service: "limbo", artifact: "chunky", status: "UNSUPPORTED", work: false, failure: false,
-      installed: "Chunky-Bukkit-1.5.3.jar" },
+    {
+      service: "limbo",
+      artifact: "chunky",
+      status: "UNSUPPORTED",
+      work: false,
+      failure: false,
+      installed: "Chunky-Bukkit-1.5.3.jar",
+    },
   ],
 }
 
@@ -110,7 +144,10 @@ afterEach(() => {
 
 describe("ServicePlugins", () => {
   it("draws Nordtal, Preinstalled and Added in that order, each alphabetical", async () => {
-    vi.stubGlobal("fetch", backend(() => json(200, AVAILABLE)))
+    vi.stubGlobal(
+      "fetch",
+      backend(() => json(200, AVAILABLE)),
+    )
     draw()
 
     await screen.findByText("JourneyMap")
@@ -127,7 +164,10 @@ describe("ServicePlugins", () => {
   })
 
   it("puts the update check's answer on the row it belongs to", async () => {
-    vi.stubGlobal("fetch", backend(() => json(200, AVAILABLE)))
+    vi.stubGlobal(
+      "fetch",
+      backend(() => json(200, AVAILABLE)),
+    )
     draw()
 
     expect(await screen.findByText("2.13.0 → 2.14.0")).toBeTruthy()
@@ -146,7 +186,10 @@ describe("ServicePlugins", () => {
         change.artifact === "coreprotect" ? { ...change, status: "UNSUPPORTED", work: false } : change,
       ),
     }
-    vi.stubGlobal("fetch", backend(() => json(200, unsupported)))
+    vi.stubGlobal(
+      "fetch",
+      backend(() => json(200, unsupported)),
+    )
     draw()
 
     const coreprotect = (await screen.findByText("CoreProtect")).closest("li")!
@@ -154,7 +197,10 @@ describe("ServicePlugins", () => {
   })
 
   it("offers removal only for what somebody added, and Modrinth only for Modrinth plugins", async () => {
-    vi.stubGlobal("fetch", backend(() => json(200, AVAILABLE)))
+    vi.stubGlobal(
+      "fetch",
+      backend(() => json(200, AVAILABLE)),
+    )
     draw()
 
     await screen.findByText("JourneyMap")
@@ -169,7 +215,10 @@ describe("ServicePlugins", () => {
   })
 
   it("says nothing about updates when they cannot be checked", async () => {
-    vi.stubGlobal("fetch", backend(() => json(503, { error: "no GitHub" })))
+    vi.stubGlobal(
+      "fetch",
+      backend(() => json(503, { error: "no GitHub" })),
+    )
     draw()
 
     expect(await screen.findByText("Updates can't be checked right now.")).toBeTruthy()
@@ -180,7 +229,10 @@ describe("ServicePlugins", () => {
 
   it("takes the old answer off the rows when a check fails", async () => {
     let calls = 0
-    vi.stubGlobal("fetch", backend(() => (++calls === 1 ? json(200, AVAILABLE) : json(503, { error: "no GitHub" }))))
+    vi.stubGlobal(
+      "fetch",
+      backend(() => (++calls === 1 ? json(200, AVAILABLE) : json(503, { error: "no GitHub" }))),
+    )
     draw()
 
     await screen.findByText("up to date")
@@ -198,9 +250,7 @@ describe("ServicePlugins", () => {
     await screen.findByText("up to date")
     fireEvent.click(screen.getByRole("button", { name: "Check for updates" }))
 
-    await waitFor(() =>
-      expect(fetch.mock.calls.some(([url]) => url === "/api/updates/available?refresh")).toBe(true),
-    )
+    await waitFor(() => expect(fetch.mock.calls.some(([url]) => url === "/api/updates/available?refresh")).toBe(true))
     for (const call of fetch.mock.calls as unknown as [string, RequestInit | undefined][]) {
       expect(call[1]?.method ?? "GET").toBe("GET")
     }

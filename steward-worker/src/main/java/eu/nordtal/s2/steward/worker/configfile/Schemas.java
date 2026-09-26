@@ -4,16 +4,15 @@ import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SchemaWriter;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reads the {@code <name>.schema.json} jcore writes beside a config file, if there is one
@@ -32,8 +31,7 @@ final class Schemas {
     private static final Logger LOG = LoggerFactory.getLogger(Schemas.class);
     private static final Gson GSON = new Gson();
 
-    private Schemas() {
-    }
+    private Schemas() {}
 
     /**
      * The schema tree for {@code ymlFile}, if it has one.

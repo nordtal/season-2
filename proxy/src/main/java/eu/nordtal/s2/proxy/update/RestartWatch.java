@@ -1,5 +1,10 @@
 package eu.nordtal.s2.proxy.update;
 
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+
+import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.scheduler.ScheduledTask;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -10,15 +15,6 @@ import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import eu.nordtal.s2.proxy.routing.PhaseServers;
-
-import com.velocitypowered.api.proxy.Player;
-import com.velocitypowered.api.proxy.ProxyServer;
-import com.velocitypowered.api.scheduler.ScheduledTask;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.title.Title;
-import org.slf4j.Logger;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -28,8 +24,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
-
-import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.title.Title;
+import org.slf4j.Logger;
 
 /**
  * Tells every player on the network that it is about to go down, and how long they have.
@@ -78,8 +75,8 @@ public final class RestartWatch {
      * the next one replaces it, and a stay shorter than the gap leaves the screen blank for a moment
      * every second, which reads as flicker rather than as a counter.</p>
      */
-    private static final Title.Times TIMES = Title.Times.times(
-            Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
+    private static final Title.Times TIMES =
+            Title.Times.times(Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
 
     private final Object plugin;
     private final ProxyServer proxy;
@@ -143,11 +140,17 @@ public final class RestartWatch {
      *
      * <p>Defaults to doing nothing, so a proxy wired without it still counts down.</p>
      */
-    private volatile Runnable atZero = () -> { };
+    private volatile Runnable atZero = () -> {};
 
-    public RestartWatch(final Object plugin, final ProxyServer proxy, final Logger logger,
-                        final UpdateDirectory updates, final LoginRoster roster,
-                        final Messages messages, final PhaseServers servers, final Clock clock) {
+    public RestartWatch(
+            final Object plugin,
+            final ProxyServer proxy,
+            final Logger logger,
+            final UpdateDirectory updates,
+            final LoginRoster roster,
+            final Messages messages,
+            final PhaseServers servers,
+            final Clock clock) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -228,12 +231,19 @@ public final class RestartWatch {
             // opens a socket, and every beat of one countdown has to say the same thing anyway.
             shape = shapeOf(request);
             saidVoice = false;
-            logger.info("Telling {} player(s) about the {} asked for by {} ({}): {} beat(s) over"
+            logger.info(
+                    "Telling {} player(s) about the {} asked for by {} ({}): {} beat(s) over"
                             + " {} - {} on {}, waiting room {}, standby proxy {}",
-                    proxy.getPlayerCount(), request.kind(), request.requestedBy(), request.source(),
-                    beats.size(), request.untilDue(clock.instant()), shape.occasion(),
-                    shape.moving(), shape.waitingRoom() ? "yes" : "NO", shape.standbyProxy()
-                            ? "yes" : "no");
+                    proxy.getPlayerCount(),
+                    request.kind(),
+                    request.requestedBy(),
+                    request.source(),
+                    beats.size(),
+                    request.untilDue(clock.instant()),
+                    shape.occasion(),
+                    shape.moving(),
+                    shape.waitingRoom() ? "yes" : "NO",
+                    shape.standbyProxy() ? "yes" : "no");
             cancelScheduled();
             saidNow = false;
             beats.forEach(this::schedule);
@@ -257,18 +267,27 @@ public final class RestartWatch {
         try {
             moving = Evacuation.backends(request);
         } catch (final RuntimeException failure) {
-            logger.warn("Could not read the plan of request {}; the countdown will be spoken"
-                    + " without naming what it is for", request.id(), failure);
+            logger.warn(
+                    "Could not read the plan of request {}; the countdown will be spoken"
+                            + " without naming what it is for",
+                    request.id(),
+                    failure);
             return RunShape.of(request.kind(), Set.of(), true, false);
         }
-        final boolean room = Evacuation.roomFor(moving, servers.limbo(), servers.limboStandby(),
-                name -> proxy.getServer(name).isPresent()) != null;
+        final boolean room = Evacuation.roomFor(
+                        moving,
+                        servers.limbo(),
+                        servers.limboStandby(),
+                        name -> proxy.getServer(name).isPresent())
+                != null;
         boolean standby = false;
         try {
             standby = standbyProxy.getAsBoolean();
         } catch (final RuntimeException failure) {
-            logger.warn("Could not ask whether the standby proxy answers; telling players the"
-                    + " worse of the two outcomes", failure);
+            logger.warn(
+                    "Could not ask whether the standby proxy answers; telling players the"
+                            + " worse of the two outcomes",
+                    failure);
         }
         return RunShape.of(request.kind(), moving, room, standby);
     }
@@ -281,28 +300,32 @@ public final class RestartWatch {
      * middle of a method holding this object's monitor.</p>
      */
     private void schedule(final Countdown.Beat beat) {
-        scheduled.add(proxy.getScheduler().buildTask(plugin, () -> {
-            if (beat.announcement().kind() == Announcement.Kind.NOW) {
-                synchronized (this) {
-                    if (saidNow) {
-                        return;
+        scheduled.add(proxy.getScheduler()
+                .buildTask(plugin, () -> {
+                    if (beat.announcement().kind() == Announcement.Kind.NOW) {
+                        synchronized (this) {
+                            if (saidNow) {
+                                return;
+                            }
+                            saidNow = true;
+                            countdown.zeroReached();
+                        }
+                        // Before the sentence rather than after it: the two are the same event, and the
+                        // one a player can be hurt by is the move. A failure here must not swallow the
+                        // announcement, which is why it is caught rather than allowed to end the task.
+                        try {
+                            atZero.run();
+                        } catch (final RuntimeException failure) {
+                            logger.warn(
+                                    "What was scheduled for the end of the countdown failed; the"
+                                            + " five-second sweep behind it is what still has to catch this",
+                                    failure);
+                        }
                     }
-                    saidNow = true;
-                    countdown.zeroReached();
-                }
-                // Before the sentence rather than after it: the two are the same event, and the
-                // one a player can be hurt by is the move. A failure here must not swallow the
-                // announcement, which is why it is caught rather than allowed to end the task.
-                try {
-                    atZero.run();
-                } catch (final RuntimeException failure) {
-                    logger.warn("What was scheduled for the end of the countdown failed; the"
-                            + " five-second sweep behind it is what still has to catch this",
-                            failure);
-                }
-            }
-            say(beat.announcement());
-        }).delay(beat.delay()).schedule());
+                    say(beat.announcement());
+                })
+                .delay(beat.delay())
+                .schedule());
     }
 
     /** Takes back every beat that has not fired. */
@@ -334,13 +357,14 @@ public final class RestartWatch {
             // Same rule as above: a database that cannot be reached is not a reason to announce
             // anything, and guessing here is exactly what this method exists to stop. The countdown
             // is left standing so the next pass asks again.
-            logger.warn("Countdown {} stopped and could not be read back; nobody was told anything"
-                    + " this pass", watched, failure);
+            logger.warn(
+                    "Countdown {} stopped and could not be read back; nobody was told anything" + " this pass",
+                    watched,
+                    failure);
             return;
         }
 
-        logger.info("Countdown {} is over: {}", watched,
-                status == null ? "the row is gone" : status);
+        logger.info("Countdown {} is over: {}", watched, status == null ? "the row is gone" : status);
         cancelScheduled();
         countdown.gone(status).ifPresent(announcement -> {
             if (announcement.kind() == Announcement.Kind.NOW) {
@@ -361,7 +385,8 @@ public final class RestartWatch {
             // title is the tick's own text, so the middle of the screen counts in one voice - and
             // Countdown drops the tick of this second so the two do not draw over one another.
             case COUNTDOWN -> {
-                each((player, locale) -> player.sendMessage(line(locale,
+                each((player, locale) -> player.sendMessage(line(
+                        locale,
                         countdown(current.occasion(), what(locale, current), announcement.seconds()),
                         fateOf(current, player))));
                 title(locale -> MessageRenderer.of(messages)
@@ -377,18 +402,21 @@ public final class RestartWatch {
                 }
             }
             case NOW -> {
-                each((player, locale) -> player.sendMessage(line(locale,
-                        now(current.occasion(), what(locale, current)), fateOf(current, player))));
-                title(locale -> MessageRenderer.of(messages).format(locale,
-                        now(current.occasion(), what(locale, current))));
+                each((player, locale) -> player.sendMessage(
+                        line(locale, now(current.occasion(), what(locale, current)), fateOf(current, player))));
+                title(locale ->
+                        MessageRenderer.of(messages).format(locale, now(current.occasion(), what(locale, current))));
             }
             // No chat line: the number alone, in the middle of the screen, once a second.
-            case TICK -> title(locale -> MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.restart().tick(announcement.seconds())));
-            case CANCELLED -> broadcast(locale -> MessageRenderer.of(messages).format(locale,
-                    MESSAGES.restart().cancelled(occasion(locale, current))));
-            case FAILED -> broadcast(locale -> MessageRenderer.of(messages).format(locale,
-                    MESSAGES.restart().failed(occasion(locale, current))));
+            case TICK ->
+                title(locale -> MessageRenderer.of(messages)
+                        .format(locale, MESSAGES.restart().tick(announcement.seconds())));
+            case CANCELLED ->
+                broadcast(locale -> MessageRenderer.of(messages)
+                        .format(locale, MESSAGES.restart().cancelled(occasion(locale, current))));
+            case FAILED ->
+                broadcast(locale -> MessageRenderer.of(messages)
+                        .format(locale, MESSAGES.restart().failed(occasion(locale, current))));
         }
     }
 
@@ -409,18 +437,20 @@ public final class RestartWatch {
         final ProxyMessages.Restart.Fate fates = MESSAGES.restart().fate();
         return switch (fate) {
             case NOTHING -> head;
-            case RECONNECT -> head.append(Component.space())
-                    .append(MessageRenderer.of(messages).format(locale, fates.reconnect()));
-            case WAITING_ROOM -> head.append(Component.space())
-                    .append(MessageRenderer.of(messages).format(locale, fates.waitingRoom()));
-            case DISCONNECT -> head.append(Component.space())
-                    .append(MessageRenderer.of(messages).format(locale, fates.disconnect()));
+            case RECONNECT ->
+                head.append(Component.space())
+                        .append(MessageRenderer.of(messages).format(locale, fates.reconnect()));
+            case WAITING_ROOM ->
+                head.append(Component.space())
+                        .append(MessageRenderer.of(messages).format(locale, fates.waitingRoom()));
+            case DISCONNECT ->
+                head.append(Component.space())
+                        .append(MessageRenderer.of(messages).format(locale, fates.disconnect()));
         };
     }
 
     /** The warning ahead of a run, by what the run is. */
-    private static MessageRef countdown(final RunShape.Occasion occasion, final Component what,
-                                        final long seconds) {
+    private static MessageRef countdown(final RunShape.Occasion occasion, final Component what, final long seconds) {
         final ProxyMessages.Restart.Countdown lines = MESSAGES.restart().countdown();
         return switch (occasion) {
             case UPDATE -> lines.update(what, seconds);
@@ -472,7 +502,8 @@ public final class RestartWatch {
     private Component what(final Locale locale, final RunShape current) {
         final String only = current.onlyService();
         if (only == null) {
-            return MessageRenderer.of(messages).format(locale, MESSAGES.restart().what().network());
+            return MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.restart().what().network());
         }
         return Homecoming.serviceName(messages, locale, only);
     }
@@ -480,13 +511,16 @@ public final class RestartWatch {
     /** The occasion as a noun, for the two lines that say it is off rather than that it is coming. */
     private Component occasion(final Locale locale, final RunShape current) {
         final ProxyMessages.Restart.Occasion occasions = MESSAGES.restart().occasion();
-        return MessageRenderer.of(messages).format(locale, switch (current.occasion()) {
-            case UPDATE -> occasions.update();
-            case RECREATE -> occasions.recreate();
-            case BACKUP -> occasions.backup();
-            case DOWN -> occasions.down();
-            case MAINTENANCE -> occasions.maintenance();
-        });
+        return MessageRenderer.of(messages)
+                .format(
+                        locale,
+                        switch (current.occasion()) {
+                            case UPDATE -> occasions.update();
+                            case RECREATE -> occasions.recreate();
+                            case BACKUP -> occasions.backup();
+                            case DOWN -> occasions.down();
+                            case MAINTENANCE -> occasions.maintenance();
+                        });
     }
 
     /**
@@ -502,8 +536,7 @@ public final class RestartWatch {
 
     /** The same, as a subtitle with an empty title above it. */
     private void title(final java.util.function.Function<Locale, Component> render) {
-        each((player, locale) -> player.showTitle(
-                Title.title(Component.empty(), render.apply(locale), TIMES)));
+        each((player, locale) -> player.showTitle(Title.title(Component.empty(), render.apply(locale), TIMES)));
     }
 
     private void each(final java.util.function.BiConsumer<Player, Locale> what) {

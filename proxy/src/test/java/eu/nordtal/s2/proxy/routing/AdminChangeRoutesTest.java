@@ -1,15 +1,14 @@
 package eu.nordtal.s2.proxy.routing;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Losing the admin rank moves you, it does not only stop you typing.
@@ -34,19 +33,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class AdminChangeRoutesTest {
 
-    private static final String PLUGIN =
-            "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
-    private static final String ROUTER =
-            "proxy/src/main/java/eu/nordtal/s2/proxy/routing/PlayerRouter.java";
+    private static final String PLUGIN = "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
+    private static final String ROUTER = "proxy/src/main/java/eu/nordtal/s2/proxy/routing/PlayerRouter.java";
 
     @Test
     @DisplayName("a changed admin flag forces a re-route, not just a roster update")
     void aChangedFlagReroutes() {
         final String body = methodBody(read(PLUGIN), "final Runnable refreshAdmins =");
-        assertTrue(body.contains("refreshAdmins(access.admins())"),
-                "the roster refresh itself has to stay - it is what makes the flag right for the"
-                        + " commands");
-        assertTrue(body.contains("rerouteAll("),
+        assertTrue(
+                body.contains("refreshAdmins(access.admins())"),
+                "the roster refresh itself has to stay - it is what makes the flag right for the" + " commands");
+        assertTrue(
+                body.contains("rerouteAll("),
                 "a changed admin flag has to re-route as well. Refreshing the roster fixes who may"
                         + " type a command; in MAINTENANCE the flag is the whole difference between"
                         + " standing on the SMP and being held, and a revoked admin stayed there"
@@ -58,7 +56,8 @@ class AdminChangeRoutesTest {
     void onlyOnAChange() {
         final String body = methodBody(read(PLUGIN), "final Runnable refreshAdmins =");
         final int guard = body.indexOf("if (changed > 0)");
-        assertTrue(guard >= 0 && guard < body.indexOf("rerouteAll("),
+        assertTrue(
+                guard >= 0 && guard < body.indexOf("rerouteAll("),
                 "the pass over every connected player has to sit inside the 'changed > 0' guard -"
                         + " this runs on every poll tick, and on an ordinary tick nothing changed");
     }
@@ -67,10 +66,12 @@ class AdminChangeRoutesTest {
     @DisplayName("rerouteAll is still the shared pass and still re-reads each player")
     void theRouterStillRereads() {
         final String source = read(ROUTER);
-        assertTrue(source.contains("public int rerouteAll("),
+        assertTrue(
+                source.contains("public int rerouteAll("),
                 "rerouteAll has to stay public - the phase switch, the /phase command and now the"
                         + " admin refresh all drive it");
-        assertTrue(source.contains("for logging only"),
+        assertTrue(
+                source.contains("for logging only"),
                 "the phase argument has to stay documented as logging-only: each player's own"
                         + " re-read is what decides, which is why driving this from a flag change"
                         + " needs no phase of its own");

@@ -1,14 +1,13 @@
 package eu.nordtal.s2.smp.duel;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
-
-import java.util.ArrayList;
-import java.util.Collection;
 
 /**
  * Everything a duel borrows from a player, so that all of it can be given back.
@@ -19,9 +18,17 @@ import java.util.Collection;
  * <p>Deliberately not persisted: a saved state that outlived a restart would be a second copy of
  * somebody's inventory sitting in a file, which is worse than an interrupted duel.
  */
-public record SavedState(Location location, ItemStack[] inventory, ItemStack[] armour,
-                         double health, int foodLevel, float saturation, int level, float experience,
-                         GameMode gameMode, Collection<PotionEffect> effects) {
+public record SavedState(
+        Location location,
+        ItemStack[] inventory,
+        ItemStack[] armour,
+        double health,
+        int foodLevel,
+        float saturation,
+        int level,
+        float experience,
+        GameMode gameMode,
+        Collection<PotionEffect> effects) {
 
     public static SavedState of(final Player player) {
         return new SavedState(

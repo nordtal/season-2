@@ -1,15 +1,14 @@
 package eu.nordtal.s2.smp.wheel;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Random;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Random;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The wheel's animation, in the only half of it a test can reach.
@@ -30,8 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class WheelStripTest {
 
-    private static final List<WheelStrip.Shape> SHAPES =
-            List.of(WheelPanel.shape(), new WheelStrip.Shape(9, 4));
+    private static final List<WheelStrip.Shape> SHAPES = List.of(WheelPanel.shape(), new WheelStrip.Shape(9, 4));
 
     @Test
     @DisplayName("the last frame rests the winner on the shape's own cell, for every pool and winner")
@@ -39,11 +37,12 @@ class WheelStripTest {
         for (final WheelStrip.Shape shape : SHAPES) {
             for (int poolSize = 1; poolSize <= 12; poolSize++) {
                 for (int winner = 0; winner < poolSize; winner++) {
-                    final WheelStrip strip =
-                            WheelStrip.landingOn(poolSize, winner, new Random(winner), shape);
+                    final WheelStrip strip = WheelStrip.landingOn(poolSize, winner, new Random(winner), shape);
                     final int[] last = strip.cells(WheelStrip.steps() - 1);
                     assertEquals(shape.count(), last.length, "a frame is the whole surface");
-                    assertEquals(winner, last[shape.centre()],
+                    assertEquals(
+                            winner,
+                            last[shape.centre()],
                             shape + ", pool " + poolSize + ", winner " + winner + ": the resting"
                                     + " cell has to hold the prize the database already gave away");
                     assertEquals(winner, strip.winner());
@@ -62,7 +61,9 @@ class WheelStripTest {
                 final int[] here = strip.cells(step);
                 final int[] next = strip.cells(step + 1);
                 for (int cell = 0; cell + 1 < shape.count(); cell++) {
-                    assertEquals(here[cell + 1], next[cell],
+                    assertEquals(
+                            here[cell + 1],
+                            next[cell],
                             "frame " + step + " to " + (step + 1) + " has to be the same strip one"
                                     + " cell along; anything else is a new set of icons appearing,"
                                     + " and reads as a slot machine rather than a wheel");
@@ -83,12 +84,13 @@ class WheelStripTest {
     void neighboursDiffer() {
         for (final WheelStrip.Shape shape : SHAPES) {
             for (int poolSize = 3; poolSize <= 8; poolSize++) {
-                final WheelStrip strip =
-                        WheelStrip.landingOn(poolSize, 0, new Random(poolSize), shape);
+                final WheelStrip strip = WheelStrip.landingOn(poolSize, 0, new Random(poolSize), shape);
                 for (int step = 0; step < WheelStrip.steps(); step++) {
                     final int[] cells = strip.cells(step);
                     for (int cell = 0; cell + 1 < cells.length; cell++) {
-                        assertNotEquals(cells[cell], cells[cell + 1],
+                        assertNotEquals(
+                                cells[cell],
+                                cells[cell + 1],
                                 "two of the same icon side by side reads as the strip having"
                                         + " stopped, which is the wrong thing for it to say while"
                                         + " it is moving");
@@ -104,14 +106,15 @@ class WheelStripTest {
         for (final WheelStrip.Shape shape : SHAPES) {
             for (int poolSize = 3; poolSize <= 8; poolSize++) {
                 for (int winner = 0; winner < poolSize; winner++) {
-                    final int[] last = WheelStrip
-                            .landingOn(poolSize, winner, new Random(winner), shape)
+                    final int[] last = WheelStrip.landingOn(poolSize, winner, new Random(winner), shape)
                             .cells(WheelStrip.steps() - 1);
                     // The ring rests on cell 0, so on that shape there is no left neighbour at all.
                     // Guarded rather than skipped: the right neighbour is still the one the eye
                     // travels to, and it is the assertion that matters on the shape in production.
                     if (shape.centre() > 0) {
-                        assertNotEquals(winner, last[shape.centre() - 1],
+                        assertNotEquals(
+                                winner,
+                                last[shape.centre() - 1],
                                 "the last frame is the one everybody looks at, and the prize wants"
                                         + " to be the only one of its kind in the resting cell");
                     }
@@ -130,8 +133,11 @@ class WheelStripTest {
             final WheelStrip strip = WheelStrip.landingOn(1, 0, new Random(1), shape);
             for (int step = 0; step < WheelStrip.steps(); step++) {
                 for (final int cell : strip.cells(step)) {
-                    assertEquals(0, cell, "with one prize there is nothing else to show, and the"
-                            + " neighbour rule has to give way rather than loop forever");
+                    assertEquals(
+                            0,
+                            cell,
+                            "with one prize there is nothing else to show, and the"
+                                    + " neighbour rule has to give way rather than loop forever");
                 }
             }
         }
@@ -143,12 +149,14 @@ class WheelStripTest {
         int previous = 0;
         for (int step = 0; step < WheelStrip.steps(); step++) {
             final int delay = WheelStrip.delay(step);
-            assertTrue(delay >= previous,
-                    "step " + step + " is faster than the one before it (" + delay + " after "
-                            + previous + "); a wheel that speeds up again has been retuned wrong");
+            assertTrue(
+                    delay >= previous,
+                    "step " + step + " is faster than the one before it (" + delay + " after " + previous
+                            + "); a wheel that speeds up again has been retuned wrong");
             previous = delay;
         }
-        assertTrue(WheelStrip.totalTicks() >= 80 && WheelStrip.totalTicks() <= 160,
+        assertTrue(
+                WheelStrip.totalTicks() >= 80 && WheelStrip.totalTicks() <= 160,
                 "a spin is meant to be about five seconds - long enough to lean in, short enough to"
                         + " do twice. It is " + WheelStrip.totalTicks() + " ticks.");
     }
@@ -157,12 +165,9 @@ class WheelStripTest {
     @DisplayName("a winner outside the pool is refused rather than drawn")
     void theWinnerHasToBeInThePool() {
         final WheelStrip.Shape shape = WheelPanel.shape();
-        assertThrows(IllegalArgumentException.class,
-                () -> WheelStrip.landingOn(3, 3, new Random(), shape));
-        assertThrows(IllegalArgumentException.class,
-                () -> WheelStrip.landingOn(3, -1, new Random(), shape));
-        assertThrows(IllegalArgumentException.class,
-                () -> WheelStrip.landingOn(0, 0, new Random(), shape));
+        assertThrows(IllegalArgumentException.class, () -> WheelStrip.landingOn(3, 3, new Random(), shape));
+        assertThrows(IllegalArgumentException.class, () -> WheelStrip.landingOn(3, -1, new Random(), shape));
+        assertThrows(IllegalArgumentException.class, () -> WheelStrip.landingOn(0, 0, new Random(), shape));
     }
 
     @Test

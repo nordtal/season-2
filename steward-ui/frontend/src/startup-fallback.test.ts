@@ -14,10 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
  * warns about - the day this test and the markup disagree, this reads the file that is wrong.
  */
 
-const indexHtml = readFileSync(
-  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../index.html"),
-  "utf8",
-)
+const indexHtml = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../index.html"), "utf8")
 
 /** The one inline, non-module `<script>` - `<script type="module" ...>` never matches this. */
 function inlineScriptSource(): string {
@@ -39,9 +36,7 @@ describe("index.html's inline startup reporter", () => {
   beforeEach(() => {
     window.sessionStorage.clear()
     document.body.innerHTML =
-      '<div id="startup-fallback">'
-      + '<p id="startup-fallback-message">Steward has not started yet.</p>'
-      + '</div>'
+      '<div id="startup-fallback">' + '<p id="startup-fallback-message">Steward has not started yet.</p>' + "</div>"
     reload = vi.fn()
     // jsdom's own reload() logs "Not implemented: navigation" and does nothing - replaced so a
     // test can tell whether it was asked for at all.

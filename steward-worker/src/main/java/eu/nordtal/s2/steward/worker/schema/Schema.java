@@ -3,11 +3,9 @@ package eu.nordtal.s2.steward.worker.schema;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
-
+import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
-
-import java.time.Duration;
 
 /**
  * The one place in this deployment that applies the schema, since 2026-09-01.
@@ -40,8 +38,7 @@ import java.time.Duration;
 @Slf4j
 public final class Schema {
 
-    private Schema() {
-    }
+    private Schema() {}
 
     /**
      * Applies every pending migration.

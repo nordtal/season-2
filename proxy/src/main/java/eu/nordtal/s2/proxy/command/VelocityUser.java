@@ -1,7 +1,6 @@
 package eu.nordtal.s2.proxy.command;
 
 import com.velocitypowered.api.proxy.Player;
-
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
@@ -10,14 +9,12 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Tones;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
  * A connected player, as {@code :commands} sees them.
@@ -43,8 +40,11 @@ public final class VelocityUser implements NordtalUser {
     private final Messages messages;
     private final Supplier<ToneColours> colours;
 
-    public VelocityUser(final Player player, final LoginRoster roster, final Messages messages,
-                        final Supplier<ToneColours> colours) {
+    public VelocityUser(
+            final Player player,
+            final LoginRoster roster,
+            final Messages messages,
+            final Supplier<ToneColours> colours) {
         this.player = player;
         this.roster = roster;
         this.messages = messages;

@@ -1,7 +1,7 @@
 package eu.nordtal.s2.common;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -9,9 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That a season plugin which cannot start takes its server down with it.
@@ -71,8 +70,8 @@ class FatalPathsStopTheServerTest {
                 wrong.add(relative + " disables itself but leaves the server running - which is a"
                         + " backend with no season on it, up and reporting healthy");
             } else if (disables > shutdowns) {
-                wrong.add(relative + " has " + disables + " disablePlugin call(s) and only "
-                        + shutdowns + " shutdown(): one fatal path still leaves the server up");
+                wrong.add(relative + " has " + disables + " disablePlugin call(s) and only " + shutdowns
+                        + " shutdown(): one fatal path still leaves the server up");
             }
         }
 
@@ -98,6 +97,7 @@ class FatalPathsStopTheServerTest {
             }
             directory = directory.getParent();
         }
-        throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        throw new IllegalStateException(
+                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 }

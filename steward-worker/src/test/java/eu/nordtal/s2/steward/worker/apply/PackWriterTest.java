@@ -1,20 +1,19 @@
 package eu.nordtal.s2.steward.worker.apply;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** The two lines of {@code pack.yml} steward-worker owns, and the ones it must not disturb. */
 class PackWriterTest {
@@ -88,8 +87,7 @@ class PackWriterTest {
     void refusesAFileItDoesNotUnderstand() throws IOException {
         Files.writeString(packYml, "enabled: true\nforce: true\n", StandardCharsets.UTF_8);
 
-        final IOException failure =
-                assertThrows(IOException.class, () -> PackWriter.write(packYml, URL, SHA1));
+        final IOException failure = assertThrows(IOException.class, () -> PackWriter.write(packYml, URL, SHA1));
         assertTrue(failure.getMessage().contains("0 top-level 'url'"), failure.getMessage());
     }
 
@@ -135,8 +133,7 @@ class PackWriterTest {
         // carrying three of five keys is one nothing here understands.
         Files.writeString(packYml, "enabled: true\nurl: old\n", StandardCharsets.UTF_8);
 
-        final IOException failure =
-                assertThrows(IOException.class, () -> PackWriter.write(packYml, URL, SHA1));
+        final IOException failure = assertThrows(IOException.class, () -> PackWriter.write(packYml, URL, SHA1));
         assertTrue(failure.getMessage().contains("0 top-level 'sha1'"), failure.getMessage());
     }
 

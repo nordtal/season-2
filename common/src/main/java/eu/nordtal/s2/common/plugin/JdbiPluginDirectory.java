@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.plugin;
 
+import java.util.List;
+import java.util.Objects;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
-import java.util.List;
-import java.util.Objects;
 
 /**
  * The only implementation of {@link PluginDirectory}. Package-private: consumers get it from the
@@ -43,13 +42,19 @@ final class JdbiPluginDirectory implements PluginDirectory {
     @Override
     public void add(final ManagedPlugin plugin) {
         Objects.requireNonNull(plugin, "plugin");
-        dao.add(plugin.service(), plugin.artifact(), plugin.projectId(), plugin.filePrefix(),
-                plugin.title(), plugin.iconUrl(), plugin.pageUrl(), plugin.addedBy());
+        dao.add(
+                plugin.service(),
+                plugin.artifact(),
+                plugin.projectId(),
+                plugin.filePrefix(),
+                plugin.title(),
+                plugin.iconUrl(),
+                plugin.pageUrl(),
+                plugin.addedBy());
     }
 
     @Override
     public void remove(final String service, final String artifact) {
-        dao.remove(Objects.requireNonNull(service, "service"),
-                Objects.requireNonNull(artifact, "artifact"));
+        dao.remove(Objects.requireNonNull(service, "service"), Objects.requireNonNull(artifact, "artifact"));
     }
 }

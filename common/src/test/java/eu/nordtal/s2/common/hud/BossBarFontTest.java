@@ -1,14 +1,12 @@
 package eu.nordtal.s2.common.hud;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.RepositoryRoot;
-
+import java.nio.file.Files;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.nio.file.Files;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Asserts that every class composing a boss bar hands its name to {@link BossBarLine}, the one
@@ -31,8 +29,8 @@ class BossBarFontTest {
 
     /** Every source file in this repository that composes a boss bar name. */
     private static final String[] BOSS_BAR_SOURCES = {
-            "smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java",
-            "hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java",
+        "smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java",
+        "hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java",
     };
 
     @Test
@@ -42,20 +40,24 @@ class BossBarFontTest {
             final String text = read(source);
             // ".name(" with an argument: a boss bar's name being set, as opposed to an enum's
             // name() being read, which the same two files also do.
-            final java.util.regex.Matcher calls = java.util.regex.Pattern.compile("\\.name\\((?!\\))").matcher(text);
+            final java.util.regex.Matcher calls =
+                    java.util.regex.Pattern.compile("\\.name\\((?!\\))").matcher(text);
             int seen = 0;
             while (calls.find()) {
                 final int at = calls.start();
                 seen++;
-                assertTrue(text.startsWith(".name(BossBarLine.render(", at),
+                assertTrue(
+                        text.startsWith(".name(BossBarLine.render(", at),
                         source + " sets a boss bar name with something other than"
                                 + " BossBarLine.render(...) - which is the one place the bossbar"
                                 + " font is named and the shadow is turned off. A bare"
                                 + " Component.text resolves the segments against minecraft:default,"
                                 + " where U+E004 is the admin tag and not a background tile");
             }
-            assertTrue(seen > 0, source + " sets no boss bar name at all - either the renderer"
-                    + " moved or this test is scanning the wrong file");
+            assertTrue(
+                    seen > 0,
+                    source + " sets no boss bar name at all - either the renderer"
+                            + " moved or this test is scanning the wrong file");
         }
     }
 
@@ -64,7 +66,8 @@ class BossBarFontTest {
     void renderersComposeNoBackground() {
         for (final String source : BOSS_BAR_SOURCES) {
             final String text = read(source);
-            assertTrue(!text.contains("BOSSBAR_BG_") && !text.contains("BossBarWidth"),
+            assertTrue(
+                    !text.contains("BOSSBAR_BG_") && !text.contains("BossBarWidth"),
                     source + " reaches for the background tiles itself; the pill is BossBarLine's"
                             + " and a second composition is the one that drifts");
         }
@@ -73,12 +76,12 @@ class BossBarFontTest {
     @Test
     @DisplayName("the font keys are the namespaced ids the pack's font files actually live at")
     void fontKeysMatchThePack() {
-        assertTrue(Files.isRegularFile(RepositoryRoot.resolve("resource-pack/src/assets/nordtal/font/bossbar.json")),
-                "Glyphs.FONT_BOSSBAR is " + Glyphs.FONT_BOSSBAR
-                        + " but no font file exists at that id");
-        assertTrue(Files.isRegularFile(RepositoryRoot.resolve("resource-pack/src/assets/nordtal/font/board.json")),
-                "Glyphs.FONT_BOARD is " + Glyphs.FONT_BOARD
-                        + " but no font file exists at that id");
+        assertTrue(
+                Files.isRegularFile(RepositoryRoot.resolve("resource-pack/src/assets/nordtal/font/bossbar.json")),
+                "Glyphs.FONT_BOSSBAR is " + Glyphs.FONT_BOSSBAR + " but no font file exists at that id");
+        assertTrue(
+                Files.isRegularFile(RepositoryRoot.resolve("resource-pack/src/assets/nordtal/font/board.json")),
+                "Glyphs.FONT_BOARD is " + Glyphs.FONT_BOARD + " but no font file exists at that id");
     }
 
     private static String read(final String relative) {

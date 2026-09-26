@@ -1,7 +1,7 @@
 package eu.nordtal.s2.common.health;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -11,9 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That no Paper plugin's {@code onDisable} has a step that can take the rest down with it.
@@ -47,9 +46,12 @@ class DisableStepsAreIsolatedTest {
             while (matcher.find()) {
                 bare.add(matcher.group(1) + "." + matcher.group(2) + "()");
             }
-            assertEquals(List.of(), bare, relative + ": these disable steps are bare, so the first"
-                    + " one that throws - a NoClassDefFoundError from a jar the worker has just"
-                    + " replaced is the known way - skips every step after it");
+            assertEquals(
+                    List.of(),
+                    bare,
+                    relative + ": these disable steps are bare, so the first"
+                            + " one that throws - a NoClassDefFoundError from a jar the worker has just"
+                            + " replaced is the known way - skips every step after it");
             assertTrue(body.contains("quietly("), relative + ": onDisable wraps nothing");
         }
     }
@@ -66,7 +68,8 @@ class DisableStepsAreIsolatedTest {
             final int start = text.indexOf("    public void onEnable() {");
             assertTrue(start >= 0, relative + " has no onEnable");
             final String body = text.substring(start, text.indexOf("\n    }\n", start));
-            assertTrue(body.contains("Shutdown.warmUp()"),
+            assertTrue(
+                    body.contains("Shutdown.warmUp()"),
                     relative + ": onEnable does not call Shutdown.warmUp(), so the first disable"
                             + " step after a jar swap loads the guard from a jar that is gone");
         }
@@ -78,7 +81,8 @@ class DisableStepsAreIsolatedTest {
             candidate = candidate.getParent();
         }
         if (candidate == null) {
-            throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+            throw new IllegalStateException(
+                    "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         }
         final Path path = candidate.resolve(relative);
         assertTrue(Files.isRegularFile(path), relative + " no longer exists");

@@ -1,9 +1,9 @@
 package eu.nordtal.s2.proxy;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.message.Messages;
-
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -14,9 +14,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * This plugin's bundle: the same file in two languages, and complete in both.
@@ -45,13 +43,14 @@ class MessageBundlesTest {
 
     private static final String ROOT = "messages/proxy";
 
-    private final Messages messages = Messages.load(MessageBundlesTest.class.getClassLoader(),
-            ROOT, Locale.ENGLISH, Locale.GERMAN);
+    private final Messages messages =
+            Messages.load(MessageBundlesTest.class.getClassLoader(), ROOT, Locale.ENGLISH, Locale.GERMAN);
 
     @Test
     void bothBundlesAreLoaded() {
         assertTrue(messages.languages().contains("en"));
-        assertTrue(messages.languages().contains("de"),
+        assertTrue(
+                messages.languages().contains("de"),
                 "German is not a fallback language, it is one of the two the season ships");
     }
 
@@ -78,7 +77,9 @@ class MessageBundlesTest {
             if (german.getProperty(key) == null) {
                 continue; // everyKeyExistsInBothLanguages says this, and says it better
             }
-            assertEquals(placeholders(english.getProperty(key)), placeholders(german.getProperty(key)),
+            assertEquals(
+                    placeholders(english.getProperty(key)),
+                    placeholders(german.getProperty(key)),
                     key + " uses different placeholders in the two languages - one of them will"
                             + " print a literal {name} to somebody");
         }
@@ -90,8 +91,8 @@ class MessageBundlesTest {
 
     private static Properties load(final String language) throws IOException {
         final Properties properties = new Properties();
-        try (InputStream stream = MessageBundlesTest.class.getClassLoader()
-                .getResourceAsStream(ROOT + "/" + language + ".properties")) {
+        try (InputStream stream =
+                MessageBundlesTest.class.getClassLoader().getResourceAsStream(ROOT + "/" + language + ".properties")) {
             assertTrue(stream != null, ROOT + "/" + language + ".properties is not on the classpath");
             properties.load(new InputStreamReader(stream, StandardCharsets.UTF_8));
         }

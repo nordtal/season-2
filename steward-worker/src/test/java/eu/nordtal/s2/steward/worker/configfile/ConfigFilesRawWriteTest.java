@@ -1,18 +1,17 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * {@link ConfigFiles#writeRaw} - the raw editor's own save (steward/60).
@@ -64,8 +63,7 @@ class ConfigFilesRawWriteTest {
         final String written = ConfigFiles.writeRaw(fixture, "one=uno\n", null);
         // A .properties file has no ConfigFiles.read() of its own kind - revisionOf is format
         // agnostic, so it is asked directly of the bytes now on disk.
-        final String rereadRevision =
-                ConfigFiles.revisionOf(Files.readString(fixture, StandardCharsets.UTF_8));
+        final String rereadRevision = ConfigFiles.revisionOf(Files.readString(fixture, StandardCharsets.UTF_8));
         assertEquals(rereadRevision, written);
     }
 
@@ -96,8 +94,8 @@ class ConfigFilesRawWriteTest {
         // Somebody else writes it first.
         Files.writeString(fixture, "one=somebody-else\ntwo=2\n", StandardCharsets.UTF_8);
 
-        final StaleConfigException thrown = assertThrows(StaleConfigException.class,
-                () -> ConfigFiles.writeRaw(fixture, "one=this-should-not-land\n", stale));
+        final StaleConfigException thrown = assertThrows(
+                StaleConfigException.class, () -> ConfigFiles.writeRaw(fixture, "one=this-should-not-land\n", stale));
         assertEquals(stale, thrown.expected());
 
         // Nothing this call asked for reached the file - the other admin's write is still there.

@@ -26,19 +26,11 @@ const WIDTHS = {
  * component draws its own layout with these inside it, rather than a separate skeleton component
  * being kept in step by hand.
  */
-function Skeleton({
-  className,
-  width,
-  ...props
-}: React.ComponentProps<"div"> & { width?: keyof typeof WIDTHS }) {
+function Skeleton({ className, width, ...props }: React.ComponentProps<"div"> & { width?: keyof typeof WIDTHS }) {
   return (
     <div
       data-slot="skeleton"
-      className={cn(
-        "skeleton-shimmer rounded-md bg-muted",
-        width ? WIDTHS[width] : undefined,
-        className
-      )}
+      className={cn("skeleton-shimmer rounded-md bg-muted", width ? WIDTHS[width] : undefined, className)}
       {...props}
     />
   )

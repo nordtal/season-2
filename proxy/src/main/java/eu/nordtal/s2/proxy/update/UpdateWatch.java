@@ -1,16 +1,13 @@
 package eu.nordtal.s2.proxy.update;
 
+import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.update.UpdateFollower;
 import eu.nordtal.s2.common.update.UpdateDirectory;
-
-import com.velocitypowered.api.proxy.ProxyServer;
-
-import org.slf4j.Logger;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Objects;
+import org.slf4j.Logger;
 
 /**
  * Follows an update request on the proxy and prints its answer to whoever asked.
@@ -37,8 +34,12 @@ public final class UpdateWatch {
     private final UpdateDirectory updates;
     private final Clock clock;
 
-    public UpdateWatch(final Object plugin, final ProxyServer proxy, final Logger logger,
-                       final UpdateDirectory updates, final Clock clock) {
+    public UpdateWatch(
+            final Object plugin,
+            final ProxyServer proxy,
+            final Logger logger,
+            final UpdateDirectory updates,
+            final Clock clock) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -55,24 +56,28 @@ public final class UpdateWatch {
      */
     public void watch(final long id, final NordtalUser user) {
         final UpdateFollower follower = UpdateFollower.of(id, updates::find, clock.instant());
-        proxy.getScheduler().buildTask(plugin, task -> {
-            final UpdateFollower.Step step = follower.poll(clock.instant());
-            if (step.failure() != null) {
-                logger.warn("Could not read update request {}", id, step.failure());
-            }
-            // The cancel is in a finally because delivery can throw: it ends in
-            // Player#sendMessage, and a player who left between the poll and the write is the
-            // ordinary case. Velocity logs the exception and keeps the repeating task, so without
-            // this a finished run would be re-delivered every two seconds for the rest of the
-            // proxy's life. A missing message key is not that failure - Messages reports it and
-            // hands back the key.
-            try {
-                step.deliver(user);
-            } finally {
-                if (step.finished()) {
-                    task.cancel();
-                }
-            }
-        }).delay(INTERVAL).repeat(INTERVAL).schedule();
+        proxy.getScheduler()
+                .buildTask(plugin, task -> {
+                    final UpdateFollower.Step step = follower.poll(clock.instant());
+                    if (step.failure() != null) {
+                        logger.warn("Could not read update request {}", id, step.failure());
+                    }
+                    // The cancel is in a finally because delivery can throw: it ends in
+                    // Player#sendMessage, and a player who left between the poll and the write is the
+                    // ordinary case. Velocity logs the exception and keeps the repeating task, so without
+                    // this a finished run would be re-delivered every two seconds for the rest of the
+                    // proxy's life. A missing message key is not that failure - Messages reports it and
+                    // hands back the key.
+                    try {
+                        step.deliver(user);
+                    } finally {
+                        if (step.finished()) {
+                            task.cancel();
+                        }
+                    }
+                })
+                .delay(INTERVAL)
+                .repeat(INTERVAL)
+                .schedule();
     }
 }

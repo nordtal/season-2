@@ -5,17 +5,6 @@ import com.yubico.webauthn.CredentialRepositoryV2;
 import com.yubico.webauthn.ToPublicKeyCredentialDescriptor;
 import com.yubico.webauthn.data.AuthenticatorTransport;
 import com.yubico.webauthn.data.ByteArray;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.core.mapper.reflect.ColumnName;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.sql.DataSource;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
@@ -25,6 +14,15 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.mapper.reflect.ColumnName;
+import org.jdbi.v3.postgres.PostgresPlugin;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The registered security keys, and the library's view of them.
@@ -72,9 +70,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
         final String text = new String(handle.getBytes(), StandardCharsets.UTF_8);
         // A Discord id is decimal digits. Anything else is a handle from somewhere else entirely,
         // and turning it into a query would be turning a stranger's bytes into a WHERE clause.
-        return text.isEmpty() || !text.chars().allMatch(Character::isDigit)
-                ? Optional.empty()
-                : Optional.of(text);
+        return text.isEmpty() || !text.chars().allMatch(Character::isDigit) ? Optional.empty() : Optional.of(text);
     }
 
     /** Every key of one account, oldest first. */
@@ -88,18 +84,31 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
     }
 
     /** Records a finished registration. */
-    public void add(final @NotNull String discordId, final @NotNull ByteArray credentialId,
-                    final @NotNull ByteArray publicKey, final long signatureCount,
-                    final @NotNull String label, final @NotNull Set<AuthenticatorTransport> transports,
-                    final @Nullable Boolean backupEligible, final @Nullable Boolean backedUp) {
-        dao.add(credentialId.getBytes(), discordId, publicKey.getBytes(), signatureCount,
+    public void add(
+            final @NotNull String discordId,
+            final @NotNull ByteArray credentialId,
+            final @NotNull ByteArray publicKey,
+            final long signatureCount,
+            final @NotNull String label,
+            final @NotNull Set<AuthenticatorTransport> transports,
+            final @Nullable Boolean backupEligible,
+            final @Nullable Boolean backedUp) {
+        dao.add(
+                credentialId.getBytes(),
+                discordId,
+                publicKey.getBytes(),
+                signatureCount,
                 label.trim(),
-                transports.isEmpty() ? null
-                        : transports.stream().map(AuthenticatorTransport::getId)
-                                .collect(Collectors.joining(",")),
-                backupEligible, backedUp);
-        log.info("registered a security key for {} - \"{}\", {} key(s) on that account now",
-                discordId, label.trim(), dao.forAccount(discordId).size());
+                transports.isEmpty()
+                        ? null
+                        : transports.stream().map(AuthenticatorTransport::getId).collect(Collectors.joining(",")),
+                backupEligible,
+                backedUp);
+        log.info(
+                "registered a security key for {} - \"{}\", {} key(s) on that account now",
+                discordId,
+                label.trim(),
+                dao.forAccount(discordId).size());
     }
 
     /**
@@ -109,8 +118,11 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
      */
     public int forget(final @NotNull String discordId) {
         final int gone = dao.forget(Objects.requireNonNull(discordId, "discordId"));
-        log.warn("removed {} security key(s) of {} - that account's second factor is gone until it"
-                + " registers a new one", gone, discordId);
+        log.warn(
+                "removed {} security key(s) of {} - that account's second factor is gone until it"
+                        + " registers a new one",
+                gone,
+                discordId);
         return gone;
     }
 
@@ -128,7 +140,9 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
     public boolean remove(final @NotNull String discordId, final @NotNull ByteArray credentialId) {
         final boolean gone = dao.remove(credentialId.getBytes(), discordId) == 1;
         if (gone) {
-            log.info("removed a security key of {} - {} left on that account", discordId,
+            log.info(
+                    "removed a security key of {} - {} left on that account",
+                    discordId,
                     dao.forAccount(discordId).size());
         }
         return gone;
@@ -139,8 +153,8 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
      *
      * @return whether a key of that id was on that account
      */
-    public boolean rename(final @NotNull String discordId, final @NotNull ByteArray credentialId,
-                          final @NotNull String label) {
+    public boolean rename(
+            final @NotNull String discordId, final @NotNull ByteArray credentialId, final @NotNull String label) {
         return dao.rename(credentialId.getBytes(), discordId, label.trim()) == 1;
     }
 
@@ -188,16 +202,17 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
      * from one query each, and identity is the credential id), but a future {@code contains} would
      * be quietly wrong, which is why it is written down rather than left to be discovered.</p>
      */
-    public record Key(@ColumnName("credential_id") byte @NotNull [] credentialId,
-                      @ColumnName("discord_id") @NotNull String discordId,
-                      @ColumnName("public_key") byte @NotNull [] publicKey,
-                      @ColumnName("signature_count") long signatureCount,
-                      @NotNull String label,
-                      @Nullable String transports,
-                      @ColumnName("backup_eligible") @Nullable Boolean backupEligible,
-                      @ColumnName("backed_up") @Nullable Boolean backedUp,
-                      @ColumnName("created_at") @NotNull Instant createdAt,
-                      @ColumnName("last_used_at") @Nullable Instant lastUsedAt)
+    public record Key(
+            @ColumnName("credential_id") byte @NotNull [] credentialId,
+            @ColumnName("discord_id") @NotNull String discordId,
+            @ColumnName("public_key") byte @NotNull [] publicKey,
+            @ColumnName("signature_count") long signatureCount,
+            @NotNull String label,
+            @Nullable String transports,
+            @ColumnName("backup_eligible") @Nullable Boolean backupEligible,
+            @ColumnName("backed_up") @Nullable Boolean backedUp,
+            @ColumnName("created_at") @NotNull Instant createdAt,
+            @ColumnName("last_used_at") @Nullable Instant lastUsedAt)
             implements CredentialRecord {
 
         @Override

@@ -1,12 +1,10 @@
 package eu.nordtal.s2.hungergames.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -16,10 +14,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * That {@code hunger-games}' three config files can be written into an empty directory and read
@@ -78,8 +76,12 @@ class ConfigsTest {
 
         assertEquals(written.lootPoints().size(), reread.lootPoints().size());
         assertEquals(written.refillTiers().size(), reread.refillTiers().size());
-        assertEquals(written.lootPoints().getFirst().label(), reread.lootPoints().getFirst().label());
-        assertEquals(written.refillTiers().getFirst().items(), reread.refillTiers().getFirst().items());
+        assertEquals(
+                written.lootPoints().getFirst().label(),
+                reread.lootPoints().getFirst().label());
+        assertEquals(
+                written.refillTiers().getFirst().items(),
+                reread.refillTiers().getFirst().items());
         assertEquals(written.lobby().broadcastIntervalSeconds(), reread.lobby().broadcastIntervalSeconds());
     }
 
@@ -100,14 +102,17 @@ class ConfigsTest {
     void configYmlDropsASoundsBlock() throws Exception {
         Configs.load(directory, LOGGER);
         final Path file = directory.resolve("config.yml");
-        Files.writeString(file, Files.readString(file) + System.lineSeparator()
-                + "sounds:" + System.lineSeparator()
-                + "  loss:" + System.lineSeparator()
-                + "    key: minecraft:entity.villager.no" + System.lineSeparator());
+        Files.writeString(
+                file,
+                Files.readString(file) + System.lineSeparator()
+                        + "sounds:" + System.lineSeparator()
+                        + "  loss:" + System.lineSeparator()
+                        + "    key: minecraft:entity.villager.no" + System.lineSeparator());
 
         Configs.load(directory, LOGGER);
 
-        assertFalse(Files.readAllLines(file).contains("sounds:"),
+        assertFalse(
+                Files.readAllLines(file).contains("sounds:"),
                 "a sounds block in config.yml has to be gone after one load, not merely ignored");
     }
 
@@ -127,14 +132,14 @@ class ConfigsTest {
         for (final Class<?> root : List.of(HungerGamesSpec.class, DatabaseSpec.class, SoundsSpec.class)) {
             collectMissing(root, seen, missing);
         }
-        assertTrue(missing.isEmpty(),
+        assertTrue(
+                missing.isEmpty(),
                 "a nested spec interface without @ConfigSpec makes jcore's writer fall back to "
                         + "reflection over the proxy, which fails as a Gson error naming Proxy#h: "
                         + missing);
     }
 
-    private static void collectMissing(final Class<?> spec, final Set<Class<?>> seen,
-                                       final List<String> missing) {
+    private static void collectMissing(final Class<?> spec, final Set<Class<?>> seen, final List<String> missing) {
         if (!seen.add(spec)) {
             return;
         }
@@ -152,7 +157,8 @@ class ConfigsTest {
     private static List<Class<?>> specTypesOf(final Type type) {
         if (type instanceof Class<?> raw) {
             return raw.isInterface() && raw.getName().startsWith("eu.nordtal.s2.hungergames.")
-                    ? List.of(raw) : List.of();
+                    ? List.of(raw)
+                    : List.of();
         }
         if (type instanceof ParameterizedType parameterized) {
             final List<Class<?>> found = new ArrayList<>();

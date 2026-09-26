@@ -1,9 +1,8 @@
 package eu.nordtal.s2.common.update;
 
+import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
 
 /**
  * A run that was not written, because the network already has one or the service is already down.
@@ -29,8 +28,11 @@ public final class RunRefused extends RuntimeException {
     private final @Nullable UpdateRequest open;
     private final List<String> services;
 
-    private RunRefused(final Reason reason, final @Nullable UpdateRequest open,
-                       final List<String> services, final String message) {
+    private RunRefused(
+            final Reason reason,
+            final @Nullable UpdateRequest open,
+            final List<String> services,
+            final String message) {
         super(message);
         this.reason = reason;
         this.open = open;
@@ -38,12 +40,19 @@ public final class RunRefused extends RuntimeException {
     }
 
     public static @NotNull RunRefused runOpen(final @NotNull UpdateRequest open) {
-        return new RunRefused(Reason.RUN_OPEN, open, List.of(),
-                "run " + open.id() + " (" + open.kind() + ") is still " + open.status().name().toLowerCase());
+        return new RunRefused(
+                Reason.RUN_OPEN,
+                open,
+                List.of(),
+                "run " + open.id() + " (" + open.kind() + ") is still "
+                        + open.status().name().toLowerCase());
     }
 
     public static @NotNull RunRefused alreadyHeld(final @NotNull List<String> services) {
-        return new RunRefused(Reason.ALREADY_HELD, null, services,
+        return new RunRefused(
+                Reason.ALREADY_HELD,
+                null,
+                services,
                 String.join(", ", services) + (services.size() == 1 ? " is" : " are") + " already down");
     }
 

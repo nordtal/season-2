@@ -40,8 +40,7 @@ public final class AuraPayout {
     /** What a qualifier is guaranteed, pot permitting. */
     public static final int MINIMUM_QUALIFIER_SHARE = 1;
 
-    private AuraPayout() {
-    }
+    private AuraPayout() {}
 
     /**
      * One player's result.
@@ -86,8 +85,7 @@ public final class AuraPayout {
      * @return one share per contributor with a positive contribution, in descending order of total
      *         paid, then by id. Never pays out more than {@code pot} in total
      */
-    public static List<Share> split(final int pot, final long target,
-                                    final Map<String, Long> contributions) {
+    public static List<Share> split(final int pot, final long target, final Map<String, Long> contributions) {
         Objects.requireNonNull(contributions, "contributions");
         if (target <= 0) {
             throw new IllegalArgumentException("An objective's target is positive by schema CHECK, was " + target);
@@ -148,15 +146,13 @@ public final class AuraPayout {
         for (final Map.Entry<String, Long> entry : contributors.entrySet()) {
             // Multiply before dividing: (budget * c) / total, all in long arithmetic. The other
             // order would floor each contributor's fraction to zero before it was worth anything.
-            final long proportional = proportionalBudget <= 0
-                    ? 0L
-                    : (long) proportionalBudget * entry.getValue() / total;
-            shares.add(new Share(entry.getKey(), equal.getOrDefault(entry.getKey(), 0),
-                    (int) Math.min(Integer.MAX_VALUE, proportional)));
+            final long proportional =
+                    proportionalBudget <= 0 ? 0L : (long) proportionalBudget * entry.getValue() / total;
+            shares.add(new Share(entry.getKey(), equal.getOrDefault(entry.getKey(), 0), (int)
+                    Math.min(Integer.MAX_VALUE, proportional)));
         }
 
-        shares.sort(Comparator.comparingInt(Share::total).reversed()
-                .thenComparing(Share::contributorId));
+        shares.sort(Comparator.comparingInt(Share::total).reversed().thenComparing(Share::contributorId));
         return List.copyOf(shares);
     }
 
@@ -192,7 +188,8 @@ public final class AuraPayout {
     public static Set<String> qualifiersOf(final Map<String, Long> contributions, final long target) {
         final Set<String> qualifiers = new java.util.LinkedHashSet<>();
         for (final Map.Entry<String, Long> entry : contributions.entrySet()) {
-            if (entry.getValue() != null && entry.getValue() > 0L
+            if (entry.getValue() != null
+                    && entry.getValue() > 0L
                     && entry.getValue() * 100L >= (long) QUALIFYING_PERCENT * target) {
                 qualifiers.add(entry.getKey());
             }
@@ -200,8 +197,8 @@ public final class AuraPayout {
         return qualifiers;
     }
 
-    private static List<String> rankedForTheGuarantee(final Map<String, Long> contributions,
-                                                      final Set<String> qualifiers) {
+    private static List<String> rankedForTheGuarantee(
+            final Map<String, Long> contributions, final Set<String> qualifiers) {
         return qualifiers.stream()
                 .sorted(Comparator.comparingLong((String id) -> contributions.getOrDefault(id, 0L))
                         .reversed()

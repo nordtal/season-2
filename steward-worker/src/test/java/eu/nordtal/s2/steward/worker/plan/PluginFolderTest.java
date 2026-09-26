@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -12,9 +11,9 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * {@link PluginFolder} - the name of the directory a removal deletes (season-2-ops/129).
@@ -31,7 +30,8 @@ class PluginFolderTest {
 
     private Path jar(final String name, final Map<String, String> entries) throws IOException {
         final Path path = directory.resolve(name);
-        try (OutputStream out = Files.newOutputStream(path); ZipOutputStream zip = new ZipOutputStream(out)) {
+        try (OutputStream out = Files.newOutputStream(path);
+                ZipOutputStream zip = new ZipOutputStream(out)) {
             for (final Map.Entry<String, String> entry : entries.entrySet()) {
                 zip.putNextEntry(new ZipEntry(entry.getKey()));
                 zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
@@ -47,7 +47,8 @@ class PluginFolderTest {
         // Simple Voice Chat's real shape: the jar is voicechat-bukkit-<version>.jar and the folder
         // is plugins/voicechat/. Anything deriving the folder from the filename deletes nothing, or
         // something else.
-        final Path path = jar("voicechat-bukkit-2.6.24.jar",
+        final Path path = jar(
+                "voicechat-bukkit-2.6.24.jar",
                 Map.of("plugin.yml", "name: voicechat\nversion: 2.6.24\nmain: de.maxhenkel.voicechat.Voicechat\n"));
 
         assertEquals("voicechat", PluginFolder.nameIn(path));
@@ -56,9 +57,11 @@ class PluginFolderTest {
     @Test
     @DisplayName("paper-plugin.yml is preferred, because that is the one the server reads")
     void prefersThePaperDescriptor() throws IOException {
-        final Path path = jar("both-1.0.0.jar", Map.of(
-                "paper-plugin.yml", "name: NewName\n",
-                "plugin.yml", "name: OldName\n"));
+        final Path path = jar(
+                "both-1.0.0.jar",
+                Map.of(
+                        "paper-plugin.yml", "name: NewName\n",
+                        "plugin.yml", "name: OldName\n"));
 
         assertEquals("NewName", PluginFolder.nameIn(path));
     }

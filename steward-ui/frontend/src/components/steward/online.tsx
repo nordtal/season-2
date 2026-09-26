@@ -96,15 +96,7 @@ function said(total: number | undefined): { number: string; word: string } {
  * reach, so it carries its own name for a screen reader, and the stack itself is a list with one
  * entry per person rather than a row of identical unnamed images.
  */
-function Stack({
-  online,
-  size = "size-8",
-  base,
-}: {
-  online: Online
-  size?: string
-  base: string | undefined
-}) {
+function Stack({ online, size = "size-8", base }: { online: Online; size?: string; base: string | undefined }) {
   const shown = online.roster.slice(0, 3)
   // Never negative, and never computed from the faces alone: with no roster the overflow IS the
   // whole count, which is the state this interface is actually in today.
@@ -286,9 +278,7 @@ export function OnlineFigure({ online }: { online: Online }) {
     <Heading>
       <div className="flex min-w-0 items-end gap-3">
         <p className="flex flex-col">
-          <span className="text-4xl leading-none font-semibold tabular-nums tracking-tight">
-            {number}
-          </span>
+          <span className="text-4xl leading-none font-semibold tabular-nums tracking-tight">{number}</span>
           <span className="mt-1 text-sm text-muted-foreground">{word}</span>
         </p>
         <div className="flex flex-col items-start gap-1 pb-0.5">

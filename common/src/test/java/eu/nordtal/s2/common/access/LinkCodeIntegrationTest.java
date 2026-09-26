@@ -1,5 +1,18 @@
 package eu.nordtal.s2.common.access;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,20 +21,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Exercises the stage C link-code lifecycle against a real PostgreSQL instance: issuing, the
@@ -50,7 +49,8 @@ class LinkCodeIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed link code tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -99,8 +99,7 @@ class LinkCodeIntegrationTest {
         final LinkCode first = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
         final LinkCode second = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
 
-        assertEquals(first.code(), second.code(),
-                "join-spam must not mint a fresh code every attempt");
+        assertEquals(first.code(), second.code(), "join-spam must not mint a fresh code every attempt");
     }
 
     @Test
@@ -118,17 +117,17 @@ class LinkCodeIntegrationTest {
 
         final LinkCode refreshed = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
 
-        assertNotEquals(first.code(), refreshed.code(),
+        assertNotEquals(
+                first.code(),
+                refreshed.code(),
                 "an expired code must not keep coming back - a stale code shown on screen would never work");
         assertTrue(refreshed.isValid());
     }
 
     @Test
     void issuingRejectsANonPositiveTtl() {
-        assertThrows(IllegalArgumentException.class,
-                () -> directory.issueLinkCode(MC_UUID, Duration.ZERO));
-        assertThrows(IllegalArgumentException.class,
-                () -> directory.issueLinkCode(MC_UUID, Duration.ofMinutes(-1)));
+        assertThrows(IllegalArgumentException.class, () -> directory.issueLinkCode(MC_UUID, Duration.ZERO));
+        assertThrows(IllegalArgumentException.class, () -> directory.issueLinkCode(MC_UUID, Duration.ofMinutes(-1)));
     }
 
     // ---------------------------------------------------------------- redeeming
@@ -153,7 +152,9 @@ class LinkCodeIntegrationTest {
         final LinkRedemption second = directory.redeemLinkCode(OTHER_DISCORD_ID, code.code());
 
         assertFalse(second.linked());
-        assertEquals(LinkRedemption.Status.INVALID_CODE, second.status(),
+        assertEquals(
+                LinkRedemption.Status.INVALID_CODE,
+                second.status(),
                 "the code is gone after the first redemption, so a second attempt sees no code at all");
     }
 
@@ -201,9 +202,12 @@ class LinkCodeIntegrationTest {
 
         assertFalse(result.linked());
         assertEquals(LinkRedemption.Status.ALREADY_LINKED, result.status());
-        assertEquals(1, codeRowExists(code.code()),
+        assertEquals(
+                1,
+                codeRowExists(code.code()),
                 "a failed redemption must not burn the code - a wrong click deserves a retry");
-        assertTrue(directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow().equals(OTHER_MC_UUID),
+        assertTrue(
+                directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow().equals(OTHER_MC_UUID),
                 "the existing link must be untouched");
     }
 
@@ -219,7 +223,9 @@ class LinkCodeIntegrationTest {
 
         assertFalse(result.linked());
         assertEquals(LinkRedemption.Status.ALREADY_LINKED, result.status());
-        assertEquals(MC_UUID, directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow(),
+        assertEquals(
+                MC_UUID,
+                directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow(),
                 "the first link must survive the second, rejected attempt");
     }
 
@@ -241,8 +247,7 @@ class LinkCodeIntegrationTest {
 
     private static long codeRowExists(final String code) {
         try (Connection connection = dataSource.getConnection();
-             var statement = connection.prepareStatement(
-                     "SELECT count(*) FROM link_code WHERE code = ?")) {
+                var statement = connection.prepareStatement("SELECT count(*) FROM link_code WHERE code = ?")) {
             statement.setString(1, code);
             try (var rs = statement.executeQuery()) {
                 assertTrue(rs.next());
@@ -255,7 +260,7 @@ class LinkCodeIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException exception) {
             throw new IllegalStateException("Test setup statement failed: " + sql, exception);
@@ -264,7 +269,8 @@ class LinkCodeIntegrationTest {
 
     private static void assertWithinSeconds(final Instant expected, final Instant actual, final long tolerance) {
         final long off = Math.abs(Duration.between(expected, actual).toSeconds());
-        assertTrue(off <= tolerance,
+        assertTrue(
+                off <= tolerance,
                 "expected " + actual + " to be within " + tolerance + "s of " + expected + ", was off by " + off + "s");
     }
 }

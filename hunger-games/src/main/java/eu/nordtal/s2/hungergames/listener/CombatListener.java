@@ -1,10 +1,9 @@
 package eu.nordtal.s2.hungergames.listener;
 
-import net.kyori.adventure.text.Component;
-import eu.nordtal.s2.papercommon.chat.SystemLines;
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.hungergames.player.ArenaComposition;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.db.HgMember;
@@ -14,7 +13,14 @@ import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Ceremony;
 import eu.nordtal.s2.hungergames.game.GameState;
 import eu.nordtal.s2.hungergames.game.WinTracker;
-
+import eu.nordtal.s2.hungergames.player.ArenaComposition;
+import eu.nordtal.s2.papercommon.chat.SystemLines;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Consumer;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
@@ -29,14 +35,6 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.function.Consumer;
-
-import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 /**
  * PvP protection and death handling, for both real players and the armor-stand bodies standing in
@@ -75,11 +73,17 @@ public final class CombatListener implements Listener {
 
     private final ArenaComposition composition;
 
-    public CombatListener(final Plugin plugin, final HungerGamesDao dao, final GameState state,
-                          final PlayerBodies bodies, final BorderController border, final WinTracker winTracker,
-                          final HungerGamesSounds sounds, final SystemLines systemLines,
-                          final ArenaComposition composition,
-                          final Consumer<Ceremony.Decision> onGameDecided) {
+    public CombatListener(
+            final Plugin plugin,
+            final HungerGamesDao dao,
+            final GameState state,
+            final PlayerBodies bodies,
+            final BorderController border,
+            final WinTracker winTracker,
+            final HungerGamesSounds sounds,
+            final SystemLines systemLines,
+            final ArenaComposition composition,
+            final Consumer<Ceremony.Decision> onGameDecided) {
         this.plugin = plugin;
         this.dao = dao;
         this.state = state;
@@ -116,7 +120,8 @@ public final class CombatListener implements Listener {
             return;
         }
         final Player victim = event.getEntity();
-        final UUID killerUuid = participantUuid(resolveAttacker(event.getDamageSource().getCausingEntity()));
+        final UUID killerUuid =
+                participantUuid(resolveAttacker(event.getDamageSource().getCausingEntity()));
         handleDeath(victim.getUniqueId(), killerUuid);
     }
 
@@ -130,7 +135,8 @@ public final class CombatListener implements Listener {
         if (owner == null) {
             return;
         }
-        final UUID killerUuid = participantUuid(resolveAttacker(event.getDamageSource().getCausingEntity()));
+        final UUID killerUuid =
+                participantUuid(resolveAttacker(event.getDamageSource().getCausingEntity()));
         bodies.removeByMarker(event.getEntity().getUniqueId());
         announceBodyDeath(event.getEntity(), owner, killerUuid);
         handleDeath(owner, killerUuid);
@@ -149,8 +155,7 @@ public final class CombatListener implements Listener {
             systemLines.announce(MESSAGES.hg().death().body(Glyphs.ICON_DEATH, victim));
             return;
         }
-        systemLines.announce(MESSAGES.hg().death().bodySection().by(Glyphs.ICON_DEATH, victim,
-                composition.of(killer)));
+        systemLines.announce(MESSAGES.hg().death().bodySection().by(Glyphs.ICON_DEATH, victim, composition.of(killer)));
     }
 
     private void handleDeath(final UUID victimMcUuid, final UUID killerMcUuid) {
@@ -167,8 +172,11 @@ public final class CombatListener implements Listener {
             if (victimEntry.isEmpty()) {
                 return;
             }
-            final UUID killerMemberId = killerMcUuid == null ? null
-                    : dao.rosterEntryByMcUuid(gameId, killerMcUuid).map(entry -> entry.memberId()).orElse(null);
+            final UUID killerMemberId = killerMcUuid == null
+                    ? null
+                    : dao.rosterEntryByMcUuid(gameId, killerMcUuid)
+                            .map(entry -> entry.memberId())
+                            .orElse(null);
 
             final Optional<WinTracker.Outcome> outcome =
                     winTracker.recordDeath(gameId, victimEntry.get().memberId(), killerMemberId);
@@ -176,24 +184,28 @@ public final class CombatListener implements Listener {
             // Everything the ceremony needs, read here rather than on the main thread. At most
             // once per game, and not at all until there is a result to announce.
             final Ceremony.Decision decision = outcome.map(decided -> {
-                final UUID winnerMcUuid = decided.winnerMemberId() == null ? null
-                        : dao.roster(gameId).stream()
-                                .filter(entry -> decided.winnerMemberId().equals(entry.memberId()))
-                                .map(RosterEntry::mcUuid)
-                                // mcUuid is null for a member who never linked, and findFirst
-                                // throws on a null element rather than answering empty. Such a
-                                // member can still be the last one standing.
-                                .filter(java.util.Objects::nonNull)
-                                .findFirst().orElse(null);
+                        final UUID winnerMcUuid = decided.winnerMemberId() == null
+                                ? null
+                                : dao.roster(gameId).stream()
+                                        .filter(entry ->
+                                                decided.winnerMemberId().equals(entry.memberId()))
+                                        .map(RosterEntry::mcUuid)
+                                        // mcUuid is null for a member who never linked, and findFirst
+                                        // throws on a null element rather than answering empty. Such a
+                                        // member can still be the last one standing.
+                                        .filter(java.util.Objects::nonNull)
+                                        .findFirst()
+                                        .orElse(null);
 
-                // Written ahead of the ceremony, not inside it: if the server dies between the
-                // two the database is still right. A game left un-DECIDED is the one the partial
-                // unique index refuses to let a second game start beside.
-                dao.decideGame(gameId, decided.winnerMemberId());
+                        // Written ahead of the ceremony, not inside it: if the server dies between the
+                        // two the database is still right. A game left un-DECIDED is the one the partial
+                        // unique index refuses to let a second game start beside.
+                        dao.decideGame(gameId, decided.winnerMemberId());
 
-                return new Ceremony.Decision(decided, winnerMcUuid,
-                        dao.activeMembersOf(gameId), dao.killCounts(gameId));
-            }).orElse(null);
+                        return new Ceremony.Decision(
+                                decided, winnerMcUuid, dao.activeMembersOf(gameId), dao.killCounts(gameId));
+                    })
+                    .orElse(null);
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 border.onDeath(state);
@@ -215,8 +227,7 @@ public final class CombatListener implements Listener {
 
     /** Follows a projectile back to whoever fired it, so an arrow kill still counts as a kill. */
     private Entity resolveAttacker(final Entity damager) {
-        if (damager instanceof Projectile projectile
-                && projectile.getShooter() instanceof Entity shooter) {
+        if (damager instanceof Projectile projectile && projectile.getShooter() instanceof Entity shooter) {
             return shooter;
         }
         return damager;

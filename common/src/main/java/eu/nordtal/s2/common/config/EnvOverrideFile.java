@@ -1,7 +1,5 @@
 package eu.nordtal.s2.common.config;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -11,6 +9,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The neighbour file a service writes beside one of its own jcore-managed configs, naming which
@@ -50,8 +49,7 @@ public final class EnvOverrideFile {
      */
     public static final @NotNull String SUFFIX = ".env-overrides.txt";
 
-    private EnvOverrideFile() {
-    }
+    private EnvOverrideFile() {}
 
     /**
      * The neighbour file for {@code configFile} - {@code access.yml} names
@@ -84,12 +82,15 @@ public final class EnvOverrideFile {
     public static void write(final @NotNull Path configFile, final @NotNull List<String> overriddenPaths)
             throws IOException {
         final Path target = fileFor(configFile);
-        final String content = overriddenPaths.isEmpty()
-                ? ""
-                : String.join("\n", overriddenPaths) + "\n";
+        final String content = overriddenPaths.isEmpty() ? "" : String.join("\n", overriddenPaths) + "\n";
         final Path tmp = target.resolveSibling(target.getFileName().toString() + ".tmp");
-        Files.writeString(tmp, content, StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+        Files.writeString(
+                tmp,
+                content,
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE);
         try {
             Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (final AtomicMoveNotSupportedException notAtomic) {

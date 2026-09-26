@@ -1,5 +1,9 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
@@ -8,11 +12,6 @@ import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
-
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -22,10 +21,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What the admin channel is told about a run nobody in Discord started.
@@ -45,8 +43,7 @@ class UpdateFeedTest {
     /** What was posted and edited, instead of a guild. */
     private static final class Board implements UpdateFeed.Board {
 
-        record Post(MessageEmbed embed, String messageId) {
-        }
+        record Post(MessageEmbed embed, String messageId) {}
 
         final List<Post> posted = new ArrayList<>();
         final List<Post> edited = new ArrayList<>();
@@ -84,7 +81,6 @@ class UpdateFeedTest {
             // interface's question and nothing here asks it.
             return java.util.List.of();
         }
-
 
         final Map<Long, UpdateRequest> byId = new LinkedHashMap<>();
 
@@ -126,8 +122,8 @@ class UpdateFeedTest {
         }
 
         @Override
-        public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
-                                    final String requestedBy, final Duration delay) {
+        public UpdateRequest submit(
+                final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
             throw new UnsupportedOperationException();
         }
 
@@ -137,8 +133,7 @@ class UpdateFeedTest {
         }
 
         @Override
-        public Optional<UpdateRequest> finish(final long id, final UpdateStatus status,
-                                              final String result) {
+        public Optional<UpdateRequest> finish(final long id, final UpdateStatus status, final String result) {
             throw new UnsupportedOperationException();
         }
 
@@ -180,8 +175,8 @@ class UpdateFeedTest {
 
     private final Rows rows = new Rows();
     private final Board board = new Board();
-    private final Messages messages = Messages.load(UpdateFeedTest.class.getClassLoader(),
-            "messages/commands", Locale.ENGLISH, Locale.GERMAN);
+    private final Messages messages =
+            Messages.load(UpdateFeedTest.class.getClassLoader(), "messages/commands", Locale.ENGLISH, Locale.GERMAN);
     private final UpdateFeed feed = new UpdateFeed(rows, board, messages);
 
     @Test
@@ -195,8 +190,7 @@ class UpdateFeedTest {
         final List<Runnable> queued = new ArrayList<>();
         final java.util.concurrent.Executor busy = queued::add;
 
-        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING,
-                reportAt(UpdateReport.Stage.STOPPING), null));
+        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
 
         feed.submit(busy);
         feed.submit(busy);
@@ -216,13 +210,11 @@ class UpdateFeedTest {
         final java.util.concurrent.Executor shuttingDown = task -> {
             throw new java.util.concurrent.RejectedExecutionException("shutting down");
         };
-        assertThrows(java.util.concurrent.RejectedExecutionException.class,
-                () -> feed.submit(shuttingDown));
+        assertThrows(java.util.concurrent.RejectedExecutionException.class, () -> feed.submit(shuttingDown));
 
         // Without the release in the catch, one rejection during a restart would leave the feed
         // silent for the rest of the season, and nothing anywhere would say so.
-        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING,
-                reportAt(UpdateReport.Stage.STOPPING), null));
+        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
         final List<Runnable> queued = new ArrayList<>();
         feed.submit(queued::add);
         assertEquals(1, queued.size(), "the flag stayed taken after a rejected submission");
@@ -231,22 +223,24 @@ class UpdateFeedTest {
     @Test
     @DisplayName("a run that fails mentions the admin role; one that succeeds does not")
     void onlyAFailureIsWorthAPing() {
-        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING),
-                null));
+        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
         feed.tick();
         assertTrue(board.alerted.isEmpty(), "a run still going is not news for the admin role");
 
-        rows.put(row(1, UpdateSource.GAME, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.STOPPING),
-                NOW));
+        rows.put(row(1, UpdateSource.GAME, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.STOPPING), NOW));
         feed.tick();
-        assertEquals(1, board.alerted.size(),
+        assertEquals(
+                1,
+                board.alerted.size(),
                 "a failed run did not mention the admin role. Editing the embed notifies nobody -"
                         + " which is the whole point at five in the morning, when the backup gave up"
                         + " waiting and the only other trace is a message turning red on a screen"
                         + " nobody is looking at");
 
         feed.tick();
-        assertEquals(1, board.alerted.size(),
+        assertEquals(
+                1,
+                board.alerted.size(),
                 "the same failed run was announced twice. It is removed from the follow list at the"
                         + " moment it finishes, so a second mention means the two paths that can"
                         + " announce one both fired");
@@ -255,12 +249,12 @@ class UpdateFeedTest {
     @Test
     @DisplayName("a cancelled run says nothing - somebody typed that and already knows")
     void aCancellationIsNotAFailure() {
-        rows.put(row(2, UpdateSource.GAME, UpdateStatus.CANCELLED, reportAt(UpdateReport.Stage.RESOLVING),
-                NOW));
+        rows.put(row(2, UpdateSource.GAME, UpdateStatus.CANCELLED, reportAt(UpdateReport.Stage.RESOLVING), NOW));
         feed.tick();
 
         assertEquals(1, board.posted.size(), "a cancelled run is still worth a line in the channel");
-        assertTrue(board.alerted.isEmpty(),
+        assertTrue(
+                board.alerted.isEmpty(),
                 "a cancellation mentioned the admin role. A ping that fires for something somebody"
                         + " chose is a ping people learn to ignore, which is the same as none");
     }
@@ -268,20 +262,23 @@ class UpdateFeedTest {
     @Test
     @DisplayName("a run that was already failed when first seen is announced too")
     void aRunThatFinishedWhileTheBotWasDownIsAnnounced() {
-        rows.put(row(3, UpdateSource.CONSOLE, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.STOPPING),
-                NOW));
+        rows.put(row(3, UpdateSource.CONSOLE, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.STOPPING), NOW));
         feed.tick();
 
-        assertEquals(1, board.alerted.size(),
+        assertEquals(
+                1,
+                board.alerted.size(),
                 "a row that arrives already failed was posted but not announced. That is exactly the"
                         + " run nobody watched - it went wrong while the bot was restarting");
     }
 
-    private static UpdateRequest row(final long id, final UpdateSource source,
-                                     final UpdateStatus status, final String result,
-                                     final Instant finished) {
-        return new UpdateRequest(id, UpdateKind.UPDATE, status, source, "Till", NOW, NOW, NOW,
-                finished, result);
+    private static UpdateRequest row(
+            final long id,
+            final UpdateSource source,
+            final UpdateStatus status,
+            final String result,
+            final Instant finished) {
+        return new UpdateRequest(id, UpdateKind.UPDATE, status, source, "Till", NOW, NOW, NOW, finished, result);
     }
 
     private static String reportAt(final UpdateReport.Stage stage) {
@@ -291,26 +288,23 @@ class UpdateFeedTest {
     @Test
     @DisplayName("a run started in game is posted, and edited as it moves")
     void aGameRunIsDrawnAndKeptUpToDate() {
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING,
-                reportAt(UpdateReport.Stage.RESOLVING), null));
+        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.RESOLVING), null));
         feed.tick();
 
         assertEquals(1, board.posted.size());
         final java.util.Map<String, String> context = new java.util.HashMap<>();
         board.posted.getFirst().embed().getFields().forEach(f -> context.put(f.getName(), f.getValue()));
-        assertEquals("Till", context.get("By"),
-                "who asked is the half the asker's own embed omits, and here it is a field");
+        assertEquals(
+                "Till", context.get("By"), "who asked is the half the asker's own embed omits, and here it is a field");
         assertEquals("game", context.get("From"));
 
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING,
-                reportAt(UpdateReport.Stage.STOPPING), null));
+        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
         feed.tick();
         assertEquals(1, board.posted.size(), "the same run, not a second message");
         assertEquals(1, board.edited.size());
         assertEquals("msg-1", board.edited.getFirst().messageId());
 
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.DONE,
-                reportAt(UpdateReport.Stage.DONE), NOW));
+        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
         feed.tick();
         assertEquals(2, board.edited.size(), "and the last edit is the answer");
 
@@ -321,14 +315,15 @@ class UpdateFeedTest {
     @Test
     @DisplayName("an unchanged report is not re-sent, because Discord rate-limits edits")
     void anIdenticalReportIsNotRedrawn() {
-        rows.put(row(1L, UpdateSource.CONSOLE, UpdateStatus.RUNNING,
-                reportAt(UpdateReport.Stage.INSTALLING), null));
+        rows.put(row(1L, UpdateSource.CONSOLE, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.INSTALLING), null));
         feed.tick();
         feed.tick();
         feed.tick();
 
         assertEquals(1, board.posted.size());
-        assertEquals(List.of(), board.edited,
+        assertEquals(
+                List.of(),
+                board.edited,
                 "this polls every two seconds and a run writes a stage at a time; twenty identical"
                         + " edits between two stages would spend the edit budget on nothing");
     }
@@ -336,16 +331,16 @@ class UpdateFeedTest {
     @Test
     @DisplayName("a run started in Discord is left alone - it already has an embed")
     void discordRunsAreSkipped() {
-        rows.put(row(1L, UpdateSource.DISCORD, UpdateStatus.RUNNING,
-                reportAt(UpdateReport.Stage.STOPPING), null));
+        rows.put(row(1L, UpdateSource.DISCORD, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
         feed.tick();
 
-        assertEquals(List.of(), board.posted,
+        assertEquals(
+                List.of(),
+                board.posted,
                 "two drawings of one run in the same guild disagree the moment the interaction"
                         + " token expires, and the asker's own is the one that stops first");
 
-        rows.put(row(1L, UpdateSource.DISCORD, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE),
-                NOW));
+        rows.put(row(1L, UpdateSource.DISCORD, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
         feed.tick();
         assertEquals(List.of(), board.edited);
     }
@@ -354,7 +349,11 @@ class UpdateFeedTest {
     @DisplayName("a restart begins at the newest row, so a season of history is not re-posted")
     void aRestartDoesNotReplayTheTable() {
         for (long id = 1; id <= 40; id++) {
-            rows.put(row(id, UpdateSource.GAME, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE),
+            rows.put(row(
+                    id,
+                    UpdateSource.GAME,
+                    UpdateStatus.DONE,
+                    reportAt(UpdateReport.Stage.DONE),
                     NOW.minus(Duration.ofDays(3))));
         }
         feed.start();
@@ -369,9 +368,17 @@ class UpdateFeedTest {
         // The half that is easy to leave out, and it is silent when it is missing: the row's id is
         // below max(id), so the feed would never look at it again, and the one run nobody was
         // watching would also be the one run nobody ever saw the answer to.
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.FAILED),
+        rows.put(row(
+                1L,
+                UpdateSource.GAME,
+                UpdateStatus.FAILED,
+                reportAt(UpdateReport.Stage.FAILED),
                 NOW.minus(Duration.ofMinutes(4))));
-        rows.put(row(2L, UpdateSource.GAME, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE),
+        rows.put(row(
+                2L,
+                UpdateSource.GAME,
+                UpdateStatus.DONE,
+                reportAt(UpdateReport.Stage.DONE),
                 NOW.minus(Duration.ofHours(9))));
         feed.start();
 
@@ -384,15 +391,15 @@ class UpdateFeedTest {
     @DisplayName("a post Discord never acknowledged is not edited against a message id that is not there")
     void anUnacknowledgedPostIsNotFollowed() {
         board.acknowledge = false;
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING,
-                reportAt(UpdateReport.Stage.RESOLVING), null));
+        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.RESOLVING), null));
         feed.tick();
 
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE),
-                NOW));
+        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
         feed.tick();
 
-        assertEquals(List.of(), board.edited,
+        assertEquals(
+                List.of(),
+                board.edited,
                 "the message id arrives on a JDA thread and may never arrive at all; the row is the"
                         + " record and the embed is only a drawing of it");
     }
@@ -400,8 +407,7 @@ class UpdateFeedTest {
     @Test
     @DisplayName("a run already finished when the feed first sees it is posted once and not followed")
     void aRunThatIsAlreadyOverIsNotFollowed() {
-        rows.put(row(1L, UpdateSource.CONSOLE, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE),
-                NOW));
+        rows.put(row(1L, UpdateSource.CONSOLE, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
         feed.tick();
         feed.tick();
 

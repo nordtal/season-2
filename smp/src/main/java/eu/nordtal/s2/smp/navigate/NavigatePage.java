@@ -1,13 +1,12 @@
 package eu.nordtal.s2.smp.navigate;
 
-import eu.nordtal.s2.common.message.Messages;
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.message.Messages;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * What {@code /navigate}'s window shows on one page - decided here, with no Bukkit in sight.
@@ -29,13 +28,11 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
  */
 public final class NavigatePage {
 
-    private NavigatePage() {
-    }
+    private NavigatePage() {}
 
     /** How many pages {@code total} destinations fill - never fewer than one, so an empty list still draws. */
     public static int pages(final int total) {
-        return Math.max(1, (total + NavigatePanel.ENTRIES_PER_PAGE - 1)
-                / NavigatePanel.ENTRIES_PER_PAGE);
+        return Math.max(1, (total + NavigatePanel.ENTRIES_PER_PAGE - 1) / NavigatePanel.ENTRIES_PER_PAGE);
     }
 
     /** Clamps a page number into range, so a stale click cannot open a page that is not there. */
@@ -56,11 +53,8 @@ public final class NavigatePage {
      * <p>A POI's name is the player's own text and is used as typed; the two built-in kinds are
      * named by their message instead. {@link MenuFont} folds either onto the sheet's alphabet later.</p>
      */
-    public static String label(final NavigationTarget target, final Messages messages,
-                               final Locale locale) {
-        return target.kind() == NavigationTarget.Kind.POI
-                ? target.label()
-                : messages.format(locale, target.name());
+    public static String label(final NavigationTarget target, final Messages messages, final Locale locale) {
+        return target.kind() == NavigationTarget.Kind.POI ? target.label() : messages.format(locale, target.name());
     }
 
     /**
@@ -73,25 +67,35 @@ public final class NavigatePage {
      * caption on a list, not a live readout, and the HUD is what tracks the one destination that is
      * being walked to.</p>
      */
-    public static String distance(final NavigationTarget target, final String world,
-                                  final double x, final double y, final double z,
-                                  final Messages messages, final Locale locale) {
+    public static String distance(
+            final NavigationTarget target,
+            final String world,
+            final double x,
+            final double y,
+            final double z,
+            final Messages messages,
+            final Locale locale) {
         if (!target.isIn(world)) {
             return messages.format(locale, MESSAGES.smp().navigate().otherWorld());
         }
         final double dx = target.x() - x;
         final double dy = target.y() - y;
         final double dz = target.z() - z;
-        return messages.format(locale,
-                MESSAGES.smp().navigate().distance(Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz))));
+        return messages.format(
+                locale, MESSAGES.smp().navigate().distance(Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz))));
     }
 
     /** Every drawn row of one page, in order. */
-    public static List<NavigatePanel.Entry> entries(final List<NavigationTarget> targets,
-                                                    final int page, final String world,
-                                                    final double x, final double y, final double z,
-                                                    final Optional<NavigationTarget> active,
-                                                    final Messages messages, final Locale locale) {
+    public static List<NavigatePanel.Entry> entries(
+            final List<NavigationTarget> targets,
+            final int page,
+            final String world,
+            final double x,
+            final double y,
+            final double z,
+            final Optional<NavigationTarget> active,
+            final Messages messages,
+            final Locale locale) {
         final List<NavigatePanel.Entry> out = new ArrayList<>();
         for (final NavigationTarget target : slice(targets, page)) {
             out.add(new NavigatePanel.Entry(
@@ -104,8 +108,7 @@ public final class NavigatePage {
     }
 
     /** The {@code 2/3} between the two page buttons. */
-    public static String pageLabel(final int page, final int total, final Messages messages,
-                                   final Locale locale) {
+    public static String pageLabel(final int page, final int total, final Messages messages, final Locale locale) {
         return messages.format(locale, MESSAGES.smp().navigate().page(page + 1, pages(total)));
     }
 }

@@ -19,5 +19,4 @@ import java.time.Instant;
  * @param detail        the sentence a human reads, already written by whoever found it
  * @param reported      when it was written down
  */
-public record PaymentNotice(long bunqPaymentId, String reason, String detail, Instant reported) {
-}
+public record PaymentNotice(long bunqPaymentId, String reason, String detail, Instant reported) {}

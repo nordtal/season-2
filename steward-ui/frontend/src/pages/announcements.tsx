@@ -10,13 +10,7 @@ import {
 } from "@/lib/announcement-targets"
 import { relative } from "@/lib/format"
 import { languageName } from "@/lib/language-names"
-import {
-  useAnnouncements,
-  useCommandRun,
-  useConfig,
-  useGuildChannels,
-  useSendAnnouncement,
-} from "@/lib/queries"
+import { useAnnouncements, useCommandRun, useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
 import { RequestOutcome } from "@/components/steward/game-actions"
 import { PageHeader } from "@/components/steward/page-header"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
@@ -241,7 +235,9 @@ function RecentLine({ line }: { line: Announcement }) {
     <li className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <Badge variant="secondary">{line.language}</Badge>
-        <span className="min-w-0 truncate">{line.source === "WEB" ? senderName(line.requestedBy) : line.requestedBy}</span>
+        <span className="min-w-0 truncate">
+          {line.source === "WEB" ? senderName(line.requestedBy) : line.requestedBy}
+        </span>
         <span className="tabular-nums">{relative(line.requested)}</span>
         {line.status !== "DONE" ? (
           <Badge variant="outline" className={failed ? "text-destructive" : undefined}>

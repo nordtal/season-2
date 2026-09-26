@@ -39,8 +39,22 @@ import type { Fill } from "@/app/designs/translations/preview"
 
 /** Minecraft's sixteen colours in the order of their old section codes, 0 to f. */
 export const COLOUR_ORDER = [
-  "black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple", "gold", "gray",
-  "dark_gray", "blue", "green", "aqua", "red", "light_purple", "yellow", "white",
+  "black",
+  "dark_blue",
+  "dark_green",
+  "dark_aqua",
+  "dark_red",
+  "dark_purple",
+  "gold",
+  "gray",
+  "dark_gray",
+  "blue",
+  "green",
+  "aqua",
+  "red",
+  "light_purple",
+  "yellow",
+  "white",
 ]
 
 /** A placeholder as the editors show it: always a pill, a general one set apart in grey. */
@@ -124,7 +138,13 @@ export function PlaceholderMenu({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         {children ?? (
-          <Button type="button" size="sm" variant="ghost" disabled={disabled || args.length === 0} onMouseDown={(event) => event.preventDefault()}>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={disabled || args.length === 0}
+            onMouseDown={(event) => event.preventDefault()}
+          >
             <BracketsCurlyIcon aria-hidden />
             Placeholder
           </Button>
@@ -139,13 +159,27 @@ export function PlaceholderMenu({
   )
 }
 
-export function GlyphMenu({ glyphs, onPick, children }: { glyphs: GlyphInfo[]; onPick: (name: string) => void; children?: ReactNode }) {
+export function GlyphMenu({
+  glyphs,
+  onPick,
+  children,
+}: {
+  glyphs: GlyphInfo[]
+  onPick: (name: string) => void
+  children?: ReactNode
+}) {
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         {children ?? (
-          <Button type="button" size="sm" variant="ghost" disabled={glyphs.length === 0} onMouseDown={(event) => event.preventDefault()}>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={glyphs.length === 0}
+            onMouseDown={(event) => event.preventDefault()}
+          >
             <SmileyIcon aria-hidden />
             Glyph
           </Button>
@@ -166,7 +200,12 @@ export function GlyphMenu({ glyphs, onPick, children }: { glyphs: GlyphInfo[]; o
               className="flex min-w-0 flex-col items-center gap-1 rounded-md p-1.5 hover:bg-accent"
             >
               <span className="flex h-12 items-center">
-                <Glyph name={glyph.name} glyphs={glyphs} scale={Math.min(3, 40 / glyph.height)} className="!align-middle" />
+                <Glyph
+                  name={glyph.name}
+                  glyphs={glyphs}
+                  scale={Math.min(3, 40 / glyph.height)}
+                  className="!align-middle"
+                />
               </span>
               <span className="w-full truncate text-center text-[11px] text-muted-foreground">{glyph.name}</span>
             </button>
@@ -187,24 +226,49 @@ export function Swatch({ style, className }: { style: Style; className?: string 
   return (
     <span
       aria-hidden
-      className={cn("inline-block size-4 shrink-0 rounded-sm border border-border", !style.colour && !style.gradient && "bg-[linear-gradient(135deg,transparent_45%,var(--destructive)_45%,var(--destructive)_55%,transparent_55%)]", className)}
+      className={cn(
+        "inline-block size-4 shrink-0 rounded-sm border border-border",
+        !style.colour &&
+          !style.gradient &&
+          "bg-[linear-gradient(135deg,transparent_45%,var(--destructive)_45%,var(--destructive)_55%,transparent_55%)]",
+        className,
+      )}
       style={style.colour || style.gradient ? { background } : undefined}
     />
   )
 }
 
-export function ColourMenu({ style, onChange, disabled }: { style: Style; onChange: (patch: Pick<Style, "colour" | "gradient">) => void; disabled?: boolean }) {
+export function ColourMenu({
+  style,
+  onChange,
+  disabled,
+}: {
+  style: Style
+  onChange: (patch: Pick<Style, "colour" | "gradient">) => void
+  disabled?: boolean
+}) {
   const [mode, setMode] = useState<"colour" | "gradient">(style.gradient ? "gradient" : "colour")
   const stops = style.gradient ?? [style.colour ?? "#4a63d8", "#ffffff"]
   const setStops = (next: string[]) => onChange({ gradient: next, colour: undefined })
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" size="icon-sm" variant="ghost" aria-label="Colour" disabled={disabled} onMouseDown={(event) => event.preventDefault()}>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          aria-label="Colour"
+          disabled={disabled}
+          onMouseDown={(event) => event.preventDefault()}
+        >
           {style.colour || style.gradient ? <Swatch style={style} /> : <PaletteIcon aria-hidden />}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="flex w-72 flex-col gap-3" onOpenAutoFocus={(event) => event.preventDefault()}>
+      <PopoverContent
+        align="start"
+        className="flex w-72 flex-col gap-3"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
         <Tabs value={mode} onValueChange={(value) => setMode(value as "colour" | "gradient")}>
           <TabsList className="w-full">
             <TabsTrigger value="colour">Colour</TabsTrigger>
@@ -229,14 +293,25 @@ export function ColourMenu({ style, onChange, disabled }: { style: Style; onChan
                 />
               ))}
             </div>
-            <HexField value={style.colour ? hexOf(style.colour) : ""} onChange={(hex) => onChange({ colour: hex, gradient: undefined })} />
+            <HexField
+              value={style.colour ? hexOf(style.colour) : ""}
+              onChange={(hex) => onChange({ colour: hex, gradient: undefined })}
+            />
           </>
         ) : (
           <>
-            <div className="h-4 rounded-sm" style={{ background: `linear-gradient(90deg, ${stops.map((_, at) => gradientAt(stops, at / (stops.length - 1))).join(", ")})` }} />
+            <div
+              className="h-4 rounded-sm"
+              style={{
+                background: `linear-gradient(90deg, ${stops.map((_, at) => gradientAt(stops, at / (stops.length - 1))).join(", ")})`,
+              }}
+            />
             {stops.map((stop, at) => (
               <div key={at} className="flex items-center gap-2">
-                <HexField value={hexOf(stop)} onChange={(hex) => setStops(stops.map((old, index) => (index === at ? hex : old)))} />
+                <HexField
+                  value={hexOf(stop)}
+                  onChange={(hex) => setStops(stops.map((old, index) => (index === at ? hex : old)))}
+                />
                 <Button
                   type="button"
                   size="icon-sm"
@@ -249,13 +324,24 @@ export function ColourMenu({ style, onChange, disabled }: { style: Style; onChan
                 </Button>
               </div>
             ))}
-            <Button type="button" size="sm" variant="ghost" className="self-start" onClick={() => setStops([...stops, stops[stops.length - 1]])}>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="self-start"
+              onClick={() => setStops([...stops, stops[stops.length - 1]])}
+            >
               <PlusIcon aria-hidden />
               Colour
             </Button>
           </>
         )}
-        <Button type="button" size="sm" variant="outline" onClick={() => onChange({ colour: undefined, gradient: undefined })}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => onChange({ colour: undefined, gradient: undefined })}
+        >
           No colour
         </Button>
       </PopoverContent>
@@ -297,12 +383,27 @@ const CLICK_LABELS: Record<ClickAction, string> = {
   copy_to_clipboard: "Copy",
 }
 
-export function ClickMenu({ click, onChange, disabled }: { click: Click | undefined; onChange: (click: Click | undefined) => void; disabled?: boolean }) {
+export function ClickMenu({
+  click,
+  onChange,
+  disabled,
+}: {
+  click: Click | undefined
+  onChange: (click: Click | undefined) => void
+  disabled?: boolean
+}) {
   const [draft, setDraft] = useState<Click>(click ?? { action: "open_url", value: "" })
   return (
     <Popover onOpenChange={(open) => open && setDraft(click ?? { action: "open_url", value: "" })}>
       <PopoverTrigger asChild>
-        <Button type="button" size="icon-sm" variant={click ? "secondary" : "ghost"} aria-label="Click" disabled={disabled} onMouseDown={(event) => event.preventDefault()}>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant={click ? "secondary" : "ghost"}
+          aria-label="Click"
+          disabled={disabled}
+          onMouseDown={(event) => event.preventDefault()}
+        >
           <CursorClickIcon aria-hidden />
         </Button>
       </PopoverTrigger>
@@ -342,19 +443,47 @@ export function ClickMenu({ click, onChange, disabled }: { click: Click | undefi
   )
 }
 
-export function LinkMenu({ click, onChange, disabled }: { click: Click | undefined; onChange: (click: Click | undefined) => void; disabled?: boolean }) {
+export function LinkMenu({
+  click,
+  onChange,
+  disabled,
+}: {
+  click: Click | undefined
+  onChange: (click: Click | undefined) => void
+  disabled?: boolean
+}) {
   const [url, setUrl] = useState(click?.value ?? "")
   return (
     <Popover onOpenChange={(open) => open && setUrl(click?.value ?? "")}>
       <PopoverTrigger asChild>
-        <Button type="button" size="icon-sm" variant={click ? "secondary" : "ghost"} aria-label="Link" disabled={disabled} onMouseDown={(event) => event.preventDefault()}>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant={click ? "secondary" : "ghost"}
+          aria-label="Link"
+          disabled={disabled}
+          onMouseDown={(event) => event.preventDefault()}
+        >
           <LinkIcon aria-hidden />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="flex w-72 flex-col gap-2">
-        <Input aria-label="Link target" value={url} placeholder="https://" spellCheck={false} className="font-mono" onChange={(event) => setUrl(event.target.value)} />
+        <Input
+          aria-label="Link target"
+          value={url}
+          placeholder="https://"
+          spellCheck={false}
+          className="font-mono"
+          onChange={(event) => setUrl(event.target.value)}
+        />
         <div className="flex gap-2">
-          <Button type="button" size="sm" className="flex-1" disabled={!url} onClick={() => onChange({ action: "open_url", value: url })}>
+          <Button
+            type="button"
+            size="sm"
+            className="flex-1"
+            disabled={!url}
+            onClick={() => onChange({ action: "open_url", value: url })}
+          >
             Apply
           </Button>
           {click ? (
@@ -398,7 +527,9 @@ export function StyleButtons({
   const can = capabilities(format)
   return (
     <>
-      {can.colour ? <ColourMenu style={style} disabled={disabled} onChange={(patch) => onStyle((old) => ({ ...old, ...patch }))} /> : null}
+      {can.colour ? (
+        <ColourMenu style={style} disabled={disabled} onChange={(patch) => onStyle((old) => ({ ...old, ...patch }))} />
+      ) : null}
       {can.decorations.map((decoration) => (
         <ToolButton
           key={decoration}
@@ -411,13 +542,26 @@ export function StyleButtons({
         </ToolButton>
       ))}
       {can.code ? (
-        <ToolButton label="Code" pressed={style.code === true} disabled={disabled} onPress={() => onStyle((old) => ({ ...old, code: style.code ? undefined : true }))}>
+        <ToolButton
+          label="Code"
+          pressed={style.code === true}
+          disabled={disabled}
+          onPress={() => onStyle((old) => ({ ...old, code: style.code ? undefined : true }))}
+        >
           <CodeIcon aria-hidden />
         </ToolButton>
       ) : null}
-      {can.link ? <LinkMenu click={style.click} disabled={disabled} onChange={(click) => onStyle((old) => ({ ...old, click }))} /> : null}
+      {can.link ? (
+        <LinkMenu click={style.click} disabled={disabled} onChange={(click) => onStyle((old) => ({ ...old, click }))} />
+      ) : null}
       {can.hover && !nested ? hover : null}
-      {can.click && !nested ? <ClickMenu click={style.click} disabled={disabled} onChange={(click) => onStyle((old) => ({ ...old, click }))} /> : null}
+      {can.click && !nested ? (
+        <ClickMenu
+          click={style.click}
+          disabled={disabled}
+          onChange={(click) => onStyle((old) => ({ ...old, click }))}
+        />
+      ) : null}
       {format !== "PLAIN" ? (
         <ToolButton label="Clear formatting" disabled={disabled} onPress={() => onStyle(() => ({}))}>
           <TextTSlashIcon aria-hidden />

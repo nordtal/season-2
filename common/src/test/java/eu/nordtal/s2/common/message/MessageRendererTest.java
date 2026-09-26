@@ -1,17 +1,16 @@
 package eu.nordtal.s2.common.message;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Locale;
+import java.util.Map;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.Locale;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The rules {@link MessageRenderer} exists to keep. The one worth reading twice is
@@ -20,8 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class MessageRendererTest {
 
-    private static final MessageRenderer RENDER =
-            new MessageRenderer(Messages.load("messages/render", Locale.ENGLISH));
+    private static final MessageRenderer RENDER = new MessageRenderer(Messages.load("messages/render", Locale.ENGLISH));
 
     /**
      * Flattens a component to its text. Adventure 5 moved {@code PlainTextComponentSerializer} into
@@ -52,8 +50,8 @@ class MessageRendererTest {
     void tagsAreParsed() {
         final Component rendered = RENDER.get(Locale.ENGLISH, "tagged");
         assertEquals("danger and calm", plain(rendered));
-        assertTrue(rendered.children().stream()
-                        .anyMatch(child -> NamedTextColor.RED.equals(child.color())),
+        assertTrue(
+                rendered.children().stream().anyMatch(child -> NamedTextColor.RED.equals(child.color())),
                 "the <red> tag did not become a colour");
     }
 
@@ -62,7 +60,8 @@ class MessageRendererTest {
     void aGlyphTagDrawsTheGlyph() {
         final Component rendered = RENDER.get(Locale.ENGLISH, "glyph");
         assertEquals(eu.nordtal.s2.common.Glyphs.TAG_ADMIN + " Admin", plain(rendered));
-        assertTrue(fonts(rendered).contains(net.kyori.adventure.key.Key.key("minecraft", "default")),
+        assertTrue(
+                fonts(rendered).contains(net.kyori.adventure.key.Key.key("minecraft", "default")),
                 "the glyph named no font, so a surrounding font would draw something else there");
     }
 
@@ -75,8 +74,8 @@ class MessageRendererTest {
     @Test
     @DisplayName("a value cannot draw a glyph")
     void aValueCannotDrawAGlyph() {
-        assertEquals("Hello <glyph:admin>",
-                plain(RENDER.format(Locale.ENGLISH, "glyph-in-value", "name", "<glyph:admin>")));
+        assertEquals(
+                "Hello <glyph:admin>", plain(RENDER.format(Locale.ENGLISH, "glyph-in-value", "name", "<glyph:admin>")));
     }
 
     private static java.util.Set<net.kyori.adventure.key.Key> fonts(final Component component) {
@@ -91,13 +90,18 @@ class MessageRendererTest {
     @Test
     @DisplayName("a component value arrives as a component, not as its text")
     void componentValuesKeepTheirStyle() {
-        final Component rendered = RENDER.format(Locale.ENGLISH, "composed",
+        final Component rendered = RENDER.format(
+                Locale.ENGLISH,
+                "composed",
                 Map.of("line", Component.text("mined a stone").color(NamedTextColor.GREEN)),
-                "who", "Ida");
+                "who",
+                "Ida");
 
         assertEquals("Ida says mined a stone", plain(rendered));
-        assertTrue(green(rendered), "the component value lost its colour on the way in - which is"
-                + " what happens when it is flattened to a String and substituted");
+        assertTrue(
+                green(rendered),
+                "the component value lost its colour on the way in - which is"
+                        + " what happens when it is flattened to a String and substituted");
     }
 
     /**
@@ -109,10 +113,11 @@ class MessageRendererTest {
     @Test
     @DisplayName("a translatable value stays translatable")
     void aTranslatableValueSurvives() {
-        final Component rendered = RENDER.format(Locale.ENGLISH, "composed",
-                Map.of("line", Component.translatable("death.attack.lava")), "who", "Ida");
+        final Component rendered = RENDER.format(
+                Locale.ENGLISH, "composed", Map.of("line", Component.translatable("death.attack.lava")), "who", "Ida");
 
-        assertTrue(contains(rendered, TranslatableComponent.class),
+        assertTrue(
+                contains(rendered, TranslatableComponent.class),
                 "the client has to be the one that translates a death message, so the component has"
                         + " to reach it as a translatable and not as English text");
     }
@@ -125,8 +130,8 @@ class MessageRendererTest {
     @Test
     @DisplayName("a component value beside a hostile text value is still safe")
     void theTwoKindsOfValueDoNotMix() {
-        final Component rendered = RENDER.format(Locale.ENGLISH, "composed",
-                Map.of("line", Component.text("hello")), "who", "<red>Mallory");
+        final Component rendered = RENDER.format(
+                Locale.ENGLISH, "composed", Map.of("line", Component.text("hello")), "who", "<red>Mallory");
 
         assertEquals("<red>Mallory says hello", plain(rendered));
     }
@@ -148,16 +153,18 @@ class MessageRendererTest {
     @Test
     @DisplayName("placeholders are substituted before parsing")
     void placeholdersSubstitute() {
-        assertEquals("Hello Till, you have 3 left",
+        assertEquals(
+                "Hello Till, you have 3 left",
                 plain(RENDER.format(Locale.ENGLISH, "greeting", "name", "Till", "count", 3)));
     }
 
     @Test
     @DisplayName("a value containing a tag cannot inject MiniMessage")
     void aValueCannotInjectTags() {
-        final Component rendered =
-                RENDER.format(Locale.ENGLISH, "greeting", "name", "<red>evil</red>", "count", 0);
-        assertEquals("Hello <red>evil</red>, you have 0 left", plain(rendered),
+        final Component rendered = RENDER.format(Locale.ENGLISH, "greeting", "name", "<red>evil</red>", "count", 0);
+        assertEquals(
+                "Hello <red>evil</red>, you have 0 left",
+                plain(rendered),
                 "a player whose name contains MiniMessage syntax coloured the message");
     }
 
@@ -168,21 +175,23 @@ class MessageRendererTest {
         // MiniMessage reads  \\  as one literal backslash - so the '<' it was protecting arrives at
         // the parser unguarded and the tag fires. The value below is the shape that matters: a
         // click tag runs a command as whoever reads the message.
-        final Component rendered = RENDER.format(Locale.ENGLISH, "greeting",
-                "name", "\\<click:run_command:'/kill @a'>gift</click>", "count", 0);
+        final Component rendered = RENDER.format(
+                Locale.ENGLISH, "greeting", "name", "\\<click:run_command:'/kill @a'>gift</click>", "count", 0);
 
-        assertEquals("Hello \\<click:run_command:'/kill @a'>gift</click>, you have 0 left",
+        assertEquals(
+                "Hello \\<click:run_command:'/kill @a'>gift</click>, you have 0 left",
                 plain(rendered),
-                "a backslash before a tag let the tag through - escape('\\\\') has to run before"
-                        + " escape('<')");
-        assertTrue(rendered.clickEvent() == null && !hasClickEvent(rendered),
+                "a backslash before a tag let the tag through - escape('\\\\') has to run before" + " escape('<')");
+        assertTrue(
+                rendered.clickEvent() == null && !hasClickEvent(rendered),
                 "the value produced a click event, which is the whole point of the escape");
     }
 
     @Test
     @DisplayName("a lone backslash survives as a lone backslash")
     void aBackslashIsNotDoubled() {
-        assertEquals("Hello back\\slash, you have 0 left",
+        assertEquals(
+                "Hello back\\slash, you have 0 left",
                 plain(RENDER.format(Locale.ENGLISH, "greeting", "name", "back\\slash", "count", 0)),
                 "escaping the escape character must be invisible once MiniMessage has parsed it");
     }
@@ -198,8 +207,8 @@ class MessageRendererTest {
     @Test
     @DisplayName("an odd parameter count is refused rather than silently dropping one")
     void oddParametersAreRefused() {
-        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
-                () -> RENDER.format(Locale.ENGLISH, "greeting", "name"));
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class, () -> RENDER.format(Locale.ENGLISH, "greeting", "name"));
     }
 
     @Test
@@ -229,8 +238,7 @@ class MessageRendererTest {
         // The empty map is the one that matters most: a reply with no placeholders looks like the
         // safest call in the codebase, and it is the one that threw first.
         final IllegalArgumentException refused = org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> RENDER.format(Locale.ENGLISH, "greeting", (Object) Map.of()));
+                IllegalArgumentException.class, () -> RENDER.format(Locale.ENGLISH, "greeting", (Object) Map.of()));
 
         assertTrue(refused.getMessage().contains("Map"), refused.getMessage());
     }

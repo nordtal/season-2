@@ -1,17 +1,16 @@
 package eu.nordtal.s2.commands;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What {@link Values} does when a command and its declaration disagree - which is the only way it
@@ -19,8 +18,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ValuesTest {
 
-    private static final Declaration AURA = new Declaration(List.of("smp", "aura"), Target.SMP,
-            Set.of(Surface.GAME, Surface.DISCORD), true, false,
+    private static final Declaration AURA = new Declaration(
+            List.of("smp", "aura"),
+            Target.SMP,
+            Set.of(Surface.GAME, Surface.DISCORD),
+            true,
+            false,
             List.of(Argument.player("player"), Argument.integer("delta", -10_000, 10_000)));
 
     @Test
@@ -38,8 +41,7 @@ class ValuesTest {
     void missingArgumentIsLoud() {
         final Values values = new Values(AURA, Map.of("player", UUID.randomUUID()));
 
-        final IllegalStateException thrown =
-                assertThrows(IllegalStateException.class, () -> values.integer("delta"));
+        final IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> values.integer("delta"));
 
         assertTrue(thrown.getMessage().contains("/smp aura"), thrown.getMessage());
         assertTrue(thrown.getMessage().contains("delta"), thrown.getMessage());
@@ -53,8 +55,7 @@ class ValuesTest {
         // nor the command.
         final Values values = new Values(AURA, Map.of("player", "Till", "delta", 1));
 
-        final IllegalStateException thrown =
-                assertThrows(IllegalStateException.class, () -> values.player("player"));
+        final IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> values.player("player"));
 
         assertTrue(thrown.getMessage().contains("String"), thrown.getMessage());
         assertTrue(thrown.getMessage().contains("UUID"), thrown.getMessage());
@@ -63,11 +64,15 @@ class ValuesTest {
     @Test
     @DisplayName("an optional argument that was not given is absent, not an error")
     void optionalIsAllowedToBeMissing() {
-        final Declaration start = new Declaration(List.of("hg", "start"), Target.HUNGER_GAMES,
-                Set.of(Surface.GAME), true, false, List.of(Argument.word("confirm").optional()));
+        final Declaration start = new Declaration(
+                List.of("hg", "start"),
+                Target.HUNGER_GAMES,
+                Set.of(Surface.GAME),
+                true,
+                false,
+                List.of(Argument.word("confirm").optional()));
 
         assertEquals(Optional.empty(), Values.none(start).optionalString("confirm"));
-        assertEquals(Optional.of("confirm"),
-                new Values(start, Map.of("confirm", "confirm")).optionalString("confirm"));
+        assertEquals(Optional.of("confirm"), new Values(start, Map.of("confirm", "confirm")).optionalString("confirm"));
     }
 }

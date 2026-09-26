@@ -90,9 +90,7 @@ describe("the step-up retry", () => {
     const held = vi.fn(async () => undefined)
     onSecondFactorRequired(held)
 
-    await expect(api("/api/commands", { method: "POST", body: {} })).rejects.toBeInstanceOf(
-      ApiError,
-    )
+    await expect(api("/api/commands", { method: "POST", body: {} })).rejects.toBeInstanceOf(ApiError)
 
     // A refusal that survives a successful ceremony is something else entirely - a clock, a
     // session that was taken away - and a third attempt would hide it behind a dialog that keeps
@@ -107,9 +105,7 @@ describe("the step-up retry", () => {
       throw new Error("the person closed the key dialog")
     })
 
-    await expect(api("/api/commands", { method: "POST", body: {} })).rejects.toThrow(
-      "the person closed the key dialog",
-    )
+    await expect(api("/api/commands", { method: "POST", body: {} })).rejects.toThrow("the person closed the key dialog")
     expect(calls).toHaveLength(1)
   })
 
@@ -118,9 +114,7 @@ describe("the step-up retry", () => {
     const held = vi.fn(async () => undefined)
     onSecondFactorRequired(held)
 
-    await expect(api("/auth/webauthn/authenticate/start", { method: "POST" })).rejects.toBeInstanceOf(
-      ApiError,
-    )
+    await expect(api("/auth/webauthn/authenticate/start", { method: "POST" })).rejects.toBeInstanceOf(ApiError)
     expect(held).not.toHaveBeenCalled()
     expect(calls).toHaveLength(1)
   })

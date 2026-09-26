@@ -16,8 +16,7 @@ import net.kyori.adventure.text.Component;
  */
 public final class Tones {
 
-    private Tones() {
-    }
+    private Tones() {}
 
     /**
      * @param message the rendered line

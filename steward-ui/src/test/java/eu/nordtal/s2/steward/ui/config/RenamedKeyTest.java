@@ -1,17 +1,16 @@
 package eu.nordtal.s2.steward.ui.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * What happens to a deployment whose {@code steward-ui.yml} was written before a key was renamed.
@@ -47,15 +46,19 @@ class RenamedKeyTest {
 
         final UiSpec config = ConfigLoader.builder(file, UiSpec.class).load().get();
 
-        assertEquals(30, config.sessionDays(),
+        assertEquals(
+                30,
+                config.sessionDays(),
                 "a preserved file with no session-days must fall back to the spec's default, not"
                         + " to zero - a zero would sign everybody out on the redirect that signed"
                         + " them in");
 
         final String after = Files.readString(file);
-        assertTrue(after.contains("session-days: 30"), "the loader did not write the new key into"
-                + " the preserved file, so correcting it by hand is a deployment step and the"
-                + " comment in UiSpec has to say so. The file now reads:\n" + after);
+        assertTrue(
+                after.contains("session-days: 30"),
+                "the loader did not write the new key into"
+                        + " the preserved file, so correcting it by hand is a deployment step and the"
+                        + " comment in UiSpec has to say so. The file now reads:\n" + after);
 
         // And the value the operator had actually chosen is NOT carried over: 12 hours does not
         // become 12 days or half a day. Nobody renames a key and keeps the number, and a test that

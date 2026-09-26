@@ -6,11 +6,10 @@ import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateStatus;
-import org.jetbrains.annotations.NotNull;
-
 import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * One row of steward/82's unified feed: a run from {@code update_request} or a line from
@@ -43,9 +42,13 @@ import java.util.regex.Pattern;
  * @param system          whether Steward itself is credited - the nightly backup clock, an orphan
  *                         settle, or a journal line the bot wrote with no admin behind it
  */
-public record ActionEntry(@NotNull String kind, @NotNull Instant occurred, @NotNull String extent,
-                          @NotNull String actorDiscordId, @NotNull String actorLabel,
-                          boolean system) {
+public record ActionEntry(
+        @NotNull String kind,
+        @NotNull Instant occurred,
+        @NotNull String extent,
+        @NotNull String actorDiscordId,
+        @NotNull String actorLabel,
+        boolean system) {
 
     /**
      * A trailing {@code (12345678901234567)} on a free-text requester - the shape a human's request
@@ -111,8 +114,7 @@ public record ActionEntry(@NotNull String kind, @NotNull Instant occurred, @NotN
                 actorLabel = requestedBy;
             }
         }
-        return new ActionEntry(run.kind().name(), occurred, extentOf(run), actorDiscordId,
-                actorLabel, system);
+        return new ActionEntry(run.kind().name(), occurred, extentOf(run), actorDiscordId, actorLabel, system);
     }
 
     /**
@@ -124,10 +126,8 @@ public record ActionEntry(@NotNull String kind, @NotNull Instant occurred, @NotN
      */
     static ActionEntry of(final @NotNull AuditEntry entry) {
         final boolean system = entry.actor() == null;
-        final String extent = entry.detail() == null || entry.detail().isBlank()
-                ? entry.action() : entry.detail();
-        return new ActionEntry(entry.action(), entry.occurred(), extent,
-                system ? "" : entry.actor(), "", system);
+        final String extent = entry.detail() == null || entry.detail().isBlank() ? entry.action() : entry.detail();
+        return new ActionEntry(entry.action(), entry.occurred(), extent, system ? "" : entry.actor(), "", system);
     }
 
     /**
@@ -157,24 +157,24 @@ public record ActionEntry(@NotNull String kind, @NotNull Instant occurred, @NotN
         }
         final var report = UpdateReports.parse(run.result());
         if (report.isEmpty()) {
-            return run.status() == UpdateStatus.CANCELLED ? "cancelled"
+            return run.status() == UpdateStatus.CANCELLED
+                    ? "cancelled"
                     : run.status() == UpdateStatus.FAILED ? "failed" : "done";
         }
         final UpdateReport parsed = report.get();
-        final long total = parsed.services().stream().filter(ActionEntry::touched).count();
+        final long total =
+                parsed.services().stream().filter(ActionEntry::touched).count();
         if (total == 0) {
             return parsed.stage().headline();
         }
         final long successful = parsed.services().stream()
-                .filter(line -> line.state() == UpdateReport.State.HEALTHY
-                        || line.state() == UpdateReport.State.SAVED)
+                .filter(line -> line.state() == UpdateReport.State.HEALTHY || line.state() == UpdateReport.State.SAVED)
                 .count();
         return successful + "/" + total + " successful";
     }
 
     /** Whether the run actually did something to this service, rather than skipping past it. */
     private static boolean touched(final UpdateReport.ServiceLine line) {
-        return line.state() != UpdateReport.State.UNCHANGED
-                && line.state() != UpdateReport.State.PLANNED;
+        return line.state() != UpdateReport.State.UNCHANGED && line.state() != UpdateReport.State.PLANNED;
     }
 }

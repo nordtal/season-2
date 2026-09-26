@@ -1,15 +1,18 @@
 package eu.nordtal.s2.papercommon.chat;
 
+import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
+
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
-
 import io.papermc.paper.advancement.AdvancementDisplay;
 import io.papermc.paper.event.player.AsyncChatEvent;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.function.Predicate;
 import net.kyori.adventure.text.Component;
-
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -19,12 +22,6 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-
-import java.util.Locale;
-import java.util.Objects;
-import java.util.function.Predicate;
-
-import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
 
 /**
  * The five lines a player reads all day - said, joined, left, died, earned - written by us on every
@@ -87,8 +84,7 @@ public final class SystemLines implements Listener {
     private final Messages messages;
     private final PlayerLocales locales;
 
-    public SystemLines(final Composition composition, final Messages messages,
-                       final PlayerLocales locales) {
+    public SystemLines(final Composition composition, final Messages messages, final PlayerLocales locales) {
         this.composition = Objects.requireNonNull(composition, "composition");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.locales = Objects.requireNonNull(locales, "locales");
@@ -107,8 +103,7 @@ public final class SystemLines implements Listener {
         final Component sender = composition.of(event.getPlayer());
         final MessageRenderer renderer = MessageRenderer.of(messages);
         event.renderer((source, displayName, message, viewer) ->
-                renderer.format(localeOf(viewer),
-                        MESSAGES.system().chat().line(sender, Glyphs.SEPARATOR, message)));
+                renderer.format(localeOf(viewer), MESSAGES.system().chat().line(sender, Glyphs.SEPARATOR, message)));
     }
 
     /**
@@ -179,8 +174,10 @@ public final class SystemLines implements Listener {
             return;
         }
         event.message(null);
-        broadcast(MESSAGES.system().advancement(Glyphs.ICON_ADVANCEMENT, composition.of(event.getPlayer()),
-                display.title()), viewer -> true);
+        broadcast(
+                MESSAGES.system()
+                        .advancement(Glyphs.ICON_ADVANCEMENT, composition.of(event.getPlayer()), display.title()),
+                viewer -> true);
     }
 
     /**

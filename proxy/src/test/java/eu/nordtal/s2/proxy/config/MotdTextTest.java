@@ -1,18 +1,16 @@
 package eu.nordtal.s2.proxy.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.jcore.config.spec.Specs;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What the five shipped MOTDs may and may not contain.
@@ -51,17 +49,27 @@ class MotdTextTest {
 
     /** Every name {@code Placeholders#resolve} answers, plus its one prefix form. */
     private static final Set<String> RESOLVED = Set.of(
-            "online", "max", "phase", "countdown",
-            "hg-state", "hg-teams", "hg-teams-alive", "hg-participants", "hg-alive",
+            "online",
+            "max",
+            "phase",
+            "countdown",
+            "hg-state",
+            "hg-teams",
+            "hg-teams-alive",
+            "hg-participants",
+            "hg-alive",
             "hg-eliminated",
-            "smp-milestone", "smp-milestone-progress", "smp-milestones-done",
-            "smp-milestones-total", "smp-aura-total", "smp-players");
+            "smp-milestone",
+            "smp-milestone-progress",
+            "smp-milestones-done",
+            "smp-milestones-total",
+            "smp-aura-total",
+            "smp-players");
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([^}]+)}");
 
     private List<String> all() {
-        return List.of(motd.preLaunch(), motd.preEvent(), motd.startEvent(), motd.smp(),
-                motd.maintenance());
+        return List.of(motd.preLaunch(), motd.preEvent(), motd.startEvent(), motd.smp(), motd.maintenance());
     }
 
     @Test
@@ -69,11 +77,14 @@ class MotdTextTest {
     void noMotdCarriesAGlyph() {
         final List<String> offenders = new ArrayList<>();
         for (final String line : all()) {
-            line.codePoints().filter(MotdTextTest::isPrivateUse)
-                    .forEach(codePoint -> offenders.add(
-                            "U+" + Integer.toHexString(codePoint).toUpperCase() + " in " + line));
+            line.codePoints()
+                    .filter(MotdTextTest::isPrivateUse)
+                    .forEach(codePoint ->
+                            offenders.add("U+" + Integer.toHexString(codePoint).toUpperCase() + " in " + line));
         }
-        assertEquals(List.of(), offenders,
+        assertEquals(
+                List.of(),
+                offenders,
                 "a private-use character in a MOTD is a box in the server browser: the client draws"
                         + " that list in its own font, before it has ever been offered the pack");
     }
@@ -91,7 +102,9 @@ class MotdTextTest {
                 }
             }
         }
-        assertEquals(List.of(), unknown,
+        assertEquals(
+                List.of(),
+                unknown,
                 "Placeholders leaves an unknown name standing rather than blanking it, so a typo"
                         + " here reaches the server list as literal braces - on the one surface"
                         + " nobody inside the network can see");
@@ -101,7 +114,8 @@ class MotdTextTest {
     @DisplayName("every MOTD has a second line, which is the one that says what phase this is")
     void everyMotdHasTwoLines() {
         for (final String line : all()) {
-            assertTrue(line.contains("<newline>"),
+            assertTrue(
+                    line.contains("<newline>"),
                     "this MOTD is one line: " + line + ". The first line is the brand and never"
                             + " varies, so without a second one the server list says nothing about"
                             + " the phase - which is the whole reason the name stopped carrying it");

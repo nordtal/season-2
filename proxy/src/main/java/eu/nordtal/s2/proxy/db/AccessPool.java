@@ -2,7 +2,6 @@ package eu.nordtal.s2.proxy.db;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-
 import eu.nordtal.s2.proxy.config.DatabaseSpec;
 
 /**
@@ -16,8 +15,7 @@ import eu.nordtal.s2.proxy.config.DatabaseSpec;
  */
 public final class AccessPool {
 
-    private AccessPool() {
-    }
+    private AccessPool() {}
 
     public static HikariDataSource open(final DatabaseSpec config) {
         final HikariConfig hikari = new HikariConfig();

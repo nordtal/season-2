@@ -2,7 +2,6 @@ package eu.nordtal.s2.smp.npc;
 
 import eu.nordtal.s2.smp.db.OwnContributionRow;
 import eu.nordtal.s2.smp.wheel.PrizeDraw;
-
 import java.util.List;
 
 /**
@@ -22,8 +21,7 @@ import java.util.List;
  */
 public final class OwnShare {
 
-    private OwnShare() {
-    }
+    private OwnShare() {}
 
     /**
      * One objective's line: what this player put in, against what was asked.
@@ -33,8 +31,7 @@ public final class OwnShare {
      *                over-collection is real and should be visible
      * @param spins   how many extra spins that share is on track for, when it completes
      */
-    public record Line(String key, double percent, int spins) {
-    }
+    public record Line(String key, double percent, int spins) {}
 
     /** The whole answer: one line per objective, and the two summary numbers. */
     public record Summary(List<Line> lines, double percent, int spins) {

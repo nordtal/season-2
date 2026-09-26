@@ -1,10 +1,9 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Which server runs which jars. A mirror of {@code compose.yml}, and it says so out loud.
@@ -77,12 +76,14 @@ public final class Topology {
      * @param optional the subset of {@code plugins} whose <b>absence must not stop the container</b>
      *                 - see {@link #optional()}.
      */
-    public record Service(@NotNull String name, @NotNull Kind kind, @NotNull List<String> plugins,
-                          @NotNull List<String> optional) {
+    public record Service(
+            @NotNull String name,
+            @NotNull Kind kind,
+            @NotNull List<String> plugins,
+            @NotNull List<String> optional) {
 
         /** A service every one of whose plugins the entrypoint guard demands. */
-        public Service(final @NotNull String name, final @NotNull Kind kind,
-                       final @NotNull List<String> plugins) {
+        public Service(final @NotNull String name, final @NotNull Kind kind, final @NotNull List<String> plugins) {
             this(name, kind, plugins, List.of());
         }
 
@@ -90,8 +91,8 @@ public final class Topology {
             plugins = List.copyOf(plugins);
             optional = List.copyOf(optional);
             if (!plugins.containsAll(optional)) {
-                throw new IllegalArgumentException(name + " marks a plugin optional that it does"
-                        + " not run: " + optional + " is not inside " + plugins);
+                throw new IllegalArgumentException(name + " marks a plugin optional that it does" + " not run: "
+                        + optional + " is not inside " + plugins);
             }
         }
 
@@ -205,24 +206,27 @@ public final class Topology {
      * for the season jars is the artefact id and for the fork is its repository name.
      */
     public static final Map<String, String> NORDTAL_PLUGINS = orderedMap(
-            "papermc-display-tags", "Display Tags",
-            SMP, "SMP",
-            PROXY, "Proxy",
-            LIMBO, "Limbo",
-            HUNGER_GAMES, "Hunger Games",
-            DISCORD_BOT, "Discord Bot",
-            STEWARD_WORKER, "Steward Worker");
+            "papermc-display-tags",
+            "Display Tags",
+            SMP,
+            "SMP",
+            PROXY,
+            "Proxy",
+            LIMBO,
+            "Limbo",
+            HUNGER_GAMES,
+            "Hunger Games",
+            DISCORD_BOT,
+            "Discord Bot",
+            STEWARD_WORKER,
+            "Steward Worker");
 
     /**
      * The data folder each Nordtal plugin keeps its config in, with the same name the plugins tab
      * shows. A season plugin's folder is its module name; the fork's is its plugin name.
      */
     public static final Map<String, String> NORDTAL_DATA_FOLDERS = orderedMap(
-            "DisplayTags", "Display Tags",
-            SMP, "SMP",
-            PROXY, "Proxy",
-            LIMBO, "Limbo",
-            HUNGER_GAMES, "Hunger Games");
+            "DisplayTags", "Display Tags", SMP, "SMP", PROXY, "Proxy", LIMBO, "Limbo", HUNGER_GAMES, "Hunger Games");
 
     /** Whether a jar with this filename prefix is one Nordtal publishes. */
     public static boolean isNordtal(final @Nullable String prefix) {
@@ -278,13 +282,11 @@ public final class Topology {
             // The proxy carries voice chat's proxy half, which is what makes one published UDP port
             // enough for the whole network - see VOICE_CHAT_PROXY. It is optional here for the
             // strongest reason anything on this list is: this container is the network.
-            new Service(PROXY, Kind.VELOCITY, List.of(PROXY, VOICE_CHAT_PROXY),
-                    List.of(VOICE_CHAT_PROXY)),
+            new Service(PROXY, Kind.VELOCITY, List.of(PROXY, VOICE_CHAT_PROXY), List.of(VOICE_CHAT_PROXY)),
             new Service(LIMBO, Kind.PAPER, List.of(LIMBO)),
             // Voice chat is on the two servers people play on and not on limbo: the waiting room
             // is seconds long and holds nobody who could be talked to (owner, 2026-09-08).
-            new Service(HUNGER_GAMES, Kind.PAPER, List.of(HUNGER_GAMES, VOICE_CHAT),
-                    List.of(VOICE_CHAT)),
+            new Service(HUNGER_GAMES, Kind.PAPER, List.of(HUNGER_GAMES, VOICE_CHAT), List.of(VOICE_CHAT)),
             // The only service with required third-party plugins. DisplayTags is required by the
             // SMP plugin's own paper-plugin.yml; PacketEvents is required under DisplayTags.
             //
@@ -294,7 +296,9 @@ public final class Topology {
             // power to keep the SMP down. Voice chat can be installed and usually will be; it is
             // optional because a server nobody can talk on is better than a server nobody can join
             // (owner, 2026-09-09).
-            new Service(SMP, Kind.PAPER,
+            new Service(
+                    SMP,
+                    Kind.PAPER,
                     List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, VOICE_CHAT, CORE_PROTECT),
                     List.of(VOICE_CHAT, CORE_PROTECT)));
 
@@ -404,9 +408,10 @@ public final class Topology {
                 plugins.add(artifact);
                 optional.add(artifact);
             }
-            merged.add(plugins.size() == service.plugins().size()
-                    ? service
-                    : new Service(service.name(), service.kind(), plugins, optional));
+            merged.add(
+                    plugins.size() == service.plugins().size()
+                            ? service
+                            : new Service(service.name(), service.kind(), plugins, optional));
         }
         return List.copyOf(merged);
     }
@@ -430,6 +435,5 @@ public final class Topology {
         return kind == Kind.VELOCITY ? slug + "-velocity" : slug;
     }
 
-    private Topology() {
-    }
+    private Topology() {}
 }

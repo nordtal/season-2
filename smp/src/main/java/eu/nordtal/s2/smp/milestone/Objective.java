@@ -35,9 +35,15 @@ import java.util.Objects;
  * @param advancement for {@code ADVANCEMENT}: the advancement key, e.g.
  *                    {@code minecraft:story/mine_diamond}
  */
-public record Objective(String key, ObjectiveType type, String role, long target,
-                        List<String> items, String statistic, List<String> subjects,
-                        String advancement) {
+public record Objective(
+        String key,
+        ObjectiveType type,
+        String role,
+        long target,
+        List<String> items,
+        String statistic,
+        List<String> subjects,
+        String advancement) {
 
     public Objective {
         Objects.requireNonNull(key, "key");

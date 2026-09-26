@@ -1,13 +1,15 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import eu.nordtal.s2.discordbot.access.discord.ReconcileDao;
-
-import eu.nordtal.s2.discordbot.config.AccessSpec;
-import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AdminTree;
 import eu.nordtal.s2.common.access.MemberState;
-
+import eu.nordtal.s2.discordbot.access.discord.ReconcileDao;
+import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.discordbot.config.Languages;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
@@ -22,11 +24,6 @@ import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleRemoveEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jdbi.v3.core.Jdbi;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 
 /**
  * Keeps {@code discord_user.member_state} and {@code locale} current. The proxy decides whether a
@@ -68,8 +65,13 @@ public final class GuildState extends ListenerAdapter {
     private final AdminTree admins;
     private final ReconcileDao dao;
 
-    public GuildState(final JDA jda, final AccessSpec config, final Languages languages,
-                      final AccessDirectory access, final AdminTree admins, final Jdbi jdbi) {
+    public GuildState(
+            final JDA jda,
+            final AccessSpec config,
+            final Languages languages,
+            final AccessDirectory access,
+            final AdminTree admins,
+            final Jdbi jdbi) {
         this.jda = jda;
         this.config = config;
         this.languages = languages;
@@ -109,7 +111,9 @@ public final class GuildState extends ListenerAdapter {
         // this is one named user Discord has told us about, not an inference from a list that may
         // have loaded incompletely.
         if (access.unlink(event.getUser().getId())) {
-            log.info("{} left the guild; their Minecraft account link was removed", event.getUser().getId());
+            log.info(
+                    "{} left the guild; their Minecraft account link was removed",
+                    event.getUser().getId());
         }
     }
 
@@ -227,14 +231,21 @@ public final class GuildState extends ListenerAdapter {
             }
         }
 
-        log.info("Reconciled guild state: {} member(s), {} known account(s) no longer present,"
-                + " {} link(s) removed", seen.size(), left, unlinked);
+        log.info(
+                "Reconciled guild state: {} member(s), {} known account(s) no longer present," + " {} link(s) removed",
+                seen.size(),
+                left,
+                unlinked);
         if (!mayUnlink && left > 0) {
-            log.warn("Account links and admin grants were left in place for those {} account(s): the member cache"
-                    + " holds {} of {} member(s) and the ban list {} read. Deleting on an"
-                    + " incomplete picture would unlink the whole guild; the next reconcile that"
-                    + " sees everything will do it.",
-                    left, members.size(), expected, banListRead ? "was" : "was not");
+            log.warn(
+                    "Account links and admin grants were left in place for those {} account(s): the member cache"
+                            + " holds {} of {} member(s) and the ban list {} read. Deleting on an"
+                            + " incomplete picture would unlink the whole guild; the next reconcile that"
+                            + " sees everything will do it.",
+                    left,
+                    members.size(),
+                    expected,
+                    banListRead ? "was" : "was not");
         }
     }
 
@@ -269,7 +280,8 @@ public final class GuildState extends ListenerAdapter {
      * is mid-flight would be worse than being a little stale.
      */
     private void mirrorLocale(final Member member) {
-        languages.resolve(member.getRoles().stream().map(Role::getId).toList())
+        languages
+                .resolve(member.getRoles().stream().map(Role::getId).toList())
                 .ifPresent(language -> access.setLocale(member.getId(), language.locale()));
     }
 
@@ -277,8 +289,11 @@ public final class GuildState extends ListenerAdapter {
     private void dropAdmin(final String discordId) {
         final java.util.Set<String> dropped = admins.dropWithBranch(discordId);
         if (!dropped.isEmpty()) {
-            log.info("{} is no longer in the guild; {} admin(s) dropped with them: {}",
-                    discordId, dropped.size(), dropped);
+            log.info(
+                    "{} is no longer in the guild; {} admin(s) dropped with them: {}",
+                    discordId,
+                    dropped.size(),
+                    dropped);
         }
     }
 
@@ -304,7 +319,7 @@ public final class GuildState extends ListenerAdapter {
      * way.
      */
     private void mirrorProfile(final Member member) {
-        access.setDiscordProfile(member.getId(), member.getUser().getName(),
-                member.getEffectiveName(), member.getEffectiveAvatarUrl());
+        access.setDiscordProfile(
+                member.getId(), member.getUser().getName(), member.getEffectiveName(), member.getEffectiveAvatarUrl());
     }
 }

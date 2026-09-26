@@ -1,5 +1,12 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.sql.SQLException;
+import java.util.Map;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -9,14 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.SQLException;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * {@code steward_push_preference} against a real PostgreSQL, and the one rule that is not SQL: a
@@ -57,7 +56,7 @@ class PushPreferencesTest {
     @BeforeEach
     void freshTable() {
         try (var connection = dataSource.getConnection();
-             var statement = connection.createStatement()) {
+                var statement = connection.createStatement()) {
             statement.execute("TRUNCATE steward_push_preference");
         } catch (final SQLException failure) {
             throw new RuntimeException(failure);
@@ -72,7 +71,8 @@ class PushPreferencesTest {
 
         // Till, 2026-09-18, verbatim: the critical cases plus disk and memory are on, the rest is
         // off. "The rest" is exactly drift.
-        assertEquals(Map.of(
+        assertEquals(
+                Map.of(
                         AlertType.SERVICE, true,
                         AlertType.BACKUP, true,
                         AlertType.DISK, true,
@@ -81,7 +81,8 @@ class PushPreferencesTest {
                 mine,
                 "the defaults an account gets before it has ever opened the dialog are not the ones"
                         + " Till asked for");
-        assertTrue(preferences.all().isEmpty(),
+        assertTrue(
+                preferences.all().isEmpty(),
                 "reading the preferences of an account wrote a row for it - see V30 on why a"
                         + " missing row has to stay missing");
     }
@@ -94,10 +95,8 @@ class PushPreferencesTest {
 
         assertTrue(preferences.of("42").get(AlertType.DRIFT));
         assertFalse(preferences.of("42").get(AlertType.SERVICE));
-        assertFalse(preferences.of("43").get(AlertType.DRIFT),
-                "one account's choice leaked into another's");
-        assertTrue(preferences.of("43").get(AlertType.SERVICE),
-                "one account's choice leaked into another's");
+        assertFalse(preferences.of("43").get(AlertType.DRIFT), "one account's choice leaked into another's");
+        assertTrue(preferences.of("43").get(AlertType.SERVICE), "one account's choice leaked into another's");
     }
 
     @Test
@@ -106,8 +105,7 @@ class PushPreferencesTest {
         preferences.set("42", AlertType.DISK, false);
         preferences.set("42", AlertType.DISK, true);
 
-        assertEquals(1, preferences.all().get("42").size(),
-                "the same switch set twice produced two rows");
+        assertEquals(1, preferences.all().get("42").size(), "the same switch set twice produced two rows");
         assertTrue(preferences.of("42").get(AlertType.DISK));
     }
 
@@ -116,16 +114,17 @@ class PushPreferencesTest {
     void choosingTheDefaultIsStillAChoice() {
         preferences.set("42", AlertType.SERVICE, true);
 
-        assertEquals(Map.of(AlertType.SERVICE, true), preferences.all().get("42"),
-                "choosing a value that happens to equal the default deleted the row instead of"
-                        + " recording it");
+        assertEquals(
+                Map.of(AlertType.SERVICE, true),
+                preferences.all().get("42"),
+                "choosing a value that happens to equal the default deleted the row instead of" + " recording it");
     }
 
     @Test
     @DisplayName("a stored type this release does not know is ignored rather than fatal")
     void anUnknownTypeIsIgnored() throws SQLException {
         try (var connection = dataSource.getConnection();
-             var statement = connection.createStatement()) {
+                var statement = connection.createStatement()) {
             statement.execute("INSERT INTO steward_push_preference (discord_id, alert_type,"
                     + " enabled, updated_at) VALUES ('42', 'sunspots', true, now())");
         }
@@ -133,7 +132,9 @@ class PushPreferencesTest {
         // A background poll that threw on a row a later release had left behind would stop pushing
         // anything at all - see AlertType#of.
         assertEquals(5, preferences.of("42").size());
-        assertTrue(preferences.all().get("42") == null || preferences.all().get("42").isEmpty(),
+        assertTrue(
+                preferences.all().get("42") == null
+                        || preferences.all().get("42").isEmpty(),
                 "a type nobody knows was carried into the effective answer");
     }
 }

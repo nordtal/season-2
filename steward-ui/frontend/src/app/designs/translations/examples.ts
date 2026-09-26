@@ -43,4 +43,5 @@ const UNTYPED_FALLBACK: Record<string, string> = {
   to: "0.9.5",
 }
 
-const NUMBERS = /count|online|max|days|hours|minutes|seconds|amount|number|players|participants|rank|place|size|left|kills|level|points|aura/i
+const NUMBERS =
+  /count|online|max|days|hours|minutes|seconds|amount|number|players|participants|rank|place|size|left|kills|level|points|aura/i

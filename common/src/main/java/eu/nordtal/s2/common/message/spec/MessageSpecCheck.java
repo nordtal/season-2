@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.message.spec;
 
 import eu.nordtal.s2.common.message.context.Contexts;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -29,8 +28,7 @@ public final class MessageSpecCheck {
     /** The same shape {@code Messages#format} substitutes. */
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Za-z0-9_.-]+)}");
 
-    private MessageSpecCheck() {
-    }
+    private MessageSpecCheck() {}
 
     /** @return one line per problem; empty when spec and bundle agree */
     public static List<String> problems(final Class<?> spec) {
@@ -71,7 +69,8 @@ public final class MessageSpecCheck {
                     plain.add(arg.name());
                 }
             }
-            if (new HashSet<>(plain).size() + roles.size() + new HashSet<>(components).size() != entry.args().size()) {
+            if (new HashSet<>(plain).size() + roles.size() + new HashSet<>(components).size()
+                    != entry.args().size()) {
                 problems.add(key + ": two parameters fill the same placeholder");
             }
             if (!english.containsKey(key)) {
@@ -95,9 +94,14 @@ public final class MessageSpecCheck {
         return Contexts.properties(contexts.get(type));
     }
 
-    private static void check(final List<String> problems, final String key, final String language,
-                              final String text, final List<String> plain, final Map<String, List<String>> roles,
-                              final List<String> components) {
+    private static void check(
+            final List<String> problems,
+            final String key,
+            final String language,
+            final String text,
+            final List<String> plain,
+            final Map<String, List<String>> roles,
+            final List<String> components) {
         final Set<String> found = new TreeSet<>();
         final Set<String> dotted = new TreeSet<>();
         final Matcher matcher = PLACEHOLDER.matcher(text);
@@ -105,14 +109,15 @@ public final class MessageSpecCheck {
             (matcher.group(1).contains(".") ? dotted : found).add(matcher.group(1));
         }
         if (!found.equals(new TreeSet<>(plain))) {
-            problems.add(key + " (" + language + "): the text names " + found
-                    + ", the method declares " + new TreeSet<>(plain));
+            problems.add(key + " (" + language + "): the text names " + found + ", the method declares "
+                    + new TreeSet<>(plain));
         }
         final Set<String> usedRoles = new HashSet<>();
         for (final String name : dotted) {
             final String role = name.substring(0, name.indexOf('.'));
             final String property = name.substring(name.indexOf('.') + 1);
-            final List<String> known = roles.containsKey(role) ? roles.get(role)
+            final List<String> known = roles.containsKey(role)
+                    ? roles.get(role)
                     : Contexts.GLOBALS.containsKey(role) ? Contexts.properties(Contexts.GLOBALS.get(role)) : null;
             if (known == null || !known.contains(property)) {
                 problems.add(key + " (" + language + "): the text names {" + name + "}, which nothing declares");
@@ -126,8 +131,8 @@ public final class MessageSpecCheck {
         }
         for (final String component : components) {
             if (!text.contains("<" + component + ">") && !text.contains("<" + component + "/>")) {
-                problems.add(key + " (" + language + "): the method declares <" + component
-                        + ">, the text never uses it");
+                problems.add(
+                        key + " (" + language + "): the method declares <" + component + ">, the text never uses it");
             }
         }
     }

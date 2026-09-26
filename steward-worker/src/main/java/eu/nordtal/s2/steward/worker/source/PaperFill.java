@@ -4,14 +4,12 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.worker.http.Http;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The PaperMC Fill v3 API: the newest {@code STABLE} build of a Paper or Velocity version.
@@ -113,8 +111,8 @@ public final class PaperFill {
      *                     fallback onto another family, which would move the network to a different
      *                     Velocity major without anybody asking for it
      */
-    public @NotNull String newestStableVersion(final @NotNull String project,
-                                               final @NotNull String family) throws IOException {
+    public @NotNull String newestStableVersion(final @NotNull String project, final @NotNull String family)
+            throws IOException {
 
         final URI uri = URI.create(API + project);
         final String what = "PaperMC Fill " + project;

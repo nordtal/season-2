@@ -1,13 +1,12 @@
 package eu.nordtal.s2.common.update;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link UpdateReport#withoutLines} - a service an update run deliberately left alone is not a line
@@ -22,8 +21,7 @@ class UpdateReportLinesTest {
     private static UpdateReport of(final String... services) {
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED);
         for (final String service : services) {
-            report = report.with(new UpdateReport.ServiceLine(service, UpdateReport.State.PLANNED,
-                    List.of(), null));
+            report = report.with(new UpdateReport.ServiceLine(service, UpdateReport.State.PLANNED, List.of(), null));
         }
         return report;
     }
@@ -33,7 +31,8 @@ class UpdateReportLinesTest {
     void theHeldLineIsGone() {
         final UpdateReport left = of("smp", "limbo", "proxy").withoutLines(List.of("limbo"));
 
-        assertEquals(List.of("smp", "proxy"),
+        assertEquals(
+                List.of("smp", "proxy"),
                 left.services().stream().map(UpdateReport.ServiceLine::service).toList(),
                 "the report still promises to stop a service the run is deliberately not touching");
     }
@@ -41,11 +40,11 @@ class UpdateReportLinesTest {
     @Test
     @DisplayName("the notes are not a casualty of dropping a line")
     void theNotesSurvive() {
-        final UpdateReport left = of("smp", "limbo")
-                .withNote("limbo is being held down")
-                .withoutLines(List.of("limbo"));
+        final UpdateReport left =
+                of("smp", "limbo").withNote("limbo is being held down").withoutLines(List.of("limbo"));
 
-        assertTrue(left.notes().contains("limbo is being held down"),
+        assertTrue(
+                left.notes().contains("limbo is being held down"),
                 "the sentence explaining why the line is missing was dropped with the line, so the"
                         + " report now silently does less than it says");
         assertEquals(UpdateReport.Stage.PLANNED, left.stage());

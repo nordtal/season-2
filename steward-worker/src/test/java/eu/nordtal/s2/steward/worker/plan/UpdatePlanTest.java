@@ -1,14 +1,13 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.time.Instant;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.Instant;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link UpdatePlan#onlyMissing()} - the filter a bootstrap runs through.
@@ -25,20 +24,26 @@ class UpdatePlanTest {
     }
 
     private static UpdatePlan planOf(final Change... changes) {
-        return new UpdatePlan(Instant.EPOCH, "v0.2.0", false, List.of(changes),
-                List.of(new UpdatePlan.Unclaimed("smp", "SomethingSomebodyDropped.jar")), List.of());
+        return new UpdatePlan(
+                Instant.EPOCH,
+                "v0.2.0",
+                false,
+                List.of(changes),
+                List.of(new UpdatePlan.Unclaimed("smp", "SomethingSomebodyDropped.jar")),
+                List.of());
     }
 
     @Test
     @DisplayName("an outdated jar is not something a bootstrap may touch")
     void anUpgradeIsNeverPartOfABootstrap() {
-        final UpdatePlan plan = planOf(
-                change("smp", Change.Status.OUTDATED),
-                change("DisplayTags", Change.Status.MISSING));
+        final UpdatePlan plan =
+                planOf(change("smp", Change.Status.OUTDATED), change("DisplayTags", Change.Status.MISSING));
 
         final UpdatePlan bootstrap = plan.onlyMissing();
 
-        assertEquals(1, bootstrap.changes().size(),
+        assertEquals(
+                1,
+                bootstrap.changes().size(),
                 "onlyMissing() kept something that is not MISSING. An OUTDATED row here would make"
                         + " a crash restart at three in the morning move a version.");
         assertEquals("DisplayTags", bootstrap.changes().getFirst().artifact());
@@ -47,12 +52,10 @@ class UpdatePlanTest {
     @Test
     @DisplayName("a volume that has everything gives a bootstrap nothing to do")
     void afullVolumeIsLeftAlone() {
-        final UpdatePlan plan = planOf(
-                change("smp", Change.Status.UP_TO_DATE),
-                change("DisplayTags", Change.Status.OUTDATED));
+        final UpdatePlan plan =
+                planOf(change("smp", Change.Status.UP_TO_DATE), change("DisplayTags", Change.Status.OUTDATED));
 
-        assertTrue(plan.onlyMissing().changes().isEmpty(),
-                "a restart of a live network must install nothing at all");
+        assertTrue(plan.onlyMissing().changes().isEmpty(), "a restart of a live network must install nothing at all");
     }
 
     @Test
@@ -71,9 +74,10 @@ class UpdatePlanTest {
 
         final UpdatePlan bootstrap = plan.onlyMissing();
 
-        assertFalse(bootstrap.hasMissing(),
-                "onlyMissing() must not treat a failure as an empty volume to fill");
-        assertEquals(2, bootstrap.changes().size(),
+        assertFalse(bootstrap.hasMissing(), "onlyMissing() must not treat a failure as an empty volume to fill");
+        assertEquals(
+                2,
+                bootstrap.changes().size(),
                 "the rows a bootstrap cannot act on still have to reach the report - dropping them"
                         + " is what let a run with eight unresolved artefacts close with"
                         + " \"Everything asked for was done.\"");
@@ -94,13 +98,15 @@ class UpdatePlanTest {
         final UpdatePlan bootstrap = plan.onlyMissing();
 
         assertTrue(bootstrap.hasMissing(), "two jars really are missing");
-        assertTrue(bootstrap.hasFailures(),
+        assertTrue(
+                bootstrap.hasFailures(),
                 "the outage has to survive into the plan the bootstrap installs and reports on;"
                         + " without it Applier's all-or-nothing rule cannot see the service is"
                         + " incomplete and installs the two that resolved");
         assertEquals(3, bootstrap.changes().size());
 
-        assertTrue(Report.render(bootstrap).contains("could not be checked"),
+        assertTrue(
+                Report.render(bootstrap).contains("could not be checked"),
                 "a rendered bootstrap plan has to say that part of the picture is missing");
     }
 
@@ -113,7 +119,9 @@ class UpdatePlanTest {
         assertEquals(plan.resolvedAt(), bootstrap.resolvedAt());
         assertEquals(plan.seasonTag(), bootstrap.seasonTag());
         assertEquals(plan.seasonPrerelease(), bootstrap.seasonPrerelease());
-        assertEquals(plan.unclaimed(), bootstrap.unclaimed(),
+        assertEquals(
+                plan.unclaimed(),
+                bootstrap.unclaimed(),
                 "unclaimed describes files nobody claimed and no run acts on it; dropping it would"
                         + " make the bootstrap's report disagree with `steward-worker apply`'s for"
                         + " the same volumes");

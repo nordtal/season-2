@@ -1,10 +1,10 @@
 package eu.nordtal.s2.common.online;
 
-import javax.sql.DataSource;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import javax.sql.DataSource;
 
 /**
  * Who is connected right now - written by the proxy in the same tick as {@link
@@ -85,8 +85,7 @@ public interface OnlineRoster {
                 throw new IllegalArgumentException("name must not be blank for " + uuid);
             }
             if (subject != null && subject.isBlank()) {
-                throw new IllegalArgumentException(
-                        "subject must be a service name or null, was blank for " + uuid);
+                throw new IllegalArgumentException("subject must be a service name or null, was blank for " + uuid);
             }
         }
     }

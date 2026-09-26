@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.access;
 
-import javax.sql.DataSource;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import javax.sql.DataSource;
 
 /**
  * The bot's inbox for access changes: one row per request, carried out by the one process that can
@@ -43,26 +42,26 @@ public interface AccessRequests {
     Duration PATIENCE = Duration.ofMinutes(2);
 
     /** What a surface hands in. */
-    record NewAccessRequest(AccessRequestKind kind,
-                            String subject,
-                            String argument,
-                            AccessRequestSource source,
-                            String requestedBy) {
+    record NewAccessRequest(
+            AccessRequestKind kind, String subject, String argument, AccessRequestSource source, String requestedBy) {
 
         /** The three kinds that need no argument. */
-        public static NewAccessRequest of(final AccessRequestKind kind, final String subject,
-                                          final AccessRequestSource source,
-                                          final String requestedBy) {
+        public static NewAccessRequest of(
+                final AccessRequestKind kind,
+                final String subject,
+                final AccessRequestSource source,
+                final String requestedBy) {
             return new NewAccessRequest(kind, subject, null, source, requestedBy);
         }
 
         /** The two that do - days for a grant, seconds for a play time. */
-        public static NewAccessRequest of(final AccessRequestKind kind, final String subject,
-                                          final long argument,
-                                          final AccessRequestSource source,
-                                          final String requestedBy) {
-            return new NewAccessRequest(kind, subject, String.valueOf(argument), source,
-                    requestedBy);
+        public static NewAccessRequest of(
+                final AccessRequestKind kind,
+                final String subject,
+                final long argument,
+                final AccessRequestSource source,
+                final String requestedBy) {
+            return new NewAccessRequest(kind, subject, String.valueOf(argument), source, requestedBy);
         }
     }
 

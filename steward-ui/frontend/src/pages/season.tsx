@@ -21,13 +21,7 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -45,9 +39,7 @@ export function SeasonPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Season"
-      />
+      <PageHeader title="Season" />
 
       <QueryState query={season}>
         {(current) => (
@@ -58,9 +50,8 @@ export function SeasonPage() {
               <ShieldWarningIcon aria-hidden />
               <AlertTitle>Nothing is carried between seasons.</AlertTitle>
               <AlertDescription>
-                Every season is a full rebuild: every service, every database, every config from
-                scratch. That is why there is deliberately no button here that ends a season - it is
-                not a switch, it is a build.
+                Every season is a full rebuild: every service, every database, every config from scratch. That is why
+                there is deliberately no button here that ends a season - it is not a switch, it is a build.
               </AlertDescription>
             </Alert>
           </>
@@ -175,8 +166,8 @@ function PhaseCard({ season }: { season?: Season }) {
               Switch the phase to "{PHASES.find((phase) => phase.name === asked)?.label}"?
             </ResponsiveAlertDialogTitle>
             <ResponsiveAlertDialogDescription>
-              {PHASES.find((phase) => phase.name === asked)?.who} The change applies from the next
-              join - players already on the network are not moved.
+              {PHASES.find((phase) => phase.name === asked)?.who} The change applies from the next join - players
+              already on the network are not moved.
             </ResponsiveAlertDialogDescription>
           </ResponsiveAlertDialogHeader>
           <div className="flex flex-col gap-2">
@@ -188,8 +179,8 @@ function PhaseCard({ season }: { season?: Season }) {
               onChange={(event) => setReason(event.target.value)}
             />
             <p className="text-sm text-muted-foreground">
-              The reason lands in the journal, together with your name. It may stay empty; then it
-              only records who switched.
+              The reason lands in the journal, together with your name. It may stay empty; then it only records who
+              switched.
             </p>
           </div>
           {change.error ? <Failure error={change.error} /> : null}
@@ -310,13 +301,7 @@ function DateField({
             Reset
           </Button>
         ) : at && !waiting ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={change.isPending}
-            onClick={() => setRemoving(true)}
-          >
+          <Button type="button" variant="ghost" size="sm" disabled={change.isPending} onClick={() => setRemoving(true)}>
             Remove
           </Button>
         ) : null}

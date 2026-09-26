@@ -24,9 +24,7 @@ describe("layoutFaults names what an arrangement forgot (steward/81)", () => {
   })
 
   it("notices a name that is not a service at all", () => {
-    expect(layoutFaults([INGRESS, ...SERVICES, "pack-host" as NodeId])).toEqual([
-      "pack-host is not in SERVICES",
-    ])
+    expect(layoutFaults([INGRESS, ...SERVICES, "pack-host" as NodeId])).toEqual(["pack-host is not in SERVICES"])
   })
 
   it("notices the same box drawn twice", () => {
@@ -88,9 +86,7 @@ describe("the tag under a name", () => {
     // Measured on this host, 2026-09-17: steward-worker's row carries exactly this and no name.
     // The `#` is the fix for the first review's finding: read without it, "334951d" next to the
     // "not compared" mark was mistaken for "334951 days" (steward/81, second round).
-    expect(
-      imageTag("sha256:334951d4c54754fa0bcc40bc7e483f2af78c7244fbefc28eff775ffa40c1ce07"),
-    ).toBe("#334951d")
+    expect(imageTag("sha256:334951d4c54754fa0bcc40bc7e483f2af78c7244fbefc28eff775ffa40c1ce07")).toBe("#334951d")
   })
 
   it("says what docker itself would assume when there is no tag at all", () => {

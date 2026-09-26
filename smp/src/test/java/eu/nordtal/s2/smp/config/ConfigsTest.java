@@ -1,11 +1,11 @@
 package eu.nordtal.s2.smp.config;
 
-import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -15,11 +15,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * That {@code smp}'s three config files can be written into an empty directory and read back.
@@ -91,14 +90,17 @@ class ConfigsTest {
     void configYmlDropsASoundsBlock() throws Exception {
         Configs.load(directory, LOGGER);
         final Path file = directory.resolve("config.yml");
-        Files.writeString(file, Files.readString(file) + System.lineSeparator()
-                + "sounds:" + System.lineSeparator()
-                + "  select:" + System.lineSeparator()
-                + "    key: minecraft:ui.button.click" + System.lineSeparator());
+        Files.writeString(
+                file,
+                Files.readString(file) + System.lineSeparator()
+                        + "sounds:" + System.lineSeparator()
+                        + "  select:" + System.lineSeparator()
+                        + "    key: minecraft:ui.button.click" + System.lineSeparator());
 
         Configs.load(directory, LOGGER);
 
-        assertFalse(Files.readAllLines(file).contains("sounds:"),
+        assertFalse(
+                Files.readAllLines(file).contains("sounds:"),
                 "a sounds block in config.yml has to be gone after one load, not merely ignored");
     }
 
@@ -118,21 +120,23 @@ class ConfigsTest {
     void configYmlDropsRetiredAdminPermissions() throws Exception {
         Configs.load(directory, LOGGER);
         final Path file = directory.resolve("config.yml");
-        Files.writeString(file, Files.readString(file) + System.lineSeparator()
-                + "admin-permissions:" + System.lineSeparator()
-                + "  - minecraft.command.gamemode" + System.lineSeparator());
+        Files.writeString(
+                file,
+                Files.readString(file) + System.lineSeparator()
+                        + "admin-permissions:" + System.lineSeparator()
+                        + "  - minecraft.command.gamemode" + System.lineSeparator());
 
         final SmpSpec config = Configs.load(directory, LOGGER).get();
 
         assertAll(
-                () -> assertFalse(Files.readString(file).contains("admin-permissions"),
+                () -> assertFalse(
+                        Files.readString(file).contains("admin-permissions"),
                         "the retired key has to be gone from the file"),
-                () -> assertTrue(Files.readString(directory.resolve("config.yml.bak"))
-                                .contains("admin-permissions"),
+                () -> assertTrue(
+                        Files.readString(directory.resolve("config.yml.bak")).contains("admin-permissions"),
                         "and readable in the backup, because it is what the operator had configured"),
-                () -> assertEquals("nordtal", config.worldNordtal(),
-                        "everything the file still declares survives the deletion")
-        );
+                () -> assertEquals(
+                        "nordtal", config.worldNordtal(), "everything the file still declares survives the deletion"));
     }
 
     /** Every value below the nested interfaces survives the round trip, not just the flat ones. */
@@ -146,7 +150,9 @@ class ConfigsTest {
         assertEquals(written.duelPlatforms().size(), reread.duelPlatforms().size());
         assertEquals(written.spawnRegions().size(), reread.spawnRegions().size());
         assertEquals(written.npc().world(), reread.npc().world());
-        assertEquals(written.balloons().getFirst().world(), reread.balloons().getFirst().world());
+        assertEquals(
+                written.balloons().getFirst().world(),
+                reread.balloons().getFirst().world());
 
         // Two levels of nesting, which nothing else in this file has: balloon-spawn-points is a
         // spec whose three values are themselves specs. A missing key in DefaultSmp comes back
@@ -156,8 +162,7 @@ class ConfigsTest {
         assertAll(
                 () -> assertPoint(written.balloonSpawnPoints().nordtal(), points.nordtal(), "nordtal"),
                 () -> assertPoint(written.balloonSpawnPoints().nether(), points.nether(), "nether"),
-                () -> assertPoint(written.balloonSpawnPoints().end(), points.end(), "end")
-        );
+                () -> assertPoint(written.balloonSpawnPoints().end(), points.end(), "end"));
 
         final SmpSpec.FirstJoinSpawnSpec spawn = reread.firstJoinSpawn();
         assertAll(
@@ -170,22 +175,22 @@ class ConfigsTest {
                 // The world has to resolve to something on a real server, and the only name this
                 // file knows is world-nordtal's. A default that disagreed with it would be a
                 // deployment where no first join is ever moved and nothing but a log line says so.
-                () -> assertEquals(reread.worldNordtal(), spawn.world(),
+                () -> assertEquals(
+                        reread.worldNordtal(),
+                        spawn.world(),
                         "first-join-spawn's default world has to be the build world's default name,"
-                                + " or a fresh config.yml ships a first join that goes nowhere")
-        );
+                                + " or a fresh config.yml ships a first join that goes nowhere"));
     }
 
     /** Every number of one landing point, because a null only shows up when it is read. */
-    private static void assertPoint(final SmpSpec.SpawnPointSpec written,
-                                    final SmpSpec.SpawnPointSpec reread, final String which) {
+    private static void assertPoint(
+            final SmpSpec.SpawnPointSpec written, final SmpSpec.SpawnPointSpec reread, final String which) {
         assertAll(
                 () -> assertEquals(written.x(), reread.x(), which + ": x"),
                 () -> assertEquals(written.y(), reread.y(), which + ": y"),
                 () -> assertEquals(written.z(), reread.z(), which + ": z"),
                 () -> assertEquals(written.yaw(), reread.yaw(), which + ": yaw"),
-                () -> assertEquals(written.pitch(), reread.pitch(), which + ": pitch")
-        );
+                () -> assertEquals(written.pitch(), reread.pitch(), which + ": pitch"));
     }
 
     /**
@@ -200,18 +205,17 @@ class ConfigsTest {
     void everyNestedSpecInterfaceCarriesTheAnnotation() {
         final List<String> missing = new ArrayList<>();
         final Set<Class<?>> seen = new LinkedHashSet<>();
-        for (final Class<?> root : List.of(SmpSpec.class, DatabaseSpec.class, MilestonesSpec.class,
-                SoundsSpec.class)) {
+        for (final Class<?> root : List.of(SmpSpec.class, DatabaseSpec.class, MilestonesSpec.class, SoundsSpec.class)) {
             collectMissing(root, seen, missing);
         }
-        assertTrue(missing.isEmpty(),
+        assertTrue(
+                missing.isEmpty(),
                 "a nested spec interface without @ConfigSpec makes jcore's writer fall back to "
                         + "reflection over the proxy, which fails as a Gson error naming Proxy#h: "
                         + missing);
     }
 
-    private static void collectMissing(final Class<?> spec, final Set<Class<?>> seen,
-                                       final List<String> missing) {
+    private static void collectMissing(final Class<?> spec, final Set<Class<?>> seen, final List<String> missing) {
         if (!seen.add(spec)) {
             return;
         }
@@ -228,8 +232,7 @@ class ConfigsTest {
     /** An interface return type, or the interface element type of a {@code List<…>}. */
     private static List<Class<?>> specTypesOf(final Type type) {
         if (type instanceof Class<?> raw) {
-            return raw.isInterface() && raw.getName().startsWith("eu.nordtal.s2.smp.")
-                    ? List.of(raw) : List.of();
+            return raw.isInterface() && raw.getName().startsWith("eu.nordtal.s2.smp.") ? List.of(raw) : List.of();
         }
         if (type instanceof ParameterizedType parameterized) {
             final List<Class<?>> found = new ArrayList<>();

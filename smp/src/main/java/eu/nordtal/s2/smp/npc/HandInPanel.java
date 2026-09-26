@@ -5,10 +5,8 @@ import eu.nordtal.s2.common.menu.MenuFont;
 import eu.nordtal.s2.common.menu.MenuPalette;
 import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.menu.SlotGeometry;
-
-import net.kyori.adventure.text.Component;
-
 import java.util.List;
+import net.kyori.adventure.text.Component;
 
 /**
  * Draws the deposit screen: one tray to put things into, and one button that takes them.
@@ -63,6 +61,7 @@ public final class HandInPanel {
      * claim is that it is one surface.
      */
     public static final int TRAY_X = SlotGeometry.ORIGIN_X;
+
     public static final int TRAY_WIDTH = SlotGeometry.COLUMNS * SlotGeometry.PITCH;
     public static final int TRAY_HEIGHT = DEPOSIT_ROWS * SlotGeometry.PITCH;
 
@@ -84,11 +83,9 @@ public final class HandInPanel {
 
     /** The three cells the confirm plate covers; each carries the same tooltip and the same click. */
     public static final List<Integer> CONFIRM_SLOTS = List.of(
-            SlotGeometry.slot(6, FOOTER_ROW), SlotGeometry.slot(7, FOOTER_ROW),
-            SlotGeometry.slot(8, FOOTER_ROW));
+            SlotGeometry.slot(6, FOOTER_ROW), SlotGeometry.slot(7, FOOTER_ROW), SlotGeometry.slot(8, FOOTER_ROW));
 
-    private HandInPanel() {
-    }
+    private HandInPanel() {}
 
     /** Whether a slot is one a player may put something into. */
     public static boolean isDeposit(final int slot) {
@@ -106,15 +103,13 @@ public final class HandInPanel {
         final MenuTitle.Canvas canvas = MenuTitle.onPlain(ROWS);
 
         canvas.overlay(Glyphs.GUI_HANDIN_TRAY, TRAY_X, TRAY_WIDTH);
-        canvas.rowText(MenuFont.fit(needed, CONFIRM_X - 4 - NEEDED_X), FOOTER_ROW, NEEDED_X,
-                MenuPalette.INK);
+        canvas.rowText(MenuFont.fit(needed, CONFIRM_X - 4 - NEEDED_X), FOOTER_ROW, NEEDED_X, MenuPalette.INK);
 
         canvas.rowArt(Glyphs.GUI_ROW_BUTTON_CONFIRM, FOOTER_ROW, CONFIRM_X, null);
         // Centred on its own plate rather than left-aligned like a row entry's name: this is a
         // button and its label is its whole content, so anything else reads as a caption beside it.
         final String label = MenuFont.fit(button, CONFIRM_WIDTH - 6);
-        canvas.rowText(label, FOOTER_ROW,
-                CONFIRM_X + (CONFIRM_WIDTH - MenuFont.width(label)) / 2, MenuPalette.INK);
+        canvas.rowText(label, FOOTER_ROW, CONFIRM_X + (CONFIRM_WIDTH - MenuFont.width(label)) / 2, MenuPalette.INK);
 
         return canvas.build(title);
     }

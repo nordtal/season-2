@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * The name heuristic behind a hidden value. A key called just {@code key} is the ID of an entry in
@@ -20,8 +20,9 @@ class ConfigEntrySecretKeyTest {
 
     @Test
     void aKeyThatNamesWhatItUnlocksStillIs() {
-        for (final String name : new String[] {"api-key", "access-key", "secret-key", "private-key",
-                "apikey", "token", "password", "client-secret"}) {
+        for (final String name : new String[] {
+            "api-key", "access-key", "secret-key", "private-key", "apikey", "token", "password", "client-secret"
+        }) {
             assertTrue(ConfigEntry.isSecretKey(name), name);
         }
     }

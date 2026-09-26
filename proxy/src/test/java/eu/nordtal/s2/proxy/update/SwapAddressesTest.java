@@ -1,14 +1,13 @@
 package eu.nordtal.s2.proxy.update;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.net.InetSocketAddress;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.net.InetSocketAddress;
+import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /** The two addresses a swap moves players between (season-2-ops/121). */
 class SwapAddressesTest {
@@ -20,8 +19,8 @@ class SwapAddressesTest {
         // getHostName(), and on a RESOLVED address that is a reverse DNS lookup on whichever
         // thread holds it - so a resolved address here would be both a blocking call and,
         // potentially, a different name than the one Till configured.
-        final InetSocketAddress address = SwapAddresses.publicAddress("play.nordtal.eu:25565")
-                .orElseThrow();
+        final InetSocketAddress address =
+                SwapAddresses.publicAddress("play.nordtal.eu:25565").orElseThrow();
         assertTrue(address.isUnresolved());
         assertEquals("play.nordtal.eu", address.getHostName());
         assertEquals(25565, address.getPort());
@@ -51,8 +50,8 @@ class SwapAddressesTest {
     @Test
     @DisplayName("an IPv6 literal keeps its own colons")
     void ipv6KeepsItsColons() {
-        final InetSocketAddress address = SwapAddresses.publicAddress("[2001:db8::1]:25565")
-                .orElseThrow();
+        final InetSocketAddress address =
+                SwapAddresses.publicAddress("[2001:db8::1]:25565").orElseThrow();
         assertEquals("2001:db8::1", address.getHostString());
         assertEquals(25565, address.getPort());
     }
@@ -60,9 +59,10 @@ class SwapAddressesTest {
     @Test
     @DisplayName("the standby is the same host on the other port")
     void theStandbyIsTheSameHost() {
-        final InetSocketAddress home = SwapAddresses.publicAddress("play.nordtal.eu:25565")
-                .orElseThrow();
-        final InetSocketAddress standby = SwapAddresses.standbyAddress(home, 25566).orElseThrow();
+        final InetSocketAddress home =
+                SwapAddresses.publicAddress("play.nordtal.eu:25565").orElseThrow();
+        final InetSocketAddress standby =
+                SwapAddresses.standbyAddress(home, 25566).orElseThrow();
         assertEquals("play.nordtal.eu", standby.getHostString());
         assertEquals(25566, standby.getPort());
         assertTrue(standby.isUnresolved());
@@ -74,8 +74,8 @@ class SwapAddressesTest {
         // Not hypothetical: PROXY_STANDBY_PORT and PROXY_PORT are two variables in one .env, and
         // setting them equal is one keystroke. The result would be every player transferred to the
         // address they are already connected to, seconds before that proxy stops.
-        final InetSocketAddress home = SwapAddresses.publicAddress("play.nordtal.eu:25565")
-                .orElseThrow();
+        final InetSocketAddress home =
+                SwapAddresses.publicAddress("play.nordtal.eu:25565").orElseThrow();
         assertFalse(SwapAddresses.standbyAddress(home, 25565).isPresent());
         assertFalse(SwapAddresses.standbyAddress(home, 0).isPresent());
         assertFalse(SwapAddresses.standbyAddress(null, 25566).isPresent());

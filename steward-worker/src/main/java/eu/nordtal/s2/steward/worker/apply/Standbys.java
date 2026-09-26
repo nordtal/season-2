@@ -2,10 +2,6 @@ package eu.nordtal.s2.steward.worker.apply;
 
 import eu.nordtal.s2.steward.worker.plan.Installation;
 import eu.nordtal.s2.steward.worker.plan.Topology;
-
-import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -16,6 +12,8 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Makes each standby's {@code plugins/} a copy of the service it stands in for (season-2-ops/119).
@@ -49,8 +47,7 @@ import java.util.Set;
 @Slf4j
 public final class Standbys {
 
-    private Standbys() {
-    }
+    private Standbys() {}
 
     /**
      * Mirrors {@code plugins/} onto the standby of every named service that has one.
@@ -59,8 +56,8 @@ public final class Standbys {
      * @param services    the services this run touched; anything without a standby is ignored
      * @return one row per standby that is mounted, under the standby's own compose service name
      */
-    public static @NotNull List<ApplyResult.Outcome> fill(final @NotNull Path volumesRoot,
-                                                          final @NotNull Collection<String> services) {
+    public static @NotNull List<ApplyResult.Outcome> fill(
+            final @NotNull Path volumesRoot, final @NotNull Collection<String> services) {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
         for (final String service : Topology.SERVICES_WITH_STANDBY) {
             if (!services.contains(service)) {
@@ -69,15 +66,18 @@ public final class Standbys {
             final String standby = Topology.standbyOf(service);
             final Path target = volumesRoot.resolve(standby).resolve(Installation.PLUGINS);
             if (!Files.isDirectory(volumesRoot.resolve(standby))) {
-                log.info("{} is not mounted here, so nothing was copied into it. That is a"
-                        + " deployment without standby services; a run that needs one will find it"
-                        + " empty and the container will refuse to start rather than run nothing.",
+                log.info(
+                        "{} is not mounted here, so nothing was copied into it. That is a"
+                                + " deployment without standby services; a run that needs one will find it"
+                                + " empty and the container will refuse to start rather than run nothing.",
                         standby);
                 continue;
             }
             final Path source = volumesRoot.resolve(service).resolve(Installation.PLUGINS);
             if (!Files.isDirectory(source)) {
-                outcomes.add(new ApplyResult.Outcome(standby, Installation.PLUGINS,
+                outcomes.add(new ApplyResult.Outcome(
+                        standby,
+                        Installation.PLUGINS,
                         ApplyResult.Status.FAILED,
                         service + " has no plugins/ directory at " + source + ", so there was"
                                 + " nothing to copy. The standby is empty and will refuse to"
@@ -89,26 +89,32 @@ public final class Standbys {
         return List.copyOf(outcomes);
     }
 
-    private static ApplyResult.Outcome mirror(final Path source, final Path target,
-                                              final String standby) {
+    private static ApplyResult.Outcome mirror(final Path source, final Path target, final String standby) {
         final Tally tally = new Tally();
         try {
             Files.createDirectories(target);
             copyInto(source, target, tally);
         } catch (final IOException failed) {
-            log.error("Could not fill {}'s plugins/ from {}: {}", standby, source,
-                    failed.getMessage());
-            return new ApplyResult.Outcome(standby, Installation.PLUGINS,
+            log.error("Could not fill {}'s plugins/ from {}: {}", standby, source, failed.getMessage());
+            return new ApplyResult.Outcome(
+                    standby,
+                    Installation.PLUGINS,
                     ApplyResult.Status.FAILED,
                     "could not be filled from " + source + ": " + failed.getMessage()
                             + ". Started for a swap, this service would come up on whatever is"
                             + " still lying in it.");
         }
         if (tally.copied == 0 && tally.removed == 0) {
-            return new ApplyResult.Outcome(standby, Installation.PLUGINS,
-                    ApplyResult.Status.UNCHANGED, "already the same " + tally.same + " file(s)");
+            return new ApplyResult.Outcome(
+                    standby,
+                    Installation.PLUGINS,
+                    ApplyResult.Status.UNCHANGED,
+                    "already the same " + tally.same + " file(s)");
         }
-        return new ApplyResult.Outcome(standby, Installation.PLUGINS, ApplyResult.Status.DONE,
+        return new ApplyResult.Outcome(
+                standby,
+                Installation.PLUGINS,
+                ApplyResult.Status.DONE,
                 tally.copied + " file(s) copied"
                         + (tally.removed == 0 ? "" : ", " + tally.removed + " removed")
                         + ", " + tally.same + " already the same");
@@ -124,8 +130,7 @@ public final class Standbys {
      * it is the one that matters most here - {@code pack.yml}, whose sha1 is forty hex characters
      * whatever the pack is. Reading a plugins folder twice is a few megabytes once per update.</p>
      */
-    private static void copyInto(final Path source, final Path target, final Tally tally)
-            throws IOException {
+    private static void copyInto(final Path source, final Path target, final Tally tally) throws IOException {
         final Set<String> wanted = new LinkedHashSet<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(source)) {
             for (final Path entry : entries) {
@@ -160,8 +165,7 @@ public final class Standbys {
     }
 
     /** Whether the two files differ in content. {@code Files.mismatch} answers -1 when they do not. */
-    private static boolean isDifferent(final Path source, final Path destination)
-            throws IOException {
+    private static boolean isDifferent(final Path source, final Path destination) throws IOException {
         return !Files.isRegularFile(destination) || Files.mismatch(source, destination) != -1L;
     }
 

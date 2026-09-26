@@ -1,7 +1,10 @@
 package eu.nordtal.s2.papercommon.command;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.common.command.AllowlistDirectory;
 import eu.nordtal.s2.common.command.CommandAllowlist;
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -10,8 +13,12 @@ import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Tones;
 import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
-import eu.nordtal.s2.common.feedback.Feedback;
-
+import java.time.Duration;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Predicate;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -21,15 +28,6 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerCommandSendEvent;
 import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.function.Predicate;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * The Paper half of the command allowlist: written once, run by all three backends.
@@ -109,9 +107,14 @@ public final class CommandFilter implements Listener {
      * realistic refusal for a chime to announce. This overload delegates to the other one with
      * {@link PaperUser.Chime#silent()}.
      */
-    public CommandFilter(final Plugin plugin, final Source source, final Predicate<UUID> admin,
-                         final PlayerLocales locales, final Messages messages, final Logger logger,
-                         final java.util.function.Supplier<ToneColours> colours) {
+    public CommandFilter(
+            final Plugin plugin,
+            final Source source,
+            final Predicate<UUID> admin,
+            final PlayerLocales locales,
+            final Messages messages,
+            final Logger logger,
+            final java.util.function.Supplier<ToneColours> colours) {
         this(plugin, source, admin, locales, messages, logger, colours, PaperUser.Chime.silent());
     }
 
@@ -123,10 +126,15 @@ public final class CommandFilter implements Listener {
      * @param chime   how the refusal sounds - {@link PaperUser.Chime#silent()} for a module with no
      *                sounds file, same as every other {@code Chime} parameter in this package
      */
-    public CommandFilter(final Plugin plugin, final Source source, final Predicate<UUID> admin,
-                         final PlayerLocales locales, final Messages messages, final Logger logger,
-                         final java.util.function.Supplier<ToneColours> colours,
-                         final PaperUser.Chime chime) {
+    public CommandFilter(
+            final Plugin plugin,
+            final Source source,
+            final Predicate<UUID> admin,
+            final PlayerLocales locales,
+            final Messages messages,
+            final Logger logger,
+            final java.util.function.Supplier<ToneColours> colours,
+            final PaperUser.Chime chime) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.source = Objects.requireNonNull(source, "source");
         this.admin = Objects.requireNonNull(admin, "admin");
@@ -171,8 +179,7 @@ public final class CommandFilter implements Listener {
         try {
             read = source.read();
         } catch (final RuntimeException failure) {
-            logger.warn("Could not read the command allowlist; the previous one still applies.",
-                    failure);
+            logger.warn("Could not read the command allowlist; the previous one still applies.", failure);
             return;
         }
         if (read.isEmpty()) {
@@ -204,8 +211,7 @@ public final class CommandFilter implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onCommand(final PlayerCommandPreprocessEvent event) {
         final CommandAllowlist current = active;
-        if (current == null || admin.test(event.getPlayer().getUniqueId())
-                || current.allows(event.getMessage())) {
+        if (current == null || admin.test(event.getPlayer().getUniqueId()) || current.allows(event.getMessage())) {
             return;
         }
         event.setCancelled(true);
@@ -252,8 +258,11 @@ public final class CommandFilter implements Listener {
      * exists.</p>
      */
     private net.kyori.adventure.text.Component refusal(final UUID player) {
-        return Tones.paint(MessageRenderer.of(messages).format(locales.of(player),
-                MESSAGES.command().unknown()), Tone.BAD, colours.get());
+        return Tones.paint(
+                MessageRenderer.of(messages)
+                        .format(locales.of(player), MESSAGES.command().unknown()),
+                Tone.BAD,
+                colours.get());
     }
 
     /**

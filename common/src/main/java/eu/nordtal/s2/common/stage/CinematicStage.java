@@ -1,7 +1,6 @@
 package eu.nordtal.s2.common.stage;
 
 import eu.nordtal.s2.common.feedback.Feedback;
-
 import net.kyori.adventure.text.Component;
 
 /**

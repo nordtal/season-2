@@ -24,8 +24,7 @@ import java.util.Optional;
  */
 public final class UpdateReports {
 
-    private UpdateReports() {
-    }
+    private UpdateReports() {}
 
     // ---------------------------------------------------------------- writing
 
@@ -39,17 +38,22 @@ public final class UpdateReports {
             if (i > 0) {
                 out.append(',');
             }
-            out.append("{\"service\":").append(quote(line.service()))
-                    .append(",\"state\":").append(quote(line.state().name()))
+            out.append("{\"service\":")
+                    .append(quote(line.service()))
+                    .append(",\"state\":")
+                    .append(quote(line.state().name()))
                     .append(",\"changes\":[");
             for (int c = 0; c < line.changes().size(); c++) {
                 final UpdateReport.Change change = line.changes().get(c);
                 if (c > 0) {
                     out.append(',');
                 }
-                out.append("{\"artefact\":").append(quote(change.artefact()))
-                        .append(",\"from\":").append(quote(change.from()))
-                        .append(",\"to\":").append(quote(change.to()));
+                out.append("{\"artefact\":")
+                        .append(quote(change.artefact()))
+                        .append(",\"from\":")
+                        .append(quote(change.from()))
+                        .append(",\"to\":")
+                        .append(quote(change.to()));
                 // Written only when it is not the default, the way `detail` is - and here that has
                 // a second effect worth naming. A reader older than 2026-09-09 throws on a key it
                 // does not know, and UpdateReports#parse turns that into "this is not a report",

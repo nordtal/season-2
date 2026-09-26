@@ -134,8 +134,8 @@ function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }
         </div>
         <Failure error={error} onRetry={onRetry} />
         <p className="text-center text-sm text-muted-foreground">
-          This is not an expired session. You stay signed in - the interface only knows who you are
-          again once this request gets through.
+          This is not an expired session. You stay signed in - the interface only knows who you are again once this
+          request gets through.
         </p>
       </div>
     </div>

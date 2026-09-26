@@ -1,11 +1,11 @@
 package eu.nordtal.s2.smp.duel;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * Where a duel arena is built, and - the part that matters - that two are never built in the same
@@ -42,7 +42,9 @@ class ArenaSlotsTest {
         final int second = slots.claim().orElseThrow();
         slots.release(second);
 
-        assertEquals(second, slots.claim().orElseThrow(),
+        assertEquals(
+                second,
+                slots.claim().orElseThrow(),
                 "a busy evening must not push arenas into the skyline while a low one stands empty");
     }
 

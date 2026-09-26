@@ -1,19 +1,18 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Finding the config files under the mount.
@@ -41,12 +40,13 @@ class ConfigFilesDiscoverTest {
 
         final List<ConfigLocation> found = ConfigFiles.discover(root);
 
-        assertEquals(List.of(
-                "discord-bot/config.yml",
-                "smp/display-tags/config.yml",
-                "smp/nordtal-smp/config.yml",
-                "steward-worker/database.yml",
-                "steward-worker/steward.yml"),
+        assertEquals(
+                List.of(
+                        "discord-bot/config.yml",
+                        "smp/display-tags/config.yml",
+                        "smp/nordtal-smp/config.yml",
+                        "steward-worker/database.yml",
+                        "steward-worker/steward.yml"),
                 found.stream().map(l -> l.service() + "/" + l.name()).toList());
     }
 
@@ -74,8 +74,12 @@ class ConfigFilesDiscoverTest {
         Files.writeString(root.resolve("smp/ops.json"), "{}\n");
         Files.write(root.resolve("smp/world.dat"), new byte[] {0x1f, (byte) 0x8b, 0, 1, 2, 3});
 
-        assertEquals(List.of("config.yaml", "config.yml", "ops.json", "server.properties"),
-                ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());
+        assertEquals(
+                List.of("config.yaml", "config.yml", "ops.json", "server.properties"),
+                ConfigFiles.discover(root).stream()
+                        .map(ConfigLocation::name)
+                        .sorted()
+                        .toList());
     }
 
     @Test
@@ -88,8 +92,12 @@ class ConfigFilesDiscoverTest {
         write("proxy/gate.yml");
         Files.writeString(root.resolve("proxy/gate.yml.bak"), "server-limbo: old\n");
 
-        assertEquals(List.of("gate.yml"),
-                ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());
+        assertEquals(
+                List.of("gate.yml"),
+                ConfigFiles.discover(root).stream()
+                        .map(ConfigLocation::name)
+                        .sorted()
+                        .toList());
     }
 
     @Test
@@ -107,8 +115,12 @@ class ConfigFilesDiscoverTest {
         // can land inside that window.
         Files.writeString(root.resolve("discord-bot/access.env-overrides.txt.tmp"), "languages\n");
 
-        assertEquals(List.of("access.yml"),
-                ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());
+        assertEquals(
+                List.of("access.yml"),
+                ConfigFiles.discover(root).stream()
+                        .map(ConfigLocation::name)
+                        .sorted()
+                        .toList());
     }
 
     @Test
@@ -123,8 +135,12 @@ class ConfigFilesDiscoverTest {
         Files.createDirectories(root.resolve("smp/messagesx"));
         Files.writeString(root.resolve("smp/messagesx/config.yml"), "a: 1\n");
 
-        assertEquals(List.of("config.yml", "messagesx/config.yml"),
-                ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());
+        assertEquals(
+                List.of("config.yml", "messagesx/config.yml"),
+                ConfigFiles.discover(root).stream()
+                        .map(ConfigLocation::name)
+                        .sorted()
+                        .toList());
     }
 
     @Test
@@ -138,8 +154,12 @@ class ConfigFilesDiscoverTest {
         Files.createDirectories(root.resolve("smp/tmpl"));
         Files.writeString(root.resolve("smp/tmpl/config.yml"), "a: 1\n");
 
-        assertEquals(List.of("config.yml", "tmpl/config.yml"),
-                ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());
+        assertEquals(
+                List.of("config.yml", "tmpl/config.yml"),
+                ConfigFiles.discover(root).stream()
+                        .map(ConfigLocation::name)
+                        .sorted()
+                        .toList());
     }
 
     @Test
@@ -169,8 +189,7 @@ class ConfigFilesDiscoverTest {
             // Same reason as the read-only directory below: root ignores the bits, and this
             // project's containers run as root. A skip is worth more than a green test that
             // asserted nothing.
-            Assumptions.assumeFalse(Files.isReadable(file),
-                    "running as a user that can read a file with no read bit");
+            Assumptions.assumeFalse(Files.isReadable(file), "running as a user that can read a file with no read bit");
 
             final ConfigLocation found = ConfigFiles.discover(root).getFirst();
             assertFalse(found.readable(), "the file has no read bit for this user");
@@ -195,10 +214,11 @@ class ConfigFilesDiscoverTest {
             // root ignores the permission bits, and this project's containers run as root. Then
             // there is nothing to assert here and saying so is better than a green test that
             // checked nothing.
-            Assumptions.assumeFalse(Files.isWritable(service),
-                    "running as a user that can write a read-only directory");
+            Assumptions.assumeFalse(
+                    Files.isWritable(service), "running as a user that can write a read-only directory");
 
-            assertFalse(ConfigFiles.discover(root).getFirst().writable(),
+            assertFalse(
+                    ConfigFiles.discover(root).getFirst().writable(),
                     "the write is a rename into the directory, so the directory has to be writable");
         } finally {
             Files.setPosixFilePermissions(service, PosixFilePermissions.fromString("rwxr-xr-x"));
@@ -223,8 +243,9 @@ class ConfigFilesDiscoverTest {
         write("smp/real.yml");
         Files.createSymbolicLink(root.resolve("smp/escape.yml"), secret);
 
-        assertEquals(List.of("real.yml"), ConfigFiles.discover(root).stream()
-                .map(ConfigLocation::name).toList());
+        assertEquals(
+                List.of("real.yml"),
+                ConfigFiles.discover(root).stream().map(ConfigLocation::name).toList());
     }
 
     /** The same, for a link that stays inside the mount: one file, listed once, under its own name. */
@@ -234,8 +255,9 @@ class ConfigFilesDiscoverTest {
         write("smp/real.yml");
         Files.createSymbolicLink(root.resolve("smp/also.yml"), root.resolve("smp/real.yml"));
 
-        assertEquals(List.of("real.yml"), ConfigFiles.discover(root).stream()
-                .map(ConfigLocation::name).toList());
+        assertEquals(
+                List.of("real.yml"),
+                ConfigFiles.discover(root).stream().map(ConfigLocation::name).toList());
     }
 
     private boolean canLink() {

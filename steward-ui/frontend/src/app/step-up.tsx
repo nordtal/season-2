@@ -103,8 +103,7 @@ export function StepUp() {
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Steward needs your security key</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            This one changes something, so it is asked for. One touch covers everything for the
-            next {minutes} minutes.
+            This one changes something, so it is asked for. One touch covers everything for the next {minutes} minutes.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
@@ -113,8 +112,7 @@ export function StepUp() {
             <ShieldWarningIcon aria-hidden />
             <AlertTitle>This browser cannot use security keys.</AlertTitle>
             <AlertDescription>
-              Open Steward in Safari, Chrome or Firefox directly - not in a private window and not
-              inside another app.
+              Open Steward in Safari, Chrome or Firefox directly - not in a private window and not inside another app.
             </AlertDescription>
           </Alert>
         )}
@@ -132,9 +130,7 @@ export function StepUp() {
             type="button"
             variant="ghost"
             disabled={busy}
-            onClick={() =>
-              settle(new Error("Steward needs your security key for this, and it was not held."))
-            }
+            onClick={() => settle(new Error("Steward needs your security key for this, and it was not held."))}
           >
             Not now
           </Button>

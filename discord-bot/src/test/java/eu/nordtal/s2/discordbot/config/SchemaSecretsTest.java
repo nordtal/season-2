@@ -1,13 +1,13 @@
 package eu.nordtal.s2.discordbot.config;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SchemaWriter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * steward/70: a credential that is not declared {@code @Secret} is not masked by the schema at
@@ -41,7 +41,8 @@ class SchemaSecretsTest {
         // guard that simply disappears takes its protection with it without anything going red:
         // re-adding a bunq block to BotSpec would put a bank credential back into the Discord
         // process, and it would arrive unannotated and unnoticed.
-        assertNull(SchemaWriter.build(BotSpec.class).children().get("bunq"),
+        assertNull(
+                SchemaWriter.build(BotSpec.class).children().get("bunq"),
                 "BotSpec declares a bunq block again. The key belongs to steward-worker - see"
                         + " StewardSpec.BunqSpec and steward-worker's SchemaSecretsTest.");
     }
@@ -49,7 +50,8 @@ class SchemaSecretsTest {
     @Test
     @DisplayName("database.yml's password is declared @Secret in its schema")
     void databasePasswordIsSecret() {
-        final SchemaNode password = SchemaWriter.build(DatabaseSpec.class).children().get("password");
+        final SchemaNode password =
+                SchemaWriter.build(DatabaseSpec.class).children().get("password");
         assertNotNull(password, "DatabaseSpec's schema has no 'password' entry at all");
         assertTrue(password.secret(), "database.yml's password must be @Secret");
     }

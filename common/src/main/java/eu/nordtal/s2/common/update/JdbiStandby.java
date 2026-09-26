@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.update;
 
+import java.util.Objects;
+import java.util.Optional;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
-import java.util.Objects;
-import java.util.Optional;
 
 /**
  * The only implementation of {@link StandbyDirectory}. Package-private: consumers get it from the

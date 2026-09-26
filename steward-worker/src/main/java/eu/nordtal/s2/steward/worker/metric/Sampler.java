@@ -6,10 +6,6 @@ import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
 import eu.nordtal.s2.steward.worker.host.HostSnapshot;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,6 +19,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The clock behind the curves on the start page.
@@ -63,16 +62,18 @@ public final class Sampler implements AutoCloseable {
     private final MetricDirectory metrics;
     private final String project;
 
-    private final ScheduledExecutorService clock = Executors.newSingleThreadScheduledExecutor(
-            runnable -> {
-                final Thread thread = new Thread(runnable, "metric-sampler");
-                thread.setDaemon(true);
-                return thread;
-            });
+    private final ScheduledExecutorService clock = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        final Thread thread = new Thread(runnable, "metric-sampler");
+        thread.setDaemon(true);
+        return thread;
+    });
     private final ExecutorService perContainer = Executors.newVirtualThreadPerTaskExecutor();
 
-    public Sampler(final @NotNull Docker docker, final @NotNull HostMetrics host,
-                   final @NotNull MetricDirectory metrics, final @NotNull String project) {
+    public Sampler(
+            final @NotNull Docker docker,
+            final @NotNull HostMetrics host,
+            final @NotNull MetricDirectory metrics,
+            final @NotNull String project) {
         this.docker = docker;
         this.host = host;
         this.metrics = metrics;
@@ -84,8 +85,7 @@ public final class Sampler implements AutoCloseable {
         // One period of delay on purpose: the first CPU reading of the host has no previous one to
         // subtract from, so it would be an empty value anyway, and a stack that has just come up is
         // busy with things that are not representative of anything.
-        clock.scheduleAtFixedRate(this::tickQuietly,
-                PERIOD.toSeconds(), PERIOD.toSeconds(), TimeUnit.SECONDS);
+        clock.scheduleAtFixedRate(this::tickQuietly, PERIOD.toSeconds(), PERIOD.toSeconds(), TimeUnit.SECONDS);
         clock.scheduleAtFixedRate(this::compactQuietly, 1, 1, TimeUnit.HOURS);
         log.info("sampling host and container metrics every {}s", PERIOD.toSeconds());
     }
@@ -119,10 +119,9 @@ public final class Sampler implements AutoCloseable {
         }
         final List<MetricSample> samples = new ArrayList<>();
         samples.add(new MetricSample("host", "load1", at, snapshot.load1()));
-        snapshot.cpuPercent().ifPresent(percent ->
-                samples.add(new MetricSample("host", "cpu_percent", at, percent)));
-        samples.add(new MetricSample("host", "memory_used_bytes", at,
-                snapshot.memoryTotalBytes() - snapshot.memoryAvailableBytes()));
+        snapshot.cpuPercent().ifPresent(percent -> samples.add(new MetricSample("host", "cpu_percent", at, percent)));
+        samples.add(new MetricSample(
+                "host", "memory_used_bytes", at, snapshot.memoryTotalBytes() - snapshot.memoryAvailableBytes()));
         samples.add(new MetricSample("host", "memory_total_bytes", at, snapshot.memoryTotalBytes()));
         samples.add(new MetricSample("host", "disk_used_bytes", at, snapshot.diskUsedBytes()));
         samples.add(new MetricSample("host", "disk_total_bytes", at, snapshot.diskTotalBytes()));
@@ -149,8 +148,8 @@ public final class Sampler implements AutoCloseable {
 
         final List<Reading> readings = new ArrayList<>();
         try {
-            for (final Future<Reading> future
-                    : perContainer.invokeAll(reads, ROUND_TIMEOUT.toSeconds(), TimeUnit.SECONDS)) {
+            for (final Future<Reading> future :
+                    perContainer.invokeAll(reads, ROUND_TIMEOUT.toSeconds(), TimeUnit.SECONDS)) {
                 try {
                     readings.add(future.get());
                 } catch (Exception e) {
@@ -165,7 +164,7 @@ public final class Sampler implements AutoCloseable {
     }
 
     /** What one container answered, before it is a series. */
-    record Reading(String service, long memoryBytes, java.util.OptionalDouble cpuPercent) { }
+    record Reading(String service, long memoryBytes, java.util.OptionalDouble cpuPercent) {}
 
     /**
      * One sample per service and metric, however many containers that service is running.
@@ -196,10 +195,8 @@ public final class Sampler implements AutoCloseable {
             reading.cpuPercent().ifPresent(percent -> cpu.merge(reading.service(), percent, Double::sum));
         }
         final List<MetricSample> samples = new ArrayList<>();
-        memory.forEach((service, bytes) ->
-                samples.add(new MetricSample(service, "memory_bytes", at, bytes)));
-        cpu.forEach((service, percent) ->
-                samples.add(new MetricSample(service, "cpu_percent", at, percent)));
+        memory.forEach((service, bytes) -> samples.add(new MetricSample(service, "memory_bytes", at, bytes)));
+        cpu.forEach((service, percent) -> samples.add(new MetricSample(service, "cpu_percent", at, percent)));
         return samples;
     }
 
@@ -209,8 +206,11 @@ public final class Sampler implements AutoCloseable {
             final int written = metrics.compact(boundary);
             final int forgotten = metrics.forget(boundary);
             if (written > 0 || forgotten > 0) {
-                log.info("compacted {} hours of samples and forgot {} raw rows older than {}",
-                        written, forgotten, boundary);
+                log.info(
+                        "compacted {} hours of samples and forgot {} raw rows older than {}",
+                        written,
+                        forgotten,
+                        boundary);
             }
         } catch (RuntimeException e) {
             log.warn("compacting the metric table failed; it will be tried again in an hour", e);

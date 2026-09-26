@@ -72,13 +72,7 @@ export function ServicePlugins({ service }: { service: string }) {
           <PlusIcon aria-hidden />
           Add plugin
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={refresh.isPending}
-          onClick={() => refresh.mutate()}
-        >
+        <Button type="button" variant="outline" size="sm" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
           {refresh.isPending ? (
             <SpinnerIcon className="animate-spin" aria-hidden />
           ) : (
@@ -88,9 +82,7 @@ export function ServicePlugins({ service }: { service: string }) {
         </Button>
       </div>
 
-      {unchecked ? (
-        <p className="text-sm text-muted-foreground">Updates can&apos;t be checked right now.</p>
-      ) : null}
+      {unchecked ? <p className="text-sm text-muted-foreground">Updates can&apos;t be checked right now.</p> : null}
 
       <QueryState query={plugins}>
         {(answer) =>
@@ -259,9 +251,7 @@ function PluginRow({
       ) : status ? (
         <span
           className={
-            status.tone === "warn"
-              ? "shrink-0 text-xs text-warning tnum"
-              : "shrink-0 text-xs text-muted-foreground"
+            status.tone === "warn" ? "shrink-0 text-xs text-warning tnum" : "shrink-0 text-xs text-muted-foreground"
           }
         >
           {status.text}
@@ -295,15 +285,7 @@ function Tile({ plugin }: { plugin?: ServicePlugin }) {
  * the dialog is about, and when the worker could not read it out of the jar the dialog says that
  * instead of inventing one.
  */
-function RemoveButton({
-  service,
-  plugin,
-  artifact,
-}: {
-  service: string
-  plugin: ServicePlugin
-  artifact: string
-}) {
+function RemoveButton({ service, plugin, artifact }: { service: string; plugin: ServicePlugin; artifact: string }) {
   const [open, setOpen] = useState(false)
   const remove = useRemovePlugin(service)
 
@@ -338,9 +320,7 @@ function RemoveButton({
                   onSuccess: (answer) => {
                     setOpen(false)
                     toast.success(`${plugin.name} removed`, {
-                      description: answer.deleted.length
-                        ? answer.deleted.join(", ")
-                        : "It had not been installed yet.",
+                      description: answer.deleted.length ? answer.deleted.join(", ") : "It had not been installed yet.",
                     })
                   },
                   onError: (error) => toast.error("Not removed", { description: String(error) }),
@@ -389,15 +369,7 @@ export function removalSentence(plugin: ServicePlugin): string {
 /** Three absent hits - the first screenful of a Modrinth answer, and nothing said about it. */
 const WAITING_HITS: (PluginHit | undefined)[] = [undefined, undefined, undefined]
 
-function Search({
-  service,
-  loader,
-  version,
-}: {
-  service: string
-  loader?: string
-  version?: string
-}) {
+function Search({ service, loader, version }: { service: string; loader?: string; version?: string }) {
   const [typed, setTyped] = useState("")
   const [query, setQuery] = useState("")
   const install = useInstallPlugin(service)
@@ -429,57 +401,51 @@ function Search({
       </div>
 
       <div className="max-h-[60vh] overflow-y-auto border-t border-border px-4 py-3" data-testid="add-plugin-results">
-      <QueryState
-        query={results}
-        isEmpty={(answer) => answer.hits.length === 0}
-        empty={{ title: "Nothing found", note: `Nothing on ${loader} for ${version}.` }}
-      >
-        {(answer) => (
-          <ul className="flex flex-col gap-2">
-            {(answer?.hits ?? WAITING_HITS).map((hit, index) => (
-              <li
-                key={hit?.projectId ?? index}
-                className="flex items-center gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0"
-              >
-                <Thumbnail url={hit?.iconUrl} alt={hit?.title ?? ""} waiting={!hit} />
-                <div className="flex min-w-0 flex-1 flex-col">
+        <QueryState
+          query={results}
+          isEmpty={(answer) => answer.hits.length === 0}
+          empty={{ title: "Nothing found", note: `Nothing on ${loader} for ${version}.` }}
+        >
+          {(answer) => (
+            <ul className="flex flex-col gap-2">
+              {(answer?.hits ?? WAITING_HITS).map((hit, index) => (
+                <li
+                  key={hit?.projectId ?? index}
+                  className="flex items-center gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0"
+                >
+                  <Thumbnail url={hit?.iconUrl} alt={hit?.title ?? ""} waiting={!hit} />
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    {hit ? (
+                      <>
+                        <span className="truncate text-sm">{hit.title}</span>
+                        <span className="truncate text-xs text-muted-foreground">{hit.description}</span>
+                        <span className="text-xs text-muted-foreground tnum">{count(hit.downloads)}</span>
+                      </>
+                    ) : (
+                      <>
+                        <SkeletonText className="text-sm" width="short" />
+                        <SkeletonText className="text-xs" width="long" />
+                        <SkeletonText className="text-xs" width="short" />
+                      </>
+                    )}
+                  </div>
                   {hit ? (
                     <>
-                      <span className="truncate text-sm">{hit.title}</span>
-                      <span className="truncate text-xs text-muted-foreground">{hit.description}</span>
-                      <span className="text-xs text-muted-foreground tnum">{count(hit.downloads)}</span>
+                      <Link url={hit.pageUrl} title={hit.title} />
+                      <InstallButton hit={hit} install={install} />
                     </>
-                  ) : (
-                    <>
-                      <SkeletonText className="text-sm" width="short" />
-                      <SkeletonText className="text-xs" width="long" />
-                      <SkeletonText className="text-xs" width="short" />
-                    </>
-                  )}
-                </div>
-                {hit ? (
-                  <>
-                    <Link url={hit.pageUrl} title={hit.title} />
-                    <InstallButton hit={hit} install={install} />
-                  </>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </QueryState>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </QueryState>
       </div>
     </>
   )
 }
 
-function InstallButton({
-  hit,
-  install,
-}: {
-  hit: PluginHit
-  install: ReturnType<typeof useInstallPlugin>
-}) {
+function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<typeof useInstallPlugin> }) {
   // Two reasons a plugin cannot be added and they are not the same sentence, so they are not the
   // same badge: one is already here because somebody added it, the other is here because the
   // network gives it and nothing may take it away.

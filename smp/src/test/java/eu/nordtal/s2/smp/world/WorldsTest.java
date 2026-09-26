@@ -1,18 +1,16 @@
 package eu.nordtal.s2.smp.world;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import eu.nordtal.s2.smp.config.SmpSpec;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * That {@link Worlds#balloonSpawnPoint} hands back the point that was configured for that role.
@@ -69,28 +67,55 @@ class WorldsTest {
      */
     private static SmpSpec.SpawnPointSpec point(final int seed) {
         return new SmpSpec.SpawnPointSpec() {
-            @Override public double x() { return seed * 100.0; }
+            @Override
+            public double x() {
+                return seed * 100.0;
+            }
 
-            @Override public double y() { return seed * 10.0; }
+            @Override
+            public double y() {
+                return seed * 10.0;
+            }
 
-            @Override public double z() { return seed * 1000.0; }
+            @Override
+            public double z() {
+                return seed * 1000.0;
+            }
 
-            @Override public float yaw() { return seed * 7.0f; }
+            @Override
+            public float yaw() {
+                return seed * 7.0f;
+            }
 
-            @Override public float pitch() { return seed * -3.0f; }
+            @Override
+            public float pitch() {
+                return seed * -3.0f;
+            }
         };
     }
 
     private static SmpSpec configWith(final Map<WorldRole, SmpSpec.SpawnPointSpec> points) {
         final SmpSpec.BalloonSpawnPointsSpec section = new SmpSpec.BalloonSpawnPointsSpec() {
-            @Override public SmpSpec.SpawnPointSpec nordtal() { return points.get(WorldRole.NORDTAL); }
+            @Override
+            public SmpSpec.SpawnPointSpec nordtal() {
+                return points.get(WorldRole.NORDTAL);
+            }
 
-            @Override public SmpSpec.SpawnPointSpec nether() { return points.get(WorldRole.NETHER); }
+            @Override
+            public SmpSpec.SpawnPointSpec nether() {
+                return points.get(WorldRole.NETHER);
+            }
 
-            @Override public SmpSpec.SpawnPointSpec end() { return points.get(WorldRole.END); }
+            @Override
+            public SmpSpec.SpawnPointSpec end() {
+                return points.get(WorldRole.END);
+            }
         };
         return new SmpSpec() {
-            @Override public SmpSpec.BalloonSpawnPointsSpec balloonSpawnPoints() { return section; }
+            @Override
+            public SmpSpec.BalloonSpawnPointsSpec balloonSpawnPoints() {
+                return section;
+            }
         };
     }
 }

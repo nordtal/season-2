@@ -1,7 +1,7 @@
 package eu.nordtal.s2.common.plugin;
 
-import javax.sql.DataSource;
 import java.util.List;
+import javax.sql.DataSource;
 
 /**
  * The plugins an admin added on top of the ones the code gives (season-2-ops/129).
@@ -32,8 +32,7 @@ public interface PluginDirectory {
      * default - throwing - would turn a database hiccup into a worker that cannot resolve at all.
      * </p>
      */
-    PluginDirectory NONE = new PluginDirectory() {
-    };
+    PluginDirectory NONE = new PluginDirectory() {};
 
     /**
      * @param dataSource the pool - the same one this process already reads the update inbox through
@@ -61,8 +60,7 @@ public interface PluginDirectory {
      * silent, so the default throws and the one real directory overrides it.</p>
      */
     default void add(final ManagedPlugin plugin) {
-        throw new UnsupportedOperationException(
-                "this directory cannot add a plugin: " + plugin.artifact());
+        throw new UnsupportedOperationException("this directory cannot add a plugin: " + plugin.artifact());
     }
 
     /**
@@ -73,7 +71,6 @@ public interface PluginDirectory {
      * deliberately the same button, so a row cannot outlive its files or the other way round.</p>
      */
     default void remove(final String service, final String artifact) {
-        throw new UnsupportedOperationException(
-                "this directory cannot remove a plugin: " + artifact);
+        throw new UnsupportedOperationException("this directory cannot remove a plugin: " + artifact);
     }
 }

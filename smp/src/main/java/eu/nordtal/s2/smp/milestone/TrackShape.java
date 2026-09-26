@@ -24,8 +24,7 @@ import java.util.Set;
  */
 public final class TrackShape {
 
-    private TrackShape() {
-    }
+    private TrackShape() {}
 
     /**
      * @param milestones the milestones as parsed from the file, in file order
@@ -36,7 +35,9 @@ public final class TrackShape {
         final List<TrackValidation.Problem> problems = new ArrayList<>();
 
         if (milestones.isEmpty()) {
-            problems.add(new TrackValidation.Problem(null, null,
+            problems.add(new TrackValidation.Problem(
+                    null,
+                    null,
                     "the track is empty. A season with no milestones has no border to set and "
                             + "nothing for the objective board to show."));
             return problems;
@@ -49,20 +50,23 @@ public final class TrackShape {
                 continue;
             }
             if (!milestoneKeys.add(milestone.key())) {
-                problems.add(new TrackValidation.Problem(milestone.key(), null,
+                problems.add(new TrackValidation.Problem(
+                        milestone.key(),
+                        null,
                         "is declared twice. A milestone key is also its primary key in "
                                 + "smp_milestone, so two of them have no single answer to "
                                 + "'what comes next'."));
             }
             if (milestone.unlock() == Unlock.BORDER && milestone.borderDiameter() <= 0) {
-                problems.add(new TrackValidation.Problem(milestone.key(), null,
+                problems.add(new TrackValidation.Problem(
+                        milestone.key(),
+                        null,
                         "unlocks a border but its border-diameter is " + milestone.borderDiameter()
                                 + ". Border sizes are DIAMETERS, because that is what Minecraft's "
                                 + "world border takes."));
             }
             if (milestone.objectivePot() < 0) {
-                problems.add(new TrackValidation.Problem(milestone.key(), null,
-                        "has a negative objective-pot."));
+                problems.add(new TrackValidation.Problem(milestone.key(), null, "has a negative objective-pot."));
             }
 
             problems.addAll(objectiveProblems(milestone));
@@ -79,23 +83,26 @@ public final class TrackShape {
         for (final Objective objective : milestone.objectives()) {
             final String key = objective.key();
             if (key.isBlank()) {
-                problems.add(new TrackValidation.Problem(milestone.key(), null,
-                        "an objective has a blank key."));
+                problems.add(new TrackValidation.Problem(milestone.key(), null, "an objective has a blank key."));
                 continue;
             }
             if (!keys.add(key)) {
-                problems.add(new TrackValidation.Problem(milestone.key(), key,
-                        "is declared twice; smp_objective is UNIQUE on (milestone_key, key)."));
+                problems.add(new TrackValidation.Problem(
+                        milestone.key(), key, "is declared twice; smp_objective is UNIQUE on (milestone_key, key)."));
             }
             if (objective.target() <= 0) {
-                problems.add(new TrackValidation.Problem(milestone.key(), key,
+                problems.add(new TrackValidation.Problem(
+                        milestone.key(),
+                        key,
                         "has a target of " + objective.target()
                                 + "; smp_objective's own CHECK requires it to be positive."));
             }
             if (objective.role().isBlank()) {
                 // Never read by the engine, and required anyway: a role only stops a correction
                 // producing four mining objectives if every objective has one to read in the diff.
-                problems.add(new TrackValidation.Problem(milestone.key(), key,
+                problems.add(new TrackValidation.Problem(
+                        milestone.key(),
+                        key,
                         "has no role. It is documentation for whoever edits this file next, not a "
                                 + "value the engine reads - which is exactly why it has to be there."));
             }
@@ -110,7 +117,9 @@ public final class TrackShape {
         if (!milestone.objectives().isEmpty() && participationGates != 1) {
             // A file edit that drops the participation gate is the easiest way to make the whole
             // track soloable, and nothing else would notice.
-            problems.add(new TrackValidation.Problem(milestone.key(), null,
+            problems.add(new TrackValidation.Problem(
+                    milestone.key(),
+                    null,
                     "has " + participationGates + " ADVANCEMENT objectives; every milestone with "
                             + "objectives carries exactly one, as its participation gate. It is the "
                             + "only type that counts distinct players and therefore the only one "
@@ -120,15 +129,16 @@ public final class TrackShape {
         return problems;
     }
 
-    private static List<TrackValidation.Problem> typeProblems(final Milestone milestone,
-                                                              final Objective objective) {
+    private static List<TrackValidation.Problem> typeProblems(final Milestone milestone, final Objective objective) {
         final List<TrackValidation.Problem> problems = new ArrayList<>();
         final String key = objective.key();
 
         switch (objective.type()) {
             case HAND_IN -> {
                 if (objective.items().isEmpty()) {
-                    problems.add(new TrackValidation.Problem(milestone.key(), key,
+                    problems.add(new TrackValidation.Problem(
+                            milestone.key(),
+                            key,
                             "is a HAND_IN with no items. Nothing can be handed in for it, so the "
                                     + "milestone it belongs to could never unlock."));
                 }
@@ -138,8 +148,8 @@ public final class TrackShape {
             }
             case STATISTIC -> {
                 if (objective.statistic().isBlank()) {
-                    problems.add(new TrackValidation.Problem(milestone.key(), key,
-                            "is a STATISTIC with no statistic named."));
+                    problems.add(new TrackValidation.Problem(
+                            milestone.key(), key, "is a STATISTIC with no statistic named."));
                 }
                 forbid(problems, milestone, objective, !objective.items().isEmpty(), "items");
                 forbid(problems, milestone, objective, !objective.advancement().isBlank(), "advancement");
@@ -148,8 +158,8 @@ public final class TrackShape {
             }
             case ADVANCEMENT -> {
                 if (objective.advancement().isBlank()) {
-                    problems.add(new TrackValidation.Problem(milestone.key(), key,
-                            "is an ADVANCEMENT with no advancement named."));
+                    problems.add(new TrackValidation.Problem(
+                            milestone.key(), key, "is an ADVANCEMENT with no advancement named."));
                 }
                 forbid(problems, milestone, objective, !objective.items().isEmpty(), "items");
                 forbid(problems, milestone, objective, !objective.statistic().isBlank(), "statistic");
@@ -159,12 +169,18 @@ public final class TrackShape {
         return problems;
     }
 
-    private static void forbid(final List<TrackValidation.Problem> problems, final Milestone milestone,
-                               final Objective objective, final boolean present, final String field) {
+    private static void forbid(
+            final List<TrackValidation.Problem> problems,
+            final Milestone milestone,
+            final Objective objective,
+            final boolean present,
+            final String field) {
         if (present) {
             // A field belonging to another type is almost always a half-finished type change; the
             // objective would otherwise silently count nothing.
-            problems.add(new TrackValidation.Problem(milestone.key(), objective.key(),
+            problems.add(new TrackValidation.Problem(
+                    milestone.key(),
+                    objective.key(),
                     "is a " + objective.type() + " but carries '" + field + "', which belongs to "
                             + "another type. Leaving it behind is what a half-finished type change "
                             + "looks like."));

@@ -1,5 +1,11 @@
 package eu.nordtal.s2.steward.worker.plan;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.yaml.snakeyaml.DumperOptions;
@@ -9,13 +15,6 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.nodes.Tag;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Map;
 
 /**
  * The resource pack the proxy is currently offering, read out of {@code pack.yml} in the
@@ -49,7 +48,8 @@ import java.util.Map;
  * damage is a comparison against a hash that was never in the file. So the implicit resolvers are
  * removed and everything arrives as a {@link String}, which is what both of these values are.
  */
-public record PackState(boolean present, @Nullable String url, @Nullable String sha1) {
+public record PackState(
+        boolean present, @Nullable String url, @Nullable String sha1) {
 
     /** The Velocity plugin id, which is the name of its data directory under {@code plugins/}. */
     public static final String PLUGIN_ID = "proxy";

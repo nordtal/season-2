@@ -1,9 +1,9 @@
 package eu.nordtal.s2.common.update;
 
-import javax.sql.DataSource;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import javax.sql.DataSource;
 
 /**
  * steward-worker's inbox, as seen by every process that can ask for a run.
@@ -91,9 +91,12 @@ public interface UpdateDirectory {
      *                 same thing {@link #submit} asks for - not "no services", which would be a run
      *                 that stops nothing while claiming to be scoped
      */
-    default UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
-                                 final String requestedBy, final Duration delay,
-                                 final java.util.List<String> services) {
+    default UpdateRequest submit(
+            final UpdateKind kind,
+            final UpdateSource source,
+            final String requestedBy,
+            final Duration delay,
+            final java.util.List<String> services) {
         // A default, so that a directory which knows nothing about scope - every test fake in this
         // repository - keeps working and answers with the run it has always written. The real
         // implementation overrides it; see JdbiUpdateDirectory.
@@ -149,14 +152,12 @@ public interface UpdateDirectory {
      * override it.</p>
      */
     default void hold(final String service, final String heldBy, final Long requestId) {
-        throw new UnsupportedOperationException(
-                "this directory cannot hold a service down: " + service);
+        throw new UnsupportedOperationException("this directory cannot hold a service down: " + service);
     }
 
     /** Takes the hold off, if there is one. Doing it twice is not an error. */
     default void release(final String service) {
-        throw new UnsupportedOperationException(
-                "this directory cannot release a service: " + service);
+        throw new UnsupportedOperationException("this directory cannot release a service: " + service);
     }
 
     /**

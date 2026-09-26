@@ -15,10 +15,7 @@
 /** Whether this browser can subscribe to push at all. Safari on macOS/iOS needed 16.4 for this. */
 export function pushSupported(): boolean {
   return (
-    typeof window !== "undefined"
-    && "serviceWorker" in navigator
-    && "PushManager" in window
-    && "Notification" in window
+    typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window
   )
 }
 

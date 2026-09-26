@@ -1,28 +1,24 @@
 package eu.nordtal.s2.hungergames.game;
 
-import eu.nordtal.s2.common.feedback.Feedback;
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
-
-import net.kyori.adventure.text.Component;
-
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
-
-import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 /**
  * The post-game ceremony: everyone back to the lobby, an evaluation of the result, the game marked
@@ -36,8 +32,7 @@ public final class Ceremony {
     private final PlayerLocales locales;
     private final HungerGamesSounds sounds;
 
-    public Ceremony(final Messages messages, final PlayerLocales locales,
-                    final HungerGamesSounds sounds) {
+    public Ceremony(final Messages messages, final PlayerLocales locales, final HungerGamesSounds sounds) {
         this.messages = messages;
         this.locales = locales;
         this.sounds = sounds;
@@ -55,9 +50,8 @@ public final class Ceremony {
      * @param kills        member id to kill count, from one grouped query. Members with none are
      *                     absent
      */
-    public record Decision(WinTracker.Outcome outcome, UUID winnerMcUuid,
-                           List<HgMember> members, Map<UUID, Integer> kills) {
-    }
+    public record Decision(
+            WinTracker.Outcome outcome, UUID winnerMcUuid, List<HgMember> members, Map<UUID, Integer> kills) {}
 
     /**
      * Teleports everyone in the world back to the lobby and prints the evaluation to every player in
@@ -71,8 +65,7 @@ public final class Ceremony {
      * @param gameId   the game that just ended, for the log line
      * @param decision every fact this needs, read before it was called
      */
-    public void run(final World world, final Location lobby, final UUID gameId,
-                    final Decision decision) {
+    public void run(final World world, final Location lobby, final UUID gameId, final Decision decision) {
         // Deliberately silent although TRAVEL exists: the result lands in the same breath, and a
         // chime for the teleport would arrive on top of it.
         for (final Player player : world.getPlayers()) {
@@ -82,7 +75,9 @@ public final class Ceremony {
         for (final Player player : world.getPlayers()) {
             announce(player, decision);
         }
-        LOGGER.info("hunger-games game {} decided - winner member id: {}", gameId,
+        LOGGER.info(
+                "hunger-games game {} decided - winner member id: {}",
+                gameId,
                 decision.outcome().winnerMemberId());
     }
 
@@ -95,43 +90,58 @@ public final class Ceremony {
         final WinTracker.Outcome outcome = decision.outcome();
         final List<HgMember> allMembers = decision.members();
         final Locale locale = locales.of(player.getUniqueId());
-        player.sendMessage(MessageRenderer.of(messages).format(locale, MESSAGES.hg().ceremony().header()));
+        player.sendMessage(MessageRenderer.of(messages)
+                .format(locale, MESSAGES.hg().ceremony().header()));
 
         // Four endings, four sentences: a tiebreak win printed as a plain win would tell the
         // players who watched it something they can see is not what occurred.
         if (outcome.winnerMemberId() != null && outcome.tie()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale,
-                    MESSAGES.hg().win().tieBroken(winnerLabel(outcome.winnerMemberId(), allMembers),
-                            outcome.winnerKills(), outcome.loserKills())));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(
+                            locale,
+                            MESSAGES.hg()
+                                    .win()
+                                    .tieBroken(
+                                            winnerLabel(outcome.winnerMemberId(), allMembers),
+                                            outcome.winnerKills(),
+                                            outcome.loserKills())));
         } else if (outcome.winnerMemberId() != null) {
             // The one line of the four that carries an icon. The glyph is a parameter because
             // Glyphs is the only place that names a code point.
-            player.sendMessage(MessageRenderer.of(messages).format(locale,
-                    MESSAGES.hg().win().player(Glyphs.ICON_ANNOUNCE, winnerLabel(outcome.winnerMemberId(),
-                            allMembers))));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(
+                            locale,
+                            MESSAGES.hg()
+                                    .win()
+                                    .player(Glyphs.ICON_ANNOUNCE, winnerLabel(outcome.winnerMemberId(), allMembers))));
         } else if (outcome.tie()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale,
-                    MESSAGES.hg().win().noWinner(outcome.winnerKills())));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.hg().win().noWinner(outcome.winnerKills())));
         } else {
-            player.sendMessage(MessageRenderer.of(messages).format(locale,
-                    MESSAGES.hg().ceremony().noWinner()));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.hg().ceremony().noWinner()));
         }
-        sounds.play(player, player.getUniqueId().equals(decision.winnerMcUuid())
-                ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
+        sounds.play(
+                player,
+                player.getUniqueId().equals(decision.winnerMcUuid()) ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
 
         for (final HgMember member : allMembers) {
             final int kills = decision.kills().getOrDefault(member.id(), 0);
             if (kills > 0) {
-                player.sendMessage(MessageRenderer.of(messages).format(locale,
-                        MESSAGES.hg().ceremony().kills(new PlayerContext(member.discordId()), kills)));
+                player.sendMessage(MessageRenderer.of(messages)
+                        .format(locale, MESSAGES.hg().ceremony().kills(new PlayerContext(member.discordId()), kills)));
             }
         }
 
-        player.sendMessage(MessageRenderer.of(messages).format(locale, MESSAGES.hg().ceremony().footer()));
+        player.sendMessage(MessageRenderer.of(messages)
+                .format(locale, MESSAGES.hg().ceremony().footer()));
     }
 
     private PlayerContext winnerLabel(final UUID winnerMemberId, final List<HgMember> allMembers) {
-        return new PlayerContext(allMembers.stream().filter(member -> member.id().equals(winnerMemberId))
-                .map(HgMember::discordId).findFirst().orElse(winnerMemberId.toString()));
+        return new PlayerContext(allMembers.stream()
+                .filter(member -> member.id().equals(winnerMemberId))
+                .map(HgMember::discordId)
+                .findFirst()
+                .orElse(winnerMemberId.toString()));
     }
 }

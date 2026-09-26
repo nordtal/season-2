@@ -1,17 +1,15 @@
 package eu.nordtal.s2.common.command;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That all three Paper backends run the command filter, and that the proxy publishes what they read.
@@ -34,8 +32,7 @@ class CommandFilterWiringTest {
             "limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java");
 
-    private static final String PROXY =
-            "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
+    private static final String PROXY = "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
 
     @Test
     @DisplayName("every backend builds the filter, registers it as a listener and starts its poll")
@@ -43,20 +40,23 @@ class CommandFilterWiringTest {
         for (final String relative : PAPER_PLUGINS) {
             final String text = read(relative);
 
-            assertTrue(text.contains("new eu.nordtal.s2.papercommon.command.CommandFilter(")
+            assertTrue(
+                    text.contains("new eu.nordtal.s2.papercommon.command.CommandFilter(")
                             || text.contains("new CommandFilter("),
                     relative + " does not build a CommandFilter, so every vanilla command on this"
                             + " server is still offered to every player in tab completion.");
-            assertTrue(text.contains("registerEvents(commandFilter"),
+            assertTrue(
+                    text.contains("registerEvents(commandFilter"),
                     relative + " builds a CommandFilter and never registers it as a listener, which"
                             + " is the same as not having one and looks like having one.");
-            assertTrue(text.contains("commandFilter.start("),
+            assertTrue(
+                    text.contains("commandFilter.start("),
                     relative + " never starts the filter's poll. The poll is the guarantee - without"
                             + " it the list only ever arrives on a notification, and a notification"
                             + " missed while this server was starting is one nothing asks for"
                             + " again.");
-            assertTrue(text.contains("commandFilter.refreshes()")
-                            && text.contains("commandFilter.channels()"),
+            assertTrue(
+                    text.contains("commandFilter.refreshes()") && text.contains("commandFilter.channels()"),
                     relative + " does not put the allowlist channel on the admin watcher's LISTEN"
                             + " connection, so an edit takes a whole poll interval to arrive here"
                             + " while it is instant on the proxy.");
@@ -67,23 +67,28 @@ class CommandFilterWiringTest {
     @DisplayName("the proxy publishes the list the backends read")
     void theProxyIsTheWriter() throws IOException {
         final String text = read(PROXY);
-        assertTrue(text.contains("AllowlistDirectory.using(pool).publish("),
+        assertTrue(
+                text.contains("AllowlistDirectory.using(pool).publish("),
                 PROXY + " no longer publishes the command allowlist. The three backends read it"
                         + " from the database and nothing else writes it, so they would keep"
                         + " filtering against whatever a previous version left in the row.");
-        assertTrue(text.contains("new CommandGate("),
+        assertTrue(
+                text.contains("new CommandGate("),
                 PROXY + " does not register the CommandGate, so /server is open to every player"
                         + " again - which is the finding this whole list exists for.");
-        assertTrue(text.contains("new RouteIntents("),
+        assertTrue(
+                text.contains("new RouteIntents("),
                 PROXY + " does not register RouteIntents, so a connection nothing in this plugin"
                         + " chose is accepted - the layer underneath the command filter.");
     }
 
     private static String read(final String relative) throws IOException {
         final Path path = RepositoryRoot.resolve(relative);
-        assertTrue(Files.isRegularFile(path), relative + " no longer exists - if a module was"
-                + " renamed this list has to move with it, because a missing file is a check that"
-                + " silently stops running");
+        assertTrue(
+                Files.isRegularFile(path),
+                relative + " no longer exists - if a module was"
+                        + " renamed this list has to move with it, because a missing file is a check that"
+                        + " silently stops running");
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 }

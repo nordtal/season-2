@@ -16,7 +16,10 @@ afterEach(() => {
 })
 
 function open(kind: "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START") {
-  vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })))
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("{}", { status: 200 })),
+  )
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>

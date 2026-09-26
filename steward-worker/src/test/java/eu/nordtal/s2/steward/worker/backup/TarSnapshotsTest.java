@@ -1,8 +1,11 @@
 package eu.nordtal.s2.steward.worker.backup;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -16,13 +19,9 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Real directories, a real {@code tar}, a real {@code zstd} - and an extraction.
@@ -65,17 +64,19 @@ class TarSnapshotsTest {
         final Path archive = Path.of(result.file());
         assertEquals(result.bytes(), Files.size(archive), "the reported size is the file's own");
         assertTrue(Files.exists(archive));
-        assertFalse(Files.exists(Path.of(result.file() + ".partial")),
-                "a finished save leaves no partial behind");
+        assertFalse(Files.exists(Path.of(result.file() + ".partial")), "a finished save leaves no partial behind");
 
         // The point of the whole class. Unpack it somewhere else and compare the bytes.
         final Path restored = Files.createDirectories(root.resolve("restored"));
-        assertEquals(0, run("tar", "--zstd", "-xf", archive.toString(), "-C", restored.toString()),
+        assertEquals(
+                0,
+                run("tar", "--zstd", "-xf", archive.toString(), "-C", restored.toString()),
                 "the archive did not extract");
-        assertArrayEquals(region, Files.readAllBytes(restored.resolve("region/r.0.0.mca")),
+        assertArrayEquals(
+                region,
+                Files.readAllBytes(restored.resolve("region/r.0.0.mca")),
                 "the region file did not survive the round trip");
-        assertEquals("level-name=world\n",
-                Files.readString(restored.resolve("server.properties")));
+        assertEquals("level-name=world\n", Files.readString(restored.resolve("server.properties")));
     }
 
     @Test
@@ -86,14 +87,20 @@ class TarSnapshotsTest {
         final SnapshotResult earlier = snapshots(NIGHT).save(VOLUME);
         final SnapshotResult later = snapshots(NIGHT.plusSeconds(86_400)).save(VOLUME);
 
-        assertEquals("nordtal-s2_mc-smp-20260913T044507Z.tar.zst",
+        assertEquals(
+                "nordtal-s2_mc-smp-20260913T044507Z.tar.zst",
                 Path.of(earlier.file()).getFileName().toString());
-        assertEquals("nordtal-s2_mc-smp-20260914T044507Z.tar.zst",
+        assertEquals(
+                "nordtal-s2_mc-smp-20260914T044507Z.tar.zst",
                 Path.of(later.file()).getFileName().toString());
         // Fixed width and UTC, so sorting the text sorts the nights - which is what prune leans on
         // instead of an mtime that a copy off this host and back would have rewritten.
-        assertTrue(Path.of(earlier.file()).getFileName().toString()
-                        .compareTo(Path.of(later.file()).getFileName().toString()) < 0,
+        assertTrue(
+                Path.of(earlier.file())
+                                .getFileName()
+                                .toString()
+                                .compareTo(Path.of(later.file()).getFileName().toString())
+                        < 0,
                 "the names must sort chronologically as plain text");
     }
 
@@ -102,9 +109,11 @@ class TarSnapshotsTest {
     void isFinishedArchiveAcceptsOnlyFinishedNames() {
         assertTrue(TarSnapshots.isFinishedArchive("nordtal-s2_mc-smp-20260913T044507Z.tar.zst"));
         assertTrue(TarSnapshots.isFinishedArchive("nordtal-20260913T044507Z.dump"));
-        assertFalse(TarSnapshots.isFinishedArchive("nordtal-s2_mc-smp-20260913T044507Z.tar.zst.partial"),
+        assertFalse(
+                TarSnapshots.isFinishedArchive("nordtal-s2_mc-smp-20260913T044507Z.tar.zst.partial"),
                 "a partial archive is not a backup yet");
-        assertFalse(TarSnapshots.isFinishedArchive("nordtal-20260913T044507Z.dump.partial"),
+        assertFalse(
+                TarSnapshots.isFinishedArchive("nordtal-20260913T044507Z.dump.partial"),
                 "a partial dump is not a backup yet");
         assertFalse(TarSnapshots.isFinishedArchive("not-a-backup.txt"));
         // The pattern's `.` matches a `/` exactly as readily as any other character, so a name
@@ -112,7 +121,8 @@ class TarSnapshotsTest {
         // - this method alone is not the whole defence, and the caller must additionally confirm
         // the resolved path stays inside the output root. Proven rather than assumed: this name
         // DOES match, which is exactly why WorkerApi needs the second, path-based check too.
-        assertTrue(TarSnapshots.isFinishedArchive("../../etc/passwd-20260913T044507Z.tar.zst"),
+        assertTrue(
+                TarSnapshots.isFinishedArchive("../../etc/passwd-20260913T044507Z.tar.zst"),
                 "the naming pattern alone cannot see a traversal segment - a resolved-path check is required as well");
     }
 
@@ -126,10 +136,11 @@ class TarSnapshotsTest {
         assertFalse(result.ok(), "an empty world is a missing mount, not a backup");
         assertEquals(0, result.bytes());
         assertNull(result.file());
-        assertTrue(result.message().contains(source.toString()),
+        assertTrue(
+                result.message().contains(source.toString()),
                 "the message must name the path that was empty, was: " + result.message());
-        assertTrue(Files.notExists(outputRoot()) || archivesIn(outputRoot()).isEmpty(),
-                "nothing may have been written");
+        assertTrue(
+                Files.notExists(outputRoot()) || archivesIn(outputRoot()).isEmpty(), "nothing may have been written");
     }
 
     @Test
@@ -142,7 +153,8 @@ class TarSnapshotsTest {
         assertFalse(result.ok());
         assertEquals(0, result.bytes());
         assertNull(result.file());
-        assertTrue(result.message().contains(source.toString()),
+        assertTrue(
+                result.message().contains(source.toString()),
                 "the message must name the missing path, was: " + result.message());
     }
 
@@ -164,19 +176,30 @@ class TarSnapshotsTest {
         // through often enough to matter, and it is what a killed tar leaves on disk.
         final Path truncated = outputRoot().resolve("half.tar.zst.partial");
         final byte[] whole = Files.readAllBytes(Path.of(good.file()));
-        Files.write(truncated, java.util.Arrays.copyOf(whole, whole.length / 2),
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        Files.write(
+                truncated,
+                java.util.Arrays.copyOf(whole, whole.length / 2),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
         assertNotNull(snapshots.unreadable(truncated), "half an archive must not pass as one");
 
         // And an archive of nothing - the 45-byte file that run 23 would have called a success.
         final Path empty = outputRoot().resolve("empty.tar.zst.partial");
-        assertEquals(0, run("tar", "--zstd", "-cf", empty.toString(),
-                "-C", Files.createDirectories(root.resolve("void")).toString(), "-T", "/dev/null"));
+        assertEquals(
+                0,
+                run(
+                        "tar",
+                        "--zstd",
+                        "-cf",
+                        empty.toString(),
+                        "-C",
+                        Files.createDirectories(root.resolve("void")).toString(),
+                        "-T",
+                        "/dev/null"));
         assertNotNull(snapshots.unreadable(empty), "an empty archive must not pass as a backup");
 
         // None of the three was ever renamed: only the one real save is a .tar.zst in there.
-        assertEquals(List.of(Path.of(good.file()).getFileName().toString()),
-                archivesIn(outputRoot()));
+        assertEquals(List.of(Path.of(good.file()).getFileName().toString()), archivesIn(outputRoot()));
     }
 
     @Test
@@ -184,8 +207,7 @@ class TarSnapshotsTest {
     void prunesPerVolume() throws IOException {
         // Four nights of smp, three of limbo, two of hunger-games. Written oldest first so that a
         // sweep that fell back on mtime would delete exactly the wrong ones.
-        archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z",
-                "20260912T044500Z", "20260913T044500Z");
+        archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
         archive("nordtal-s2_mc-limbo", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
         archive("nordtal-s2_mc-hunger-games", "20260912T044500Z", "20260913T044500Z");
         // Not ours: an operator's own file in the same directory, which must survive untouched.
@@ -193,13 +215,15 @@ class TarSnapshotsTest {
 
         final List<String> removed = snapshots(NIGHT).prune(days(2));
 
-        assertEquals(List.of(
+        assertEquals(
+                List.of(
                         "nordtal-s2_mc-limbo-20260911T044500Z.tar.zst",
                         "nordtal-s2_mc-smp-20260910T044500Z.tar.zst",
                         "nordtal-s2_mc-smp-20260911T044500Z.tar.zst"),
                 sorted(removed),
                 "only the oldest of smp and limbo go; hunger-games is under the limit");
-        assertEquals(List.of(
+        assertEquals(
+                List.of(
                         "nordtal-s2_mc-hunger-games-20260912T044500Z.tar.zst",
                         "nordtal-s2_mc-hunger-games-20260913T044500Z.tar.zst",
                         "nordtal-s2_mc-limbo-20260912T044500Z.tar.zst",
@@ -208,7 +232,8 @@ class TarSnapshotsTest {
                         "nordtal-s2_mc-smp-20260913T044500Z.tar.zst"),
                 archivesIn(outputRoot()),
                 "two of each must remain - six files, not two");
-        assertTrue(Files.exists(outputRoot().resolve("README.txt")),
+        assertTrue(
+                Files.exists(outputRoot().resolve("README.txt")),
                 "a file this class did not name must never be deleted");
     }
 
@@ -218,17 +243,24 @@ class TarSnapshotsTest {
         // Till's own rule (steward/95, 2026-09-18), here with real files: three runs on the 10th -
         // somebody took one by hand before touching something and the nightly one arrived anyway -
         // and two on the 12th, which is inside a two-day grace measured from the 13th.
-        archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260910T113000Z", "20260910T211500Z",
-                "20260912T044500Z", "20260912T190000Z");
+        archive(
+                "nordtal-s2_mc-smp",
+                "20260910T044500Z",
+                "20260910T113000Z",
+                "20260910T211500Z",
+                "20260912T044500Z",
+                "20260912T190000Z");
 
         final List<String> removed = snapshots(NIGHT).prune(new Retention(30, 0, 0, 2));
 
-        assertEquals(List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst",
-                        "nordtal-s2_mc-smp-20260910T113000Z.tar.zst"),
+        assertEquals(
+                List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst", "nordtal-s2_mc-smp-20260910T113000Z.tar.zst"),
                 sorted(removed),
                 "the 10th has settled and keeps its last run; the 12th is inside the grace and"
                         + " keeps both, which is the whole point of the grace");
-        assertEquals(List.of("nordtal-s2_mc-smp-20260910T211500Z.tar.zst",
+        assertEquals(
+                List.of(
+                        "nordtal-s2_mc-smp-20260910T211500Z.tar.zst",
                         "nordtal-s2_mc-smp-20260912T044500Z.tar.zst",
                         "nordtal-s2_mc-smp-20260912T190000Z.tar.zst"),
                 archivesIn(outputRoot()));
@@ -246,19 +278,24 @@ class TarSnapshotsTest {
         final SnapshotResult result = snapshots.save(VOLUME);
         assertTrue(result.ok(), result.message());
 
-        final String mark = snapshots.markUnverified(result.file(),
-                "the end of smp could not be read back");
+        final String mark = snapshots.markUnverified(result.file(), "the end of smp could not be read back");
 
-        assertEquals("nordtal-s2_mc-smp-20260913T044507Z.tar.zst.unverified", mark,
+        assertEquals(
+                "nordtal-s2_mc-smp-20260913T044507Z.tar.zst.unverified",
+                mark,
                 "the name comes back so the report line can point at it by name");
         final Path beside = Path.of(result.file() + ".unverified");
         assertTrue(Files.exists(beside), "no mark was written at all");
-        assertTrue(Files.readString(beside).contains("the end of smp could not be read back"),
+        assertTrue(
+                Files.readString(beside).contains("the end of smp could not be read back"),
                 "the reason has to be in the file - a nameless warning tells nobody which server"
                         + " to go and look at: " + Files.readString(beside));
-        assertEquals(result.bytes(), Files.size(Path.of(result.file())),
+        assertEquals(
+                result.bytes(),
+                Files.size(Path.of(result.file())),
                 "the archive itself is untouched; only the thing beside it is new");
-        assertEquals(List.of("nordtal-s2_mc-smp-20260913T044507Z.tar.zst"),
+        assertEquals(
+                List.of("nordtal-s2_mc-smp-20260913T044507Z.tar.zst"),
                 archivesIn(outputRoot()),
                 "and the mark is not a second archive - restore.sh and prune both match by name");
     }
@@ -268,8 +305,8 @@ class TarSnapshotsTest {
     void anUnwritableMarkIsNotAFailedBackup() {
         // The one thing worse than an unverified archive is no archive. UpdateRun reads this null
         // and says so in the report line instead of discarding a snapshot that succeeded.
-        assertNull(snapshots(NIGHT).markUnverified(
-                root.resolve("no/such/directory/x.tar.zst").toString(), "smp"));
+        assertNull(snapshots(NIGHT)
+                .markUnverified(root.resolve("no/such/directory/x.tar.zst").toString(), "smp"));
     }
 
     @Test
@@ -283,18 +320,20 @@ class TarSnapshotsTest {
 
         final List<String> removed = snapshots(NIGHT).prune(days(2));
 
-        assertEquals(List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst"), removed,
+        assertEquals(
+                List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst"),
+                removed,
                 "the sweep's list is what the run's report prints, and a mark listed there would"
                         + " read as a lost backup");
-        assertFalse(Files.exists(outputRoot()
-                        .resolve("nordtal-s2_mc-smp-20260910T044500Z.tar.zst.unverified")),
+        assertFalse(
+                Files.exists(outputRoot().resolve("nordtal-s2_mc-smp-20260910T044500Z.tar.zst.unverified")),
                 "the mark of a deleted archive is a warning about a file that is gone");
-        assertTrue(Files.exists(outputRoot()
-                        .resolve("nordtal-s2_mc-smp-20260912T044500Z.tar.zst.unverified")),
+        assertTrue(
+                Files.exists(outputRoot().resolve("nordtal-s2_mc-smp-20260912T044500Z.tar.zst.unverified")),
                 "and the mark of an archive that is still there has to survive, or the one archive"
                         + " somebody must not trust silently becomes indistinguishable");
-        assertEquals(List.of("nordtal-s2_mc-smp-20260911T044500Z.tar.zst",
-                        "nordtal-s2_mc-smp-20260912T044500Z.tar.zst"),
+        assertEquals(
+                List.of("nordtal-s2_mc-smp-20260911T044500Z.tar.zst", "nordtal-s2_mc-smp-20260912T044500Z.tar.zst"),
                 archivesIn(outputRoot()),
                 "and a mark is never counted against keep as though it were an archive of its own");
     }
@@ -311,13 +350,15 @@ class TarSnapshotsTest {
 
         final List<String> removed = snapshots(NIGHT).prune(days(2));
 
-        assertEquals(List.of(
+        assertEquals(
+                List.of(
                         "nordtal-20260910T044500Z.dump",
                         "nordtal-20260911T044500Z.dump",
                         "nordtal-s2_mc-smp-20260910T044500Z.tar.zst"),
                 sorted(removed),
                 "two of each series survive - the dumps are not counted against the volume's two");
-        assertEquals(List.of("nordtal-20260912T044500Z.dump", "nordtal-20260913T044500Z.dump"),
+        assertEquals(
+                List.of("nordtal-20260912T044500Z.dump", "nordtal-20260913T044500Z.dump"),
                 dumpsIn(outputRoot()),
                 "the two newest dumps remain");
     }
@@ -335,7 +376,9 @@ class TarSnapshotsTest {
 
         final List<String> removed = snapshots(NIGHT).prune(days(7));
 
-        assertEquals(List.of("nordtal-20260912T044500Z.dump.partial"), sorted(removed),
+        assertEquals(
+                List.of("nordtal-20260912T044500Z.dump.partial"),
+                sorted(removed),
                 "a day old is debris; the one from tonight is a dump in progress");
     }
 
@@ -367,11 +410,11 @@ class TarSnapshotsTest {
 
         final List<String> removed = snapshots(NIGHT).prune(days(1));
 
-        assertEquals(List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst",
-                        "nordtal-s2_mc-smp-20260911T044500Z.tar.zst"),
-                sorted(removed), "the sweep has to finish the job it was there to do");
-        assertTrue(Files.exists(impossible),
-                "and leave the file it cannot date where it is, for a person to look at");
+        assertEquals(
+                List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst", "nordtal-s2_mc-smp-20260911T044500Z.tar.zst"),
+                sorted(removed),
+                "the sweep has to finish the job it was there to do");
+        assertTrue(Files.exists(impossible), "and leave the file it cannot date where it is, for a person to look at");
     }
 
     @Test
@@ -384,11 +427,13 @@ class TarSnapshotsTest {
         // number of stages.
         final List<Process> sleeping = sleepers(0.8, 1.6, 2.4);
         try {
-            assertTrue(TarSnapshots.awaitAll(sleeping, Duration.ofSeconds(1)).isEmpty(),
+            assertTrue(
+                    TarSnapshots.awaitAll(sleeping, Duration.ofSeconds(1)).isEmpty(),
                     "one second is the pipeline's whole allowance, not each stage's");
             // destroyForcibly is a signal, not a funeral, so this waits for the process to be gone
             // rather than asking a microsecond after asking for it.
-            assertTrue(sleeping.getLast().waitFor(10, java.util.concurrent.TimeUnit.SECONDS),
+            assertTrue(
+                    sleeping.getLast().waitFor(10, java.util.concurrent.TimeUnit.SECONDS),
                     "everything goes, not just the stage that was still running");
         } finally {
             sleeping.forEach(Process::destroyForcibly);
@@ -400,7 +445,8 @@ class TarSnapshotsTest {
     void insideTheWallEveryStageIsReported() throws Exception {
         final List<Process> sleeping = sleepers(0.2, 0.4, 0.6);
         try {
-            assertEquals(List.of(0, 0, 0),
+            assertEquals(
+                    List.of(0, 0, 0),
                     TarSnapshots.awaitAll(sleeping, Duration.ofSeconds(20)).orElseThrow());
         } finally {
             sleeping.forEach(Process::destroyForcibly);
@@ -455,8 +501,7 @@ class TarSnapshotsTest {
     private void archive(final String volume, final String... stamps) throws IOException {
         Files.createDirectories(outputRoot());
         for (final String stamp : stamps) {
-            Files.writeString(outputRoot().resolve(volume + "-" + stamp + ".tar.zst"), stamp,
-                    StandardCharsets.UTF_8);
+            Files.writeString(outputRoot().resolve(volume + "-" + stamp + ".tar.zst"), stamp, StandardCharsets.UTF_8);
         }
     }
 
@@ -464,8 +509,7 @@ class TarSnapshotsTest {
     private void dump(final String... stamps) throws IOException {
         Files.createDirectories(outputRoot());
         for (final String stamp : stamps) {
-            Files.writeString(outputRoot().resolve("nordtal-" + stamp + ".dump"), stamp,
-                    StandardCharsets.UTF_8);
+            Files.writeString(outputRoot().resolve("nordtal-" + stamp + ".dump"), stamp, StandardCharsets.UTF_8);
         }
     }
 
@@ -480,8 +524,10 @@ class TarSnapshotsTest {
 
     /** The sidecar a run writes when it could not read how the servers stopped. */
     private void mark(final String archive) throws IOException {
-        Files.writeString(outputRoot().resolve(archive + ".unverified"),
-                "the end of smp could not be read back\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                outputRoot().resolve(archive + ".unverified"),
+                "the end of smp could not be read back\n",
+                StandardCharsets.UTF_8);
     }
 
     private List<String> archivesIn(final Path directory) throws IOException {

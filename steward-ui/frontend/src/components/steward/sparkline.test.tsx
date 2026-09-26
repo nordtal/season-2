@@ -45,17 +45,13 @@ describe("Sparkline", () => {
   })
 
   it("draws the curve once there is at least one point", () => {
-    const { container } = render(
-      <Sparkline points={[{ at: "2026-09-15T00:00:00Z", value: 12 }]} />,
-    )
+    const { container } = render(<Sparkline points={[{ at: "2026-09-15T00:00:00Z", value: 12 }]} />)
 
     expect(container.querySelector("svg")).not.toBeNull()
   })
 
   it("is decorative - a screen reader gets nothing from it, the number beside it already said it", () => {
-    const { container } = render(
-      <Sparkline points={[{ at: "2026-09-15T00:00:00Z", value: 12 }]} />,
-    )
+    const { container } = render(<Sparkline points={[{ at: "2026-09-15T00:00:00Z", value: 12 }]} />)
 
     // No jest-dom in this project (see recreate.test.tsx) - the DOM API rather than a matcher.
     expect(container.firstElementChild?.hasAttribute("aria-hidden")).toBe(true)

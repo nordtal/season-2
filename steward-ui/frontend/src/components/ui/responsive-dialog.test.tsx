@@ -83,9 +83,7 @@ function drawConfirmation(onConfirm: () => void) {
         </ResponsiveAlertDialogHeader>
         <ResponsiveAlertDialogFooter>
           <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction onClick={onConfirm}>
-            Delete
-          </ResponsiveAlertDialogAction>
+          <ResponsiveAlertDialogAction onClick={onConfirm}>Delete</ResponsiveAlertDialogAction>
         </ResponsiveAlertDialogFooter>
       </ResponsiveAlertDialogContent>
     </ResponsiveAlertDialog>,
@@ -121,7 +119,9 @@ describe("the confirmation takes both shapes as well", () => {
   it("still runs the action on a phone, which is the whole point of converting it", () => {
     window.innerWidth = 390
     let confirmed = 0
-    drawConfirmation(() => { confirmed += 1 })
+    drawConfirmation(() => {
+      confirmed += 1
+    })
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
 

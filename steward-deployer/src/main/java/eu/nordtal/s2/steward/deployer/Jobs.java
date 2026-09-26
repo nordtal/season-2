@@ -1,22 +1,21 @@
 package eu.nordtal.s2.steward.deployer;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A deployment is slow, so it is a job rather than a request.
@@ -53,8 +52,8 @@ public final class Jobs {
     private static final int WAITING = 5;
 
     /** One at a time. Two compose runs against one project race for the same containers. */
-    private final ExecutorService worker = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(WAITING), runnable -> {
+    private final ExecutorService worker =
+            new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(WAITING), runnable -> {
                 Thread thread = new Thread(runnable, "deployer-job");
                 thread.setDaemon(true);
                 return thread;
@@ -117,7 +116,11 @@ public final class Jobs {
         int run(Consumer<String> output) throws Exception;
     }
 
-    public enum State { RUNNING, DONE, FAILED }
+    public enum State {
+        RUNNING,
+        DONE,
+        FAILED
+    }
 
     /** One deployment, its output so far, and whoever is currently watching it. */
     public static final class Job {
@@ -196,7 +199,7 @@ public final class Jobs {
                     listener.accept(line);
                 }
                 if (state != State.RUNNING) {
-                    return () -> { };
+                    return () -> {};
                 }
                 listeners.add(listener);
             }

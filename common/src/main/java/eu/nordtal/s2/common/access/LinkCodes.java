@@ -42,8 +42,7 @@ final class LinkCodes {
 
     /** Not shared across threads on purpose - contention on one SecureRandom is not worth avoiding
      * a per-call instantiation for something called at most once per login attempt. */
-    private LinkCodes() {
-    }
+    private LinkCodes() {}
 
     static String random() {
         final SecureRandom random = new SecureRandom();

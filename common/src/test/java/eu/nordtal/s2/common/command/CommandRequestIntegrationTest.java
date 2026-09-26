@@ -1,7 +1,20 @@
 package eu.nordtal.s2.common.command;
 
-import eu.nordtal.s2.common.access.AccessSchema;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.access.AccessSchema;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,21 +24,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Instant;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The command inbox, against a real PostgreSQL running the real migrations.
@@ -53,7 +51,8 @@ class CommandRequestIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the command request tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -82,16 +81,24 @@ class CommandRequestIntegrationTest {
     @BeforeEach
     void freshTable() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("TRUNCATE command_request");
         }
         requests = CommandRequests.borrowing(dataSource);
     }
 
-    private NewCommandRequest request(final String target, final String command,
-                                      final String arguments, final Instant expires) {
-        return new NewCommandRequest(target, command, arguments, "DISCORD", "till",
-                Optional.of(DISCORD_ID), Optional.of(MC_UUID), "de", expires);
+    private NewCommandRequest request(
+            final String target, final String command, final String arguments, final Instant expires) {
+        return new NewCommandRequest(
+                target,
+                command,
+                arguments,
+                "DISCORD",
+                "till",
+                Optional.of(DISCORD_ID),
+                Optional.of(MC_UUID),
+                "de",
+                expires);
     }
 
     @Test
@@ -107,7 +114,9 @@ class CommandRequestIntegrationTest {
         assertEquals("DISCORD", claimed.source());
         assertEquals(DISCORD_ID, claimed.discordId().orElseThrow());
         assertEquals(MC_UUID, claimed.minecraftId().orElseThrow());
-        assertEquals("de", claimed.locale(),
+        assertEquals(
+                "de",
+                claimed.locale(),
                 "the asker's language rides on the row - looking it up on this side would make the"
                         + " reply's language depend on when it was claimed");
 
@@ -124,7 +133,8 @@ class CommandRequestIntegrationTest {
         requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
 
         assertTrue(requests.claim("SMP").isPresent());
-        assertTrue(requests.claim("SMP").isEmpty(),
+        assertTrue(
+                requests.claim("SMP").isEmpty(),
                 "a second claim took the same row - two processes would run one command twice");
     }
 
@@ -149,7 +159,8 @@ class CommandRequestIntegrationTest {
     void anExpiredRowIsInvisibleToTheTarget() {
         requests.submit(request("SMP", "smp reload", "", Instant.now().minusSeconds(1)));
 
-        assertTrue(requests.claim("SMP").isEmpty(),
+        assertTrue(
+                requests.claim("SMP").isEmpty(),
                 "the asker has stopped listening; running it anyway is how a correction is applied"
                         + " twice, once by the request they gave up on and once by the retype");
     }
@@ -166,27 +177,31 @@ class CommandRequestIntegrationTest {
     @Test
     @DisplayName("giving up expires a pending row and loses to a claim that already happened")
     void theExpiryRace() {
-        final long pending = requests.submit(
-                request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
+        final long pending =
+                requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         assertTrue(requests.expire(pending));
-        assertEquals(CommandOutcome.Status.EXPIRED, requests.outcome(pending).orElseThrow().status());
+        assertEquals(
+                CommandOutcome.Status.EXPIRED,
+                requests.outcome(pending).orElseThrow().status());
 
-        final long claimed = requests.submit(
-                request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
+        final long claimed =
+                requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.claim("SMP");
 
-        assertFalse(requests.expire(claimed),
+        assertFalse(
+                requests.expire(claimed),
                 "the asker cancelled work that was already running - a half-applied command is"
                         + " worse than a slow one");
-        assertEquals(CommandOutcome.Status.RUNNING,
+        assertEquals(
+                CommandOutcome.Status.RUNNING,
                 requests.outcome(claimed).orElseThrow().status());
     }
 
     @Test
     @DisplayName("settling a row twice writes once")
     void finishIsGuardedByItsOwnStatus() {
-        final long id = requests.submit(
-                request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
+        final long id =
+                requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.claim("SMP");
 
         requests.finish(id, true, "first");
@@ -200,8 +215,8 @@ class CommandRequestIntegrationTest {
     @Test
     @DisplayName("an unsettled row carries no answer, and that is distinguishable from an empty one")
     void pendingHasNoResult() {
-        final long id = requests.submit(
-                request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
+        final long id =
+                requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
 
         final CommandOutcome outcome = requests.outcome(id).orElseThrow();
         assertTrue(outcome.pending());
@@ -220,22 +235,21 @@ class CommandRequestIntegrationTest {
         // NewCommandRequest refuses this as well, so the CHECK is the second line rather than the
         // first - which is what makes it worth asserting: a future adapter that builds its row with
         // raw SQL still cannot get past it.
-        refusedBy("command_request_console_is_anonymous",
+        refusedBy(
+                "command_request_console_is_anonymous",
                 () -> insertRaw("SMP", "smp reload", "CONSOLE", DISCORD_ID, null));
     }
 
     @Test
     @DisplayName("a request from Discord without an id is refused, because it could not be re-checked")
     void discordAlwaysKnowsWho() throws SQLException {
-        refusedBy("command_request_discord_knows_who",
-                () -> insertRaw("SMP", "smp reload", "DISCORD", null, null));
+        refusedBy("command_request_discord_knows_who", () -> insertRaw("SMP", "smp reload", "DISCORD", null, null));
     }
 
     @Test
     @DisplayName("an unknown target is refused by the CHECK")
     void theTargetIsPinned() throws SQLException {
-        refusedBy("command_request_target_check",
-                () -> insertRaw("UPDATER", "update apply", "GAME", null, MC_UUID));
+        refusedBy("command_request_target_check", () -> insertRaw("UPDATER", "update apply", "GAME", null, MC_UUID));
     }
 
     @Test
@@ -243,12 +257,13 @@ class CommandRequestIntegrationTest {
     void expiredNeverRan() throws SQLException {
         // Which is what makes "nothing ever picked this up" a diagnosis rather than a guess: a
         // target that is down and one that is up and stuck are different problems.
-        final long id = requests.submit(
-                request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
+        final long id =
+                requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.claim("SMP");
 
-        refusedBy("command_request_expired_never_started", () -> update(
-                "UPDATE command_request SET status = 'EXPIRED', finished = now() WHERE id = " + id));
+        refusedBy(
+                "command_request_expired_never_started",
+                () -> update("UPDATE command_request SET status = 'EXPIRED', finished = now() WHERE id = " + id));
     }
 
     @Test
@@ -257,8 +272,8 @@ class CommandRequestIntegrationTest {
         // The table had no deletion path at all until 2026-09-05, and a settled row carries the
         // asker's name, their Discord id, their Minecraft account, what they typed and what they
         // were told. Thirty days, swept by steward-worker at the start of serve.
-        final long old = requests.submit(
-                request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
+        final long old =
+                requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.claim("SMP");
         requests.finish(old, true, "reloaded");
         // requested and started move with it: command_request_finished_after_started would refuse
@@ -267,8 +282,8 @@ class CommandRequestIntegrationTest {
                 + " started = now() - interval '31 days',"
                 + " finished = now() - interval '31 days' WHERE id = " + old);
 
-        final long recent = requests.submit(
-                request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
+        final long recent =
+                requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.claim("SMP");
         requests.finish(recent, true, "reloaded");
 
@@ -277,13 +292,13 @@ class CommandRequestIntegrationTest {
         // worse than keeping a row too long.
         final long waiting = requests.submit(
                 request("HUNGER_GAMES", "hg reload", "", Instant.now().plusSeconds(30)));
-        update("UPDATE command_request SET requested = now() - interval '90 days' WHERE id = "
-                + waiting);
+        update("UPDATE command_request SET requested = now() - interval '90 days' WHERE id = " + waiting);
 
         assertEquals(1, requests.deleteSettledOlderThan(30));
         assertTrue(requests.outcome(old).isEmpty(), "the old settled row is still there");
         assertTrue(requests.outcome(recent).isPresent(), "a row inside the window was deleted");
-        assertTrue(requests.outcome(waiting).isPresent(),
+        assertTrue(
+                requests.outcome(waiting).isPresent(),
                 "a PENDING row was deleted, which is a command somebody may still be waiting on");
     }
 
@@ -301,17 +316,18 @@ class CommandRequestIntegrationTest {
      * is named after no longer exists. {@code AccessDirectoryIntegrationTest} already names its
      * constraints; this is the same rule.</p>
      */
-    private static void refusedBy(final String constraint,
-                                  final org.junit.jupiter.api.function.Executable insert) {
+    private static void refusedBy(final String constraint, final org.junit.jupiter.api.function.Executable insert) {
         final SQLException refused = assertThrows(SQLException.class, insert);
-        assertTrue(refused.getMessage().contains(constraint),
+        assertTrue(
+                refused.getMessage().contains(constraint),
                 "expected " + constraint + " to refuse the row, got: " + refused.getMessage());
     }
 
-    private void insertRaw(final String target, final String command, final String source,
-                           final String discordId, final UUID mcUuid) throws SQLException {
+    private void insertRaw(
+            final String target, final String command, final String source, final String discordId, final UUID mcUuid)
+            throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement("""
+                PreparedStatement statement = connection.prepareStatement("""
                      INSERT INTO command_request
                          (target, command, source, requested_by, discord_id, mc_uuid, expires)
                      VALUES (?, ?, ?, 'till', ?, ?, now() + '30 seconds')
@@ -327,7 +343,7 @@ class CommandRequestIntegrationTest {
 
     private void update(final String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(sql);
         }
     }
@@ -355,7 +371,7 @@ class CommandRequestIntegrationTest {
         requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
 
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("ANALYZE command_request");
             statement.execute("SET enable_seqscan = off");
             try (ResultSet plan = statement.executeQuery("""
@@ -367,7 +383,8 @@ class CommandRequestIntegrationTest {
                 while (plan.next()) {
                     text.append(plan.getString(1)).append('\n');
                 }
-                assertTrue(text.toString().contains("command_request_pending"),
+                assertTrue(
+                        text.toString().contains("command_request_pending"),
                         "the claim cannot use the partial index at all - its columns or its WHERE"
                                 + " no longer match the query:\n" + text);
             }

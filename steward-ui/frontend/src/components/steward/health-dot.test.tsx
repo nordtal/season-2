@@ -79,8 +79,9 @@ export function mentionsQuiet(source: string): string[] {
 describe("the sidebar stays silent (steward/83, unchanged by steward/81)", () => {
   it("does not pass the switch at all, so it keeps the quiet default", () => {
     const source = readFileSync(sidebarFile, "utf8")
-    expect(source, "the sidebar has stopped drawing a health dot, so this guard is guarding air")
-      .toContain("<HealthDot")
+    expect(source, "the sidebar has stopped drawing a health dot, so this guard is guarding air").toContain(
+      "<HealthDot",
+    )
     expect(
       mentionsQuiet(source),
       "app-sidebar.tsx now mentions `quiet`. Till's decision of 2026-09-16 is that the sidebar" +

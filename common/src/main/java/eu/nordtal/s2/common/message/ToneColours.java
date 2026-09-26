@@ -1,11 +1,10 @@
 package eu.nordtal.s2.common.message;
 
-import net.kyori.adventure.text.format.TextColor;
-
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.format.TextColor;
 
 /**
  * The five {@link Tone} colours, parsed once and then answered from memory.

@@ -1,12 +1,11 @@
 package eu.nordtal.s2.smp.milestone;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 /**
  * The rule that decides whether a reloaded milestone file may replace the running one.
@@ -17,10 +16,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class TrackValidationTest {
 
-    private static final Objective GATE = new Objective("gate", ObjectiveType.ADVANCEMENT,
-            "participation", 10, List.of(), "", List.of(), "minecraft:story/iron_tools");
-    private static final Objective LOGS = new Objective("logs", ObjectiveType.HAND_IN,
-            "gathering", 2048, List.of("OAK_LOG"), "", List.of(), "");
+    private static final Objective GATE = new Objective(
+            "gate",
+            ObjectiveType.ADVANCEMENT,
+            "participation",
+            10,
+            List.of(),
+            "",
+            List.of(),
+            "minecraft:story/iron_tools");
+    private static final Objective LOGS =
+            new Objective("logs", ObjectiveType.HAND_IN, "gathering", 2048, List.of("OAK_LOG"), "", List.of(), "");
 
     private final MilestoneTrack track = new MilestoneTrack(List.of(
             new Milestone("waiting", Unlock.BORDER, 20, 0, false, List.of()),
@@ -32,10 +38,11 @@ class TrackValidationTest {
     void loweringTheTargetOfALiveObjectiveIsAllowed() {
         // The point of this whole class: without it the first escape hatch does not exist at the
         // config level and every rescue becomes an admin command, which pays proportionally.
-        final StoredProgress stored = progress(MilestoneState.ACTIVE,
-                objective("logs", ObjectiveType.HAND_IN, 1500, 2048, false));
+        final StoredProgress stored =
+                progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 1500, 2048, false));
 
-        assertTrue(TrackValidation.validate(lowered("logs", 1000), stored).isEmpty(),
+        assertTrue(
+                TrackValidation.validate(lowered("logs", 1000), stored).isEmpty(),
                 "lowering a live target must not be refused");
     }
 
@@ -43,8 +50,8 @@ class TrackValidationTest {
     void raisingTheTargetOfALiveObjectiveIsAlsoAllowed() {
         // The same edit in the other direction. Refusing it would mean a typo could only ever be
         // corrected downwards.
-        final StoredProgress stored = progress(MilestoneState.ACTIVE,
-                objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
+        final StoredProgress stored =
+                progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
 
         assertTrue(TrackValidation.validate(lowered("logs", 4096), stored).isEmpty());
     }
@@ -63,8 +70,8 @@ class TrackValidationTest {
     void aRenamedMilestoneIsRefused() {
         // From here a rename looks like a deletion: the progress and any aura already paid against
         // it would have nothing to point at.
-        final StoredProgress stored = progress(MilestoneState.ACTIVE,
-                objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
+        final StoredProgress stored =
+                progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack renamed = new MilestoneTrack(List.of(
                 new Milestone("waiting", Unlock.BORDER, 20, 0, false, List.of()),
                 new Milestone("first-steps", Unlock.BORDER, 99, 30, false, List.of(LOGS, GATE))));
@@ -77,8 +84,8 @@ class TrackValidationTest {
 
     @Test
     void aDeletedObjectiveWithProgressIsRefused() {
-        final StoredProgress stored = progress(MilestoneState.ACTIVE,
-                objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
+        final StoredProgress stored =
+                progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack without = new MilestoneTrack(List.of(
                 new Milestone("waiting", Unlock.BORDER, 20, 0, false, List.of()),
                 new Milestone("foothold", Unlock.BORDER, 99, 30, false, List.of(GATE))));
@@ -93,8 +100,8 @@ class TrackValidationTest {
     void changingAnObjectivesTypeIsRefusedOnceItHasProgress() {
         // `amount` means a different thing per type - items delivered, a statistic's increase, a
         // count of distinct players - so carrying it across is reading a number in the wrong unit.
-        final StoredProgress stored = progress(MilestoneState.ACTIVE,
-                objective("logs", ObjectiveType.STATISTIC, 100, 2048, false));
+        final StoredProgress stored =
+                progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.STATISTIC, 100, 2048, false));
 
         final List<TrackValidation.Problem> problems = TrackValidation.validate(track, stored);
 
@@ -107,8 +114,8 @@ class TrackValidationTest {
         // It has already paid out, and an admin completion's pot × (reached ÷ target) refers to
         // what was asked for at the time. Moving it afterwards rewrites the arithmetic behind aura
         // that is already in the ledger.
-        final StoredProgress stored = progress(MilestoneState.UNLOCKED,
-                objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
+        final StoredProgress stored =
+                progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
 
         final List<TrackValidation.Problem> problems = TrackValidation.validate(lowered("logs", 1000), stored);
 
@@ -118,8 +125,8 @@ class TrackValidationTest {
 
     @Test
     void anUnchangedFileAgainstACompletedObjectiveIsFine() {
-        final StoredProgress stored = progress(MilestoneState.UNLOCKED,
-                objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
+        final StoredProgress stored =
+                progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
 
         assertTrue(TrackValidation.validate(track, stored).isEmpty());
     }
@@ -129,8 +136,8 @@ class TrackValidationTest {
     @Test
     void appendingAMilestoneIsAlwaysAllowed() {
         // The planned response to a track that finishes early.
-        final StoredProgress stored = progress(MilestoneState.UNLOCKED,
-                objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
+        final StoredProgress stored =
+                progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
         final MilestoneTrack longer = new MilestoneTrack(List.of(
                 new Milestone("waiting", Unlock.BORDER, 20, 0, false, List.of()),
                 new Milestone("foothold", Unlock.BORDER, 99, 30, false, List.of(LOGS, GATE)),
@@ -144,7 +151,8 @@ class TrackValidationTest {
         // The track is linear and its order is the file's, so what has been finished has to stay
         // at the front of it or the engine has no answer to "what comes next".
         final StoredProgress stored = new StoredProgress(
-                List.of(new StoredProgress.StoredMilestone("foothold", MilestoneState.UNLOCKED),
+                List.of(
+                        new StoredProgress.StoredMilestone("foothold", MilestoneState.UNLOCKED),
                         new StoredProgress.StoredMilestone("waiting", MilestoneState.LOCKED)),
                 List.of());
 
@@ -163,7 +171,8 @@ class TrackValidationTest {
     void everyProblemIsReportedRatherThanOnlyTheFirst() {
         // One reload has to name every mistake.
         final StoredProgress stored = new StoredProgress(
-                List.of(new StoredProgress.StoredMilestone("gone", MilestoneState.UNLOCKED),
+                List.of(
+                        new StoredProgress.StoredMilestone("gone", MilestoneState.UNLOCKED),
                         new StoredProgress.StoredMilestone("also-gone", MilestoneState.ACTIVE)),
                 List.of(objective("logs", ObjectiveType.STATISTIC, 10, 2048, false)));
 
@@ -175,9 +184,15 @@ class TrackValidationTest {
     private MilestoneTrack lowered(final String objectiveKey, final long target) {
         final List<Objective> objectives = track.milestone("foothold").orElseThrow().objectives().stream()
                 .map(objective -> objective.key().equals(objectiveKey)
-                        ? new Objective(objective.key(), objective.type(), objective.role(), target,
-                        objective.items(), objective.statistic(), objective.subjects(),
-                        objective.advancement())
+                        ? new Objective(
+                                objective.key(),
+                                objective.type(),
+                                objective.role(),
+                                target,
+                                objective.items(),
+                                objective.statistic(),
+                                objective.subjects(),
+                                objective.advancement())
                         : objective)
                 .toList();
         return new MilestoneTrack(List.of(
@@ -185,17 +200,16 @@ class TrackValidationTest {
                 new Milestone("foothold", Unlock.BORDER, 99, 30, false, objectives)));
     }
 
-    private static StoredProgress progress(final MilestoneState state,
-                                           final StoredProgress.StoredObjective objective) {
+    private static StoredProgress progress(final MilestoneState state, final StoredProgress.StoredObjective objective) {
         return new StoredProgress(
-                List.of(new StoredProgress.StoredMilestone("waiting", MilestoneState.UNLOCKED),
+                List.of(
+                        new StoredProgress.StoredMilestone("waiting", MilestoneState.UNLOCKED),
                         new StoredProgress.StoredMilestone("foothold", state)),
                 List.of(objective));
     }
 
-    private static StoredProgress.StoredObjective objective(final String key, final ObjectiveType type,
-                                                            final long amount, final long target,
-                                                            final boolean completed) {
+    private static StoredProgress.StoredObjective objective(
+            final String key, final ObjectiveType type, final long amount, final long target, final boolean completed) {
         return new StoredProgress.StoredObjective("foothold", key, type, amount, target, completed);
     }
 }

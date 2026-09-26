@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -12,9 +12,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What the reader does at the boundaries nobody chooses: the end of a frame, the end of a read, and
@@ -34,7 +33,8 @@ class LogFramesTest {
         // Straight through the ë: the first chunk ends on the lead byte of a two-byte character.
         final int cut = indexOfLeadByte(all) + 1;
 
-        assertEquals(List.of(LINE.strip()),
+        assertEquals(
+                List.of(LINE.strip()),
                 linesOf(false, Arrays.copyOfRange(all, 0, cut), Arrays.copyOfRange(all, cut, all.length)));
     }
 
@@ -44,9 +44,9 @@ class LogFramesTest {
         final byte[] all = LINE.getBytes(StandardCharsets.UTF_8);
         final int cut = indexOfLeadByte(all) + 1;
 
-        assertEquals(List.of(LINE.strip()),
-                linesOf(true, frame(Arrays.copyOfRange(all, 0, cut)),
-                        frame(Arrays.copyOfRange(all, cut, all.length))));
+        assertEquals(
+                List.of(LINE.strip()),
+                linesOf(true, frame(Arrays.copyOfRange(all, 0, cut)), frame(Arrays.copyOfRange(all, cut, all.length))));
     }
 
     @Test
@@ -57,7 +57,9 @@ class LogFramesTest {
         final List<String> lines = linesOf(false, Arrays.copyOfRange(all, 0, all.length - 1));
 
         assertEquals(1, lines.size(), lines.toString());
-        assertEquals("done �", lines.getFirst(),
+        assertEquals(
+                "done �",
+                lines.getFirst(),
                 "the half character is visible as one, and the line it was on is still delivered");
     }
 
@@ -78,16 +80,18 @@ class LogFramesTest {
     void aHalfPayloadIsAnError() {
         final byte[] header = {1, 0, 0, 0, 0, 0, 0, 5};
 
-        final EOFException ended = assertThrows(EOFException.class,
-                () -> linesOf(true, header, new byte[]{'a', 'b'}));
+        final EOFException ended = assertThrows(EOFException.class, () -> linesOf(true, header, new byte[] {'a', 'b'}));
         assertEquals(true, ended.getMessage().contains("2 bytes into"), ended.getMessage());
     }
 
     @Test
     @DisplayName("one frame holding three lines is three lines, and half a line waits for its rest")
     void framesAreNotLines() throws IOException {
-        assertEquals(List.of("one", "two", "three"),
-                linesOf(true, frame("one\ntwo\nthr".getBytes(StandardCharsets.UTF_8)),
+        assertEquals(
+                List.of("one", "two", "three"),
+                linesOf(
+                        true,
+                        frame("one\ntwo\nthr".getBytes(StandardCharsets.UTF_8)),
                         frame("ee\n".getBytes(StandardCharsets.UTF_8))));
     }
 
@@ -114,8 +118,7 @@ class LogFramesTest {
         return framed;
     }
 
-    private static List<String> linesOf(final boolean multiplexed, final byte[]... chunks)
-            throws IOException {
+    private static List<String> linesOf(final boolean multiplexed, final byte[]... chunks) throws IOException {
         final List<String> lines = new ArrayList<>();
         LogFrames.read(delivering(chunks), multiplexed, lines::add);
         return lines;

@@ -1,7 +1,6 @@
 package eu.nordtal.s2.hungergames.listener;
 
 import eu.nordtal.s2.hungergames.game.HungerGamesManager;
-
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;

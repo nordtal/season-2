@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.notify;
 
-import org.slf4j.Logger;
-
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
 
 /**
  * A thread parked on a dedicated {@code LISTEN} connection, re-reading whatever it is told to
@@ -67,16 +66,23 @@ public final class NotificationListener implements AutoCloseable {
      *                    interval: the Postgres implementation follows every timeout with a liveness
      *                    check, so a shorter wait buys nothing but extra round trips
      */
-    public NotificationListener(final Notifications.Connector connector, final String threadName,
-                                final List<Refresh> refreshes, final Logger logger,
-                                final Duration waitTimeout) {
+    public NotificationListener(
+            final Notifications.Connector connector,
+            final String threadName,
+            final List<Refresh> refreshes,
+            final Logger logger,
+            final Duration waitTimeout) {
         this(connector, threadName, refreshes, logger, waitTimeout, RECONNECT_BACKOFF);
     }
 
     /** Package-visible so a test can watch several reconnects without waiting seconds for each. */
-    NotificationListener(final Notifications.Connector connector, final String threadName,
-                         final List<Refresh> refreshes, final Logger logger,
-                         final Duration waitTimeout, final Duration reconnectBackoff) {
+    NotificationListener(
+            final Notifications.Connector connector,
+            final String threadName,
+            final List<Refresh> refreshes,
+            final Logger logger,
+            final Duration waitTimeout,
+            final Duration reconnectBackoff) {
         this.connector = Objects.requireNonNull(connector, "connector");
         this.threadName = Objects.requireNonNull(threadName, "threadName");
         this.refreshes = List.copyOf(Objects.requireNonNull(refreshes, "refreshes"));
@@ -84,8 +90,7 @@ public final class NotificationListener implements AutoCloseable {
         this.waitTimeout = Objects.requireNonNull(waitTimeout, "waitTimeout");
         this.reconnectBackoff = Objects.requireNonNull(reconnectBackoff, "reconnectBackoff");
         if (this.refreshes.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "a listener with nothing to refresh would wake up and do nothing");
+            throw new IllegalArgumentException("a listener with nothing to refresh would wake up and do nothing");
         }
     }
 
@@ -124,9 +129,13 @@ public final class NotificationListener implements AutoCloseable {
                 if (!running) {
                     break;
                 }
-                logger.warn("{} lost its connection; retrying in {}s. The {}s poll is unaffected and"
+                logger.warn(
+                        "{} lost its connection; retrying in {}s. The {}s poll is unaffected and"
                                 + " remains the actual guarantee.",
-                        threadName, reconnectBackoff.toSeconds(), waitTimeout.toSeconds(), exception);
+                        threadName,
+                        reconnectBackoff.toSeconds(),
+                        waitTimeout.toSeconds(),
+                        exception);
                 if (!sleepBeforeRetry()) {
                     break;
                 }
@@ -134,8 +143,8 @@ public final class NotificationListener implements AutoCloseable {
                 if (!running) {
                     break;
                 }
-                logger.error("{} failed unexpectedly; retrying in {}s",
-                        threadName, reconnectBackoff.toSeconds(), exception);
+                logger.error(
+                        "{} failed unexpectedly; retrying in {}s", threadName, reconnectBackoff.toSeconds(), exception);
                 if (!sleepBeforeRetry()) {
                     break;
                 }
@@ -151,8 +160,11 @@ public final class NotificationListener implements AutoCloseable {
             try {
                 refresh.task().run();
             } catch (final RuntimeException failure) {
-                logger.warn("Could not refresh {}; the listener carries on and will try again on the"
-                        + " next notification.", refresh.what(), failure);
+                logger.warn(
+                        "Could not refresh {}; the listener carries on and will try again on the"
+                                + " next notification.",
+                        refresh.what(),
+                        failure);
             }
         }
     }

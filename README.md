@@ -107,20 +107,20 @@ roles are a projection of it, never the other way round.
 
 ## Modules
 
-| module | platform | what it owns |
-|---|---|---|
-| `proxy` | Velocity | The login gate, the season phase, and which backend a player belongs on. |
-| `limbo` | Paper | The waiting room: applying and enforcing the resource pack before a player goes anywhere. |
-| `hunger-games` | Paper | The start event — registration, teams, border, loot, HUD, winning. |
-| `smp` | Paper | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves. |
-| `discord-bot` | JVM app | Sells access periods, books bunq payments, mirrors admins. |
-| `steward-worker` | JVM app | Resolves platform and plugin versions, migrates the schema, swaps jars, stops and starts the servers around a run, and takes the nightly backup. |
-| `steward-ui` | JVM app + React | The web interface: state, logs, configuration, seasons, access, payments, the journal. No Docker socket, ever. |
-| `steward-deployer` | JVM app | The only service allowed to create a container. Carries `compose.yml` inside its own image. |
-| `common` | library | Access API, message system, glyph constants, the phase enum, the `LISTEN`/`NOTIFY` loop, the migration SQL. |
-| `paper-common` | library | What the three Paper plugins share and Velocity cannot use. |
-| `commands` | library | Every command in the network, declared once. |
-| `resource-pack` | assets | The pack, its fonts, and the zip + SHA-1 a release ships. |
+| module             | platform        | what it owns                                                                                                                                     |
+| ------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `proxy`            | Velocity        | The login gate, the season phase, and which backend a player belongs on.                                                                         |
+| `limbo`            | Paper           | The waiting room: applying and enforcing the resource pack before a player goes anywhere.                                                        |
+| `hunger-games`     | Paper           | The start event — registration, teams, border, loot, HUD, winning.                                                                               |
+| `smp`              | Paper           | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves.                                             |
+| `discord-bot`      | JVM app         | Sells access periods, books bunq payments, mirrors admins.                                                                                       |
+| `steward-worker`   | JVM app         | Resolves platform and plugin versions, migrates the schema, swaps jars, stops and starts the servers around a run, and takes the nightly backup. |
+| `steward-ui`       | JVM app + React | The web interface: state, logs, configuration, seasons, access, payments, the journal. No Docker socket, ever.                                   |
+| `steward-deployer` | JVM app         | The only service allowed to create a container. Carries `compose.yml` inside its own image.                                                      |
+| `common`           | library         | Access API, message system, glyph constants, the phase enum, the `LISTEN`/`NOTIFY` loop, the migration SQL.                                      |
+| `paper-common`     | library         | What the three Paper plugins share and Velocity cannot use.                                                                                      |
+| `commands`         | library         | Every command in the network, declared once.                                                                                                     |
+| `resource-pack`    | assets          | The pack, its fonts, and the zip + SHA-1 a release ships.                                                                                        |
 
 `DisplayTags` also runs on this network but ships from its own repo,
 [nordtal/papermc-display-tags](https://github.com/nordtal/papermc-display-tags).
@@ -153,7 +153,7 @@ entry and a bundle, not a release. The lookup happens once per join, off the mai
 
 **The SMP's design is distance.** There is no `/home`, `/tpa`, `/back` or `/spawn` and there never
 will be; the balloon is the only fast travel given. Milestones are network-wide objectives that pay
-out *aura*, the season's currency — earned by contributing, lost on death.
+out _aura_, the season's currency — earned by contributing, lost on death.
 
 **The resource pack and the plugins are one artefact in two halves.** Glyph code points are allocated
 in [`resource-pack/README.md`](resource-pack/README.md), mirrored by `:common`'s `Glyphs` and the font
@@ -161,7 +161,7 @@ files, and held against each other by a test on every build. Change one, change 
 
 **An update run does not have to empty the network, and the `-standby` services are how.** What
 drops players today is not a backend stopping — `Evacuation` already moves them off one that is
-about to, and `WaitingBook` lets them back in. It is the *proxy* restarting under them, and the
+about to, and `WaitingBook` lets them back in. It is the _proxy_ restarting under them, and the
 limbo stopping alongside it. So a run that touches `proxy`, `limbo` or `smp` first brings up the
 `-standby` of each service it touches, already carrying the new jar, and spends it on the gap:
 sixty seconds of warning in chat and title, a seamless hop to `limbo-standby`, one `transferToHost`
@@ -173,7 +173,7 @@ the run. `steward-worker` conducts it; the two plugins only obey.
 be served by two proxies — they share nothing but the forwarding secret — so `limbo-standby` is an
 ordinary limbo that two proxies happen to know about, and `proxy-standby` shrinks to its one real
 job: holding the ten seconds in which the proxy itself is gone. Two Paper processes over one world
-would not work at all (`session.lock`), which is why the standby of a backend is a *different*
+would not work at all (`session.lock`), which is why the standby of a backend is a _different_
 world and never a second copy of the same one.
 
 **Those ten seconds used to be the price, and since season-2-ops/162 the door stays open through
@@ -194,7 +194,7 @@ client the authority on which server it may enter.
 zero, to whoever is connected then — and the process does not stop for another several seconds
 while the worker waits for the backends to empty (sixteen of them in run 59 on 2026-09-20).
 Somebody who connected inside that window was never parked, because parking was over, and met
-Velocity's own *Proxy shutting down*. So for as long as a run is moving this proxy, an arrival is
+Velocity's own _Proxy shutting down_. So for as long as a run is moving this proxy, an arrival is
 **refused** with a sentence rather than let onto a process that is about to go. Refused and not
 transferred, deliberately: a screen that says come back in a moment is better than a loading bar
 that ends in a dropped connection (season-2-ops/151).

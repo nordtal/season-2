@@ -17,8 +17,7 @@ import java.util.Optional;
  * @param max      upper bound, {@link Kind#INTEGER} only
  * @param choices  the permitted values, {@link Kind#CHOICE} only
  */
-public record Argument(String name, Kind kind, boolean required, int min, int max,
-                       List<String> choices) {
+public record Argument(String name, Kind kind, boolean required, int min, int max, List<String> choices) {
 
     /** What an argument accepts. */
     public enum Kind {
@@ -85,16 +84,13 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
             throw new IllegalArgumentException("an argument needs a name");
         }
         if (kind == Kind.INTEGER && min > max) {
-            throw new IllegalArgumentException(
-                    "argument '" + name + "' has min " + min + " above max " + max);
+            throw new IllegalArgumentException("argument '" + name + "' has min " + min + " above max " + max);
         }
         if (kind == Kind.CHOICE && choices.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "argument '" + name + "' is a CHOICE with nothing to choose from");
+            throw new IllegalArgumentException("argument '" + name + "' is a CHOICE with nothing to choose from");
         }
         if (kind != Kind.CHOICE && !choices.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "argument '" + name + "' is a " + kind + " and carries choices anyway");
+            throw new IllegalArgumentException("argument '" + name + "' is a " + kind + " and carries choices anyway");
         }
     }
 

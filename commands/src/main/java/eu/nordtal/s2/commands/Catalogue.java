@@ -4,10 +4,9 @@ import eu.nordtal.s2.commands.access.AccessCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.limbo.LimboCommands;
 import eu.nordtal.s2.commands.network.NetworkCommands;
-import eu.nordtal.s2.commands.update.UpdateCommands;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.commands.smp.SmpCommands;
-
+import eu.nordtal.s2.commands.update.UpdateCommands;
 import java.util.List;
 
 /**
@@ -31,8 +30,7 @@ import java.util.List;
  */
 public final class Catalogue {
 
-    private Catalogue() {
-    }
+    private Catalogue() {}
 
     /** Every declaration, in no particular order. */
     public static List<Declaration> all() {
@@ -76,21 +74,24 @@ public final class Catalogue {
      *              consults
      * @return the declaration to run for the bare root, if that root has one and they may run it
      */
-    public static java.util.Optional<Declaration> rootDefault(final String root,
-                                                              final boolean admin) {
+    public static java.util.Optional<Declaration> rootDefault(final String root, final boolean admin) {
         return java.util.Optional.ofNullable(ROOT_DEFAULTS.get(root))
                 .filter(declaration -> admin || !declaration.adminOnly());
     }
 
-    private static final java.util.Map<String, Declaration> ROOT_DEFAULTS =
-            java.util.Map.of("phase", PhaseCommands.SHOW,
-                    // The bare /update is the report, on the surfaces that have a bare form at
-                    // all. Discord has none - a root with subcommands is a menu there - which is
-                    // why the report is /update check and this entry exists.
-                    "update", eu.nordtal.s2.commands.update.UpdateCommands.REPORT);
+    private static final java.util.Map<String, Declaration> ROOT_DEFAULTS = java.util.Map.of(
+            "phase",
+            PhaseCommands.SHOW,
+            // The bare /update is the report, on the surfaces that have a bare form at
+            // all. Discord has none - a root with subcommands is a menu there - which is
+            // why the report is /update check and this entry exists.
+            "update",
+            eu.nordtal.s2.commands.update.UpdateCommands.REPORT);
 
     /** Everything one process is expected to be able to run. */
     public static List<Declaration> of(final Target target) {
-        return all().stream().filter(declaration -> declaration.target() == target).toList();
+        return all().stream()
+                .filter(declaration -> declaration.target() == target)
+                .toList();
     }
 }

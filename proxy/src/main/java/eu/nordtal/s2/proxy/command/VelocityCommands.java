@@ -1,18 +1,17 @@
 package eu.nordtal.s2.proxy.command;
 
-import eu.nordtal.s2.common.message.MessageRef;
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-
 import eu.nordtal.s2.commands.Argument;
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.Confirmations;
@@ -22,11 +21,11 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.ToneColours;
-import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -36,8 +35,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code :paper-common}'s {@code PaperCommands}, for Velocity.
@@ -68,10 +65,10 @@ import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
  */
 public final class VelocityCommands {
 
-    private record Entry(Declaration declaration, BiConsumer<NordtalUser, Values> run,
-                         java.util.function.Function<Values,
-                                 java.util.Optional<MessageRef>> problem) {
-    }
+    private record Entry(
+            Declaration declaration,
+            BiConsumer<NordtalUser, Values> run,
+            java.util.function.Function<Values, java.util.Optional<MessageRef>> problem) {}
 
     private static final class Node {
 
@@ -92,8 +89,11 @@ public final class VelocityCommands {
     private final List<Entry> entries = new ArrayList<>();
     private final Map<String, Supplier<Collection<String>>> suggestions = new LinkedHashMap<>();
 
-    public VelocityCommands(final ProxyServer proxy, final LoginRoster roster,
-                            final Messages messages, final Supplier<ToneColours> colours) {
+    public VelocityCommands(
+            final ProxyServer proxy,
+            final LoginRoster roster,
+            final Messages messages,
+            final Supplier<ToneColours> colours) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.messages = Objects.requireNonNull(messages, "messages");
@@ -101,17 +101,15 @@ public final class VelocityCommands {
     }
 
     /** A command this process runs itself. */
-    public <E extends CommandEffects> VelocityCommands local(final NordtalCommand<E> command,
-                                                             final E effects) {
-        entries.add(new Entry(command.declaration(),
-                (user, values) -> command.run(user, values, effects),
-                command::check));
+    public <E extends CommandEffects> VelocityCommands local(final NordtalCommand<E> command, final E effects) {
+        entries.add(
+                new Entry(command.declaration(), (user, values) -> command.run(user, values, effects), command::check));
         return this;
     }
 
     /** What to offer for one argument. Must be in memory - see {@code PaperCommands#suggest}. */
-    public VelocityCommands suggest(final Declaration declaration, final String argument,
-                                    final Supplier<Collection<String>> values) {
+    public VelocityCommands suggest(
+            final Declaration declaration, final String argument, final Supplier<Collection<String>> values) {
         if (declaration.arguments().stream().noneMatch(a -> a.name().equals(argument))) {
             throw new IllegalArgumentException(declaration.name() + " has no argument '" + argument
                     + "', so nothing would ever ask for these suggestions");
@@ -130,8 +128,7 @@ public final class VelocityCommands {
                 node = node.children.computeIfAbsent(path.get(depth), Node::new);
             }
             if (node.command != null) {
-                throw new IllegalStateException("two commands both claim /"
-                        + String.join(" ", path));
+                throw new IllegalStateException("two commands both claim /" + String.join(" ", path));
             }
             node.command = entry;
         }
@@ -191,8 +188,7 @@ public final class VelocityCommands {
     }
 
     private LiteralArgumentBuilder<CommandSource> materialise(final Node node) {
-        final LiteralArgumentBuilder<CommandSource> builder =
-                BrigadierCommand.literalArgumentBuilder(node.literal);
+        final LiteralArgumentBuilder<CommandSource> builder = BrigadierCommand.literalArgumentBuilder(node.literal);
         for (final Node child : node.children.values()) {
             // Only when everything below it is admin-only - or when nothing below it may be typed
             // in game at all, which is the same question asked about the surface (steward/106).
@@ -207,8 +203,7 @@ public final class VelocityCommands {
         return builder;
     }
 
-    private boolean arguments(final LiteralArgumentBuilder<CommandSource> parent,
-                              final Entry entry) {
+    private boolean arguments(final LiteralArgumentBuilder<CommandSource> parent, final Entry entry) {
         final List<Argument> arguments = entry.declaration().arguments();
         if (arguments.isEmpty()) {
             parent.executes(context -> run(context, entry, Map.of()));
@@ -217,8 +212,7 @@ public final class VelocityCommands {
 
         RequiredArgumentBuilder<CommandSource, ?> child = null;
         for (int at = arguments.size() - 1; at >= 0; at--) {
-            final RequiredArgumentBuilder<CommandSource, ?> node =
-                    node(entry.declaration(), arguments.get(at));
+            final RequiredArgumentBuilder<CommandSource, ?> node = node(entry.declaration(), arguments.get(at));
             final int index = at;
             if (satisfied(arguments, index + 1)) {
                 node.executes(context -> run(context, entry, read(context, arguments, index + 1)));
@@ -248,15 +242,12 @@ public final class VelocityCommands {
         return true;
     }
 
-    private RequiredArgumentBuilder<CommandSource, ?> node(final Declaration declaration,
-                                                           final Argument argument) {
-        final Supplier<Collection<String>> offered =
-                suggestions.get(declaration.name() + " " + argument.name());
+    private RequiredArgumentBuilder<CommandSource, ?> node(final Declaration declaration, final Argument argument) {
+        final Supplier<Collection<String>> offered = suggestions.get(declaration.name() + " " + argument.name());
         return switch (argument.kind()) {
             case WORD, REFERENCE -> {
                 final RequiredArgumentBuilder<CommandSource, ?> word =
-                        BrigadierCommand.requiredArgumentBuilder(argument.name(),
-                                StringArgumentType.word());
+                        BrigadierCommand.requiredArgumentBuilder(argument.name(), StringArgumentType.word());
                 if (offered != null) {
                     word.suggests((context, builder) -> {
                         offered.get().forEach(builder::suggest);
@@ -267,8 +258,7 @@ public final class VelocityCommands {
             }
             case GREEDY_STRING -> {
                 final RequiredArgumentBuilder<CommandSource, ?> greedy =
-                        BrigadierCommand.requiredArgumentBuilder(argument.name(),
-                                StringArgumentType.greedyString());
+                        BrigadierCommand.requiredArgumentBuilder(argument.name(), StringArgumentType.greedyString());
                 if (offered != null) {
                     greedy.suggests((context, builder) -> {
                         offered.get().forEach(builder::suggest);
@@ -277,34 +267,33 @@ public final class VelocityCommands {
                 }
                 yield greedy;
             }
-            case INTEGER -> BrigadierCommand.requiredArgumentBuilder(argument.name(),
-                    IntegerArgumentType.integer(argument.min(), argument.max()));
-            case PLAYER, ACCOUNT -> BrigadierCommand.requiredArgumentBuilder(argument.name(),
-                            StringArgumentType.word())
-                    .suggests((context, builder) -> {
-                        proxy.getAllPlayers().forEach(online -> builder.suggest(online.getUsername()));
-                        return builder.buildFuture();
-                    });
-            case CHOICE -> BrigadierCommand.requiredArgumentBuilder(argument.name(),
-                            StringArgumentType.word())
-                    .suggests((context, builder) -> {
-                        argument.choices().forEach(builder::suggest);
-                        return builder.buildFuture();
-                    });
+            case INTEGER ->
+                BrigadierCommand.requiredArgumentBuilder(
+                        argument.name(), IntegerArgumentType.integer(argument.min(), argument.max()));
+            case PLAYER, ACCOUNT ->
+                BrigadierCommand.requiredArgumentBuilder(argument.name(), StringArgumentType.word())
+                        .suggests((context, builder) -> {
+                            proxy.getAllPlayers().forEach(online -> builder.suggest(online.getUsername()));
+                            return builder.buildFuture();
+                        });
+            case CHOICE ->
+                BrigadierCommand.requiredArgumentBuilder(argument.name(), StringArgumentType.word())
+                        .suggests((context, builder) -> {
+                            argument.choices().forEach(builder::suggest);
+                            return builder.buildFuture();
+                        });
         };
     }
 
-    private Map<String, Object> read(final CommandContext<CommandSource> context,
-                                     final List<Argument> arguments, final int count) {
+    private Map<String, Object> read(
+            final CommandContext<CommandSource> context, final List<Argument> arguments, final int count) {
         final Map<String, Object> values = new LinkedHashMap<>();
         for (int at = 0; at < count; at++) {
             final Argument argument = arguments.get(at);
             switch (argument.kind()) {
-                case INTEGER -> values.put(argument.name(),
-                        IntegerArgumentType.getInteger(context, argument.name()));
+                case INTEGER -> values.put(argument.name(), IntegerArgumentType.getInteger(context, argument.name()));
                 case PLAYER, ACCOUNT -> {
-                    final var target = proxy.getPlayer(
-                            StringArgumentType.getString(context, argument.name()));
+                    final var target = proxy.getPlayer(StringArgumentType.getString(context, argument.name()));
                     if (target.isEmpty()) {
                         return values;
                     }
@@ -321,15 +310,13 @@ public final class VelocityCommands {
                     }
                     values.put(argument.name(), linked.get());
                 }
-                default -> values.put(argument.name(),
-                        StringArgumentType.getString(context, argument.name()));
+                default -> values.put(argument.name(), StringArgumentType.getString(context, argument.name()));
             }
         }
         return values;
     }
 
-    private int run(final CommandContext<CommandSource> context, final Entry entry,
-                    final Map<String, Object> values) {
+    private int run(final CommandContext<CommandSource> context, final Entry entry, final Map<String, Object> values) {
         final NordtalUser user = user(context.getSource());
 
         if (user.origin() == NordtalUser.Origin.CONSOLE
@@ -399,7 +386,8 @@ public final class VelocityCommands {
         }
         user.reply(
                 MESSAGES.command().confirm().retype(what, String.valueOf(Confirmations.WINDOW.toSeconds())),
-                Feedback.REFUSED, Tone.WARN);
+                Feedback.REFUSED,
+                Tone.WARN);
         return false;
     }
 
@@ -407,11 +395,12 @@ public final class VelocityCommands {
         // A root with a declared default runs it instead of listing itself: /phase is /phase show.
         // The admin flag goes with it, because this path goes around the child node's requires -
         // which is the whole admin gate.
-        final java.util.Optional<Declaration> preset = eu.nordtal.s2.commands.Catalogue
-                .rootDefault(node.literal, mayUse(context.getSource()));
+        final java.util.Optional<Declaration> preset =
+                eu.nordtal.s2.commands.Catalogue.rootDefault(node.literal, mayUse(context.getSource()));
         if (preset.isPresent()) {
             final Node child = node.children.get(preset.get().path().get(1));
-            if (child != null && child.command != null
+            if (child != null
+                    && child.command != null
                     && child.command.declaration().equals(preset.get())) {
                 return run(context, child.command, Map.of());
             }
@@ -448,17 +437,16 @@ public final class VelocityCommands {
         user.reply(MESSAGES.command().help().header("/" + node.literal), Tone.NEUTRAL);
         below.stream()
                 .sorted(Comparator.comparing(Declaration::name))
-                .forEach(declaration -> user.reply(MESSAGES.command().help().line(declaration.usage(),
-                        user.phrase(declaration.describe())), Tone.MUTED));
+                .forEach(declaration -> user.reply(
+                        MESSAGES.command().help().line(declaration.usage(), user.phrase(declaration.describe())),
+                        Tone.MUTED));
         return Command.SINGLE_SUCCESS;
     }
 
     private int usage(final CommandContext<CommandSource> context, final Declaration declaration) {
         final NordtalUser user = user(context.getSource());
-        user.reply(MESSAGES.command().help().usage(declaration.usage()),
-                Feedback.REFUSED, Tone.NEUTRAL);
-        user.reply(MESSAGES.command().help().what(user.phrase(declaration.describe())),
-                Tone.MUTED);
+        user.reply(MESSAGES.command().help().usage(declaration.usage()), Feedback.REFUSED, Tone.NEUTRAL);
+        user.reply(MESSAGES.command().help().what(user.phrase(declaration.describe())), Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }
 

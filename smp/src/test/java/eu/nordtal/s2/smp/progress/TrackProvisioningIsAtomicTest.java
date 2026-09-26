@@ -1,15 +1,14 @@
 package eu.nordtal.s2.smp.progress;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * A reload writes every milestone row or none of them.
@@ -46,14 +45,14 @@ class TrackProvisioningIsAtomicTest {
         assertTrue(method > 0, "ensureRows has been renamed - this rule moved with it");
 
         final int transaction = source.indexOf("jdbi.useTransaction(", method);
-        assertTrue(transaction > method && transaction - method < 400,
+        assertTrue(
+                transaction > method && transaction - method < 400,
                 "ensureRows writes one row per milestone and one per objective one statement at a"
                         + " time, so a failure halfway leaves the database carrying targets from a"
                         + " file the log has just reported as refused");
 
         final int loop = source.indexOf("for (final Milestone milestone", transaction);
-        assertTrue(loop > transaction,
-                "the loop has to run inside the transaction, not beside it");
+        assertTrue(loop > transaction, "the loop has to run inside the transaction, not beside it");
     }
 
     @Test
@@ -63,7 +62,8 @@ class TrackProvisioningIsAtomicTest {
 
         final int rows = source.indexOf("ensureRows(candidate);");
         final int assignment = source.indexOf("track = candidate;", rows);
-        assertTrue(rows > 0 && assignment > rows,
+        assertTrue(
+                rows > 0 && assignment > rows,
                 "the rows are written first and the track second (finding 103): with the"
                         + " assignment first, every command read a definition whose objective rows"
                         + " were missing or half written");
@@ -72,8 +72,7 @@ class TrackProvisioningIsAtomicTest {
     private static String read() {
         try {
             Path candidate = Path.of("").toAbsolutePath();
-            while (candidate != null
-                    && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
+            while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
                 candidate = candidate.getParent();
             }
             if (candidate == null) {

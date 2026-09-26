@@ -4,14 +4,12 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.feedback.FeedbackSound;
 import eu.nordtal.s2.common.feedback.FeedbackSounds;
 import eu.nordtal.s2.smp.config.SoundsSpec;
-
-import org.bukkit.Location;
-import org.bukkit.SoundCategory;
-import org.bukkit.entity.Player;
-
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import org.bukkit.Location;
+import org.bukkit.SoundCategory;
+import org.bukkit.entity.Player;
 
 /**
  * The one place in {@code smp} that names a sound to Bukkit.
@@ -82,8 +80,8 @@ public final class SmpSounds {
         final Map<Feedback, FeedbackSound> declared = new EnumMap<>(Feedback.class);
         for (final Feedback category : Feedback.values()) {
             final SoundsSpec.SoundSpec entry = specOf(category, spec);
-            declared.put(category, new FeedbackSound(
-                    entry.key() == null ? "" : entry.key(), entry.volume(), entry.pitch()));
+            declared.put(
+                    category, new FeedbackSound(entry.key() == null ? "" : entry.key(), entry.volume(), entry.pitch()));
         }
         return FeedbackSounds.parse(declared, problems);
     }
@@ -129,8 +127,7 @@ public final class SmpSounds {
         try {
             // MASTER rather than a themed category: a player who has turned "Blocks" down is telling
             // the game about ambience, not about whether the server may answer their click.
-            player.playSound(player.getLocation(), sound.key(), SoundCategory.MASTER,
-                    sound.volume(), sound.pitch());
+            player.playSound(player.getLocation(), sound.key(), SoundCategory.MASTER, sound.volume(), sound.pitch());
         } catch (final RuntimeException exception) {
             // A malformed key is refused at load, so reaching here means the platform disagreed with
             // us about something. Silence the category and say so once - a stack trace per click is
@@ -158,8 +155,7 @@ public final class SmpSounds {
             return;
         }
         try {
-            location.getWorld().playSound(location, sound.key(), SoundCategory.MASTER,
-                    sound.volume(), sound.pitch());
+            location.getWorld().playSound(location, sound.key(), SoundCategory.MASTER, sound.volume(), sound.pitch());
         } catch (final RuntimeException exception) {
             current.failed(category, exception, problems);
         }

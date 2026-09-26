@@ -1,9 +1,11 @@
 package eu.nordtal.s2.steward.ui.auth;
 
-import eu.nordtal.s2.steward.ui.config.UiSpec;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.steward.ui.config.UiSpec;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -13,11 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * What the sign-in page is able to say about a deployment nobody can sign in to.
@@ -34,20 +33,27 @@ class DiscordAuthTest {
     @DisplayName("each missing value is named, in the order somebody fills them in")
     void theMissingValueIsNamedRatherThanGuessedAt() {
         assertEquals("discord.client-id", missingFrom(new Values()));
-        assertTrue(missingFrom(new Values().withClientId("an-application"))
-                .startsWith("discord.client-secret"));
-        assertEquals("discord.guild-id", missingFrom(new Values()
-                .withClientId("an-application").withClientSecret("shh")));
+        assertTrue(missingFrom(new Values().withClientId("an-application")).startsWith("discord.client-secret"));
+        assertEquals(
+                "discord.guild-id",
+                missingFrom(new Values().withClientId("an-application").withClientSecret("shh")));
         // No admin role: who may in is the admin tree in the database, not a Discord role.
-        assertTrue(new DiscordAuth(new Values().withClientId("an-application").withClientSecret("shh")
-                .withGuildId("1234"), "https://steward.example").whatIsMissing().isEmpty());
+        assertTrue(new DiscordAuth(
+                        new Values()
+                                .withClientId("an-application")
+                                .withClientSecret("shh")
+                                .withGuildId("1234"),
+                        "https://steward.example")
+                .whatIsMissing()
+                .isEmpty());
     }
 
     @Test
     @DisplayName("the redirect URI is the configured address, never the request's")
     void theRedirectUriIsWrittenDownNotGuessed() {
         // A redirect URI that follows the Host header is a redirect URI an attacker can choose.
-        assertEquals("https://steward.dev.nordtal.eu/auth/callback",
+        assertEquals(
+                "https://steward.dev.nordtal.eu/auth/callback",
                 new DiscordAuth(new Values(), "https://steward.dev.nordtal.eu").redirectUri());
     }
 
@@ -87,9 +93,12 @@ class DiscordAuthTest {
             }
         }
 
-        assertEquals(List.of(), wrong, "the sign-in redirects to " + path
-                + ", and an instruction that names anything else sends an operator to Discord with"
-                + " a URI the sign-in will never present");
+        assertEquals(
+                List.of(),
+                wrong,
+                "the sign-in redirects to " + path
+                        + ", and an instruction that names anything else sends an operator to Discord with"
+                        + " a URI the sign-in will never present");
     }
 
     /** What is left of a mention once a scheme and a host are taken off the front. */
@@ -115,12 +124,15 @@ class DiscordAuthTest {
         while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
             directory = directory.getParent();
         }
-        assertTrue(directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        assertTrue(
+                directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         return directory;
     }
 
     private static String missingFrom(final UiSpec.DiscordSpec values) {
-        return new DiscordAuth(values, "https://steward.example").whatIsMissing().orElseThrow();
+        return new DiscordAuth(values, "https://steward.example")
+                .whatIsMissing()
+                .orElseThrow();
     }
 
     /** The three values, each empty until a test fills it in. */
@@ -166,15 +178,15 @@ class DiscordAuthTest {
     void cleartextGoesNowhereButHere() {
         final Values config = new Values();
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> new DiscordAuth(config, "https://steward.example", "http://discord.example"));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> new DiscordAuth(config, "https://steward.example", "http://10.0.0.5:8080"));
 
         // And the two that are allowed: the real one, and the stand-in every test here uses.
-        assertDoesNotThrow(() ->
-                new DiscordAuth(config, "https://steward.example", DiscordAuth.DISCORD_API));
-        assertDoesNotThrow(() ->
-                new DiscordAuth(config, "https://steward.example", "http://127.0.0.1:18093"));
+        assertDoesNotThrow(() -> new DiscordAuth(config, "https://steward.example", DiscordAuth.DISCORD_API));
+        assertDoesNotThrow(() -> new DiscordAuth(config, "https://steward.example", "http://127.0.0.1:18093"));
     }
 }

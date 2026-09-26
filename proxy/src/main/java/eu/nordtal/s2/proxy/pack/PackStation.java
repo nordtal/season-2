@@ -9,7 +9,6 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
-
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.limbo.LimboProtocol;
 import eu.nordtal.s2.proxy.config.PackSpec;
@@ -17,11 +16,6 @@ import eu.nordtal.s2.proxy.gate.BackendHealth;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
 import eu.nordtal.s2.proxy.routing.PhaseRouting;
-
-import net.kyori.adventure.text.Component;
-
-import org.slf4j.Logger;
-
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -29,6 +23,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.Component;
+import org.slf4j.Logger;
 
 /**
  * The resource-pack station, and with it the second half of the login path: every player waits in
@@ -91,13 +87,12 @@ public final class PackStation {
     /** {@code null} when {@code pack.yml#enabled} is off - the one thing that makes the wait short. */
     private final PackOffer offer;
 
-    private final MinecraftChannelIdentifier channel =
-            MinecraftChannelIdentifier.from(LimboProtocol.CHANNEL);
+    private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from(LimboProtocol.CHANNEL);
 
     /** UUIDs we have already complained about sending us a forged message, so a spammer logs once. */
     private final Set<UUID> reportedForgery = ConcurrentHashMap.newKeySet();
 
-    private volatile Consumer<Player> release = player -> { };
+    private volatile Consumer<Player> release = player -> {};
 
     /**
      * Whether an update run currently has that backend stopped.
@@ -119,10 +114,17 @@ public final class PackStation {
      */
     private volatile java.util.function.Predicate<String> held = server -> false;
 
-    public PackStation(final ProxyServer proxy, final Logger logger, final PhaseRouting routing,
-                       final PhaseWatch phases, final LoginRoster roster, final PackMessages messages,
-                       final PackSpec config, final PackOffer offer, final WaitingBook book,
-                       final BackendHealth health) {
+    public PackStation(
+            final ProxyServer proxy,
+            final Logger logger,
+            final PhaseRouting routing,
+            final PhaseWatch phases,
+            final LoginRoster roster,
+            final PackMessages messages,
+            final PackSpec config,
+            final PackOffer offer,
+            final WaitingBook book,
+            final BackendHealth health) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.routing = Objects.requireNonNull(routing, "routing");
@@ -233,14 +235,15 @@ public final class PackStation {
                 disconnect(player, messages.declined(locale));
             }
             case FAILED_DOWNLOAD, FAILED_RELOAD -> {
-                logger.warn("{} could not apply the resource pack: {}", player.getUsername(),
-                        event.getStatus());
+                logger.warn("{} could not apply the resource pack: {}", player.getUsername(), event.getStatus());
                 disconnect(player, messages.failedDownload(locale));
             }
             case INVALID_URL -> {
                 // Everybody's problem, not this player's: pack.yml#url does not load at all.
-                logger.error("The client of {} reports pack.yml#url as unloadable. EVERY player will "
-                        + "fail this way until it is fixed.", player.getUsername());
+                logger.error(
+                        "The client of {} reports pack.yml#url as unloadable. EVERY player will "
+                                + "fail this way until it is fixed.",
+                        player.getUsername());
                 disconnect(player, messages.invalidUrl(locale));
             }
             case DISCARDED -> {
@@ -270,14 +273,19 @@ public final class PackStation {
 
         final Optional<LimboProtocol.Message> message = LimboProtocol.decode(event.getData());
         if (message.isEmpty()) {
-            logger.warn("Dropped an unreadable {} message from '{}'", LimboProtocol.CHANNEL,
+            logger.warn(
+                    "Dropped an unreadable {} message from '{}'",
+                    LimboProtocol.CHANNEL,
                     connection.getServerInfo().getName());
             return;
         }
         if (message.get().type() != LimboProtocol.Type.READY) {
             // WAIT runs proxy -> limbo only. A backend sending one is a bug in that backend.
-            logger.warn("'{}' sent a {} on {}, which only the proxy sends",
-                    connection.getServerInfo().getName(), message.get().type(), LimboProtocol.CHANNEL);
+            logger.warn(
+                    "'{}' sent a {} on {}, which only the proxy sends",
+                    connection.getServerInfo().getName(),
+                    message.get().type(),
+                    LimboProtocol.CHANNEL);
             return;
         }
 
@@ -285,9 +293,11 @@ public final class PackStation {
         if (book.ready(player.getUniqueId())) {
             // The arrival event has not reached us yet. Logged at INFO because it is the only
             // evidence that this race really happens.
-            logger.info("'{}' reported {} ready before the proxy had finished putting them in the "
+            logger.info(
+                    "'{}' reported {} ready before the proxy had finished putting them in the "
                             + "waiting room; remembered rather than dropped",
-                    connection.getServerInfo().getName(), player.getUsername());
+                    connection.getServerInfo().getName(),
+                    player.getUsername());
         }
         evaluate(player);
     }
@@ -298,8 +308,10 @@ public final class PackStation {
         // disk, and never acted on.
         final UUID uuid = event.getSource() instanceof Player player ? player.getUniqueId() : null;
         if (uuid == null || reportedForgery.add(uuid)) {
-            logger.warn("Ignored a {} message that did not come from a backend server: {}",
-                    LimboProtocol.CHANNEL, event.getSource());
+            logger.warn(
+                    "Ignored a {} message that did not come from a backend server: {}",
+                    LimboProtocol.CHANNEL,
+                    event.getSource());
         }
     }
 
@@ -355,10 +367,9 @@ public final class PackStation {
         // for a backend that is registered and has just kicked somebody with no reason given. A
         // player is held here rather than released into it until the retry window passes - see
         // BackendKick for what suspends it and PlayerRouter for what clears it again.
-        final boolean available = proxy.getServer(destination).isPresent()
-                && !health.isSuspended(destination);
-        final WaitingDecision decision = book.decide(uuid, phase, admin,
-                available, destination, updating.test(destination), held.test(destination));
+        final boolean available = proxy.getServer(destination).isPresent() && !health.isSuspended(destination);
+        final WaitingDecision decision = book.decide(
+                uuid, phase, admin, available, destination, updating.test(destination), held.test(destination));
 
         switch (decision.action()) {
             case IDLE -> {
@@ -366,22 +377,27 @@ public final class PackStation {
             }
             case SHOW -> sendToLimbo(player, LimboProtocol.wait(decision.reason()));
             case TIMED_OUT -> {
-                logger.warn("{} never answered the resource pack offer within {}s",
-                        player.getUsername(), config.applyTimeoutSeconds());
+                logger.warn(
+                        "{} never answered the resource pack offer within {}s",
+                        player.getUsername(),
+                        config.applyTimeoutSeconds());
                 disconnect(player, messages.timedOut(localeOf(player)));
             }
             case RELEASE -> {
-                logger.info("{} has the pack and is leaving the waiting room for '{}'",
-                        player.getUsername(), destination);
+                logger.info(
+                        "{} has the pack and is leaving the waiting room for '{}'", player.getUsername(), destination);
                 release.accept(player);
             }
             case RELEASE_UNCONFIRMED -> {
                 // The player goes where they were always going; what is wrong is the channel, and
                 // this is the only place that would say so.
-                logger.warn("Releasing {} to '{}' without a READY from '{}': everything else has "
+                logger.warn(
+                        "Releasing {} to '{}' without a READY from '{}': everything else has "
                                 + "been settled for the grace period. The nordtal:limbo channel is "
                                 + "not delivering backend messages to this proxy.",
-                        player.getUsername(), destination, routing.servers().limbo());
+                        player.getUsername(),
+                        destination,
+                        routing.servers().limbo());
                 release.accept(player);
             }
         }
@@ -393,8 +409,10 @@ public final class PackStation {
                 // The backend has not registered the channel: a limbo that is running without its
                 // plugin, or an older one. The player is not stuck - the release path does not
                 // depend on WAIT - but their screen will say nothing useful.
-                logger.warn("'{}' did not accept a {} message; is the limbo plugin running there?",
-                        connection.getServerInfo().getName(), LimboProtocol.CHANNEL);
+                logger.warn(
+                        "'{}' did not accept a {} message; is the limbo plugin running there?",
+                        connection.getServerInfo().getName(),
+                        LimboProtocol.CHANNEL);
             }
         });
     }
@@ -414,12 +432,16 @@ public final class PackStation {
      * @param cause  why, in one line - a backend that is restarting says "Connection refused"
      */
     public void releaseFailed(final Player player, final String cause) {
-        final String destination = routing.servers()
-                .forAdmitted(phases.lastKnown(), roster.isAdmin(player.getUniqueId()));
+        final String destination =
+                routing.servers().forAdmitted(phases.lastKnown(), roster.isAdmin(player.getUniqueId()));
         book.releaseFailed(player.getUniqueId(), destination);
         health.suspend(destination);
-        logger.warn("'{}' did not take {} ({}); holding them in the waiting room and trying again in {}s",
-                destination, player.getUsername(), cause, WaitingBook.RELEASE_RETRY.toSeconds());
+        logger.warn(
+                "'{}' did not take {} ({}); holding them in the waiting room and trying again in {}s",
+                destination,
+                player.getUsername(),
+                cause,
+                WaitingBook.RELEASE_RETRY.toSeconds());
         evaluate(player);
     }
 

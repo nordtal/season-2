@@ -1,19 +1,17 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import eu.nordtal.s2.common.config.EnvOverrideFile;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.config.EnvOverrideFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * steward/76: {@link ConfigEntry#environmentOverridden()} comes from the
@@ -43,8 +41,7 @@ class ConfigFilesEnvOverrideTest {
     @Test
     @DisplayName("true for exactly the path the neighbour file names")
     void trueForTheOverriddenPath() throws IOException {
-        Files.writeString(directory.resolve("access.yml"),
-                "guild-id: '1'\nlanguages:\n- tag: en\n");
+        Files.writeString(directory.resolve("access.yml"), "guild-id: '1'\nlanguages:\n- tag: en\n");
         EnvOverrideFile.write(directory.resolve("access.yml"), List.of("languages"));
 
         final ConfigDocument document = ConfigFiles.read(directory.resolve("access.yml"));
@@ -55,8 +52,7 @@ class ConfigFilesEnvOverrideTest {
     @Test
     @DisplayName("false, not absent, for a path the neighbour file does not name")
     void falseForAPathTheNeighbourFileDoesNotName() throws IOException {
-        Files.writeString(directory.resolve("access.yml"),
-                "guild-id: '1'\nlanguages:\n- tag: en\n");
+        Files.writeString(directory.resolve("access.yml"), "guild-id: '1'\nlanguages:\n- tag: en\n");
         EnvOverrideFile.write(directory.resolve("access.yml"), List.of("languages"));
 
         final ConfigDocument document = ConfigFiles.read(directory.resolve("access.yml"));
@@ -89,8 +85,8 @@ class ConfigFilesEnvOverrideTest {
     }
 
     private static ConfigEntry entry(final ConfigDocument document, final String path) {
-        return document.find(path).orElseThrow(
-                () -> new AssertionError("no entry " + path + " in " + document.entries().stream()
-                        .map(ConfigEntry::path).toList()));
+        return document.find(path)
+                .orElseThrow(() -> new AssertionError("no entry " + path + " in "
+                        + document.entries().stream().map(ConfigEntry::path).toList()));
     }
 }

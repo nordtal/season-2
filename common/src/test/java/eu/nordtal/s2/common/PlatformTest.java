@@ -1,8 +1,8 @@
 package eu.nordtal.s2.common;
 
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -10,10 +10,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link Platform} and {@code gradle/libs.versions.toml} are two copies of one fact, and this is
@@ -38,8 +37,7 @@ class PlatformTest {
 
     @BeforeAll
     static void read() throws IOException {
-        catalog = Files.readString(repositoryRoot().resolve("gradle/libs.versions.toml"),
-                StandardCharsets.UTF_8);
+        catalog = Files.readString(repositoryRoot().resolve("gradle/libs.versions.toml"), StandardCharsets.UTF_8);
     }
 
     @Test
@@ -50,10 +48,14 @@ class PlatformTest {
         // is a Minecraft version - and it is the only part Fill and Modrinth understand.
         final String paper = version("paper");
         final int build = paper.indexOf(".build.");
-        assertTrue(build > 0, "the paper coordinate no longer carries `.build.`, so this test can no"
-                + " longer say which Minecraft version it names: " + paper);
+        assertTrue(
+                build > 0,
+                "the paper coordinate no longer carries `.build.`, so this test can no"
+                        + " longer say which Minecraft version it names: " + paper);
 
-        assertEquals(paper.substring(0, build), Platform.MINECRAFT,
+        assertEquals(
+                paper.substring(0, build),
+                Platform.MINECRAFT,
                 "Platform.MINECRAFT and the paper-api version in gradle/libs.versions.toml name"
                         + " different Minecraft versions. One of them decides what the worker"
                         + " installs and the other decides what every plugin is compiled against;"
@@ -65,7 +67,9 @@ class PlatformTest {
     void theVelocityApiVersionIsTheOneTheProxyCompilesAgainst() {
         // This is the number the update report compares a resolved Velocity version against, and it
         // is only worth anything if it is the version the proxy plugin was actually built with.
-        assertEquals(version("velocity"), Platform.VELOCITY_API,
+        assertEquals(
+                version("velocity"),
+                Platform.VELOCITY_API,
                 "Platform.VELOCITY_API no longer matches the catalog. The worker's warning about"
                         + " running the proxy on a newer API than it was built for is measured"
                         + " against this string, so a stale one makes that warning meaningless.");
@@ -78,7 +82,9 @@ class PlatformTest {
         // whole 4.x line. What has to hold is that the line the worker follows is the line the
         // proxy is compiled for: following major 5 while compiling against 4.2.0 is not a warning
         // in a report, it is a proxy that does not start.
-        assertEquals(major(Platform.VELOCITY_API), major(Platform.VELOCITY_FAMILY),
+        assertEquals(
+                major(Platform.VELOCITY_API),
+                major(Platform.VELOCITY_FAMILY),
                 "Platform.VELOCITY_FAMILY (" + Platform.VELOCITY_FAMILY + ") and the velocity-api in"
                         + " the catalog (" + Platform.VELOCITY_API + ") are different majors. The"
                         + " worker would install a proxy build the plugin cannot run on.");
@@ -97,11 +103,13 @@ class PlatformTest {
         // protects against is quiet by construction: a client accepts a pack whose format is behind
         // and only warns, so the way it surfaces is a season running on art nobody noticed was for
         // an older version.
-        final String mcmeta = Files.readString(
-                repositoryRoot().resolve("resource-pack/src/pack.mcmeta"), StandardCharsets.UTF_8);
+        final String mcmeta =
+                Files.readString(repositoryRoot().resolve("resource-pack/src/pack.mcmeta"), StandardCharsets.UTF_8);
         final Matcher format = Pattern.compile("\"pack_format\"\\s*:\\s*(\\d+)").matcher(mcmeta);
         assertTrue(format.find(), "resource-pack/src/pack.mcmeta declares no pack_format");
-        assertEquals(Platform.PACK_FORMAT, Integer.parseInt(format.group(1)),
+        assertEquals(
+                Platform.PACK_FORMAT,
+                Integer.parseInt(format.group(1)),
                 "Platform.PACK_FORMAT and resource-pack/src/pack.mcmeta name different pack"
                         + " formats. The pack is chosen for a Minecraft version and this is the"
                         + " number that says which one.");
@@ -114,26 +122,28 @@ class PlatformTest {
         // failure - Paper accepts an older api-version and quietly applies the compatibility
         // behaviour that goes with it, which is the kind of difference that shows up as one server
         // behaving unlike the other two.
-        for (final String module : new String[]{"smp", "limbo", "hunger-games"}) {
-            final Path descriptor = repositoryRoot()
-                    .resolve(module + "/src/main/resources/paper-plugin.yml");
+        for (final String module : new String[] {"smp", "limbo", "hunger-games"}) {
+            final Path descriptor = repositoryRoot().resolve(module + "/src/main/resources/paper-plugin.yml");
             final Matcher declared = Pattern.compile("(?m)^api-version:\\s*'?([^'\\s]+)'?$")
                     .matcher(Files.readString(descriptor, StandardCharsets.UTF_8));
             assertTrue(declared.find(), module + "'s paper-plugin.yml declares no api-version");
-            assertEquals(Platform.API_VERSION, declared.group(1),
-                    module + "'s paper-plugin.yml declares an api-version that is not"
-                            + " Platform.API_VERSION");
+            assertEquals(
+                    Platform.API_VERSION,
+                    declared.group(1),
+                    module + "'s paper-plugin.yml declares an api-version that is not" + " Platform.API_VERSION");
         }
 
-        assertEquals(Platform.MINECRAFT, Platform.API_VERSION,
+        assertEquals(
+                Platform.MINECRAFT,
+                Platform.API_VERSION,
                 "API_VERSION and MINECRAFT have parted company. That is allowed - a season may"
                         + " deliberately stay compatible with an older API - but it is a decision,"
                         + " so say so here rather than letting the two drift apart by accident.");
     }
 
     private static String version(final String key) {
-        final Matcher matcher = Pattern.compile("(?m)^" + key + "\\s*=\\s*\"([^\"]+)\"")
-                .matcher(catalog);
+        final Matcher matcher =
+                Pattern.compile("(?m)^" + key + "\\s*=\\s*\"([^\"]+)\"").matcher(catalog);
         assertTrue(matcher.find(), "gradle/libs.versions.toml declares no version called '" + key + "'");
         final String value = matcher.group(1);
         assertNotNull(value);
@@ -149,6 +159,7 @@ class PlatformTest {
             }
             directory = directory.getParent();
         }
-        throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        throw new IllegalStateException(
+                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 }

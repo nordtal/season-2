@@ -5,7 +5,6 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
-
 import java.util.List;
 import java.util.Set;
 
@@ -40,8 +39,7 @@ import java.util.Set;
  */
 public final class AccessCommands {
 
-    private AccessCommands() {
-    }
+    private AccessCommands() {}
 
     /**
      * All six {@code /access} commands: console, and nothing a player or a bot user ever sees.
@@ -80,7 +78,6 @@ public final class AccessCommands {
     /** The two Steward also runs as commands: console, plus the interface. */
     private static final Set<Surface> CONSOLE_AND_WEB = Set.of(Surface.CONSOLE, Surface.WEB);
 
-
     // Every one of these takes an ACCOUNT and not a PLAYER, and the difference is the whole reason
     // the two kinds exist. Their subject is a Discord account: /access grant is exactly what an
     // admin runs for somebody whose payment arrived outside the normal flow, and a PLAYER argument
@@ -89,12 +86,15 @@ public final class AccessCommands {
 
     /** {@code /access status <member>} - the full picture: access, donor, language, grants, purchases. */
     public static final Declaration STATUS = new Declaration(
-            List.of("access", "status"), Target.BOT, CONSOLE_ONLY, true, false,
-            List.of(Argument.account("member")));
+            List.of("access", "status"), Target.BOT, CONSOLE_ONLY, true, false, List.of(Argument.account("member")));
 
     /** {@code /access grant <member> <days>} - days on top of whatever is already running. */
     public static final Declaration GRANT = new Declaration(
-            List.of("access", "grant"), Target.BOT, CONSOLE_ONLY, true, true,
+            List.of("access", "grant"),
+            Target.BOT,
+            CONSOLE_ONLY,
+            true,
+            true,
             // Bounded, which the Discord command was not: it hand-checked "greater than zero" in the
             // handler and had no upper bound at all, so a mistyped 3650 was a decade of free access
             // and one keystroke away from 365.
@@ -102,8 +102,7 @@ public final class AccessCommands {
 
     /** {@code /access revoke <member>} - every running grant, at once. */
     public static final Declaration REVOKE = new Declaration(
-            List.of("access", "revoke"), Target.BOT, CONSOLE_ONLY, true, true,
-            List.of(Argument.account("member")));
+            List.of("access", "revoke"), Target.BOT, CONSOLE_ONLY, true, true, List.of(Argument.account("member")));
 
     /**
      * {@code /access unlink <member>} - break somebody else's account link.
@@ -113,8 +112,7 @@ public final class AccessCommands {
      * it: re-linking needs a code the <em>player</em> generates in game.</p>
      */
     public static final Declaration UNLINK = new Declaration(
-            List.of("access", "unlink"), Target.BOT, CONSOLE_AND_WEB, true, true,
-            List.of(Argument.account("member")));
+            List.of("access", "unlink"), Target.BOT, CONSOLE_AND_WEB, true, true, List.of(Argument.account("member")));
 
     /**
      * {@code /access settle <reference>} - book a payment by hand.
@@ -124,7 +122,11 @@ public final class AccessCommands {
      * on the one command that books money.</p>
      */
     public static final Declaration SETTLE = new Declaration(
-            List.of("access", "settle"), Target.BOT, CONSOLE_AND_WEB, true, true,
+            List.of("access", "settle"),
+            Target.BOT,
+            CONSOLE_AND_WEB,
+            true,
+            true,
             List.of(Argument.reference("reference")));
 
     /**
@@ -136,13 +138,18 @@ public final class AccessCommands {
      * this command is registered on three Paper servers, where a top-level {@code /messages} is a
      * generic enough name to collide with something else's.</p>
      */
-    public static final Declaration RELOAD_MESSAGES = new Declaration(
-            List.of("access", "reload"), Target.BOT, CONSOLE_ONLY, true, false, List.of());
+    public static final Declaration RELOAD_MESSAGES =
+            new Declaration(List.of("access", "reload"), Target.BOT, CONSOLE_ONLY, true, false, List.of());
 
     /** Every {@code /access} command, plus the bot's own reload. */
     public static List<NordtalCommand<AccessEffects>> all() {
-        return List.of(new ShowStatus(), new GrantAccess(), new RevokeAccess(), new UnlinkAccount(),
-                new SettlePayment(), new ReloadBotMessages());
+        return List.of(
+                new ShowStatus(),
+                new GrantAccess(),
+                new RevokeAccess(),
+                new UnlinkAccount(),
+                new SettlePayment(),
+                new ReloadBotMessages());
     }
 
     /** Every declaration here. */

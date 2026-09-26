@@ -1,11 +1,13 @@
 package eu.nordtal.s2.proxy.command;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.ConsoleCommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.commands.phase.PhaseEffects;
@@ -17,17 +19,12 @@ import eu.nordtal.s2.common.access.MemberState;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The proxy's half of steward/106: a command that carries no
@@ -69,8 +66,7 @@ class VelocityCommandsGameSurfaceTest {
     /** On the roster as an admin: the source that passed the old gate, and the point of the new. */
     private static final UUID ADMIN = UUID.fromString("00000000-0000-4000-8000-00000000002a");
 
-    private final Messages messages = Messages.load(getClass().getClassLoader(),
-            "messages/commands", Locale.ENGLISH);
+    private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locale.ENGLISH);
 
     @Test
     @DisplayName("a console-only command is not in an admin's tree")
@@ -81,11 +77,11 @@ class VelocityCommandsGameSurfaceTest {
         }
         final var update = root(commands, "update");
 
-        assertFalse(update.getRequirement().test(admin()),
+        assertFalse(
+                update.getRequirement().test(admin()),
                 "/update is Surface.CONSOLE alone, so it must not be in the tree an admin standing"
                         + " in the lobby receives");
-        assertTrue(update.getRequirement().test(console()),
-                "the console keeps it - that surface is never taken away");
+        assertTrue(update.getRequirement().test(console()), "the console keeps it - that surface is never taken away");
     }
 
     @Test
@@ -99,7 +95,8 @@ class VelocityCommandsGameSurfaceTest {
 
         // The bare root as well: Catalogue#rootDefault makes /phase run /phase show, which was a
         // second way into run() and would be a second way past the gate if the root were ungated.
-        assertFalse(phase.getRequirement().test(admin()),
+        assertFalse(
+                phase.getRequirement().test(admin()),
                 "/phase is CONSOLE and WEB - the web is not a place a player types a command, so"
                         + " the tree loses it too");
         assertTrue(phase.getRequirement().test(console()), "the console keeps it");
@@ -107,10 +104,20 @@ class VelocityCommandsGameSurfaceTest {
 
     private VelocityCommands adapter() {
         final LoginRoster roster = new LoginRoster();
-        roster.remember(ADMIN, new AccessState(ADMIN, "300000000000000042", MemberState.MEMBER,
-                true, null, false, true, Locale.ENGLISH, SeasonPhase.SMP, null));
-        return new VelocityCommands(refuse(ProxyServer.class), roster, messages,
-                () -> ToneColours.DEFAULTS);
+        roster.remember(
+                ADMIN,
+                new AccessState(
+                        ADMIN,
+                        "300000000000000042",
+                        MemberState.MEMBER,
+                        true,
+                        null,
+                        false,
+                        true,
+                        Locale.ENGLISH,
+                        SeasonPhase.SMP,
+                        null));
+        return new VelocityCommands(refuse(ProxyServer.class), roster, messages, () -> ToneColours.DEFAULTS);
     }
 
     private static com.mojang.brigadier.tree.LiteralCommandNode<CommandSource> root(
@@ -125,8 +132,10 @@ class VelocityCommandsGameSurfaceTest {
 
     /** A connected player who is an admin, and nothing else - anything further throws. */
     private static CommandSource admin() {
-        return (CommandSource) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[]{Player.class}, (proxy, method, args) -> switch (method.getName()) {
+        return (CommandSource) Proxy.newProxyInstance(
+                Player.class.getClassLoader(),
+                new Class<?>[] {Player.class},
+                (proxy, method, args) -> switch (method.getName()) {
                     case "getUniqueId" -> ADMIN;
                     case "getUsername" -> "admin";
                     default -> throw new UnsupportedOperationException(method.getName());
@@ -134,8 +143,9 @@ class VelocityCommandsGameSurfaceTest {
     }
 
     private static CommandSource console() {
-        return (CommandSource) Proxy.newProxyInstance(ConsoleCommandSource.class.getClassLoader(),
-                new Class<?>[]{ConsoleCommandSource.class},
+        return (CommandSource) Proxy.newProxyInstance(
+                ConsoleCommandSource.class.getClassLoader(),
+                new Class<?>[] {ConsoleCommandSource.class},
                 (proxy, method, args) -> {
                     throw new UnsupportedOperationException(method.getName());
                 });
@@ -144,10 +154,9 @@ class VelocityCommandsGameSurfaceTest {
     /** A stub whose whole contract is that nothing may call it. */
     @SuppressWarnings("unchecked")
     private static <T> T refuse(final Class<T> type) {
-        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                (proxy, method, args) -> {
-                    throw new UnsupportedOperationException("a refused command must never reach "
-                            + type.getSimpleName() + " (#" + method.getName() + ")");
-                });
+        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
+            throw new UnsupportedOperationException(
+                    "a refused command must never reach " + type.getSimpleName() + " (#" + method.getName() + ")");
+        });
     }
 }

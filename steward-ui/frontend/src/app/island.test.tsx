@@ -92,9 +92,7 @@ describe("the account popover is the settings page's account half", () => {
   })
 
   it("draws the Discord picture once /api/me carries one (steward/91)", () => {
-    withQueries(
-      <UserMenu me={{ ...ME, discordAvatarUrl: "https://cdn.discordapp.com/a.png" }} />,
-    )
+    withQueries(<UserMenu me={{ ...ME, discordAvatarUrl: "https://cdn.discordapp.com/a.png" }} />)
 
     const trigger = screen.getByRole("button", { name: /Account/ })
     const img = trigger.querySelector("img")
@@ -105,9 +103,7 @@ describe("the account popover is the settings page's account half", () => {
   it("falls back to initials, and stays tappable, when the picture fails to load", () => {
     // The guard steward/91 asks for: a broken image is the same fallback as no field at all, not
     // a broken button.
-    withQueries(
-      <UserMenu me={{ ...ME, discordAvatarUrl: "https://cdn.discordapp.com/gone.png" }} />,
-    )
+    withQueries(<UserMenu me={{ ...ME, discordAvatarUrl: "https://cdn.discordapp.com/gone.png" }} />)
 
     const trigger = screen.getByRole("button", { name: /Account/ })
     const img = trigger.querySelector("img")

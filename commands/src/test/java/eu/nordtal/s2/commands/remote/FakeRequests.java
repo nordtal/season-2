@@ -5,7 +5,6 @@ import eu.nordtal.s2.common.command.CommandOutcome;
 import eu.nordtal.s2.common.command.CommandRequest;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.command.NewCommandRequest;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,8 +24,7 @@ import java.util.Optional;
  */
 final class FakeRequests implements CommandRequests {
 
-    private record Row(NewCommandRequest request, CommandOutcome.Status status, String result) {
-    }
+    private record Row(NewCommandRequest request, CommandOutcome.Status status, String result) {}
 
     private final Map<Long, Row> rows = new LinkedHashMap<>();
     private final List<NewCommandRequest> submitted = new ArrayList<>();
@@ -83,9 +81,15 @@ final class FakeRequests implements CommandRequests {
             }
             rows.put(entry.getKey(), new Row(row.request(), CommandOutcome.Status.RUNNING, null));
             final NewCommandRequest request = row.request();
-            return Optional.of(new CommandRequest(entry.getKey(), request.command(),
-                    request.arguments(), request.source(), request.requestedBy(),
-                    request.discordId(), request.minecraftId(), request.locale(),
+            return Optional.of(new CommandRequest(
+                    entry.getKey(),
+                    request.command(),
+                    request.arguments(),
+                    request.source(),
+                    request.requestedBy(),
+                    request.discordId(),
+                    request.minecraftId(),
+                    request.locale(),
                     request.expires()));
         }
         return Optional.empty();
@@ -98,8 +102,7 @@ final class FakeRequests implements CommandRequests {
         if (row == null || row.status() != CommandOutcome.Status.RUNNING) {
             return;
         }
-        rows.put(id, new Row(row.request(),
-                ok ? CommandOutcome.Status.DONE : CommandOutcome.Status.FAILED, result));
+        rows.put(id, new Row(row.request(), ok ? CommandOutcome.Status.DONE : CommandOutcome.Status.FAILED, result));
     }
 
     @Override
@@ -127,8 +130,7 @@ final class FakeRequests implements CommandRequests {
     }
 
     @Override
-    public void close() {
-    }
+    public void close() {}
 
     /** The status of a row, for an assertion. */
     CommandOutcome.Status statusOf(final long id) {
@@ -143,8 +145,7 @@ final class FakeRequests implements CommandRequests {
     /** Settle a row from outside, the way a target in another process would. */
     void answer(final long id, final boolean ok, final String result) {
         final Row row = rows.get(id);
-        rows.put(id, new Row(row.request(),
-                ok ? CommandOutcome.Status.DONE : CommandOutcome.Status.FAILED, result));
+        rows.put(id, new Row(row.request(), ok ? CommandOutcome.Status.DONE : CommandOutcome.Status.FAILED, result));
     }
 
     /** Claim a row without running anything, to reproduce the lost expiry race. */

@@ -17,8 +17,7 @@ import java.util.Random;
  */
 public final class PrizeDraw {
 
-    private PrizeDraw() {
-    }
+    private PrizeDraw() {}
 
     /**
      * Picks an index into {@code weights}, each with probability proportional to its weight.

@@ -34,7 +34,10 @@ describe("a MiniMessage text", () => {
   })
 
   it("writes one tag around every run that shares a style, however the runs were split", () => {
-    const runs = applyStyle(parse("<red>abcdef</red>", "MINIMESSAGE", ARGS), 2, 4, (style) => ({ ...style, bold: true }))
+    const runs = applyStyle(parse("<red>abcdef</red>", "MINIMESSAGE", ARGS), 2, 4, (style) => ({
+      ...style,
+      bold: true,
+    }))
     expect(serialize(runs, "MINIMESSAGE", ARGS)).toBe("<red>ab<bold>cd</bold>ef</red>")
   })
 
@@ -64,7 +67,9 @@ describe("editing runs", () => {
 
   it("inserts in the style of what comes before", () => {
     const red = parse("<red>ab</red>cd", "MINIMESSAGE", ARGS)
-    expect(serialize(insert(red, 2, [{ kind: "text", text: "X", style: {} }]), "MINIMESSAGE", ARGS)).toBe("<red>abX</red>cd")
+    expect(serialize(insert(red, 2, [{ kind: "text", text: "X", style: {} }]), "MINIMESSAGE", ARGS)).toBe(
+      "<red>abX</red>cd",
+    )
   })
 
   it("removes across runs", () => {

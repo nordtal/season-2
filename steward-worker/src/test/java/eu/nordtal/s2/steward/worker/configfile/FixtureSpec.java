@@ -4,7 +4,6 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
-
 import java.util.List;
 
 /**
@@ -16,20 +15,12 @@ import java.util.List;
  * and a guess is exactly the thing that is wrong the day jcore changes. Two of jcore's habits
  * found this way were surprises - see {@link ConfigFilesReadTest}.</p>
  */
-@ConfigSpec(header = {
-        "A fixture, written by jcore.",
-        "",
-        "The second paragraph of the header, after a blank line."
-})
+@ConfigSpec(header = {"A fixture, written by jcore.", "", "The second paragraph of the header, after a blank line."})
 public interface FixtureSpec {
 
     @Order(1)
     @Key("port")
-    @Comment({
-            "A whole number.",
-            "",
-            "With a blank line in the middle of its comment."
-    })
+    @Comment({"A whole number.", "", "With a blank line in the middle of its comment."})
     default int port() {
         return 8080;
     }
@@ -72,8 +63,8 @@ public interface FixtureSpec {
     @Order(7)
     @Key("stop-services")
     @Comment({
-            "A list. Not editable in this alpha, and shown as one anyway.",
-            "The worker's backup.stop-services is the real one of these."
+        "A list. Not editable in this alpha, and shown as one anyway.",
+        "The worker's backup.stop-services is the real one of these."
     })
     default List<String> stopServices() {
         return List.of("discord-bot", "smp");

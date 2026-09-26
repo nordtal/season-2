@@ -1,19 +1,18 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.steward.worker.configfile.ConfigDocument;
 import eu.nordtal.s2.steward.worker.configfile.ConfigLocation;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The three outcomes steward/59 asks a save not to blur together, and where "needs a restart" is
@@ -54,7 +53,8 @@ class ConfigApiReloadTest {
         final Map<String, Object> outcome = api.reload(location("smp", "smp/config.yml"));
 
         assertEquals("RESTART_REQUIRED", outcome.get("status"));
-        assertTrue(String.valueOf(outcome.get("message")).contains("restart"),
+        assertTrue(
+                String.valueOf(outcome.get("message")).contains("restart"),
                 "the message has to say a restart is what is needed: " + outcome.get("message"));
         assertTrue(console.calls.isEmpty(), "nothing should have been sent to any console");
     }
@@ -110,11 +110,11 @@ class ConfigApiReloadTest {
         console.fail = new DockerException("no running container for hunger-games");
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), console);
 
-        final Map<String, Object> outcome =
-                api.reload(location("hunger-games", "hunger-games/sounds.yml"));
+        final Map<String, Object> outcome = api.reload(location("hunger-games", "hunger-games/sounds.yml"));
 
         assertEquals("NO_ANSWER", outcome.get("status"));
-        assertTrue(String.valueOf(outcome.get("message")).contains("did not answer"),
+        assertTrue(
+                String.valueOf(outcome.get("message")).contains("did not answer"),
                 "APPLIED and NO_ANSWER must not read alike: " + outcome.get("message"));
     }
 
@@ -144,8 +144,7 @@ class ConfigApiReloadTest {
         console.fail = new IllegalArgumentException("hunger-games has no console: reasons");
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), console);
 
-        final Map<String, Object> outcome =
-                api.reload(location("hunger-games", "hunger-games/sounds.yml"));
+        final Map<String, Object> outcome = api.reload(location("hunger-games", "hunger-games/sounds.yml"));
 
         assertEquals("RESTART_REQUIRED", outcome.get("status"));
     }
@@ -177,8 +176,7 @@ class ConfigApiReloadTest {
     void theWorkersOwnFileReReadsItself() {
         final RecordingConsole console = new RecordingConsole();
         final int[] reread = {0};
-        final ConfigApi api = new ConfigApi(Path.of("/tmp"), console,
-                Map.of(ConfigApi.OWN_CONFIG, () -> reread[0]++));
+        final ConfigApi api = new ConfigApi(Path.of("/tmp"), console, Map.of(ConfigApi.OWN_CONFIG, () -> reread[0]++));
 
         final Map<String, Object> outcome = api.reload(location("steward-worker", "steward.yml"));
 
@@ -190,15 +188,16 @@ class ConfigApiReloadTest {
     @Test
     @DisplayName("a re-read that fails leaves the save standing and says a restart picks it up")
     void aFailedReReadIsReportedNotThrown() {
-        final ConfigApi api = new ConfigApi(Path.of("/tmp"), new RecordingConsole(),
-                Map.of(ConfigApi.OWN_CONFIG, () -> {
+        final ConfigApi api =
+                new ConfigApi(Path.of("/tmp"), new RecordingConsole(), Map.of(ConfigApi.OWN_CONFIG, () -> {
                     throw new IllegalStateException("backup.patience-minutes must be positive");
                 }));
 
         final Map<String, Object> outcome = api.reload(location("steward-worker", "steward.yml"));
 
         assertEquals("RESTART_REQUIRED", outcome.get("status"));
-        assertTrue(String.valueOf(outcome.get("message")).contains("patience-minutes"),
+        assertTrue(
+                String.valueOf(outcome.get("message")).contains("patience-minutes"),
                 String.valueOf(outcome.get("message")));
     }
 }

@@ -4,9 +4,9 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
-import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code config/database.yml} - this plugin's own connection to the shared PostgreSQL database.
@@ -17,21 +17,22 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
  * already exist.
  * </p>
  */
-@ConfigSpec(header = {
-        "-------------------------------------------------------------------",
-        "  smp - PostgreSQL connection",
-        "-------------------------------------------------------------------",
-        "In production the password belongs in the environment, not in this",
-        "file. Every setting can be overridden with",
-        "NORDTAL_SMP_DATABASE_<SETTING>:",
-        "",
-        "  NORDTAL_SMP_DATABASE_JDBC_URL",
-        "  NORDTAL_SMP_DATABASE_USERNAME",
-        "  NORDTAL_SMP_DATABASE_PASSWORD",
-        "",
-        "An overridden value is never written back into this file. This is a",
-        "SEPARATE connection pool from every other process's own database.yml."
-})
+@ConfigSpec(
+        header = {
+            "-------------------------------------------------------------------",
+            "  smp - PostgreSQL connection",
+            "-------------------------------------------------------------------",
+            "In production the password belongs in the environment, not in this",
+            "file. Every setting can be overridden with",
+            "NORDTAL_SMP_DATABASE_<SETTING>:",
+            "",
+            "  NORDTAL_SMP_DATABASE_JDBC_URL",
+            "  NORDTAL_SMP_DATABASE_USERNAME",
+            "  NORDTAL_SMP_DATABASE_PASSWORD",
+            "",
+            "An overridden value is never written back into this file. This is a",
+            "SEPARATE connection pool from every other process's own database.yml."
+        })
 public interface DatabaseSpec {
 
     @Order(1)
@@ -74,13 +75,13 @@ public interface DatabaseSpec {
     @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
     @Comment({
-            "How long this plugin waits for the database before giving up - applied BOTH to",
-            "acquiring a connection from the pool and, through the PostgreSQL driver's own",
-            "socketTimeout, to a query that is already running. Without the second one a database",
-            "that accepts a connection and then hangs is not caught by the first at all.",
-            "",
-            "Kept short so a struggling database fails fast rather than queueing joins behind",
-            "itself."
+        "How long this plugin waits for the database before giving up - applied BOTH to",
+        "acquiring a connection from the pool and, through the PostgreSQL driver's own",
+        "socketTimeout, to a query that is already running. Without the second one a database",
+        "that accepts a connection and then hangs is not caught by the first at all.",
+        "",
+        "Kept short so a struggling database fails fast rather than queueing joins behind",
+        "itself."
     })
     @Explain("Limits both waiting for a free connection and a query already running - not only the query.")
     default int queryTimeoutSeconds() {

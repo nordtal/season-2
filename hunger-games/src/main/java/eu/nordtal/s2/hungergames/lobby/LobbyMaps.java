@@ -1,7 +1,11 @@
 package eu.nordtal.s2.hungergames.lobby;
 
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
-
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
+import javax.imageio.ImageIO;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -13,12 +17,6 @@ import org.bukkit.map.MapView;
 import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.imageio.ImageIO;
-import java.awt.Image;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.InputStream;
 
 /**
  * Slices a language-specific lobby image onto a grid of item-frame-mounted maps. The shipped
@@ -55,8 +53,11 @@ public final class LobbyMaps {
     private void renderLanguage(final World world, final String language) {
         final BufferedImage image = loadImage(language);
         if (image == null) {
-            LOGGER.warn("No lobby/map-{}.png found - the lobby map display for {} is unavailable "
-                    + "until the image is added.", language, language);
+            LOGGER.warn(
+                    "No lobby/map-{}.png found - the lobby map display for {} is unavailable "
+                            + "until the image is added.",
+                    language,
+                    language);
             return;
         }
 
@@ -68,18 +69,25 @@ public final class LobbyMaps {
 
         for (int row = 0; row < rows; row++) {
             for (int column = 0; column < columns; column++) {
-                final Location frameLocation = new Location(world,
-                        lobby.mapFrameOriginX() + column, lobby.mapFrameOriginY() - row, lobby.mapFrameOriginZ());
+                final Location frameLocation = new Location(
+                        world,
+                        lobby.mapFrameOriginX() + column,
+                        lobby.mapFrameOriginY() - row,
+                        lobby.mapFrameOriginZ());
                 final ItemFrame frame = findFrame(world, frameLocation);
                 if (frame == null) {
-                    LOGGER.warn("No item frame found near {} for the lobby map grid ({}, row {}, "
-                            + "column {}) - the hand-built lobby must place one there", frameLocation,
-                            language, row, column);
+                    LOGGER.warn(
+                            "No item frame found near {} for the lobby map grid ({}, row {}, "
+                                    + "column {}) - the hand-built lobby must place one there",
+                            frameLocation,
+                            language,
+                            row,
+                            column);
                     continue;
                 }
 
-                final BufferedImage cell = image.getSubimage(
-                        column * cellWidth, row * cellHeight, cellWidth, cellHeight);
+                final BufferedImage cell =
+                        image.getSubimage(column * cellWidth, row * cellHeight, cellWidth, cellHeight);
                 mountMap(world, frame, cell);
             }
         }
@@ -93,14 +101,16 @@ public final class LobbyMaps {
             }
             return ImageIO.read(stream);
         } catch (final IOException exception) {
-            LOGGER.warn("Could not read {} - the lobby map display for {} is unavailable", resource,
-                    language, exception);
+            LOGGER.warn(
+                    "Could not read {} - the lobby map display for {} is unavailable", resource, language, exception);
             return null;
         }
     }
 
     private ItemFrame findFrame(final World world, final Location near) {
-        return world.getNearbyEntitiesByType(ItemFrame.class, near, 1, 1, 1).stream().findFirst().orElse(null);
+        return world.getNearbyEntitiesByType(ItemFrame.class, near, 1, 1, 1).stream()
+                .findFirst()
+                .orElse(null);
     }
 
     private void mountMap(final World world, final ItemFrame frame, final BufferedImage cell) {

@@ -1,13 +1,11 @@
 package eu.nordtal.s2.common.online;
 
+import java.time.OffsetDateTime;
+import java.util.List;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
-import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindMethods;
 import org.jdbi.v3.sqlobject.statement.SqlBatch;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
-
-import java.time.OffsetDateTime;
-import java.util.List;
 
 /**
  * The whole SQL surface of {@code online_count}, the same style as {@code MetricDao} and
@@ -57,6 +55,5 @@ interface OnlineDao {
      * One subject's count with its instant already turned into an {@link OffsetDateTime} - see the
      * note on this interface for why that crossing matters.
      */
-    record BoundCount(String subject, int players, OffsetDateTime updated) {
-    }
+    record BoundCount(String subject, int players, OffsetDateTime updated) {}
 }

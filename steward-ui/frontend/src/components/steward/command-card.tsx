@@ -3,13 +3,7 @@ import { useState, type ReactNode } from "react"
 
 import type { AdminCommand, CommandArgument, CommandRun, Person } from "@/lib/api"
 import { euros } from "@/lib/format"
-import {
-  useAdminCommand,
-  useCommandRun,
-  useCommands,
-  useOpenPayments,
-  usePeople,
-} from "@/lib/queries"
+import { useAdminCommand, useCommandRun, useCommands, useOpenPayments, usePeople } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import {
@@ -24,21 +18,10 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 /**
  * The admin commands that stayed in the game, with a button each (concept §10a, §10b).
@@ -222,8 +205,8 @@ function CommandRow({ command }: { command?: AdminCommand }) {
               Run <span className="font-mono">{command?.name}</span>?
             </ResponsiveAlertDialogTitle>
             <ResponsiveAlertDialogDescription>
-              This command is declared irreversible - chat and Discord ask for the same
-              confirmation. What it does, it does at once and with no way back.
+              This command is declared irreversible - chat and Discord ask for the same confirmation. What it does, it
+              does at once and with no way back.
             </ResponsiveAlertDialogDescription>
           </ResponsiveAlertDialogHeader>
           {ask.error ? <Failure error={ask.error} /> : null}
@@ -245,7 +228,6 @@ function CommandRow({ command }: { command?: AdminCommand }) {
     </div>
   )
 }
-
 
 /**
  * One argument, drawn the way its kind asks to be drawn.
@@ -273,17 +255,13 @@ function CommandRow({ command }: { command?: AdminCommand }) {
  * Exported for the test: the options live inside a Radix `Select`, which does not open in jsdom,
  * and what is worth holding here is the labelling rule rather than the popup's behaviour.
  */
-export function accountOptions(
-  people: Person[] | undefined,
-): { value: string; label: ReactNode }[] {
+export function accountOptions(people: Person[] | undefined): { value: string; label: ReactNode }[] {
   return (people ?? []).map((person) => ({
     value: person.discordId,
     label: (
       <span className="inline-flex min-w-0 items-center gap-1.5">
         <Entity id={person.discordId} kind="discord" interactive={false} />
-        <span className="text-xs text-muted-foreground">
-          {person.minecraftUuid ? "linked" : "not linked"}
-        </span>
+        <span className="text-xs text-muted-foreground">{person.minecraftUuid ? "linked" : "not linked"}</span>
       </span>
     ),
   }))
@@ -332,8 +310,7 @@ function ArgumentField({
           }))
 
     const loading =
-      (argument.kind === "ACCOUNT" && people.isPending) ||
-      (argument.kind === "REFERENCE" && open.isPending)
+      (argument.kind === "ACCOUNT" && people.isPending) || (argument.kind === "REFERENCE" && open.isPending)
 
     return (
       <div className="flex min-w-48 flex-col gap-1.5">

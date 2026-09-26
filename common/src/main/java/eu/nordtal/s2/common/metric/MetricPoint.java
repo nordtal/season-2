@@ -23,5 +23,4 @@ import java.time.Instant;
  * @param value      the measurement, or the mean of the hour
  * @param resolution which of the two this point is
  */
-public record MetricPoint(Instant at, double value, Resolution resolution) {
-}
+public record MetricPoint(Instant at, double value, Resolution resolution) {}

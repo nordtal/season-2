@@ -32,6 +32,5 @@ public final class MenuPalette {
      */
     public static final TextColor PROGRESS = TextColor.color(0x3C6A3E);
 
-    private MenuPalette() {
-    }
+    private MenuPalette() {}
 }

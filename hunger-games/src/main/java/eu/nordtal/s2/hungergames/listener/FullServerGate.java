@@ -3,15 +3,14 @@ package eu.nordtal.s2.hungergames.listener;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
+import java.util.Objects;
+import java.util.UUID;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.slf4j.Logger;
-
-import java.util.Objects;
-import java.util.UUID;
 
 /**
  * Lets an admin onto this server when it is already full.
@@ -46,8 +45,7 @@ public final class FullServerGate implements Listener {
     private final FullServerAdmission admission;
     private final Logger logger;
 
-    public FullServerGate(final HungerGamesDao dao, final FullServerAdmission admission,
-                          final Logger logger) {
+    public FullServerGate(final HungerGamesDao dao, final FullServerAdmission admission, final Logger logger) {
         this.dao = Objects.requireNonNull(dao, "dao");
         this.admission = Objects.requireNonNull(admission, "admission");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -79,8 +77,11 @@ public final class FullServerGate implements Listener {
         try {
             admin = dao.isAdmin(event.getUniqueId()).orElse(Boolean.FALSE);
         } catch (final RuntimeException exception) {
-            logger.warn("could not read whether {} is an admin, so they get neither operator nor a"
-                    + " place on a full server", event.getUniqueId(), exception);
+            logger.warn(
+                    "could not read whether {} is an admin, so they get neither operator nor a"
+                            + " place on a full server",
+                    event.getUniqueId(),
+                    exception);
         }
         admission.remember(event.getUniqueId(), admin);
     }

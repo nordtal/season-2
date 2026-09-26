@@ -9,8 +9,6 @@ import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -20,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
  * The SMP's line into the Discord announcement channels.
@@ -51,8 +50,11 @@ public final class Announcer {
     private final Executor async;
     private final BiConsumer<String, Throwable> warn;
 
-    public Announcer(final CommandRequests requests, final Messages messages, final Executor async,
-                     final BiConsumer<String, Throwable> warn) {
+    public Announcer(
+            final CommandRequests requests,
+            final Messages messages,
+            final Executor async,
+            final BiConsumer<String, Throwable> warn) {
         this.requests = Objects.requireNonNull(requests, "requests");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.async = Objects.requireNonNull(async, "async");
@@ -81,8 +83,8 @@ public final class Announcer {
             for (final String tag : LANGUAGES) {
                 final Locale locale = Locales.parse(tag);
                 final MessageRef filled = message.apply(locale);
-                final String text = PlainTextComponentSerializer.plainText().serialize(
-                        MessageRenderer.of(messages).format(locale, filled));
+                final String text = PlainTextComponentSerializer.plainText()
+                        .serialize(MessageRenderer.of(messages).format(locale, filled));
                 try {
                     requests.submit(row(tag, text));
                 } catch (final RuntimeException failure) {

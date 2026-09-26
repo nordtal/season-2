@@ -1,10 +1,5 @@
 package eu.nordtal.s2.steward.worker.backup;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -19,7 +14,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +22,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * §9a's half of the saving: one volume, {@code tar} + {@code zstd}, into a file on this host.
@@ -112,8 +110,8 @@ public final class TarSnapshots implements Snapshots {
     private static final Pattern DUMP = Pattern.compile(
             "^\\Q" + DatabaseDump.PREFIX + "\\E(?<stamp>\\d{8}T\\d{6}Z)\\Q" + DatabaseDump.SUFFIX + "\\E$");
 
-    private static final Pattern PARTIAL_DUMP = Pattern.compile("^\\Q" + DatabaseDump.PREFIX
-            + "\\E(?<stamp>\\d{8}T\\d{6}Z)\\Q" + DatabaseDump.SUFFIX + PARTIAL + "\\E$");
+    private static final Pattern PARTIAL_DUMP = Pattern.compile(
+            "^\\Q" + DatabaseDump.PREFIX + "\\E(?<stamp>\\d{8}T\\d{6}Z)\\Q" + DatabaseDump.SUFFIX + PARTIAL + "\\E$");
 
     /** The group key the dumps are counted under. A space, so no volume name can ever be it. */
     private static final String DUMP_SERIES = "the database dump";
@@ -181,8 +179,7 @@ public final class TarSnapshots implements Snapshots {
      * @param clock       injected so the stamp in a file name is a value a test can pin, not
      *                    whatever second the test happened to run in
      */
-    public TarSnapshots(final @NotNull Path sourcesRoot, final @NotNull Path outputRoot,
-                        final @NotNull Clock clock) {
+    public TarSnapshots(final @NotNull Path sourcesRoot, final @NotNull Path outputRoot, final @NotNull Clock clock) {
         this(sourcesRoot, outputRoot, clock, DEFAULT_WALL);
     }
 
@@ -194,8 +191,11 @@ public final class TarSnapshots implements Snapshots {
      * number answers is the same one and there is no reason to ask it twice: how long may a
      * backup hold the network down before it is given up on.</p>
      */
-    public TarSnapshots(final @NotNull Path sourcesRoot, final @NotNull Path outputRoot,
-                        final @NotNull Clock clock, final @NotNull Duration wall) {
+    public TarSnapshots(
+            final @NotNull Path sourcesRoot,
+            final @NotNull Path outputRoot,
+            final @NotNull Clock clock,
+            final @NotNull Duration wall) {
         this.wall = wall;
         this.sourcesRoot = sourcesRoot;
         this.outputRoot = outputRoot;
@@ -206,7 +206,9 @@ public final class TarSnapshots implements Snapshots {
     public @NotNull SnapshotResult save(final @NotNull String volume) {
         final long startedAt = System.nanoTime();
         if (!VOLUME_NAME.matcher(volume).matches()) {
-            return SnapshotResult.failed(volume, since(startedAt),
+            return SnapshotResult.failed(
+                    volume,
+                    since(startedAt),
                     "'" + volume + "' is not a docker volume name, and it would have become a path");
         }
 
@@ -216,17 +218,21 @@ public final class TarSnapshots implements Snapshots {
         // An empty world directory means the mount is missing or the volume is the wrong one, and
         // both of those are exactly the silence that let run 23 pass.
         if (!Files.isDirectory(source)) {
-            return SnapshotResult.failed(volume, since(startedAt),
+            return SnapshotResult.failed(
+                    volume,
+                    since(startedAt),
                     "no such directory to save: " + source + " - is the volume mounted here?");
         }
         try (Stream<Path> entries = Files.list(source)) {
             if (entries.findAny().isEmpty()) {
-                return SnapshotResult.failed(volume, since(startedAt),
+                return SnapshotResult.failed(
+                        volume,
+                        since(startedAt),
                         "nothing to save: " + source + " is empty - an empty archive is not a backup");
             }
         } catch (final IOException unreadable) {
-            return SnapshotResult.failed(volume, since(startedAt),
-                    "cannot read " + source + ": " + unreadable.getMessage());
+            return SnapshotResult.failed(
+                    volume, since(startedAt), "cannot read " + source + ": " + unreadable.getMessage());
         }
 
         final String name = volume + "-" + STAMP.format(clock.instant()) + SUFFIX;
@@ -242,23 +248,26 @@ public final class TarSnapshots implements Snapshots {
             Files.deleteIfExists(partial);
 
             log.info("saving {} to {}", source, finished.getFileName());
-            final Shell created = pipeline(null, List.of(
-                    // `.` and -C rather than the path, so the archive holds relative names and
-                    // cannot be extracted over an absolute path somewhere else on the host.
-                    List.of("tar", "-cf", "-", "-C", source.toString(), "."),
-                    List.of("zstd", LEVEL, "-T0", "-q", "-", "-o", partial.toString())));
+            final Shell created = pipeline(
+                    null,
+                    List.of(
+                            // `.` and -C rather than the path, so the archive holds relative names and
+                            // cannot be extracted over an absolute path somewhere else on the host.
+                            List.of("tar", "-cf", "-", "-C", source.toString(), "."),
+                            List.of("zstd", LEVEL, "-T0", "-q", "-", "-o", partial.toString())));
             if (created.failed()) {
                 Files.deleteIfExists(partial);
-                return SnapshotResult.failed(volume, since(startedAt),
-                        "tar of " + source + " failed: " + created.describe());
+                return SnapshotResult.failed(
+                        volume, since(startedAt), "tar of " + source + " failed: " + created.describe());
             }
 
             final String problem = unreadable(partial);
             if (problem != null) {
                 Files.deleteIfExists(partial);
-                return SnapshotResult.failed(volume, since(startedAt),
-                        "the archive of " + source + " could not be read back and was discarded: "
-                                + problem);
+                return SnapshotResult.failed(
+                        volume,
+                        since(startedAt),
+                        "the archive of " + source + " could not be read back and was discarded: " + problem);
             }
 
             Files.move(partial, finished);
@@ -270,13 +279,12 @@ public final class TarSnapshots implements Snapshots {
             return SnapshotResult.saved(volume, bytes, took, finished.toString());
         } catch (final IOException failure) {
             quietlyDelete(partial);
-            return SnapshotResult.failed(volume, since(startedAt),
-                    "saving " + source + " failed: " + failure);
+            return SnapshotResult.failed(volume, since(startedAt), "saving " + source + " failed: " + failure);
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             quietlyDelete(partial);
-            return SnapshotResult.failed(volume, since(startedAt),
-                    "saving " + source + " was interrupted - no archive was written");
+            return SnapshotResult.failed(
+                    volume, since(startedAt), "saving " + source + " was interrupted - no archive was written");
         }
     }
 
@@ -298,8 +306,7 @@ public final class TarSnapshots implements Snapshots {
             log.warn("could not mark {} as unverified: {}", archive, unwritable.toString());
             return null;
         }
-        log.warn("{} was taken after a stop that could not be verified: {}",
-                mark.getFileName(), why);
+        log.warn("{} was taken after a stop that could not be verified: {}", mark.getFileName(), why);
         return mark.getFileName().toString();
     }
 
@@ -347,16 +354,17 @@ public final class TarSnapshots implements Snapshots {
             final String name = file.getFileName().toString();
             final Matcher archive = ARCHIVE.matcher(name);
             if (archive.matches()) {
-                dated(name, archive.group("stamp")).ifPresent(one -> byVolume
-                        .computeIfAbsent(archive.group("volume"), ignored -> new ArrayList<>())
-                        .add(one));
+                dated(name, archive.group("stamp"))
+                        .ifPresent(
+                                one -> byVolume.computeIfAbsent(archive.group("volume"), ignored -> new ArrayList<>())
+                                        .add(one));
                 continue;
             }
             final Matcher dump = DUMP.matcher(name);
             if (dump.matches()) {
-                dated(name, dump.group("stamp")).ifPresent(one -> byVolume
-                        .computeIfAbsent(DUMP_SERIES, ignored -> new ArrayList<>())
-                        .add(one));
+                dated(name, dump.group("stamp"))
+                        .ifPresent(one -> byVolume.computeIfAbsent(DUMP_SERIES, ignored -> new ArrayList<>())
+                                .add(one));
                 continue;
             }
             final Matcher leftover = PARTIAL_ARCHIVE.matcher(name);
@@ -380,8 +388,11 @@ public final class TarSnapshots implements Snapshots {
             for (final Retention.Dated old : policy.expired(series.getValue(), now)) {
                 final Path file = outputRoot.resolve(old.name());
                 if (delete(file)) {
-                    log.info("pruning {} ({} of {} remain)", old.name(),
-                            series.getValue().size() - 1, series.getKey());
+                    log.info(
+                            "pruning {} ({} of {} remain)",
+                            old.name(),
+                            series.getValue().size() - 1,
+                            series.getKey());
                     removed.add(old.name());
                     // The mark goes with the archive it belongs to. Left behind it would be a
                     // warning about a file that is no longer there, which is how a directory fills
@@ -427,8 +438,7 @@ public final class TarSnapshots implements Snapshots {
     String unreadable(final @NotNull Path archive) throws IOException, InterruptedException {
         final Path listing = Files.createTempFile("snapshot-listing-", ".txt");
         try {
-            final Shell read = pipeline(listing, List.of(
-                    List.of("tar", "--zstd", "-tf", archive.toString())));
+            final Shell read = pipeline(listing, List.of(List.of("tar", "--zstd", "-tf", archive.toString())));
             if (read.failed()) {
                 return read.describe();
             }
@@ -531,7 +541,8 @@ public final class TarSnapshots implements Snapshots {
     }
 
     /** What a pipeline came to: every stage's status, and whatever any of them said on stderr. */
-    private record Shell(@NotNull List<Integer> exitCodes, @NotNull String stderr) {
+    private record Shell(
+            @NotNull List<Integer> exitCodes, @NotNull String stderr) {
 
         boolean failed() {
             return exitCodes.stream().anyMatch(code -> code != 0);
@@ -560,20 +571,24 @@ public final class TarSnapshots implements Snapshots {
             errors.add(error);
             builders.add(new ProcessBuilder(stage).redirectError(error.toFile()));
         }
-        builders.getLast().redirectOutput(stdout == null
-                ? ProcessBuilder.Redirect.DISCARD : ProcessBuilder.Redirect.to(stdout.toFile()));
+        builders.getLast()
+                .redirectOutput(
+                        stdout == null ? ProcessBuilder.Redirect.DISCARD : ProcessBuilder.Redirect.to(stdout.toFile()));
 
         List<Process> running = List.of();
         try {
             running = ProcessBuilder.startPipeline(builders);
             final Optional<List<Integer>> codes = awaitAll(running, wall);
             if (codes.isEmpty()) {
-                return new Shell(List.of(-1), "gave up after " + wall.toMinutes()
-                        + " minutes - " + String.join(" ", stages.getFirst()) + " did not finish");
+                return new Shell(
+                        List.of(-1),
+                        "gave up after " + wall.toMinutes() + " minutes - " + String.join(" ", stages.getFirst())
+                                + " did not finish");
             }
             final StringBuilder said = new StringBuilder();
             for (final Path error : errors) {
-                final String text = Files.readString(error, StandardCharsets.UTF_8).strip();
+                final String text =
+                        Files.readString(error, StandardCharsets.UTF_8).strip();
                 if (!text.isBlank()) {
                     said.append(said.isEmpty() ? "" : "; ").append(text);
                 }

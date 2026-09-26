@@ -6,15 +6,13 @@ import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
 import eu.nordtal.s2.common.message.Tone;
-
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumMap;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
 
 /**
  * Where {@code limbo}'s two config files live, and every rule about what a valid value is.
@@ -27,8 +25,7 @@ import java.util.Map;
  */
 public final class Configs {
 
-    private Configs() {
-    }
+    private Configs() {}
 
     public static @NotNull ConfigHandle<LimboSpec> load(final Path dataFolder, final Logger logger)
             throws ConfigException {
@@ -70,8 +67,7 @@ public final class Configs {
      */
     public static @NotNull ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger)
             throws ConfigException {
-        return load(dataFolder, logger, "colours", ColoursSpec.class, "NORDTAL_LIMBO_COLOURS",
-                config -> { });
+        return load(dataFolder, logger, "colours", ColoursSpec.class, "NORDTAL_LIMBO_COLOURS", config -> {});
     }
 
     /**
@@ -82,20 +78,27 @@ public final class Configs {
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
         for (final Tone tone : Tone.values()) {
-            declared.put(tone, switch (tone) {
-                case GOOD -> spec.good();
-                case BAD -> spec.bad();
-                case WARN -> spec.warn();
-                case NEUTRAL -> spec.neutral();
-                case MUTED -> spec.muted();
-            });
+            declared.put(
+                    tone,
+                    switch (tone) {
+                        case GOOD -> spec.good();
+                        case BAD -> spec.bad();
+                        case WARN -> spec.warn();
+                        case NEUTRAL -> spec.neutral();
+                        case MUTED -> spec.muted();
+                    });
         }
         return declared;
     }
 
-    private static <T> ConfigHandle<T> load(final Path dataFolder, final Logger logger, final String name,
-                                            final Class<T> specType, final String envPrefix,
-                                            final ConfigValidator<T> validator) throws ConfigException {
+    private static <T> ConfigHandle<T> load(
+            final Path dataFolder,
+            final Logger logger,
+            final String name,
+            final Class<T> specType,
+            final String envPrefix,
+            final ConfigValidator<T> validator)
+            throws ConfigException {
         final Path file = dataFolder.resolve(name + ".yml");
         final boolean fresh = !Files.isRegularFile(file);
 
@@ -105,8 +108,9 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            logger.warn("No config existed at {} - defaults were written and are almost certainly "
-                    + "not what you want", file.toAbsolutePath());
+            logger.warn(
+                    "No config existed at {} - defaults were written and are almost certainly " + "not what you want",
+                    file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
         return handle;
@@ -122,8 +126,7 @@ public final class Configs {
         try {
             EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
         } catch (final IOException e) {
-            logger.warn("Could not write the environment-override marker beside {}: {}",
-                    handle.file(), e.getMessage());
+            logger.warn("Could not write the environment-override marker beside {}: {}", handle.file(), e.getMessage());
         }
     }
 

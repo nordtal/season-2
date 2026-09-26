@@ -2,7 +2,6 @@ package eu.nordtal.s2.commands.smp;
 
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.common.access.OpenPayment;
-
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,8 +32,7 @@ public interface SmpEffects extends CommandEffects {
      * @param validUntil   when the current or last period ends, or {@code null} if there never was
      *                     one
      */
-    record Access(String discordId, boolean accessActive, Instant validUntil) {
-    }
+    record Access(String discordId, boolean accessActive, Instant validUntil) {}
 
     /**
      * Re-read the reloadable configs and the message bundles.

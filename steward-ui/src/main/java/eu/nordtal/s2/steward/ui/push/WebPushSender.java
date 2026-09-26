@@ -3,11 +3,10 @@ package eu.nordtal.s2.steward.ui.push;
 import com.interaso.webpush.VapidKeys;
 import com.interaso.webpush.WebPush;
 import com.interaso.webpush.WebPushService;
+import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Objects;
 
 /**
  * {@link PushSender} over the real protocol: VAPID's ES256 JWT and the aes128gcm envelope, both
@@ -43,15 +42,14 @@ final class WebPushSender implements PushSender {
     }
 
     @Override
-    public @NotNull Result send(final @NotNull PushSubscriptions.Subscription subscription,
-                                final @NotNull String payload) {
+    public @NotNull Result send(
+            final @NotNull PushSubscriptions.Subscription subscription, final @NotNull String payload) {
         try {
-            final WebPush.SubscriptionState state = service.send(payload, subscription.endpoint(),
-                    subscription.p256dh(), subscription.auth(), null, null, null);
+            final WebPush.SubscriptionState state = service.send(
+                    payload, subscription.endpoint(), subscription.p256dh(), subscription.auth(), null, null, null);
             return state == WebPush.SubscriptionState.EXPIRED ? Result.EXPIRED : Result.SENT;
         } catch (final Exception failure) {
-            log.warn("a push to {} failed and was not a 404/410: {}", subscription.endpoint(),
-                    failure.getMessage());
+            log.warn("a push to {} failed and was not a 404/410: {}", subscription.endpoint(), failure.getMessage());
             return Result.FAILED;
         }
     }

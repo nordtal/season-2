@@ -1,19 +1,16 @@
 package eu.nordtal.s2.smp.config;
 
-import eu.nordtal.jcore.config.schema.SchemaNode;
-import eu.nordtal.jcore.config.schema.SchemaWriter;
-
-import eu.nordtal.s2.smp.milestone.ObjectiveType;
-import eu.nordtal.s2.smp.milestone.Unlock;
-
-import org.junit.jupiter.api.Test;
-
-import java.util.Arrays;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.jcore.config.schema.SchemaNode;
+import eu.nordtal.jcore.config.schema.SchemaWriter;
+import eu.nordtal.s2.smp.milestone.ObjectiveType;
+import eu.nordtal.s2.smp.milestone.Unlock;
+import java.util.Arrays;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 /**
  * The two fields of the track that only take a fixed word are offered as a closed list in the
@@ -32,7 +29,8 @@ class MilestonesChoicesTest {
 
     @Test
     void anObjectivesTypeIsAClosedListOfEveryObjectiveType() {
-        assertClosedList(names(ObjectiveType.values()),
+        assertClosedList(
+                names(ObjectiveType.values()),
                 MILESTONE.children().get("objectives").children().get("type"));
     }
 

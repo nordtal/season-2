@@ -1,7 +1,6 @@
 package eu.nordtal.s2.common.access;
 
 import eu.nordtal.s2.common.SeasonPhase;
-
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
@@ -82,8 +81,7 @@ public record AccessState(
      * @return an unlinked state
      */
     public static AccessState unlinked(final UUID minecraftAccount, final SeasonPhase phase) {
-        return new AccessState(minecraftAccount, null, null, false, null, false, false,
-                Locale.ENGLISH, phase, null);
+        return new AccessState(minecraftAccount, null, null, false, null, false, false, Locale.ENGLISH, phase, null);
     }
 
     /** @return whether a Discord account is linked to this UUID */

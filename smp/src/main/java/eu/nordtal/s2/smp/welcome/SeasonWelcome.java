@@ -1,27 +1,25 @@
 package eu.nordtal.s2.smp.welcome;
 
-import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.stage.Cinematic;
 import eu.nordtal.s2.papercommon.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
-import eu.nordtal.s2.smp.world.LandingSite;
 import eu.nordtal.s2.smp.player.Identities;
+import eu.nordtal.s2.smp.world.LandingSite;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * The one moment a player gets on their very first join of the season.
@@ -69,10 +67,14 @@ public final class SeasonWelcome {
     private final SmpSpec config;
     private final Worlds worlds;
 
-    public SeasonWelcome(final Plugin plugin, final SmpDao dao, final Identities identities,
-                         final PlayerLocales locales,
-                         final BukkitCinematics cinematics, final SmpSpec config,
-                         final Worlds worlds) {
+    public SeasonWelcome(
+            final Plugin plugin,
+            final SmpDao dao,
+            final Identities identities,
+            final PlayerLocales locales,
+            final BukkitCinematics cinematics,
+            final SmpSpec config,
+            final Worlds worlds) {
         this.plugin = plugin;
         this.dao = dao;
         this.identities = identities;
@@ -119,10 +121,11 @@ public final class SeasonWelcome {
         if (player == null) {
             // The one path that loses the moment with the flag already taken. Logged rather than
             // repaired: this is a picture, not a payout.
-            plugin.getLogger().info(name + " left in the tick after their own join, so the season's"
-                    + " opening moment was claimed but never shown. To give it back:"
-                    + " UPDATE smp_player SET welcome_shown = false WHERE discord_id = '"
-                    + discordId + "';");
+            plugin.getLogger()
+                    .info(name + " left in the tick after their own join, so the season's"
+                            + " opening moment was claimed but never shown. To give it back:"
+                            + " UPDATE smp_player SET welcome_shown = false WHERE discord_id = '"
+                            + discordId + "';");
             return;
         }
         // Before the pictures, so the blindness starts where they will be standing when it lifts
@@ -154,14 +157,15 @@ public final class SeasonWelcome {
         final SmpSpec.FirstJoinSpawnSpec spawn = config.firstJoinSpawn();
         final World world = Bukkit.getWorld(spawn.world());
         if (world == null) {
-            plugin.getLogger().warning("first-join-spawn names the world '" + spawn.world()
-                    + "', which does not exist, so " + name + " was left where the server spawned"
-                    + " them. The SMP's build world is called '" + worlds.nameOf(WorldRole.NORDTAL)
-                    + "' - if that was renamed, first-join-spawn: world has to be renamed with it.");
+            plugin.getLogger()
+                    .warning("first-join-spawn names the world '" + spawn.world()
+                            + "', which does not exist, so " + name + " was left where the server spawned"
+                            + " them. The SMP's build world is called '" + worlds.nameOf(WorldRole.NORDTAL)
+                            + "' - if that was renamed, first-join-spawn: world has to be renamed with it.");
             return;
         }
-        player.teleport(LandingSite.safeAt(world, new Location(world, spawn.x(), spawn.y(),
-                spawn.z(), spawn.yaw(), spawn.pitch())));
+        player.teleport(LandingSite.safeAt(
+                world, new Location(world, spawn.x(), spawn.y(), spawn.z(), spawn.yaw(), spawn.pitch())));
     }
 
     /**

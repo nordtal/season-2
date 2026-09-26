@@ -1,9 +1,8 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import java.util.UUID;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.UUID;
 
 /**
  * This module's writer of {@code audit_log}, which is append-only by discipline: nothing in this
@@ -20,9 +19,10 @@ interface AuditDao {
             INSERT INTO audit_log (action, actor, subject, mc_uuid, detail)
             VALUES (:action, :actor, :subject, :mcUuid, :detail)
             """)
-    void record(@Bind("action") String action,
-                @Bind("actor") String actor,
-                @Bind("subject") String subject,
-                @Bind("mcUuid") UUID mcUuid,
-                @Bind("detail") String detail);
+    void record(
+            @Bind("action") String action,
+            @Bind("actor") String actor,
+            @Bind("subject") String subject,
+            @Bind("mcUuid") UUID mcUuid,
+            @Bind("detail") String detail);
 }

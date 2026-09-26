@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { Backup, Host, Service, ServiceTable } from "@/lib/api"
-import {
-  DEFAULT_THRESHOLDS,
-  UNKNOWN,
-  shownLevel,
-  summarise,
-  type Level,
-} from "@/lib/health"
+import { DEFAULT_THRESHOLDS, UNKNOWN, shownLevel, summarise, type Level } from "@/lib/health"
 
 /**
  * The traffic light, held against the four triggers §10c says it has.
@@ -168,9 +162,7 @@ describe("summarise - a standby that is off", () => {
   it("a standby that is RUNNING and unhealthy is still red, because that is the minute it matters", () => {
     const { level, triggers } = summarise({
       ...healthy(),
-      table: table([
-        service({ service: "proxy-standby", state: "running", health: "unhealthy", standby: true }),
-      ]),
+      table: table([service({ service: "proxy-standby", state: "running", health: "unhealthy", standby: true })]),
     })
 
     expect(level).toBe("down")
@@ -438,9 +430,7 @@ describe("summarise - the backup", () => {
   it("is quiet for a backup exactly at the age the thresholds still allow", () => {
     // "How old the newest backup may be": at 36 h it still may be. A run that finishes at 04:45
     // every night is 36 h old for nobody, but the boundary is where an off-by-one lives.
-    expect(summarise({ ...healthy(), backups: withDump(backup(DEFAULT_THRESHOLDS.backupAgeHours)) }).level).toBe(
-      "ok",
-    )
+    expect(summarise({ ...healthy(), backups: withDump(backup(DEFAULT_THRESHOLDS.backupAgeHours)) }).level).toBe("ok")
   })
 
   it("is red a minute past that age, and says what the limit was", () => {
@@ -1044,9 +1034,7 @@ function read(relative: string): string {
 
 /** `diskPercent` -> 85, out of the interface's own method bodies. */
 function specDefault(java: string, method: string): number {
-  const found = java.match(
-    new RegExp(`default\\s+int\\s+${method}\\s*\\(\\s*\\)\\s*\\{\\s*return\\s+(\\d+)\\s*;`),
-  )
+  const found = java.match(new RegExp(`default\\s+int\\s+${method}\\s*\\(\\s*\\)\\s*\\{\\s*return\\s+(\\d+)\\s*;`))
   if (!found) {
     throw new Error(
       `UiSpec.java has no "default int ${method}() { return <n>; }" any more - the defaults have ` +

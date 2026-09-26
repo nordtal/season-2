@@ -5,7 +5,6 @@ import eu.nordtal.s2.common.command.CommandRequest;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Messages;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

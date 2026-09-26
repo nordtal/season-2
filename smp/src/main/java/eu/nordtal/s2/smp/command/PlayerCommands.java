@@ -1,9 +1,10 @@
 package eu.nordtal.s2.smp.command;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.tree.LiteralCommandNode;
-
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -11,20 +12,15 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.common.message.context.PlayerContext;
-
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.ConsoleCommandSender;
-import org.bukkit.entity.Player;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.entity.Player;
 
 /**
  * {@code /aura} and {@code /smp status} - the two SMP commands a player types, as plain Paper
@@ -56,8 +52,8 @@ public final class PlayerCommands {
      *                logged
      * @param users   whoever typed it, as a {@link NordtalUser}: a player or the console
      */
-    public PlayerCommands(final Standing standing, final CommandEffects effects,
-                          final Function<CommandSender, NordtalUser> users) {
+    public PlayerCommands(
+            final Standing standing, final CommandEffects effects, final Function<CommandSender, NordtalUser> users) {
         this.standing = Objects.requireNonNull(standing, "standing");
         this.effects = Objects.requireNonNull(effects, "effects");
         this.users = Objects.requireNonNull(users, "users");
@@ -81,8 +77,8 @@ public final class PlayerCommands {
      */
     public LiteralArgumentBuilder<CommandSourceStack> status() {
         return Commands.literal("status")
-                .requires(source -> source.getSender() instanceof Player
-                        || source.getSender() instanceof ConsoleCommandSender)
+                .requires(source ->
+                        source.getSender() instanceof Player || source.getSender() instanceof ConsoleCommandSender)
                 .executes(context -> {
                     showStatus(users.apply(context.getSource().getSender()));
                     return Command.SINGLE_SUCCESS;
@@ -119,7 +115,8 @@ public final class PlayerCommands {
             }
             user.reply(MESSAGES.smp().aura().top(shown.top().size()), Tone.NEUTRAL);
             for (final Standing.AuraLine line : shown.top()) {
-                user.reply(MESSAGES.smp().aura().line(line.place(), new PlayerContext(line.player()), line.aura()),
+                user.reply(
+                        MESSAGES.smp().aura().line(line.place(), new PlayerContext(line.player()), line.aura()),
                         line.you() ? Tone.GOOD : Tone.MUTED);
             }
         });
@@ -141,15 +138,23 @@ public final class PlayerCommands {
                 // The first second after enable: an empty milestone here would read as "finished".
                 user.reply(MESSAGES.smp().status().unread(), Tone.MUTED);
             } else if (status.milestone().isPresent()) {
-                user.reply(MESSAGES.smp().status().milestone(new MilestoneContext(status.milestone().get()),
-                        status.percent()), Tone.NEUTRAL);
+                user.reply(
+                        MESSAGES.smp()
+                                .status()
+                                .milestone(
+                                        new MilestoneContext(status.milestone().get()), status.percent()),
+                        Tone.NEUTRAL);
             } else {
                 // Every milestone in the season is done. That is the one line here that is news.
                 user.reply(MESSAGES.smp().status().finished(), Tone.GOOD);
             }
-            user.reply(status.online() == 0 ? MESSAGES.smp().status().onlineSection().none()
-                    : status.online() == 1 ? MESSAGES.smp().status().onlineSection().one()
-                    : MESSAGES.smp().status().online(status.online()), Tone.MUTED);
+            user.reply(
+                    status.online() == 0
+                            ? MESSAGES.smp().status().onlineSection().none()
+                            : status.online() == 1
+                                    ? MESSAGES.smp().status().onlineSection().one()
+                                    : MESSAGES.smp().status().online(status.online()),
+                    Tone.MUTED);
         });
     }
 }

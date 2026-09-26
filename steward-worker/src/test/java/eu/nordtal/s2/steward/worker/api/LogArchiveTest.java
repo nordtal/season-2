@@ -1,8 +1,8 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -13,10 +13,9 @@ import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** The runs before the container, out of the rotated logs in the volume. */
 class LogArchiveTest {
@@ -31,8 +30,7 @@ class LogArchiveTest {
         return Files.createDirectories(root.resolve("smp").resolve("logs"));
     }
 
-    private void archive(final String name, final Instant rotated, final String... lines)
-            throws IOException {
+    private void archive(final String name, final Instant rotated, final String... lines) throws IOException {
         final Path file = logs().resolve(name);
         try (OutputStream out = new GZIPOutputStream(Files.newOutputStream(file))) {
             out.write((String.join("\n", lines) + "\n").getBytes(StandardCharsets.UTF_8));
@@ -52,9 +50,11 @@ class LogArchiveTest {
 
         final LogArchive.Backlog backlog = new LogArchive(root).before("smp", OLDEST, 100);
 
-        assertEquals(List.of("Earlier run, 21 Sep 08:00", "Earlier run, 22 Sep 10:00"),
+        assertEquals(
+                List.of("Earlier run, 21 Sep 08:00", "Earlier run, 22 Sep 10:00"),
                 backlog.runs().stream().map(LogArchive.Run::label).toList());
-        assertEquals(List.of("[10:00:05] [x/INFO]: b1", "b2"), backlog.runs().get(1).lines());
+        assertEquals(
+                List.of("[10:00:05] [x/INFO]: b1", "b2"), backlog.runs().get(1).lines());
         assertTrue(backlog.exhausted());
         assertEquals(4, backlog.lineCount());
     }

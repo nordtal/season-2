@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.worker;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -11,9 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That every {@code docker compose run --rm steward-worker} written down anywhere names what it does.
@@ -39,19 +38,14 @@ class DocumentedCommandsTest {
 
     /** Everywhere this command is written down for a person to copy. */
     private static final List<String> DOCUMENTS = List.of(
-            "compose.yml",
-            ".env.example",
-            "steward-worker/Dockerfile",
-            "steward-worker/README.md",
-            "deploy/README.md");
+            "compose.yml", ".env.example", "steward-worker/Dockerfile", "steward-worker/README.md", "deploy/README.md");
 
     /** What {@link StewardWorker} actually dispatches on. Anything else reads as the default. */
     // "apply" is deliberately NOT here any more. It was retired on 2026-09-07 with the button
     // that did the same thing (finding 147, and V12 carries the reasoning); a document still
     // telling somebody to type it is a document telling them to swap jars under a running
     // server, and this test is exactly the thing that should refuse it.
-    private static final List<String> SUBCOMMANDS =
-            List.of("report", "migrate", "bootstrap", "serve");
+    private static final List<String> SUBCOMMANDS = List.of("report", "migrate", "bootstrap", "serve");
 
     private static final Pattern INVOCATION =
             Pattern.compile("docker compose run (?:--rm )?steward-worker(?<rest>[^\\n`]*)");
@@ -86,9 +80,9 @@ class DocumentedCommandsTest {
     @Test
     @DisplayName("the worker service still runs serve, which is the whole reason a run inherits it")
     void theServiceItselfStillServes() throws IOException {
-        final String compose = Files.readString(repositoryRoot().resolve("compose.yml"),
-                StandardCharsets.UTF_8);
-        assertTrue(compose.contains("command: [\"serve\"]"),
+        final String compose = Files.readString(repositoryRoot().resolve("compose.yml"), StandardCharsets.UTF_8);
+        assertTrue(
+                compose.contains("command: [\"serve\"]"),
                 "compose.yml no longer starts the steward-worker service with `serve`. `docker compose up"
                         + " -d` would then run whatever the image defaults to, and nothing would be"
                         + " listening for update requests.");
@@ -103,6 +97,7 @@ class DocumentedCommandsTest {
             }
             directory = directory.getParent();
         }
-        throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        throw new IllegalStateException(
+                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 }

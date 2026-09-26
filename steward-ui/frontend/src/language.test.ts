@@ -67,9 +67,7 @@ type Rules = {
   shapes: string[]
 }
 
-const rules: Rules = JSON.parse(
-  readFileSync(path.join(repository, "steward-ui/language-rules.json"), "utf8"),
-)
+const rules: Rules = JSON.parse(readFileSync(path.join(repository, "steward-ui/language-rules.json"), "utf8"))
 
 /** Every word of three letters or more in the *values* of a message bundle - never in its keys. */
 function bundleWords(file: string): Set<string> {
@@ -153,17 +151,11 @@ const NON_ENGLISH_LETTERS = /[äöüÄÖÜß]/
  * `run-search-terms.test.ts` back out of this set leaves this guard green, so it is out.
  * An exemption that is not needed is a hole waiting for somebody to put something in it.
  */
-const EXEMPT = new Set([
-  path.join(here, "language.test.ts"),
-  path.join(frontend, "src", "app", "run-search-terms.ts"),
-])
+const EXEMPT = new Set([path.join(here, "language.test.ts"), path.join(frontend, "src", "app", "run-search-terms.ts")])
 
 /** Everything a reader of this interface can reach: its sources, its page and its build file. */
 function scanned(): string[] {
-  const files: string[] = [
-    path.join(frontend, "index.html"),
-    path.join(frontend, "vite.config.ts"),
-  ]
+  const files: string[] = [path.join(frontend, "index.html"), path.join(frontend, "vite.config.ts")]
   const walk = (directory: string) => {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const full = path.join(directory, entry.name)
@@ -216,24 +208,31 @@ describe("nothing in Steward is German", () => {
     // The four that were on the screen on 2026-09-14 with every test green. Three are answered
     // here; `Sperre` is the one that cannot be, and it is in the rules file by hand.
     expect(isGerman("Befehle", GERMAN), "inflection: the bundle only says Befehl").toBe(true)
-    expect(
-      isGerman("Konfiguration", GERMAN),
-      "compounding: the bundle only says Konfigurationsdateien",
-    ).toBe(true)
+    expect(isGerman("Konfiguration", GERMAN), "compounding: the bundle only says Konfigurationsdateien").toBe(true)
     // The honest fourth: no stem of it is derivable and it has no German ending, so it is in the
     // hand list. If that line is ever removed this goes red, which is the point of asserting it.
     expect(isGerman("Sperre", GERMAN), "Sperre is in the rules file by hand").toBe(true)
 
     // And it still lets the language this interface is written in through. `started` and `stopped`
     // are the two that a looser rule flagged: they extend `starte` and `stoppe` by an English `d`.
-    const english = ["Configuration", "Commands", "Status", "Backup", "Service", "Restore",
-      "started", "stopped", "argument", "Operations"]
+    const english = [
+      "Configuration",
+      "Commands",
+      "Status",
+      "Backup",
+      "Service",
+      "Restore",
+      "started",
+      "stopped",
+      "argument",
+      "Operations",
+    ]
     for (const word of english) expect(isGerman(word, GERMAN), word).toBe(false)
   })
 
   it("knows German by its shape too, for words the bot has never said", () => {
-    expect(hasGermanShape("label=\"Gelaufen\"")).toBe(true)
-    expect(hasGermanShape("title=\"Einstellung\"")).toBe(true)
+    expect(hasGermanShape('label="Gelaufen"')).toBe(true)
+    expect(hasGermanShape('title="Einstellung"')).toBe(true)
     expect(hasGermanShape("<Button>Verwerfen</Button>")).toBe(true)
     // The two that are deliberately reachable by no shape: `ge...t` participles share their shape
     // with `government`, and a guard that cries on `government` is a guard somebody deletes.

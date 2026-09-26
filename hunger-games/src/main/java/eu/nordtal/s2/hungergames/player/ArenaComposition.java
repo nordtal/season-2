@@ -2,15 +2,12 @@ package eu.nordtal.s2.hungergames.player;
 
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.message.PlayerLocales;
-
+import java.util.Objects;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-
 import org.bukkit.entity.Player;
-
-import java.util.Objects;
-import java.util.UUID;
 
 /**
  * What a player looks like in a line about them, on the hunger games.
@@ -66,7 +63,6 @@ public final class ArenaComposition {
                 .append(Component.text(" "))
                 // Uniform light grey, the same as the SMP's: the name is never a rank and is never
                 // coloured like one, and on this server a coloured name would read as a team.
-                .append(Component.text(name).color(NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false));
+                .append(Component.text(name).color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
     }
 }

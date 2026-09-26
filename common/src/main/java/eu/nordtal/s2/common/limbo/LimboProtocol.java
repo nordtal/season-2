@@ -49,8 +49,7 @@ public final class LimboProtocol {
     private static final byte TYPE_WAIT = 1;
     private static final byte TYPE_READY = 2;
 
-    private LimboProtocol() {
-    }
+    private LimboProtocol() {}
 
     /** The two things either side can say. */
     public enum Type {

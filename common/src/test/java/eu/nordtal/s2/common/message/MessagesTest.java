@@ -1,14 +1,13 @@
 package eu.nordtal.s2.common.message;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.Locale;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Locale;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 /** Covers the message system's contract: locale resolution, EN fallback, and never throwing. */
 class MessagesTest {
@@ -69,21 +68,19 @@ class MessagesTest {
 
     @Test
     void anUnknownPlaceholderIsLeftInPlaceRatherThanBlanked() {
-        assertEquals("Left {alone} and Till.",
-                messages().format(Locale.ENGLISH, "braces", "name", "Till"));
+        assertEquals("Left {alone} and Till.", messages().format(Locale.ENGLISH, "braces", "name", "Till"));
     }
 
     @Test
     void aParameterValueContainingBracesIsNotRescanned() {
         // A player calling themselves {alone} must not be able to expand into another parameter.
-        assertEquals("Left {alone} and {alone}.",
-                messages().format(Locale.ENGLISH, "braces", Map.of("name", "{alone}")));
+        assertEquals(
+                "Left {alone} and {alone}.", messages().format(Locale.ENGLISH, "braces", Map.of("name", "{alone}")));
     }
 
     @Test
     void anOddNumberOfFormatArgumentsIsAProgrammingError() {
-        assertThrows(IllegalArgumentException.class,
-                () -> messages().format(Locale.ENGLISH, "greeting", "name"));
+        assertThrows(IllegalArgumentException.class, () -> messages().format(Locale.ENGLISH, "greeting", "name"));
     }
 
     @Test

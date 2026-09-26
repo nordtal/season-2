@@ -74,7 +74,8 @@ describe("nothing is drawn in capitals by a class (steward/77)", () => {
       "An `uppercase` utility forces caps regardless of what is typed. Till's rule (steward/77," +
         " 2026-09-16): caps text has no place here except an abbreviation, and an abbreviation is" +
         " a word in the source, not a class - so removing this is the whole fix, with no allowlist" +
-        " needed for CPU, RAM or 2FA.\n\n" + offenders().join("\n"),
+        " needed for CPU, RAM or 2FA.\n\n" +
+        offenders().join("\n"),
     ).toEqual([])
   })
 

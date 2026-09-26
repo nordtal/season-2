@@ -1,11 +1,6 @@
 package eu.nordtal.s2.steward.worker.api;
 
 import eu.nordtal.s2.steward.worker.plan.Topology;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,6 +15,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * How much of the disk one service's volume takes, for the Disk field on its page.
@@ -45,8 +44,7 @@ final class DiskUsage {
     static final Duration TTL = Duration.ofMinutes(5);
 
     /** One measurement: the bytes, or none when {@code du} could not answer, and when it was taken. */
-    record Measured(@NotNull OptionalLong bytes, @NotNull Instant at) {
-    }
+    record Measured(@NotNull OptionalLong bytes, @NotNull Instant at) {}
 
     private final @Nullable Path volumesRoot;
     private final Function<Path, OptionalLong> measure;
@@ -58,8 +56,11 @@ final class DiskUsage {
         this(volumesRoot, DiskUsage::du, background, Instant::now);
     }
 
-    DiskUsage(final @Nullable Path volumesRoot, final @NotNull Function<Path, OptionalLong> measure,
-              final @NotNull Executor background, final @NotNull Supplier<Instant> clock) {
+    DiskUsage(
+            final @Nullable Path volumesRoot,
+            final @NotNull Function<Path, OptionalLong> measure,
+            final @NotNull Executor background,
+            final @NotNull Supplier<Instant> clock) {
         this.volumesRoot = volumesRoot;
         this.measure = measure;
         this.background = background;
@@ -67,7 +68,8 @@ final class DiskUsage {
     }
 
     /** The last measurement for {@code service}, or empty when it has no volume here. */
-    @NotNull Optional<Measured> of(final @NotNull String service) {
+    @NotNull
+    Optional<Measured> of(final @NotNull String service) {
         if (volumesRoot == null || !Topology.hasPlugins(service)) {
             return Optional.empty();
         }
@@ -75,8 +77,11 @@ final class DiskUsage {
         if (!Files.isDirectory(volume)) {
             return Optional.empty();
         }
-        final Measured measured = cache.computeIfAbsent(service, name -> new Refreshed<>(
-                () -> new Measured(measure.apply(volume), clock.get()), TTL, background, clock)).get();
+        final Measured measured = cache.computeIfAbsent(
+                        service,
+                        name -> new Refreshed<>(
+                                () -> new Measured(measure.apply(volume), clock.get()), TTL, background, clock))
+                .get();
         return measured.bytes().isPresent() ? Optional.of(measured) : Optional.empty();
     }
 
@@ -93,8 +98,7 @@ final class DiskUsage {
             }
             // du exits 1 when one file vanished under it, which a running server does all the
             // time; the total it printed is still the total.
-            final String out = new String(process.getInputStream().readAllBytes(),
-                    StandardCharsets.UTF_8).trim();
+            final String out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
             final int tab = out.indexOf('\t');
             if (tab <= 0) {
                 return OptionalLong.empty();

@@ -1,27 +1,25 @@
 package eu.nordtal.s2.proxy.playtime;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.MemberState;
 import eu.nordtal.s2.proxy.MutableClock;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The play-time counter's arithmetic, in memory: what goes into {@code player_playtime} is entirely
@@ -76,7 +74,9 @@ class PlaytimeWriterTest {
         clock.advance(Duration.ofSeconds(15));
         writer.flushAll();
 
-        assertEquals(List.of(DISCORD_ID + "+60", DISCORD_ID + "+60", DISCORD_ID + "+15"), store.writes,
+        assertEquals(
+                List.of(DISCORD_ID + "+60", DISCORD_ID + "+60", DISCORD_ID + "+15"),
+                store.writes,
                 "three slices adding up to 135 seconds, never 60 + 120 + 135");
     }
 
@@ -105,7 +105,9 @@ class PlaytimeWriterTest {
         clock.advance(Duration.ofMillis(60_400));
         writer.flushAll();
 
-        assertEquals(List.of(DISCORD_ID + "+60", DISCORD_ID + "+60", DISCORD_ID + "+61"), store.writes,
+        assertEquals(
+                List.of(DISCORD_ID + "+60", DISCORD_ID + "+60", DISCORD_ID + "+61"),
+                store.writes,
                 "the third flush picks up the 1.2s the first two carried forward");
     }
 
@@ -130,9 +132,10 @@ class PlaytimeWriterTest {
         clock.advance(Duration.ofSeconds(30));
         writer.flushAll();
 
-        assertEquals(List.of(DISCORD_ID + "+90"), store.writes,
-                "the 60 seconds the failed flush could not write are still owed, so the next one "
-                        + "carries all 90");
+        assertEquals(
+                List.of(DISCORD_ID + "+90"),
+                store.writes,
+                "the 60 seconds the failed flush could not write are still owed, so the next one " + "carries all 90");
     }
 
     // ---------------------------------------------------------------- session lifecycle
@@ -172,7 +175,9 @@ class PlaytimeWriterTest {
         clock.advance(Duration.ofSeconds(10));
         writer.flushAll();
 
-        assertEquals(List.of(DISCORD_ID + "+90", DISCORD_ID + "+10"), store.writes,
+        assertEquals(
+                List.of(DISCORD_ID + "+90", DISCORD_ID + "+10"),
+                store.writes,
                 "the two hours offline are not counted, and both slices are additions so the row "
                         + "ends up with 100 without this class ever holding a total");
     }
@@ -180,8 +185,19 @@ class PlaytimeWriterTest {
     // ---------------------------------------------------------------- helpers
 
     private void join(final UUID mcUuid, final String discordId) {
-        roster.remember(mcUuid, new AccessState(mcUuid, discordId, MemberState.MEMBER, true,
-                clock.instant().plus(Duration.ofDays(1)), false, false, Locale.ENGLISH, SeasonPhase.SMP, null));
+        roster.remember(
+                mcUuid,
+                new AccessState(
+                        mcUuid,
+                        discordId,
+                        MemberState.MEMBER,
+                        true,
+                        clock.instant().plus(Duration.ofDays(1)),
+                        false,
+                        false,
+                        Locale.ENGLISH,
+                        SeasonPhase.SMP,
+                        null));
         writer.begin(mcUuid, "player-" + discordId);
     }
 
@@ -206,8 +222,7 @@ class PlaytimeWriterTest {
         final long expected = Duration.ofMinutes(10).toSeconds();
         store.slowBy = Duration.ofMillis(80);
 
-        final java.util.concurrent.CountDownLatch both =
-                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch both = new java.util.concurrent.CountDownLatch(1);
         final Runnable flush = () -> {
             try {
                 both.await();
@@ -228,7 +243,9 @@ class PlaytimeWriterTest {
         final long booked = store.writes.stream()
                 .mapToLong(write -> Long.parseLong(write.substring(write.indexOf('+') + 1)))
                 .sum();
-        assertEquals(expected, booked,
+        assertEquals(
+                expected,
+                booked,
                 "the same ten minutes were booked more than once: " + store.writes
                         + ". flush() has to hold the session across reading the marker, writing the"
                         + " seconds and advancing it - volatile makes each access atomic and says"
@@ -238,8 +255,7 @@ class PlaytimeWriterTest {
     /** Records what it was asked to add, or refuses to. */
     private static final class RecordingStore implements PlaytimeStore {
 
-        private final List<String> writes =
-                java.util.Collections.synchronizedList(new ArrayList<>());
+        private final List<String> writes = java.util.Collections.synchronizedList(new ArrayList<>());
         private boolean failing;
 
         /** Widens the window the race needs, so the test does not depend on scheduler luck. */

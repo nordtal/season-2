@@ -21,6 +21,14 @@ import java.util.UUID;
  * (season-2-ingame/20) - it is what the hologram over the grave counts down against
  * (season-2-ingame/19), so a restart never resets the number either.
  */
-public record GraveRow(UUID id, String ownerId, UUID ownerUuid, String world, int x, int y, int z,
-                       byte[] contents, int experience, Instant created) {
-}
+public record GraveRow(
+        UUID id,
+        String ownerId,
+        UUID ownerUuid,
+        String world,
+        int x,
+        int y,
+        int z,
+        byte[] contents,
+        int experience,
+        Instant created) {}

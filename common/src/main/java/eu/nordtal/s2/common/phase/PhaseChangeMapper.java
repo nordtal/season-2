@@ -1,14 +1,12 @@
 package eu.nordtal.s2.common.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
-
-import org.jdbi.v3.core.mapper.RowMapper;
-import org.jdbi.v3.core.statement.StatementContext;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 /**
  * Maps the single row {@link PhaseDao#switchPhase(String, String, String)} returns.

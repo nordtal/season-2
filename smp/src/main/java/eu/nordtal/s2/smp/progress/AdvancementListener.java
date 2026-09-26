@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.progress;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -9,21 +11,16 @@ import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
-
-import net.kyori.adventure.text.Component;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 import org.bukkit.plugin.Plugin;
-
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * Advancements, which do two separate things in this design and are easy to confuse.
@@ -51,10 +48,15 @@ public final class AdvancementListener implements Listener {
     /** The curated award list, flattened once at construction rather than scanned per advancement. */
     private final Map<String, Integer> awards = new HashMap<>();
 
-    public AdvancementListener(final Plugin plugin, final SmpDao dao, final ObjectiveEngine engine,
-                               final Identities identities, final SmpSpec config,
-                               final Messages messages, final PlayerLocales locales,
-                               final SmpSounds sounds) {
+    public AdvancementListener(
+            final Plugin plugin,
+            final SmpDao dao,
+            final ObjectiveEngine engine,
+            final Identities identities,
+            final SmpSpec config,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.engine = engine;
@@ -92,8 +94,8 @@ public final class AdvancementListener implements Listener {
                 final Locale locale = locales.of(player.getUniqueId());
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     if (player.isOnline()) {
-                        player.sendMessage(MessageRenderer.of(messages).format(locale,
-                                MESSAGES.smp().aura().advancement(award)));
+                        player.sendMessage(MessageRenderer.of(messages)
+                                .format(locale, MESSAGES.smp().aura().advancement(award)));
                         sounds.play(player, Feedback.SMALL_SUCCESS);
                     }
                 });

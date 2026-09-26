@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.progress;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
@@ -9,6 +11,7 @@ import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.aura.AuraPayout;
 import eu.nordtal.s2.smp.aura.AuraReason;
+import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.ContributionRow;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -21,24 +24,19 @@ import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveProgress;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.player.Identities;
-import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.wheel.PrizeDraw;
 import eu.nordtal.s2.smp.world.Worlds;
-
-import net.kyori.adventure.title.Title;
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+import net.kyori.adventure.title.Title;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 /**
  * The spine of the season: crediting progress, finishing an objective, paying it out, and unlocking
@@ -62,6 +60,7 @@ public final class ObjectiveEngine {
      * captured at enable would silently go on reading the definitions the server started with.</p>
      */
     private final java.util.function.Supplier<MilestoneTrack> track;
+
     private final SeasonState season;
     private final Worlds worlds;
     private final Identities identities;
@@ -77,14 +76,22 @@ public final class ObjectiveEngine {
      *
      * <p>Held long because it arrives unannounced - nobody pressed anything.
      */
-    private static final Title.Times CEREMONY = Title.Times.times(
-            Duration.ofMillis(400), Duration.ofSeconds(3), Duration.ofSeconds(1));
+    private static final Title.Times CEREMONY =
+            Title.Times.times(Duration.ofMillis(400), Duration.ofSeconds(3), Duration.ofSeconds(1));
 
-    public ObjectiveEngine(final Plugin plugin, final SmpDao dao, final java.util.function.Supplier<MilestoneTrack> track,
-                           final SeasonState season, final Worlds worlds, final Identities identities,
-                           final Messages messages, final PlayerLocales locales, final SmpSpec config,
-                           final SmpSounds sounds, final WorldEffects effects,
-                           final eu.nordtal.s2.smp.announce.Announcer announcer) {
+    public ObjectiveEngine(
+            final Plugin plugin,
+            final SmpDao dao,
+            final java.util.function.Supplier<MilestoneTrack> track,
+            final SeasonState season,
+            final Worlds worlds,
+            final Identities identities,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSpec config,
+            final SmpSounds sounds,
+            final WorldEffects effects,
+            final eu.nordtal.s2.smp.announce.Announcer announcer) {
         this.announcer = java.util.Objects.requireNonNull(announcer, "announcer");
         this.plugin = plugin;
         this.dao = dao;
@@ -116,8 +123,7 @@ public final class ObjectiveEngine {
      * @return how much was actually credited, which is less than {@code delta} when the objective
      *         was finished by it
      */
-    public long credit(final String discordId, final String objectiveKey, final long delta,
-                       final UUID completedBy) {
+    public long credit(final String discordId, final String objectiveKey, final long delta, final UUID completedBy) {
         if (delta <= 0) {
             return 0L;
         }
@@ -152,8 +158,7 @@ public final class ObjectiveEngine {
      * <p>Called both by {@link #credit} and by the admin escape hatch, which is why the completion
      * guard lives in SQL rather than in the caller.
      */
-    public void finishObjective(final String milestoneKey, final ObjectiveRow objective,
-                                final UUID completedBy) {
+    public void finishObjective(final String milestoneKey, final ObjectiveRow objective, final UUID completedBy) {
         if (dao.completeObjective(objective.id()) == 0) {
             // Somebody else's delivery completed it a moment ago and has already paid everyone.
             return;
@@ -161,8 +166,9 @@ public final class ObjectiveEngine {
 
         final Milestone milestone = track.get().milestone(milestoneKey).orElse(null);
         if (milestone == null) {
-            plugin.getLogger().warning("objective '" + objective.key() + "' completed under milestone '"
-                    + milestoneKey + "', which the track no longer declares - no aura was paid");
+            plugin.getLogger()
+                    .warning("objective '" + objective.key() + "' completed under milestone '" + milestoneKey
+                            + "', which the track no longer declares - no aura was paid");
             return;
         }
         final Objective definition = milestone.objective(objective.key()).orElse(null);
@@ -210,15 +216,14 @@ public final class ObjectiveEngine {
             // The wheel's extra spins hang off the SAME thresholds as the aura share: one rule,
             // one place to change it.
             final long contributed = contributions.getOrDefault(share.contributorId(), 0L);
-            final double percent = objective.target() <= 0 ? 0.0
-                    : (contributed * 100.0) / objective.target();
+            final double percent = objective.target() <= 0 ? 0.0 : (contributed * 100.0) / objective.target();
             final int spins = PrizeDraw.extraSpinsFor(config.wheelExtraSpinPercents(), percent);
             if (spins > 0) {
                 dao.grantSpins(share.contributorId(), spins);
             }
         }
-        plugin.getLogger().info("objective " + ref + " paid " + shares.size() + " contributor(s) out of "
-                + scaled + " aura");
+        plugin.getLogger()
+                .info("objective " + ref + " paid " + shares.size() + " contributor(s) out of " + scaled + " aura");
     }
 
     /**
@@ -257,8 +262,7 @@ public final class ObjectiveEngine {
                 // ceremony.
                 worlds.expandNordtal(milestone.borderDiameter(), true);
             }
-            announceMilestone(milestoneKey, completedBy,
-                    milestone == null ? Unlock.NOTHING : milestone.unlock());
+            announceMilestone(milestoneKey, completedBy, milestone == null ? Unlock.NOTHING : milestone.unlock());
         });
     }
 
@@ -275,9 +279,8 @@ public final class ObjectiveEngine {
         Bukkit.getScheduler().runTask(plugin, () -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {
                 final var locale = locales.of(player.getUniqueId());
-                player.sendMessage(MessageRenderer.of(messages).format(locale,
-                        MESSAGES.smp().objective().completed(Glyphs.ICON_ANNOUNCE,
-                                objectiveKey)));
+                player.sendMessage(MessageRenderer.of(messages)
+                        .format(locale, MESSAGES.smp().objective().completed(Glyphs.ICON_ANNOUNCE, objectiveKey)));
             }
         });
     }
@@ -293,14 +296,14 @@ public final class ObjectiveEngine {
      * no one place everybody is. Nothing here is scheduled or staggered: a milestone closes a
      * handful of times a season and the whole ceremony is one tick's work per online player.
      */
-    private void announceMilestone(final String milestoneKey, final UUID completedBy,
-                                   final Unlock unlock) {
+    private void announceMilestone(final String milestoneKey, final UUID completedBy, final Unlock unlock) {
         // Discord first, and off this thread: one row per language, from the same bundle the chat
         // line uses. The sentence follows the unlock rather than assuming a border step - a Nether
         // or End milestone would otherwise announce a growth that did not happen.
         announcer.announce(locale -> {
             final MilestoneContext milestone = new MilestoneContext(MilestoneNames.of(messages, locale, milestoneKey));
-            final SmpMessages.Smp.Announce.Milestone by = MESSAGES.smp().announce().milestoneSection();
+            final SmpMessages.Smp.Announce.Milestone by =
+                    MESSAGES.smp().announce().milestoneSection();
             return switch (unlock) {
                 case BORDER -> by.border(milestone);
                 case NETHER -> by.nether(milestone);
@@ -313,14 +316,14 @@ public final class ObjectiveEngine {
             final var locale = locales.of(player.getUniqueId());
             final MilestoneContext name = new MilestoneContext(MilestoneNames.of(messages, locale, milestoneKey));
 
-            player.sendMessage(renderer.format(locale,
-                    MESSAGES.smp().milestone().completed(Glyphs.ICON_ANNOUNCE, name)));
+            player.sendMessage(
+                    renderer.format(locale, MESSAGES.smp().milestone().completed(Glyphs.ICON_ANNOUNCE, name)));
             player.showTitle(Title.title(
                     renderer.format(locale, MESSAGES.smp().ceremony().title(name)),
                     renderer.format(locale, MESSAGES.smp().ceremony().subtitle()),
                     CEREMONY));
-            sounds.play(player, player.getUniqueId().equals(completedBy)
-                    ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
+            sounds.play(
+                    player, player.getUniqueId().equals(completedBy) ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
             effects.celebrate(player);
         }
     }

@@ -69,9 +69,16 @@ import java.util.OptionalDouble;
  *                             a percentage from two of these three should say which two.
  */
 public record HostSnapshot(
-        double load1, double load5, double load15, int cpus,
+        double load1,
+        double load5,
+        double load15,
+        int cpus,
         OptionalDouble cpuPercent,
-        long memoryTotalBytes, long memoryAvailableBytes, long memoryFreeBytes,
-        long swapTotalBytes, long swapFreeBytes,
-        long diskTotalBytes, long diskUsedBytes, long diskFreeBytes) {
-}
+        long memoryTotalBytes,
+        long memoryAvailableBytes,
+        long memoryFreeBytes,
+        long swapTotalBytes,
+        long swapFreeBytes,
+        long diskTotalBytes,
+        long diskUsedBytes,
+        long diskFreeBytes) {}

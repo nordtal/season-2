@@ -1,13 +1,12 @@
 package eu.nordtal.s2.commands;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * "alles Admin nur noch Konsole und Web" (owner, season-2-ops/18) - every admin command, off both
@@ -121,7 +120,8 @@ class AdminCommandsAreConsoleAndWebOnlyTest {
                 .filter(declaration -> declaration.surfaces().contains(Surface.DISCORD))
                 .map(Declaration::name)
                 .toList();
-        assertTrue(onDiscord.isEmpty(),
+        assertTrue(
+                onDiscord.isEmpty(),
                 "the Discord adapter was deleted in season-2-community/10, so a declaration on"
                         + " Surface.DISCORD registers nothing at all and is a surface that only"
                         + " looks reachable: " + onDiscord);
@@ -163,7 +163,8 @@ class AdminCommandsAreConsoleAndWebOnlyTest {
                 violations.add(name + " carries " + stray);
             }
         }
-        assertTrue(violations.isEmpty(),
+        assertTrue(
+                violations.isEmpty(),
                 "\"alles Admin nur noch Konsole und Web\" (owner, season-2-ops/18): these admin"
                         + " commands are still reachable from the game or from Discord:\n  "
                         + String.join("\n  ", violations));
@@ -191,7 +192,8 @@ class AdminCommandsAreConsoleAndWebOnlyTest {
         // would be asserting something ops/18 never established and PhaseCommands never claimed.
         final List<String> lost = new ArrayList<>();
         for (final Declaration declaration : Catalogue.all()) {
-            if (!declaration.adminOnly() || EXCEPTIONS.contains(declaration.name())
+            if (!declaration.adminOnly()
+                    || EXCEPTIONS.contains(declaration.name())
                     || NEVER_HAD_CONSOLE.contains(declaration.name())) {
                 continue;
             }
@@ -199,7 +201,8 @@ class AdminCommandsAreConsoleAndWebOnlyTest {
                 lost.add(declaration.name());
             }
         }
-        assertTrue(lost.isEmpty(),
+        assertTrue(
+                lost.isEmpty(),
                 "these admin commands lost Surface.CONSOLE - STOP, this is the one surface that must"
                         + " never be lost. Since steward/106 losing it is not an inconvenience: the"
                         + " adapters keep a command without Surface.GAME out of every player's tree,"

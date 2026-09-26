@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.worker.bunq;
 
-import eu.nordtal.s2.common.payment.Money;
-
 import com.bunq.sdk.context.ApiContext;
 import com.bunq.sdk.context.ApiEnvironmentType;
 import com.bunq.sdk.context.BunqContext;
@@ -10,10 +8,8 @@ import com.bunq.sdk.model.generated.endpoint.BunqMeTabEntryApiObject;
 import com.bunq.sdk.model.generated.endpoint.BunqMeTabResultInquiryApiObject;
 import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
 import com.bunq.sdk.model.generated.object.AmountObject;
+import eu.nordtal.s2.common.payment.Money;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
-
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +22,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Everything this network does at bunq: create a tab, cancel a tab, ask a tab who paid it, and list
@@ -131,8 +128,8 @@ public final class BunqGateway {
      */
     public String startupLine(final Duration poll) {
         if (configured) {
-            return "bunq is ON: payments on monetary account " + accountId + " are polled every "
-                    + poll.toSeconds() + "s, and this container is the only one that holds the key.";
+            return "bunq is ON: payments on monetary account " + accountId + " are polled every " + poll.toSeconds()
+                    + "s, and this container is the only one that holds the key.";
         }
         return "bunq is OFF: bunq.api-key and bunq.account-id are both empty in steward.yml"
                 + " (NORDTAL_STEWARD_BUNQ_API_KEY / NORDTAL_STEWARD_BUNQ_ACCOUNT_ID), so no"
@@ -186,10 +183,10 @@ public final class BunqGateway {
         requireConfigured();
         loadContext();
         final Long tabId = BunqMeTabApiObject.create(
-                new BunqMeTabEntryApiObject(
-                        new AmountObject(Money.toDecimalString(amountCents), CURRENCY),
-                        description),
-                accountId).getValue();
+                        new BunqMeTabEntryApiObject(
+                                new AmountObject(Money.toDecimalString(amountCents), CURRENCY), description),
+                        accountId)
+                .getValue();
 
         final BunqMeTabApiObject tab = BunqMeTabApiObject.get(tabId, accountId).getValue();
         return new Tab(tabId, tab.getBunqmeTabShareUrl());
@@ -246,7 +243,8 @@ public final class BunqGateway {
     public List<PaymentApiObject> recentPayments(final int count) {
         requireConfigured();
         loadContext();
-        return PaymentApiObject.list(accountId, Map.of("count", String.valueOf(count))).getValue();
+        return PaymentApiObject.list(accountId, Map.of("count", String.valueOf(count)))
+                .getValue();
     }
 
     /**
@@ -300,7 +298,8 @@ public final class BunqGateway {
         }
         final Path path = contextPath();
         if (Files.notExists(path)) {
-            final ApiContext context = ApiContext.create(ApiEnvironmentType.PRODUCTION, config.apiKey(), DEVICE_DESCRIPTION);
+            final ApiContext context =
+                    ApiContext.create(ApiEnvironmentType.PRODUCTION, config.apiKey(), DEVICE_DESCRIPTION);
             createParentDirectory(path);
             context.save(path.toString());
             BunqContext.loadApiContext(context);
@@ -314,9 +313,7 @@ public final class BunqGateway {
 
     private Path contextPath() {
         final String configured = config.contextPath();
-        return configured == null || configured.isBlank()
-                ? Path.of(DEFAULT_CONTEXT_FILE)
-                : Path.of(configured);
+        return configured == null || configured.isBlank() ? Path.of(DEFAULT_CONTEXT_FILE) : Path.of(configured);
     }
 
     private static void createParentDirectory(final Path path) {
@@ -337,6 +334,5 @@ public final class BunqGateway {
      * @param id       the tab id, needed to cancel it and to ask who paid it
      * @param shareUrl the URL the payer is sent to
      */
-    public record Tab(long id, String shareUrl) {
-    }
+    public record Tab(long id, String shareUrl) {}
 }

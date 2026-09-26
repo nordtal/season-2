@@ -1,11 +1,9 @@
 package eu.nordtal.s2.steward.worker.http;
 
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.nio.file.Path;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Whatever puts a {@link RemoteFile} on disk, verified.

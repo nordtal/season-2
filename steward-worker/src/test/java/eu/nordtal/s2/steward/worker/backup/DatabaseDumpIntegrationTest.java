@@ -1,18 +1,17 @@
 package eu.nordtal.s2.steward.worker.backup;
 
-import eu.nordtal.s2.steward.worker.docker.Docker;
-import eu.nordtal.s2.steward.worker.docker.DockerSocket;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.time.Clock;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import eu.nordtal.s2.steward.worker.docker.Docker;
+import eu.nordtal.s2.steward.worker.docker.DockerSocket;
+import java.time.Clock;
+import java.util.List;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The database dump against the PostgreSQL that is actually running here.
@@ -51,33 +50,36 @@ class DatabaseDumpIntegrationTest {
         // database dump since the sidecar's removal had failed with "Permission denied" while the
         // volume archives beside it succeeded. Handing it to `postgres` here would hide the bug
         // this test is supposed to catch, so the setup does the opposite: it recreates it.
-        docker.exec(postgres, List.of("sh", "-c", "rm -rf " + DIRECTORY + " && mkdir -p " + DIRECTORY
-                + " && chown root " + DIRECTORY + " && chmod 755 " + DIRECTORY), null);
+        docker.exec(
+                postgres,
+                List.of(
+                        "sh",
+                        "-c",
+                        "rm -rf " + DIRECTORY + " && mkdir -p " + DIRECTORY + " && chown root " + DIRECTORY
+                                + " && chmod 755 " + DIRECTORY),
+                null);
     }
 
     @Test
     @DisplayName("the live database dumps, verifies, and lands under its final name")
     void dumpsTheLiveDatabase() {
-        final SnapshotResult result = new DatabaseDump(docker, PROJECT, "postgres", DIRECTORY,
-                Clock.systemUTC()).save();
+        final SnapshotResult result =
+                new DatabaseDump(docker, PROJECT, "postgres", DIRECTORY, Clock.systemUTC()).save();
 
         assertTrue(result.ok(), result.message());
         assertNotNull(result.file());
-        assertTrue(result.bytes() > 1024,
-                "a dump of this database should not be " + result.bytes() + " bytes");
-        assertFalse(result.file().endsWith(".partial"),
-                "a dump still called .partial has not been verified");
+        assertTrue(result.bytes() > 1024, "a dump of this database should not be " + result.bytes() + " bytes");
+        assertFalse(result.file().endsWith(".partial"), "a dump still called .partial has not been verified");
 
         // The file is where it says it is, and nothing partial was left behind.
-        final Docker.ExecResult listing = docker.exec(postgres,
-                List.of("sh", "-c", "ls " + DIRECTORY), null);
-        assertTrue(listing.output().contains(result.file().substring(DIRECTORY.length() + 1)),
-                listing.output());
-        assertFalse(listing.output().contains(".partial"),
+        final Docker.ExecResult listing = docker.exec(postgres, List.of("sh", "-c", "ls " + DIRECTORY), null);
+        assertTrue(listing.output().contains(result.file().substring(DIRECTORY.length() + 1)), listing.output());
+        assertFalse(
+                listing.output().contains(".partial"),
                 "a partial file survived a successful dump: " + listing.output());
 
-        System.out.println("dumped " + SnapshotResult.human(result.bytes())
-                + " in " + result.took().toMillis() + " ms to " + result.file());
+        System.out.println("dumped " + SnapshotResult.human(result.bytes()) + " in "
+                + result.took().toMillis() + " ms to " + result.file());
 
         docker.exec(postgres, List.of("sh", "-c", "rm -rf " + DIRECTORY), null);
     }
@@ -85,8 +87,8 @@ class DatabaseDumpIntegrationTest {
     @Test
     @DisplayName("a directory nobody can write to is a failure, not a dump of nothing")
     void refusesWhatItCannotWrite() {
-        final SnapshotResult result = new DatabaseDump(docker, PROJECT, "postgres",
-                "/proc/nowhere", Clock.systemUTC()).save();
+        final SnapshotResult result =
+                new DatabaseDump(docker, PROJECT, "postgres", "/proc/nowhere", Clock.systemUTC()).save();
 
         // The A23 shape: this has to be a red line in the report, never a quiet success.
         assertFalse(result.ok());
@@ -97,8 +99,8 @@ class DatabaseDumpIntegrationTest {
     @Test
     @DisplayName("a service that is not running is named as the reason")
     void saysWhenThereIsNoDatabase() {
-        final SnapshotResult result = new DatabaseDump(docker, PROJECT, "no-such-service",
-                DIRECTORY, Clock.systemUTC()).save();
+        final SnapshotResult result =
+                new DatabaseDump(docker, PROJECT, "no-such-service", DIRECTORY, Clock.systemUTC()).save();
 
         assertFalse(result.ok());
         assertTrue(result.message().contains("no-such-service"), result.message());

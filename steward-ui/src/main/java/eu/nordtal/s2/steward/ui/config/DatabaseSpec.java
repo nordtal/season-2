@@ -4,9 +4,9 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
-import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code database.yml} - the same database every other process in this stack reads.
@@ -17,12 +17,13 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
  * deployment in the middle of an update, and the answer is to wait for the worker rather than to
  * race it.</p>
  */
-@ConfigSpec(header = {
-        "How the interface reaches PostgreSQL.",
-        "",
-        "The password comes from the environment (NORDTAL_STEWARD_UI_DATABASE_PASSWORD) and is",
-        "never written back into this file."
-})
+@ConfigSpec(
+        header = {
+            "How the interface reaches PostgreSQL.",
+            "",
+            "The password comes from the environment (NORDTAL_STEWARD_UI_DATABASE_PASSWORD) and is",
+            "never written back into this file."
+        })
 public interface DatabaseSpec {
 
     @Order(1)
@@ -55,9 +56,9 @@ public interface DatabaseSpec {
     @Name("Connection pool size")
     @Key("maximum-pool-size")
     @Comment({
-            "Small on purpose. This is an interface for three admins, and every page it draws is",
-            "one or two short reads; a large pool here would only take connections away from the",
-            "processes that need them under load."
+        "Small on purpose. This is an interface for three admins, and every page it draws is",
+        "one or two short reads; a large pool here would only take connections away from the",
+        "processes that need them under load."
     })
     @NoExplanationNeeded
     default int maximumPoolSize() {

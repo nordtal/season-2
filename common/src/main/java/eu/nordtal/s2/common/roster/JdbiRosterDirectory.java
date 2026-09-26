@@ -1,13 +1,12 @@
 package eu.nordtal.s2.common.roster;
 
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.postgres.PostgresPlugin;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
  * The only implementation of {@link RosterDirectory}. Package-private: consumers get it from the

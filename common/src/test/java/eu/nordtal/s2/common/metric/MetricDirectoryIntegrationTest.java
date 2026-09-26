@@ -1,7 +1,18 @@
 package eu.nordtal.s2.common.metric;
 
-import eu.nordtal.s2.common.access.AccessSchema;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.access.AccessSchema;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,19 +22,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Exercises {@link MetricDirectory} against a real PostgreSQL running the real migrations.
@@ -51,6 +49,7 @@ class MetricDirectoryIntegrationTest {
      * boundary.
      */
     private static final Instant TEN = Instant.parse("2026-08-01T10:00:00Z");
+
     private static final Instant ELEVEN = Instant.parse("2026-08-01T11:00:00Z");
     private static final Instant TWELVE = Instant.parse("2026-08-01T12:00:00Z");
 
@@ -61,7 +60,8 @@ class MetricDirectoryIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed metric tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -124,22 +124,22 @@ class MetricDirectoryIntegrationTest {
         // code. This asserts against a literal instead, which is the only way to see it.
         metrics.record(List.of(new MetricSample("host", "cpu", Instant.parse("2026-08-01T13:37:00Z"), 1.0)));
 
-        assertEquals(1, count("SELECT count(*) FROM metric_sample "
-                + "WHERE at = timestamptz '2026-08-01 13:37:00+00'"));
+        assertEquals(
+                1, count("SELECT count(*) FROM metric_sample " + "WHERE at = timestamptz '2026-08-01 13:37:00+00'"));
     }
 
     @Test
     void asecondIdenticalBatchAddsNothing() {
         final List<MetricSample> sweep = List.of(
-                new MetricSample("host", "cpu", TEN, 12.5),
-                new MetricSample("host", "memory", TEN, 4_000_000_000.0));
+                new MetricSample("host", "cpu", TEN, 12.5), new MetricSample("host", "memory", TEN, 4_000_000_000.0));
 
         metrics.record(sweep);
         metrics.record(sweep);
 
-        assertEquals(2, count("SELECT count(*) FROM metric_sample"),
-                "the key is (subject, metric, resolution, at) and a replayed sweep collides with "
-                        + "itself exactly");
+        assertEquals(
+                2,
+                count("SELECT count(*) FROM metric_sample"),
+                "the key is (subject, metric, resolution, at) and a replayed sweep collides with " + "itself exactly");
     }
 
     @Test
@@ -148,7 +148,9 @@ class MetricDirectoryIntegrationTest {
         metrics.record(List.of(new MetricSample("host", "cpu", TEN, 12.5)));
         metrics.record(List.of(new MetricSample("host", "cpu", TEN, 99.0)));
 
-        assertEquals(12.5, metrics.range("host", "cpu", TEN, ELEVEN).getFirst().value(),
+        assertEquals(
+                12.5,
+                metrics.range("host", "cpu", TEN, ELEVEN).getFirst().value(),
                 "DO NOTHING and not DO UPDATE: a measurement at an instant is a fact");
     }
 
@@ -161,10 +163,9 @@ class MetricDirectoryIntegrationTest {
     @Test
     @DisplayName("a value the mean could not survive is refused before it reaches the table")
     void nanIsRefused() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new MetricSample("host", "cpu", TEN, Double.NaN));
-        assertThrows(IllegalArgumentException.class,
-                () -> new MetricSample("host", "cpu", TEN, Double.POSITIVE_INFINITY));
+        assertThrows(IllegalArgumentException.class, () -> new MetricSample("host", "cpu", TEN, Double.NaN));
+        assertThrows(
+                IllegalArgumentException.class, () -> new MetricSample("host", "cpu", TEN, Double.POSITIVE_INFINITY));
     }
 
     @Test
@@ -175,8 +176,8 @@ class MetricDirectoryIntegrationTest {
         // somebody remembered to write. A third constant added here without one compiles, passes
         // everything, reaches a real database and is refused there.
         for (final Resolution resolution : Resolution.values()) {
-            execute("INSERT INTO metric_sample (subject, metric, resolution, at, value) VALUES "
-                    + "('host', 'cpu', '" + resolution.name() + "', timestamptz '2026-08-01 10:00:00+00', 1.0)");
+            execute("INSERT INTO metric_sample (subject, metric, resolution, at, value) VALUES " + "('host', 'cpu', '"
+                    + resolution.name() + "', timestamptz '2026-08-01 10:00:00+00', 1.0)");
         }
         assertEquals(Resolution.values().length, count("SELECT count(*) FROM metric_sample"));
     }
@@ -213,11 +214,15 @@ class MetricDirectoryIntegrationTest {
                 new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
                 new MetricSample("host", "cpu", ELEVEN, 40.0)));
 
-        assertEquals(1, metrics.compact(ELEVEN.plusSeconds(1800)),
+        assertEquals(
+                1,
+                metrics.compact(ELEVEN.plusSeconds(1800)),
                 "only the ten o'clock hour: the cut is rounded down to 11:00");
         assertEquals(15.0, hourly("host", "cpu", TEN));
-        assertEquals(0, count("SELECT count(*) FROM metric_sample WHERE resolution = 'HOUR' "
-                + "AND at = timestamptz '2026-08-01 11:00:00+00'"));
+        assertEquals(
+                0,
+                count("SELECT count(*) FROM metric_sample WHERE resolution = 'HOUR' "
+                        + "AND at = timestamptz '2026-08-01 11:00:00+00'"));
     }
 
     @Test
@@ -233,8 +238,8 @@ class MetricDirectoryIntegrationTest {
 
         assertEquals(0, metrics.compact(ELEVEN), "the second run finds the hour already averaged");
         assertEquals(afterFirst, count("SELECT count(*) FROM metric_sample"), "and writes nothing");
-        assertEquals(30.0, hourly("host", "cpu", TEN),
-                "and the mean is still the mean of the raw samples, not of itself");
+        assertEquals(
+                30.0, hourly("host", "cpu", TEN), "and the mean is still the mean of the raw samples, not of itself");
 
         // The failure this guards against is not a duplicate row - the primary key would stop that
         // - but a mean folded into a mean, which would show up as a value and not as a row count.
@@ -258,10 +263,14 @@ class MetricDirectoryIntegrationTest {
         // ...but the delete is asked to go far past both of them. Age alone would take all four.
         assertEquals(2, metrics.forget(TWELVE), "only the two whose hour has a mean");
 
-        assertEquals(0, count("SELECT count(*) FROM metric_sample WHERE resolution = 'RAW' "
+        assertEquals(
+                0,
+                count("SELECT count(*) FROM metric_sample WHERE resolution = 'RAW' "
                         + "AND at < timestamptz '2026-08-01 11:00:00+00'"),
                 "the compacted hour's raw rows are gone");
-        assertEquals(2, count("SELECT count(*) FROM metric_sample WHERE resolution = 'RAW' "
+        assertEquals(
+                2,
+                count("SELECT count(*) FROM metric_sample WHERE resolution = 'RAW' "
                         + "AND at >= timestamptz '2026-08-01 11:00:00+00'"),
                 "the hour that was never averaged still has every sample it had - a compaction that "
                         + "failed must not look like one that worked");
@@ -309,7 +318,9 @@ class MetricDirectoryIntegrationTest {
 
         assertEquals(TWELVE, curve.get(2).at());
         assertEquals(100.0, curve.get(2).value());
-        assertEquals(Resolution.RAW, curve.get(2).resolution(),
+        assertEquals(
+                Resolution.RAW,
+                curve.get(2).resolution(),
                 "and the caller can see which points are means, because an hour flattens a spike");
     }
 
@@ -328,10 +339,13 @@ class MetricDirectoryIntegrationTest {
         final List<MetricPoint> curve = metrics.range("host", "cpu", TEN, TWELVE);
 
         assertEquals(3, curve.size(), "three raw samples, and the mean of two of them is not a fourth point");
-        assertTrue(curve.stream().allMatch(p -> p.resolution() == Resolution.RAW),
+        assertTrue(
+                curve.stream().allMatch(p -> p.resolution() == Resolution.RAW),
                 "the seam is the oldest raw sample there is, so every hour that still has its raw "
                         + "rows is drawn from them");
-        assertEquals(List.of(12.0, 18.0, 40.0), curve.stream().map(MetricPoint::value).toList());
+        assertEquals(
+                List.of(12.0, 18.0, 40.0),
+                curve.stream().map(MetricPoint::value).toList());
     }
 
     @Test
@@ -349,9 +363,12 @@ class MetricDirectoryIntegrationTest {
         final List<MetricPoint> curve = metrics.range("host", "cpu", TEN, TWELVE);
 
         assertEquals(3, curve.size(), "three raw samples, and the mean of two of them is not a fourth point");
-        assertTrue(curve.stream().allMatch(p -> p.resolution() == Resolution.RAW),
+        assertTrue(
+                curve.stream().allMatch(p -> p.resolution() == Resolution.RAW),
                 "the seam is the hour of the oldest raw sample, not the sample's own minute");
-        assertEquals(List.of(12.0, 18.0, 40.0), curve.stream().map(MetricPoint::value).toList());
+        assertEquals(
+                List.of(12.0, 18.0, 40.0),
+                curve.stream().map(MetricPoint::value).toList());
     }
 
     @Test
@@ -382,9 +399,8 @@ class MetricDirectoryIntegrationTest {
     @Test
     @DisplayName("`to` is exclusive, so two adjacent windows do not both contain the point between them")
     void theWindowIsHalfOpen() {
-        metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN, 12.0),
-                new MetricSample("host", "cpu", ELEVEN, 40.0)));
+        metrics.record(
+                List.of(new MetricSample("host", "cpu", TEN, 12.0), new MetricSample("host", "cpu", ELEVEN, 40.0)));
 
         assertEquals(1, metrics.range("host", "cpu", TEN, ELEVEN).size());
         assertEquals(1, metrics.range("host", "cpu", ELEVEN, TWELVE).size());
@@ -394,11 +410,11 @@ class MetricDirectoryIntegrationTest {
 
     private double hourly(final String subject, final String metric, final Instant hour) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(
-                     "SELECT value FROM metric_sample WHERE subject = '" + subject + "' "
-                             + "AND metric = '" + metric + "' AND resolution = 'HOUR' "
-                             + "AND at = timestamptz '" + hour + "'")) {
+                Statement statement = connection.createStatement();
+                ResultSet rs =
+                        statement.executeQuery("SELECT value FROM metric_sample WHERE subject = '" + subject + "' "
+                                + "AND metric = '" + metric + "' AND resolution = 'HOUR' "
+                                + "AND at = timestamptz '" + hour + "'")) {
             assertTrue(rs.next(), "no hourly row at " + hour);
             return rs.getDouble(1);
         } catch (final SQLException e) {
@@ -408,8 +424,8 @@ class MetricDirectoryIntegrationTest {
 
     private long count(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
             assertTrue(rs.next());
             return rs.getLong(1);
         } catch (final SQLException e) {
@@ -419,7 +435,7 @@ class MetricDirectoryIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException e) {
             throw new IllegalStateException(e);

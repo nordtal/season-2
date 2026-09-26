@@ -2,7 +2,10 @@ package eu.nordtal.s2.smp.duel;
 
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.region.Box;
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -12,11 +15,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * Stepping onto a platform, and the three ways a duel ends.
@@ -29,11 +27,11 @@ public final class DuelListener implements Listener {
 
     /** The configured platforms, resolved once: a box and the loadout it hands out. */
     private final List<Map.Entry<Box, DuelType>> platforms = new ArrayList<>();
+
     private final Duels duels;
     private final org.bukkit.plugin.Plugin plugin;
 
-    public DuelListener(final org.bukkit.plugin.Plugin plugin, final SmpSpec config,
-                        final Duels duels) {
+    public DuelListener(final org.bukkit.plugin.Plugin plugin, final SmpSpec config, final Duels duels) {
         this.plugin = plugin;
         this.duels = duels;
         for (final SmpSpec.DuelPlatformSpec spec : config.duelPlatforms()) {
@@ -41,8 +39,9 @@ public final class DuelListener implements Listener {
             if (type.isEmpty()) {
                 continue;
             }
-            platforms.add(Map.entry(new Box(spec.world(), spec.minX(), spec.minY(), spec.minZ(),
-                    spec.maxX(), spec.maxY(), spec.maxZ()), type.get()));
+            platforms.add(Map.entry(
+                    new Box(spec.world(), spec.minX(), spec.minY(), spec.minZ(), spec.maxX(), spec.maxY(), spec.maxZ()),
+                    type.get()));
         }
     }
 
@@ -65,7 +64,8 @@ public final class DuelListener implements Listener {
     public void onMove(final PlayerMoveEvent event) {
         final Location to = event.getTo();
         final Location from = event.getFrom();
-        if (to.getBlockX() == from.getBlockX() && to.getBlockY() == from.getBlockY()
+        if (to.getBlockX() == from.getBlockX()
+                && to.getBlockY() == from.getBlockY()
                 && to.getBlockZ() == from.getBlockZ()) {
             return;
         }
@@ -151,8 +151,7 @@ public final class DuelListener implements Listener {
 
     private Optional<DuelType> platformAt(final Location at) {
         for (final Map.Entry<Box, DuelType> platform : platforms) {
-            if (platform.getKey().contains(at.getWorld().getName(), at.getBlockX(),
-                    at.getBlockY(), at.getBlockZ())) {
+            if (platform.getKey().contains(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ())) {
                 return Optional.of(platform.getValue());
             }
         }

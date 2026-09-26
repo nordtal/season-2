@@ -1,12 +1,11 @@
 package eu.nordtal.s2.smp.npc;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * The one place in this design where a bug takes items off a player and gives nothing back.
@@ -38,8 +37,8 @@ class HandInTest {
 
     @Test
     void whatItDoesNotWantIsNeverTouched() {
-        final HandIn.Result result = HandIn.sort(
-                List.of(offered(0, "DIRT", 64), offered(1, "IRON_INGOT", 8)), WANTED, 100);
+        final HandIn.Result result =
+                HandIn.sort(List.of(offered(0, "DIRT", 64), offered(1, "IRON_INGOT", 8)), WANTED, 100);
 
         assertEquals(8, result.accepted());
         assertEquals(1, result.takes().size(), "the dirt's slot is not in the list at all");
@@ -53,14 +52,16 @@ class HandInTest {
 
         assertEquals(10, result.accepted());
         assertEquals(10, result.takes().get(0).taken());
-        assertEquals(54, result.takes().get(0).returned(),
+        assertEquals(
+                54,
+                result.takes().get(0).returned(),
                 "somebody emptying a chest into a nearly-finished objective keeps the rest");
     }
 
     @Test
     void nothingIsTakenOnceTheObjectiveIsFull() {
-        final HandIn.Result result = HandIn.sort(
-                List.of(offered(0, "IRON_INGOT", 64), offered(1, "GOLD_INGOT", 64)), WANTED, 0);
+        final HandIn.Result result =
+                HandIn.sort(List.of(offered(0, "IRON_INGOT", 64), offered(1, "GOLD_INGOT", 64)), WANTED, 0);
 
         assertEquals(0, result.accepted());
         assertTrue(result.takes().isEmpty());
@@ -68,8 +69,8 @@ class HandInTest {
 
     @Test
     void severalWantedMaterialsCountTowardsTheSameObjective() {
-        final HandIn.Result result = HandIn.sort(
-                List.of(offered(0, "IRON_INGOT", 5), offered(1, "GOLD_INGOT", 5)), WANTED, 100);
+        final HandIn.Result result =
+                HandIn.sort(List.of(offered(0, "IRON_INGOT", 5), offered(1, "GOLD_INGOT", 5)), WANTED, 100);
 
         assertEquals(10, result.accepted());
         assertEquals(2, result.takes().size());
@@ -77,8 +78,7 @@ class HandInTest {
 
     @Test
     void matchingIsCaseInsensitiveBecauseConfigIsWrittenByHand() {
-        final HandIn.Result result = HandIn.sort(
-                List.of(offered(0, "iron_ingot", 4)), Set.of("Iron_Ingot"), 100);
+        final HandIn.Result result = HandIn.sort(List.of(offered(0, "iron_ingot", 4)), Set.of("Iron_Ingot"), 100);
 
         assertEquals(4, result.accepted());
     }
@@ -103,8 +103,7 @@ class HandInTest {
     @Test
     void everyItemTakenIsAnItemCounted() {
         final HandIn.Result result = HandIn.sort(
-                List.of(offered(0, "IRON_INGOT", 40), offered(1, "DIRT", 3),
-                        offered(2, "GOLD_INGOT", 40)), WANTED, 50);
+                List.of(offered(0, "IRON_INGOT", 40), offered(1, "DIRT", 3), offered(2, "GOLD_INGOT", 40)), WANTED, 50);
 
         assertEquals(result.accepted(), taken(result));
         assertEquals(50, result.accepted(), "and never more than the objective still needs");

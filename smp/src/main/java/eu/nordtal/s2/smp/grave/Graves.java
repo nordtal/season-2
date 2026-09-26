@@ -1,18 +1,29 @@
 package eu.nordtal.s2.smp.grave;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.common.phase.SeasonDates;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.ExpiredGrave;
 import eu.nordtal.s2.smp.db.GraveRow;
+import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
-import eu.nordtal.s2.smp.db.SmpDao;
-
+import java.time.Duration;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -32,19 +43,6 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * Graves: what a death leaves behind, everywhere except the duel arena.
@@ -108,10 +106,15 @@ public final class Graves implements InventoryHolder {
      */
     private final Map<UUID, Inventory> shown = new HashMap<>();
 
-    public Graves(final Plugin plugin, final SmpDao dao,
-                  final eu.nordtal.s2.smp.player.Identities identities, final Messages messages,
-                  final PlayerLocales locales, final SmpSounds sounds, final WorldEffects effects,
-                  final SmpSpec config) {
+    public Graves(
+            final Plugin plugin,
+            final SmpDao dao,
+            final eu.nordtal.s2.smp.player.Identities identities,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds,
+            final WorldEffects effects,
+            final SmpSpec config) {
         this.plugin = plugin;
         this.dao = dao;
         this.identities = identities;
@@ -156,25 +159,38 @@ public final class Graves implements InventoryHolder {
      * @param contents  their whole inventory
      * @param experience the experience to credit back to whoever empties it
      */
-    public void create(final String ownerId, final UUID ownerUuid, final Location at,
-                       final ItemStack[] contents, final int experience) {
+    public void create(
+            final String ownerId,
+            final UUID ownerUuid,
+            final Location at,
+            final ItemStack[] contents,
+            final int experience) {
         final byte[] bytes = ItemStack.serializeItemsAsBytes(contents);
         final Location grave = at.getBlock().getLocation().add(0.5, 0, 0.5);
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            dao.createGrave(ownerId, grave.getWorld().getName(), grave.getBlockX(), grave.getBlockY(),
-                    grave.getBlockZ(), bytes, experience);
+            dao.createGrave(
+                    ownerId,
+                    grave.getWorld().getName(),
+                    grave.getBlockX(),
+                    grave.getBlockY(),
+                    grave.getBlockZ(),
+                    bytes,
+                    experience);
             // Read back rather than invented locally, so a restart draws exactly what a fresh
             // death drew.
             final List<GraveRow> rows = dao.openGraves();
-            Bukkit.getScheduler().runTask(plugin, () -> rows.stream()
-                    .filter(row -> !open.containsKey(row.id()))
-                    .forEach(row -> {
-                        final World world = Bukkit.getWorld(row.world());
-                        if (world != null) {
-                            draw(row, new Location(world, row.x() + 0.5, row.y(), row.z() + 0.5));
-                        }
-                    }));
+            Bukkit.getScheduler()
+                    .runTask(
+                            plugin,
+                            () -> rows.stream()
+                                    .filter(row -> !open.containsKey(row.id()))
+                                    .forEach(row -> {
+                                        final World world = Bukkit.getWorld(row.world());
+                                        if (world != null) {
+                                            draw(row, new Location(world, row.x() + 0.5, row.y(), row.z() + 0.5));
+                                        }
+                                    }));
         });
     }
 
@@ -248,8 +264,10 @@ public final class Graves implements InventoryHolder {
      */
     private static final Duration HOLOGRAM_FINAL_STRETCH = Duration.ofMinutes(1);
 
-    private static final long HOLOGRAM_REFRESH_MINUTES_MS = Duration.ofMinutes(1).toMillis();
-    private static final long HOLOGRAM_REFRESH_SECONDS_MS = Duration.ofSeconds(1).toMillis();
+    private static final long HOLOGRAM_REFRESH_MINUTES_MS =
+            Duration.ofMinutes(1).toMillis();
+    private static final long HOLOGRAM_REFRESH_SECONDS_MS =
+            Duration.ofSeconds(1).toMillis();
 
     private void draw(final GraveRow row, final Location at) {
         final World world = at.getWorld();
@@ -272,8 +290,7 @@ public final class Graves implements InventoryHolder {
         if (row.ownerUuid() != null) {
             // Null only when the account link is gone, i.e. somebody was unlinked after dying; a
             // plain head is the right answer there.
-            head.editMeta(SkullMeta.class,
-                    meta -> meta.setOwningPlayer(Bukkit.getOfflinePlayer(row.ownerUuid())));
+            head.editMeta(SkullMeta.class, meta -> meta.setOwningPlayer(Bukkit.getOfflinePlayer(row.ownerUuid())));
         }
         // Spawned at the chest's own location, not lifted by adding to the spawn point: every part of
         // "on top of the chest, sunk in, and tilted" is one Transformation (season-2-ingame/14 -
@@ -305,8 +322,7 @@ public final class Graves implements InventoryHolder {
             // exactly this transform: the head's own model, centred on the origin.
             display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
             display.setTransformation(new Transformation(
-                    new Vector3f(0f,
-                            CHEST_HEIGHT + HEAD_HALF_HEIGHT * HEAD_SCALE - HEAD_SINK_DEPTH, 0f),
+                    new Vector3f(0f, CHEST_HEIGHT + HEAD_HALF_HEIGHT * HEAD_SCALE - HEAD_SINK_DEPTH, 0f),
                     new AxisAngle4f((float) Math.toRadians(HEAD_TILT_DEGREES), 1f, 0f, 0f),
                     new Vector3f(HEAD_SCALE, HEAD_SCALE, HEAD_SCALE),
                     new AxisAngle4f((float) Math.toRadians(HEAD_ROLL_DEGREES), 0f, 0f, 1f)));
@@ -327,8 +343,8 @@ public final class Graves implements InventoryHolder {
         // no deadline to count down to, and a number that never moves is not a countdown.
         if (config.graveMaxAgeHours() > 0) {
             final Duration timeLeft = timeLeft(row);
-            final TextDisplay hologram = world.spawn(at.clone().add(0, HOLOGRAM_HEIGHT, 0),
-                    TextDisplay.class, display -> {
+            final TextDisplay hologram =
+                    world.spawn(at.clone().add(0, HOLOGRAM_HEIGHT, 0), TextDisplay.class, display -> {
                         display.setPersistent(false);
                         display.setSeeThrough(true);
                         display.setBillboard(Display.Billboard.CENTER);
@@ -369,14 +385,14 @@ public final class Graves implements InventoryHolder {
         if (timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0) {
             return renderer.format(locale, MESSAGES.smp().grave().hologramSeconds(timeLeft.toSeconds()));
         }
-        return renderer.format(locale,
-                MESSAGES.smp().grave().hologram(timeLeft.toHours(), timeLeft.toMinutesPart()));
+        return renderer.format(locale, MESSAGES.smp().grave().hologram(timeLeft.toHours(), timeLeft.toMinutesPart()));
     }
 
     /** Once a minute normally, once a second inside {@link #HOLOGRAM_FINAL_STRETCH}. */
     private static long refreshInterval(final Duration timeLeft) {
         return timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0
-                ? HOLOGRAM_REFRESH_SECONDS_MS : HOLOGRAM_REFRESH_MINUTES_MS;
+                ? HOLOGRAM_REFRESH_SECONDS_MS
+                : HOLOGRAM_REFRESH_MINUTES_MS;
     }
 
     /**
@@ -455,12 +471,12 @@ public final class Graves implements InventoryHolder {
                 if (world != null) {
                     // The same sound as a grave being emptied, and deliberately so: from where
                     // anybody is standing, both are a grave that is there and then is not.
-                    sounds.playAt(new Location(world, grave.x() + 0.5, grave.y() + 0.5,
-                            grave.z() + 0.5), Feedback.RECLAIMED);
+                    sounds.playAt(
+                            new Location(world, grave.x() + 0.5, grave.y() + 0.5, grave.z() + 0.5), Feedback.RECLAIMED);
                 }
             }
-            plugin.getLogger().info("expired " + gone.size() + " grave(s) older than " + hours
-                    + "h, contents included");
+            plugin.getLogger()
+                    .info("expired " + gone.size() + " grave(s) older than " + hours + "h, contents included");
         });
     }
 
@@ -510,12 +526,14 @@ public final class Graves implements InventoryHolder {
         final int contentRows = GravePanel.contentRows(contents.length);
         final MessageRenderer renderer = MessageRenderer.of(messages);
 
-        final Inventory window = Bukkit.createInventory(null,
+        final Inventory window = Bukkit.createInventory(
+                null,
                 GravePanel.rows(contentRows) * 9,
-                GravePanel.title(renderer.format(locale, MESSAGES.smp().grave().title()), contentRows,
+                GravePanel.title(
+                        renderer.format(locale, MESSAGES.smp().grave().title()),
+                        contentRows,
                         row.experience() > 0
-                                ? messages.format(locale,
-                                        MESSAGES.smp().grave().experienceLine(row.experience()))
+                                ? messages.format(locale, MESSAGES.smp().grave().experienceLine(row.experience()))
                                 : "",
                         messages.format(locale, MESSAGES.smp().grave().takeAllButton())));
 
@@ -561,19 +579,21 @@ public final class Graves implements InventoryHolder {
      */
     private ItemStack head(final GraveRow row, final MessageRenderer renderer, final Locale locale) {
         final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-        final String name = row.ownerUuid() == null ? null
+        final String name = row.ownerUuid() == null
+                ? null
                 : Bukkit.getOfflinePlayer(row.ownerUuid()).getName();
         head.editMeta(meta -> {
             if (meta instanceof SkullMeta skull && row.ownerUuid() != null) {
                 skull.setOwningPlayer(Bukkit.getOfflinePlayer(row.ownerUuid()));
             }
-            meta.displayName(renderer.format(locale,
-                            name == null ? MESSAGES.smp().grave().ownerUnknown()
+            meta.displayName(renderer.format(
+                            locale,
+                            name == null
+                                    ? MESSAGES.smp().grave().ownerUnknown()
                                     : MESSAGES.smp().grave().owner(new PlayerContext(name)))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
             final String date = GRAVE_DATE.format(row.created().atZone(SeasonDates.ZONE));
-            meta.lore(List.of(renderer.format(locale,
-                    MESSAGES.smp().grave().diedAt(date, row.x(), row.y(), row.z()))
+            meta.lore(List.of(renderer.format(locale, MESSAGES.smp().grave().diedAt(date, row.x(), row.y(), row.z()))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });
         return head;
@@ -626,8 +646,10 @@ public final class Graves implements InventoryHolder {
                 continue;
             }
             inventory.setItem(slot, null);
-            player.getInventory().addItem(stack).values().forEach(left ->
-                    player.getWorld().dropItemNaturally(player.getLocation(), left));
+            player.getInventory()
+                    .addItem(stack)
+                    .values()
+                    .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
             took = true;
         }
 
@@ -694,12 +716,22 @@ public final class Graves implements InventoryHolder {
         if (!empty) {
             // Not finished: keep what is left so anybody can come back for the rest.
             final byte[] remaining = ItemStack.serializeItemsAsBytes(left);
-            open.put(graveId, new GraveRow(row.id(), row.ownerId(), row.ownerUuid(), row.world(),
-                    row.x(), row.y(), row.z(), remaining, row.experience(), row.created()));
+            open.put(
+                    graveId,
+                    new GraveRow(
+                            row.id(),
+                            row.ownerId(),
+                            row.ownerUuid(),
+                            row.world(),
+                            row.x(),
+                            row.y(),
+                            row.z(),
+                            remaining,
+                            row.experience(),
+                            row.created()));
             // AND IN THE DATABASE: the map above is this process's memory, but the enable-time
             // restore reads the row, so a half-emptied grave would come back full after a restart.
-            Bukkit.getScheduler().runTaskAsynchronously(plugin,
-                    () -> dao.updateGraveContents(graveId, remaining));
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> dao.updateGraveContents(graveId, remaining));
             return;
         }
 
@@ -713,8 +745,10 @@ public final class Graves implements InventoryHolder {
         final ItemStack head = inventory.getItem(headSlot);
         if (head != null && !head.getType().isAir()) {
             inventory.setItem(headSlot, null);
-            player.getInventory().addItem(head).values().forEach(spill ->
-                    player.getWorld().dropItemNaturally(player.getLocation(), spill));
+            player.getInventory()
+                    .addItem(head)
+                    .values()
+                    .forEach(spill -> player.getWorld().dropItemNaturally(player.getLocation(), spill));
         }
 
         // The looter's DISCORD id, never their Minecraft UUID: `looted_by` is varchar(32) like
@@ -741,14 +775,16 @@ public final class Graves implements InventoryHolder {
                 // shutdown, to nobody's benefit.
                 final World graveWorld = Bukkit.getWorld(row.world());
                 if (graveWorld != null) {
-                    sounds.playAt(new Location(graveWorld, row.x() + 0.5, row.y() + 0.5, row.z() + 0.5),
-                            Feedback.RECLAIMED);
+                    sounds.playAt(
+                            new Location(graveWorld, row.x() + 0.5, row.y() + 0.5, row.z() + 0.5), Feedback.RECLAIMED);
                 }
 
                 if (experience > 0 && player.isOnline()) {
                     player.giveExp(experience);
-                    player.sendMessage(MessageRenderer.of(messages).format(
-                            locales.of(player.getUniqueId()), MESSAGES.smp().grave().experience(experience)));
+                    player.sendMessage(MessageRenderer.of(messages)
+                            .format(
+                                    locales.of(player.getUniqueId()),
+                                    MESSAGES.smp().grave().experience(experience)));
                     sounds.play(player, Feedback.SMALL_SUCCESS);
                 }
             });
@@ -762,8 +798,7 @@ public final class Graves implements InventoryHolder {
      */
     public static ItemStack[] contentOf(final Inventory inventory) {
         final int contentRows = inventory.getSize() / 9 - 1;
-        return java.util.Arrays.copyOf(inventory.getContents(),
-                GravePanel.contentSlots(contentRows));
+        return java.util.Arrays.copyOf(inventory.getContents(), GravePanel.contentSlots(contentRows));
     }
 
     // forgetWorld stood here until 2026-09-20: it erased every grave in a world for the nightly

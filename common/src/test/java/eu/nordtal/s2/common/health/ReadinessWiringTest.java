@@ -1,16 +1,15 @@
 package eu.nordtal.s2.common.health;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That every process which reports readiness reports it <em>late</em>.
@@ -36,24 +35,25 @@ class ReadinessWiringTest {
             "limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java");
 
-    private static final String VELOCITY_PLUGIN =
-            "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
+    private static final String VELOCITY_PLUGIN = "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
 
-    private static final String BOT =
-            "discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java";
+    private static final String BOT = "discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java";
 
     @Test
     @DisplayName("all five processes refresh the marker")
     void everyProcessBeats() throws IOException {
         for (final String relative : all()) {
             final String text = read(relative);
-            assertTrue(text.contains("eu.nordtal.s2.common.health.Readiness"),
+            assertTrue(
+                    text.contains("eu.nordtal.s2.common.health.Readiness"),
                     relative + " no longer imports Readiness, so its container has nothing to check"
                             + " and reports healthy from the moment the JVM starts");
-            assertTrue(text.contains("Readiness.onDefaultPath("),
+            assertTrue(
+                    text.contains("Readiness.onDefaultPath("),
                     relative + " does not build a Readiness on the shared marker path; a path of its"
                             + " own would be one compose.yml does not look at");
-            assertTrue(text.contains("::refresh"),
+            assertTrue(
+                    text.contains("::refresh"),
                     relative + " builds a Readiness and never refreshes it. A marker written once"
                             + " stays green for as long as the container's /tmp does, which is the"
                             + " half of this that a dead process would still pass");
@@ -68,15 +68,20 @@ class ReadinessWiringTest {
 
             final int lastRefusal = lastRefusal(text);
             final int heartbeat = text.indexOf("startHeartbeat();");
-            assertTrue(lastRefusal >= 0, relative + " has no severe(\"...\") refusal any more, so"
-                    + " this test is asserting nothing - check what replaced it");
+            assertTrue(
+                    lastRefusal >= 0,
+                    relative + " has no severe(\"...\") refusal any more, so"
+                            + " this test is asserting nothing - check what replaced it");
             assertTrue(heartbeat >= 0, relative + " does not call startHeartbeat()");
-            assertTrue(lastRefusal < heartbeat, relative + " starts its readiness heartbeat before"
-                    + " its last refusal. A marker written above a refusal is a marker a plugin that"
-                    + " refused to start still wrote, which is the exact state this signal exists to"
-                    + " make visible.");
+            assertTrue(
+                    lastRefusal < heartbeat,
+                    relative + " starts its readiness heartbeat before"
+                            + " its last refusal. A marker written above a refusal is a marker a plugin that"
+                            + " refused to start still wrote, which is the exact state this signal exists to"
+                            + " make visible.");
 
-            assertTrue(text.contains("runTaskTimerAsynchronously(this, readiness::refresh"),
+            assertTrue(
+                    text.contains("runTaskTimerAsynchronously(this, readiness::refresh"),
                     relative + " no longer beats on Bukkit's ASYNC scheduler. Two things break at"
                             + " once: a file write moves onto the main thread, and a server frozen"
                             + " mid-tick keeps beating from a thread the freeze does not touch.");
@@ -92,12 +97,16 @@ class ReadinessWiringTest {
         // only thing that can.
         final String text = read(VELOCITY_PLUGIN);
 
-        assertEquals(1, count(text, "startHeartbeat();"),
+        assertEquals(
+                1,
+                count(text, "startHeartbeat();"),
                 VELOCITY_PLUGIN + " calls startHeartbeat() more than once; the fail-closed path is"
                         + " the one place it must not be called from");
-        assertTrue(text.indexOf("startHeartbeat();") < text.indexOf("private void failClosed("),
+        assertTrue(
+                text.indexOf("startHeartbeat();") < text.indexOf("private void failClosed("),
                 VELOCITY_PLUGIN + "'s only startHeartbeat() call is no longer inside start(...)");
-        assertTrue(text.contains("heartbeat.cancel()"),
+        assertTrue(
+                text.contains("heartbeat.cancel()"),
                 VELOCITY_PLUGIN + " never cancels the beat, so a proxy on the way down keeps saying"
                         + " it is up for as long as its scheduler runs");
     }
@@ -111,13 +120,18 @@ class ReadinessWiringTest {
         final int marker = text.indexOf("Readiness.onDefaultPath(");
         final int up = text.indexOf("started = true;");
 
-        assertTrue(reconcile >= 0 && marker >= 0 && up >= 0,
-                BOT + " no longer has the three landmarks this test reads");
-        assertTrue(reconcile < marker, BOT + " builds its readiness marker before the startup"
-                + " reconcile, so a bot that dies during it would still have reported ready");
-        assertTrue(marker < up, BOT + "'s readiness marker is built after `started = true`, which"
-                + " is the flag that decides whether the constructor cleaned up after itself");
-        assertTrue(text.contains("timers.scheduleWithFixedDelay(guarded(\"readiness marker\""),
+        assertTrue(
+                reconcile >= 0 && marker >= 0 && up >= 0, BOT + " no longer has the three landmarks this test reads");
+        assertTrue(
+                reconcile < marker,
+                BOT + " builds its readiness marker before the startup"
+                        + " reconcile, so a bot that dies during it would still have reported ready");
+        assertTrue(
+                marker < up,
+                BOT + "'s readiness marker is built after `started = true`, which"
+                        + " is the flag that decides whether the constructor cleaned up after itself");
+        assertTrue(
+                text.contains("timers.scheduleWithFixedDelay(guarded(\"readiness marker\""),
                 BOT + " no longer beats on the existing timer executor. A pool of its own would keep"
                         + " reporting healthy while every scheduled duty this bot has was stuck.");
     }
@@ -171,6 +185,7 @@ class ReadinessWiringTest {
             }
             directory = directory.getParent();
         }
-        throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        throw new IllegalStateException(
+                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 }

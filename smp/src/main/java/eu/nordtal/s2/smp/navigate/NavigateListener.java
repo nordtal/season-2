@@ -1,11 +1,9 @@
 package eu.nordtal.s2.smp.navigate;
 
-import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
-
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -32,9 +30,13 @@ public final class NavigateListener implements Listener {
     private final PlayerLocales locales;
     private final SmpSounds sounds;
 
-    public NavigateListener(final Plugin plugin, final SmpDao dao, final Navigation navigation,
-                            final Identities identities, final PlayerLocales locales,
-                            final SmpSounds sounds) {
+    public NavigateListener(
+            final Plugin plugin,
+            final SmpDao dao,
+            final Navigation navigation,
+            final Identities identities,
+            final PlayerLocales locales,
+            final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.navigation = navigation;
@@ -79,8 +81,11 @@ public final class NavigateListener implements Listener {
         if (discordId == null) {
             return;
         }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> dao.rememberDeath(discordId,
-                at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ()));
+        Bukkit.getScheduler()
+                .runTaskAsynchronously(
+                        plugin,
+                        () -> dao.rememberDeath(
+                                discordId, at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ()));
     }
 
     @EventHandler

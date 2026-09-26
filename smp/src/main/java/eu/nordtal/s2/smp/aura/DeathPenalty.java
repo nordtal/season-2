@@ -41,8 +41,8 @@ public final class DeathPenalty {
     public DeathPenalty(final int ordinary, final int listed, final Set<String> listedCauses) {
         if (ordinary < 0 || listed < 0) {
             throw new IllegalArgumentException(
-                    "Death penalties are configured as positive numbers and subtracted here, got "
-                            + ordinary + "/" + listed);
+                    "Death penalties are configured as positive numbers and subtracted here, got " + ordinary + "/"
+                            + listed);
         }
         this.ordinary = ordinary;
         this.listed = listed;

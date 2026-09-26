@@ -28,14 +28,13 @@ import java.time.Instant;
  *                       a different problem from one stuck on the second
  * @param created        when it was started, so an admin can see whether it is stuck or fresh
  */
-public record OpenPayment(String reference, int days, int amountCents, int donationCents,
-                          boolean hasTab, Instant created) {
+public record OpenPayment(
+        String reference, int days, int amountCents, int donationCents, boolean hasTab, Instant created) {
 
     /** The total, as a decimal string with two places - for a message, never for arithmetic. */
     public String amount() {
         // Locale.ROOT, because %02d localises its digits: under a default locale whose digits
         // are not ASCII this would hand a reader something their client cannot show as money.
-        return (amountCents / 100) + "."
-                + String.format(java.util.Locale.ROOT, "%02d", Math.abs(amountCents % 100));
+        return (amountCents / 100) + "." + String.format(java.util.Locale.ROOT, "%02d", Math.abs(amountCents % 100));
     }
 }

@@ -1,12 +1,6 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -86,14 +80,16 @@ function manyMatches(): Record<string, unknown>[] {
 /** Who is signed in, in every test here: the root of the admin tree below. */
 const ME = "500000000000000000"
 
-function backend(over: {
-  people?: () => Record<string, unknown>[]
-  payments?: () => Record<string, unknown>[]
-  journal?: () => Record<string, unknown>[]
-  playtimePost?: (url: string, body: unknown) => { status: number; body: unknown }
-  /** What the bot answered, by kind - DONE with an empty result unless a test says otherwise. */
-  answer?: (kind: string) => Record<string, unknown>
-} = {}) {
+function backend(
+  over: {
+    people?: () => Record<string, unknown>[]
+    payments?: () => Record<string, unknown>[]
+    journal?: () => Record<string, unknown>[]
+    playtimePost?: (url: string, body: unknown) => { status: number; body: unknown }
+    /** What the bot answered, by kind - DONE with an empty result unless a test says otherwise. */
+    answer?: (kind: string) => Record<string, unknown>
+  } = {},
+) {
   const asked = new Map<string, string>()
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith("/playtime") && init?.method === "POST") {
@@ -114,10 +110,7 @@ function backend(over: {
     if (url.startsWith("/api/access/requests/")) {
       const id = url.split("/").pop()!
       const kind = asked.get(id) ?? "UNKNOWN"
-      return json(
-        200,
-        over.answer?.(kind) ?? { id, kind, status: "DONE", result: {} },
-      )
+      return json(200, over.answer?.(kind) ?? { id, kind, status: "DONE", result: {} })
     }
     if (url.startsWith("/api/admins/") && init?.method === "POST") {
       return json(200, { outcome: url.endsWith("/grant") ? "GRANTED" : "REVOKED", removed: [] })
@@ -303,22 +296,26 @@ describe("AccessPage - pagination filters the whole roster before it pages", () 
   // thirty milliseconds over the budget, against about a second here. A test that fails on how
   // busy the machine is says nothing about the code either way, and the assertions below are
   // unchanged: what is bought is the right to believe a red one.
-  it("holds 21 matches over two pages of at most 20, without the second page vanishing from the search", { timeout: 15_000 }, async () => {
-    vi.stubGlobal("fetch", backend({ people: manyMatches }))
-    draw(<AccessPage />)
+  it(
+    "holds 21 matches over two pages of at most 20, without the second page vanishing from the search",
+    { timeout: 15_000 },
+    async () => {
+      vi.stubGlobal("fetch", backend({ people: manyMatches }))
+      draw(<AccessPage />)
 
-    await screen.findByText("searchable-0")
+      await screen.findByText("searchable-0")
 
-    fireEvent.change(screen.getByLabelText(/filter/i), { target: { value: "searchable" } })
+      fireEvent.change(screen.getByLabelText(/filter/i), { target: { value: "searchable" } })
 
-    // Page 1: twenty rows, and the count line names the full, filtered total - not just this page.
-    await waitFor(() => expect(screen.getAllByText(/searchable-/).length).toBe(20))
-    expect(screen.getByText(/21 of 21/)).toBeTruthy()
+      // Page 1: twenty rows, and the count line names the full, filtered total - not just this page.
+      await waitFor(() => expect(screen.getAllByText(/searchable-/).length).toBe(20))
+      expect(screen.getByText(/21 of 21/)).toBeTruthy()
 
-    fireEvent.click(screen.getByRole("button", { name: /next/i }))
+      fireEvent.click(screen.getByRole("button", { name: /next/i }))
 
-    await waitFor(() => expect(screen.getAllByText(/searchable-/).length).toBe(1))
-  })
+      await waitFor(() => expect(screen.getAllByText(/searchable-/).length).toBe(1))
+    },
+  )
 })
 
 /**
@@ -329,10 +326,7 @@ describe("AccessPage - pagination filters the whole roster before it pages", () 
  */
 describe("AccessPage - play time in the list, and overridable", () => {
   it("prints an account's play time as a span, not as a number of seconds", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({ people: () => [person({ discordUsername: "alice", playtimeSeconds: 32400 })] }),
-    )
+    vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "alice", playtimeSeconds: 32400 })] }))
     draw(<AccessPage />)
 
     const cell = await screen.findByText("9 h")
@@ -341,10 +335,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
   })
 
   it("says nothing for somebody who has never been online, rather than no time at all", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({ people: () => [person({ discordUsername: "alice" })] }),
-    )
+    vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "alice" })] }))
     draw(<AccessPage />)
 
     const row = await screen.findByText("alice")
@@ -356,9 +347,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
     vi.stubGlobal(
       "fetch",
       backend({
-        people: () => [
-          person({ discordUsername: "alice", playtimeSeconds: 86_400 + 6 * 3_600 + 30 * 60 }),
-        ],
+        people: () => [person({ discordUsername: "alice", playtimeSeconds: 86_400 + 6 * 3_600 + 30 * 60 })],
       }),
     )
     draw(<AccessPage />)
@@ -455,10 +444,7 @@ describe("PaymentsPage - settle as a row action", () => {
     expires: "2026-09-20T00:00:00Z",
   }
   it("offers Settle on an open request", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({ payments: () => [OPEN_PAYMENT] }),
-    )
+    vi.stubGlobal("fetch", backend({ payments: () => [OPEN_PAYMENT] }))
     draw(<PaymentsPage />)
 
     const row = (await screen.findByText("AB12CD")).closest("tr") as HTMLElement
@@ -482,9 +468,7 @@ describe("PaymentsPage - settle as a row action", () => {
     })
     const call = fetched.mock.calls.find(([url]) => url === "/api/access/settle")!
     expect(JSON.parse(String((call[1] as RequestInit).body))).toEqual({ reference: "AB12CD" })
-    await waitFor(() =>
-      expect(fetched.mock.calls.some(([url]) => url === "/api/access/requests/a-settle")).toBe(true),
-    )
+    await waitFor(() => expect(fetched.mock.calls.some(([url]) => url === "/api/access/requests/a-settle")).toBe(true))
   })
 
   // steward/116: with a bunq.me link on the payment, an OPEN row draws both Tab and Settle -
@@ -548,7 +532,6 @@ describe("AccessPage - unlink as a row action", () => {
       discordId: "214906139328839681",
     })
   })
-
 })
 
 /**
@@ -564,9 +547,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
   async function actionsOf(name: string): Promise<string[]> {
     const row = (await screen.findByText(name)).closest("tr") as HTMLElement
     const trigger = within(row).queryByRole("button", { name: /^Actions for/ })
-    const scope = trigger
-      ? (fireEvent.click(trigger), (await screen.findByRole("dialog")) as HTMLElement)
-      : row
+    const scope = trigger ? (fireEvent.click(trigger), (await screen.findByRole("dialog")) as HTMLElement) : row
     return within(scope)
       .queryAllByRole("button")
       .map((button) => (button.textContent ?? "").trim())
@@ -643,13 +624,9 @@ describe("AccessPage - access changes are asked of the bot", () => {
 
     const dialog = await openGrant()
     fireEvent.change(within(dialog).getByLabelText("Days"), { target: { value: "366" } })
-    expect(
-      (within(dialog).getByRole("button", { name: "Grant" }) as HTMLButtonElement).disabled,
-    ).toBe(true)
+    expect((within(dialog).getByRole("button", { name: "Grant" }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.change(within(dialog).getByLabelText("Days"), { target: { value: "365" } })
-    expect(
-      (within(dialog).getByRole("button", { name: "Grant" }) as HTMLButtonElement).disabled,
-    ).toBe(false)
+    expect((within(dialog).getByRole("button", { name: "Grant" }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it("sends the grant to the bot's inbox and waits for its answer", async () => {
@@ -698,17 +675,12 @@ describe("AccessPage - access changes are asked of the bot", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
 
     await waitFor(() => expect(failure).toHaveBeenCalled())
-    expect(String(failure.mock.calls[0][1]?.description)).toContain(
-      "the role could not be applied",
-    )
+    expect(String(failure.mock.calls[0][1]?.description)).toContain("the role could not be applied")
     failure.mockRestore()
   })
 
   it("says nothing changed when the bot never picked the request up", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({ answer: (kind) => ({ id: "a-grant", kind, status: "EXPIRED" }) }),
-    )
+    vi.stubGlobal("fetch", backend({ answer: (kind) => ({ id: "a-grant", kind, status: "EXPIRED" }) }))
     const failure = vi.spyOn(toast, "error")
     draw(<AccessPage />)
 
@@ -740,8 +712,7 @@ describe("AccessPage - the generic command card is gone", () => {
  */
 describe("JournalPage - Detail is running text, not a field", () => {
   it("lets the Detail cell wrap, rather than forcing it onto one unbroken line", async () => {
-    const LONG_DETAIL =
-      "30 days granted by hm.till from the admin panel; the Minecraft account was linked beforehand"
+    const LONG_DETAIL = "30 days granted by hm.till from the admin panel; the Minecraft account was linked beforehand"
     vi.stubGlobal(
       "fetch",
       backend({
@@ -845,9 +816,7 @@ describe("JournalPage - profiles, never user ids (steward/124)", () => {
     vi.stubGlobal(
       "fetch",
       backend({
-        journal: () => [
-          { id: "j3", occurred: "2026-09-18T09:00:00Z", action: "SETTLE", detail: "nightly" },
-        ],
+        journal: () => [{ id: "j3", occurred: "2026-09-18T09:00:00Z", action: "SETTLE", detail: "nightly" }],
       }),
     )
     draw(<JournalPage />)
@@ -924,9 +893,7 @@ describe("AccessPage - the admin tree", () => {
   async function actionsOf(name: string): Promise<string[]> {
     const row = (await screen.findByText(name)).closest("tr") as HTMLElement
     const trigger = within(row).queryByRole("button", { name: /^Actions for/ })
-    const scope = trigger
-      ? (fireEvent.click(trigger), (await screen.findByRole("dialog")) as HTMLElement)
-      : row
+    const scope = trigger ? (fireEvent.click(trigger), (await screen.findByRole("dialog")) as HTMLElement) : row
     return within(scope)
       .queryAllByRole("button")
       .map((button) => (button.textContent ?? "").trim())

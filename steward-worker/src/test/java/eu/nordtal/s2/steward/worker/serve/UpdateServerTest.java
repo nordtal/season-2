@@ -1,13 +1,12 @@
 package eu.nordtal.s2.steward.worker.serve;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
@@ -16,9 +15,8 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The loop, without a network, a database or four volumes.
@@ -60,7 +58,9 @@ class UpdateServerTest {
         // of everybody watching it.
         directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(4));
 
-        assertEquals(Duration.ofSeconds(4), server((request, progress) -> Outcome.done("x")).waitFor());
+        assertEquals(
+                Duration.ofSeconds(4),
+                server((request, progress) -> Outcome.done("x")).waitFor());
     }
 
     @Test
@@ -71,7 +71,9 @@ class UpdateServerTest {
         directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
         directory.at(NOW);
 
-        assertEquals(Duration.ofSeconds(1), server((request, progress) -> Outcome.done("x")).waitFor());
+        assertEquals(
+                Duration.ofSeconds(1),
+                server((request, progress) -> Outcome.done("x")).waitFor());
     }
 
     // ---------------------------------------------------------------- draining
@@ -83,9 +85,10 @@ class UpdateServerTest {
 
         final List<UpdateKind> ran = new ArrayList<>();
         server((request, progress) -> {
-            ran.add(request.kind());
-            return Outcome.done("done " + request.kind());
-        }).drain();
+                    ran.add(request.kind());
+                    return Outcome.done("done " + request.kind());
+                })
+                .drain();
 
         assertEquals(List.of(UpdateKind.REPORT, UpdateKind.UPDATE), ran);
         assertEquals(2, directory.finished().size());
@@ -98,9 +101,10 @@ class UpdateServerTest {
 
         final AtomicInteger ran = new AtomicInteger();
         server((request, progress) -> {
-            ran.incrementAndGet();
-            return Outcome.done("x");
-        }).drain();
+                    ran.incrementAndGet();
+                    return Outcome.done("x");
+                })
+                .drain();
 
         assertEquals(0, ran.get());
         assertTrue(directory.countingDown().isPresent(), "still counting down");
@@ -109,8 +113,7 @@ class UpdateServerTest {
     @Test
     @DisplayName("the runner's own verdict is what lands in the row")
     void aFailedRunIsWrittenBackAsFailed() {
-        final UpdateRequest submitted =
-                directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest submitted = directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
 
         server((request, progress) -> Outcome.failed("the download timed out")).drain();
 
@@ -132,10 +135,16 @@ class UpdateServerTest {
         final AtomicInteger connects = new AtomicInteger();
         final AtomicInteger ran = new AtomicInteger();
 
-        final UpdateServer server = new UpdateServer(directory, (request, progress) -> {
-            ran.incrementAndGet();
-            return Outcome.done("x");
-        }, failingConnector(connects), POLL, fixedClock(), Duration.ofMillis(1));
+        final UpdateServer server = new UpdateServer(
+                directory,
+                (request, progress) -> {
+                    ran.incrementAndGet();
+                    return Outcome.done("x");
+                },
+                failingConnector(connects),
+                POLL,
+                fixedClock(),
+                Duration.ofMillis(1));
 
         final Thread thread = new Thread(server::serve, "test-update-server");
         thread.start();
@@ -173,8 +182,7 @@ class UpdateServerTest {
             }
 
             @Override
-            public void close() {
-            }
+            public void close() {}
         };
     }
 
@@ -189,8 +197,7 @@ class UpdateServerTest {
                 }
 
                 @Override
-                public void close() {
-                }
+                public void close() {}
             };
         };
     }

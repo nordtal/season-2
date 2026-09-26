@@ -1,23 +1,22 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Type;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Reading a jcore-written file back as a form.
@@ -84,7 +83,9 @@ class ConfigFilesReadTest {
         final ConfigDocument document = ConfigFiles.read(file);
 
         assertEquals(List.of(), document.header());
-        assertEquals(List.of("This file has no header block."), entry(document, "port").comments());
+        assertEquals(
+                List.of("This file has no header block."),
+                entry(document, "port").comments());
     }
 
     @Test
@@ -112,18 +113,22 @@ class ConfigFilesReadTest {
     @Test
     void aNestedSectionsKeyCarriesNoCommentAboveItAnyMore() throws IOException {
         final List<String> lines = Files.readAllLines(fixture);
-        final int keyLine = ConfigFiles.read(fixture).find("worker.base-url").orElseThrow().line();
+        final int keyLine =
+                ConfigFiles.read(fixture).find("worker.base-url").orElseThrow().line();
 
         assertEquals("  base-url: http://steward-worker:8082", lines.get(keyLine - 1));
-        assertFalse(lines.get(keyLine - 2).strip().startsWith("#"),
+        assertFalse(
+                lines.get(keyLine - 2).strip().startsWith("#"),
                 "jcore 4.0.0 writes no comment above a key: " + lines.get(keyLine - 2));
-        assertEquals(List.of(), entry(ConfigFiles.read(fixture), "worker.base-url").comments());
+        assertEquals(
+                List.of(), entry(ConfigFiles.read(fixture), "worker.base-url").comments());
     }
 
     /** jcore 4.0.0 writes no comment at all, so a freshly-written file has no {@code #} in it. */
     @Test
     void jcoreWritesNoCommentCharacterAtAll() throws IOException {
-        assertFalse(Files.readString(fixture).contains("#"),
+        assertFalse(
+                Files.readString(fixture).contains("#"),
                 "jcore 4.0.0 must write no comment line at all: " + Files.readString(fixture));
     }
 
@@ -158,7 +163,8 @@ class ConfigFilesReadTest {
         assertTrue(entry(document, "empty-list").editable());
         assertTrue(entry(document, "worker.limits.max-retries").editable());
 
-        assertEquals(List.of("discord-bot", "smp"), entry(document, "stop-services").items());
+        assertEquals(
+                List.of("discord-bot", "smp"), entry(document, "stop-services").items());
         assertEquals(List.of(), entry(document, "empty-list").items());
         assertEquals(List.of(), entry(document, "worker").items());
     }
@@ -167,20 +173,21 @@ class ConfigFilesReadTest {
     void everyKeyIsThereInFileOrderWithItsSectionInFrontOfIt() throws IOException {
         final ConfigDocument document = ConfigFiles.read(fixture);
 
-        assertEquals(List.of(
-                "port",
-                "ratio",
-                "enabled",
-                "public-url",
-                "build-number",
-                "api-token",
-                "stop-services",
-                "empty-list",
-                "worker",
-                "worker.base-url",
-                "worker.token",
-                "worker.limits",
-                "worker.limits.max-retries"),
+        assertEquals(
+                List.of(
+                        "port",
+                        "ratio",
+                        "enabled",
+                        "public-url",
+                        "build-number",
+                        "api-token",
+                        "stop-services",
+                        "empty-list",
+                        "worker",
+                        "worker.base-url",
+                        "worker.token",
+                        "worker.limits",
+                        "worker.limits.max-retries"),
                 document.entries().stream().map(ConfigEntry::path).toList());
     }
 
@@ -190,7 +197,8 @@ class ConfigFilesReadTest {
         final List<String> lines = Files.readAllLines(fixture);
 
         for (final ConfigEntry e : document.entries()) {
-            assertTrue(lines.get(e.line() - 1).strip().startsWith(e.key() + ":"),
+            assertTrue(
+                    lines.get(e.line() - 1).strip().startsWith(e.key() + ":"),
                     e.path() + " says line " + e.line() + ", which is: " + lines.get(e.line() - 1));
         }
     }
@@ -290,14 +298,18 @@ class ConfigFilesReadTest {
         final ConfigDocument document = ConfigFiles.read(file);
 
         assertEquals(4, document.header().size());
-        assertEquals("  steward-worker - where the versions come from", document.header().get(1));
+        assertEquals(
+                "  steward-worker - where the versions come from",
+                document.header().get(1));
         assertEquals("nordtal/season-2", entry(document, "season-repo").value());
         assertEquals(Kind.MAP, entry(document, "backup").kind());
         assertEquals(Kind.LIST, entry(document, "backup.stop-services").kind());
-        assertEquals(List.of("The compose services, by name."),
+        assertEquals(
+                List.of("The compose services, by name."),
                 entry(document, "backup.stop-services").comments());
         assertEquals(Type.INTEGER, entry(document, "backup.keep").type());
-        assertEquals(List.of("season-repo", "backup", "backup.stop-services", "backup.keep"),
+        assertEquals(
+                List.of("season-repo", "backup", "backup.stop-services", "backup.keep"),
                 document.entries().stream().map(ConfigEntry::path).toList());
     }
 
@@ -315,8 +327,7 @@ class ConfigFilesReadTest {
 
         assertEquals("line one\nline two", entry(document, "motd").value());
         assertEquals(Kind.SCALAR, entry(document, "motd").kind());
-        assertTrue(entry(document, "motd").editable(),
-                "a block scalar is rewritten as a block, so it is editable");
+        assertTrue(entry(document, "motd").editable(), "a block scalar is rewritten as a block, so it is editable");
         assertTrue(entry(document, "port").editable());
     }
 
@@ -366,8 +377,8 @@ class ConfigFilesReadTest {
     }
 
     private static ConfigEntry entry(final ConfigDocument document, final String path) {
-        return document.find(path).orElseThrow(
-                () -> new AssertionError("no entry " + path + " in " + document.entries().stream()
-                        .map(ConfigEntry::path).toList()));
+        return document.find(path)
+                .orElseThrow(() -> new AssertionError("no entry " + path + " in "
+                        + document.entries().stream().map(ConfigEntry::path).toList()));
     }
 }

@@ -1,13 +1,12 @@
 package eu.nordtal.s2.proxy.online;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The arithmetic behind {@code online_count}, in memory - see {@link OnlineCounts} for why it never
@@ -26,8 +25,7 @@ class OnlineCountsTest {
     @Test
     @DisplayName("every registered backend's count is carried through untouched")
     void everyBackendIsCarriedThrough() {
-        final Map<String, Integer> counts =
-                OnlineCounts.of(5, Map.of("smp", 2, "limbo", 3));
+        final Map<String, Integer> counts = OnlineCounts.of(5, Map.of("smp", 2, "limbo", 3));
 
         assertEquals(2, counts.get("smp"));
         assertEquals(3, counts.get("limbo"));
@@ -41,8 +39,8 @@ class OnlineCountsTest {
         // hunger-games is not in playersByServer at all - the proxy has no such server right now.
         final Map<String, Integer> counts = OnlineCounts.of(4, Map.of("smp", 4));
 
-        assertFalse(counts.containsKey("hunger-games"),
-                "a subject nothing measured this tick must not be written as 0");
+        assertFalse(
+                counts.containsKey("hunger-games"), "a subject nothing measured this tick must not be written as 0");
     }
 
     @Test

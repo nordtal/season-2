@@ -2,14 +2,12 @@ package eu.nordtal.s2.papercommon.menu;
 
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.ItemLore;
-
+import java.util.List;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
-
-import java.util.List;
 
 /**
  * An item that draws nothing and carries a tooltip - what sits under a card painted into a menu's
@@ -28,8 +26,7 @@ public final class BlankItem {
     /** The pack's empty item model. */
     public static final Key MODEL = Key.key("nordtal", "blank");
 
-    private BlankItem() {
-    }
+    private BlankItem() {}
 
     /**
      * @param name what the tooltip is headed with
@@ -40,7 +37,9 @@ public final class BlankItem {
         final ItemStack stack = ItemStack.of(Material.PAPER);
         stack.setData(DataComponentTypes.ITEM_MODEL, MODEL);
         stack.setData(DataComponentTypes.CUSTOM_NAME, upright(name));
-        stack.setData(DataComponentTypes.LORE, ItemLore.lore(lore.stream().map(BlankItem::upright).toList()));
+        stack.setData(
+                DataComponentTypes.LORE,
+                ItemLore.lore(lore.stream().map(BlankItem::upright).toList()));
         return stack;
     }
 

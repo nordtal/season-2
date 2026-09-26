@@ -1,6 +1,10 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Type;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.jetbrains.annotations.NotNull;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -10,11 +14,6 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * What a scalar is, and how to write one back.
@@ -28,8 +27,7 @@ import java.util.Optional;
  */
 final class Scalars {
 
-    private Scalars() {
-    }
+    private Scalars() {}
 
     /**
      * The type of a scalar, from the tag the resolver gave it.
@@ -63,9 +61,7 @@ final class Scalars {
      * @return the rendered scalar
      * @throws IllegalArgumentException if {@code value} is not of {@code type}
      */
-    static @NotNull String render(final @NotNull Type type,
-                                  final @NotNull String value,
-                                  final @NotNull String path) {
+    static @NotNull String render(final @NotNull Type type, final @NotNull String value, final @NotNull String path) {
         return render(type, value, path, Where.VALUE);
     }
 
@@ -75,17 +71,12 @@ final class Scalars {
      * @param type the type the list already holds - see {@link ConfigEntry#type()}
      * @param flow whether the list is written {@code [a, b]} rather than as a block
      */
-    static @NotNull String renderItem(final @NotNull Type type,
-                                      final @NotNull String value,
-                                      final @NotNull String path,
-                                      final boolean flow) {
+    static @NotNull String renderItem(
+            final @NotNull Type type, final @NotNull String value, final @NotNull String path, final boolean flow) {
         return render(type, value, path, flow ? Where.FLOW_ITEM : Where.BLOCK_ITEM);
     }
 
-    private static String render(final Type type,
-                                 final String value,
-                                 final String path,
-                                 final Where where) {
+    private static String render(final Type type, final String value, final String path, final Where where) {
         if (type == Type.STRING) {
             return quote(value, path, where);
         }
@@ -96,16 +87,15 @@ final class Scalars {
         final String trimmed = value.strip();
         final Object parsed = parse(trimmed);
         final boolean ok = switch (type) {
-            case INTEGER -> parsed instanceof Integer || parsed instanceof Long
-                    || parsed instanceof java.math.BigInteger;
+            case INTEGER ->
+                parsed instanceof Integer || parsed instanceof Long || parsed instanceof java.math.BigInteger;
             case DECIMAL -> parsed instanceof Number number && isFinite(number);
             case BOOLEAN -> parsed instanceof Boolean;
             case STRING -> true;
         };
         if (!ok) {
-            throw new IllegalArgumentException(
-                    path + " is " + type.name().toLowerCase(java.util.Locale.ROOT) + " in this file"
-                            + ", and \"" + value + "\" is not one" + expected(type));
+            throw new IllegalArgumentException(path + " is " + type.name().toLowerCase(java.util.Locale.ROOT)
+                    + " in this file" + ", and \"" + value + "\" is not one" + expected(type));
         }
         // ASKING THE TYPE IS NOT ENOUGH. `8080 # oops` resolves to the integer 8080, so the switch
         // above is happy - and what would be written is the whole line, comment included. The file
@@ -192,8 +182,7 @@ final class Scalars {
             return doubled;
         }
         // Unreachable for any string a browser can send; a bug here must not be a corrupt config.
-        throw new IllegalArgumentException(
-                path + ": this value cannot be written to a YAML file - " + describe(value));
+        throw new IllegalArgumentException(path + ": this value cannot be written to a YAML file - " + describe(value));
     }
 
     private static boolean hasControlCharacter(final String value) {
@@ -307,8 +296,7 @@ final class Scalars {
      *               line is empty rather than two spaces, because trailing whitespace in a config
      *               file is noise in every future diff
      */
-    record Block(@NotNull String header, @NotNull List<String> lines) {
-    }
+    record Block(@NotNull String header, @NotNull List<String> lines) {}
 
     /**
      * Writes {@code value} as a literal block, if it can be written as one.

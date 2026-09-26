@@ -34,8 +34,7 @@ final class Devices {
     /** The longest User-Agent worth reading. Past this it is not a browser telling the truth. */
     private static final int LONGEST = 512;
 
-    private Devices() {
-    }
+    private Devices() {}
 
     /**
      * A short name for the browser that sent this User-Agent, or null when there is nothing to say.

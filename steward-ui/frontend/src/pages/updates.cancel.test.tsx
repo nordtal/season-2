@@ -1,11 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { toast } from "sonner"
@@ -141,10 +135,7 @@ describe("the Cancel is on the row, and only while there is something to cancel"
   it("is gone once the run is actually under way", async () => {
     // Same RUNNING status as a countdown; the moment has simply passed. The worker holds the lock
     // by now and its SQL would answer "too late", so there must be nothing to press.
-    vi.stubGlobal(
-      "fetch",
-      backend([run({ status: "RUNNING", notBefore: new Date(Date.now() - 1000).toISOString() })]),
-    )
+    vi.stubGlobal("fetch", backend([run({ status: "RUNNING", notBefore: new Date(Date.now() - 1000).toISOString() })]))
     draw()
 
     await screen.findByText("#79")
@@ -187,9 +178,7 @@ describe("pressing it asks the backend at once", () => {
   it("says what the backend said when the countdown ran out first", async () => {
     // A 409 here is not this interface failing: the row was claimed between the tap and the
     // request. The sentence on screen has to be that, and not "the interface cannot be reached".
-    const fetchMock = backend([run()], () =>
-      json(409, { title: "too late - the countdown has already run out" }),
-    )
+    const fetchMock = backend([run()], () => json(409, { title: "too late - the countdown has already run out" }))
     vi.stubGlobal("fetch", fetchMock)
     draw()
 

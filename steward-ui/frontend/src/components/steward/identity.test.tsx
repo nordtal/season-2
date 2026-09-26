@@ -1,11 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import {
-  IDENTIFIER_PATTERN,
-  PersonIdentity,
-  minecraftHeadUrl,
-} from "@/components/steward/identity"
+import { IDENTIFIER_PATTERN, PersonIdentity, minecraftHeadUrl } from "@/components/steward/identity"
 
 /**
  * steward/45's whole rule, held against the one component that is allowed to break it:
@@ -40,9 +36,7 @@ describe("PersonIdentity - closed, the id is never drawn", () => {
   })
 
   it("falls back to the username when there is no guild nickname, still without an id", () => {
-    render(
-      <PersonIdentity discordId={DISCORD_ID} discordUsername="alice" />,
-    )
+    render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" />)
 
     expect(screen.getByText("alice")).toBeTruthy()
     expect(document.body.textContent).not.toContain(DISCORD_ID)
@@ -82,13 +76,7 @@ describe("PersonIdentity - system, steward/82", () => {
   })
 
   it("ignores a person's fields when system is set, rather than drawing them beside Steward", () => {
-    render(
-      <PersonIdentity
-        system
-        discordId={DISCORD_ID}
-        discordDisplayName="Ally"
-      />,
-    )
+    render(<PersonIdentity system discordId={DISCORD_ID} discordDisplayName="Ally" />)
 
     expect(screen.getByText("Steward")).toBeTruthy()
     expect(screen.queryByText("Ally")).toBeNull()
@@ -107,14 +95,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
   })
 
   it("reveals the Minecraft uuid as well when the account is linked", async () => {
-    render(
-      <PersonIdentity
-        discordId={DISCORD_ID}
-        discordUsername="alice"
-        mcUuid={MC_UUID}
-        mcName="AliceMC"
-      />,
-    )
+    render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" mcUuid={MC_UUID} mcName="AliceMC" />)
 
     fireEvent.click(screen.getByRole("button"))
 
@@ -135,14 +116,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } })
 
-    render(
-      <PersonIdentity
-        discordId={DISCORD_ID}
-        discordUsername="alice"
-        mcUuid={MC_UUID}
-        mcName="AliceMC"
-      />,
-    )
+    render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" mcUuid={MC_UUID} mcName="AliceMC" />)
     fireEvent.click(screen.getByRole("button"))
     await screen.findByLabelText("Minecraft-UUID")
 
@@ -163,9 +137,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     expect(field.readOnly).toBe(true)
     expect(field.value).toBe(DISCORD_ID)
     // The button is still there and still clickable - it must not throw with no clipboard.
-    expect(() =>
-      fireEvent.click(screen.getByRole("button", { name: "Copy Discord-ID" })),
-    ).not.toThrow()
+    expect(() => fireEvent.click(screen.getByRole("button", { name: "Copy Discord-ID" }))).not.toThrow()
   })
 })
 
@@ -191,18 +163,14 @@ describe("PersonIdentity - nothing half-written, and no mark nobody can see", ()
   })
 
   it("writes no line under the Minecraft name either", () => {
-    render(
-      <PersonIdentity discordId={DISCORD_ID} discordDisplayName="Ally" mcUuid={MC_UUID} mcName="AllyMC" />,
-    )
+    render(<PersonIdentity discordId={DISCORD_ID} discordDisplayName="Ally" mcUuid={MC_UUID} mcName="AllyMC" />)
     fireEvent.click(screen.getByRole("button"))
 
     expect(screen.queryByText(/\bseen\b/i)).toBeNull()
   })
 
   it("draws no asterisk after either name, and no mark for a stylesheet to find", () => {
-    render(
-      <PersonIdentity discordId={DISCORD_ID} discordDisplayName="Ally" mcUuid={MC_UUID} mcName="AllyMC" />,
-    )
+    render(<PersonIdentity discordId={DISCORD_ID} discordDisplayName="Ally" mcUuid={MC_UUID} mcName="AllyMC" />)
     fireEvent.click(screen.getByRole("button"))
 
     expect(document.body.textContent).not.toContain("*")
@@ -255,9 +223,7 @@ describe("minecraftHeadUrl", () => {
   it("puts the uuid in the path and keeps the query behind it", () => {
     // The default base. Appending blindly would give `…/face?scale=16/<uuid>` - a URL that is
     // still a URL, still fetched, and never an image of this player.
-    expect(minecraftHeadUrl(`${MINEATAR}?scale=16`, MC_UUID)).toBe(
-      `${MINEATAR}/${UNDASHED}?scale=16`,
-    )
+    expect(minecraftHeadUrl(`${MINEATAR}?scale=16`, MC_UUID)).toBe(`${MINEATAR}/${UNDASHED}?scale=16`)
   })
 
   it("keeps a query with several parameters whole", () => {
@@ -268,9 +234,7 @@ describe("minecraftHeadUrl", () => {
 
   it("strips a trailing slash rather than doubling it, query or no query", () => {
     expect(minecraftHeadUrl(`${MINEATAR}/`, MC_UUID)).toBe(`${MINEATAR}/${UNDASHED}`)
-    expect(minecraftHeadUrl(`${MINEATAR}/?scale=16`, MC_UUID)).toBe(
-      `${MINEATAR}/${UNDASHED}?scale=16`,
-    )
+    expect(minecraftHeadUrl(`${MINEATAR}/?scale=16`, MC_UUID)).toBe(`${MINEATAR}/${UNDASHED}?scale=16`)
   })
 
   it("leaves a uuid that already came without hyphens alone", () => {
@@ -281,9 +245,7 @@ describe("minecraftHeadUrl", () => {
     // mc-heads stood here until 2026-09-19 and a deployment whose steward-ui.yml predates the
     // change still says so - jcore preserves a written file, so the default is the NEW installation
     // and never the running one.
-    expect(minecraftHeadUrl("https://mc-heads.net/avatar", MC_UUID)).toBe(
-      `https://mc-heads.net/avatar/${UNDASHED}`,
-    )
+    expect(minecraftHeadUrl("https://mc-heads.net/avatar", MC_UUID)).toBe(`https://mc-heads.net/avatar/${UNDASHED}`)
   })
 
   it("answers nothing when no base is configured, rather than a broken relative path", () => {

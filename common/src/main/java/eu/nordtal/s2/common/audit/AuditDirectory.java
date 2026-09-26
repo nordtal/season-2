@@ -1,7 +1,7 @@
 package eu.nordtal.s2.common.audit;
 
-import javax.sql.DataSource;
 import java.util.List;
+import javax.sql.DataSource;
 
 /**
  * The journal: {@code audit_log}, newest first, whole or filtered.

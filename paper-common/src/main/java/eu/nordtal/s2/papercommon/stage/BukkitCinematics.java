@@ -2,7 +2,6 @@ package eu.nordtal.s2.papercommon.stage;
 
 import eu.nordtal.s2.common.stage.Cinematic;
 import eu.nordtal.s2.common.stage.Cinematics;
-
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -67,8 +66,7 @@ public final class BukkitCinematics implements Listener {
      * see {@link Cinematics#start}, which refuses rather than queues
      */
     public boolean start(final Player player, final Cinematic cinematic) {
-        return cinematics.start(player.getUniqueId(), cinematic,
-                new PlayerStage(plugin, player.getUniqueId(), sounds));
+        return cinematics.start(player.getUniqueId(), cinematic, new PlayerStage(plugin, player.getUniqueId(), sounds));
     }
 
     public boolean isRunning(final Player player) {

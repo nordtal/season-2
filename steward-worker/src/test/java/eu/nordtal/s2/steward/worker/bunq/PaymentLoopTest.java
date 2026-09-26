@@ -1,18 +1,16 @@
 package eu.nordtal.s2.steward.worker.bunq;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.notify.Channels;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * One pass at a time, and the channel both halves of the seam agree on.
@@ -36,15 +34,17 @@ class PaymentLoopTest {
 
         final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor();
         try {
-            final PaymentLoop loop = new PaymentLoop(() -> {
-                passes.incrementAndGet();
-                inside.countDown();
-                try {
-                    release.await(5, TimeUnit.SECONDS);
-                } catch (final InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                }
-            }, timer);
+            final PaymentLoop loop = new PaymentLoop(
+                    () -> {
+                        passes.incrementAndGet();
+                        inside.countDown();
+                        try {
+                            release.await(5, TimeUnit.SECONDS);
+                        } catch (final InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                        }
+                    },
+                    timer);
 
             final Thread first = new Thread(loop::pass, "first-pass");
             first.start();
@@ -52,7 +52,9 @@ class PaymentLoopTest {
 
             // The notification arriving while the bank is still answering the poll.
             loop.pass();
-            assertEquals(1, passes.get(),
+            assertEquals(
+                    1,
+                    passes.get(),
                     "the second caller started a pass of its own; bunq is being asked the same"
                             + " questions twice for every notification that lands mid-pass");
 

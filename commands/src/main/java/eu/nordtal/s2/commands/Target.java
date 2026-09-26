@@ -73,7 +73,8 @@ public enum Target {
      * process appears.
      */
     public MessageRef message() {
-        final CommandMessages.Command.Target target = CommandMessages.MESSAGES.command().target();
+        final CommandMessages.Command.Target target =
+                CommandMessages.MESSAGES.command().target();
         return switch (this) {
             case SMP -> target.smp();
             case HUNGER_GAMES -> target.hungerGames();

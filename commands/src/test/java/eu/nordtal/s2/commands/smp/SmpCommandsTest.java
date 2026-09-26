@@ -1,5 +1,9 @@
 package eu.nordtal.s2.commands.smp;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.NordtalCommand;
@@ -7,19 +11,13 @@ import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.common.message.context.PlayerContext;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Every decision {@code /smp} takes, without a server.
@@ -71,11 +69,13 @@ class SmpCommandsTest {
         for (final Declaration declaration : SmpCommands.declarations()) {
             assertTrue(declaration.adminOnly(), declaration.name() + " is not admin-only");
             // Console must never be lost, and game/Discord must both be gone.
-            assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
+            assertTrue(
+                    declaration.surfaces().contains(Surface.CONSOLE),
                     declaration.name() + " lost the console, which must never happen");
-            assertFalse(declaration.surfaces().contains(Surface.GAME),
-                    declaration.name() + " is still reachable in game");
-            assertFalse(declaration.surfaces().contains(Surface.DISCORD),
+            assertFalse(
+                    declaration.surfaces().contains(Surface.GAME), declaration.name() + " is still reachable in game");
+            assertFalse(
+                    declaration.surfaces().contains(Surface.DISCORD),
                     declaration.name() + " is still reachable from Discord");
         }
     }
@@ -85,11 +85,14 @@ class SmpCommandsTest {
     @Test
     @DisplayName("reload says so, and a refusal names the console rather than swallowing it")
     void reload() {
-        assertEquals(List.of("smp.admin.reloaded"), run(new ReloadSmp(), Map.of()).keys());
+        assertEquals(
+                List.of("smp.admin.reloaded"), run(new ReloadSmp(), Map.of()).keys());
         assertEquals(List.of("reload"), smp.did);
 
         smp.failure = new IllegalStateException("milestones.yml is not valid");
-        assertEquals(List.of("smp.admin.reload-failed"), run(new ReloadSmp(), Map.of()).keys());
+        assertEquals(
+                List.of("smp.admin.reload-failed"),
+                run(new ReloadSmp(), Map.of()).keys());
         assertEquals(List.of("/smp reload failed"), smp.warnings);
     }
 
@@ -108,9 +111,12 @@ class SmpCommandsTest {
         final var user = run(new ReloadSmp(), Map.of());
         assertEquals(List.of("smp.admin.track-refused"), user.keys());
         final String printed = String.valueOf(user.only().of("problems"));
-        assertTrue(printed.contains("ancient-debris") && printed.contains("logs/oak"),
+        assertTrue(
+                printed.contains("ancient-debris") && printed.contains("logs/oak"),
                 "the answer does not name both problems: " + printed);
-        assertEquals(List.of("reload"), smp.did,
+        assertEquals(
+                List.of("reload"),
+                smp.did,
                 "the reload did not run - the sounds and the wording are re-read regardless");
     }
 
@@ -121,11 +127,13 @@ class SmpCommandsTest {
     void theTwoRefusalsStayApart() {
         // Folding them into one would leave an admin re-reading the milestone file for a key that
         // is in it.
-        assertEquals(List.of("smp.admin.no-active-milestone"),
+        assertEquals(
+                List.of("smp.admin.no-active-milestone"),
                 run(new CompleteObjective(), Map.of("key", "netherite")).keys());
 
         smp.activeMilestone = "the-nether";
-        assertEquals(List.of("smp.admin.no-such-objective"),
+        assertEquals(
+                List.of("smp.admin.no-such-objective"),
                 run(new CompleteObjective(), Map.of("key", "netherite")).keys());
         assertEquals(List.of(), smp.did, "nothing was paid out for an objective that does not exist");
     }
@@ -205,7 +213,8 @@ class SmpCommandsTest {
         smp.names.put(SOMEBODY, "Steve");
         smp.access = new SmpEffects.Access(null, false, null);
 
-        assertEquals(List.of("smp.access.unlinked"),
+        assertEquals(
+                List.of("smp.access.unlinked"),
                 run(new ShowAccess(), Map.of("player", SOMEBODY)).keys());
     }
 
@@ -213,11 +222,11 @@ class SmpCommandsTest {
     @DisplayName("linked, active, and a purchase with a payment link waiting")
     void accessWithAnOpenPayment() {
         smp.names.put(SOMEBODY, "Steve");
-        smp.access = new SmpEffects.Access("100000000000000009", true,
-                Instant.parse("2026-10-01T00:00:00Z"));
+        smp.access = new SmpEffects.Access("100000000000000009", true, Instant.parse("2026-10-01T00:00:00Z"));
         smp.payment = FakeSmp.payment(true);
 
-        assertEquals(List.of("smp.access.linked", "smp.access.active", "smp.access.payment"),
+        assertEquals(
+                List.of("smp.access.linked", "smp.access.active", "smp.access.payment"),
                 run(new ShowAccess(), Map.of("player", SOMEBODY)).keys());
     }
 
@@ -238,10 +247,10 @@ class SmpCommandsTest {
     @DisplayName("expired access reads differently from access that never existed")
     void expiredIsNotTheSameAsNever() {
         smp.names.put(SOMEBODY, "Steve");
-        smp.access = new SmpEffects.Access("100000000000000009", false,
-                Instant.parse("2026-08-01T00:00:00Z"));
+        smp.access = new SmpEffects.Access("100000000000000009", false, Instant.parse("2026-08-01T00:00:00Z"));
 
-        assertEquals(List.of("smp.access.linked", "smp.access.expired", "smp.access.no-payment"),
+        assertEquals(
+                List.of("smp.access.linked", "smp.access.expired", "smp.access.no-payment"),
                 run(new ShowAccess(), Map.of("player", SOMEBODY)).keys());
     }
 
@@ -252,11 +261,11 @@ class SmpCommandsTest {
         // the second query failed would be the wrong trade: the access line is the one an admin
         // came for.
         smp.names.put(SOMEBODY, "Steve");
-        smp.access = new SmpEffects.Access("100000000000000009", true,
-                Instant.parse("2026-10-01T00:00:00Z"));
+        smp.access = new SmpEffects.Access("100000000000000009", true, Instant.parse("2026-10-01T00:00:00Z"));
         smp.paymentFailure = new IllegalStateException("the database did not answer");
 
-        assertEquals(List.of("smp.access.linked", "smp.access.active", "smp.access.payment-unknown"),
+        assertEquals(
+                List.of("smp.access.linked", "smp.access.active", "smp.access.payment-unknown"),
                 run(new ShowAccess(), Map.of("player", SOMEBODY)).keys());
     }
 }

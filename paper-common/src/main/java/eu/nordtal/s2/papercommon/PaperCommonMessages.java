@@ -2,7 +2,6 @@ package eu.nordtal.s2.papercommon;
 
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.spec.Arg;
-import eu.nordtal.s2.common.message.spec.Key;
 import eu.nordtal.s2.common.message.spec.MessageSpec;
 import eu.nordtal.s2.common.message.spec.MessageSpecs;
 import eu.nordtal.s2.common.message.spec.Name;
@@ -32,7 +31,8 @@ public interface PaperCommonMessages {
         MessageRef death(@Arg("icon") Object icon, @Arg("_death") Component death);
 
         @Name("Advancement")
-        MessageRef advancement(@Arg("icon") Object icon, @Arg("_player") Component player, @Arg("_advancement") Component advancement);
+        MessageRef advancement(
+                @Arg("icon") Object icon, @Arg("_player") Component player, @Arg("_advancement") Component advancement);
 
         Chat chat();
 
@@ -40,7 +40,10 @@ public interface PaperCommonMessages {
         interface Chat {
 
             @Name("Line")
-            MessageRef line(@Arg("_sender") Component sender, @Arg("separator") Object separator, @Arg("_message") Component message);
+            MessageRef line(
+                    @Arg("_sender") Component sender,
+                    @Arg("separator") Object separator,
+                    @Arg("_message") Component message);
         }
     }
 }

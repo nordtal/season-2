@@ -1,10 +1,6 @@
 package eu.nordtal.s2.common.message;
 
 import eu.nordtal.s2.common.message.context.Contexts;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -22,6 +18,8 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The season 2 message system: one map of strings per language, a lookup with named parameters,
@@ -91,8 +89,8 @@ public final class Messages {
     /** Keys already reported missing, so a hot loop logs once and not per call. */
     private final Set<String> reportedMissing = ConcurrentHashMap.newKeySet();
 
-    private Messages(final List<String> roots, final ClassLoader classLoader, final Path overrides,
-                     final List<Locale> locales) {
+    private Messages(
+            final List<String> roots, final ClassLoader classLoader, final Path overrides, final List<Locale> locales) {
         this.roots = roots;
         this.classLoader = classLoader;
         this.overrides = overrides;
@@ -144,8 +142,8 @@ public final class Messages {
      * @throws IllegalStateException if English is in neither layer
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
-    public static Messages load(final ClassLoader classLoader, final String root,
-                                final Path overrides, final Locale... locales) {
+    public static Messages load(
+            final ClassLoader classLoader, final String root, final Path overrides, final Locale... locales) {
         return load(classLoader, List.of(Objects.requireNonNull(root, "root")), overrides, locales);
     }
 
@@ -172,13 +170,13 @@ public final class Messages {
      * @throws IllegalStateException if no root supplies English
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
-    public static Messages load(final ClassLoader classLoader, final List<String> roots,
-                                final Path overrides, final Locale... locales) {
+    public static Messages load(
+            final ClassLoader classLoader, final List<String> roots, final Path overrides, final Locale... locales) {
         Objects.requireNonNull(classLoader, "classLoader");
         Objects.requireNonNull(roots, "roots");
         if (roots.isEmpty()) {
-            throw new IllegalArgumentException("a Messages with no bundle would answer every key"
-                    + " with the key itself, silently");
+            throw new IllegalArgumentException(
+                    "a Messages with no bundle would answer every key" + " with the key itself, silently");
         }
 
         final List<String> normalised = roots.stream()
@@ -242,17 +240,18 @@ public final class Messages {
 
             if (packaged == null && operator == null) {
                 if (language.equals(Locales.DEFAULT.getLanguage())) {
-                    throw new IllegalStateException(
-                            "No " + language + ".properties in any of " + roots + "; English is the"
-                                    + " fallback for every other language and must exist");
+                    throw new IllegalStateException("No " + language + ".properties in any of " + roots
+                            + "; English is the" + " fallback for every other language and must exist");
                 }
-                LOGGER.warn("No message bundle {}.properties in any of {} - {} falls back to English",
-                        language, roots, language);
+                LOGGER.warn(
+                        "No message bundle {}.properties in any of {} - {} falls back to English",
+                        language,
+                        roots,
+                        language);
                 continue;
             }
 
-            final Map<String, String> merged =
-                    new HashMap<>(packaged == null ? Map.of() : packaged);
+            final Map<String, String> merged = new HashMap<>(packaged == null ? Map.of() : packaged);
             if (operator != null) {
                 operator.forEach((key, value) -> {
                     merged.put(key, value);
@@ -316,8 +315,7 @@ public final class Messages {
                         """.formatted(root), StandardCharsets.UTF_8);
             }
         } catch (final IOException exception) {
-            throw new UncheckedIOException(
-                    "Cannot prepare the message override directory " + directory, exception);
+            throw new UncheckedIOException("Cannot prepare the message override directory " + directory, exception);
         }
     }
 
@@ -330,13 +328,11 @@ public final class Messages {
         if (!Files.isRegularFile(file)) {
             return null;
         }
-        try (Reader reader = new InputStreamReader(
-                Files.newInputStream(file), StandardCharsets.UTF_8)) {
+        try (Reader reader = new InputStreamReader(Files.newInputStream(file), StandardCharsets.UTF_8)) {
             final Properties properties = new Properties();
             properties.load(reader);
             final Map<String, String> entries = new HashMap<>(properties.size());
-            properties.forEach((key, value) ->
-                    entries.put(String.valueOf(key), String.valueOf(value)));
+            properties.forEach((key, value) -> entries.put(String.valueOf(key), String.valueOf(value)));
             return entries;
         } catch (final IOException exception) {
             throw new UncheckedIOException("Cannot read message override " + file, exception);
@@ -354,9 +350,7 @@ public final class Messages {
         return List.copyOf(unique.values());
     }
 
-    private static Map<String, String> read(final ClassLoader classLoader,
-                                            final String root,
-                                            final String language) {
+    private static Map<String, String> read(final ClassLoader classLoader, final String root, final String language) {
         final String resource = root + "/" + language + ".properties";
         try (InputStream stream = classLoader.getResourceAsStream(resource)) {
             if (stream == null) {

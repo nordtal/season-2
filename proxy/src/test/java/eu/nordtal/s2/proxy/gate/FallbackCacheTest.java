@@ -1,22 +1,20 @@
 package eu.nordtal.s2.proxy.gate;
 
-import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.access.AccessState;
-import eu.nordtal.s2.common.access.MemberState;
-import eu.nordtal.s2.proxy.MutableClock;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Locale;
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.access.AccessState;
+import eu.nordtal.s2.common.access.MemberState;
+import eu.nordtal.s2.proxy.MutableClock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Locale;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Exercises {@link FallbackCache} entirely in memory - no database, no Docker. It is a pure
@@ -137,13 +135,31 @@ class FallbackCacheTest {
     }
 
     private AccessState activeState(final Locale locale) {
-        return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, true,
-                clock.instant().plus(Duration.ofDays(1)), false, false, locale, SeasonPhase.SMP, null);
+        return new AccessState(
+                PLAYER,
+                DISCORD_ID,
+                MemberState.MEMBER,
+                true,
+                clock.instant().plus(Duration.ofDays(1)),
+                false,
+                false,
+                locale,
+                SeasonPhase.SMP,
+                null);
     }
 
     private AccessState inactiveState() {
-        return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, false, null, false, false,
-                Locale.ENGLISH, SeasonPhase.SMP, null);
+        return new AccessState(
+                PLAYER,
+                DISCORD_ID,
+                MemberState.MEMBER,
+                false,
+                null,
+                false,
+                false,
+                Locale.ENGLISH,
+                SeasonPhase.SMP,
+                null);
     }
 
     /**
@@ -152,7 +168,16 @@ class FallbackCacheTest {
      * been bought - which is the point of the phase model.
      */
     private AccessState memberInAFreePhase() {
-        return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, false, null, false, false,
-                Locale.ENGLISH, SeasonPhase.PRE_EVENT, null);
+        return new AccessState(
+                PLAYER,
+                DISCORD_ID,
+                MemberState.MEMBER,
+                false,
+                null,
+                false,
+                false,
+                Locale.ENGLISH,
+                SeasonPhase.PRE_EVENT,
+                null);
     }
 }

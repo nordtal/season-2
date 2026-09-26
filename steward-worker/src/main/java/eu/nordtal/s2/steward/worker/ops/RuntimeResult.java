@@ -1,10 +1,9 @@
 package eu.nordtal.s2.steward.worker.ops;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.List;
 import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * What came of asking the container runtime for the project's services.
@@ -19,8 +18,10 @@ import java.util.Optional;
  * @param services what was found, empty when it could not
  * @param message  why not, or {@code null} when it could
  */
-public record RuntimeResult(boolean reached, @NotNull List<ServiceRuntime> services,
-                            @Nullable String message) {
+public record RuntimeResult(
+        boolean reached,
+        @NotNull List<ServiceRuntime> services,
+        @Nullable String message) {
 
     public RuntimeResult {
         services = List.copyOf(services);

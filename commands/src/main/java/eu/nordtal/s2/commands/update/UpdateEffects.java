@@ -4,7 +4,6 @@ import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
-
 import java.util.Optional;
 
 /**

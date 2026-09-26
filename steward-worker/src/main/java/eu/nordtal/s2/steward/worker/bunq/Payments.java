@@ -1,19 +1,17 @@
 package eu.nordtal.s2.steward.worker.bunq;
 
+import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
 import eu.nordtal.s2.common.payment.Money;
 import eu.nordtal.s2.common.payment.PaymentMatch;
 import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequestStatus;
 import eu.nordtal.s2.common.payment.PaymentRequests;
-
-import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
-import lombok.extern.slf4j.Slf4j;
-import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
-
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
+import lombok.extern.slf4j.Slf4j;
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
 /**
  * Everything that has to happen <em>at bunq</em>, driven by the {@code payment_request} table.
@@ -80,8 +78,11 @@ public final class Payments {
      * @param watermark          payments created before it are ignored, completely and forever
      * @param recentPaymentCount how many recent payments the fallback scan reads per pass
      */
-    public Payments(final BunqGateway bunq, final PaymentRequests requests, final Instant watermark,
-                    final int recentPaymentCount) {
+    public Payments(
+            final BunqGateway bunq,
+            final PaymentRequests requests,
+            final Instant watermark,
+            final int recentPaymentCount) {
         this.bunq = bunq;
         this.requests = requests;
         this.watermark = watermark;
@@ -110,8 +111,11 @@ public final class Payments {
         try {
             work.run();
         } catch (final RuntimeException failure) {
-            log.error("The payment pass failed while {}; the rest of the pass continues and the"
-                    + " next one starts from the table again", what, failure);
+            log.error(
+                    "The payment pass failed while {}; the rest of the pass continues and the"
+                            + " next one starts from the table again",
+                    what,
+                    failure);
         }
     }
 
@@ -157,8 +161,10 @@ public final class Payments {
             // The row closed between the queue read and now - an expiry sweep in another pass, or
             // the user starting a second purchase. The tab is live and nothing points at it, so it
             // is cancelled here rather than left payable.
-            log.warn("Request {} closed while its tab was being created; cancelling tab {}",
-                    request.reference(), tab.id());
+            log.warn(
+                    "Request {} closed while its tab was being created; cancelling tab {}",
+                    request.reference(),
+                    tab.id());
             bunq.cancelTab(tab.id());
         }
     }
@@ -174,7 +180,10 @@ public final class Payments {
             // in the queue on a false would make the worker cancel the same dead tab on every pass
             // until the season ends.
             if (requests.recordCancelled(request.id())) {
-                log.info("Cancelled bunq.me tab {} for {}{}", tabId, request.reference(),
+                log.info(
+                        "Cancelled bunq.me tab {} for {}{}",
+                        tabId,
+                        request.reference(),
                         accepted ? "" : " (bunq had already closed it)");
             }
         }
@@ -204,8 +213,7 @@ public final class Payments {
             }
 
             final String description = payment.getDescription() == null ? "" : payment.getDescription();
-            final Matcher matcher =
-                    PaymentRequests.REFERENCE_PATTERN.matcher(description.toUpperCase(Locale.ROOT));
+            final Matcher matcher = PaymentRequests.REFERENCE_PATTERN.matcher(description.toUpperCase(Locale.ROOT));
             if (!matcher.find()) {
                 // Money that has nothing to do with this network - it shares an account with
                 // whatever else lands there. Reporting every one of these would make the admin
@@ -217,13 +225,17 @@ public final class Payments {
             final String reference = matcher.group();
             final Optional<PaymentRequest> request = requests.byReference(reference);
             if (request.isEmpty()) {
-                requests.noticeOnce(payment.getId(), UNMATCHED,
-                        "Payment " + payment.getId() + " (" + Money.format(cents) + ") carries reference `"
-                                + reference + "`, which no request has.");
+                requests.noticeOnce(
+                        payment.getId(),
+                        UNMATCHED,
+                        "Payment " + payment.getId() + " (" + Money.format(cents) + ") carries reference `" + reference
+                                + "`, which no request has.");
                 continue;
             }
             if (request.get().status() != PaymentRequestStatus.OPEN) {
-                requests.noticeOnce(payment.getId(), EXPIRED_REFERENCE,
+                requests.noticeOnce(
+                        payment.getId(),
+                        EXPIRED_REFERENCE,
                         "Payment " + payment.getId() + " (" + Money.format(cents) + ") arrived on `"
                                 + reference + "`, which is " + request.get().status()
                                 + ". Book it by hand with `/settle " + reference + "` if it is genuine.");
@@ -242,18 +254,28 @@ public final class Payments {
      * money is real either way, so it goes to the admin channel as an unbookable payment rather than
      * into a log line.</p>
      */
-    private void attribute(final PaymentRequest request, final long paymentId, final int cents,
-                           final PaymentMatch how) {
+    private void attribute(
+            final PaymentRequest request, final long paymentId, final int cents, final PaymentMatch how) {
         try {
             if (requests.recordMatch(request.id(), paymentId, cents, how)) {
-                log.info("Payment {} ({}) attributed to {} by {}", paymentId, Money.format(cents),
-                        request.reference(), how);
+                log.info(
+                        "Payment {} ({}) attributed to {} by {}",
+                        paymentId,
+                        Money.format(cents),
+                        request.reference(),
+                        how);
             }
         } catch (final UnableToExecuteStatementException clash) {
-            log.error("Payment {} is already claimed by another request, so {} was not given it."
-                    + " That should be impossible - it means two requests were matched to one"
-                    + " payment.", paymentId, request.reference(), clash);
-            requests.noticeOnce(paymentId, DOUBLE_CLAIM,
+            log.error(
+                    "Payment {} is already claimed by another request, so {} was not given it."
+                            + " That should be impossible - it means two requests were matched to one"
+                            + " payment.",
+                    paymentId,
+                    request.reference(),
+                    clash);
+            requests.noticeOnce(
+                    paymentId,
+                    DOUBLE_CLAIM,
                     "Payment " + paymentId + " (" + Money.format(cents) + ") was matched to `"
                             + request.reference() + "` but is already claimed by another request."
                             + " Nothing was granted for it; book it by hand if it is genuine.");
@@ -285,9 +307,10 @@ public final class Payments {
      * a bunq error can carry a whole JSON body, and a Discord message has a length.</p>
      */
     private static String reasonOf(final RuntimeException failure) {
-        final String message = failure.getMessage() == null || failure.getMessage().isBlank()
-                ? failure.getClass().getSimpleName()
-                : failure.getMessage().strip();
+        final String message =
+                failure.getMessage() == null || failure.getMessage().isBlank()
+                        ? failure.getClass().getSimpleName()
+                        : failure.getMessage().strip();
         return message.length() <= REASON_LIMIT ? message : message.substring(0, REASON_LIMIT) + "...";
     }
 }

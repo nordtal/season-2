@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.update;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Tone;
@@ -8,7 +10,6 @@ import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateStatus;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -16,8 +17,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.LongFunction;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * Follows one {@code update_request} row and decides what to tell the person who asked.
@@ -69,8 +68,7 @@ public final class UpdateFollower {
     public record Say(MessageRef message, String literal, Tone tone) {
 
         public static Say key(final MessageRef message, final Tone tone) {
-            return new Say(Objects.requireNonNull(message, "message"), null,
-                    tone == null ? Tone.NEUTRAL : tone);
+            return new Say(Objects.requireNonNull(message, "message"), null, tone == null ? Tone.NEUTRAL : tone);
         }
 
         public static Say key(final MessageRef message) {
@@ -145,17 +143,15 @@ public final class UpdateFollower {
      * @param reader   how to read a row back - {@code UpdateDirectory#find}, or a fake
      * @param deadline when to stop waiting for an answer that is not coming
      */
-    public UpdateFollower(final long id, final LongFunction<Optional<UpdateRequest>> reader,
-                          final Instant deadline) {
+    public UpdateFollower(final long id, final LongFunction<Optional<UpdateRequest>> reader, final Instant deadline) {
         this.id = id;
         this.reader = Objects.requireNonNull(reader, "reader");
         this.deadline = Objects.requireNonNull(deadline, "deadline");
     }
 
     /** A follower that gives up {@link #PATIENCE} after {@code now}. */
-    public static UpdateFollower of(final long id,
-                                    final LongFunction<Optional<UpdateRequest>> reader,
-                                    final Instant now) {
+    public static UpdateFollower of(
+            final long id, final LongFunction<Optional<UpdateRequest>> reader, final Instant now) {
         return new UpdateFollower(id, reader, now.plus(PATIENCE));
     }
 
@@ -216,9 +212,7 @@ public final class UpdateFollower {
      */
     private static List<Say> report(final UpdateRequest request) {
         final Optional<UpdateReport> parsed = UpdateReports.parse(request.result());
-        final List<Say> says = parsed.isPresent()
-                ? structured(parsed.get())
-                : plain(request);
+        final List<Say> says = parsed.isPresent() ? structured(parsed.get()) : plain(request);
 
         if (says.size() <= MAX_LINES) {
             return says;
@@ -281,15 +275,13 @@ public final class UpdateFollower {
      */
     private static Say sayChange(final UpdateReport.Change change) {
         return switch (change.state()) {
-            case UNSUPPORTED -> Say.key(
-                    MESSAGES.update().changeSection().unsupported(change.artefact()), Tone.MUTED);
-            case MOVING -> change.from() == null
-                    ? Say.key(
-                            MESSAGES.update().changeSection().newMessage(change.artefact(),
-                                    change.to()), Tone.MUTED)
-                    : Say.key(
-                            MESSAGES.update().change(change.artefact(), change.from(),
-                                    change.to()), Tone.MUTED);
+            case UNSUPPORTED -> Say.key(MESSAGES.update().changeSection().unsupported(change.artefact()), Tone.MUTED);
+            case MOVING ->
+                change.from() == null
+                        ? Say.key(
+                                MESSAGES.update().changeSection().newMessage(change.artefact(), change.to()),
+                                Tone.MUTED)
+                        : Say.key(MESSAGES.update().change(change.artefact(), change.from(), change.to()), Tone.MUTED);
         };
     }
 

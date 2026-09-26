@@ -1,8 +1,8 @@
 package eu.nordtal.s2.common.health;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -13,10 +13,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The freshness rule, driven by explicit timestamps.
@@ -53,7 +52,9 @@ class ReadinessTest {
     void staleAfterIsThreeBeats() {
         // The two constants are not independent: 90s is 3 x 30s, and a beat interval raised past a
         // third of the window would make a perfectly healthy process flap.
-        assertEquals(3, Readiness.STALE_AFTER.toSeconds() / Readiness.BEAT.toSeconds(),
+        assertEquals(
+                3,
+                Readiness.STALE_AFTER.toSeconds() / Readiness.BEAT.toSeconds(),
                 "STALE_AFTER is no longer three beats - a container will now go red on fewer missed"
                         + " refreshes than the comment in Readiness claims");
         assertEquals(0, Readiness.STALE_AFTER.toSeconds() % Readiness.BEAT.toSeconds());
@@ -84,7 +85,8 @@ class ReadinessTest {
         final FileTime backdated = FileTime.from(Instant.now().minusSeconds(600));
         Files.setLastModifiedTime(marker, backdated);
         assertTrue(readiness.refresh());
-        assertTrue(Files.getLastModifiedTime(marker).toInstant().isAfter(backdated.toInstant()),
+        assertTrue(
+                Files.getLastModifiedTime(marker).toInstant().isAfter(backdated.toInstant()),
                 "refresh() did not move the marker's modification time, which is the one thing the"
                         + " container healthcheck looks at");
 
@@ -96,7 +98,8 @@ class ReadinessTest {
     @DisplayName("a marker that is not there is not fresh, and neither is an old one")
     void theFileAnswerAgreesWithThePredicate(@TempDir final Path directory) throws IOException {
         final Path marker = directory.resolve("nordtal-ready");
-        assertFalse(Readiness.fresh(marker, Instant.now(), Readiness.STALE_AFTER),
+        assertFalse(
+                Readiness.fresh(marker, Instant.now(), Readiness.STALE_AFTER),
                 "a missing marker read as fresh - which is what a container looks like before its"
                         + " process has ever finished starting");
         assertTrue(Readiness.lastBeat(marker).isEmpty());
@@ -124,7 +127,8 @@ class ReadinessTest {
         assertFalse(readiness.refresh());
         assertFalse(readiness.refresh());
         assertEquals(1, complaints.size(), "every failed refresh complained: " + complaints);
-        assertTrue(complaints.getFirst().contains("nordtal-ready"),
+        assertTrue(
+                complaints.getFirst().contains("nordtal-ready"),
                 "the complaint does not name the path that could not be written: " + complaints);
 
         // Clear the obstruction: the same instance recovers and says nothing about it.

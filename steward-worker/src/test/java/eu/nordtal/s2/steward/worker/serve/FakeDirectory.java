@@ -5,7 +5,6 @@ import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,11 +43,20 @@ final class FakeDirectory implements UpdateDirectory {
     }
 
     @Override
-    public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
-                                final String requestedBy, final Duration delay) {
+    public UpdateRequest submit(
+            final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
         final long id = nextId++;
-        final UpdateRequest request = new UpdateRequest(id, kind, UpdateStatus.PENDING, source,
-                requestedBy, now, now.plus(delay == null ? Duration.ZERO : delay), null, null, null);
+        final UpdateRequest request = new UpdateRequest(
+                id,
+                kind,
+                UpdateStatus.PENDING,
+                source,
+                requestedBy,
+                now,
+                now.plus(delay == null ? Duration.ZERO : delay),
+                null,
+                null,
+                null);
         rows.put(id, request);
         return request;
     }
@@ -68,9 +76,17 @@ final class FakeDirectory implements UpdateDirectory {
                     return byTime != 0 ? byTime : Long.compare(left.id(), right.id());
                 })
                 .map(row -> {
-                    final UpdateRequest claimed = new UpdateRequest(row.id(), row.kind(),
-                            UpdateStatus.RUNNING, row.source(), row.requestedBy(), row.requested(),
-                            row.notBefore(), now, null, null);
+                    final UpdateRequest claimed = new UpdateRequest(
+                            row.id(),
+                            row.kind(),
+                            UpdateStatus.RUNNING,
+                            row.source(),
+                            row.requestedBy(),
+                            row.requested(),
+                            row.notBefore(),
+                            now,
+                            null,
+                            null);
                     rows.put(row.id(), claimed);
                     return claimed;
                 });
@@ -82,8 +98,17 @@ final class FakeDirectory implements UpdateDirectory {
         if (row == null || row.status() != UpdateStatus.RUNNING) {
             return Optional.empty();
         }
-        final UpdateRequest done = new UpdateRequest(row.id(), row.kind(), status, row.source(),
-                row.requestedBy(), row.requested(), row.notBefore(), row.started(), now, result);
+        final UpdateRequest done = new UpdateRequest(
+                row.id(),
+                row.kind(),
+                status,
+                row.source(),
+                row.requestedBy(),
+                row.requested(),
+                row.notBefore(),
+                row.started(),
+                now,
+                result);
         rows.put(id, done);
         finished.add(done);
         return Optional.of(done);
@@ -101,8 +126,10 @@ final class FakeDirectory implements UpdateDirectory {
 
     @Override
     public java.util.List<UpdateRequest> since(final long id) {
-        return rows.values().stream().filter(row -> row.id() > id)
-                .sorted(java.util.Comparator.comparingLong(UpdateRequest::id)).toList();
+        return rows.values().stream()
+                .filter(row -> row.id() > id)
+                .sorted(java.util.Comparator.comparingLong(UpdateRequest::id))
+                .toList();
     }
 
     @Override
@@ -115,7 +142,8 @@ final class FakeDirectory implements UpdateDirectory {
         final java.time.Instant from = now.minus(window);
         return rows.values().stream()
                 .filter(row -> row.finished() != null && row.finished().isAfter(from))
-                .sorted(java.util.Comparator.comparingLong(UpdateRequest::id)).toList();
+                .sorted(java.util.Comparator.comparingLong(UpdateRequest::id))
+                .toList();
     }
 
     @Override
@@ -129,9 +157,17 @@ final class FakeDirectory implements UpdateDirectory {
         if (row == null || row.status() != UpdateStatus.RUNNING) {
             return Optional.empty();
         }
-        final UpdateRequest counting = new UpdateRequest(row.id(), row.kind(), row.status(),
-                row.source(), row.requestedBy(), row.requested(), now.plus(seconds), row.started(),
-                row.finished(), row.result());
+        final UpdateRequest counting = new UpdateRequest(
+                row.id(),
+                row.kind(),
+                row.status(),
+                row.source(),
+                row.requestedBy(),
+                row.requested(),
+                now.plus(seconds),
+                row.started(),
+                row.finished(),
+                row.result());
         rows.put(id, counting);
         return Optional.of(counting);
     }
@@ -142,17 +178,26 @@ final class FakeDirectory implements UpdateDirectory {
         if (row == null || row.status() != UpdateStatus.RUNNING) {
             return false;
         }
-        rows.put(id, new UpdateRequest(row.id(), row.kind(), row.status(), row.source(),
-                row.requestedBy(), row.requested(), now, row.started(), row.finished(),
-                row.result()));
+        rows.put(
+                id,
+                new UpdateRequest(
+                        row.id(),
+                        row.kind(),
+                        row.status(),
+                        row.source(),
+                        row.requestedBy(),
+                        row.requested(),
+                        now,
+                        row.started(),
+                        row.finished(),
+                        row.result()));
         return true;
     }
 
     @Override
     public Optional<UpdateRequest> countingDown() {
         return rows.values().stream()
-                .filter(row -> row.status() == UpdateStatus.PENDING
-                        || row.status() == UpdateStatus.RUNNING)
+                .filter(row -> row.status() == UpdateStatus.PENDING || row.status() == UpdateStatus.RUNNING)
                 .filter(row -> row.kind() == UpdateKind.RESTART || row.kind() == UpdateKind.UPDATE)
                 .filter(row -> row.notBefore().isAfter(now))
                 .findFirst();
@@ -161,9 +206,17 @@ final class FakeDirectory implements UpdateDirectory {
     @Override
     public Optional<UpdateRequest> cancelCountdown(final String reason) {
         return countingDown().map(row -> {
-            final UpdateRequest cancelled = new UpdateRequest(row.id(), row.kind(),
-                    UpdateStatus.CANCELLED, row.source(), row.requestedBy(), row.requested(),
-                    row.notBefore(), null, now, reason);
+            final UpdateRequest cancelled = new UpdateRequest(
+                    row.id(),
+                    row.kind(),
+                    UpdateStatus.CANCELLED,
+                    row.source(),
+                    row.requestedBy(),
+                    row.requested(),
+                    row.notBefore(),
+                    null,
+                    now,
+                    reason);
             rows.put(row.id(), cancelled);
             return cancelled;
         });
@@ -186,9 +239,19 @@ final class FakeDirectory implements UpdateDirectory {
             }
             // Every kind, since 2026-09-08. A RESTART used to be closed as DONE here, because a
             // redeploy of the whole project took the worker down mid-call; it does not any more.
-            rows.put(row.id(), new UpdateRequest(row.id(), row.kind(), UpdateStatus.FAILED,
-                    row.source(), row.requestedBy(), row.requested(), row.notBefore(),
-                    row.started(), now, failed));
+            rows.put(
+                    row.id(),
+                    new UpdateRequest(
+                            row.id(),
+                            row.kind(),
+                            UpdateStatus.FAILED,
+                            row.source(),
+                            row.requestedBy(),
+                            row.requested(),
+                            row.notBefore(),
+                            row.started(),
+                            now,
+                            failed));
             settled++;
         }
         return settled;
@@ -198,11 +261,11 @@ final class FakeDirectory implements UpdateDirectory {
     public java.util.Optional<eu.nordtal.s2.common.update.UpdateRequest> running() {
         return java.util.Optional.empty();
     }
+
     @Override
     public java.util.List<UpdateRequest> recent(final int limit) {
         // Nothing in this fake ever lists: the list is a page in the interface, not a decision
         // anything here makes.
         return java.util.List.of();
     }
-
 }

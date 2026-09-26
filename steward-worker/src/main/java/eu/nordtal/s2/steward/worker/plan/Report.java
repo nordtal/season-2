@@ -2,14 +2,12 @@ package eu.nordtal.s2.steward.worker.plan;
 
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * An {@link UpdatePlan} as text a person reads before deciding whether to restart a network.
@@ -29,13 +27,14 @@ public final class Report {
     /** Wide enough for "not installed", which is the longest status word. */
     private static final int LABEL_WIDTH = 15;
 
-    private Report() {
-    }
+    private Report() {}
 
     public static @NotNull String render(final @NotNull UpdatePlan plan) {
         final StringBuilder out = new StringBuilder();
 
-        out.append("nordtal season 2 - update check at ").append(plan.resolvedAt()).append('\n');
+        out.append("nordtal season 2 - update check at ")
+                .append(plan.resolvedAt())
+                .append('\n');
         if (plan.seasonTag() != null) {
             out.append("season release resolved to ").append(plan.seasonTag());
             if (plan.seasonPrerelease()) {
@@ -54,8 +53,9 @@ public final class Report {
         // collected at the end rather than filed under a server it does not run on.
         final Map<String, List<Change>> grouped = new LinkedHashMap<>();
         for (final Change change : plan.changes()) {
-            grouped.computeIfAbsent(change.service() == null ? "(no volume)" : change.service(),
-                    key -> new ArrayList<>()).add(change);
+            grouped.computeIfAbsent(
+                            change.service() == null ? "(no volume)" : change.service(), key -> new ArrayList<>())
+                    .add(change);
         }
 
         final int width = grouped.values().stream()
@@ -83,8 +83,11 @@ public final class Report {
                         .append(detail)
                         .append('\n');
                 if (change.note() != null && !change.note().equals(shared)) {
-                    out.append(INDENT).append(INDENT).append(pad("", width))
-                            .append(noteText(change.note(), footnotes)).append('\n');
+                    out.append(INDENT)
+                            .append(INDENT)
+                            .append(pad("", width))
+                            .append(noteText(change.note(), footnotes))
+                            .append('\n');
                 }
             }
             out.append('\n');
@@ -93,16 +96,25 @@ public final class Report {
         if (!plan.unclaimed().isEmpty()) {
             out.append("jars nothing accounts for - left alone, never deleted:\n");
             for (final UpdatePlan.Unclaimed jar : plan.unclaimed()) {
-                out.append(INDENT).append(jar.service()).append('/')
-                        .append(Installation.PLUGINS).append('/').append(jar.fileName()).append('\n');
+                out.append(INDENT)
+                        .append(jar.service())
+                        .append('/')
+                        .append(Installation.PLUGINS)
+                        .append('/')
+                        .append(jar.fileName())
+                        .append('\n');
             }
             out.append('\n');
         }
 
         if (!footnotes.isEmpty()) {
             out.append("why:\n");
-            footnotes.forEach((note, number) ->
-                    out.append(INDENT).append('[').append(number).append("] ").append(note).append('\n'));
+            footnotes.forEach((note, number) -> out.append(INDENT)
+                    .append('[')
+                    .append(number)
+                    .append("] ")
+                    .append(note)
+                    .append('\n'));
             out.append('\n');
         }
 
@@ -146,8 +158,9 @@ public final class Report {
 
         final Map<String, List<ApplyResult.Outcome>> grouped = new LinkedHashMap<>();
         for (final ApplyResult.Outcome outcome : result.outcomes()) {
-            grouped.computeIfAbsent(outcome.service() == null ? "(no volume)" : outcome.service(),
-                    key -> new ArrayList<>()).add(outcome);
+            grouped.computeIfAbsent(
+                            outcome.service() == null ? "(no volume)" : outcome.service(), key -> new ArrayList<>())
+                    .add(outcome);
         }
 
         final int width = grouped.values().stream()
@@ -163,9 +176,10 @@ public final class Report {
                 out.append(INDENT)
                         .append(pad(outcome.artifact(), width))
                         .append("  ")
-                        .append(detail.isEmpty()
-                                ? outcome.status().name().toLowerCase(Locale.ROOT)
-                                : pad(outcome.status().name().toLowerCase(Locale.ROOT), LABEL_WIDTH))
+                        .append(
+                                detail.isEmpty()
+                                        ? outcome.status().name().toLowerCase(Locale.ROOT)
+                                        : pad(outcome.status().name().toLowerCase(Locale.ROOT), LABEL_WIDTH))
                         .append(detail)
                         .append('\n');
             }
@@ -242,8 +256,12 @@ public final class Report {
     }
 
     private static String summary(final UpdatePlan plan) {
-        final long work = plan.changes().stream().filter(change -> change.status().isWork()).count();
-        final long failed = plan.changes().stream().filter(change -> change.status().isFailure()).count();
+        final long work = plan.changes().stream()
+                .filter(change -> change.status().isWork())
+                .count();
+        final long failed = plan.changes().stream()
+                .filter(change -> change.status().isFailure())
+                .count();
 
         if (failed > 0 && work > 0) {
             return work + " artefact(s) would be updated, and " + failed

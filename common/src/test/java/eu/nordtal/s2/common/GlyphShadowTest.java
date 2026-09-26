@@ -1,22 +1,19 @@
 package eu.nordtal.s2.common;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.hud.BoardFrame;
 import eu.nordtal.s2.common.hud.BossBarLine;
 import eu.nordtal.s2.common.menu.MenuTitle;
-
+import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.ComponentIteratorType;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.ShadowColor;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Asserts that nothing composed out of a {@code nordtal:} font is drawn with vanilla's text shadow.
@@ -42,22 +39,22 @@ class GlyphShadowTest {
 
     /** Every source file in this repository that composes a boss bar name. Mirrors BossBarFontTest. */
     private static final String[] BOSS_BAR_SOURCES = {
-            "smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java",
-            "hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java",
+        "smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java",
+        "hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java",
     };
 
     @Test
     @DisplayName("every frame component a board is built from carries no shadow")
     void boardFrameCarriesNoShadow() {
-        final Component board = BoardFrame.render(64,
-                Component.text("heading"),
-                List.of(Component.text("one"), Component.text("two")));
+        final Component board =
+                BoardFrame.render(64, Component.text("heading"), List.of(Component.text("one"), Component.text("two")));
 
         assertNoShadowOnFont(board, Glyphs.FONT_BOARD, "BoardFrame.render");
-        assertNoShadowOnFont(BoardFrame.border(64, Glyphs.BOARD_CORNER_TOP_LEFT,
-                Glyphs.BOARD_CORNER_TOP_RIGHT), Glyphs.FONT_BOARD, "BoardFrame.border");
-        assertNoShadowOnFont(BoardFrame.row(64, Component.text("content")),
-                Glyphs.FONT_BOARD, "BoardFrame.row");
+        assertNoShadowOnFont(
+                BoardFrame.border(64, Glyphs.BOARD_CORNER_TOP_LEFT, Glyphs.BOARD_CORNER_TOP_RIGHT),
+                Glyphs.FONT_BOARD,
+                "BoardFrame.border");
+        assertNoShadowOnFont(BoardFrame.row(64, Component.text("content")), Glyphs.FONT_BOARD, "BoardFrame.row");
     }
 
     @Test
@@ -65,8 +62,8 @@ class GlyphShadowTest {
     void menuPanelCarriesNoShadow() {
         for (int rows = 1; rows <= Glyphs.GUI_PANELS.length; rows++) {
             assertNoShadowOnFont(MenuTitle.panel(rows), Glyphs.FONT_GUI, "MenuTitle.panel(" + rows + ")");
-            assertNoShadowOnFont(MenuTitle.of(rows, Component.text("title")), Glyphs.FONT_GUI,
-                    "MenuTitle.of(" + rows + ", ...)");
+            assertNoShadowOnFont(
+                    MenuTitle.of(rows, Component.text("title")), Glyphs.FONT_GUI, "MenuTitle.of(" + rows + ", ...)");
         }
     }
 
@@ -79,12 +76,13 @@ class GlyphShadowTest {
         final Component readable = composed.children().stream()
                 .filter(child -> !Glyphs.FONT_GUI.equals(keyOf(child)))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError(
-                        "MenuTitle.of appended no component outside nordtal:gui - the readable title"
+                .orElseThrow(() ->
+                        new AssertionError("MenuTitle.of appended no component outside nordtal:gui - the readable title"
                                 + " is gone, or it has become a child of the panel and inherited its"
                                 + " shadowless style"));
 
-        assertNull(readable.style().shadowColor(),
+        assertNull(
+                readable.style().shadowColor(),
                 "the readable title must keep vanilla's shadow: the panel is a sibling of it, not"
                         + " its parent, precisely so that turning the panel's shadow off does not"
                         + " flatten the one piece of the window a player actually reads");
@@ -93,11 +91,12 @@ class GlyphShadowTest {
     @Test
     @DisplayName("a boss bar line carries no shadow, and the renderers build nothing else")
     void bossBarLineTurnsTheShadowOff() {
-        assertNoShadowOnFont(BossBarLine.render(List.of(BossBarLine.Pill.of("x"))),
-                Glyphs.FONT_BOSSBAR, "BossBarLine.render");
+        assertNoShadowOnFont(
+                BossBarLine.render(List.of(BossBarLine.Pill.of("x"))), Glyphs.FONT_BOSSBAR, "BossBarLine.render");
         for (final String source : BOSS_BAR_SOURCES) {
             final String text = RepositoryRoot.read(source);
-            assertTrue(!text.contains("ShadowColor") && !text.contains("Component.text("),
+            assertTrue(
+                    !text.contains("ShadowColor") && !text.contains("Component.text("),
                     source + " styles a boss bar component itself; since 2026-09-05 the one place"
                             + " that happens is BossBarLine, so the shadow is off everywhere or"
                             + " nowhere. BossBarFontTest pins that every name goes through it.");
@@ -129,15 +128,21 @@ class GlyphShadowTest {
                 continue;
             }
             seen++;
-            assertEquals(ShadowColor.none(), component.style().shadowColor(),
+            assertEquals(
+                    ShadowColor.none(),
+                    component.style().shadowColor(),
                     what + " emits a component in " + font + " that does not set"
                             + " ShadowColor.none(), so its tiles bleed into each other");
         }
-        assertTrue(seen > 0, what + " emitted no component in " + font + " at all - either the font"
-                + " key moved or this test is asserting nothing");
+        assertTrue(
+                seen > 0,
+                what + " emitted no component in " + font + " at all - either the font"
+                        + " key moved or this test is asserting nothing");
     }
 
     private static String keyOf(final Component component) {
-        return component.style().font() == null ? null : component.style().font().asString();
+        return component.style().font() == null
+                ? null
+                : component.style().font().asString();
     }
 }

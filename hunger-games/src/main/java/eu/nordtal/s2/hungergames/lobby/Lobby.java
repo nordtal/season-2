@@ -1,15 +1,19 @@
 package eu.nordtal.s2.hungergames.lobby;
 
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
-
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
-
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -17,13 +21,6 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
-import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 /**
  * The lobby's periodic ready-check broadcast, carrying a clickable "I am ready". Ready state is
@@ -44,8 +41,12 @@ public final class Lobby {
 
     private BukkitTask broadcastTask;
 
-    public Lobby(final Plugin plugin, final HungerGamesDao dao, final HungerGamesSpec config,
-                final Messages messages, final PlayerLocales locales) {
+    public Lobby(
+            final Plugin plugin,
+            final HungerGamesDao dao,
+            final HungerGamesSpec config,
+            final Messages messages,
+            final PlayerLocales locales) {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
@@ -56,13 +57,18 @@ public final class Lobby {
     /** Starts the periodic ready-check broadcast. Call once, from {@code onEnable}. */
     public void startBroadcasting(final World world, final java.util.function.Supplier<UUID> currentGameId) {
         final long periodTicks = config.lobby().broadcastIntervalSeconds() * 20L;
-        broadcastTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            final UUID gameId = currentGameId.get();
-            if (gameId == null) {
-                return;
-            }
-            broadcast(world, gameId);
-        }, periodTicks, periodTicks);
+        broadcastTask = Bukkit.getScheduler()
+                .runTaskTimer(
+                        plugin,
+                        () -> {
+                            final UUID gameId = currentGameId.get();
+                            if (gameId == null) {
+                                return;
+                            }
+                            broadcast(world, gameId);
+                        },
+                        periodTicks,
+                        periodTicks);
     }
 
     public void stop() {
@@ -78,10 +84,9 @@ public final class Lobby {
      */
     private void broadcast(final World world, final UUID gameId) {
         final List<RosterEntry> roster = dao.roster(gameId);
-        final long totalTeams = roster.stream().map(RosterEntry::teamId).distinct().count();
-        final long readyTeams = roster.stream()
-                .collect(Collectors.groupingBy(RosterEntry::teamId))
-                .values().stream()
+        final long totalTeams =
+                roster.stream().map(RosterEntry::teamId).distinct().count();
+        final long readyTeams = roster.stream().collect(Collectors.groupingBy(RosterEntry::teamId)).values().stream()
                 .filter(members -> members.stream().allMatch(RosterEntry::ready))
                 .count();
 
@@ -89,13 +94,13 @@ public final class Lobby {
             final Locale locale = locales.of(player.getUniqueId());
             // No .color() here: the colour is in the bundle, and one set on the rendered component
             // would win over it, so editing hg.lobby.ready-link would change nothing.
-            final Component link = MessageRenderer.of(messages).format(locale,
-                    MESSAGES.hg().lobby().readyLink())
+            final Component link = MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.hg().lobby().readyLink())
                     .clickEvent(ClickEvent.runCommand("/hg ready"));
             // A component slot rather than an append: hg.lobby.broadcast ends in "{link}", and
             // Messages leaves an unfilled placeholder standing, so an append prints it literally.
-            final Component message = MessageRenderer.of(messages).format(locale,
-                    MESSAGES.hg().lobby().broadcast(readyTeams, totalTeams, link));
+            final Component message = MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.hg().lobby().broadcast(readyTeams, totalTeams, link));
             player.sendMessage(message);
         }
     }

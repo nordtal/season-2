@@ -1,15 +1,14 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link UpdatePlan#withoutServices} - what a run must not touch because somebody is holding it
@@ -26,8 +25,7 @@ class UpdatePlanHoldTest {
         return new Change(service, artifact, Change.Status.OUTDATED, "old.jar", null, null);
     }
 
-    private static UpdatePlan planOf(final List<Change> changes,
-                                     final List<UpdatePlan.Unclaimed> unclaimed) {
+    private static UpdatePlan planOf(final List<Change> changes, final List<UpdatePlan.Unclaimed> unclaimed) {
         return new UpdatePlan(Instant.EPOCH, "v0.2.0", false, changes, unclaimed, List.of("a note"));
     }
 
@@ -36,17 +34,21 @@ class UpdatePlanHoldTest {
     void aHeldServiceFallsOut() {
         final UpdatePlan plan = planOf(
                 List.of(on("smp", "smp"), on("smp", "packetevents"), on("limbo", "limbo")),
-                List.of(new UpdatePlan.Unclaimed("smp", "ByHand.jar"),
+                List.of(
+                        new UpdatePlan.Unclaimed("smp", "ByHand.jar"),
                         new UpdatePlan.Unclaimed("limbo", "AlsoByHand.jar")));
 
         final UpdatePlan left = plan.withoutServices(Set.of("limbo"));
 
-        assertTrue(left.changes().stream().noneMatch(change -> "limbo".equals(change.service())),
+        assertTrue(
+                left.changes().stream().noneMatch(change -> "limbo".equals(change.service())),
                 "a jar was installed into a service somebody had stopped on purpose - the run"
                         + " would then have to start it to verify, which is the one thing the hold"
                         + " forbids");
         assertEquals(2, left.changes().size());
-        assertEquals(1, left.unclaimed().size(),
+        assertEquals(
+                1,
+                left.unclaimed().size(),
                 "the report names a jar in the folder of a service this run deliberately skipped");
     }
 
@@ -62,7 +64,9 @@ class UpdatePlanHoldTest {
         final UpdatePlan left = plan.withoutServices(Set.of("limbo"));
 
         assertEquals(1, left.changes().size());
-        assertEquals(null, left.changes().getFirst().service(),
+        assertEquals(
+                null,
+                left.changes().getFirst().service(),
                 "the resource pack was dropped because a service was held down, and the pack"
                         + " belongs to no service");
     }
@@ -72,7 +76,9 @@ class UpdatePlanHoldTest {
     void emptyTakesNothing() {
         final UpdatePlan plan = planOf(List.of(on("smp", "smp"), on("limbo", "limbo")), List.of());
 
-        assertSame(plan, plan.withoutServices(List.of()),
+        assertSame(
+                plan,
+                plan.withoutServices(List.of()),
                 "an empty hold list emptied the plan. That is onlyServices' meaning of empty, and"
                         + " it turns every ordinary run - which is every run, because holds are"
                         + " rare - into one that installs nothing.");

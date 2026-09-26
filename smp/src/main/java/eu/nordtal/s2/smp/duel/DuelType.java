@@ -4,7 +4,6 @@ import java.util.Optional;
 
 /** Which of the two platforms a duel started on, and therefore which loadout both fighters get. */
 public enum DuelType {
-
     SWORD,
     BOW;
 

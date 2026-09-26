@@ -38,8 +38,7 @@ public final class TeamColours {
             Map.entry("YELLOW", 0xFFFF55),
             Map.entry("WHITE", 0xFFFFFF));
 
-    private TeamColours() {
-    }
+    private TeamColours() {}
 
     /**
      * Generates {@code count} evenly spaced hues, in order, at {@link #SATURATION} and

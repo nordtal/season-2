@@ -1,29 +1,26 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
-import eu.nordtal.s2.common.message.context.DiscordMemberContext;
-import eu.nordtal.s2.common.payment.PaymentNotice;
-import eu.nordtal.s2.common.payment.PaymentRequest;
-import eu.nordtal.s2.common.payment.PaymentRequests;
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.s2.common.payment.Money;
-import eu.nordtal.s2.discordbot.config.Configured;
-import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.discordbot.access.SeasonStart;
-import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
-import eu.nordtal.s2.discordbot.discord.AdminLog;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.access.AccessSource;
 import eu.nordtal.s2.common.message.Messages;
-
+import eu.nordtal.s2.common.message.context.DiscordMemberContext;
+import eu.nordtal.s2.common.payment.Money;
+import eu.nordtal.s2.common.payment.PaymentNotice;
+import eu.nordtal.s2.common.payment.PaymentRequest;
+import eu.nordtal.s2.common.payment.PaymentRequests;
+import eu.nordtal.s2.discordbot.access.SeasonStart;
+import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
+import eu.nordtal.s2.discordbot.config.Configured;
+import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.discordbot.discord.AdminLog;
+import java.util.Locale;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-
-import java.util.Locale;
-import java.util.Optional;
-
-import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 /**
  * Turns money steward-worker has <em>found</em> into access.
@@ -69,10 +66,16 @@ public final class PaymentProcessor {
 
     private final SeasonStart seasonStart;
 
-    public PaymentProcessor(final Languages languages, final PaymentRequests requests,
-                            final Tiers tiers, final AccessDirectory access,
-                            final AccessRoles roles, final AdminLog admin, final Messages messages,
-                            final JDA jda, final SeasonStart seasonStart) {
+    public PaymentProcessor(
+            final Languages languages,
+            final PaymentRequests requests,
+            final Tiers tiers,
+            final AccessDirectory access,
+            final AccessRoles roles,
+            final AdminLog admin,
+            final Messages messages,
+            final JDA jda,
+            final SeasonStart seasonStart) {
         this.languages = languages;
         this.requests = requests;
         this.tiers = tiers;
@@ -122,7 +125,9 @@ public final class PaymentProcessor {
             // anything, and what to do about that is a decision for a human. It stays out of the
             // booking queue on the next pass only because the notice is written once - so the
             // sentence below is worded as a state, not as an event.
-            raise(paymentId, "BELOW_MINIMUM",
+            raise(
+                    paymentId,
+                    "BELOW_MINIMUM",
                     "Payment " + paymentId + " on `" + request.reference() + "` from <@" + request.discordId()
                             + "> is " + Money.format(cents) + ", which is below the cheapest tier. "
                             + "Nothing was granted.");
@@ -135,8 +140,8 @@ public final class PaymentProcessor {
         }
 
         final Tiers.Settlement settlement = resolved.get();
-        final AccessGrant grant = access.grantAccess(
-                request.discordId(), settlement.days(), AccessSource.PURCHASE, request.id());
+        final AccessGrant grant =
+                access.grantAccess(request.discordId(), settlement.days(), AccessSource.PURCHASE, request.id());
         seasonStart.warnIfUnanchored(request.discordId(), grant);
         final Locale locale = roles.localeOf(request.discordId());
 
@@ -148,25 +153,40 @@ public final class PaymentProcessor {
 
         // "Downgraded" means the payer edited the amount down on the bunq.me page. Saying so is
         // the difference between a confusing purchase and an obvious one.
-        roles.dm(request.discordId(), settlement.downgraded()
-                ? messages.format(locale,
-                        MESSAGES.dm().grantedSection().shortMessage(Money.format(cents), settlement.days(),
-                                AccessRoles.timestamp(grant.validUntil())))
-                : messages.format(locale, MESSAGES.dm().granted(AccessRoles.timestamp(grant.validUntil()))));
+        roles.dm(
+                request.discordId(),
+                settlement.downgraded()
+                        ? messages.format(
+                                locale,
+                                MESSAGES.dm()
+                                        .grantedSection()
+                                        .shortMessage(
+                                                Money.format(cents),
+                                                settlement.days(),
+                                                AccessRoles.timestamp(grant.validUntil())))
+                        : messages.format(locale, MESSAGES.dm().granted(AccessRoles.timestamp(grant.validUntil()))));
 
         if (settlement.donation()) {
             roles.dm(request.discordId(), messages.format(locale, MESSAGES.dm().donor()));
             announceDonation(request.discordId(), settlement.donationCents(), locale);
         }
 
-        admin.record("SETTLE", null, request.discordId(), null,
+        admin.record(
+                "SETTLE",
+                null,
+                request.discordId(),
+                null,
                 "reference=" + request.reference() + " payment=" + paymentId
                         + " matched=" + request.matchedBy()
                         + " received=" + cents + "c ordered=" + request.days() + "d"
                         + " granted=" + settlement.days() + "d"
                         + (settlement.donation() ? " donation=" + settlement.donationCents() + "c" : "")
                         + (settlement.downgraded() ? " DOWNGRADED" : ""));
-        log.info("Booked {} on {} - {} days for {}", paymentId, request.reference(), settlement.days(),
+        log.info(
+                "Booked {} on {} - {} days for {}",
+                paymentId,
+                request.reference(),
+                settlement.days(),
                 request.discordId());
     }
 
@@ -189,10 +209,12 @@ public final class PaymentProcessor {
             log.error("Contribution channel {} is not available; the thank-you was not posted", channelId);
             return;
         }
-        channel.sendMessage(messages.format(locale,
-                MESSAGES.publicSection().donation(new DiscordMemberContext("<@" + discordId + ">"), Money.format(donationCents))))
-                .queue(ok -> {
-                }, failure -> log.error("Could not post the donation thank-you", failure));
+        channel.sendMessage(messages.format(
+                        locale,
+                        MESSAGES.publicSection()
+                                .donation(
+                                        new DiscordMemberContext("<@" + discordId + ">"), Money.format(donationCents))))
+                .queue(ok -> {}, failure -> log.error("Could not post the donation thank-you", failure));
     }
 
     // ---------------------------------------------------------------- the admin channel

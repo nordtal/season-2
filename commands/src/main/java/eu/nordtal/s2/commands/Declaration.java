@@ -45,8 +45,13 @@ import java.util.Set;
  * @param irreversible whether it needs a confirmation step on every surface
  * @param arguments    in order
  */
-public record Declaration(List<String> path, Target target, Set<Surface> surfaces,
-                          boolean adminOnly, boolean irreversible, List<Argument> arguments) {
+public record Declaration(
+        List<String> path,
+        Target target,
+        Set<Surface> surfaces,
+        boolean adminOnly,
+        boolean irreversible,
+        List<Argument> arguments) {
 
     public Declaration {
         path = List.copyOf(Objects.requireNonNull(path, "path"));
@@ -61,8 +66,7 @@ public record Declaration(List<String> path, Target target, Set<Surface> surface
             throw new IllegalArgumentException("a path segment cannot be blank: " + path);
         }
         if (surfaces.isEmpty()) {
-            throw new IllegalArgumentException(
-                    name(path) + " is declared on no surface, so nothing would register it");
+            throw new IllegalArgumentException(name(path) + " is declared on no surface, so nothing would register it");
         }
 
         for (int i = 0; i < arguments.size(); i++) {
@@ -74,15 +78,14 @@ public record Declaration(List<String> path, Target target, Set<Surface> surface
                         + " whole line and calls the next argument unexpected");
             }
             if (argument.required() && i > 0 && !arguments.get(i - 1).required()) {
-                throw new IllegalArgumentException(name(path) + ": required argument '"
-                        + argument.name() + "' follows an optional one, so it cannot be supplied");
+                throw new IllegalArgumentException(name(path) + ": required argument '" + argument.name()
+                        + "' follows an optional one, so it cannot be supplied");
             }
         }
 
         final long names = arguments.stream().map(Argument::name).distinct().count();
         if (names != arguments.size()) {
-            throw new IllegalArgumentException(
-                    name(path) + " has two arguments with the same name");
+            throw new IllegalArgumentException(name(path) + " has two arguments with the same name");
         }
     }
 

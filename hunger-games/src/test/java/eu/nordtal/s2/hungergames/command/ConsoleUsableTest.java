@@ -1,15 +1,14 @@
 package eu.nordtal.s2.hungergames.command;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That {@code /hg} can still be run from the console.
@@ -51,14 +50,18 @@ class ConsoleUsableTest {
         // check like this quietly stops meaning anything.
         final int gates = occurrences(text, ".requires(source -> source.getSender() instanceof Player)");
 
-        assertEquals(1, gates,
+        assertEquals(
+                1,
+                gates,
                 "exactly one subcommand may refuse the console - /hg " + PLAYER_ONLY + ", because it"
                         + " marks the SENDER ready and the console is registered for no game. Any"
                         + " other gate means a subcommand has been closed to the console again,"
                         + " which is the state /hg shipped in until 2026-09-04 and which nothing"
                         + " else would report.");
 
-        assertEquals(1, occurrences(text, "(Player) context.getSource().getSender()"),
+        assertEquals(
+                1,
+                occurrences(text, "(Player) context.getSource().getSender()"),
                 "only /hg " + PLAYER_ONLY + "'s handler may cast its sender to a Player. Every other"
                         + " handler takes a NordtalUser, which is what the console arrives as.");
     }
@@ -74,21 +77,27 @@ class ConsoleUsableTest {
         // separately.
         final String text = read();
 
-        assertTrue(text.contains("HungerGamesCommands.all()"),
+        assertTrue(
+                text.contains("HungerGamesCommands.all()"),
                 SOURCE + " no longer registers the declared /hg commands, so it has gone back to"
                         + " building its own tree - which is where the player-only gate lived");
-        assertTrue(text.contains("commands.local(command, effects)"),
+        assertTrue(
+                text.contains("commands.local(command, effects)"),
                 SOURCE + " does not hand its commands to PaperCommands, whose admin check accepts"
                         + " the console. A tree built here would have to repeat that check, and"
                         + " repeating it is how it came to be wrong.");
         // extraOpen and not extra: an extra subtree is admin-gated by default since 2026-09-05,
         // because /smp update was hung on an ungated root and lost its admin check entirely. This
         // is the one that must NOT be gated, and asking for it by name is the whole point.
-        assertEquals(1, occurrences(text, "commands.extraOpen(\"hg\""),
+        assertEquals(
+                1,
+                occurrences(text, "commands.extraOpen(\"hg\""),
                 "/hg ready is the one subcommand hung on by hand, and the one that any player may"
                         + " use. A second open extra is a command that has escaped both the"
                         + " declaration and the admin gate.");
-        assertEquals(0, occurrences(text, "commands.extra(\"hg\""),
+        assertEquals(
+                0,
+                occurrences(text, "commands.extra(\"hg\""),
                 "/hg ready was hung on with the gated extra(), which would hide it from every"
                         + " player - and the lobby's ready button runs exactly that path");
     }
@@ -99,7 +108,8 @@ class ConsoleUsableTest {
         // Lobby#broadcast builds clickEvent(ClickEvent.runCommand("/hg ready")). A rename here does
         // not fail anything: the button simply stops working, on the message every participant is
         // told to read before the event starts.
-        assertTrue(read().contains("Commands.literal(\"ready\")"),
+        assertTrue(
+                read().contains("Commands.literal(\"ready\")"),
                 "/hg ready was renamed or moved, and the lobby's ready button runs that literal"
                         + " path - it would silently do nothing");
     }

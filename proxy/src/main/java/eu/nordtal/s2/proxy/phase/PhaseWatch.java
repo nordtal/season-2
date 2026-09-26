@@ -2,13 +2,11 @@ package eu.nordtal.s2.proxy.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
-
-import org.slf4j.Logger;
-
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
 
 /**
  * The proxy's view of the season phase: whatever the {@code season_phase} row last said, refreshed
@@ -58,8 +56,7 @@ public final class PhaseWatch {
      * @param phase  what the row said
      * @param launch when the network opens, {@code null} when no date is set
      */
-    public record Known(SeasonPhase phase, Instant launch) {
-    }
+    public record Known(SeasonPhase phase, Instant launch) {}
 
     /** {@code null} until the row has been read successfully at least once. */
     private final AtomicReference<Known> known = new AtomicReference<>();
@@ -89,8 +86,7 @@ public final class PhaseWatch {
             // column, because the disconnect screens need it in the same round trip.
             announced = phases.launch().orElse(null);
         } catch (final RuntimeException exception) {
-            logger.warn("Could not read the season phase; staying on the last known one ({})",
-                    lastKnown(), exception);
+            logger.warn("Could not read the season phase; staying on the last known one ({})", lastKnown(), exception);
             return false;
         }
         final Known before = known.getAndSet(new Known(current, announced));

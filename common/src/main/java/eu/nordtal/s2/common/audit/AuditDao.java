@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.audit;
 
+import java.util.List;
+import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.List;
-import java.util.UUID;
 
 /**
  * The whole SQL surface of the journal, as a JDBI SqlObject interface. Package-private on purpose:
@@ -55,9 +54,7 @@ interface AuditDao {
             LIMIT :limit
             """)
     @RegisterRowMapper(AuditEntryMapper.class)
-    List<AuditEntry> search(@Bind("action") String action,
-                            @Bind("subject") String subject,
-                            @Bind("limit") int limit);
+    List<AuditEntry> search(@Bind("action") String action, @Bind("subject") String subject, @Bind("limit") int limit);
 
     /**
      * One line in the journal.
@@ -71,9 +68,10 @@ interface AuditDao {
             INSERT INTO audit_log (action, actor, subject, mc_uuid, detail)
             VALUES (:action, :actor, :subject, :mcUuid, :detail)
             """)
-    void record(@Bind("action") String action,
-                @Bind("actor") String actor,
-                @Bind("subject") String subject,
-                @Bind("mcUuid") UUID mcUuid,
-                @Bind("detail") String detail);
+    void record(
+            @Bind("action") String action,
+            @Bind("actor") String actor,
+            @Bind("subject") String subject,
+            @Bind("mcUuid") UUID mcUuid,
+            @Bind("detail") String detail);
 }

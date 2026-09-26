@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.headstart;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -10,7 +12,10 @@ import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.player.PlayerSurfaces;
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -20,13 +25,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * What the winner of the start event carries into the season.
@@ -52,9 +50,15 @@ public final class HeadStart implements Listener {
     private final PlayerLocales locales;
     private final SmpSounds sounds;
 
-    public HeadStart(final Plugin plugin, final SmpDao dao, final Identities identities,
-                     final PlayerSurfaces surfaces, final SmpSpec config, final Messages messages,
-                     final PlayerLocales locales, final SmpSounds sounds) {
+    public HeadStart(
+            final Plugin plugin,
+            final SmpDao dao,
+            final Identities identities,
+            final PlayerSurfaces surfaces,
+            final SmpSpec config,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.identities = identities;
@@ -105,8 +109,13 @@ public final class HeadStart implements Listener {
     }
 
     /** The main-thread half: the items, the number, the line and the sound. */
-    private void hand(final java.util.UUID mcUuid, final String name, final String discordId,
-                      final int aura, final Integer balance, final List<ItemStack> items) {
+    private void hand(
+            final java.util.UUID mcUuid,
+            final String name,
+            final String discordId,
+            final int aura,
+            final Integer balance,
+            final List<ItemStack> items) {
         if (balance != null) {
             identities.recordAura(mcUuid, balance);
         }
@@ -114,31 +123,37 @@ public final class HeadStart implements Listener {
         if (player == null) {
             // There is nothing to give back to, so the log names everything needed to finish this
             // by hand.
-            plugin.getLogger().warning(name + " left in the tick after their own join,"
-                    + " so the start event's head start (" + aura + " aura and " + describe(items)
-                    + ") was booked but the items were not handed over. The aura is in the books."
-                    + " To offer the items again:"
-                    + " UPDATE smp_player SET hg_winner_reward_granted = false WHERE discord_id ="
-                    + " '" + discordId + "'; - which also books the aura a second time, so correct"
-                    + " that with /smp aura. The id is spelled out because a Minecraft name is not"
-                    + " a key in any of these tables, and this line is the whole of what somebody"
-                    + " has to work from.");
+            plugin.getLogger()
+                    .warning(name + " left in the tick after their own join,"
+                            + " so the start event's head start (" + aura + " aura and " + describe(items)
+                            + ") was booked but the items were not handed over. The aura is in the books."
+                            + " To offer the items again:"
+                            + " UPDATE smp_player SET hg_winner_reward_granted = false WHERE discord_id ="
+                            + " '" + discordId + "'; - which also books the aura a second time, so correct"
+                            + " that with /smp aura. The id is spelled out because a Minecraft name is not"
+                            + " a key in any of these tables, and this line is the whole of what somebody"
+                            + " has to work from.");
             return;
         }
 
         // Whatever does not fit goes on the floor at their feet: this payout cannot be earned
         // again, so a full inventory must not swallow it.
         for (final ItemStack stack : items) {
-            player.getInventory().addItem(stack).values()
+            player.getInventory()
+                    .addItem(stack)
+                    .values()
                     .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
         }
 
         final Locale locale = locales.of(mcUuid);
         // Two lines, because items() drops any material this server does not know - the other
         // wording would claim spoils that were never handed over.
-        player.sendMessage(MessageRenderer.of(messages).format(locale, items.isEmpty()
-                ? MESSAGES.smp().headstart().grantedAuraOnly(aura)
-                : MESSAGES.smp().headstart().granted(aura)));
+        player.sendMessage(MessageRenderer.of(messages)
+                .format(
+                        locale,
+                        items.isEmpty()
+                                ? MESSAGES.smp().headstart().grantedAuraOnly(aura)
+                                : MESSAGES.smp().headstart().granted(aura)));
         sounds.play(player, Feedback.BIG_SUCCESS);
         // The prize is that the number is visible, so everybody is redrawn rather than only the
         // winner.
@@ -156,13 +171,13 @@ public final class HeadStart implements Listener {
         for (final SmpSpec.WheelPrizeSpec entry : config.hgWinnerItems()) {
             final Material material = Material.matchMaterial(entry.item());
             if (material == null || !material.isItem()) {
-                plugin.getLogger().warning("config.yml#hg-winner-items names '" + entry.item()
-                        + "', which is not an item on this server - the rest of the head start is"
-                        + " unaffected");
+                plugin.getLogger()
+                        .warning("config.yml#hg-winner-items names '" + entry.item()
+                                + "', which is not an item on this server - the rest of the head start is"
+                                + " unaffected");
                 continue;
             }
-            stacks.add(new ItemStack(material, Math.max(1, Math.min(material.getMaxStackSize(),
-                    entry.amount()))));
+            stacks.add(new ItemStack(material, Math.max(1, Math.min(material.getMaxStackSize(), entry.amount()))));
         }
         return stacks;
     }

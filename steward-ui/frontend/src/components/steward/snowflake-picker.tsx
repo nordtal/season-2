@@ -3,13 +3,7 @@ import { useMemo, useState } from "react"
 
 import type { GuildEntry, GuildList } from "@/lib/api"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 /**
  * A Discord id, picked by name instead of typed.
@@ -63,10 +57,7 @@ export function SnowflakePicker({
   // looking at - and being told your setting has no value because you typed in a search box is a
   // worse lie than a row that does not match sitting in the list.
   const visible = useMemo(
-    () =>
-      query.trim()
-        ? options.filter((entry) => entry.id === value || matchesQuery(entry, what, query))
-        : options,
+    () => (query.trim() ? options.filter((entry) => entry.id === value || matchesQuery(entry, what, query)) : options),
     [options, query, value, what],
   )
 
@@ -83,8 +74,8 @@ export function SnowflakePicker({
         />
         {directory?.reason ? (
           <p className="text-xs text-muted-foreground">
-            {directory.reason} Paste the id instead: Discord → Settings → Advanced → Developer Mode,
-            then right-click the {what} → Copy {what === "role" ? "Role" : "Channel"} ID.
+            {directory.reason} Paste the id instead: Discord → Settings → Advanced → Developer Mode, then right-click
+            the {what} → Copy {what === "role" ? "Role" : "Channel"} ID.
           </p>
         ) : null}
       </div>
@@ -135,9 +126,7 @@ export function SnowflakePicker({
             </SelectItem>
           )
         })}
-        {visible.length === 0 ? (
-          <p className="px-2 py-3 text-center text-xs text-muted-foreground">No match.</p>
-        ) : null}
+        {visible.length === 0 ? <p className="px-2 py-3 text-center text-xs text-muted-foreground">No match.</p> : null}
       </SelectContent>
     </Select>
   )
@@ -178,6 +167,5 @@ export function matchesQuery(entry: GuildEntry, what: "role" | "channel", query:
  */
 export function withUnknown(entries: GuildEntry[], value: string): GuildEntry[] {
   if (value === "" || entries.some((entry) => entry.id === value)) return entries
-  return [{ id: value, name: "unknown — not in this guild, or not visible to the bot", type: null },
-    ...entries]
+  return [{ id: value, name: "unknown — not in this guild, or not visible to the bot", type: null }, ...entries]
 }

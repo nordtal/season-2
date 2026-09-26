@@ -1,15 +1,13 @@
 package eu.nordtal.s2.limbo;
 
-import eu.nordtal.s2.common.limbo.WaitReason;
-import eu.nordtal.s2.common.message.Messages;
-
-import org.junit.jupiter.api.Test;
-
-import java.util.Locale;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.limbo.WaitReason;
+import eu.nordtal.s2.common.message.Messages;
+import java.util.Locale;
+import org.junit.jupiter.api.Test;
 
 /**
  * That the waiting room can actually say every one of the things it can be told to say, in both
@@ -25,24 +23,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class WaitingTextTest {
 
-    private final Messages messages = Messages.load(WaitingTextTest.class.getClassLoader(),
-            "messages/limbo", Locale.ENGLISH, Locale.GERMAN);
-    private final LimboMessages.Limbo.Wait screens = LimboMessages.MESSAGES.limbo().waiting();
+    private final Messages messages =
+            Messages.load(WaitingTextTest.class.getClassLoader(), "messages/limbo", Locale.ENGLISH, Locale.GERMAN);
+    private final LimboMessages.Limbo.Wait screens =
+            LimboMessages.MESSAGES.limbo().waiting();
 
     @Test
     void bothBundlesAreLoaded() {
         assertTrue(messages.languages().contains("en"));
-        assertTrue(messages.languages().contains("de"),
+        assertTrue(
+                messages.languages().contains("de"),
                 "German is not a fallback language, it is one of the two the season ships");
     }
 
     @Test
     void everyWaitReasonHasATitleAndASubtitleInEveryLanguage() {
         for (final WaitReason reason : WaitReason.values()) {
-            for (final Locale locale : new Locale[]{Locale.ENGLISH, Locale.GERMAN}) {
-                assertTrue(messages.hasTranslation(locale, screens.of(reason).title().key()),
+            for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
+                assertTrue(
+                        messages.hasTranslation(
+                                locale, screens.of(reason).title().key()),
                         reason + " has no title in " + locale);
-                assertTrue(messages.hasTranslation(locale, screens.of(reason).subtitle().key()),
+                assertTrue(
+                        messages.hasTranslation(
+                                locale, screens.of(reason).subtitle().key()),
                         reason + " has no subtitle in " + locale);
             }
         }
@@ -53,9 +57,13 @@ class WaitingTextTest {
         // The runtime symptom of a missing key: the key on screen. Asserted separately from
         // hasTranslation so that a bundle whose file exists but whose key is misspelled is caught.
         for (final WaitReason reason : WaitReason.values()) {
-            for (final Locale locale : new Locale[]{Locale.ENGLISH, Locale.GERMAN}) {
-                assertNotEquals(screens.of(reason).title().key(), messages.get(locale, screens.of(reason).title().key()));
-                assertNotEquals(screens.of(reason).subtitle().key(), messages.get(locale, screens.of(reason).subtitle().key()));
+            for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
+                assertNotEquals(
+                        screens.of(reason).title().key(),
+                        messages.get(locale, screens.of(reason).title().key()));
+                assertNotEquals(
+                        screens.of(reason).subtitle().key(),
+                        messages.get(locale, screens.of(reason).subtitle().key()));
             }
         }
     }
@@ -67,13 +75,15 @@ class WaitingTextTest {
         // a working limit rather than a protocol one - it is roughly what fits at full size on a
         // narrow window - and it exists so that a translation cannot quietly grow past it.
         for (final WaitReason reason : WaitReason.values()) {
-            for (final Locale locale : new Locale[]{Locale.ENGLISH, Locale.GERMAN}) {
-                final String raw = messages.get(locale, screens.of(reason).title().key());
+            for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
+                final String raw =
+                        messages.get(locale, screens.of(reason).title().key());
                 final String drawn = drawn(raw);
 
-                assertFalse(drawn.length() > 40,
-                        locale + " " + reason + " title is " + drawn.length() + " characters: "
-                                + drawn + " (raw: " + raw + ")");
+                assertFalse(
+                        drawn.length() > 40,
+                        locale + " " + reason + " title is " + drawn.length() + " characters: " + drawn + " (raw: "
+                                + raw + ")");
             }
         }
     }

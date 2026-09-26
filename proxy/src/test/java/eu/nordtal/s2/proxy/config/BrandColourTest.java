@@ -1,16 +1,15 @@
 package eu.nordtal.s2.proxy.config;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That the name in the MOTD is one mark and not five.
@@ -33,8 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class BrandColourTest {
 
-    private static final String SPEC =
-            "proxy/src/main/java/eu/nordtal/s2/proxy/config/NetworkSpec.java";
+    private static final String SPEC = "proxy/src/main/java/eu/nordtal/s2/proxy/config/NetworkSpec.java";
 
     /** Every phase in {@code SeasonPhase}. A sixth one has to appear here too. */
     private static final int PHASES = 5;
@@ -44,7 +42,9 @@ class BrandColourTest {
     void everyMotdUsesTheBrand() throws IOException {
         final String text = read();
 
-        assertEquals(PHASES, occurrences(text, "return NORDTAL_BLUE"),
+        assertEquals(
+                PHASES,
+                occurrences(text, "return NORDTAL_BLUE"),
                 "not every MOTD default opens with NORDTAL_BLUE. There is one mark, and the phase is"
                         + " what the second line says - a name that changes colour is four marks"
                         + " seen one at a time, which is what this file did until 2026-09-09.");
@@ -55,13 +55,16 @@ class BrandColourTest {
     void noPhaseColoursTheNameItself() throws IOException {
         final String text = read();
 
-        assertFalse(text.contains("<gradient:"),
+        assertFalse(
+                text.contains("<gradient:"),
                 "a gradient is back in the MOTDs. The five phases each had one until 2026-09-09 and"
                         + " that is exactly the regression this test exists for; if a gradient is"
                         + " genuinely wanted, it belongs in NORDTAL_BLUE so all five share it.");
 
         final int marks = occurrences(text, "nordtal.eu</bold>");
-        assertEquals(1, marks,
+        assertEquals(
+                1,
+                marks,
                 "the brand name is written out " + marks + " times in this file. It belongs in"
                         + " NORDTAL_BLUE once; a second copy is a second place to forget.");
     }
@@ -71,13 +74,15 @@ class BrandColourTest {
     void theBrandColourIsTheLogosBlue() throws IOException {
         final String text = read();
 
-        assertTrue(text.contains("String NORDTAL_BLUE = \"<#4a63d8><bold>nordtal.eu</bold></#4a63d8>\";"),
+        assertTrue(
+                text.contains("String NORDTAL_BLUE = \"<#4a63d8><bold>nordtal.eu</bold></#4a63d8>\";"),
                 "NORDTAL_BLUE is no longer the value measured off resource-pack/src/pack.png and"
                         + " lightened for the server browser's near-black list. Changing it is"
                         + " allowed - changing it by accident is not, which is why the string is"
                         + " pinned here and explained there.");
 
-        assertTrue(text.contains("#24357d"),
+        assertTrue(
+                text.contains("#24357d"),
                 "the comment no longer names #24357d, the logo's own blue. The lightened tone only"
                         + " makes sense next to the value it was lightened from - without it the"
                         + " next reader has a hex with no provenance.");
@@ -95,8 +100,10 @@ class BrandColourTest {
 
     private static String read() throws IOException {
         final Path path = repositoryRoot().resolve(SPEC);
-        assertTrue(Files.isRegularFile(path), SPEC + " no longer exists - if it moved, this path has"
-                + " to move with it, because a missing file is a check that silently stops running");
+        assertTrue(
+                Files.isRegularFile(path),
+                SPEC + " no longer exists - if it moved, this path has"
+                        + " to move with it, because a missing file is a check that silently stops running");
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 

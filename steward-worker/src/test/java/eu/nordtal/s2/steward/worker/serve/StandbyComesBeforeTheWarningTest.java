@@ -1,15 +1,14 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The order of the choreography inside {@code Runner}, read as text (season-2-ops/122).
@@ -35,8 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class StandbyComesBeforeTheWarningTest {
 
-    private final String source =
-            read("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/Runner.java");
+    private final String source = read("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/Runner.java");
 
     @Test
     @DisplayName("an update opens the standby window before it warns anybody")
@@ -55,7 +53,8 @@ class StandbyComesBeforeTheWarningTest {
     @Test
     @DisplayName("a restart runs it too - it is the run that stops the most")
     void theRestartOpensFirst() {
-        assertOrder(bracket("private Outcome restartUnderLock(",
+        assertOrder(bracket(
+                "private Outcome restartUnderLock(",
                 "\n    // ---------------------------------------------------------------- down"));
     }
 
@@ -66,27 +65,35 @@ class StandbyComesBeforeTheWarningTest {
         final int waited = at(method, "choreography.waitUntilEmpty(");
         final int stopped = at(method, "run.stop(planned, runtime)");
 
-        assertTrue(opened < countdown,
+        assertTrue(
+                opened < countdown,
                 "the standbys are started after the countdown has begun. A standby that will not"
                         + " come up is then discovered by a run that has already warned every"
                         + " player on the network, instead of by one that has touched nothing");
-        assertTrue(countdown < waited,
+        assertTrue(
+                countdown < waited,
                 "the wait for the players is above the countdown, so it waits for people who have"
                         + " not been told anything yet");
-        assertTrue(waited < stopped,
+        assertTrue(
+                waited < stopped,
                 "a service is stopped before the run has waited for the players to be moved off"
                         + " it. That is the whole of Till's decision of 2026-09-20");
-        assertTrue(method.contains("choreography.close()"),
+        assertTrue(
+                method.contains("choreography.close()"),
                 "nothing stops the standbys again, so a run leaves a second network running");
     }
 
     private String bracket(final String from, final String to) {
         final int start = source.indexOf(from);
-        assertTrue(start > 0, "Runner#" + from + " is gone - if it was renamed, this test moves"
-                + " with it, because a check that cannot find its subject silently stops running");
+        assertTrue(
+                start > 0,
+                "Runner#" + from + " is gone - if it was renamed, this test moves"
+                        + " with it, because a check that cannot find its subject silently stops running");
         final int end = source.indexOf(to, start);
-        assertTrue(end > start, "the method after `" + from + "` is gone or has moved above it;"
-                + " this test brackets one method and needs both ends");
+        assertTrue(
+                end > start,
+                "the method after `" + from + "` is gone or has moved above it;"
+                        + " this test brackets one method and needs both ends");
         return source.substring(start, end);
     }
 
@@ -99,8 +106,10 @@ class StandbyComesBeforeTheWarningTest {
      */
     private static int at(final String haystack, final String token) {
         final int index = haystack.indexOf(token);
-        assertTrue(index >= 0, "this method of Runner no longer contains `" + token + "`. If that"
-                + " call was removed the guard is gone; if it was renamed, rename it here too.");
+        assertTrue(
+                index >= 0,
+                "this method of Runner no longer contains `" + token + "`. If that"
+                        + " call was removed the guard is gone; if it was renamed, rename it here too.");
         return index;
     }
 

@@ -1,13 +1,11 @@
 package eu.nordtal.s2.proxy.gate;
 
-import eu.nordtal.s2.proxy.MutableClock;
-
-import org.junit.jupiter.api.Test;
-
-import java.time.Instant;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.proxy.MutableClock;
+import java.time.Instant;
+import org.junit.jupiter.api.Test;
 
 /**
  * The per-server breaker on its own, with no {@link BackendKick} or Velocity connection anywhere

@@ -1,7 +1,7 @@
 package eu.nordtal.s2.commands;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -10,9 +10,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That the admin check behind a command tree is a cache and never a query.
@@ -47,8 +46,7 @@ class AdminSourceTest {
             "adminWatch::isAdmin");
 
     /** Ways of answering the question that must not appear where a command tree is built. */
-    private static final List<String> FORBIDDEN = List.of(
-            "dao.isAdmin(", "access.admins()", "admission.admits(");
+    private static final List<String> FORBIDDEN = List.of("dao.isAdmin(", "access.admins()", "admission.admits(");
 
     @Test
     @DisplayName("every command tree reads an in-memory admin source")
@@ -57,8 +55,7 @@ class AdminSourceTest {
         for (final Map.Entry<String, String> entry : SOURCES.entrySet()) {
             final String source = read(entry.getKey());
             if (!source.contains(entry.getValue())) {
-                wrong.add(entry.getKey() + " no longer passes " + entry.getValue()
-                        + " as its admin source");
+                wrong.add(entry.getKey() + " no longer passes " + entry.getValue() + " as its admin source");
             }
         }
         assertEquals(List.of(), wrong);
@@ -76,15 +73,16 @@ class AdminSourceTest {
             }
             // The constructor call itself: that is where the predicate is handed over, and where
             // both mistakes were made.
-            final String call = source.substring(adapter,
-                    Math.min(source.length(), adapter + 900));
+            final String call = source.substring(adapter, Math.min(source.length(), adapter + 900));
             for (final String forbidden : FORBIDDEN) {
                 if (call.contains(forbidden)) {
                     wrong.add(file + " passes " + forbidden + " into PaperCommands");
                 }
             }
         }
-        assertEquals(List.of(), wrong,
+        assertEquals(
+                List.of(),
+                wrong,
                 "a command tree's requires predicate either queries the database on the main thread"
                         + " or reads FullServerAdmission, which is only warmed on a server near its"
                         + " cap and answers false everywhere else");
@@ -94,7 +92,8 @@ class AdminSourceTest {
     @DisplayName("a subtree is gated only when everything runnable below it is admin-only")
     void anOpenCommandIsNotGatedByItsRoot() throws IOException {
         // Brigadier's requires gates a whole subtree, and both adapters put one on every child of
-        // a root. /smp status was declared open until 2026-09-25, and a player who typed it got "Incorrect argument for command" with a red caret,
+        // a root. /smp status was declared open until 2026-09-25, and a player who typed it got "Incorrect argument for
+        // command" with a red caret,
         // because the node had been hidden from their tree (finding 117, seen on the local stack).
         //
         // steward/106, 2026-09-17: the literal asked for here used to be
@@ -110,12 +109,15 @@ class AdminSourceTest {
                 "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/PaperCommands.java",
                 "proxy/src/main/java/eu/nordtal/s2/proxy/command/VelocityCommands.java")) {
             final String source = read(relative);
-            assertTrue(source.contains("builder.then(gate == null ? sub : sub.requires(gate));"),
+            assertTrue(
+                    source.contains("builder.then(gate == null ? sub : sub.requires(gate));"),
                     relative + " gates every child of a root, so an open command declared under an"
                             + " admin root is invisible to the people it exists for");
-            assertTrue(source.contains("declaration().adminOnly()"),
+            assertTrue(
+                    source.contains("declaration().adminOnly()"),
                     relative + " decides the gate without asking the declaration");
-            assertTrue(source.contains("declaration().surfaces().contains(") && source.contains("Surface.GAME)"),
+            assertTrue(
+                    source.contains("declaration().surfaces().contains(") && source.contains("Surface.GAME)"),
                     relative + " decides the gate without asking which surfaces the declaration"
                             + " carries - steward/106: a command off Surface.GAME is not registered"
                             + " for a player at all");

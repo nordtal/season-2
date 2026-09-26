@@ -1,16 +1,14 @@
 package eu.nordtal.s2.limbo;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.limbo.listener.PresenceListener;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Nobody in the waiting room reaches anybody else (season-2-ops/141).
@@ -27,15 +25,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ThePassageIsSilentTest {
 
-    private static final Path LISTENER =
-            Path.of("src/main/java/eu/nordtal/s2/limbo/listener/PresenceListener.java");
+    private static final Path LISTENER = Path.of("src/main/java/eu/nordtal/s2/limbo/listener/PresenceListener.java");
 
     @Test
     @DisplayName("a player's commands are swallowed and an admin's are not")
     void theRule() {
-        assertTrue(PresenceListener.mutes(false),
-                "a player on the limbo can reach somebody with /msg");
-        assertFalse(PresenceListener.mutes(true),
+        assertTrue(PresenceListener.mutes(false), "a player on the limbo can reach somebody with /msg");
+        assertFalse(
+                PresenceListener.mutes(true),
                 "/limbo is the one command anybody would run here, and an admin is who runs it");
     }
 
@@ -44,9 +41,9 @@ class ThePassageIsSilentTest {
     void bothDoorsAreShut() throws IOException {
         final String source = Files.readString(LISTENER);
 
-        assertTrue(source.contains("public void onChat(final AsyncChatEvent event)"),
-                "chat is deliverable again");
-        assertTrue(source.contains("public void onCommand(final PlayerCommandPreprocessEvent event)"),
+        assertTrue(source.contains("public void onChat(final AsyncChatEvent event)"), "chat is deliverable again");
+        assertTrue(
+                source.contains("public void onCommand(final PlayerCommandPreprocessEvent event)"),
                 "/msg is deliverable again, which is chat with a different prefix");
     }
 

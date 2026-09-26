@@ -1,22 +1,16 @@
 package eu.nordtal.s2.common.menu;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.RepositoryRoot;
 import eu.nordtal.s2.common.pack.FontFile;
-
-import net.kyori.adventure.key.Key;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.format.NamedTextColor;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -24,11 +18,13 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.imageio.ImageIO;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The menu panel's offset arithmetic, measured against the real {@code nordtal:gui} font.
@@ -62,13 +58,17 @@ class MenuTitleTest {
     private static final Map<Integer, Integer> ASCENTS = new HashMap<>();
 
     static {
-        final JsonObject root = JsonParser.parseString(RepositoryRoot.read(FONT)).getAsJsonObject();
+        final JsonObject root =
+                JsonParser.parseString(RepositoryRoot.read(FONT)).getAsJsonObject();
         for (final JsonElement element : root.getAsJsonArray("providers")) {
             final JsonObject provider = element.getAsJsonObject();
             if ("space".equals(provider.get("type").getAsString())) {
-                provider.getAsJsonObject("advances").entrySet().forEach(entry ->
-                        entry.getKey().codePoints().forEach(codePoint ->
-                                ADVANCES.put(codePoint, entry.getValue().getAsInt())));
+                provider.getAsJsonObject("advances")
+                        .entrySet()
+                        .forEach(entry -> entry.getKey()
+                                .codePoints()
+                                .forEach(codePoint ->
+                                        ADVANCES.put(codePoint, entry.getValue().getAsInt())));
                 continue;
             }
             final String file = provider.get("file").getAsString();
@@ -77,9 +77,12 @@ class MenuTitleTest {
             // A bitmap glyph is scaled so its rendered height is `height`, and its advance is the
             // scaled width plus one. Declaring the PNG's own height is what keeps that 1:1 - and a
             // panel that is not 1:1 is a blurry panel, so the equality is the check, not a detail.
-            assertEquals(image.getHeight(), declaredHeight,
+            assertEquals(
+                    image.getHeight(),
+                    declaredHeight,
                     file + " has to declare its own pixel height, or the panel is scaled");
-            final int codePoint = provider.getAsJsonArray("chars").get(0).getAsString().codePointAt(0);
+            final int codePoint =
+                    provider.getAsJsonArray("chars").get(0).getAsString().codePointAt(0);
             ASCENTS.put(codePoint, provider.get("ascent").getAsInt());
             if (image.getWidth() == MenuTitle.PANEL_ADVANCE - 1) {
                 PANELS.put(codePoint, image.getWidth() + 1);
@@ -93,7 +96,9 @@ class MenuTitleTest {
     @DisplayName("the composed title ends exactly where an uncomposed one would start")
     void theNetDisplacementIsZero() {
         for (int rows = 1; rows <= MenuTitle.MAX_ROWS; rows++) {
-            assertEquals(0, displacement(plain(MenuTitle.panel(rows))),
+            assertEquals(
+                    0,
+                    displacement(plain(MenuTitle.panel(rows))),
                     "the panel for " + rows + " rows does not return the cursor to the title"
                             + " anchor, so the readable title is drawn off its usual spot - and"
                             + " nothing about that fails, it just looks slightly wrong forever");
@@ -104,13 +109,17 @@ class MenuTitleTest {
     @DisplayName("a 176px panel advances 177, and the walk back is composed from that")
     void theAdvanceCarriesTheTrailingPixel() {
         for (final Map.Entry<Integer, Integer> panel : PANELS.entrySet()) {
-            assertEquals(MenuTitle.PANEL_ADVANCE, panel.getValue(),
+            assertEquals(
+                    MenuTitle.PANEL_ADVANCE,
+                    panel.getValue(),
                     "U+%X advances %d in the pack but MenuTitle assumes %d"
                             .formatted(panel.getKey(), panel.getValue(), MenuTitle.PANEL_ADVANCE));
         }
         assertEquals(
-                Glyphs.GUI_SPACE_MINUS_128 + Glyphs.GUI_SPACE_MINUS_32
-                        + Glyphs.GUI_SPACE_MINUS_8 + Glyphs.GUI_SPACE_MINUS_1,
+                Glyphs.GUI_SPACE_MINUS_128
+                        + Glyphs.GUI_SPACE_MINUS_32
+                        + Glyphs.GUI_SPACE_MINUS_8
+                        + Glyphs.GUI_SPACE_MINUS_1,
                 MenuTitle.shift(MenuTitle.PANEL_ADVANCE - MenuTitle.ANCHOR_X),
                 "169 = 128 + 32 + 8 + 1, largest first - the advances are powers of two, so there"
                         + " is exactly one way to write it");
@@ -122,8 +131,11 @@ class MenuTitleTest {
         for (int rows = 1; rows <= MenuTitle.MAX_ROWS; rows++) {
             final String composed = plain(MenuTitle.panel(rows));
             final int expected = Glyphs.GUI_PANELS[rows - 1].codePointAt(0);
-            final List<Integer> drawn = composed.codePoints().filter(PANELS::containsKey).boxed().toList();
-            assertEquals(List.of(expected), drawn,
+            final List<Integer> drawn =
+                    composed.codePoints().filter(PANELS::containsKey).boxed().toList();
+            assertEquals(
+                    List.of(expected),
+                    drawn,
                     "a panel drawn for the wrong row count is the wrong height, and a chest window"
                             + " is 114 + 18*rows - six rows over one row is 90 pixels of overhang");
         }
@@ -133,12 +145,15 @@ class MenuTitleTest {
     @DisplayName("every panel rises on the ascent the title anchor needs")
     void everyPanelDeclaresTheSameAscent() {
         for (final int codePoint : PANELS.keySet()) {
-            assertEquals(13, ASCENTS.get(codePoint),
+            assertEquals(
+                    13,
+                    ASCENTS.get(codePoint),
                     "the title's top is at y = 6 and the default font's ascent is 7, so a glyph's"
                             + " top lands at y + 7 - ascent. 13 puts it at 0, the window's own top"
                             + " edge; anything else offsets the whole panel vertically");
         }
-        assertTrue(PANELS.size() >= MenuTitle.MAX_ROWS + 1,
+        assertTrue(
+                PANELS.size() >= MenuTitle.MAX_ROWS + 1,
                 "six chest panels and the travel panel were expected; found " + PANELS.size());
     }
 
@@ -148,7 +163,8 @@ class MenuTitleTest {
         assertTrue(!OVERLAYS.isEmpty(), "the travel overlays were expected in gui.json");
         for (final int codePoint : OVERLAYS.keySet()) {
             final int y = 13 - ASCENTS.get(codePoint);
-            assertTrue(y >= SlotGeometry.ORIGIN_Y && y < 222,
+            assertTrue(
+                    y >= SlotGeometry.ORIGIN_Y && y < 222,
                     "U+%X declares ascent %d, which puts its top at y = %d - outside the slot area"
                             .formatted(codePoint, ASCENTS.get(codePoint), y));
         }
@@ -168,37 +184,46 @@ class MenuTitleTest {
         int cursor = MenuTitle.ANCHOR_X;
         for (final int codePoint : plain(surface).codePoints().toArray()) {
             if (OVERLAYS.containsKey(codePoint) || PANELS.containsKey(codePoint)) {
-                landed.computeIfAbsent(codePoint, ignored -> new java.util.ArrayList<>()).add(cursor);
+                landed.computeIfAbsent(codePoint, ignored -> new java.util.ArrayList<>())
+                        .add(cursor);
             }
-            cursor += ADVANCES.getOrDefault(codePoint,
-                    PANELS.getOrDefault(codePoint, OVERLAYS.getOrDefault(codePoint, 0)));
+            cursor += ADVANCES.getOrDefault(
+                    codePoint, PANELS.getOrDefault(codePoint, OVERLAYS.getOrDefault(codePoint, 0)));
         }
 
-        assertEquals(List.of(0), landed.get(Glyphs.GUI_TRAVEL_PANEL.codePointAt(0)),
+        assertEquals(
+                List.of(0),
+                landed.get(Glyphs.GUI_TRAVEL_PANEL.codePointAt(0)),
                 "the panel has to start on the window's left edge");
         assertEquals(List.of(9), landed.get(Glyphs.GUI_TRAVEL_HERE_TOP.codePointAt(0)));
-        assertEquals(List.of(9, 99), landed.get(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM.codePointAt(0)),
+        assertEquals(
+                List.of(9, 99),
+                landed.get(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM.codePointAt(0)),
                 "a canvas draws in the order things were added to it, and the two at x = 9 came"
                         + " before the one at 99. Until 2026-09-09 it sorted right to left, because"
                         + " the font had no positive advance - which paints a list row's plate over"
                         + " its own label");
-        assertEquals(MenuTitle.ANCHOR_X, cursor,
-                "the surface has to end on the title anchor, or the readable title moves");
+        assertEquals(
+                MenuTitle.ANCHOR_X, cursor, "the surface has to end on the title anchor, or the readable title moves");
     }
 
     @Test
     @DisplayName("an overlay that does not fit the window is refused")
     void anOverlayOffTheWindowThrows() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL).overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 120, 68));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL).overlay(Glyphs.GUI_TRAVEL_HERE_TOP, -1, 68));
     }
 
     @Test
     @DisplayName("a canvas without overlays is exactly the plain panel")
     void aBareCanvasIsThePanel() {
-        assertEquals(plain(MenuTitle.panel(6)), plain(MenuTitle.on(Glyphs.GUI_PANEL_6).panel()));
+        assertEquals(
+                plain(MenuTitle.panel(6)),
+                plain(MenuTitle.on(Glyphs.GUI_PANEL_6).panel()));
     }
 
     @Test
@@ -208,13 +233,18 @@ class MenuTitleTest {
         final Component panel = title.children().get(0);
         final Component readable = title.children().get(1);
 
-        assertEquals(NamedTextColor.WHITE, panel.color(),
+        assertEquals(
+                NamedTextColor.WHITE,
+                panel.color(),
                 "vanilla draws an inventory title in hardcoded 0x404040, which applies to any"
                         + " component naming no colour - white art would come out grey");
-        assertEquals(Key.key(Glyphs.FONT_GUI), panel.style().font(),
+        assertEquals(
+                Key.key(Glyphs.FONT_GUI),
+                panel.style().font(),
                 "the four fonts allocate independently, so a panel code point in minecraft:default"
                         + " draws whatever that font holds at the same code point");
-        assertNull(readable.style().font(),
+        assertNull(
+                readable.style().font(),
                 "the readable half has to render in minecraft:default, which is where the letters"
                         + " are - nordtal:gui carries no ascii sheet at all");
     }
@@ -222,8 +252,10 @@ class MenuTitleTest {
     @Test
     @DisplayName("a row count the pack has no panel for fails loudly")
     void anImpossibleRowCountThrows() {
-        for (final int rows : new int[]{0, -1, 7, 54}) {
-            assertThrows(IllegalArgumentException.class, () -> MenuTitle.of(rows, Component.empty()),
+        for (final int rows : new int[] {0, -1, 7, 54}) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> MenuTitle.of(rows, Component.empty()),
                     "opening a menu with a missing-glyph box where its frame should be is worse"
                             + " than not opening it");
         }
@@ -236,7 +268,9 @@ class MenuTitleTest {
         assertThrows(IllegalArgumentException.class, () -> MenuTitle.shift(256));
         assertThrows(IllegalArgumentException.class, () -> MenuTitle.shift(-1));
         for (int pixels = 0; pixels <= 255; pixels++) {
-            assertEquals(-pixels, displacement(MenuTitle.shift(pixels)),
+            assertEquals(
+                    -pixels,
+                    displacement(MenuTitle.shift(pixels)),
                     "shift(" + pixels + ") does not move the cursor " + pixels + " left");
         }
     }
@@ -255,11 +289,14 @@ class MenuTitleTest {
                 .overlay(Glyphs.GUI_TRAVEL_HERE_BOTTOM, 99, 68)
                 .panel()));
         for (final String composition : compositions) {
-            composition.codePoints().forEach(codePoint ->
-                    assertTrue(ADVANCES.containsKey(codePoint) || PANELS.containsKey(codePoint)
+            composition
+                    .codePoints()
+                    .forEach(codePoint -> assertTrue(
+                            ADVANCES.containsKey(codePoint)
+                                    || PANELS.containsKey(codePoint)
                                     || OVERLAYS.containsKey(codePoint),
-                            "U+%X is composed into a menu title and nordtal:gui does not declare"
-                                    .formatted(codePoint) + " it - it reaches the player as a"
+                            "U+%X is composed into a menu title and nordtal:gui does not declare".formatted(codePoint)
+                                    + " it - it reaches the player as a"
                                     + " missing-glyph box in the middle of the frame"));
         }
     }
@@ -284,7 +321,9 @@ class MenuTitleTest {
                 expected.add(103 + 18 * k + 18 * (rows - 4) - 1);
             }
             expected.add(161 + 18 * (rows - 4) - 1);
-            assertEquals(expected, recessTops(read("nordtal:ui/gui/panel_" + rows + ".png")),
+            assertEquals(
+                    expected,
+                    recessTops(read("nordtal:ui/gui/panel_" + rows + ".png")),
                     "panel_" + rows + ".png: the slot cells at x = 8 do not start where the client"
                             + " draws its slots");
         }
@@ -294,7 +333,7 @@ class MenuTitleTest {
 
     /** The rows at x = 8 where a slot recess (the palette's dark slot colour) begins. */
     private static List<Integer> recessTops(final BufferedImage image) {
-        final int slot = 0xFF000000 | (58 << 16) | (58 << 8) | 64;   // PALETTE["slot"], verbatim
+        final int slot = 0xFF000000 | (58 << 16) | (58 << 8) | 64; // PALETTE["slot"], verbatim
         final List<Integer> tops = new java.util.ArrayList<>();
         for (int y = 1; y < image.getHeight(); y++) {
             if (image.getRGB(8, y) == slot && image.getRGB(8, y - 1) != slot) {
@@ -309,8 +348,8 @@ class MenuTitleTest {
     /** What the cursor has moved, in pixels, after drawing this string in {@code nordtal:gui}. */
     private static int displacement(final String composed) {
         return composed.codePoints()
-                .map(codePoint -> ADVANCES.getOrDefault(codePoint,
-                        PANELS.getOrDefault(codePoint, OVERLAYS.getOrDefault(codePoint, 0))))
+                .map(codePoint -> ADVANCES.getOrDefault(
+                        codePoint, PANELS.getOrDefault(codePoint, OVERLAYS.getOrDefault(codePoint, 0))))
                 .sum();
     }
 

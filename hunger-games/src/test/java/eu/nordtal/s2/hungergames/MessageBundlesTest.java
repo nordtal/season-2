@@ -1,9 +1,10 @@
 package eu.nordtal.s2.hungergames;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.message.Messages;
-
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -12,10 +13,7 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * That the two language files stay the same file in two languages.
@@ -37,13 +35,14 @@ class MessageBundlesTest {
 
     private static final String ROOT = "messages/hunger-games";
 
-    private final Messages messages = Messages.load(MessageBundlesTest.class.getClassLoader(),
-            ROOT, Locale.ENGLISH, Locale.GERMAN);
+    private final Messages messages =
+            Messages.load(MessageBundlesTest.class.getClassLoader(), ROOT, Locale.ENGLISH, Locale.GERMAN);
 
     @Test
     void bothBundlesAreLoaded() {
         assertTrue(messages.languages().contains("en"));
-        assertTrue(messages.languages().contains("de"),
+        assertTrue(
+                messages.languages().contains("de"),
                 "German is not a fallback language, it is one of the two the season ships");
     }
 
@@ -64,7 +63,7 @@ class MessageBundlesTest {
     @Test
     void everyKeyResolvesThroughMessagesInBothLanguages() throws IOException {
         for (final String key : keysOf("en")) {
-            for (final Locale locale : new Locale[]{Locale.ENGLISH, Locale.GERMAN}) {
+            for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
                 assertTrue(messages.hasTranslation(locale, key), key + " does not resolve in " + locale);
             }
         }
@@ -76,7 +75,9 @@ class MessageBundlesTest {
         final Properties german = load("de");
 
         for (final String key : english.stringPropertyNames()) {
-            assertEquals(placeholders(english.getProperty(key)), placeholders(german.getProperty(key)),
+            assertEquals(
+                    placeholders(english.getProperty(key)),
+                    placeholders(german.getProperty(key)),
                     key + " uses different placeholders in the two languages - one of them will "
                             + "print a literal {name} to a player");
         }
@@ -101,7 +102,9 @@ class MessageBundlesTest {
         final Properties german = load("de");
 
         for (final String key : english.stringPropertyNames()) {
-            assertEquals(slots(english.getProperty(key)), slots(german.getProperty(key)),
+            assertEquals(
+                    slots(english.getProperty(key)),
+                    slots(german.getProperty(key)),
                     key + " uses different <_component> slots in the two languages - an unresolved"
                             + " slot renders as nothing at all, in silence");
         }
@@ -133,8 +136,8 @@ class MessageBundlesTest {
 
     private static Properties load(final String language) throws IOException {
         final Properties properties = new Properties();
-        try (InputStream stream = MessageBundlesTest.class.getClassLoader()
-                .getResourceAsStream(ROOT + "/" + language + ".properties")) {
+        try (InputStream stream =
+                MessageBundlesTest.class.getClassLoader().getResourceAsStream(ROOT + "/" + language + ".properties")) {
             assertNotNull(stream, "no " + language + ".properties on the test classpath");
             properties.load(new InputStreamReader(stream, StandardCharsets.UTF_8));
         }

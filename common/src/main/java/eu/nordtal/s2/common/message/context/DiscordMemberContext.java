@@ -6,5 +6,4 @@ package eu.nordtal.s2.common.message.context;
  * @param name its name
  */
 @ContextType(value = "discord-member", name = "Discord member")
-public record DiscordMemberContext(String name) implements MessageContext {
-}
+public record DiscordMemberContext(String name) implements MessageContext {}

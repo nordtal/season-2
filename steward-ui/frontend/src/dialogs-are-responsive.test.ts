@@ -41,9 +41,9 @@ const ALLOWED = new Map<string, string>([
   ],
   [
     path.join("components", "ui", "sidebar.tsx"),
-    "the navigation on a phone, which is a side sheet and not a dialog: it comes from the edge, it"
-      + " is the app's own chrome rather than something a page opened, and a bottom sheet would"
-      + " land on top of the thing it is navigating away from",
+    "the navigation on a phone, which is a side sheet and not a dialog: it comes from the edge, it" +
+      " is the app's own chrome rather than something a page opened, and a bottom sheet would" +
+      " land on top of the thing it is navigating away from",
   ],
 ])
 
@@ -53,10 +53,7 @@ function sourceFiles(directory: string): string[] {
     const full = path.join(directory, entry.name)
     if (entry.isDirectory()) {
       found.push(...sourceFiles(full))
-    } else if (
-      (entry.name.endsWith(".tsx") || entry.name.endsWith(".ts")) &&
-      !entry.name.includes(".test.")
-    ) {
+    } else if ((entry.name.endsWith(".tsx") || entry.name.endsWith(".ts")) && !entry.name.includes(".test.")) {
       found.push(full)
     }
   }
@@ -65,9 +62,7 @@ function sourceFiles(directory: string): string[] {
 
 /** The primitives themselves, which import nothing of the kind and are not call sites either. */
 const PRIMITIVES = new Set(
-  ["dialog.tsx", "alert-dialog.tsx", "sheet.tsx", "drawer.tsx"].map((name) =>
-    path.join("components", "ui", name),
-  ),
+  ["dialog.tsx", "alert-dialog.tsx", "sheet.tsx", "drawer.tsx"].map((name) => path.join("components", "ui", name)),
 )
 
 function offenders(): string[] {
@@ -95,8 +90,8 @@ describe("every dialog goes through the responsive one", () => {
     for (const [file, why] of ALLOWED) {
       expect(
         sourceFiles(source).map((full) => path.relative(source, full)),
-        `${file} is exempt (${why}) and is no longer there - a stale exemption is a rule that has`
-          + ` quietly stopped applying to whatever replaced it`,
+        `${file} is exempt (${why}) and is no longer there - a stale exemption is a rule that has` +
+          ` quietly stopped applying to whatever replaced it`,
       ).toContain(file)
     }
   })
@@ -104,10 +99,7 @@ describe("every dialog goes through the responsive one", () => {
   it("the command palette and the security-key prompt are converted, by name", () => {
     // The two steward/98 wrote down as exceptions. Naming them here rather than trusting the sweep
     // above: both are shells rather than pages, so a revert would read like a refactor.
-    for (const file of [
-      path.join("components", "ui", "command.tsx"),
-      path.join("app", "security-keys.tsx"),
-    ]) {
+    for (const file of [path.join("components", "ui", "command.tsx"), path.join("app", "security-keys.tsx")]) {
       const text = readFileSync(path.join(source, file), "utf8")
       expect(text, `${file} no longer builds on the responsive component`).toContain(
         'from "@/components/ui/responsive-dialog"',

@@ -10,11 +10,6 @@ import eu.nordtal.s2.steward.worker.plan.Topology;
 import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
 import eu.nordtal.s2.steward.worker.source.Checksum;
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
-
-import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -24,6 +19,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Turns an {@link UpdatePlan} into files on disk.
@@ -65,7 +63,9 @@ public final class Applier {
         final Map<String, List<Change>> byService = new LinkedHashMap<>();
         for (final Change change : plan.changes()) {
             if (change.service() != null) {
-                byService.computeIfAbsent(change.service(), key -> new ArrayList<>()).add(change);
+                byService
+                        .computeIfAbsent(change.service(), key -> new ArrayList<>())
+                        .add(change);
             }
         }
 
@@ -88,8 +88,7 @@ public final class Applier {
 
     // ---------------------------------------------------------------- one service
 
-    private List<ApplyResult.Outcome> applyService(final Path root, final String service,
-                                                    final List<Change> changes) {
+    private List<ApplyResult.Outcome> applyService(final Path root, final String service, final List<Change> changes) {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
 
         final Change blocked = UpdatePlan.blocker(changes);
@@ -99,8 +98,8 @@ public final class Applier {
                     + ", so nothing on this server was touched";
             changes.stream()
                     .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
-                    .forEach(change -> outcomes.add(new ApplyResult.Outcome(
-                            service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
+                    .forEach(change -> outcomes.add(
+                            new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
             // The pack still gets its own row: a skipped service must still say what the client is sent.
             outcomes.addAll(applyPack(root, service, changes));
             return outcomes;
@@ -112,7 +111,9 @@ public final class Applier {
                 .filter(change -> change.status().isFailure())
                 .filter(change -> isServerJar(change.artifact()))
                 .forEach(change -> outcomes.add(new ApplyResult.Outcome(
-                        service, change.artifact(), ApplyResult.Status.SKIPPED,
+                        service,
+                        change.artifact(),
+                        ApplyResult.Status.SKIPPED,
                         "could not be checked" + (change.note() == null ? "" : " (" + change.note() + ")")
                                 + "; the build in .server/ stays, and the plugins were not held back for it")));
 
@@ -128,14 +129,17 @@ public final class Applier {
                 .filter(change -> !change.status().isWork())
                 .filter(change -> !change.status().isFailure())
                 .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
-                .forEach(change -> outcomes.add(change.status() == Change.Status.UNSUPPORTED
-                        // Not UNCHANGED: nothing is there and nothing was attempted. The row keeps the
-                        // artefact named until its publisher ships a build for this Minecraft version.
-                        ? new ApplyResult.Outcome(service, change.artifact(),
-                                ApplyResult.Status.UNSUPPORTED,
-                                "no build for this Minecraft version yet")
-                        : new ApplyResult.Outcome(service, change.artifact(),
-                                ApplyResult.Status.UNCHANGED, change.installed())));
+                .forEach(change -> outcomes.add(
+                        change.status() == Change.Status.UNSUPPORTED
+                                // Not UNCHANGED: nothing is there and nothing was attempted. The row keeps the
+                                // artefact named until its publisher ships a build for this Minecraft version.
+                                ? new ApplyResult.Outcome(
+                                        service,
+                                        change.artifact(),
+                                        ApplyResult.Status.UNSUPPORTED,
+                                        "no build for this Minecraft version yet")
+                                : new ApplyResult.Outcome(
+                                        service, change.artifact(), ApplyResult.Status.UNCHANGED, change.installed())));
 
         if (work.isEmpty()) {
             outcomes.addAll(applyPack(root, service, changes));
@@ -163,10 +167,9 @@ public final class Applier {
             }
         } catch (final IOException failed) {
             log.warn("Staging {} failed: {}", service, failed.getMessage());
-            final String why = "download failed (" + failed.getMessage()
-                    + "); nothing on this server was moved";
-            work.forEach(change -> outcomes.add(new ApplyResult.Outcome(
-                    service, change.artifact(), ApplyResult.Status.FAILED, why)));
+            final String why = "download failed (" + failed.getMessage() + "); nothing on this server was moved";
+            work.forEach(change ->
+                    outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.FAILED, why)));
             stagingByDestination.values().forEach(Applier::quietlyDelete);
             outcomes.addAll(applyPack(root, service, changes));
             return outcomes;
@@ -181,14 +184,20 @@ public final class Applier {
                 // ATOMIC_MOVE, and a failure if the filesystem cannot do one: without it a move
                 // across a device boundary degrades silently to copy-and-delete. An
                 // AtomicMoveNotSupportedException means staging is no longer on the same filesystem.
-                Files.move(staged.get(change.artifact()), destination,
-                        StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                Files.move(
+                        staged.get(change.artifact()),
+                        destination,
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE);
                 final List<String> removed = removeSuperseded(destination.getParent(), wanted.fileName());
-                outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.DONE,
-                        describe(change, wanted, removed)));
+                outcomes.add(new ApplyResult.Outcome(
+                        service, change.artifact(), ApplyResult.Status.DONE, describe(change, wanted, removed)));
             } catch (final IOException failed) {
                 // The one case where a server can be left mixed, so it is said plainly.
-                outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.FAILED,
+                outcomes.add(new ApplyResult.Outcome(
+                        service,
+                        change.artifact(),
+                        ApplyResult.Status.FAILED,
                         "could not move " + wanted.fileName() + " into place: " + failed.getMessage()
                                 + ". This server may now be part-updated - check it before restarting."));
             }
@@ -206,8 +215,7 @@ public final class Applier {
      * asset's own download URL and the content of the {@code .sha1} asset beside the zip - never
      * computed here, never copied by a person.
      */
-    private List<ApplyResult.Outcome> applyPack(final Path root, final String service,
-                                                 final List<Change> changes) {
+    private List<ApplyResult.Outcome> applyPack(final Path root, final String service, final List<Change> changes) {
         final Change pack = changes.stream()
                 .filter(change -> change.artifact().equals(Topology.RESOURCE_PACK))
                 .findFirst()
@@ -219,7 +227,9 @@ public final class Applier {
         // "Could not be checked" is not "unchanged": pack.yml keeps what it said, so the client is
         // still sent the previous pack. That has to read as a fallback, not as a no-op.
         if (pack.status().isFailure()) {
-            return List.of(new ApplyResult.Outcome(service, Topology.RESOURCE_PACK,
+            return List.of(new ApplyResult.Outcome(
+                    service,
+                    Topology.RESOURCE_PACK,
                     ApplyResult.Status.SKIPPED,
                     "could not be checked" + (pack.note() == null ? "" : " (" + pack.note() + ")")
                             + "; pack.yml was left alone, so the client is still sent "
@@ -228,14 +238,16 @@ public final class Applier {
         }
 
         if (!pack.status().isWork() || pack.wanted() == null) {
-            return List.of(new ApplyResult.Outcome(service, Topology.RESOURCE_PACK,
-                    ApplyResult.Status.UNCHANGED, pack.installed()));
+            return List.of(new ApplyResult.Outcome(
+                    service, Topology.RESOURCE_PACK, ApplyResult.Status.UNCHANGED, pack.installed()));
         }
 
         final RemoteFile wanted = pack.wanted();
         final Checksum sha1 = wanted.checksum();
         if (sha1 == null || !"sha1".equals(sha1.algorithm())) {
-            return List.of(new ApplyResult.Outcome(service, Topology.RESOURCE_PACK,
+            return List.of(new ApplyResult.Outcome(
+                    service,
+                    Topology.RESOURCE_PACK,
                     ApplyResult.Status.FAILED,
                     "the release published no .sha1 for the pack; the client is sent both or neither"));
         }
@@ -243,13 +255,16 @@ public final class Applier {
         try {
             final boolean written = PackWriter.write(
                     PackState.fileIn(root.resolve(service)), wanted.url().toString(), sha1.hex());
-            return List.of(new ApplyResult.Outcome(service, Topology.RESOURCE_PACK,
+            return List.of(new ApplyResult.Outcome(
+                    service,
+                    Topology.RESOURCE_PACK,
                     written ? ApplyResult.Status.DONE : ApplyResult.Status.UNCHANGED,
-                    written ? "pack.yml now points at " + wanted.fileName() + " (sha1 " + sha1.hex() + ")"
+                    written
+                            ? "pack.yml now points at " + wanted.fileName() + " (sha1 " + sha1.hex() + ")"
                             : "pack.yml already said this"));
         } catch (final IOException failed) {
-            return List.of(new ApplyResult.Outcome(service, Topology.RESOURCE_PACK,
-                    ApplyResult.Status.FAILED, failed.getMessage()));
+            return List.of(new ApplyResult.Outcome(
+                    service, Topology.RESOURCE_PACK, ApplyResult.Status.FAILED, failed.getMessage()));
         }
     }
 
@@ -260,8 +275,7 @@ public final class Applier {
      * died between the two phases leaves files here, and re-using them would install a jar nobody
      * verified in this run.
      */
-    private static Path stagingFor(final Map<Path, Path> known, final Path destination)
-            throws IOException {
+    private static Path stagingFor(final Map<Path, Path> known, final Path destination) throws IOException {
         final Path existing = known.get(destination);
         if (existing != null) {
             return existing;
@@ -277,9 +291,7 @@ public final class Applier {
         if (Topology.isStandalone(artifact)) {
             return volume;
         }
-        return isServerJar(artifact)
-                ? volume.resolve(Installation.SERVER_CACHE)
-                : volume.resolve(Installation.PLUGINS);
+        return isServerJar(artifact) ? volume.resolve(Installation.SERVER_CACHE) : volume.resolve(Installation.PLUGINS);
     }
 
     private static boolean isServerJar(final String artifact) {
@@ -289,8 +301,7 @@ public final class Applier {
     // Steward-worker deleting its own superseded jar while running from it is safe only because
     // Linux keeps an unlinked inode alive for whoever holds it open; on Windows the delete would
     // fail.
-    private static List<String> removeSuperseded(final Path directory, final String installed)
-            throws IOException {
+    private static List<String> removeSuperseded(final Path directory, final String installed) throws IOException {
         final List<String> removed = new ArrayList<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory)) {
             for (final Path entry : entries) {
@@ -304,8 +315,7 @@ public final class Applier {
         return removed;
     }
 
-    private static String describe(final Change change, final RemoteFile wanted,
-                                   final List<String> removed) {
+    private static String describe(final Change change, final RemoteFile wanted, final List<String> removed) {
         final StringBuilder detail = new StringBuilder();
         if (change.installed() != null) {
             detail.append(change.installed()).append(" -> ");

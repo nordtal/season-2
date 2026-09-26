@@ -2,12 +2,11 @@ package eu.nordtal.s2.steward.worker.backup;
 
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
+import java.time.ZoneId;
+import java.util.Optional;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.ZoneId;
-import java.util.Optional;
 
 /**
  * The two clocks - the nightly backup and the optional scheduled update - kept in step with
@@ -29,8 +28,8 @@ public final class Schedules implements AutoCloseable {
     private NightlyClock backup;
     private NightlyClock update;
 
-    public Schedules(final @NotNull UpdateDirectory directory, final @NotNull StewardSpec config,
-                     final @NotNull ZoneId zone) {
+    public Schedules(
+            final @NotNull UpdateDirectory directory, final @NotNull StewardSpec config, final @NotNull ZoneId zone) {
         this.directory = directory;
         this.config = config;
         this.zone = zone;
@@ -39,13 +38,21 @@ public final class Schedules implements AutoCloseable {
     /** Closes both clocks and starts them again from what the config now says. */
     public synchronized void arm() {
         close();
-        backup = start(NightlyClock.from(directory, NightlyClock.Job.BACKUP, config.backup().at(),
-                config.backup().days(), zone));
+        backup = start(NightlyClock.from(
+                directory,
+                NightlyClock.Job.BACKUP,
+                config.backup().at(),
+                config.backup().days(),
+                zone));
         if (backup == null) {
             log.info("backup.at is empty, so there is no nightly backup. Nothing else is affected.");
         }
-        update = start(NightlyClock.from(directory, NightlyClock.Job.UPDATE, config.update().at(),
-                config.update().days(), zone));
+        update = start(NightlyClock.from(
+                directory,
+                NightlyClock.Job.UPDATE,
+                config.update().at(),
+                config.update().days(),
+                zone));
         if (update == null) {
             log.info("update.at is empty, so nothing updates on a schedule. An admin can still"
                     + " ask for an update at any time.");
@@ -54,7 +61,7 @@ public final class Schedules implements AutoCloseable {
 
     /** Whether each clock is running - for the test, which cannot wait until 04:45. */
     synchronized boolean[] running() {
-        return new boolean[]{backup != null, update != null};
+        return new boolean[] {backup != null, update != null};
     }
 
     private static NightlyClock start(final Optional<NightlyClock> clock) {

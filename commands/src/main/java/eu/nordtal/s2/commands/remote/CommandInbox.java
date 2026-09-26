@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands.remote;
 
-import eu.nordtal.s2.common.message.Tone;
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
@@ -10,7 +11,7 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.command.CommandRequest;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.message.Messages;
-
+import eu.nordtal.s2.common.message.Tone;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -18,8 +19,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * The far end of a travelling command: claim a request, run it here, write the answer back.
@@ -75,9 +74,9 @@ public final class CommandInbox {
          * @param adminMinecraftIds every admin's Minecraft account, for a row written by a game
          *                          surface that had no link to hand
          */
-        static AdminCheck of(final java.util.function.Supplier<java.util.Set<String>> admins,
-                             final java.util.function.Supplier<java.util.Set<java.util.UUID>>
-                                     adminMinecraftIds) {
+        static AdminCheck of(
+                final java.util.function.Supplier<java.util.Set<String>> admins,
+                final java.util.function.Supplier<java.util.Set<java.util.UUID>> adminMinecraftIds) {
             return request -> {
                 if ("CONSOLE".equals(request.source())) {
                     return true;
@@ -92,8 +91,7 @@ public final class CommandInbox {
         }
     }
 
-    private record Entry(Declaration declaration, BiConsumer<NordtalUser, Values> run) {
-    }
+    private record Entry(Declaration declaration, BiConsumer<NordtalUser, Values> run) {}
 
     private final String target;
     private final CommandRequests requests;
@@ -103,9 +101,12 @@ public final class CommandInbox {
     private final Map<String, Entry> commands = new HashMap<>();
     private final AtomicBoolean draining = new AtomicBoolean();
 
-    public CommandInbox(final Target target, final CommandRequests requests,
-                        final Messages messages, final AdminCheck adminCheck,
-                        final BiConsumer<String, Throwable> warn) {
+    public CommandInbox(
+            final Target target,
+            final CommandRequests requests,
+            final Messages messages,
+            final AdminCheck adminCheck,
+            final BiConsumer<String, Throwable> warn) {
         this.target = Objects.requireNonNull(target, "target").name();
         this.requests = Objects.requireNonNull(requests, "requests");
         this.messages = Objects.requireNonNull(messages, "messages");
@@ -125,20 +126,19 @@ public final class CommandInbox {
      *                                  claim the same path, or if the effects hand their work to
      *                                  another thread - see {@link #requireInline}
      */
-    public <E extends CommandEffects> CommandInbox register(final NordtalCommand<E> command,
-                                                            final E effects) {
+    public <E extends CommandEffects> CommandInbox register(final NordtalCommand<E> command, final E effects) {
         Objects.requireNonNull(command, "command");
         Objects.requireNonNull(effects, "effects");
 
         requireInline(command, effects);
         final Declaration declaration = command.declaration();
         if (!declaration.target().name().equals(target)) {
-            throw new IllegalArgumentException(declaration.name() + " is run by "
-                    + declaration.target() + " and was registered on the " + target + " inbox");
+            throw new IllegalArgumentException(declaration.name() + " is run by " + declaration.target()
+                    + " and was registered on the " + target + " inbox");
         }
         final String path = key(declaration);
-        if (commands.putIfAbsent(path, new Entry(declaration,
-                (user, values) -> command.run(user, values, effects))) != null) {
+        if (commands.putIfAbsent(path, new Entry(declaration, (user, values) -> command.run(user, values, effects)))
+                != null) {
             throw new IllegalArgumentException("two commands both claim " + declaration.name());
         }
         return this;
@@ -213,8 +213,7 @@ public final class CommandInbox {
      * thread into the box, and a same-thread executor always has by the time {@code async} returns.
      * Nothing waits, and nothing depends on who wins.</p>
      */
-    private static void requireInline(final NordtalCommand<?> command,
-                                      final CommandEffects effects) {
+    private static void requireInline(final NordtalCommand<?> command, final CommandEffects effects) {
         final AtomicReference<Thread> ranOn = new AtomicReference<>();
         effects.async(() -> ranOn.set(Thread.currentThread()));
         if (ranOn.get() != Thread.currentThread()) {
@@ -233,8 +232,11 @@ public final class CommandInbox {
             // updated and another did not - and it is worth saying so plainly, because the
             // alternative reading ("the command silently did nothing") is the one somebody would
             // otherwise arrive at.
-            settle(request, false, messages.format(localeOf(request),
-                    MESSAGES.command().remote().unknown("/" + request.command())));
+            settle(
+                    request,
+                    false,
+                    messages.format(
+                            localeOf(request), MESSAGES.command().remote().unknown("/" + request.command())));
             return;
         }
 
@@ -243,8 +245,11 @@ public final class CommandInbox {
             admin = adminCheck.isAdmin(request);
         } catch (final RuntimeException failure) {
             warn.accept("could not re-check the admin flag for /" + request.command(), failure);
-            settle(request, false,
-                    messages.format(localeOf(request), MESSAGES.command().remote().failed()));
+            settle(
+                    request,
+                    false,
+                    messages.format(
+                            localeOf(request), MESSAGES.command().remote().failed()));
             return;
         }
 
@@ -262,29 +267,39 @@ public final class CommandInbox {
         try {
             values = RequestArguments.decode(entry.declaration(), request.arguments());
         } catch (final RuntimeException malformed) {
-            warn.accept("/" + request.command() + " arrived with arguments this build cannot read: "
-                    + request.arguments(), malformed);
-            settle(request, false, messages.format(localeOf(request),
-                    MESSAGES.command().remote().arguments("/" + request.command())));
+            warn.accept(
+                    "/" + request.command() + " arrived with arguments this build cannot read: " + request.arguments(),
+                    malformed);
+            settle(
+                    request,
+                    false,
+                    messages.format(
+                            localeOf(request), MESSAGES.command().remote().arguments("/" + request.command())));
             return;
         }
 
         try {
             entry.run().accept(user, values);
         } catch (final RuntimeException failure) {
-            warn.accept("/" + request.command() + " threw while running for " + request.requestedBy(),
-                    failure);
-            settle(request, false,
-                    messages.format(localeOf(request), MESSAGES.command().remote().failed()));
+            warn.accept("/" + request.command() + " threw while running for " + request.requestedBy(), failure);
+            settle(
+                    request,
+                    false,
+                    messages.format(
+                            localeOf(request), MESSAGES.command().remote().failed()));
             return;
         }
 
         // A command that answered nothing did its work and said nothing about it. Saying so is not
         // decoration: a blank reply and a request that never ran look identical to whoever is
         // watching a spinner in Discord.
-        settle(request, true, user.lineCount() == 0
-                ? messages.format(localeOf(request), MESSAGES.command().remote().silent())
-                : user.text());
+        settle(
+                request,
+                true,
+                user.lineCount() == 0
+                        ? messages.format(
+                                localeOf(request), MESSAGES.command().remote().silent())
+                        : user.text());
     }
 
     private void settle(final CommandRequest request, final boolean ok, final String result) {

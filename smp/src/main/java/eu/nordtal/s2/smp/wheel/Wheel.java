@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.wheel;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
@@ -9,22 +11,18 @@ import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
-
-import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
-
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Random;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
 /**
  * The wheel of fortune in the tavern: one free spin a day, plus whatever contributing has earned.
@@ -55,9 +53,14 @@ public final class Wheel {
     private final SmpSounds sounds;
     private final Random random = new Random();
 
-    public Wheel(final Plugin plugin, final SmpDao dao, final SmpSpec config,
-                 final Identities identities, final Messages messages, final PlayerLocales locales,
-                 final SmpSounds sounds) {
+    public Wheel(
+            final Plugin plugin,
+            final SmpDao dao,
+            final SmpSpec config,
+            final Identities identities,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
@@ -72,8 +75,8 @@ public final class Wheel {
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = locales.of(player.getUniqueId());
         if (discordId.isEmpty()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale,
-                    MESSAGES.smp().error().noAccountLink()));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.smp().error().noAccountLink()));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -95,9 +98,11 @@ public final class Wheel {
                 // either language, and the zero case does not want the second clause at all - it
                 // would read "no spins left, and you have 0 waiting", which says one thing twice.
                 final int extras = spins.extras();
-                final MessageRef none = extras == 0 ? MESSAGES.smp().wheel().none()
-                        : extras == 1 ? MESSAGES.smp().wheel().noneSection().one()
-                        : MESSAGES.smp().wheel().noneSection().many(extras);
+                final MessageRef none = extras == 0
+                        ? MESSAGES.smp().wheel().none()
+                        : extras == 1
+                                ? MESSAGES.smp().wheel().noneSection().one()
+                                : MESSAGES.smp().wheel().noneSection().many(extras);
                 tell(player, MessageRenderer.of(messages).format(locale, none), Feedback.REFUSED);
                 return;
             }
@@ -125,15 +130,16 @@ public final class Wheel {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
             final int count = spins.available(LocalDate.now());
-            final MessageRef available = count == 0 ? MESSAGES.smp().wheel().available()
-                    : count == 1 ? MESSAGES.smp().wheel().availableSection().one()
-                    : MESSAGES.smp().wheel().availableSection().many(count);
+            final MessageRef available = count == 0
+                    ? MESSAGES.smp().wheel().available()
+                    : count == 1
+                            ? MESSAGES.smp().wheel().availableSection().one()
+                            : MESSAGES.smp().wheel().availableSection().many(count);
             tell(player, MessageRenderer.of(messages).format(locale, available));
         });
     }
 
-    private void award(final Player player, final Locale locale, final Runnable refund,
-                       final int spinsLeft) {
+    private void award(final Player player, final Locale locale, final Runnable refund, final int spinsLeft) {
         final List<SmpSpec.WheelPrizeSpec> pool = config.wheelPrizes();
         final List<Integer> weights = new ArrayList<>(pool.size());
         pool.forEach(prize -> weights.add(prize.weight()));
@@ -142,14 +148,18 @@ public final class Wheel {
         final SmpSpec.WheelPrizeSpec prize = pool.get(index);
         final Material material = materialOf(prize.item());
         if (material == null) {
-            plugin.getLogger().warning("wheel-prizes names '" + prize.item()
-                    + "', which is not a material - the spin is being put back and nothing was given");
+            plugin.getLogger()
+                    .warning("wheel-prizes names '" + prize.item()
+                            + "', which is not a material - the spin is being put back and nothing was given");
             // The spin goes back. This one is an operator's typo, not bad luck: one wrong item name
             // in config.yml costs a spin to every player whose draw lands on that weight, and they
             // would each see a message telling them so. LOSS rather than REFUSED because nothing
             // said no to them - what happened is that the wheel broke, and they get another go.
             refund.run();
-            tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().wheel().brokenPrize()),
+            tell(
+                    player,
+                    MessageRenderer.of(messages)
+                            .format(locale, MESSAGES.smp().wheel().brokenPrize()),
                     Feedback.LOSS);
             return;
         }
@@ -157,8 +167,7 @@ public final class Wheel {
         // Everything above is a decision and runs off the main thread; everything below is the
         // window, and has to be on it. The prize is already settled here - the animation shows it
         // arriving, it does not choose it. See WheelStrip.
-        final WheelStrip strip = WheelStrip.landingOn(pool.size(), index, random,
-                WheelPanel.shape());
+        final WheelStrip strip = WheelStrip.landingOn(pool.size(), index, random, WheelPanel.shape());
         final List<ItemStack> icons = icons(pool);
 
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -167,13 +176,20 @@ public final class Wheel {
                 give(player, material, prize.amount(), locale, refund);
                 return;
             }
-            new WheelGui(messages, locale, strip, icons, sounds, spinsLeft, earnAt(),
-                    // Another spin is the whole of spin() again, which spends its own row and
-                    // opens its own window. Null when there is nothing left to spend: the button
-                    // is still drawn - a control that vanishes leaves somebody wondering whether
-                    // it was ever there - and it refuses with a sound and says why.
-                    spinsLeft > 0 ? () -> spin(player) : null,
-                    winner -> give(winner, material, prize.amount(), locale, refund))
+            new WheelGui(
+                            messages,
+                            locale,
+                            strip,
+                            icons,
+                            sounds,
+                            spinsLeft,
+                            earnAt(),
+                            // Another spin is the whole of spin() again, which spends its own row and
+                            // opens its own window. Null when there is nothing left to spend: the button
+                            // is still drawn - a control that vanishes leaves somebody wondering whether
+                            // it was ever there - and it refuses with a sound and says why.
+                            spinsLeft > 0 ? () -> spin(player) : null,
+                            winner -> give(winner, material, prize.amount(), locale, refund))
                     .start(plugin, player);
         });
     }
@@ -207,12 +223,17 @@ public final class Wheel {
      *
      * @param refund undoes the row this spin spent; run only when nothing was handed over
      */
-    private void give(final Player player, final Material material, final int amount,
-                      final Locale locale, final Runnable refund) {
+    private void give(
+            final Player player,
+            final Material material,
+            final int amount,
+            final Locale locale,
+            final Runnable refund) {
         final int count = Math.max(1, amount);
         if (!player.isOnline()) {
-            plugin.getLogger().warning(player.getName() + " left mid-spin; " + count + "x "
-                    + material.name() + " could not be handed over, so the spin goes back");
+            plugin.getLogger()
+                    .warning(player.getName() + " left mid-spin; " + count + "x " + material.name()
+                            + " could not be handed over, so the spin goes back");
             refund.run();
             return;
         }
@@ -220,10 +241,12 @@ public final class Wheel {
         // Whatever does not fit goes on the floor at their feet rather than vanishing: the
         // wheel is the one channel that pays out real items, and losing one to a full inventory
         // is the kind of thing that is remembered for a season.
-        player.getInventory().addItem(stack).values()
+        player.getInventory()
+                .addItem(stack)
+                .values()
                 .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
-        player.sendMessage(MessageRenderer.of(messages).format(locale,
-                MESSAGES.smp().wheel().won(count, material.translationKey())));
+        player.sendMessage(MessageRenderer.of(messages)
+                .format(locale, MESSAGES.smp().wheel().won(count, material.translationKey())));
     }
 
     /**
@@ -238,8 +261,8 @@ public final class Wheel {
         final List<ItemStack> out = new ArrayList<>(pool.size());
         for (final SmpSpec.WheelPrizeSpec prize : pool) {
             final Material material = materialOf(prize.item());
-            out.add(new ItemStack(material == null ? Material.BARRIER : material,
-                    Math.max(1, Math.min(64, prize.amount()))));
+            out.add(new ItemStack(
+                    material == null ? Material.BARRIER : material, Math.max(1, Math.min(64, prize.amount()))));
         }
         return out;
     }
@@ -269,8 +292,9 @@ public final class Wheel {
         try {
             Bukkit.getScheduler().runTaskAsynchronously(plugin, work);
         } catch (final IllegalStateException | IllegalArgumentException refused) {
-            plugin.getLogger().warning("could not put a wheel spin back - the server is shutting"
-                    + " down: " + refused.getMessage());
+            plugin.getLogger()
+                    .warning("could not put a wheel spin back - the server is shutting" + " down: "
+                            + refused.getMessage());
         }
     }
 

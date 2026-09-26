@@ -1,12 +1,11 @@
 package eu.nordtal.s2.commands;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -23,9 +22,8 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The shared bundle: the same file in two languages, complete, and free of markup.
@@ -39,13 +37,14 @@ class MessageBundlesTest {
 
     private static final String ROOT = "messages/commands";
 
-    private final Messages messages = Messages.load(MessageBundlesTest.class.getClassLoader(),
-            ROOT, Locale.ENGLISH, Locale.GERMAN);
+    private final Messages messages =
+            Messages.load(MessageBundlesTest.class.getClassLoader(), ROOT, Locale.ENGLISH, Locale.GERMAN);
 
     @Test
     void bothBundlesAreLoaded() {
         assertTrue(messages.languages().contains("en"));
-        assertTrue(messages.languages().contains("de"),
+        assertTrue(
+                messages.languages().contains("de"),
                 "German is not a fallback language, it is one of the two the season ships");
     }
 
@@ -69,7 +68,9 @@ class MessageBundlesTest {
         final Properties german = load("de");
 
         for (final String key : english.stringPropertyNames()) {
-            assertEquals(placeholders(english.getProperty(key)), placeholders(german.getProperty(key)),
+            assertEquals(
+                    placeholders(english.getProperty(key)),
+                    placeholders(german.getProperty(key)),
                     key + " uses different placeholders in the two languages - one of them will"
                             + " print a literal {name} to somebody");
         }
@@ -93,7 +94,9 @@ class MessageBundlesTest {
             }
         }
 
-        assertEquals(List.of(), missing,
+        assertEquals(
+                List.of(),
+                missing,
                 "a command named a message key no bundle declares. Messages answers the key itself,"
                         + " so this reaches somebody as a literal string like phase.date.failed.");
         for (final String key : declared) {
@@ -167,17 +170,20 @@ class MessageBundlesTest {
             for (final UpdateReport.State state : UpdateReport.State.values()) {
                 final String line = bundle.getProperty("update.line." + state);
                 final String label = bundle.getProperty("update.state." + state);
-                assertTrue(line.endsWith(label),
-                        language + ": update.line." + state + " (\"" + line + "\") does not end"
-                                + " with update.state." + state + " (\"" + label + "\")");
-                assertEquals("{service.name}: " + label, line,
+                assertTrue(
+                        line.endsWith(label),
+                        language + ": update.line." + state + " (\"" + line + "\") does not end" + " with update.state."
+                                + state + " (\"" + label + "\")");
+                assertEquals(
+                        "{service.name}: " + label,
+                        line,
                         language + ": a chat line is the service, a colon and the same label");
             }
         }
     }
 
-    private static void check(final Properties english, final Properties german, final String key,
-                              final List<String> missing) {
+    private static void check(
+            final Properties english, final Properties german, final String key, final List<String> missing) {
         if (english.getProperty(key) == null) {
             missing.add("en/" + key);
         }
@@ -195,23 +201,26 @@ class MessageBundlesTest {
         final Properties english = load("en");
         final Properties german = load("de");
 
-        assertTrue(english.getProperty("phase.consequence.SMP").contains("disconnected"),
+        assertTrue(
+                english.getProperty("phase.consequence.SMP").contains("disconnected"),
                 english.getProperty("phase.consequence.SMP"));
-        assertTrue(german.getProperty("phase.consequence.SMP").contains("getrennt"),
+        assertTrue(
+                german.getProperty("phase.consequence.SMP").contains("getrennt"),
                 german.getProperty("phase.consequence.SMP"));
 
-        assertTrue(english.getProperty("phase.consequence.MAINTENANCE").contains("admins"),
+        assertTrue(
+                english.getProperty("phase.consequence.MAINTENANCE").contains("admins"),
                 english.getProperty("phase.consequence.MAINTENANCE"));
-        assertTrue(german.getProperty("phase.consequence.MAINTENANCE").contains("Admins"),
+        assertTrue(
+                german.getProperty("phase.consequence.MAINTENANCE").contains("Admins"),
                 german.getProperty("phase.consequence.MAINTENANCE"));
 
         // Access is only required from SMP onwards. Saying otherwise would be the confirmation
         // lying about what a switch costs.
-        for (final String free : List.of("phase.consequence.PRE_EVENT",
-                "phase.consequence.START_EVENT")) {
-            assertTrue(english.getProperty(free).contains("hunger-games"),
-                    free + ": " + english.getProperty(free));
-            assertTrue(!english.getProperty(free).contains("disconnected"),
+        for (final String free : List.of("phase.consequence.PRE_EVENT", "phase.consequence.START_EVENT")) {
+            assertTrue(english.getProperty(free).contains("hunger-games"), free + ": " + english.getProperty(free));
+            assertTrue(
+                    !english.getProperty(free).contains("disconnected"),
                     free + " claims somebody is disconnected: " + english.getProperty(free));
         }
     }
@@ -232,8 +241,8 @@ class MessageBundlesTest {
     }
 
     private Properties load(final String language) throws IOException {
-        try (InputStream stream = getClass().getClassLoader()
-                .getResourceAsStream(ROOT + "/" + language + ".properties")) {
+        try (InputStream stream =
+                getClass().getClassLoader().getResourceAsStream(ROOT + "/" + language + ".properties")) {
             if (stream == null) {
                 throw new IOException("no " + ROOT + "/" + language + ".properties on the classpath");
             }
@@ -254,7 +263,9 @@ class MessageBundlesTest {
         }
         final Path root = candidate.resolve("commands/src/main/java");
         try (Stream<Path> walk = Files.walk(root)) {
-            return walk.filter(path -> path.toString().endsWith(".java")).sorted().toList();
+            return walk.filter(path -> path.toString().endsWith(".java"))
+                    .sorted()
+                    .toList();
         } catch (final IOException failure) {
             throw new UncheckedIOException(failure);
         }

@@ -1,25 +1,20 @@
 package eu.nordtal.s2.proxy.ping;
 
-import eu.nordtal.s2.common.network.NetworkSnapshot;
-
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.ServerPing;
-
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.network.NetworkSnapshot;
 import eu.nordtal.s2.proxy.config.NetworkSpec;
 import eu.nordtal.s2.proxy.launch.LaunchCountdown;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-
-import org.slf4j.Logger;
-
 import java.time.Clock;
 import java.util.Locale;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.slf4j.Logger;
 
 /**
  * What the server browser shows: the MOTD for the current phase, and the player limit the network
@@ -58,9 +53,14 @@ public final class NetworkPing {
     private final Clock clock;
     private final java.util.Optional<com.velocitypowered.api.util.Favicon> favicon;
 
-    public NetworkPing(final ProxyServer proxy, final Logger logger, final NetworkSpec config,
-                       final PhaseWatch phases, final SnapshotStore snapshots, final Messages messages,
-                       final Clock clock) {
+    public NetworkPing(
+            final ProxyServer proxy,
+            final Logger logger,
+            final NetworkSpec config,
+            final PhaseWatch phases,
+            final SnapshotStore snapshots,
+            final Messages messages,
+            final Clock clock) {
         this(proxy, logger, config, phases, snapshots, messages, clock, java.util.Optional.empty());
     }
 
@@ -68,9 +68,15 @@ public final class NetworkPing {
      * @param favicon the 64 x 64 icon for the server browser, or empty for a ping without one -
      *                see {@link ServerIcon}
      */
-    public NetworkPing(final ProxyServer proxy, final Logger logger, final NetworkSpec config,
-                       final PhaseWatch phases, final SnapshotStore snapshots, final Messages messages,
-                       final Clock clock, final java.util.Optional<com.velocitypowered.api.util.Favicon> favicon) {
+    public NetworkPing(
+            final ProxyServer proxy,
+            final Logger logger,
+            final NetworkSpec config,
+            final PhaseWatch phases,
+            final SnapshotStore snapshots,
+            final Messages messages,
+            final Clock clock,
+            final java.util.Optional<com.velocitypowered.api.util.Favicon> favicon) {
         this.favicon = java.util.Objects.requireNonNull(favicon, "favicon");
         this.proxy = proxy;
         this.logger = logger;
@@ -83,9 +89,8 @@ public final class NetworkPing {
 
     @Subscribe
     public void onPing(final ProxyPingEvent event) {
-        final ServerPing.Builder ping = event.getPing().asBuilder()
-                .description(description())
-                .maximumPlayers(config.maxPlayers());
+        final ServerPing.Builder ping =
+                event.getPing().asBuilder().description(description()).maximumPlayers(config.maxPlayers());
         favicon.ifPresent(ping::favicon);
         event.setPing(ping.build());
     }
@@ -98,10 +103,9 @@ public final class NetworkPing {
         final SeasonPhase phase = known.phase();
         final String template = motdFor(phase);
         // English: a ping carries no player, so there is nobody whose language could be looked up.
-        final String countdown =
-                LaunchCountdown.render(messages, Locale.ENGLISH, known.launch(), clock.instant());
-        final String substituted = Placeholders.apply(template, proxy, phase, config.maxPlayers(),
-                snapshots.current(), countdown);
+        final String countdown = LaunchCountdown.render(messages, Locale.ENGLISH, known.launch(), clock.instant());
+        final String substituted =
+                Placeholders.apply(template, proxy, phase, config.maxPlayers(), snapshots.current(), countdown);
 
         try {
             return MiniMessage.miniMessage().deserialize(substituted);
@@ -109,8 +113,7 @@ public final class NetworkPing {
             // A MOTD is operator-written text, and a mistyped tag must not take the ping down -
             // every client in the world would then show this network as unreachable rather than as
             // badly configured. The unparsed string is still a readable line.
-            logger.warn("network.yml's MOTD for {} is not valid MiniMessage; showing it unparsed",
-                    phase, malformed);
+            logger.warn("network.yml's MOTD for {} is not valid MiniMessage; showing it unparsed", phase, malformed);
             return Component.text(substituted);
         }
     }

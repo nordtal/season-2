@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.hud;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.hud.Bearing;
 import eu.nordtal.s2.common.hud.BossBarLine;
@@ -13,15 +15,6 @@ import eu.nordtal.s2.smp.navigate.NavigationTarget;
 import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
-
-import net.kyori.adventure.bossbar.BossBar;
-import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
-
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -29,8 +22,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 
 /**
  * The SMP's two boss bar lines, drawn with the same technique as the hunger games': the vanilla bar
@@ -88,11 +86,15 @@ public final class SmpHud {
     private BukkitTask task;
 
     /** One line, and the nanoTime it stops being shown. */
-    private record Announcement(String line, long until) {
-    }
+    private record Announcement(String line, long until) {}
 
-    public SmpHud(final Plugin plugin, final Worlds worlds, final SeasonState season,
-                  final Navigation navigation, final Messages messages, final PlayerLocales locales) {
+    public SmpHud(
+            final Plugin plugin,
+            final Worlds worlds,
+            final SeasonState season,
+            final Navigation navigation,
+            final Messages messages,
+            final PlayerLocales locales) {
         this.plugin = plugin;
         this.worlds = worlds;
         this.season = season;
@@ -126,8 +128,7 @@ public final class SmpHud {
      * @param line already rendered, in the player's own language, and short enough for the bar
      */
     public void announce(final Player player, final String line) {
-        announcements.put(player.getUniqueId(),
-                new Announcement(line, System.nanoTime() + ANNOUNCEMENT.toNanos()));
+        announcements.put(player.getUniqueId(), new Announcement(line, System.nanoTime() + ANNOUNCEMENT.toNanos()));
     }
 
     public void hide(final Player player) {
@@ -178,9 +179,8 @@ public final class SmpHud {
      * left. An announcement takes the world's pill over rather than adding a third.
      */
     List<Pill> statusLine(final Player player, final Locale locale) {
-        final String dimension = worlds.roleOf(player.getWorld())
-                .map(WorldRole::glyph)
-                .orElse(Glyphs.BOSSBAR_ICON_DIM_OVERWORLD);
+        final String dimension =
+                worlds.roleOf(player.getWorld()).map(WorldRole::glyph).orElse(Glyphs.BOSSBAR_ICON_DIM_OVERWORLD);
 
         final String announcement = announcementFor(player.getUniqueId());
         if (announcement != null) {
@@ -196,15 +196,17 @@ public final class SmpHud {
         final int percent = (int) Math.round(active.progress() * 100.0);
         return List.of(
                 Pill.of(dimension, worldName(player, locale)),
-                Pill.of(messages.format(locale,
-                        MESSAGES.smp().hud().milestone(new MilestoneContext(milestoneName(active.key(), locale)), percent))));
+                Pill.of(messages.format(
+                        locale,
+                        MESSAGES.smp()
+                                .hud()
+                                .milestone(new MilestoneContext(milestoneName(active.key(), locale)), percent))));
     }
 
     /** The target's pill, led by the arrow to it, then the distance's. */
     List<Pill> navigateLine(final Player player, final Locale locale, final NavigationTarget target) {
-        final String label = target.kind() == NavigationTarget.Kind.POI
-                ? target.label()
-                : messages.format(locale, target.name());
+        final String label =
+                target.kind() == NavigationTarget.Kind.POI ? target.label() : messages.format(locale, target.name());
 
         // A target in another world has no bearing worth drawing: the arrow would spin and the
         // distance would span two unrelated coordinate systems.

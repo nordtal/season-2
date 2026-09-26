@@ -1,7 +1,20 @@
 package eu.nordtal.s2.common.online;
 
-import eu.nordtal.s2.common.access.AccessSchema;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.access.AccessSchema;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,21 +24,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Exercises {@link OnlineRoster} against a real PostgreSQL running the real migration, the same way
@@ -46,7 +44,8 @@ class OnlineRosterIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed roster tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -113,7 +112,9 @@ class OnlineRosterIntegrationTest {
         roster.replace(List.of(new OnlineRoster.Presence(ADA, "Ada", "limbo")));
         roster.replace(List.of(new OnlineRoster.Presence(ADA, "AdaRenamed", "smp")));
 
-        assertEquals(1, count("SELECT count(*) FROM online_player"),
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM online_player"),
                 "one player is one row, whatever they are called this week");
         assertEquals("AdaRenamed", roster.current().getFirst().name());
         assertEquals(Optional.of("smp"), roster.current().getFirst().on());
@@ -124,13 +125,15 @@ class OnlineRosterIntegrationTest {
     @Test
     @DisplayName("a player who logs off is DELETED, not left with an ageing timestamp")
     void aPlayerWhoLeavesIsDeleted() {
-        roster.replace(List.of(new OnlineRoster.Presence(ADA, "Ada", "smp"),
-                new OnlineRoster.Presence(BEN, "Ben", "smp")));
+        roster.replace(
+                List.of(new OnlineRoster.Presence(ADA, "Ada", "smp"), new OnlineRoster.Presence(BEN, "Ben", "smp")));
         assertEquals(2, roster.current().size());
 
         roster.replace(List.of(new OnlineRoster.Presence(ADA, "Ada", "smp")));
 
-        assertEquals(List.of(ADA), roster.current().stream().map(OnlinePlayer::uuid).toList(),
+        assertEquals(
+                List.of(ADA),
+                roster.current().stream().map(OnlinePlayer::uuid).toList(),
                 "Ben logged off, so Ben is gone - a reader must not have to age him out");
     }
 
@@ -154,18 +157,22 @@ class OnlineRosterIntegrationTest {
         Thread.sleep(5);
         roster.replace(List.of(new OnlineRoster.Presence(ADA, "Ada", "smp")));
 
-        assertFalse(roster.current().getFirst().updated().isBefore(first),
+        assertFalse(
+                roster.current().getFirst().updated().isBefore(first),
                 "a player still connected must not carry a timestamp that ages towards stale");
     }
 
     @Test
     @DisplayName("one write is one moment - every row of it carries the same instant")
     void oneWriteIsOneInstant() {
-        roster.replace(List.of(new OnlineRoster.Presence(ADA, "Ada", "smp"),
-                new OnlineRoster.Presence(BEN, "Ben", null)));
+        roster.replace(
+                List.of(new OnlineRoster.Presence(ADA, "Ada", "smp"), new OnlineRoster.Presence(BEN, "Ben", null)));
 
-        final List<Instant> stamps = roster.current().stream().map(OnlinePlayer::updated).toList();
-        assertEquals(1, stamps.stream().distinct().count(),
+        final List<Instant> stamps =
+                roster.current().stream().map(OnlinePlayer::updated).toList();
+        assertEquals(
+                1,
+                stamps.stream().distinct().count(),
                 "two rows of one write must not be able to disagree about when it happened");
     }
 
@@ -174,25 +181,25 @@ class OnlineRosterIntegrationTest {
     @Test
     @DisplayName("the same player twice in one write is refused before anything is written")
     void aDuplicateIsRefused() {
-        assertThrows(IllegalArgumentException.class, () -> roster.replace(List.of(
-                new OnlineRoster.Presence(ADA, "Ada", "smp"),
-                new OnlineRoster.Presence(ADA, "Ada", "limbo"))));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> roster.replace(List.of(
+                        new OnlineRoster.Presence(ADA, "Ada", "smp"), new OnlineRoster.Presence(ADA, "Ada", "limbo"))));
 
         assertTrue(roster.current().isEmpty(), "the refused write must not have left half a roster");
     }
 
     @Test
     void aBlankNameIsRefusedByThePresenceItself() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new OnlineRoster.Presence(ADA, " ", "smp"));
+        assertThrows(IllegalArgumentException.class, () -> new OnlineRoster.Presence(ADA, " ", "smp"));
     }
 
     // ---------------------------------------------------------------- plumbing
 
     private long count(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
             assertTrue(rs.next());
             return rs.getLong(1);
         } catch (final SQLException e) {
@@ -202,7 +209,7 @@ class OnlineRosterIntegrationTest {
 
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (final SQLException e) {
             throw new IllegalStateException(e);

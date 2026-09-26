@@ -1,17 +1,15 @@
 package eu.nordtal.s2.steward.worker.source;
 
-import eu.nordtal.s2.steward.worker.http.FakeHttp;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.steward.worker.http.FakeHttp;
+import java.io.IOException;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /** The Fill API, against the builds it published for 26.2 and 4.1.1 on 2026-09-01. */
 class PaperFillTest {
@@ -19,8 +17,8 @@ class PaperFillTest {
     @Test
     @DisplayName("Paper: the newest STABLE build, with the API's own filename and its sha256")
     void newestStablePaper() throws IOException {
-        final PaperFill fill = new PaperFill(
-                new FakeHttp().serving("/projects/paper/versions/26.2/builds", "fill-paper-26.2.json"));
+        final PaperFill fill =
+                new PaperFill(new FakeHttp().serving("/projects/paper/versions/26.2/builds", "fill-paper-26.2.json"));
 
         final RemoteFile file = fill.newestStable("paper", "26.2");
 
@@ -31,7 +29,9 @@ class PaperFillTest {
         assertEquals("121", file.version());
         assertNotNull(file.checksum());
         assertEquals("sha256", file.checksum().algorithm());
-        assertTrue(file.url().toString().startsWith("https://fill-data.papermc.io/"), file.url().toString());
+        assertTrue(
+                file.url().toString().startsWith("https://fill-data.papermc.io/"),
+                file.url().toString());
     }
 
     @Test
@@ -40,7 +40,8 @@ class PaperFillTest {
         final PaperFill fill = new PaperFill(
                 new FakeHttp().serving("/projects/velocity/versions/4.1.1/builds", "fill-velocity-4.1.1.json"));
 
-        assertEquals("velocity-4.1.1-24.jar", fill.newestStable("velocity", "4.1.1").fileName());
+        assertEquals(
+                "velocity-4.1.1-24.jar", fill.newestStable("velocity", "4.1.1").fileName());
     }
 
     @Test
@@ -79,8 +80,8 @@ class PaperFillTest {
         // since 2026-09-09 and Fill has published 4.2.0 into the family since. `4.0.0` is Fill's
         // name for the whole 4.x line, so the family name is emphatically not a version anybody
         // runs - 4.0.0 is also a member of it, and the oldest one.
-        final PaperFill fill = new PaperFill(
-                new FakeHttp().serving("/projects/velocity", "fill-velocity-project.json"));
+        final PaperFill fill =
+                new PaperFill(new FakeHttp().serving("/projects/velocity", "fill-velocity-project.json"));
 
         assertEquals("4.2.0", fill.newestStableVersion("velocity", "4.0.0"));
     }
@@ -133,9 +134,9 @@ class PaperFillTest {
         final IOException failure =
                 assertThrows(IOException.class, () -> fill.newestStableVersion("velocity", "4.0.0"));
         assertTrue(failure.getMessage().contains("4.0.0"), failure.getMessage());
-        assertTrue(failure.getMessage().contains("4.2.0-SNAPSHOT"),
-                "the message has to show what it did find, or it names no way forward: "
-                        + failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("4.2.0-SNAPSHOT"),
+                "the message has to show what it did find, or it names no way forward: " + failure.getMessage());
         assertFalse(failure.getMessage().contains("3.5.1"), failure.getMessage());
     }
 
@@ -149,7 +150,8 @@ class PaperFillTest {
         final IOException failure =
                 assertThrows(IOException.class, () -> fill.newestStableVersion("velocity", "4.0.0"));
         assertTrue(failure.getMessage().contains("4.0.0"), failure.getMessage());
-        assertTrue(failure.getMessage().contains("3.0.0"),
+        assertTrue(
+                failure.getMessage().contains("3.0.0"),
                 "a family name is easy to get wrong precisely because it is not a version, so the"
                         + " message has to list the ones Fill knows: " + failure.getMessage());
     }

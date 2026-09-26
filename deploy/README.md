@@ -72,7 +72,7 @@ every installation, including one whose `COMPOSE_PROFILES` leaves `steward` out,
    the registry on 2026-09-13, anonymously: `discord-bot`, `minecraft`, `updater` and
    `postgres-backup` answer `200`; `steward-worker`, `steward-ui` and `steward-deployer` answer
    `403`. The first two new ones are expected — they are new modules. `steward-worker` is not: it
-   is the *renamed* `updater`, and a rename of the image is a **new package** under a new name. The
+   is the _renamed_ `updater`, and a rename of the image is a **new package** under a new name. The
    public one is the old name nothing pushes to any more, so the next release creates
    `steward-worker` from scratch, private, exactly like the other two.
 
@@ -114,16 +114,17 @@ every installation, including one whose `COMPOSE_PROFILES` leaves `steward` out,
 
    **Rotating a value in this file means editing it in place** (`sed -i`, or write to a temp file
    and `cat` the result back over the original with `>`), never replacing it (`mv` a new file over
-   it, or any editor that writes-then-renames to save). `steward-deployer` mounts the *directory*
+   it, or any editor that writes-then-renames to save). `steward-deployer` mounts the _directory_
    holding this file, not the file itself (steward/102) — a directory bind re-resolves the path on
    every access, so an edit in place is visible immediately, but a replacement changes which inode
    `STEWARD_ENV_FILE_NAME` resolves to under that directory, which is exactly what a directory bind
-   is for and is not a problem here. What *is* still a trap, on a host running an older
+   is for and is not a problem here. What _is_ still a trap, on a host running an older
    `steward-deployer` image built before steward/102 — check `docker inspect
-   nordtal-s2-steward-deployer-1` for whether its mount `Source` is this file or its parent
-   directory — is that an older image still binds the *file*, and a replacement there orphans the
+nordtal-s2-steward-deployer-1` for whether its mount `Source` is this file or its parent
+   directory — is that an older image still binds the _file_, and a replacement there orphans the
    old inode behind that mount for the life of the container, silently. Editing in place is the one
    operation that is safe either way.
+
 4. **What that run does.** It builds nothing; every image is pulled. Afterwards the script is
    `./nordtal.sh` in the installation directory, and that is how everything below is run again.
 
@@ -162,7 +163,7 @@ every installation, including one whose `COMPOSE_PROFILES` leaves `steward` out,
    web interface can edit it. **Run it twice and it asks only for what is still missing**, so an
    interrupted setup is resumed rather than restarted.
 
-   One thing it will *not* generate: on a host where `postgres-data` already exists, a missing
+   One thing it will _not_ generate: on a host where `postgres-data` already exists, a missing
    `POSTGRES_PASSWORD` is **asked for**. Postgres reads that variable only when it initialises an
    empty data directory, so inventing a new one there produces a stack that cannot log in to its
    own database, with no error that says why.
@@ -180,7 +181,7 @@ every installation, including one whose `COMPOSE_PROFILES` leaves `steward` out,
    NAT; it does not skip the comparison.
 
    **Run it again after every release.** `compose.yml` reaches this host only inside a new
-   `steward-deployer` image, so shipping a changed deployment *is* this script. Everything else —
+   `steward-deployer` image, so shipping a changed deployment _is_ this script. Everything else —
    a new bot, a new worker, a new server jar — the deployer and the worker do from inside.
 
    **Every `docker compose` typed by hand needs `--env-file`**, and so does every one further
@@ -202,6 +203,7 @@ every installation, including one whose `COMPOSE_PROFILES` leaves `steward` out,
    `steward-worker bootstrap` has run, and say so by name. A first deployment downloads four server
    jars and every plugin before it goes healthy, which is why the worker's healthcheck allows
    fifteen minutes.
+
 5. **Upload the hand-built worlds** — see [Getting a world into a
    volume](#getting-a-world-into-a-volume).
 6. **Run the login-path rehearsal.** Nothing above proves a client can join, and it is the one step
@@ -218,16 +220,16 @@ other than `gradle.properties` and every one of those went stale.
 The container writes seven things, **only when they are not there already**; a file that exists is
 never edited again. Everything else stays Paper's and Velocity's own default.
 
-| what | where | when |
-|---|---|---|
-| `player-info-forwarding-mode`, `bind`, `online-mode`, `[servers]`, `try`, an empty `[forced-hosts]` | proxy, `velocity.toml` | no `velocity.toml` yet and `VELOCITY_SERVERS` is set |
-| `proxies.velocity.enabled: true` | each backend, `config/paper-global.yml` | no `paper-global.yml` yet and `PAPER_VELOCITY_SECRET` is set |
-| `online-mode=false` | each backend, `server.properties` | **every start**, see below |
-| `level-name=$LEVEL_NAME` | each Paper server, `server.properties` | seeded once; a volume still on Paper's default `world` is repaired, any **other** disagreement stops the container, see below |
-| `level-seed=$LEVEL_SEED` | each Paper server, `server.properties` | only while the `level-name` world does not exist yet — which is `level.dat`, not the folder; an existing world is compared and warned about |
-| `forwarding.secret` | proxy | every start, from `VELOCITY_FORWARDING_SECRET` |
-| `accepts-transfers = true` under `[advanced]` | proxy, `velocity.toml` | **every start**, on a file this script did not write, see below |
-| `max-players=$MAX_PLAYERS` | each Paper server, `server.properties` | **every start** — the network's own limit, out of the same `NETWORK_MAX_PLAYERS` the proxy gets, see below |
+| what                                                                                                | where                                   | when                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `player-info-forwarding-mode`, `bind`, `online-mode`, `[servers]`, `try`, an empty `[forced-hosts]` | proxy, `velocity.toml`                  | no `velocity.toml` yet and `VELOCITY_SERVERS` is set                                                                                        |
+| `proxies.velocity.enabled: true`                                                                    | each backend, `config/paper-global.yml` | no `paper-global.yml` yet and `PAPER_VELOCITY_SECRET` is set                                                                                |
+| `online-mode=false`                                                                                 | each backend, `server.properties`       | **every start**, see below                                                                                                                  |
+| `level-name=$LEVEL_NAME`                                                                            | each Paper server, `server.properties`  | seeded once; a volume still on Paper's default `world` is repaired, any **other** disagreement stops the container, see below               |
+| `level-seed=$LEVEL_SEED`                                                                            | each Paper server, `server.properties`  | only while the `level-name` world does not exist yet — which is `level.dat`, not the folder; an existing world is compared and warned about |
+| `forwarding.secret`                                                                                 | proxy                                   | every start, from `VELOCITY_FORWARDING_SECRET`                                                                                              |
+| `accepts-transfers = true` under `[advanced]`                                                       | proxy, `velocity.toml`                  | **every start**, on a file this script did not write, see below                                                                             |
+| `max-players=$MAX_PLAYERS`                                                                          | each Paper server, `server.properties`  | **every start** — the network's own limit, out of the same `NETWORK_MAX_PLAYERS` the proxy gets, see below                                  |
 
 The MOTD and the player limit are deliberately not in that table: both are `proxy` config
 (`plugins/proxy/network.yml`), reachable from `.env` through jcore environment overrides
@@ -246,8 +248,8 @@ volume-wipe command. Any other name was typed into `.env` by a person, and the c
 every forwarded login, so `online-mode=true` there is a server that cannot work.
 
 **`[forced-hosts]` is written empty on purpose.** Leave the table out of `velocity.toml` and
-Velocity falls back to its *default* one, which routes three hostnames at servers the file does not
-define — and then refuses to start with *"Your configuration is invalid"*.
+Velocity falls back to its _default_ one, which routes three hostnames at servers the file does not
+define — and then refuses to start with _"Your configuration is invalid"_.
 
 **`accepts-transfers` is enforced on every start, on a file the entrypoint did not write** — the
 only key in `velocity.toml` treated that way, and season-2-ops/160 is why. It is what a live proxy
@@ -271,11 +273,11 @@ in `config/paper-global.yml`.
 ## Who limits the players
 
 **One number decides.** `NETWORK_MAX_PLAYERS` in `.env` is what the server browser advertises, what
-the proxy enforces at the login gate, *and* what every Paper backend's
+the proxy enforces at the login gate, _and_ what every Paper backend's
 `server.properties#max-players` is set to. All four services read the same variable.
 
 The proxy is the only thing that refuses, at the login gate, before the resource pack and before the
-wait in `limbo`. The backends' `max-players` only guarantees they are never a *smaller* limit than
+wait in `limbo`. The backends' `max-players` only guarantees they are never a _smaller_ limit than
 the advertised one — Paper's own default is 20.
 
 **Admins are exempt from the proxy's limit**, so a full network holds `NETWORK_MAX_PLAYERS` plus
@@ -301,7 +303,7 @@ in `.env` keeps that default.
 
 Read at **proxy start**. The MOTD follows the phase on its own, live, but an edit to `network.yml`
 or to any `NETWORK_MOTD_*` needs `docker compose restart proxy`; there is no reload
-command. That restart is *not* enough for `NETWORK_MAX_PLAYERS` — see
+command. That restart is _not_ enough for `NETWORK_MAX_PLAYERS` — see
 [Who limits the players](#who-limits-the-players).
 
 When `proxy` cannot start at all, the fail-closed handler answers the ping saying so.
@@ -335,12 +337,12 @@ replaced by "none".
 **Which keys get a picker** is decided on the key name, not on the value: anything called `role`,
 `*-role` or under `roles:`, and anything called `channel`, `*-channel` or under `channels:`. It has
 to be the key, because the whole point is to help with an id that is still empty. `guild-id` gets
-none — the list is read *from* the guild, so picking it out of itself is circular.
+none — the list is read _from_ the guild, so picking it out of itself is circular.
 
 ## The forwarding secret
 
 Modern forwarding needs the **same secret in all four containers**, and a mismatch does not say so:
-it shows up as every login failing with *"Unable to connect you to the backend server"*.
+it shows up as every login failing with _"Unable to connect you to the backend server"_.
 
 **`nordtal.sh` generates it** as `VELOCITY_FORWARDING_SECRET` and you never see it — it is exactly
 the kind of secret a machine can invent, so nobody types it. `compose.yml` hands the same value to
@@ -354,7 +356,7 @@ openssl rand -hex 24
 ```
 
 **It lands on disk**: Paper writes the value into `config/paper-global.yml` on first load, so a
-rotation is the environment file *plus* that one line in each of the three backend volumes.
+rotation is the environment file _plus_ that one line in each of the three backend volumes.
 
 ## Getting a world into a volume
 
@@ -445,7 +447,7 @@ nothing is fetched, nothing is written, and every service that was stopped is st
 
 The worker asks GitHub, Modrinth and the PaperMC Fill API what the newest version of everything is,
 compares that against the jars in the volumes, and moves the ones that differ. **What a server runs
-is the jar in its volume**; no version is written into a file. What it *follows* is not configurable
+is the jar in its volume**; no version is written into a file. What it _follows_ is not configurable
 at all — GitHub's `/releases/latest`, which skips drafts and pre-releases, so an update that never
 arrived is usually a release nobody published.
 
@@ -455,7 +457,7 @@ Four properties worth knowing before reading a report:
   will end up in and verified there; only when all of it is present does anything move.
 - **A server moves together or not at all**, so an unresolvable plugin skips that whole server. The
   server jar is the exception: a build the Fill API could not answer for is its own "skipped" row
-  and the plugins move anyway, being compiled against the *version*, never a build.
+  and the plugins move anyway, being compiled against the _version_, never a build.
 - **The report restarts nothing, and a run restarts exactly what it stopped.** A server that does
   not come back makes the whole run fail by name. `bootstrap` stops and starts nothing at all.
 - **"Skipped" is not "up to date".** A run where nothing could be checked — an unmounted volume, a
@@ -490,7 +492,7 @@ the proxy announces, because it is the only process that sees everybody. Inside 
 the **Stop the countdown** button or `/update cancel` still stops it.
 
 **Players on a server that is about to stop are moved into `limbo`, eight seconds before it goes.**
-The waiting room shows *"Update in progress / You will be moved back automatically"* rather than the
+The waiting room shows _"Update in progress / You will be moved back automatically"_ rather than the
 "waiting for the server" screen it shows when a backend is merely down — the proxy reads that from
 the update row, because from outside the two are the same fact. Bringing them back needs nothing of
 its own: the pack station's five-second sweep already releases a held player the moment their
@@ -532,7 +534,7 @@ the host, which is now the only thing in this deployment that does.
 **It is the Docker socket, and that is a stated cost rather than a hidden one.** `compose.yml` mounts
 `/var/run/docker.sock` into `steward-worker`, which is how it reads every container's state, health,
 log and image digest and how it stops and starts them. A container that can talk to that socket can
-do anything the daemon can — `:ro` restricts the socket *file*, not the API behind it — and this is
+do anything the daemon can — `:ro` restricts the socket _file_, not the API behind it — and this is
 also the container whose job is downloading files from the internet and putting them where servers
 execute them. The restraint is in the code: `DockerOps` reads, stops and starts, and **refuses to
 create a container**. Creating one needs the compose file, which `steward-deployer` owns. The
@@ -580,15 +582,19 @@ the new jar sits at `/app/app.jar`, unused, and the volume's older copy keeps ru
 what made it look deployed.
 
 > **Ask the process, not the filesystem:**
+>
 > ```bash
 > docker exec nordtal-s2-discord-bot-1 cat /proc/1/cmdline | tr '\0' ' '
 > ```
-> That prints the jar actually running. Replace *that* path, then restart:
+>
+> That prints the jar actually running. Replace _that_ path, then restart:
+>
 > ```bash
 > docker run --rm -v nordtal-s2_bot-jar:/vol -v "$PWD/discord-bot/build/libs:/src:ro" alpine \
 >   sh -c 'cp /src/discord-bot-0.9.1.jar /vol/discord-bot-0.9.1.jar'
 > docker restart nordtal-s2-discord-bot-1
 > ```
+>
 > Compare the md5 on both sides before restarting; "Built" and "Recreated" are not evidence that
 > anything moved. This is the same trap in a second shape as the one under [The
 > images](#the-images): a Dockerfile that only copies a jar reports success whether or not
@@ -700,7 +706,7 @@ the private Node and the npm packages, and then runs Vite in the foreground. The
 counter-command is `deploy/dev stop`.
 
 - **The whole stack, not only what the interface talks to directly.** What it draws is the servers,
-  their plugins and their players; a page whose every card says *not running* is not a page worth
+  their plugins and their players; a page whose every card says _not running_ is not a page worth
   working on. The first `deploy/dev up` still has to have happened — `ui` starts containers, it
   does not build jars.
 - **The three steward services are named, never added to `COMPOSE_PROFILES`.** Naming a service
@@ -711,7 +717,7 @@ counter-command is `deploy/dev stop`.
   `devpack` on and the interface up they are on at the same time now. `deploy/dev ui` refuses to
   start when the two are equal rather than letting Docker explain it three services later.
 - **There is no Node on this host and there is not going to be one.** `:steward-ui:npmInstall`
-  downloads its own under `steward-ui/build/nodejs/`, and `deploy/dev ui` *searches* for it rather
+  downloads its own under `steward-ui/build/nodejs/`, and `deploy/dev ui` _searches_ for it rather
   than spelling the path out — the directory name carries the platform, so a written path works on
   one machine only. (`npx vitest` with no Node on `PATH` exits 0 having tested nothing, which is
   how this matters.)
@@ -776,8 +782,8 @@ for the normal case. Do not lower it, and never use `docker kill`.
 
 **`down` only acts on the profiles the current selection names, and that bites.** With
 `COMPOSE_PROFILES` set to anything that leaves `backup` out, `docker compose down` stops everything
-else and leaves the backup sidecar running — the network then cannot be removed (*"Resource is still
-in use"*), and a backup job is left pointed at a database that no longer exists. Production is
+else and leaves the backup sidecar running — the network then cannot be removed (_"Resource is still
+in use"_), and a backup job is left pointed at a database that no longer exists. Production is
 `db,bot,mc,backup`, which is what `.env.example` ships. Whatever selection is used, **`up` and
 `down` have to use the same one.**
 
@@ -887,17 +893,17 @@ Nordtal. So it stops whatever mounts the volume, prints what it is about to do, 
 the volume's name back** — not "yes", the name, the same guard `deploy/dev reset` has and for the
 same reason. Afterwards it starts again exactly what it stopped.
 
-**A database dump replaces nothing.** It is restored into a *new* database called
+**A database dump replaces nothing.** It is restored into a _new_ database called
 `restore_<stamp>` beside the live one, with `--no-owner --no-privileges`, so you can look inside it
 before anything points at it. Promoting it is a separate, deliberate act and the script does not do
-it — nor does it need the stack to be broken, it needs postgres to be *running*, because a dump is
+it — nor does it need the stack to be broken, it needs postgres to be _running_, because a dump is
 restored by the server.
 
 It reads everything out of the `steward-backups` volume and unpacks with a container of the
 `steward-worker` image — the same `tar` and the same `zstd` that wrote the archive. A `.partial`
 file is refused by name: steward-worker renames an archive only after reading it back, so one still
 carrying that suffix is a backup that was interrupted, and it is the only file in that directory
-that *looks* restorable.
+that _looks_ restorable.
 
 **A `.unverified` file beside an archive is a sentence to read before restoring from it.**
 Docker's stop call succeeds whether a container shut down or was killed at the end of the grace
@@ -906,7 +912,7 @@ over a stop whose ending nobody could read is still taken (refusing would take t
 over an unreadable `inspect`), and it is not reported as an ordinary one: the run's report says
 `UNVERIFIED STOP`, and a `<archive>.unverified` file lands next to the archive saying which service
 it was. `--list` prints those files' contents, naming one directly is refused with a pointer at the
-archive it belongs to, and a restore warns with the text *before* asking for the typed
+archive it belongs to, and a restore warns with the text _before_ asking for the typed
 confirmation. The retention sweep deletes the mark with the archive it belongs to. The archive
 itself is byte for byte an ordinary archive — what is unverified is the moment it was taken, not
 its readability, which is checked when it is written and again before a restore touches anything.
@@ -997,20 +1003,20 @@ It is optional at every level: a player without the client mod notices nothing, 
 
 ## Troubleshooting
 
-| symptom | cause |
-|---|---|
-| Container will not start, log names a config key | jcore refused the config. The message names the file and the setting; it is not a container fault. |
-| `FATAL: set EULA=true` | Deliberate. The image does not accept Minecraft's EULA on your behalf. |
-| `FATAL: could not fetch <jar> … Refusing to start` | The release tag or the asset name in `.env` is wrong, or GitHub is down and this jar was never cached. It will not fall back to an older jar. |
-| Every login fails with *"Unable to connect you to the backend server"* | The forwarding secret does not match — one container did not get `VELOCITY_FORWARDING_SECRET`, or the volume predates the automation and still carries an old one. |
-| Velocity exits at once with *"Your configuration is invalid"* | `velocity.toml` names a server in `[forced-hosts]` or `try` that its `[servers]` does not define. |
-| A backend logs *"SERVER IS RUNNING IN OFFLINE/INSECURE MODE"* | Expected, and required. The proxy authenticates; a backend that also does refuses every forwarded login. |
-| Proxy starts but refuses every login with a "network misconfigured" screen | `proxy` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`/`network.yml`. Intended; the server browser says the same thing. Read the log. |
-| Log names `backend-limit` as a setting that no longer exists | `network.yml` in the volume predates the retirement of that key. Nothing to do: the line is deleted for you and the old file is in `network.yml.bak`. A deployment older than 2026-09-05 refuses to start instead — delete the line by hand there, see [Who limits the players](#who-limits-the-players). |
-| A backend answers *"Server full"* | Only an admin should ever see this, and only if the exemption is not firing. Everybody else is refused by the proxy at the login gate. Check the backend's `max-players` really is `NETWORK_MAX_PLAYERS` (the container was restarted after the last change) and see [Who limits the players](#who-limits-the-players). |
-| The browser shows the old MOTD after editing `.env` | `network.yml` is read at proxy start. Restart the `proxy` service; there is no reload command. |
-| Everybody is refused with a countdown, and nobody asked for that | The phase is `PRE_LAUNCH`, which is the seeded initial state. `/phase set PRE_EVENT` opens the network. |
-| `docker rm -f` fails with *"did not receive an exit event"* | You are running a container that mirrors its console with `tmux pipe-pane > /proc/1/fd/1`. Do not do that — see [below](#never-mirror-the-console-with-tmux-pipe-pane). Only a Docker daemon restart clears it. |
+| symptom                                                                    | cause                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Container will not start, log names a config key                           | jcore refused the config. The message names the file and the setting; it is not a container fault.                                                                                                                                                                                                                      |
+| `FATAL: set EULA=true`                                                     | Deliberate. The image does not accept Minecraft's EULA on your behalf.                                                                                                                                                                                                                                                  |
+| `FATAL: could not fetch <jar> … Refusing to start`                         | The release tag or the asset name in `.env` is wrong, or GitHub is down and this jar was never cached. It will not fall back to an older jar.                                                                                                                                                                           |
+| Every login fails with _"Unable to connect you to the backend server"_     | The forwarding secret does not match — one container did not get `VELOCITY_FORWARDING_SECRET`, or the volume predates the automation and still carries an old one.                                                                                                                                                      |
+| Velocity exits at once with _"Your configuration is invalid"_              | `velocity.toml` names a server in `[forced-hosts]` or `try` that its `[servers]` does not define.                                                                                                                                                                                                                       |
+| A backend logs _"SERVER IS RUNNING IN OFFLINE/INSECURE MODE"_              | Expected, and required. The proxy authenticates; a backend that also does refuses every forwarded login.                                                                                                                                                                                                                |
+| Proxy starts but refuses every login with a "network misconfigured" screen | `proxy` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`/`network.yml`. Intended; the server browser says the same thing. Read the log.                                                                                                                                                                     |
+| Log names `backend-limit` as a setting that no longer exists               | `network.yml` in the volume predates the retirement of that key. Nothing to do: the line is deleted for you and the old file is in `network.yml.bak`. A deployment older than 2026-09-05 refuses to start instead — delete the line by hand there, see [Who limits the players](#who-limits-the-players).               |
+| A backend answers _"Server full"_                                          | Only an admin should ever see this, and only if the exemption is not firing. Everybody else is refused by the proxy at the login gate. Check the backend's `max-players` really is `NETWORK_MAX_PLAYERS` (the container was restarted after the last change) and see [Who limits the players](#who-limits-the-players). |
+| The browser shows the old MOTD after editing `.env`                        | `network.yml` is read at proxy start. Restart the `proxy` service; there is no reload command.                                                                                                                                                                                                                          |
+| Everybody is refused with a countdown, and nobody asked for that           | The phase is `PRE_LAUNCH`, which is the seeded initial state. `/phase set PRE_EVENT` opens the network.                                                                                                                                                                                                                 |
+| `docker rm -f` fails with _"did not receive an exit event"_                | You are running a container that mirrors its console with `tmux pipe-pane > /proc/1/fd/1`. Do not do that — see [below](#never-mirror-the-console-with-tmux-pipe-pane). Only a Docker daemon restart clears it.                                                                                                         |
 
 ## Third-party plugins
 
@@ -1037,7 +1043,7 @@ that service's guard asks for.
 
 **Two datapacks belong in the same conversation: Terralith and Dungeons and Taverns.** They are the
 terrain of every world in this season, pinned by sha512 in `.env` (`SMP_DATAPACK_URLS`), and the
-entrypoint fetches them into the `level-name` world's `datapacks/` folder *before* the server
+entrypoint fetches them into the `level-name` world's `datapacks/` folder _before_ the server
 starts. Datapacks are server-global — read only from `<level-name>/datapacks/`, with no per-world
 API — and read **once, at start**: a pack dropped in afterwards changes no terrain, and terrain is
 never re-rolled once it is on disk. `smp` verifies both are enabled and refuses to start otherwise,
@@ -1051,12 +1057,12 @@ folder, or size a volume for the two that exist during a swap.
 
 `tmux pipe-pane … > /proc/1/fd/1` is the obvious way to get the tmux console into `docker logs`, and
 **it wedges the container**: SIGTERM never reaches PID 1, the shutdown trap never runs, the container
-survives the SIGKILL at the end of the grace period, and `docker rm -f` then fails with *"did not
-receive an exit event"* — only a Docker daemon restart clears it. The writer holds a second handle on
+survives the SIGKILL at the end of the grace period, and `docker rm -f` then fails with _"did not
+receive an exit event"_ — only a Docker daemon restart clears it. The writer holds a second handle on
 the container's stdout pipe from a process whose lifetime the shim does not track.
 
 **The rule is about `/proc/1/fd/1`, not about `pipe-pane`.** The entrypoint does use `pipe-pane`,
-into a *file* — an ordinary file in the volume is a different descriptor and holds nothing open. It
+into a _file_ — an ordinary file in the volume is a different descriptor and holds nothing open. It
 captures the pane to `logs/console.log`, empties it at every start and switches it off again the
 moment `latest.log` exists, so it is a boot log with nothing to rotate; if the JVM dies before Paper
 starts logging, the entrypoint prints that file to stdout on the way out. Ordinary log reading is
@@ -1066,5 +1072,5 @@ Two ordering rules go with it, both one line, both asserted by `:common`'s `Entr
 `remain-on-exit` has to be set **globally, before** `new-session` — which needs `exit-empty off`,
 since a tmux server with no sessions exits immediately — or a JVM that dies at once takes the session
 with it before the option applies and a real exit status of 3 is reported as 1. And `pipe-pane` has
-to be attached in the *same* `tmux` invocation as `new-session`; a separate call against a pane that
-already exited fails with *"target pane has exited"*, taking the crash output with it.
+to be attached in the _same_ `tmux` invocation as `new-session`; a separate call against a pane that
+already exited fails with _"target pane has exited"_, taking the crash output with it.

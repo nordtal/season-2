@@ -1,13 +1,16 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
-import eu.nordtal.s2.discordbot.discord.ManagedMessageDao;
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.common.message.Messages;
-
-import lombok.extern.slf4j.Slf4j;
+import eu.nordtal.s2.discordbot.config.Configured;
+import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.discord.Card;
+import eu.nordtal.s2.discordbot.discord.ManagedMessageDao;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -15,12 +18,6 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.jdbi.v3.core.Jdbi;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-
-import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 /**
  * The bot-maintained Register message: one per configured language, in
@@ -64,21 +61,27 @@ public final class RegisterMessages {
         }
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
-            log.error("Channel {} for the {} message does not exist, or the bot cannot see it. "
-                    + "That message is not being maintained.", channelId, kind);
+            log.error(
+                    "Channel {} for the {} message does not exist, or the bot cannot see it. "
+                            + "That message is not being maintained.",
+                    channelId,
+                    kind);
             return;
         }
 
         final MessageEmbed embed = registerEmbed(locale);
-        final List<ActionRow> components = List.of(ActionRow.of(
-                Button.primary(Ids.REGISTER, messages.format(locale, MESSAGES.register().button()))));
+        final List<ActionRow> components = List.of(ActionRow.of(Button.primary(
+                Ids.REGISTER, messages.format(locale, MESSAGES.register().button()))));
 
         try {
             final Optional<String> existing = dao.messageIdOf(kind, channelId);
             if (existing.isPresent() && edit(channel, existing.get(), embed, components)) {
                 return;
             }
-            final String posted = channel.sendMessageEmbeds(embed).addComponents(components).complete().getId();
+            final String posted = channel.sendMessageEmbeds(embed)
+                    .addComponents(components)
+                    .complete()
+                    .getId();
             dao.remember(kind, channelId, posted);
             log.info("Posted the {} message as {} in {}", kind, posted, channelId);
         } catch (final RuntimeException exception) {
@@ -86,28 +89,40 @@ public final class RegisterMessages {
         }
     }
 
-    private boolean edit(final MessageChannel channel, final String messageId, final MessageEmbed embed,
-                         final List<ActionRow> components) {
+    private boolean edit(
+            final MessageChannel channel,
+            final String messageId,
+            final MessageEmbed embed,
+            final List<ActionRow> components) {
         try {
-            channel.editMessageById(messageId, new MessageEditBuilder()
-                    .setEmbeds(embed)
-                    .setComponents(components)
-                    .build()).complete();
+            channel.editMessageById(
+                            messageId,
+                            new MessageEditBuilder()
+                                    .setEmbeds(embed)
+                                    .setComponents(components)
+                                    .build())
+                    .complete();
             return true;
         } catch (final RuntimeException exception) {
-            log.info("The remembered message {} in {} could not be edited ({}); posting a new one",
-                    messageId, channel.getId(), exception.toString());
+            log.info(
+                    "The remembered message {} in {} could not be edited ({}); posting a new one",
+                    messageId,
+                    channel.getId(),
+                    exception.toString());
             return false;
         }
     }
 
     private MessageEmbed registerEmbed(final Locale locale) {
         return Card.of(messages.format(locale, MESSAGES.register().title()), Card.Accent.NORDTAL)
-                .field(messages.format(locale, MESSAGES.register().teamHeading()),
+                .field(
+                        messages.format(locale, MESSAGES.register().teamHeading()),
                         messages.format(locale, MESSAGES.register().team()))
-                .field(messages.format(locale, MESSAGES.register().nameHeading()),
+                .field(
+                        messages.format(locale, MESSAGES.register().nameHeading()),
                         messages.format(locale, MESSAGES.register().name()))
-                .field(messages.format(locale, MESSAGES.register().partnerHeading()),
+                .field(
+                        messages.format(locale, MESSAGES.register().partnerHeading()),
                         messages.format(locale, MESSAGES.register().partner()))
                 .build();
     }

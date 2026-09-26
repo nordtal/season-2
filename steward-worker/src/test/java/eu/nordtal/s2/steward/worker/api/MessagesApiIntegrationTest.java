@@ -1,22 +1,20 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.access.AccessRequest;
 import eu.nordtal.s2.common.access.AccessRequestKind;
 import eu.nordtal.s2.common.access.AccessRequestSource;
 import eu.nordtal.s2.common.access.AccessRequestStatus;
 import eu.nordtal.s2.common.access.AccessRequests;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinGson;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -32,10 +30,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * {@link MessagesApi} served over real HTTP - the contract steward-ui reads, not the methods behind
@@ -63,6 +62,7 @@ class MessagesApiIntegrationTest {
     private final Inbox inbox = new Inbox();
     /** Every console line sent, as {@code service: command}; {@link #consoleDown} makes it throw. */
     private final List<String> console = new ArrayList<>();
+
     private boolean consoleDown;
 
     @BeforeEach
@@ -74,11 +74,12 @@ class MessagesApiIntegrationTest {
             console.add(service + ": " + command);
         });
         app = Javalin.create(config -> {
-            config.jsonMapper(new JavalinGson(new Gson(), true));
-            config.routes.get("/api/messages", messages::list);
-            config.routes.get("/api/messages/<bundle>", messages::one);
-            config.routes.put("/api/messages/<bundle>", messages::save);
-        }).start(0);
+                    config.jsonMapper(new JavalinGson(new Gson(), true));
+                    config.routes.get("/api/messages", messages::list);
+                    config.routes.get("/api/messages/<bundle>", messages::one);
+                    config.routes.put("/api/messages/<bundle>", messages::save);
+                })
+                .start(0);
         port = app.port();
         http = HttpClient.newHttpClient();
     }
@@ -100,9 +101,11 @@ class MessagesApiIntegrationTest {
     @Test
     @DisplayName("a real bundle is listed, and its content shows packaged text and override side by side")
     void aRealBundleIsListedAndRead() throws Exception {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), java.util.Map.of(
-                "messages/smp/en.properties", "welcome=Welcome\n",
-                "messages/smp/de.properties", "welcome=Willkommen\n"));
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/smp/en.properties", "welcome=Welcome\n",
+                        "messages/smp/de.properties", "welcome=Willkommen\n"));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
         Files.writeString(overrides.resolve("de.properties"), "welcome=Servus\n", StandardCharsets.UTF_8);
 
@@ -122,53 +125,66 @@ class MessagesApiIntegrationTest {
     @Test
     @DisplayName("saving a line creates the override and warns, but still saves, when a placeholder is dropped")
     void savingWarnsOnADroppedPlaceholder() throws Exception {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), java.util.Map.of(
-                "messages/smp/en.properties", "greeting=Hello <_sender>\n"));
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of("messages/smp/en.properties", "greeting=Hello <_sender>\n"));
         Files.createDirectories(configs.resolve("smp/smp/messages"));
 
-        final JsonObject saved = GSON.fromJson(put("/api/messages/smp/smp",
-                "{\"changes\":{\"greeting\":{\"en\":\"Hello there\"}}}"), JsonObject.class);
+        final JsonObject saved = GSON.fromJson(
+                put("/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":\"Hello there\"}}}"),
+                JsonObject.class);
 
-        assertTrue(saved.getAsJsonArray("warnings").get(0).getAsString().contains("<_sender>"),
-                saved.toString());
-        assertEquals("Hello there", entry(saved, "greeting").get("overrideEnglish").getAsString(),
+        assertTrue(saved.getAsJsonArray("warnings").get(0).getAsString().contains("<_sender>"), saved.toString());
+        assertEquals(
+                "Hello there",
+                entry(saved, "greeting").get("overrideEnglish").getAsString(),
                 "a warning must not stop the save - steward/60's rule applies here too");
     }
 
     @Test
     @DisplayName("a placeholder the schema does not declare is refused with the key, and nothing is saved")
     void anUnknownPlaceholderIsRefused() throws Exception {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), java.util.Map.of(
-                "messages/smp/en.properties", "greeting=Hello {player}\n",
-                "messages/smp/schema.json", """
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/smp/en.properties", "greeting=Hello {player}\n",
+                        "messages/smp/schema.json", """
                         {"bundle": "smp", "messages": [{"key": "greeting", "name": "Greeting",
                           "args": [{"name": "player", "component": false}], "section": ["Join"]}]}
                         """));
         Files.createDirectories(configs.resolve("smp/smp/messages"));
 
-        final HttpResponse<String> refused = send("PUT", "/api/messages/smp/smp",
-                "{\"changes\":{\"greeting\":{\"en\":\"Hello {name}\"}}}");
+        final HttpResponse<String> refused =
+                send("PUT", "/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":\"Hello {name}\"}}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("greeting") && refused.body().contains("{name}"), refused.body());
-        assertFalse(Files.exists(configs.resolve("smp/smp/messages/en.properties")),
+        assertFalse(
+                Files.exists(configs.resolve("smp/smp/messages/en.properties")),
                 "a refused save must not write anything");
         final JsonObject greeting = entry(GSON.fromJson(get("/api/messages/smp/smp"), JsonObject.class), "greeting");
         assertEquals("Greeting", greeting.get("name").getAsString());
-        assertEquals("player", greeting.getAsJsonArray("args").get(0).getAsJsonObject().get("name").getAsString());
+        assertEquals(
+                "player",
+                greeting.getAsJsonArray("args")
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("name")
+                        .getAsString());
         assertEquals("Join", greeting.getAsJsonArray("section").get(0).getAsString());
     }
 
     @Test
     @DisplayName("resetting a key removes it from the override rather than copying English into it")
     void resettingRemovesTheOverride() throws Exception {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), java.util.Map.of(
-                "messages/smp/en.properties", "welcome=Welcome\n"));
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
         Files.createDirectories(configs.resolve("smp/smp/messages"));
         put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}");
 
-        final JsonObject afterReset = GSON.fromJson(put("/api/messages/smp/smp",
-                "{\"changes\":{\"welcome\":{\"en\":null}}}"), JsonObject.class);
+        final JsonObject afterReset = GSON.fromJson(
+                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":null}}}"), JsonObject.class);
 
         assertFalse(entry(afterReset, "welcome").has("overrideEnglish"), afterReset.toString());
         assertTrue(afterReset.getAsJsonArray("warnings").isEmpty());
@@ -200,22 +216,23 @@ class MessagesApiIntegrationTest {
         assertEquals(AccessRequestKind.RELOAD_MESSAGES, inbox.asked.get(0).kind());
         assertEquals(AccessRequestSource.STEWARD, inbox.asked.get(0).source());
 
-        inbox.answer = request -> settled(request, AccessRequestStatus.DONE,
-                "{\"unknown\":\"dm.grantd,dm.revokd\"}");
+        inbox.answer = request -> settled(request, AccessRequestStatus.DONE, "{\"unknown\":\"dm.grantd,dm.revokd\"}");
         final JsonObject typos = saveBot();
         assertEquals("APPLIED", typos.get("status").getAsString(), typos.toString());
         assertTrue(typos.get("message").getAsString().contains("dm.grantd"), typos.toString());
-        assertEquals(List.of("dm.grantd", "dm.revokd"),
+        assertEquals(
+                List.of("dm.grantd", "dm.revokd"),
                 typos.getAsJsonArray("unknown").asList().stream()
-                        .map(element -> element.getAsString()).toList());
+                        .map(element -> element.getAsString())
+                        .toList());
     }
 
     @Test
     @DisplayName("a bot that did not re-read is said so, not reported as applied")
     void aFailedReloadIsNotAnAppliedOne() throws Exception {
         botBundle();
-        inbox.answer = request -> settled(request, AccessRequestStatus.FAILED,
-                "{\"error\":\"de.properties is not readable\"}");
+        inbox.answer = request ->
+                settled(request, AccessRequestStatus.FAILED, "{\"error\":\"de.properties is not readable\"}");
 
         final JsonObject answer = saveBot();
         assertEquals("NO_ANSWER", answer.get("status").getAsString(), answer.toString());
@@ -233,8 +250,11 @@ class MessagesApiIntegrationTest {
         // The default: the row is written and nobody ever claims it.
         final JsonObject answer = saveBot();
         assertEquals("NO_ANSWER", answer.get("status").getAsString(), answer.toString());
-        assertEquals(1, inbox.asked.size(), "the row is still written - a bot that comes back"
-                + " inside its patience carries it out, which is the point of a row over a call");
+        assertEquals(
+                1,
+                inbox.asked.size(),
+                "the row is still written - a bot that comes back"
+                        + " inside its patience carries it out, which is the point of a row over a call");
     }
 
     @Test
@@ -242,8 +262,9 @@ class MessagesApiIntegrationTest {
     void bothLanguagesInOneCall() throws Exception {
         smpBundle();
 
-        final JsonObject saved = GSON.fromJson(put("/api/messages/smp/smp",
-                "{\"changes\":{\"welcome\":{\"en\":\"Howdy\",\"de\":\"Servus\"}}}"), JsonObject.class);
+        final JsonObject saved = GSON.fromJson(
+                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":\"Howdy\",\"de\":\"Servus\"}}}"),
+                JsonObject.class);
 
         assertEquals("Howdy", entry(saved, "welcome").get("overrideEnglish").getAsString(), saved.toString());
         assertEquals("Servus", entry(saved, "welcome").get("overrideGerman").getAsString(), saved.toString());
@@ -254,8 +275,8 @@ class MessagesApiIntegrationTest {
     void savingAMinecraftBundleReloadsIt() throws Exception {
         smpBundle();
 
-        final JsonObject saved = GSON.fromJson(put("/api/messages/smp/smp",
-                "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}"), JsonObject.class);
+        final JsonObject saved = GSON.fromJson(
+                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}"), JsonObject.class);
 
         final JsonObject reload = saved.getAsJsonObject("reload");
         assertEquals("APPLIED", reload.get("status").getAsString(), saved.toString());
@@ -269,39 +290,54 @@ class MessagesApiIntegrationTest {
         smpBundle();
         consoleDown = true;
 
-        final JsonObject saved = GSON.fromJson(put("/api/messages/smp/smp",
-                "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}"), JsonObject.class);
+        final JsonObject saved = GSON.fromJson(
+                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}"), JsonObject.class);
 
         assertEquals("NO_ANSWER", saved.getAsJsonObject("reload").get("status").getAsString(), saved.toString());
-        assertEquals("Howdy", entry(saved, "welcome").get("overrideEnglish").getAsString(),
+        assertEquals(
+                "Howdy",
+                entry(saved, "welcome").get("overrideEnglish").getAsString(),
                 "a service that did not answer must not undo the save");
     }
 
     private void smpBundle() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), java.util.Map.of(
-                "messages/smp/en.properties", "welcome=Welcome\n"));
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
         Files.createDirectories(configs.resolve("smp/smp/messages"));
     }
 
     /** Saves one line of the bot's bundle and answers what came back under {@code reload}. */
     private JsonObject saveBot() throws Exception {
-        return GSON.fromJson(put("/api/messages/discord-bot",
-                "{\"changes\":{\"dm.granted\":{\"en\":\"You are in now\"}}}"), JsonObject.class)
+        return GSON.fromJson(
+                        put("/api/messages/discord-bot", "{\"changes\":{\"dm.granted\":{\"en\":\"You are in now\"}}}"),
+                        JsonObject.class)
                 .getAsJsonObject("reload");
     }
 
     /** A bundle for the one service this route can actually reach. */
     private void botBundle() throws IOException {
-        writeJar(configs.resolve("discord-bot/discord-bot-0.9.3.jar"), java.util.Map.of(
-                "messages/access/en.properties", "dm.granted=You are in\n"));
+        writeJar(
+                configs.resolve("discord-bot/discord-bot-0.9.3.jar"),
+                java.util.Map.of("messages/access/en.properties", "dm.granted=You are in\n"));
         Files.createDirectories(configs.resolve("discord-bot/messages"));
     }
 
-    private static AccessRequest settled(final AccessRequest request,
-                                         final AccessRequestStatus status, final String result) {
-        return new AccessRequest(request.id(), request.kind(), status, request.subject(),
-                request.argument(), request.source(), request.requestedBy(), request.requested(),
-                request.expires(), Instant.now(), Instant.now(), result);
+    private static AccessRequest settled(
+            final AccessRequest request, final AccessRequestStatus status, final String result) {
+        return new AccessRequest(
+                request.id(),
+                request.kind(),
+                status,
+                request.subject(),
+                request.argument(),
+                request.source(),
+                request.requestedBy(),
+                request.requested(),
+                request.expires(),
+                Instant.now(),
+                Instant.now(),
+                result);
     }
 
     /**
@@ -326,10 +362,19 @@ class MessagesApiIntegrationTest {
 
         @Override
         public AccessRequest submit(final NewAccessRequest request, final Duration patience) {
-            final AccessRequest row = new AccessRequest(asked.size() + 1L, request.kind(),
-                    AccessRequestStatus.PENDING, request.subject(), request.argument(),
-                    request.source(), request.requestedBy(), Instant.now(),
-                    Instant.now().plus(patience), null, null, null);
+            final AccessRequest row = new AccessRequest(
+                    asked.size() + 1L,
+                    request.kind(),
+                    AccessRequestStatus.PENDING,
+                    request.subject(),
+                    request.argument(),
+                    request.source(),
+                    request.requestedBy(),
+                    Instant.now(),
+                    Instant.now().plus(patience),
+                    null,
+                    null,
+                    null);
             asked.add(row);
             final AccessRequest carriedOut = answer.apply(row);
             rows.add(carriedOut == null ? row : carriedOut);
@@ -384,25 +429,27 @@ class MessagesApiIntegrationTest {
     }
 
     private String put(final String path, final String body) throws Exception {
-        final HttpResponse<String> response = http.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + port + path))
-                .header("Content-Type", "application/json")
-                .PUT(HttpRequest.BodyPublishers.ofString(body))
-                .build(), HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> response = http.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+                        .header("Content-Type", "application/json")
+                        .PUT(HttpRequest.BodyPublishers.ofString(body))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
         assertEquals(200, response.statusCode(), path + " answered " + response.body());
         return response.body();
     }
 
     private HttpResponse<String> send(final String method, final String path, final String body) throws Exception {
-        return http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
-                .header("Content-Type", "application/json")
-                .method(method, HttpRequest.BodyPublishers.ofString(body))
-                .build(), HttpResponse.BodyHandlers.ofString());
+        return http.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+                        .header("Content-Type", "application/json")
+                        .method(method, HttpRequest.BodyPublishers.ofString(body))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> raw(final String path, final String body) throws Exception {
-        final HttpRequest.Builder request = HttpRequest.newBuilder(
-                URI.create("http://127.0.0.1:" + port + path));
+        final HttpRequest.Builder request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path));
         request.GET();
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }

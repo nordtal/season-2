@@ -1,19 +1,18 @@
 package eu.nordtal.s2.common.message.spec;
 
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.common.message.MessageRenderer;
+import eu.nordtal.s2.common.message.Messages;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import org.junit.jupiter.api.Test;
 
 class MessageSpecsTest {
 
@@ -77,8 +76,10 @@ class MessageSpecsTest {
         interface Chat {
 
             @Name("Line")
-            MessageRef line(@Arg("_sender") Component sender, @Arg("separator") Object separator,
-                            @Arg("_message") Component message);
+            MessageRef line(
+                    @Arg("_sender") Component sender,
+                    @Arg("separator") Object separator,
+                    @Arg("_message") Component message);
         }
     }
 
@@ -87,14 +88,18 @@ class MessageSpecsTest {
     @Test
     void aMethodIsItsKeyAndItsArgumentsArePlaceholders() {
         assertEquals(new MessageRef("greeting", Map.of("player", "Till")), messages.greeting("Till"));
-        assertEquals(new MessageRef("duel.won", Map.of("opponent", "Ada")), messages.duel().won("Ada"));
-        assertEquals(MessageRef.of("duel.won.title"), messages.duel().wonSection().title());
+        assertEquals(
+                new MessageRef("duel.won", Map.of("opponent", "Ada")),
+                messages.duel().won("Ada"));
+        assertEquals(
+                MessageRef.of("duel.won.title"), messages.duel().wonSection().title());
     }
 
     @Test
     void theSectionPrefixComesFromTheAccessorNotTheType() {
         assertEquals("screen.pack.title", messages.screen().pack().title().key());
-        assertEquals("screen.update.subtitle", messages.screen().update().subtitle().key());
+        assertEquals(
+                "screen.update.subtitle", messages.screen().update().subtitle().key());
         assertEquals("screen.update.title", messages.screen().of(true).title().key());
         assertSame(messages.duel(), messages.duel());
     }
@@ -102,16 +107,31 @@ class MessageSpecsTest {
     @Test
     void theSchemaFollowsTheEnglishFileAndNamesEverySection() {
         final List<MessageSchema.Entry> entries = MessageSchema.entries(TestMessages.class);
-        assertEquals(List.of("greeting", "duel.won", "duel.won.title", "duel.lost", "screen.pack.title",
-                        "screen.pack.subtitle", "screen.update.title", "screen.update.subtitle", "chat.line"),
+        assertEquals(
+                List.of(
+                        "greeting",
+                        "duel.won",
+                        "duel.won.title",
+                        "duel.lost",
+                        "screen.pack.title",
+                        "screen.pack.subtitle",
+                        "screen.update.title",
+                        "screen.update.subtitle",
+                        "chat.line"),
                 entries.stream().map(MessageSchema.Entry::key).toList());
         final MessageSchema.Entry title = entries.get(2);
         assertEquals(List.of("Duel", "Won"), title.section());
         assertEquals(List.of("Screens", "Update"), entries.get(6).section());
-        assertEquals(List.of(new MessageSchema.Arg("_sender", true), new MessageSchema.Arg("separator", false),
-                new MessageSchema.Arg("_message", true)), entries.get(8).args());
-        assertTrue(MessageSchema.json(TestMessages.class).contains(
-                "{\"key\": \"greeting\", \"name\": \"Greeting\", \"format\": \"MINIMESSAGE\", \"shown\": \"CHAT\", \"args\": [{\"name\": \"player\", \"component\": false}], \"section\": []}"));
+        assertEquals(
+                List.of(
+                        new MessageSchema.Arg("_sender", true),
+                        new MessageSchema.Arg("separator", false),
+                        new MessageSchema.Arg("_message", true)),
+                entries.get(8).args());
+        assertTrue(
+                MessageSchema.json(TestMessages.class)
+                        .contains(
+                                "{\"key\": \"greeting\", \"name\": \"Greeting\", \"format\": \"MINIMESSAGE\", \"shown\": \"CHAT\", \"args\": [{\"name\": \"player\", \"component\": false}], \"section\": []}"));
     }
 
     @Test
@@ -130,19 +150,22 @@ class MessageSpecsTest {
 
         @Name("Chat line")
         @Key("chat.line")
-        MessageRef line(@Arg("_sender") Component sender, @Arg("separator") Object separator,
-                        @Arg("_other") Component other);
+        MessageRef line(
+                @Arg("_sender") Component sender, @Arg("separator") Object separator, @Arg("_other") Component other);
     }
 
     @Test
     void driftIsNamedKeyByKey() {
         final List<String> problems = MessageSpecCheck.problems(Drifted.class);
         assertTrue(problems.contains("greeting: no @Name"), problems::toString);
-        assertTrue(problems.contains("greeting (en): the text names [player], the method declares [name]"),
+        assertTrue(
+                problems.contains("greeting (en): the text names [player], the method declares [name]"),
                 problems::toString);
-        assertTrue(problems.contains("duel.lost (de): the text names [], the method declares [opponent]"),
+        assertTrue(
+                problems.contains("duel.lost (de): the text names [], the method declares [opponent]"),
                 problems::toString);
-        assertTrue(problems.contains("chat.line (en): the method declares <_other>, the text never uses it"),
+        assertTrue(
+                problems.contains("chat.line (en): the method declares <_other>, the text never uses it"),
                 problems::toString);
         assertTrue(problems.contains("duel.won: in en.properties, but no method declares it"), problems::toString);
     }
@@ -173,8 +196,8 @@ class MessageSpecsTest {
     @Test
     void theRendererFillsComponentsAsTagsAndEscapesTheRest() {
         final MessageRenderer renderer = MessageRenderer.of(Messages.load("messages/spec-test"));
-        final Component line = renderer.format(Locale.GERMAN, messages.chat().line(
-                Component.text("Ada"), "<red>|", Component.text("hi")));
+        final Component line = renderer.format(
+                Locale.GERMAN, messages.chat().line(Component.text("Ada"), "<red>|", Component.text("hi")));
         assertEquals("Ada <red>| hi", plain(line));
     }
 

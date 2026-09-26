@@ -1,10 +1,8 @@
 package eu.nordtal.s2.smp.config;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.yaml.snakeyaml.Yaml;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -14,10 +12,11 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 /**
  * That the world {@code compose.yml} tells Paper to generate is the world this plugin looks for.
@@ -49,7 +48,9 @@ class ComposeWorldTest {
         final String composed = defaultOf(environmentOf("smp").get("LEVEL_NAME"), "smp.LEVEL_NAME");
         final String named = Configs.load(directory, LOGGER).get().worldNordtal();
 
-        assertEquals(named, composed,
+        assertEquals(
+                named,
+                composed,
                 "compose.yml starts the SMP on level-name '" + composed + "' while config.yml's"
                         + " world-nordtal defaults to '" + named + "'. Paper would generate one"
                         + " world, put the datapacks in it, and the plugin would look for another.");
@@ -62,8 +63,7 @@ class ComposeWorldTest {
     @Test
     void theSeasonWorldsSeedIsPinned() {
         final String seed = defaultOf(environmentOf("smp").get("LEVEL_SEED"), "smp.LEVEL_SEED");
-        assertTrue(seed.matches("-?\\d+"),
-                "LEVEL_SEED should default to a literal seed, not to '" + seed + "'");
+        assertTrue(seed.matches("-?\\d+"), "LEVEL_SEED should default to a literal seed, not to '" + seed + "'");
     }
 
     // theBackupWindowIsNotPinnedEither stood here until 2026-09-20. It said the same thing about
@@ -76,11 +76,13 @@ class ComposeWorldTest {
         final Path entrypoint = repositoryRoot().resolve("deploy/minecraft/entrypoint.sh");
         final String script = Files.readString(entrypoint, StandardCharsets.UTF_8);
 
-        assertTrue(script.contains("set_property \"$file\" level-name \"$LEVEL_NAME\""),
+        assertTrue(
+                script.contains("set_property \"$file\" level-name \"$LEVEL_NAME\""),
                 entrypoint + " no longer writes level-name into server.properties. Without it Paper"
                         + " keeps its own default and the datapacks below go into a folder nothing"
                         + " reads.");
-        assertTrue(script.contains("fetch_datapacks \"$DATA/${LEVEL_NAME}/datapacks\""),
+        assertTrue(
+                script.contains("fetch_datapacks \"$DATA/${LEVEL_NAME}/datapacks\""),
                 entrypoint + " no longer fetches the datapacks into the level-name world.");
     }
 
@@ -109,7 +111,8 @@ class ComposeWorldTest {
     private static String defaultOf(final Object value, final String what) {
         assertNotNull(value, "compose.yml sets no " + what);
         final Matcher matcher = DEFAULTED.matcher(String.valueOf(value));
-        assertTrue(matcher.matches(),
+        assertTrue(
+                matcher.matches(),
                 what + " is '" + value + "', which has no default an unfilled .env would fall back"
                         + " to. Every value here has to work without a .env entry.");
         return matcher.group(1);
@@ -130,6 +133,7 @@ class ComposeWorldTest {
             }
             directory = directory.getParent();
         }
-        throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        throw new IllegalStateException(
+                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 }

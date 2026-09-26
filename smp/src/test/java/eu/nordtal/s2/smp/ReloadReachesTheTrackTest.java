@@ -1,16 +1,15 @@
 package eu.nordtal.s2.smp;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That {@code /smp reload} actually reaches everything that reads the milestone track.
@@ -47,7 +46,8 @@ class ReloadReachesTheTrackTest {
                 "new StatisticPoller(this, () -> track,",
                 "new NpcListener(this, dao, npc, () -> track,",
                 "new BalloonListener(balloons, worlds, season, () -> track,")) {
-            assertTrue(source.contains(consumer),
+            assertTrue(
+                    source.contains(consumer),
                     consumer.split("\\(")[0] + " does not read the current milestone track, so"
                             + " /smp reload would report success and leave it on the definitions the"
                             + " server started with");
@@ -64,9 +64,11 @@ class ReloadReachesTheTrackTest {
         final int end = source.indexOf("return trackProblems;", start);
         assertTrue(start > 0 && end > start, "the reload method moved; point this test at it");
         final String reload = source.substring(start, end);
-        assertTrue(reload.contains("messages.reload();"),
+        assertTrue(
+                reload.contains("messages.reload();"),
                 "/smp reload no longer re-reads this plugin's messages, so a saved text stays unused");
-        assertTrue(reload.contains("sharedMessages.reload();"),
+        assertTrue(
+                reload.contains("sharedMessages.reload();"),
                 "/smp reload no longer re-reads the shared messages the command inbox answers with");
     }
 
@@ -81,16 +83,19 @@ class ReloadReachesTheTrackTest {
         final int applied = source.indexOf("track = candidate;");
         final int swept = source.indexOf("completeWhateverTheNewTargetsAlreadyReach();");
         assertTrue(applied > 0, "the reload no longer applies the candidate track");
-        assertTrue(swept > 0,
+        assertTrue(
+                swept > 0,
                 "a reload does not finish objectives its new targets have already been reached by,"
                         + " so lowering a target below the collected progress reports success and"
                         + " leaves the row open and unpaid");
-        assertTrue(swept > applied,
+        assertTrue(
+                swept > applied,
                 "the sweep runs before the new track is applied, so it would decide against the"
                         + " targets the reload was replacing");
 
         final int rows = source.indexOf("ensureRows(candidate);");
-        assertTrue(rows > 0 && rows < swept,
+        assertTrue(
+                rows > 0 && rows < swept,
                 "the sweep runs before ensureRows, so it would read the old targets out of rows"
                         + " the reload has not written yet");
     }
@@ -101,8 +106,7 @@ class ReloadReachesTheTrackTest {
         // reloadTrack runs on Bukkit's async executor behind /smp reload; every consumer above
         // reads on the server thread. Without volatile the supplier may go on seeing the old
         // instance for no bounded length of time, which looks identical to the bug it replaced.
-        assertTrue(read(PLUGIN).contains("private volatile MilestoneTrack track;"),
-                "SmpPlugin.track is not volatile");
+        assertTrue(read(PLUGIN).contains("private volatile MilestoneTrack track;"), "SmpPlugin.track is not volatile");
     }
 
     @Test
@@ -112,15 +116,17 @@ class ReloadReachesTheTrackTest {
         // /smp reload runs on another thread. The successor written into the database would then
         // come from one file and the SeasonState built beside it from another - the row names a
         // milestone the running state does not hold as active, and progression stops.
-        final String source =
-                read("smp/src/main/java/eu/nordtal/s2/smp/progress/ObjectiveEngine.java");
+        final String source = read("smp/src/main/java/eu/nordtal/s2/smp/progress/ObjectiveEngine.java");
         final int inUnlock = source.indexOf("public void unlockMilestone(");
         assertTrue(inUnlock > 0, "unlockMilestone is gone");
         final String body = source.substring(inUnlock, source.indexOf("announceMilestone(", inUnlock));
 
-        assertTrue(body.contains("final MilestoneTrack now = track.get();"),
+        assertTrue(
+                body.contains("final MilestoneTrack now = track.get();"),
                 "unlockMilestone does not take one snapshot of the track");
-        assertEquals(1, count(body, "track.get()"),
+        assertEquals(
+                1,
+                count(body, "track.get()"),
                 "unlockMilestone reads the track more than once, so one unlock can be built from"
                         + " two different files");
     }
@@ -132,9 +138,9 @@ class ReloadReachesTheTrackTest {
         // what that key counts. An objective counting coal that starts counting coal and iron reads
         // far higher on the next poll, and the whole difference would be credited as progress
         // somebody just made. Nothing in the stored number says which definition produced it.
-        final String source =
-                read("smp/src/main/java/eu/nordtal/s2/smp/progress/StatisticPoller.java");
-        assertTrue(source.contains("if (now != sampledUnder) {") && source.contains("baselines.clear();"),
+        final String source = read("smp/src/main/java/eu/nordtal/s2/smp/progress/StatisticPoller.java");
+        assertTrue(
+                source.contains("if (now != sampledUnder) {") && source.contains("baselines.clear();"),
                 "the poller keeps baselines across a track change, so a widened objective credits"
                         + " everything that was already there");
     }
@@ -149,9 +155,11 @@ class ReloadReachesTheTrackTest {
         // nothing anywhere saying why.
         final String source = read(PLUGIN);
 
-        assertTrue(source.contains("TrackValidation.validate(candidate,"),
+        assertTrue(
+                source.contains("TrackValidation.validate(candidate,"),
                 "the reload does not validate the file against recorded progress");
-        assertTrue(source.contains("new StoredProgress(dao.storedMilestones(), dao.storedObjectives())"),
+        assertTrue(
+                source.contains("new StoredProgress(dao.storedMilestones(), dao.storedObjectives())"),
                 "the validation is asked without the rows, which is the only place the answer lives");
 
         // And the refusal keeps the running track. `track = candidate` must sit on the branch the
@@ -159,9 +167,9 @@ class ReloadReachesTheTrackTest {
         final int validated = source.indexOf("TrackValidation.validate(candidate,");
         final int assigned = source.indexOf("track = candidate;", validated);
         final int refused = source.indexOf("if (!problems.isEmpty())", validated);
-        assertTrue(refused > 0 && assigned > refused,
-                "the track is assigned before the refusal is decided, so a refused file would be"
-                        + " applied anyway");
+        assertTrue(
+                refused > 0 && assigned > refused,
+                "the track is assigned before the refusal is decided, so a refused file would be" + " applied anyway");
     }
 
     private static int count(final String text, final String needle) {

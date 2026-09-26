@@ -1,11 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -151,7 +145,13 @@ describe("the available card", () => {
       backend(
         available({
           changes: [
-            change({ artifact: "chunky", status: "OUTDATED", installed: "Chunky-Bukkit-1.5.3.jar", version: "1.5.4", fileName: "Chunky-Bukkit-1.5.4.jar" }),
+            change({
+              artifact: "chunky",
+              status: "OUTDATED",
+              installed: "Chunky-Bukkit-1.5.3.jar",
+              version: "1.5.4",
+              fileName: "Chunky-Bukkit-1.5.4.jar",
+            }),
             change({ artifact: "vulcan", status: "UP_TO_DATE", installed: "Vulcan-2.9.0.jar" }),
             change({ artifact: "viaversion", status: "UP_TO_DATE", installed: "ViaVersion-5.5.0.jar" }),
           ],
@@ -255,7 +255,15 @@ describe("the available card", () => {
       backend(
         available({
           checkedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-          changes: [change({ artifact: "chunky", status: "OUTDATED", installed: "Chunky-Bukkit-1.5.3.jar", version: "1.5.4", fileName: "Chunky-Bukkit-1.5.4.jar" })],
+          changes: [
+            change({
+              artifact: "chunky",
+              status: "OUTDATED",
+              installed: "Chunky-Bukkit-1.5.3.jar",
+              version: "1.5.4",
+              fileName: "Chunky-Bukkit-1.5.4.jar",
+            }),
+          ],
         }),
       ).fetch,
     )
@@ -270,10 +278,26 @@ describe("the available card", () => {
     // pressed it has no way of telling whether anything happened.
     const wired = backend(
       available({
-        changes: [change({ artifact: "chunky", status: "OUTDATED", installed: "Chunky-Bukkit-1.5.3.jar", version: "1.5.4", fileName: "Chunky-Bukkit-1.5.4.jar" })],
+        changes: [
+          change({
+            artifact: "chunky",
+            status: "OUTDATED",
+            installed: "Chunky-Bukkit-1.5.3.jar",
+            version: "1.5.4",
+            fileName: "Chunky-Bukkit-1.5.4.jar",
+          }),
+        ],
       }),
       available({
-        changes: [change({ artifact: "chunky", status: "OUTDATED", installed: "Chunky-Bukkit-1.5.3.jar", version: "1.6.0", fileName: "Chunky-Bukkit-1.6.0.jar" })],
+        changes: [
+          change({
+            artifact: "chunky",
+            status: "OUTDATED",
+            installed: "Chunky-Bukkit-1.5.3.jar",
+            version: "1.6.0",
+            fileName: "Chunky-Bukkit-1.6.0.jar",
+          }),
+        ],
       }),
     )
     vi.stubGlobal("fetch", wired.fetch)
@@ -289,7 +313,15 @@ describe("the available card", () => {
   it("only reads - it never asks for a run", async () => {
     const wired = backend(
       available({
-        changes: [change({ artifact: "chunky", status: "OUTDATED", installed: "Chunky-Bukkit-1.5.3.jar", version: "1.5.4", fileName: "Chunky-Bukkit-1.5.4.jar" })],
+        changes: [
+          change({
+            artifact: "chunky",
+            status: "OUTDATED",
+            installed: "Chunky-Bukkit-1.5.3.jar",
+            version: "1.5.4",
+            fileName: "Chunky-Bukkit-1.5.4.jar",
+          }),
+        ],
       }),
     )
     vi.stubGlobal("fetch", wired.fetch)

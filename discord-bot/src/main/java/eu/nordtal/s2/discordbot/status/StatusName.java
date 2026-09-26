@@ -1,14 +1,13 @@
 package eu.nordtal.s2.discordbot.status;
 
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.network.NetworkSnapshot;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
-
-import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 /**
  * What the status channel is called, right now, in one language.
@@ -59,8 +58,7 @@ public final class StatusName {
     /** Discord refuses a channel name longer than this. */
     static final int MAX_LENGTH = 100;
 
-    private StatusName() {
-    }
+    private StatusName() {}
 
     /**
      * @param messages the bundle to take the wording from
@@ -72,20 +70,28 @@ public final class StatusName {
      * @return the channel name, never {@code null}, never empty, never longer than
      *         {@link #MAX_LENGTH}
      */
-    public static String render(final Messages messages, final Locale locale, final SeasonPhase phase,
-                                final NetworkSnapshot snapshot, final Instant launch, final Instant now) {
-        return truncate(switch (phase) {
-            case PRE_LAUNCH -> countdown(messages, locale, launch, now);
-            case PRE_EVENT -> messages.format(locale, MESSAGES.status().preEvent(snapshot.hgTeams()));
-            case START_EVENT -> messages.format(locale,
-                    MESSAGES.status().startEvent(snapshot.hgTeamsAlive(), snapshot.hgAlive()));
-            case SMP -> messages.format(locale, MESSAGES.status().smp(snapshot.smpPlayers()));
-            case MAINTENANCE -> messages.format(locale, MESSAGES.status().maintenance());
-        });
+    public static String render(
+            final Messages messages,
+            final Locale locale,
+            final SeasonPhase phase,
+            final NetworkSnapshot snapshot,
+            final Instant launch,
+            final Instant now) {
+        return truncate(
+                switch (phase) {
+                    case PRE_LAUNCH -> countdown(messages, locale, launch, now);
+                    case PRE_EVENT -> messages.format(locale, MESSAGES.status().preEvent(snapshot.hgTeams()));
+                    case START_EVENT ->
+                        messages.format(
+                                locale, MESSAGES.status().startEvent(snapshot.hgTeamsAlive(), snapshot.hgAlive()));
+                    case SMP -> messages.format(locale, MESSAGES.status().smp(snapshot.smpPlayers()));
+                    case MAINTENANCE ->
+                        messages.format(locale, MESSAGES.status().maintenance());
+                });
     }
 
-    private static String countdown(final Messages messages, final Locale locale, final Instant launch,
-                                    final Instant now) {
+    private static String countdown(
+            final Messages messages, final Locale locale, final Instant launch, final Instant now) {
         if (launch == null) {
             return messages.format(locale, MESSAGES.status().preLaunch().unknown());
         }
@@ -96,8 +102,8 @@ public final class StatusName {
             return messages.format(locale, MESSAGES.status().preLaunch().imminent());
         }
         if (remaining.toDays() >= 1) {
-            return messages.format(locale,
-                    MESSAGES.status().preLaunch().days(remaining.toDays(), remaining.toHoursPart()));
+            return messages.format(
+                    locale, MESSAGES.status().preLaunch().days(remaining.toDays(), remaining.toHoursPart()));
         }
         if (remaining.toHours() >= 1) {
             // Whole hours, with the minutes deliberately dropped: a name carrying minutes would
@@ -105,8 +111,7 @@ public final class StatusName {
             return messages.format(locale, MESSAGES.status().preLaunch().hours(remaining.toHours()));
         }
         final long steps = remaining.toMinutes() / FINAL_HOUR_STEP_MINUTES;
-        return messages.format(locale,
-                MESSAGES.status().preLaunch().minutes(steps * FINAL_HOUR_STEP_MINUTES));
+        return messages.format(locale, MESSAGES.status().preLaunch().minutes(steps * FINAL_HOUR_STEP_MINUTES));
     }
 
     /**

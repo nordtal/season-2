@@ -1,18 +1,16 @@
 package eu.nordtal.s2.steward.worker.source;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.steward.worker.http.FakeHttp;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link Modrinth#search} against the payload the live API returned on 2026-09-19
@@ -42,7 +40,8 @@ class ModrinthSearchTest {
         // The link is built from the slug rather than taken from the payload - the payload has no
         // such field, and a page URL nobody composed is one nobody can be sure of.
         assertEquals("https://modrinth.com/plugin/worldedit", first.pageUrl());
-        assertTrue(first.iconUrl().startsWith("https://cdn.modrinth.com/"),
+        assertTrue(
+                first.iconUrl().startsWith("https://cdn.modrinth.com/"),
                 "the thumbnail is on the CDN the interface's policy has to allow");
         assertTrue(first.downloads() > 0);
     }
@@ -54,13 +53,13 @@ class ModrinthSearchTest {
 
         new Modrinth(http).search("worldedit", MC, "velocity");
 
-        final String asked = URLDecoder.decode(http.requested().getFirst().toString(),
-                StandardCharsets.UTF_8);
+        final String asked = URLDecoder.decode(http.requested().getFirst().toString(), StandardCharsets.UTF_8);
         // Modrinth's own shape: an array of arrays, AND between the outer entries. The loader is
         // a CATEGORY here and a `loaders` filter on the version endpoint - the two endpoints spell
         // it differently and getting it wrong is an empty answer rather than an error.
-        assertTrue(asked.contains("facets=[[\"categories:velocity\"],[\"versions:26.2\"],"
-                + "[\"project_type:plugin\"]]"), asked);
+        assertTrue(
+                asked.contains("facets=[[\"categories:velocity\"],[\"versions:26.2\"]," + "[\"project_type:plugin\"]]"),
+                asked);
         assertTrue(asked.contains("query=worldedit"), asked);
     }
 
@@ -71,8 +70,10 @@ class ModrinthSearchTest {
 
         new Modrinth(http).search("  ", MC, "paper");
 
-        assertTrue(URLDecoder.decode(http.requested().getFirst().toString(), StandardCharsets.UTF_8)
-                .contains("query=&"), http.requested().getFirst().toString());
+        assertTrue(
+                URLDecoder.decode(http.requested().getFirst().toString(), StandardCharsets.UTF_8)
+                        .contains("query=&"),
+                http.requested().getFirst().toString());
     }
 
     @Test

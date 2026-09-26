@@ -1,19 +1,17 @@
 package eu.nordtal.s2.commands;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.common.message.Messages;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Properties of the whole command surface, which no single command can be asked about.
@@ -27,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class CatalogueTest {
 
-    private static final Messages MESSAGES = Messages.load(CatalogueTest.class.getClassLoader(),
-            "messages/commands", Locale.ENGLISH, Locale.GERMAN);
+    private static final Messages MESSAGES =
+            Messages.load(CatalogueTest.class.getClassLoader(), "messages/commands", Locale.ENGLISH, Locale.GERMAN);
 
     @Test
     @DisplayName("every command explains itself, in both languages")
@@ -41,7 +39,9 @@ class CatalogueTest {
                 }
             }
         }
-        assertEquals(List.of(), missing,
+        assertEquals(
+                List.of(),
+                missing,
                 "a command has no sentence saying what it is for, so the help output would print"
                         + " its message key at somebody who has just mistyped it");
     }
@@ -66,16 +66,17 @@ class CatalogueTest {
             assertTrue(Catalogue.all().contains(declaration), root + ": the default is not in the catalogue");
             assertEquals(2, declaration.path().size(), root + ": " + declaration.name());
             assertEquals(root, declaration.path().getFirst(), declaration.name() + " is under another root");
-            assertTrue(declaration.arguments().stream().noneMatch(Argument::required),
+            assertTrue(
+                    declaration.arguments().stream().noneMatch(Argument::required),
                     declaration.name() + " needs an argument, so a bare root could not run it");
         }
-        assertEquals(2, found, "exactly /phase and /update have a default today; changing that is a"
-                + " decision");
+        assertEquals(2, found, "exactly /phase and /update have a default today; changing that is a" + " decision");
         assertEquals(java.util.Optional.of(PhaseCommands.SHOW), Catalogue.rootDefault("phase", true));
         // /update alone is the report, since 2026-09-08 - the report had to become /update check
         // because Discord cannot run a root that has subcommands, and the bare form in game is
         // what people type.
-        assertEquals(java.util.Optional.of(eu.nordtal.s2.commands.update.UpdateCommands.REPORT),
+        assertEquals(
+                java.util.Optional.of(eu.nordtal.s2.commands.update.UpdateCommands.REPORT),
                 Catalogue.rootDefault("update", true));
     }
 
@@ -93,13 +94,18 @@ class CatalogueTest {
                 .collect(java.util.stream.Collectors.toSet())) {
             Catalogue.rootDefault(root, true)
                     .filter(Declaration::adminOnly)
-                    .ifPresent(declaration -> assertEquals(java.util.Optional.empty(),
+                    .ifPresent(declaration -> assertEquals(
+                            java.util.Optional.empty(),
                             Catalogue.rootDefault(root, false),
                             "/" + root + " hands " + declaration.name() + " to a non-admin"));
         }
-        assertEquals(java.util.Optional.empty(), Catalogue.rootDefault("phase", false),
+        assertEquals(
+                java.util.Optional.empty(),
+                Catalogue.rootDefault("phase", false),
                 "/phase show is admin-only, so a bare /phase from a player must fall through to help");
-        assertEquals(java.util.Optional.empty(), Catalogue.rootDefault("update", false),
+        assertEquals(
+                java.util.Optional.empty(),
+                Catalogue.rootDefault("update", false),
                 "/update check is admin-only; a player.s bare /update runs nothing");
     }
 
@@ -112,10 +118,9 @@ class CatalogueTest {
             final String usage = declaration.usage();
             assertTrue(usage.startsWith(declaration.name()), usage);
             for (final Argument argument : declaration.arguments()) {
-                assertTrue(usage.contains(argument.required()
-                                ? "<" + argument.name() + ">" : "[" + argument.name() + "]"),
-                        declaration.name() + "'s usage line does not name '" + argument.name()
-                                + "': " + usage);
+                assertTrue(
+                        usage.contains(argument.required() ? "<" + argument.name() + ">" : "[" + argument.name() + "]"),
+                        declaration.name() + "'s usage line does not name '" + argument.name() + "': " + usage);
             }
         }
     }
@@ -123,9 +128,11 @@ class CatalogueTest {
     @Test
     @DisplayName("no two commands share a path")
     void everyPathIsUnique() {
-        final Map<String, Long> byName = Catalogue.all().stream()
-                .collect(Collectors.groupingBy(Declaration::name, Collectors.counting()));
-        assertEquals(List.of(), byName.entrySet().stream()
+        final Map<String, Long> byName =
+                Catalogue.all().stream().collect(Collectors.groupingBy(Declaration::name, Collectors.counting()));
+        assertEquals(
+                List.of(),
+                byName.entrySet().stream()
                         .filter(entry -> entry.getValue() > 1)
                         .map(Map.Entry::getKey)
                         .toList(),
@@ -147,8 +154,7 @@ class CatalogueTest {
                 }
                 if (other.path().size() > one.path().size()
                         && other.path().subList(0, one.path().size()).equals(one.path())) {
-                    clashes.add(one.name() + " is a prefix of " + other.name()
-                            + " and takes arguments");
+                    clashes.add(one.name() + " is a prefix of " + other.name() + " and takes arguments");
                 }
             }
         }
@@ -182,11 +188,12 @@ class CatalogueTest {
         // Nothing is left: every declaration is an admin's, and what a player types is native
         // Brigadier in the process that answers it. A declaration that turns up here again is a
         // player command that found its way back into the framework, and has to say why.
-        assertEquals(List.of(),
+        assertEquals(
+                List.of(),
                 Catalogue.all().stream()
-                .filter(declaration -> !declaration.adminOnly())
-                .map(Declaration::name)
-                .toList());
+                        .filter(declaration -> !declaration.adminOnly())
+                        .map(Declaration::name)
+                        .toList());
     }
 
     @Test
@@ -199,11 +206,12 @@ class CatalogueTest {
         // registers nothing and writes a command_request row for the handful of commands it names
         // itself, so SYSTEM beside WEB cannot produce the collision this test exists to prevent.
         // /announce is both - the SMP writes one at a milestone, an admin can write one by hand.
-        final java.util.Set<Surface> registered =
-                java.util.Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
+        final java.util.Set<Surface> registered = java.util.Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
         for (final Declaration declaration : Catalogue.all()) {
             if (declaration.surfaces().contains(Surface.SYSTEM)) {
-                assertEquals(java.util.Set.of(), declaration.surfaces().stream()
+                assertEquals(
+                        java.util.Set.of(),
+                        declaration.surfaces().stream()
                                 .filter(registered::contains)
                                 .collect(java.util.stream.Collectors.toSet()),
                         declaration.name() + " is a SYSTEM command and is also on a surface some"

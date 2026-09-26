@@ -112,14 +112,7 @@ describe("SnowflakePicker", () => {
 
   it("shows only the name in the open list, never the id sitting next to it", () => {
     render(
-      <SnowflakePicker
-        id="roles.admin"
-        value=""
-        directory={ROLES}
-        what="role"
-        disabled={false}
-        onChange={vi.fn()}
-      />,
+      <SnowflakePicker id="roles.admin" value="" directory={ROLES} what="role" disabled={false} onChange={vi.fn()} />,
     )
     open(screen.getByRole("combobox"))
 
@@ -134,14 +127,7 @@ describe("SnowflakePicker", () => {
 
   it("finds an entry by the id pasted from Discord's own 'Copy ID', though the id is never shown", () => {
     render(
-      <SnowflakePicker
-        id="roles.admin"
-        value=""
-        directory={ROLES}
-        what="role"
-        disabled={false}
-        onChange={vi.fn()}
-      />,
+      <SnowflakePicker id="roles.admin" value="" directory={ROLES} what="role" disabled={false} onChange={vi.fn()} />,
     )
     open(screen.getByRole("combobox"))
 
@@ -154,14 +140,7 @@ describe("SnowflakePicker", () => {
 
   it("still finds an entry by typing its name, unaffected by the id search", () => {
     render(
-      <SnowflakePicker
-        id="roles.admin"
-        value=""
-        directory={ROLES}
-        what="role"
-        disabled={false}
-        onChange={vi.fn()}
-      />,
+      <SnowflakePicker id="roles.admin" value="" directory={ROLES} what="role" disabled={false} onChange={vi.fn()} />,
     )
     open(screen.getByRole("combobox"))
 
@@ -175,14 +154,7 @@ describe("SnowflakePicker", () => {
   it("saves the snowflake, never the name, when an option is picked", () => {
     const onChange = vi.fn()
     render(
-      <SnowflakePicker
-        id="roles.admin"
-        value=""
-        directory={ROLES}
-        what="role"
-        disabled={false}
-        onChange={onChange}
-      />,
+      <SnowflakePicker id="roles.admin" value="" directory={ROLES} what="role" disabled={false} onChange={onChange} />,
     )
     open(screen.getByRole("combobox"))
     fireEvent.click(screen.getByText("Donor"))
@@ -268,8 +240,7 @@ describe("discordId", () => {
   })
 
   it("decides on the key and not on the value, because an empty key is the one needing help", () => {
-    expect(discordId(entry({ path: "roles.donor", key: "donor", value: "", filled: false })))
-      .toBe("role")
+    expect(discordId(entry({ path: "roles.donor", key: "donor", value: "", filled: false }))).toBe("role")
   })
 
   it("leaves guild-id alone, because the list is read from the guild", () => {

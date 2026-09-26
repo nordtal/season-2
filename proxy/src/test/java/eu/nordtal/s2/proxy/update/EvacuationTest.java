@@ -1,23 +1,21 @@
 package eu.nordtal.s2.proxy.update;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * When players are moved out of the way, and which servers that means.
@@ -32,15 +30,26 @@ class EvacuationTest {
     private static final Instant NOW = Instant.parse("2026-09-09T18:00:00Z");
 
     /** A row with a report naming those services as moving, due in {@code in}. */
-    private static UpdateRequest request(final UpdateStatus status, final Duration in,
-                                         final String... moving) {
+    private static UpdateRequest request(final UpdateStatus status, final Duration in, final String... moving) {
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.COUNTDOWN);
         for (final String service : moving) {
-            report = report.with(new UpdateReport.ServiceLine(service, UpdateReport.State.PLANNED,
-                    List.of(new UpdateReport.Change("smp", "0.8.0", "0.8.1")), null));
+            report = report.with(new UpdateReport.ServiceLine(
+                    service,
+                    UpdateReport.State.PLANNED,
+                    List.of(new UpdateReport.Change("smp", "0.8.0", "0.8.1")),
+                    null));
         }
-        return new UpdateRequest(1L, UpdateKind.UPDATE, status, UpdateSource.DISCORD, "till",
-                NOW, NOW.plus(in), null, null, UpdateReports.toJson(report));
+        return new UpdateRequest(
+                1L,
+                UpdateKind.UPDATE,
+                status,
+                UpdateSource.DISCORD,
+                "till",
+                NOW,
+                NOW.plus(in),
+                null,
+                null,
+                UpdateReports.toJson(report));
     }
 
     @Test
@@ -61,10 +70,10 @@ class EvacuationTest {
         // `running()` is the rows whose not_before has passed, so "the counter reached zero" and
         // "this row is under way" are the same instant - and this set stays true for the whole
         // outage after it, which is what keeps the waiting room saying UPDATE rather than BACKEND.
-        assertEquals(Set.of("smp", "hunger-games"),
+        assertEquals(
+                Set.of("smp", "hunger-games"),
                 Evacuation.imminent(
-                        Optional.of(request(UpdateStatus.RUNNING, Duration.ofSeconds(-60),
-                                "smp", "hunger-games"))));
+                        Optional.of(request(UpdateStatus.RUNNING, Duration.ofSeconds(-60), "smp", "hunger-games"))));
     }
 
     @Test
@@ -74,7 +83,8 @@ class EvacuationTest {
         // step over the window. With no window left, a sweep that is the only trigger would move
         // people up to RestartWatch.INTERVAL late - so the zero beat runs the sweep as well, and
         // this is the assertion that says the sweep alone would not have been enough.
-        assertTrue(RestartWatch.INTERVAL.compareTo(java.time.Duration.ZERO) > 0,
+        assertTrue(
+                RestartWatch.INTERVAL.compareTo(java.time.Duration.ZERO) > 0,
                 "a sweep with no interval would be the decision rather than the guarantee");
     }
 
@@ -84,12 +94,26 @@ class EvacuationTest {
         // A line with no MOVING change is an artefact waiting for a build - news, and no reason to
         // take a server down. Evacuating for one would be an outage the run itself never causes.
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.COUNTDOWN)
-                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.PLANNED,
-                        List.of(new UpdateReport.Change("smp", "0.8.0", "0.8.1")), null))
-                .with(new UpdateReport.ServiceLine("hunger-games", UpdateReport.State.UNCHANGED,
-                        List.of(UpdateReport.Change.unsupported("coreprotect")), null));
-        final UpdateRequest row = new UpdateRequest(2L, UpdateKind.UPDATE, UpdateStatus.RUNNING,
-                UpdateSource.GAME, "till", NOW, NOW.minusSeconds(5), null, null,
+                .with(new UpdateReport.ServiceLine(
+                        "smp",
+                        UpdateReport.State.PLANNED,
+                        List.of(new UpdateReport.Change("smp", "0.8.0", "0.8.1")),
+                        null))
+                .with(new UpdateReport.ServiceLine(
+                        "hunger-games",
+                        UpdateReport.State.UNCHANGED,
+                        List.of(UpdateReport.Change.unsupported("coreprotect")),
+                        null));
+        final UpdateRequest row = new UpdateRequest(
+                2L,
+                UpdateKind.UPDATE,
+                UpdateStatus.RUNNING,
+                UpdateSource.GAME,
+                "till",
+                NOW,
+                NOW.minusSeconds(5),
+                null,
+                null,
                 UpdateReports.toJson(report));
 
         assertEquals(Set.of("smp"), Evacuation.imminent(Optional.of(row)));
@@ -100,8 +124,16 @@ class EvacuationTest {
     void anUnreadableReportMovesNobody() {
         // The safe direction: the behaviour this class replaced, not a guess at the whole network.
         // A row written by a worker older than the report codec is plain text and lands here.
-        final UpdateRequest row = new UpdateRequest(3L, UpdateKind.UPDATE, UpdateStatus.RUNNING,
-                UpdateSource.CONSOLE, null, NOW, NOW.minusSeconds(5), null, null,
+        final UpdateRequest row = new UpdateRequest(
+                3L,
+                UpdateKind.UPDATE,
+                UpdateStatus.RUNNING,
+                UpdateSource.CONSOLE,
+                null,
+                NOW,
+                NOW.minusSeconds(5),
+                null,
+                null,
                 "Restart triggered.");
         assertEquals(Set.of(), Evacuation.imminent(Optional.of(row)));
     }
@@ -124,15 +156,13 @@ class EvacuationTest {
         // The whole reason the hold is read at all. The DOWN run reaches DONE in seconds and then
         // `running()` and `countingDown()` are both empty - but nothing has started, and the people
         // in the waiting room are there because of this, not because a backend fell over.
-        assertEquals(Set.of("smp"),
-                Evacuation.heldServices(List.of(heldDown("smp"))));
+        assertEquals(Set.of("smp"), Evacuation.heldServices(List.of(heldDown("smp"))));
     }
 
     @Test
     @DisplayName("a hold on something that is not a backend is simply a name nobody asks about")
     void aHoldOnAnythingElseIsHarmless() {
-        assertEquals(Set.of("smp", "caddy"),
-                Evacuation.heldServices(List.of(heldDown("smp"), heldDown("caddy"))));
+        assertEquals(Set.of("smp", "caddy"), Evacuation.heldServices(List.of(heldDown("smp"), heldDown("caddy"))));
     }
 
     @Test

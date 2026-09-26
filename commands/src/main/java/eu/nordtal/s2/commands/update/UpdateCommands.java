@@ -5,7 +5,6 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
-
 import java.util.List;
 import java.util.Set;
 
@@ -30,8 +29,7 @@ import java.util.Set;
  */
 public final class UpdateCommands {
 
-    private UpdateCommands() {
-    }
+    private UpdateCommands() {}
 
     /**
      * Every {@code /update} command and {@code /backup now}: console only, 2026-09-15 (ops/18).
@@ -57,9 +55,8 @@ public final class UpdateCommands {
      * the bare {@code /update} still works: {@code Catalogue#rootDefault} names this command as
      * what a root with nothing of its own runs, the way {@code /phase} is {@code /phase show}.
      */
-    public static final Declaration REPORT = new Declaration(
-            List.of("update", "check"), Target.LOCAL,
-            CONSOLE_ONLY, true, false, List.of());
+    public static final Declaration REPORT =
+            new Declaration(List.of("update", "check"), Target.LOCAL, CONSOLE_ONLY, true, false, List.of());
 
     /**
      * {@code /update now} - the whole sequence, under one confirmation.
@@ -68,19 +65,16 @@ public final class UpdateCommands {
      * everybody who is on them. The countdown is a second chance and not the first one - the
      * confirmation comes before the countdown even starts.</p>
      */
-    public static final Declaration NOW = new Declaration(
-            List.of("update", "now"), Target.LOCAL,
-            CONSOLE_ONLY, true, true, List.of());
+    public static final Declaration NOW =
+            new Declaration(List.of("update", "now"), Target.LOCAL, CONSOLE_ONLY, true, true, List.of());
 
     /** {@code /update restart} - the same sequence with nothing installed. */
-    public static final Declaration RESTART = new Declaration(
-            List.of("update", "restart"), Target.LOCAL,
-            CONSOLE_ONLY, true, true, List.of());
+    public static final Declaration RESTART =
+            new Declaration(List.of("update", "restart"), Target.LOCAL, CONSOLE_ONLY, true, true, List.of());
 
     /** {@code /update cancel} - stop the countdown, for as long as one is running. */
-    public static final Declaration CANCEL = new Declaration(
-            List.of("update", "cancel"), Target.LOCAL,
-            CONSOLE_ONLY, true, false, List.of());
+    public static final Declaration CANCEL =
+            new Declaration(List.of("update", "cancel"), Target.LOCAL, CONSOLE_ONLY, true, false, List.of());
 
     /**
      * {@code /backup now} - the same sequence with a volume backup in the gap.
@@ -102,9 +96,8 @@ public final class UpdateCommands {
      * place the shared root shows through. That is deliberate: there is one countdown in this
      * network and one thing that stops it.</p>
      */
-    public static final Declaration BACKUP = new Declaration(
-            List.of("backup", "now"), Target.LOCAL,
-            CONSOLE_ONLY, true, true, List.of());
+    public static final Declaration BACKUP =
+            new Declaration(List.of("backup", "now"), Target.LOCAL, CONSOLE_ONLY, true, true, List.of());
 
     /**
      * {@code /update down <service>} - stop it and leave it stopped (season-2-ops/125).
@@ -119,8 +112,7 @@ public final class UpdateCommands {
      * it. More so, in fact - this one does not bring it back.</p>
      */
     public static final Declaration DOWN = new Declaration(
-            List.of("update", "down"), Target.LOCAL,
-            CONSOLE_ONLY, true, true, List.of(Argument.word("service")));
+            List.of("update", "down"), Target.LOCAL, CONSOLE_ONLY, true, true, List.of(Argument.word("service")));
 
     /**
      * {@code /update start [service]} - take the hold off and start it again.
@@ -131,14 +123,23 @@ public final class UpdateCommands {
      * restarted and they no longer remember which ones they stopped.</p>
      */
     public static final Declaration START = new Declaration(
-            List.of("update", "start"), Target.LOCAL,
-            CONSOLE_ONLY, true, false, List.of(Argument.word("service").optional()));
+            List.of("update", "start"),
+            Target.LOCAL,
+            CONSOLE_ONLY,
+            true,
+            false,
+            List.of(Argument.word("service").optional()));
 
     /** Every command served by {@link UpdateEffects} - the six {@code /update} ones and backup. */
     public static List<NordtalCommand<UpdateEffects>> all() {
-        return List.of(new ReportUpdate(), new RunUpdate(UpdateCommands.NOW),
-                new RunUpdate(UpdateCommands.RESTART), new CancelUpdate(), new RunBackup(),
-                new HoldService(UpdateCommands.DOWN), new HoldService(UpdateCommands.START));
+        return List.of(
+                new ReportUpdate(),
+                new RunUpdate(UpdateCommands.NOW),
+                new RunUpdate(UpdateCommands.RESTART),
+                new CancelUpdate(),
+                new RunBackup(),
+                new HoldService(UpdateCommands.DOWN),
+                new HoldService(UpdateCommands.START));
     }
 
     /** Every declaration in {@link #all()}. */

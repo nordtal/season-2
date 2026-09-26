@@ -1,10 +1,9 @@
 package eu.nordtal.s2.common.menu;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -14,9 +13,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Two rules about menus, enforced over the source text because neither can be checked cheaply on a
@@ -31,8 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ChestOnlyMenuTest {
 
-    private static final List<String> MODULES =
-            List.of("smp", "limbo", "hunger-games", "proxy");
+    private static final List<String> MODULES = List.of("smp", "limbo", "hunger-games", "proxy");
 
     /**
      * Menus that compose their own title, and why they may. Empty, and kept empty: an entry here is
@@ -47,18 +44,12 @@ class ChestOnlyMenuTest {
      * {@link #everyComposerGoesThroughMenuTitle} checks.
      */
     private static final Map<String, String> COMPOSERS = Map.ofEntries(
-            Map.entry("TravelPanel.title(",
-                    "smp/src/main/java/eu/nordtal/s2/smp/travel/TravelPanel.java"),
-            Map.entry("NavigatePanel.title(",
-                    "smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigatePanel.java"),
-            Map.entry("ObjectivePanel.title(",
-                    "smp/src/main/java/eu/nordtal/s2/smp/npc/ObjectivePanel.java"),
-            Map.entry("HandInPanel.title(",
-                    "smp/src/main/java/eu/nordtal/s2/smp/npc/HandInPanel.java"),
-            Map.entry("GravePanel.title(",
-                    "smp/src/main/java/eu/nordtal/s2/smp/grave/GravePanel.java"),
-            Map.entry("WheelPanel.title(",
-                    "smp/src/main/java/eu/nordtal/s2/smp/wheel/WheelPanel.java"));
+            Map.entry("TravelPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/travel/TravelPanel.java"),
+            Map.entry("NavigatePanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigatePanel.java"),
+            Map.entry("ObjectivePanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/npc/ObjectivePanel.java"),
+            Map.entry("HandInPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/npc/HandInPanel.java"),
+            Map.entry("GravePanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/grave/GravePanel.java"),
+            Map.entry("WheelPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/wheel/WheelPanel.java"));
 
     @Test
     @DisplayName("no menu opens anything but a chest")
@@ -69,7 +60,9 @@ class ChestOnlyMenuTest {
                 offenders.add(path + " names InventoryType");
             }
         });
-        assertEquals(List.of(), offenders,
+        assertEquals(
+                List.of(),
+                offenders,
                 "a chest window is 114 + 18*rows pixels tall and all six sizes are even, which is"
                         + " the whole reason one panel per row count lines up. A hopper is 133 -"
                         + " odd - and every panel in the pack is out against it by half a slot.");
@@ -95,11 +88,14 @@ class ChestOnlyMenuTest {
         });
         // Non-vacuity anchor: a rule of the shape "nothing in these trees does X" also passes when
         // the walk finds no files at all.
-        assertTrue(framed.contains("smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigateGui.java"),
+        assertTrue(
+                framed.contains("smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigateGui.java"),
                 "NavigateGui is the reference implementation of the panel and has to be found by"
                         + " this scan; if it is not, the scan is finding nothing and the rule"
                         + " below is passing on an empty set. Found: " + framed);
-        assertEquals(List.of(), offenders,
+        assertEquals(
+                List.of(),
+                offenders,
                 "a menu whose title skips MenuTitle opens without a frame, and nothing about that"
                         + " fails - it is simply a vanilla window where a Nordtal one was meant."
                         + " If this menu is deliberately unframed, say so in UNFRAMED with the"
@@ -111,7 +107,8 @@ class ChestOnlyMenuTest {
     void everyComposerGoesThroughMenuTitle() {
         COMPOSERS.forEach((call, source) -> {
             final String text = read(RepositoryRoot.resolve(source));
-            assertTrue(text.contains("MenuTitle."),
+            assertTrue(
+                    text.contains("MenuTitle."),
                     source + " is allowed to compose a title for a menu but never reaches"
                             + " MenuTitle itself - which makes the exception a hole in the rule");
         });
@@ -127,7 +124,9 @@ class ChestOnlyMenuTest {
                 present.add(file);
             }
         });
-        assertEquals(UNFRAMED.keySet(), new java.util.LinkedHashSet<>(present),
+        assertEquals(
+                UNFRAMED.keySet(),
+                new java.util.LinkedHashSet<>(present),
                 "an allowlist entry for a menu that no longer opens an inventory - or that has"
                         + " since been framed - is an exception nobody is using, and it silently"
                         + " excuses the next file that happens to share the name.");
@@ -139,9 +138,8 @@ class ChestOnlyMenuTest {
         for (final String module : MODULES) {
             final Path root = RepositoryRoot.resolve(module + "/src/main");
             try (Stream<Path> walk = Files.walk(root)) {
-                walk.filter(path -> path.toString().endsWith(".java")).forEach(path ->
-                        consumer.accept(RepositoryRoot.relative(path),
-                                read(path)));
+                walk.filter(path -> path.toString().endsWith(".java"))
+                        .forEach(path -> consumer.accept(RepositoryRoot.relative(path), read(path)));
             } catch (final IOException e) {
                 throw new UncheckedIOException("cannot walk " + root, e);
             }

@@ -9,20 +9,17 @@ import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.common.message.Tones;
-
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-
-import java.util.Locale;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Whoever typed a command on a Paper server - a player, or the console.
@@ -47,7 +44,7 @@ public final class PaperUser implements NordtalUser {
 
         /** For a module with no sounds, and for the console, which has no ears. */
         static Chime silent() {
-            return (player, feedback) -> { };
+            return (player, feedback) -> {};
         }
     }
 
@@ -60,12 +57,15 @@ public final class PaperUser implements NordtalUser {
     private final Chime chime;
     private final java.util.function.Supplier<ToneColours> colours;
 
-    private PaperUser(final Plugin plugin, final CommandSender sender, final Locale locale,
-                      final boolean admin,
-                      final java.util.function.Supplier<Optional<String>> discordId,
-                      final Messages messages,
-                      final Chime chime,
-                      final java.util.function.Supplier<ToneColours> colours) {
+    private PaperUser(
+            final Plugin plugin,
+            final CommandSender sender,
+            final Locale locale,
+            final boolean admin,
+            final java.util.function.Supplier<Optional<String>> discordId,
+            final Messages messages,
+            final Chime chime,
+            final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = plugin;
         this.sender = sender;
         this.locale = locale;
@@ -89,39 +89,57 @@ public final class PaperUser implements NordtalUser {
      *                  not a value, so a reload swaps what the next reply paints with rather than
      *                  what this already-built instance answered when it was constructed
      */
-    public static PaperUser of(final Plugin plugin, final Player player, final Locale locale,
-                               final boolean admin, final String discordId,
-                               final Messages messages, final Chime chime,
-                               final java.util.function.Supplier<ToneColours> colours) {
-        return of(plugin, player, locale, admin, () -> Optional.ofNullable(discordId), messages,
-                chime, colours);
+    public static PaperUser of(
+            final Plugin plugin,
+            final Player player,
+            final Locale locale,
+            final boolean admin,
+            final String discordId,
+            final Messages messages,
+            final Chime chime,
+            final java.util.function.Supplier<ToneColours> colours) {
+        return of(plugin, player, locale, admin, () -> Optional.ofNullable(discordId), messages, chime, colours);
     }
 
     /**
      * The same, with the Discord account resolved only if something asks - the overload to use
      * whenever the source is anything but a cache. See {@link #discordId()}.
      */
-    public static PaperUser of(final Plugin plugin, final Player player, final Locale locale,
-                               final boolean admin,
-                               final java.util.function.Supplier<Optional<String>> discordId,
-                               final Messages messages, final Chime chime,
-                               final java.util.function.Supplier<ToneColours> colours) {
-        return new PaperUser(Objects.requireNonNull(plugin, "plugin"),
+    public static PaperUser of(
+            final Plugin plugin,
+            final Player player,
+            final Locale locale,
+            final boolean admin,
+            final java.util.function.Supplier<Optional<String>> discordId,
+            final Messages messages,
+            final Chime chime,
+            final java.util.function.Supplier<ToneColours> colours) {
+        return new PaperUser(
+                Objects.requireNonNull(plugin, "plugin"),
                 Objects.requireNonNull(player, "player"),
                 locale == null ? Locales.DEFAULT : locale,
-                admin, discordId, Objects.requireNonNull(messages, "messages"),
+                admin,
+                discordId,
+                Objects.requireNonNull(messages, "messages"),
                 chime == null ? Chime.silent() : chime,
                 Objects.requireNonNull(colours, "colours"));
     }
 
     /** The console: English, always an admin, no identities, and no sound. */
-    public static PaperUser console(final Plugin plugin, final CommandSender sender,
-                                    final Messages messages,
-                                    final java.util.function.Supplier<ToneColours> colours) {
-        return new PaperUser(Objects.requireNonNull(plugin, "plugin"),
+    public static PaperUser console(
+            final Plugin plugin,
+            final CommandSender sender,
+            final Messages messages,
+            final java.util.function.Supplier<ToneColours> colours) {
+        return new PaperUser(
+                Objects.requireNonNull(plugin, "plugin"),
                 Objects.requireNonNull(sender, "sender"),
-                Locales.DEFAULT, true, Optional::empty, Objects.requireNonNull(messages, "messages"),
-                Chime.silent(), Objects.requireNonNull(colours, "colours"));
+                Locales.DEFAULT,
+                true,
+                Optional::empty,
+                Objects.requireNonNull(messages, "messages"),
+                Chime.silent(),
+                Objects.requireNonNull(colours, "colours"));
     }
 
     /** Whether this sender is the console, for a command that has to refuse one. */

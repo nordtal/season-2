@@ -2,9 +2,6 @@ package eu.nordtal.s2.steward.deployer;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -18,6 +15,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Every {@code docker compose} invocation this service makes, in one place.
@@ -62,8 +61,7 @@ public final class Compose {
      * against. Faking the link count is what lets {@link #assertEnvFileFresh} be tested without a
      * Docker daemon, the same way {@link ComposeRefusesItselfTest} needs none.</p>
      */
-    Compose(Path composeFile, Path envFile, Path projectDirectory, String projectName,
-            LinkCounter linkCounter) {
+    Compose(Path composeFile, Path envFile, Path projectDirectory, String projectName, LinkCounter linkCounter) {
         this.composeFile = composeFile;
         this.envFile = envFile;
         this.projectDirectory = projectDirectory;
@@ -138,10 +136,14 @@ public final class Compose {
     /** The fixed head of every command line: which project, which file, which environment. */
     private List<String> base() {
         List<String> command = new ArrayList<>(List.of(
-                "docker", "compose",
-                "--project-name", projectName,
-                "--project-directory", projectDirectory.toString(),
-                "--file", composeFile.toString()));
+                "docker",
+                "compose",
+                "--project-name",
+                projectName,
+                "--project-directory",
+                projectDirectory.toString(),
+                "--file",
+                composeFile.toString()));
         if (Files.exists(envFile)) {
             command.add("--env-file");
             command.add(envFile.toString());
@@ -357,7 +359,7 @@ public final class Compose {
 
     private boolean imageExistsLocally(String image) {
         try {
-            return run(List.of("docker", "image", "inspect", image), line -> { }) == 0;
+            return run(List.of("docker", "image", "inspect", image), line -> {}) == 0;
         } catch (IOException e) {
             return false;
         }
@@ -368,8 +370,8 @@ public final class Compose {
             if (SELF.equals(service)) {
                 throw new IllegalArgumentException(
                         "steward-deployer will not recreate itself: the new container would replace "
-                        + "the one running this request, and nobody would ever read the answer. "
-                        + "The setup script on the host renews this service.");
+                                + "the one running this request, and nobody would ever read the answer. "
+                                + "The setup script on the host renews this service.");
             }
         }
         return services;
@@ -385,8 +387,8 @@ public final class Compose {
     private int run(List<String> command, Consumer<String> output) throws IOException {
         log.info("$ {}", String.join(" ", command));
         Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 output.accept(line);

@@ -18,35 +18,14 @@ import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import type { ReportChange, ReportLine, Run } from "@/lib/api"
-import {
-  count,
-  dateTime,
-  duration,
-  parseInstant,
-  relative,
-} from "@/lib/format"
-import {
-  useAskForRun,
-  useCancelRun,
-  useRun,
-} from "@/lib/queries"
+import { count, dateTime, duration, parseInstant, relative } from "@/lib/format"
+import { useAskForRun, useCancelRun, useRun } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { Actor } from "@/components/steward/entity"
-import {
-  RUN_KIND,
-  RunStatus,
-  StatusBadge,
-  type Tone,
-} from "@/components/steward/status"
-import {
-  Empty,
-  Loading,
-  QueryState,
-  Skeleton,
-  SkeletonText,
-} from "@/components/steward/query-state"
+import { RUN_KIND, RunStatus, StatusBadge, type Tone } from "@/components/steward/status"
+import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import {
   ResponsiveAlertDialog,
   ResponsiveAlertDialogAction,
@@ -59,21 +38,9 @@ import {
   ResponsiveAlertDialogTrigger,
 } from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /**
  * The vocabulary of a run, shared by Updates, Backups and a service's own page (concept §10a).
@@ -172,8 +139,7 @@ function Change({ change }: { change: ReportChange }) {
   if (change.state === "UNSUPPORTED") {
     return (
       <span className="text-muted-foreground">
-        <code className="text-xs">{change.artefact}</code> - no build for this Minecraft
-        version
+        <code className="text-xs">{change.artefact}</code> - no build for this Minecraft version
       </span>
     )
   }
@@ -297,10 +263,7 @@ export function summaryOf(run: Run): string[] {
 
   const moving = report.services.filter((line) => line.changes.some(isMoving))
   if (moving.length > 0) {
-    const artefacts = moving.reduce(
-      (sum, line) => sum + line.changes.filter(isMoving).length,
-      0,
-    )
+    const artefacts = moving.reduce((sum, line) => sum + line.changes.filter(isMoving).length, 0)
     parts.push(
       `${count(moving.length)} ${moving.length === 1 ? "service" : "services"}, ` +
         `${count(artefacts)} ${artefacts === 1 ? "artefact" : "artefacts"}`,
@@ -324,10 +287,7 @@ const SOURCE_LABEL: Record<string, string> = {
 
 type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
 
-const ASKS: Record<
-  Kind,
-  { title: string; what: string; warning?: string; icon: typeof ArrowsClockwiseIcon }
-> = {
+const ASKS: Record<Kind, { title: string; what: string; warning?: string; icon: typeof ArrowsClockwiseIcon }> = {
   UPDATE: {
     title: "Update",
     what: "Stops what changes, swaps its jars and starts it again.",
@@ -565,9 +525,7 @@ function RunDetail({ run }: { run?: Run }) {
       <Card>
         <CardContent className="flex flex-wrap items-start gap-6 pt-6">
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Status
-            </span>
+            <span className="text-xs font-medium text-muted-foreground">Status</span>
             <div className="flex items-center gap-2">
               {run ? <RunStatus status={run.status} /> : <Skeleton className="h-5 w-20 rounded-full" />}
               {report ? <StageBadge stage={report.stage} /> : null}
@@ -592,9 +550,7 @@ function RunDetail({ run }: { run?: Run }) {
           <Stat
             label="Requested by"
             value={
-              run ? (
-                <Actor system={run.system} discordId={run.actorDiscordId} label={run.actorLabel} />
-              ) : undefined
+              run ? <Actor system={run.system} discordId={run.actorDiscordId} label={run.actorLabel} /> : undefined
             }
             hint={run ? dateTime(run.requested) : undefined}
           />
@@ -617,10 +573,7 @@ function RunDetail({ run }: { run?: Run }) {
       </Card>
 
       {report?.stage === "NOTHING_TO_DO" ? (
-        <div
-          className="flex items-start gap-3 rounded-md border border-border bg-secondary/40 px-4 py-3"
-          role="status"
-        >
+        <div className="flex items-start gap-3 rounded-md border border-border bg-secondary/40 px-4 py-3" role="status">
           <ProhibitInsetIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">Nothing to do.</p>
@@ -639,9 +592,7 @@ function RunDetail({ run }: { run?: Run }) {
           <ShieldWarningIcon className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">This run saved nothing.</p>
-            <p className="max-w-prose text-sm text-muted-foreground">
-              No line of the report stands at "saved".
-            </p>
+            <p className="max-w-prose text-sm text-muted-foreground">No line of the report stands at "saved".</p>
           </div>
         </div>
       ) : null}
@@ -676,9 +627,8 @@ function RunDetail({ run }: { run?: Run }) {
             <>
               <p className="flex items-start gap-2 text-sm text-warning">
                 <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                The contents of the <code className="text-xs">result</code> column could not be
-                read as a report - an old row, or one from a newer version than this. The raw text
-                is therefore shown here.
+                The contents of the <code className="text-xs">result</code> column could not be read as a report - an
+                old row, or one from a newer version than this. The raw text is therefore shown here.
               </p>
               <pre className="max-h-96 overflow-auto rounded-md border border-border bg-[#0a0a0a] p-3 font-mono text-xs leading-5 whitespace-pre-wrap">
                 {run.resultText}
@@ -786,7 +736,9 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
       <TableBody>
         {lines.map((line) => (
           <TableRow key={line.service} className="align-top">
-            <TableCell data-label="Service" className="font-medium">{line.service}</TableCell>
+            <TableCell data-label="Service" className="font-medium">
+              {line.service}
+            </TableCell>
             <TableCell data-label="State">
               <LineState state={line.state} />
             </TableCell>
@@ -804,11 +756,7 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
                   ))}
                   {line.detail ? (
                     <span
-                      className={
-                        line.state === "FAILED"
-                          ? "text-xs text-destructive"
-                          : "text-xs text-muted-foreground"
-                      }
+                      className={line.state === "FAILED" ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
                     >
                       {line.detail}
                     </span>
@@ -828,9 +776,7 @@ export function Notes({ notes }: { notes: string[] }) {
   if (notes.length === 0) return null
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-muted-foreground">
-        Notes
-      </span>
+      <span className="text-xs font-medium text-muted-foreground">Notes</span>
       <ul className="flex flex-col gap-1">
         {notes.map((note) => (
           <li key={note} className="text-sm text-muted-foreground">
@@ -865,8 +811,7 @@ export function CopyButton({ text, disabled }: { text: string; disabled?: boolea
           toast.success("Command copied")
         } catch {
           toast.error("Cannot copy", {
-            description:
-              "The clipboard is not available to this page. The command can be selected beside it.",
+            description: "The clipboard is not available to this page. The command can be selected beside it.",
           })
         }
       }}

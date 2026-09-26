@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.npc;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -11,7 +13,9 @@ import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
-
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -21,12 +25,6 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.plugin.Plugin;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * Clicking the NPC, and everything that follows from it.
@@ -52,6 +50,7 @@ public final class NpcListener implements Listener {
      * definitions the server started with, for the rest of the season, and nothing would say so.</p>
      */
     private final java.util.function.Supplier<MilestoneTrack> track;
+
     private final ObjectiveEngine engine;
     private final Identities identities;
     /**
@@ -61,16 +60,22 @@ public final class NpcListener implements Listener {
      * out on rather than the ones the server started with.
      */
     private final java.util.function.Supplier<List<Integer>> extraSpinPercents;
+
     private final Messages messages;
     private final PlayerLocales locales;
     private final SmpSounds sounds;
 
-    public NpcListener(final Plugin plugin, final SmpDao dao, final SpawnNpc npc,
-                       final java.util.function.Supplier<MilestoneTrack> track, final ObjectiveEngine engine,
-                       final Identities identities,
-                       final java.util.function.Supplier<List<Integer>> extraSpinPercents,
-                       final Messages messages,
-                       final PlayerLocales locales, final SmpSounds sounds) {
+    public NpcListener(
+            final Plugin plugin,
+            final SmpDao dao,
+            final SpawnNpc npc,
+            final java.util.function.Supplier<MilestoneTrack> track,
+            final ObjectiveEngine engine,
+            final Identities identities,
+            final java.util.function.Supplier<List<Integer>> extraSpinPercents,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.npc = npc;
@@ -97,13 +102,19 @@ public final class NpcListener implements Listener {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Optional<String> activeKey = dao.activeMilestoneKey();
             if (activeKey.isEmpty()) {
-                tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().objectives().none()),
+                tell(
+                        player,
+                        MessageRenderer.of(messages)
+                                .format(locale, MESSAGES.smp().objectives().none()),
                         Feedback.REFUSED);
                 return;
             }
             final Milestone milestone = track.get().milestone(activeKey.get()).orElse(null);
             if (milestone == null) {
-                tell(player, MessageRenderer.of(messages).format(locale, MESSAGES.smp().objectives().none()),
+                tell(
+                        player,
+                        MessageRenderer.of(messages)
+                                .format(locale, MESSAGES.smp().objectives().none()),
                         Feedback.REFUSED);
                 return;
             }
@@ -113,15 +124,15 @@ public final class NpcListener implements Listener {
             // trip more, none of it on the main thread. A player with no account link (which the
             // login gate makes impossible, so this is the defensive branch) gets an empty summary
             // rather than a query with a null id.
-            final OwnShare.Summary share = identities.discordIdOf(player.getUniqueId())
-                    .map(discordId -> OwnShare.of(dao.ownContributions(activeKey.get(), discordId),
-                            extraSpinPercents.get()))
+            final OwnShare.Summary share = identities
+                    .discordIdOf(player.getUniqueId())
+                    .map(discordId ->
+                            OwnShare.of(dao.ownContributions(activeKey.get(), discordId), extraSpinPercents.get()))
                     .orElseGet(() -> OwnShare.of(List.of(), List.of()));
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (player.isOnline()) {
-                    player.openInventory(new ObjectiveGui(messages, locale, milestone, rows, share)
-                            .getInventory());
+                    player.openInventory(new ObjectiveGui(messages, locale, milestone, rows, share).getInventory());
                 }
             });
         });
@@ -152,9 +163,13 @@ public final class NpcListener implements Listener {
             gui.at(slot).ifPresent(entry -> {
                 if (entry.isHandIn()) {
                     sounds.play(player, Feedback.SELECT);
-                    player.openInventory(new HandInGui(messages,
-                            locales.of(player.getUniqueId()), entry.objective(),
-                            entry.row().amount(), entry.row().target()).getInventory());
+                    player.openInventory(new HandInGui(
+                                    messages,
+                                    locales.of(player.getUniqueId()),
+                                    entry.objective(),
+                                    entry.row().amount(),
+                                    entry.row().target())
+                            .getInventory());
                 } else {
                     // A statistic counts itself and an advancement is earned elsewhere, which is
                     // what the item's own lore says. Clicking one is a click the server cannot do
@@ -168,7 +183,8 @@ public final class NpcListener implements Listener {
         if (holder instanceof HandInGui gui) {
             // The deposit slots are deliberately free: this is a chest a player fills. Only the
             // confirm button and the frame around it are locked.
-            if (event.getRawSlot() >= 0 && event.getRawSlot() < event.getInventory().getSize()
+            if (event.getRawSlot() >= 0
+                    && event.getRawSlot() < event.getInventory().getSize()
                     && !HandInGui.isDeposit(event.getRawSlot())) {
                 event.setCancelled(true);
             }
@@ -189,17 +205,16 @@ public final class NpcListener implements Listener {
         final Locale locale = locales.of(player.getUniqueId());
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale,
-                    MESSAGES.smp().error().noAccountLink()));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.smp().error().noAccountLink()));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
 
-        final HandIn.Result result =
-                HandIn.sort(gui.offered(), gui.wanted(), gui.stillNeeded());
+        final HandIn.Result result = HandIn.sort(gui.offered(), gui.wanted(), gui.stillNeeded());
         if (result.accepted() <= 0) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale,
-                    MESSAGES.smp().handin().nothingWanted()));
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.smp().handin().nothingWanted()));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -217,9 +232,10 @@ public final class NpcListener implements Listener {
             } catch (final RuntimeException failure) {
                 // The database said no. Without this the items are gone and the player is told
                 // nothing at all, because the callback below never runs.
-                plugin.getLogger().severe("the hand-in for " + player.getName() + " on "
-                        + objectiveKey + " could not be credited, giving the items back: "
-                        + failure.getMessage());
+                plugin.getLogger()
+                        .severe("the hand-in for " + player.getName() + " on "
+                                + objectiveKey + " could not be credited, giving the items back: "
+                                + failure.getMessage());
                 credited = 0;
             }
             final long paid = credited;
@@ -236,9 +252,10 @@ public final class NpcListener implements Listener {
                         // stack by stack, so an admin can hand them back - which is the whole
                         // difference between an incident and a silent loss. It is on the owner's
                         // rehearsal list whether this deserves a real store.
-                        plugin.getLogger().severe(player.getName() + " left while a hand-in on "
-                                + objectiveKey + " was in flight, it credited nothing, and these"
-                                + " items could not be returned: " + describe(taken));
+                        plugin.getLogger()
+                                .severe(player.getName() + " left while a hand-in on "
+                                        + objectiveKey + " was in flight, it credited nothing, and these"
+                                        + " items could not be returned: " + describe(taken));
                         return;
                     }
                     gui.giveBack(player, taken);
@@ -251,8 +268,8 @@ public final class NpcListener implements Listener {
                 if (!player.isOnline()) {
                     return;
                 }
-                player.sendMessage(MessageRenderer.of(messages).format(locale,
-                        MESSAGES.smp().handin().accepted(paid)));
+                player.sendMessage(MessageRenderer.of(messages)
+                        .format(locale, MESSAGES.smp().handin().accepted(paid)));
                 sounds.play(player, Feedback.SMALL_SUCCESS);
                 player.closeInventory();
             });
@@ -261,8 +278,7 @@ public final class NpcListener implements Listener {
 
     @EventHandler
     public void onClose(final InventoryCloseEvent event) {
-        if (event.getInventory().getHolder() instanceof HandInGui gui
-                && event.getPlayer() instanceof Player player) {
+        if (event.getInventory().getHolder() instanceof HandInGui gui && event.getPlayer() instanceof Player player) {
             gui.returnEverything(player);
         }
     }

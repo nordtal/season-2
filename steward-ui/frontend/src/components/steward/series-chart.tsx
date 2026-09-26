@@ -132,9 +132,7 @@ export function SeriesChart({
  * by one in which it has. A blank heading that flickers reads as a defect; a heading that is a
  * moment off for one frame does not.
  */
-export function tooltipTimestamp(
-  payload: readonly { payload?: { at?: unknown } }[] | undefined | null,
-): number {
+export function tooltipTimestamp(payload: readonly { payload?: { at?: unknown } }[] | undefined | null): number {
   const at = payload?.[0]?.payload?.at
   const parsed = Number(at)
   return at === undefined || at === null || Number.isNaN(parsed) ? Date.now() : parsed

@@ -34,9 +34,7 @@ describe("tooltipTimestamp - the point the heading names", () => {
   })
 
   it("reads only the first entry, because a tooltip names one instant", () => {
-    expect(
-      tooltipTimestamp([{ payload: { at: 1 } }, { payload: { at: 2 } }]),
-    ).toBe(1)
+    expect(tooltipTimestamp([{ payload: { at: 1 } }, { payload: { at: 2 } }])).toBe(1)
   })
 
   it.each([

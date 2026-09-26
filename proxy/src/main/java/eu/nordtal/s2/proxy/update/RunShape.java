@@ -1,11 +1,9 @@
 package eu.nordtal.s2.proxy.update;
 
-import eu.nordtal.s2.proxy.online.OnlineCounts;
 import eu.nordtal.s2.common.update.UpdateKind;
-
-import org.jetbrains.annotations.Nullable;
-
+import eu.nordtal.s2.proxy.online.OnlineCounts;
 import java.util.Set;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * What a run is about to do, and what that means for one player - season-2-ops/118.
@@ -39,11 +37,8 @@ import java.util.Set;
  * @param waitingRoom  whether a waiting room survives the run
  * @param standbyProxy whether a standby proxy is there to catch the network when this one goes
  */
-public record RunShape(Occasion occasion,
-                       Set<String> moving,
-                       boolean proxyMoves,
-                       boolean waitingRoom,
-                       boolean standbyProxy) {
+public record RunShape(
+        Occasion occasion, Set<String> moving, boolean proxyMoves, boolean waitingRoom, boolean standbyProxy) {
 
     /** What a run is called to a player. One per {@link UpdateKind} that stops anything, plus one. */
     public enum Occasion {
@@ -102,14 +97,11 @@ public record RunShape(Occasion occasion,
      * @param waitingRoom  whether {@link Evacuation#roomFor} found a room for this run
      * @param standbyProxy whether the standby proxy answers right now
      */
-    public static RunShape of(final UpdateKind kind,
-                              final Set<String> moving,
-                              final boolean waitingRoom,
-                              final boolean standbyProxy) {
+    public static RunShape of(
+            final UpdateKind kind, final Set<String> moving, final boolean waitingRoom, final boolean standbyProxy) {
         final Set<String> services = Set.copyOf(moving == null ? Set.of() : moving);
         final boolean proxyMoves = services.contains(OnlineCounts.PROXY);
-        return new RunShape(occasionOf(kind, waitingRoom), services, proxyMoves,
-                waitingRoom, standbyProxy);
+        return new RunShape(occasionOf(kind, waitingRoom), services, proxyMoves, waitingRoom, standbyProxy);
     }
 
     /**

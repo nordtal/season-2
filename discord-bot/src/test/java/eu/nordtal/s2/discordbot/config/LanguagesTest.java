@@ -1,18 +1,17 @@
 package eu.nordtal.s2.discordbot.config;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The rules that used to be spread across four classes as {@code roles.german} /
@@ -77,8 +76,7 @@ class LanguagesTest {
         assertAll(
                 () -> assertTrue(today().resolve(Set.of("99", "98")).isEmpty()),
                 () -> assertTrue(today().resolve(Set.of()).isEmpty()),
-                () -> assertTrue(today().resolve(null).isEmpty())
-        );
+                () -> assertTrue(today().resolve(null).isEmpty()));
     }
 
     @Test
@@ -99,9 +97,10 @@ class LanguagesTest {
         final Languages frFirst = Languages.of(List.of(EN, FR, DE));
 
         assertAll(
-                () -> assertEquals("de", deFirst.resolve(Set.of("20", "30")).orElseThrow().tag()),
-                () -> assertEquals("fr", frFirst.resolve(Set.of("20", "30")).orElseThrow().tag())
-        );
+                () -> assertEquals(
+                        "de", deFirst.resolve(Set.of("20", "30")).orElseThrow().tag()),
+                () -> assertEquals(
+                        "fr", frFirst.resolve(Set.of("20", "30")).orElseThrow().tag()));
     }
 
     @Test
@@ -120,8 +119,7 @@ class LanguagesTest {
                 () -> assertTrue(today().isLanguageRole("10")),
                 () -> assertTrue(today().isLanguageRole("20")),
                 () -> assertFalse(today().isLanguageRole("21"), "that is a channel id, not a role id"),
-                () -> assertFalse(today().isLanguageRole("30"))
-        );
+                () -> assertFalse(today().isLanguageRole("30")));
     }
 
     // ------------------------------------------------------------- a third language, no code change
@@ -132,19 +130,19 @@ class LanguagesTest {
         final Languages three = Languages.of(List.of(EN, DE, FR));
 
         assertAll(
-                () -> assertEquals("fr", three.resolve(Set.of("30")).orElseThrow().tag()),
-                () -> assertEquals(Locale.FRENCH, three.resolve(Set.of("30")).orElseThrow().locale()),
+                () -> assertEquals(
+                        "fr", three.resolve(Set.of("30")).orElseThrow().tag()),
+                () -> assertEquals(
+                        Locale.FRENCH, three.resolve(Set.of("30")).orElseThrow().locale()),
                 () -> assertEquals("31", three.forLocale(Locale.FRENCH).contributionChannelId()),
                 () -> assertEquals("32", three.forLocale(Locale.FRENCH).linkChannelId()),
                 () -> assertTrue(three.isLanguageRole("30")),
                 () -> assertEquals(3, three.all().size()),
                 // Messages.load gets the whole list, so the French bundle is read without anybody
                 // editing AccessBot. A missing fr.properties degrades to English with one warning.
-                () -> assertArrayEquals(new Locale[]{Locale.ENGLISH, Locale.GERMAN, Locale.FRENCH},
-                        three.locales()),
+                () -> assertArrayEquals(new Locale[] {Locale.ENGLISH, Locale.GERMAN, Locale.FRENCH}, three.locales()),
                 () -> assertEquals("CONTRIBUTION_FR", FR.contributionKind()),
-                () -> assertEquals("LINK_FR", FR.linkKind())
-        );
+                () -> assertEquals("LINK_FR", FR.linkKind()));
     }
 
     @Test
@@ -157,8 +155,7 @@ class LanguagesTest {
                 () -> assertEquals("CONTRIBUTION_EN", EN.contributionKind()),
                 () -> assertEquals("CONTRIBUTION_DE", DE.contributionKind()),
                 () -> assertEquals("LINK_EN", EN.linkKind()),
-                () -> assertEquals("LINK_DE", DE.linkKind())
-        );
+                () -> assertEquals("LINK_DE", DE.linkKind()));
     }
 
     // ------------------------------------------------------------- looking a language up
@@ -173,9 +170,8 @@ class LanguagesTest {
                 () -> assertEquals("22", today().forLocale(Locale.GERMAN).linkChannelId()),
                 // de-AT is German: discord_user.locale stores the language only, and Locales.tag
                 // is what both sides go through.
-                () -> assertEquals("21", today().forLocale(Locale.forLanguageTag("de-AT"))
-                        .contributionChannelId())
-        );
+                () -> assertEquals(
+                        "21", today().forLocale(Locale.forLanguageTag("de-AT")).contributionChannelId()));
     }
 
     @Test
@@ -187,8 +183,7 @@ class LanguagesTest {
                 () -> assertEquals("en", today().forLocale(Locale.FRENCH).tag()),
                 () -> assertEquals("11", today().forLocale(Locale.FRENCH).contributionChannelId()),
                 () -> assertEquals("en", today().forLocale(null).tag()),
-                () -> assertEquals("en", today().fallback().tag())
-        );
+                () -> assertEquals("en", today().fallback().tag()));
     }
 
     @Test
@@ -197,15 +192,17 @@ class LanguagesTest {
         assertAll(
                 () -> assertEquals("de", today().byTag("DE").orElseThrow().tag()),
                 () -> assertTrue(today().byTag("fr").isEmpty()),
-                () -> assertTrue(today().byTag(null).isEmpty())
-        );
+                () -> assertTrue(today().byTag(null).isEmpty()));
     }
 
     @Test
     @DisplayName("the configured order is preserved, because it is what everything else walks")
     void theConfiguredOrderIsPreserved() {
-        assertEquals(List.of("fr", "en", "de"),
-                Languages.of(List.of(FR, EN, DE)).all().stream().map(Languages.Language::tag).toList());
+        assertEquals(
+                List.of("fr", "en", "de"),
+                Languages.of(List.of(FR, EN, DE)).all().stream()
+                        .map(Languages.Language::tag)
+                        .toList());
     }
 
     // ------------------------------------------------------------- what it refuses to be built from
@@ -213,15 +210,16 @@ class LanguagesTest {
     @Test
     @DisplayName("a list with no 'en' entry is refused")
     void aListWithoutEnglishIsRefused() {
-        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> Languages.of(List.of(DE, FR)));
+        final IllegalArgumentException error =
+                assertThrows(IllegalArgumentException.class, () -> Languages.of(List.of(DE, FR)));
         assertTrue(error.getMessage().contains("fallback"), error.getMessage());
     }
 
     @Test
     @DisplayName("a list with a duplicate tag is refused")
     void aListWithADuplicateTagIsRefused() {
-        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
                 () -> Languages.of(List.of(EN, new Languages.Language("en", "40", "41", "42", "43", "44"))));
         assertTrue(error.getMessage().contains("unique"), error.getMessage());
     }
@@ -231,8 +229,7 @@ class LanguagesTest {
     void anEmptyListIsRefused() {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> Languages.of(List.of())),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> Languages.of((List<Languages.Language>) null))
-        );
+                () -> assertThrows(
+                        IllegalArgumentException.class, () -> Languages.of((List<Languages.Language>) null)));
     }
 }

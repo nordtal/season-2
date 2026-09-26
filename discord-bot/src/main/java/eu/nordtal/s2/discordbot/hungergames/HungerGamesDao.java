@@ -1,11 +1,10 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
+import java.util.Optional;
+import java.util.UUID;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * The whole SQL surface of {@code hg_game}/{@code hg_team}/{@code hg_member} the Discord half needs.
@@ -47,8 +46,7 @@ interface HungerGamesDao {
             INSERT INTO hg_member (team_id, game_id, discord_id, state)
             VALUES (:teamId, :gameId, :discordId, 'OWNER')
             """)
-    void insertOwner(@Bind("teamId") UUID teamId, @Bind("gameId") UUID gameId,
-                     @Bind("discordId") String discordId);
+    void insertOwner(@Bind("teamId") UUID teamId, @Bind("gameId") UUID gameId, @Bind("discordId") String discordId);
 
     @SqlQuery("SELECT team_id FROM hg_member WHERE id = :memberId")
     Optional<UUID> teamIdOfMember(@Bind("memberId") UUID memberId);
@@ -84,8 +82,7 @@ interface HungerGamesDao {
             VALUES (:teamId, :gameId, :discordId, 'INVITED')
             RETURNING id
             """)
-    UUID insertInvite(@Bind("teamId") UUID teamId, @Bind("gameId") UUID gameId,
-                      @Bind("discordId") String discordId);
+    UUID insertInvite(@Bind("teamId") UUID teamId, @Bind("gameId") UUID gameId, @Bind("discordId") String discordId);
 
     // discord_id is in the WHERE, not a precondition checked in Java first: only the invited
     // account may answer its own invite, and checking it in the statement that flips the state

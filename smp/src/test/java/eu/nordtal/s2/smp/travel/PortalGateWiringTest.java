@@ -1,15 +1,14 @@
 package eu.nordtal.s2.smp.travel;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The one thing about the portal gate that only a running server could otherwise answer.
@@ -24,8 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PortalGateWiringTest {
 
-    private static final String SOURCE =
-            "smp/src/main/java/eu/nordtal/s2/smp/travel/PortalGate.java";
+    private static final String SOURCE = "smp/src/main/java/eu/nordtal/s2/smp/travel/PortalGate.java";
 
     // theFarmWorldExitExists stood here until 2026-09-20. It held the EntityPortalEnterEvent
     // handler that carried a player out of the farm world, which vanilla's PlayerPortalEvent
@@ -38,11 +36,13 @@ class PortalGateWiringTest {
         final String source = read();
 
         final int cancelled = source.indexOf("event.setCancelled(true);\n        putOutTheFire(");
-        assertTrue(cancelled > 0,
+        assertTrue(
+                cancelled > 0,
                 "the Nether gate cancels the portal without clearing the fire the flint and steel"
                         + " already placed, so a refused ignition burns the player who read the"
                         + " refusal");
-        assertTrue(source.contains("runTask(plugin,"),
+        assertTrue(
+                source.contains("runTask(plugin,"),
                 "the fire is cleared in the same call stack that placed it, which is undone -"
                         + " it has to happen on the next tick");
     }
@@ -50,8 +50,7 @@ class PortalGateWiringTest {
     private static String read() {
         try {
             Path candidate = Path.of("").toAbsolutePath();
-            while (candidate != null
-                    && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
+            while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
                 candidate = candidate.getParent();
             }
             if (candidate == null) {

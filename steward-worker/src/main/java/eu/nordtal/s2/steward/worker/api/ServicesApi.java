@@ -4,9 +4,6 @@ import eu.nordtal.s2.common.online.OnlineCount;
 import eu.nordtal.s2.common.online.OnlineDirectory;
 import eu.nordtal.s2.common.online.OnlinePlayer;
 import eu.nordtal.s2.common.online.OnlineRoster;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -17,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Feeds {@code /api/services} the player counts steward/86 asked for and the names steward/111
@@ -80,9 +78,9 @@ public final class ServicesApi {
      * Two people called {@code Ada} and {@code ada} still have to come back in the same order twice
      * running, which is why the uuid is the tie-break rather than nothing at all.
      */
-    private static final Comparator<OnlinePlayer> BY_NAME =
-            Comparator.comparing((OnlinePlayer player) -> player.name().toLowerCase(Locale.ROOT))
-                    .thenComparing(player -> player.uuid().toString());
+    private static final Comparator<OnlinePlayer> BY_NAME = Comparator.comparing(
+                    (OnlinePlayer player) -> player.name().toLowerCase(Locale.ROOT))
+            .thenComparing(player -> player.uuid().toString());
 
     private final OnlineDirectory online;
     private final OnlineRoster roster;
@@ -93,8 +91,7 @@ public final class ServicesApi {
     }
 
     /** Package-visible so a test can hold time still instead of racing {@link #STALE_AFTER}. */
-    ServicesApi(final @NotNull OnlineDirectory online, final @NotNull OnlineRoster roster,
-                final @NotNull Clock clock) {
+    ServicesApi(final @NotNull OnlineDirectory online, final @NotNull OnlineRoster roster, final @NotNull Clock clock) {
         this.online = Objects.requireNonNull(online, "online");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -145,8 +142,10 @@ public final class ServicesApi {
                 continue;
             }
             network.add(player);
-            player.on().ifPresent(subject ->
-                    bySubject.computeIfAbsent(subject, key -> new ArrayList<>()).add(player));
+            player.on()
+                    .ifPresent(subject -> bySubject
+                            .computeIfAbsent(subject, key -> new ArrayList<>())
+                            .add(player));
         }
         if (!network.isEmpty()) {
             bySubject.put(PROXY, network);

@@ -1,25 +1,23 @@
 package eu.nordtal.s2.proxy.update;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.proxy.MutableClock;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The rules about when a player is spoken to before the network goes down.
@@ -44,8 +42,17 @@ class CountdownTest {
 
     /** A row due {@code in} from the clock's current instant. */
     private UpdateRequest due(final long id, final Duration in) {
-        return new UpdateRequest(id, UpdateKind.UPDATE, UpdateStatus.RUNNING, UpdateSource.DISCORD,
-                "a", NOW, clock.instant().plus(in), NOW, null, null);
+        return new UpdateRequest(
+                id,
+                UpdateKind.UPDATE,
+                UpdateStatus.RUNNING,
+                UpdateSource.DISCORD,
+                "a",
+                NOW,
+                clock.instant().plus(in),
+                NOW,
+                null,
+                null);
     }
 
     private List<Countdown.Beat> beatsFor(final UpdateRequest request) {
@@ -58,19 +65,20 @@ class CountdownTest {
         // THE REAL COUNTDOWN AND NOT A NUMBER TYPED HERE. It was 30 seconds and became 60 on
         // 2026-09-20, and a test that had spelt the old number would have gone on passing while
         // asserting a countdown nothing runs.
-        final List<Countdown.Beat> beats =
-                beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN));
+        final List<Countdown.Beat> beats = beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN));
 
-        assertEquals(3, kinds(beats, Announcement.Kind.COUNTDOWN).size(),
+        assertEquals(
+                3,
+                kinds(beats, Announcement.Kind.COUNTDOWN).size(),
                 "chat gets sixty, thirty and ten; a line every five seconds is how a warning"
                         + " becomes something people learn to ignore");
         assertEquals(List.of(60L, 30L, 10L), seconds(kinds(beats, Announcement.Kind.COUNTDOWN)));
-        assertEquals(List.of(9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L),
+        assertEquals(
+                List.of(9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L),
                 seconds(kinds(beats, Announcement.Kind.TICK)),
                 "ten is missing on purpose: it has a chat line, and that line draws the title of"
                         + " that second itself (season-2-ops/132)");
-        assertEquals(1, kinds(beats, Announcement.Kind.NOW).size(),
-                "and exactly one 'it is happening'");
+        assertEquals(1, kinds(beats, Announcement.Kind.NOW).size(), "and exactly one 'it is happening'");
         assertEquals(13, beats.size());
     }
 
@@ -85,7 +93,8 @@ class CountdownTest {
         // So the two numbers are held against each other rather than each against a literal, and
         // raising either one alone fails here instead of going quiet in production.
         for (final long threshold : Countdown.CHAT_THRESHOLDS) {
-            assertTrue(threshold <= UpdateDirectory.UPDATE_COUNTDOWN.toSeconds(),
+            assertTrue(
+                    threshold <= UpdateDirectory.UPDATE_COUNTDOWN.toSeconds(),
                     "a chat line at " + threshold + "s cannot be spoken in a "
                             + UpdateDirectory.UPDATE_COUNTDOWN.toSeconds() + "s countdown:"
                             + " the beat is planned for an instant that has already passed and"
@@ -93,9 +102,9 @@ class CountdownTest {
         }
         // And the whole set is spoken by a countdown of exactly that length, which is the other
         // half: a threshold that merely fits is not the same as one that is used.
-        assertEquals(Countdown.CHAT_THRESHOLDS,
-                seconds(kinds(beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN)),
-                        Announcement.Kind.COUNTDOWN)));
+        assertEquals(
+                Countdown.CHAT_THRESHOLDS,
+                seconds(kinds(beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN)), Announcement.Kind.COUNTDOWN)));
     }
 
     @Test
@@ -108,7 +117,9 @@ class CountdownTest {
                 assertEquals(Duration.ofSeconds(30), beat.delay(), "zero is at the end");
                 continue;
             }
-            assertEquals(Duration.ofSeconds(30 - beat.announcement().seconds()), beat.delay(),
+            assertEquals(
+                    Duration.ofSeconds(30 - beat.announcement().seconds()),
+                    beat.delay(),
                     beat.announcement() + " does not fire when its own number is true");
         }
     }
@@ -124,8 +135,11 @@ class CountdownTest {
 
         final Countdown.Beat five = kinds(beats, Announcement.Kind.TICK).stream()
                 .filter(beat -> beat.announcement().seconds() == 5L)
-                .findFirst().orElseThrow();
-        assertEquals(Duration.ofMillis(24_640), five.delay(),
+                .findFirst()
+                .orElseThrow();
+        assertEquals(
+                Duration.ofMillis(24_640),
+                five.delay(),
                 "the '5' is shown 5.000 seconds before the servers go, not 5.640");
     }
 
@@ -146,21 +160,21 @@ class CountdownTest {
         // Written against the real countdown less those 20 ms rather than against 29 980 outright:
         // the number moved to 60 on 2026-09-20 and the latency did not, and it is the latency this
         // case is about.
-        final List<Countdown.Beat> beats =
-                beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN.minusMillis(20)));
+        final List<Countdown.Beat> beats = beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN.minusMillis(20)));
 
-        assertEquals(Countdown.CHAT_THRESHOLDS,
+        assertEquals(
+                Countdown.CHAT_THRESHOLDS,
                 seconds(kinds(beats, Announcement.Kind.COUNTDOWN)),
                 "the first line was dropped because the row took 20 ms to read");
-        assertEquals(Duration.ZERO,
+        assertEquals(
+                Duration.ZERO,
                 kinds(beats, Announcement.Kind.COUNTDOWN).getFirst().delay(),
                 "a beat whose instant has just passed is said now, not scheduled into the past");
         // The count is asserted through the ticks rather than on its own, and the reason is the
         // trap this whole case is about: the broken run logged twelve beats too, for the opposite
         // reason - two chat lines and ten ticks with the first line missing. A bare number would
         // go green again the day a line is lost twice.
-        assertEquals(List.of(9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L),
-                seconds(kinds(beats, Announcement.Kind.TICK)));
+        assertEquals(List.of(9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L), seconds(kinds(beats, Announcement.Kind.TICK)));
         assertEquals(Countdown.CHAT_THRESHOLDS.size() + 9 + 1, beats.size());
     }
 
@@ -171,11 +185,11 @@ class CountdownTest {
         // seconds after that stopped being true.
         final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(7)));
 
-        assertTrue(kinds(beats, Announcement.Kind.COUNTDOWN).isEmpty(),
-                "both chat thresholds are behind us");
-        assertEquals(List.of(7L, 6L, 5L, 4L, 3L, 2L, 1L),
-                seconds(kinds(beats, Announcement.Kind.TICK)));
-        assertEquals(Duration.ofSeconds(7), kinds(beats, Announcement.Kind.NOW).getFirst().delay());
+        assertTrue(kinds(beats, Announcement.Kind.COUNTDOWN).isEmpty(), "both chat thresholds are behind us");
+        assertEquals(List.of(7L, 6L, 5L, 4L, 3L, 2L, 1L), seconds(kinds(beats, Announcement.Kind.TICK)));
+        assertEquals(
+                Duration.ofSeconds(7),
+                kinds(beats, Announcement.Kind.NOW).getFirst().delay());
     }
 
     @Test
@@ -192,10 +206,12 @@ class CountdownTest {
     @DisplayName("the same row seen again is not planned twice")
     void theSecondSightingOfOneRowChangesNothing() {
         final UpdateRequest request = due(1L, Duration.ofSeconds(30));
-        assertTrue(countdown.beats(request.id(), request.untilDue(clock.instant())).isPresent());
+        assertTrue(
+                countdown.beats(request.id(), request.untilDue(clock.instant())).isPresent());
 
         clock.advance(Duration.ofSeconds(5));
-        assertTrue(countdown.beats(request.id(), request.untilDue(clock.instant())).isEmpty(),
+        assertTrue(
+                countdown.beats(request.id(), request.untilDue(clock.instant())).isEmpty(),
                 "the beats are already on the scheduler; re-planning would double every line");
     }
 
@@ -204,8 +220,7 @@ class CountdownTest {
     void aNewRowStartsOver() {
         beatsFor(due(1L, Duration.ofSeconds(30)));
 
-        final Optional<List<Countdown.Beat>> second =
-                countdown.beats(2L, Duration.ofSeconds(30));
+        final Optional<List<Countdown.Beat>> second = countdown.beats(2L, Duration.ofSeconds(30));
         assertTrue(second.isPresent());
         assertEquals(2L, countdown.watching());
     }
@@ -217,7 +232,8 @@ class CountdownTest {
     void cancelledSaysCancelled() {
         beatsFor(due(1L, Duration.ofSeconds(30)));
 
-        assertEquals(Announcement.Kind.CANCELLED,
+        assertEquals(
+                Announcement.Kind.CANCELLED,
                 countdown.gone(UpdateStatus.CANCELLED).orElseThrow().kind());
     }
 
@@ -229,7 +245,9 @@ class CountdownTest {
         // successful run as called off.
         beatsFor(due(1L, Duration.ofSeconds(30)));
 
-        assertEquals(Announcement.Kind.NOW, countdown.gone(UpdateStatus.RUNNING).orElseThrow().kind());
+        assertEquals(
+                Announcement.Kind.NOW,
+                countdown.gone(UpdateStatus.RUNNING).orElseThrow().kind());
     }
 
     @Test
@@ -249,7 +267,8 @@ class CountdownTest {
     void failedIsItsOwnAnswer() {
         beatsFor(due(1L, Duration.ofSeconds(30)));
 
-        assertEquals(Announcement.Kind.FAILED,
+        assertEquals(
+                Announcement.Kind.FAILED,
                 countdown.gone(UpdateStatus.FAILED).orElseThrow().kind());
     }
 
@@ -258,14 +277,16 @@ class CountdownTest {
     void aVanishedRowIsACancellation() {
         beatsFor(due(1L, Duration.ofSeconds(30)));
 
-        assertEquals(Announcement.Kind.CANCELLED, countdown.gone(null).orElseThrow().kind());
+        assertEquals(
+                Announcement.Kind.CANCELLED, countdown.gone(null).orElseThrow().kind());
     }
 
     @Test
     @DisplayName("nothing was being counted down, so nothing is said")
     void goneWithoutACountdownIsSilent() {
         assertTrue(countdown.gone(UpdateStatus.CANCELLED).isEmpty());
-        assertFalse(countdown.beats(1L, Duration.ofSeconds(30)).isEmpty(),
+        assertFalse(
+                countdown.beats(1L, Duration.ofSeconds(30)).isEmpty(),
                 "and the bookkeeping is clean enough for the next one");
     }
 
@@ -280,7 +301,8 @@ class CountdownTest {
 
         final List<Long> chat = seconds(kinds(beats, Announcement.Kind.COUNTDOWN));
         for (final Long tick : seconds(kinds(beats, Announcement.Kind.TICK))) {
-            assertFalse(chat.contains(tick),
+            assertFalse(
+                    chat.contains(tick),
                     "second " + tick + " has both a chat line and a tick, and both draw a title"
                             + " now: they would be drawn over one another");
         }
@@ -289,20 +311,18 @@ class CountdownTest {
         // roster and a locale can reach it - so it is read as text, the way RecreateDoesNotPullTest
         // reads its route. Without this the loop above passes on a countdown that still says
         // nothing in the middle of the screen at thirty seconds.
-        final String say = Files.readString(Path.of(
-                "src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
+        final String say = Files.readString(Path.of("src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
         final int countdownCase = say.indexOf("case COUNTDOWN ->");
         assertTrue(countdownCase >= 0, "RestartWatch#say no longer has a COUNTDOWN case");
         final String body = say.substring(countdownCase, say.indexOf("case NOW ->", countdownCase));
-        assertTrue(body.contains("title("),
-                "the chat line is still chat only, so the tick removed above bought nothing: "
-                        + body);
+        assertTrue(
+                body.contains("title("),
+                "the chat line is still chat only, so the tick removed above bought nothing: " + body);
     }
 
     // ---------------------------------------------------------------- helpers
 
-    private static List<Countdown.Beat> kinds(final List<Countdown.Beat> beats,
-                                              final Announcement.Kind kind) {
+    private static List<Countdown.Beat> kinds(final List<Countdown.Beat> beats, final Announcement.Kind kind) {
         return beats.stream().filter(beat -> beat.announcement().kind() == kind).toList();
     }
 

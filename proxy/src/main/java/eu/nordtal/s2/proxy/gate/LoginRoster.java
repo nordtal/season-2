@@ -2,9 +2,7 @@ package eu.nordtal.s2.proxy.gate;
 
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
-
 import eu.nordtal.s2.common.access.AccessState;
-
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -39,8 +37,7 @@ public final class LoginRoster {
      * @param locale    the player's language as of their login
      * @param admin     the admin flag as of their login
      */
-    public record Session(String discordId, Locale locale, boolean admin) {
-    }
+    public record Session(String discordId, Locale locale, boolean admin) {}
 
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
 
@@ -108,8 +105,8 @@ public final class LoginRoster {
             if (admin != session.admin()) {
                 // replace() and not put(): a player who disconnected while this was running must
                 // not be put back into the map.
-                if (sessions.replace(entry.getKey(),
-                        session, new Session(session.discordId(), session.locale(), admin))) {
+                if (sessions.replace(
+                        entry.getKey(), session, new Session(session.discordId(), session.locale(), admin))) {
                     changed++;
                 }
             }

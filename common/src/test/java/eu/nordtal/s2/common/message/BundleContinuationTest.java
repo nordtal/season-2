@@ -1,10 +1,8 @@
 package eu.nordtal.s2.common.message;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -13,8 +11,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * A wrapped line in a message bundle keeps the space that separated the two words.
@@ -75,11 +73,13 @@ class BundleContinuationTest {
                     continue;
                 }
                 final String next = i + 1 < lines.size() ? lines.get(i + 1).strip() : "";
-                glued.add(RepositoryRoot.relative(bundle) + ":" + (i + 1)
-                        + " renders as \"" + tail(withoutEscape) + head(next) + "\"");
+                glued.add(RepositoryRoot.relative(bundle) + ":" + (i + 1) + " renders as \"" + tail(withoutEscape)
+                        + head(next) + "\"");
             }
         }
-        assertEquals(List.of(), glued,
+        assertEquals(
+                List.of(),
+                glued,
                 "a continued bundle line must end with a space before the backslash - the next"
                         + " line's indentation is stripped, so without it the two words are glued"
                         + " together in what the player reads");
@@ -120,13 +120,15 @@ class BundleContinuationTest {
                 }
                 for (final String shape : List.of("(s)", "(n)", "(en)", "(e)", "(er)")) {
                     if (value.contains(shape)) {
-                        parenthesised.add(RepositoryRoot.relative(bundle) + ":" + (i + 1)
-                                + " writes \"" + shape + "\"");
+                        parenthesised.add(
+                                RepositoryRoot.relative(bundle) + ":" + (i + 1) + " writes \"" + shape + "\"");
                     }
                 }
             }
         }
-        assertEquals(List.of(), parenthesised,
+        assertEquals(
+                List.of(),
+                parenthesised,
                 "a bundle value must not spell a plural with a parenthesis - pick a key on the"
                         + " count instead, the way the wheel does at one spin");
     }

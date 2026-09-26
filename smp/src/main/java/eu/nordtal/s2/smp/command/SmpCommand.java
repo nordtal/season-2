@@ -1,18 +1,17 @@
 package eu.nordtal.s2.smp.command;
 
 import com.mojang.brigadier.tree.LiteralCommandNode;
-
 import eu.nordtal.s2.commands.Catalogue;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
+import eu.nordtal.s2.commands.update.UpdateCommands;
+import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.ToneColours;
-import eu.nordtal.s2.commands.update.UpdateCommands;
-import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.papercommon.command.PaperCommands;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.command.UpdateWatcher;
@@ -21,14 +20,11 @@ import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.state.SeasonState;
-
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 /**
  * The SMP's Brigadier trees: its own commands, plus everything another process runs.
@@ -51,8 +47,7 @@ import java.util.List;
  */
 public final class SmpCommand {
 
-    private SmpCommand() {
-    }
+    private SmpCommand() {}
 
     /**
      * @param effects the chat instance - built with the plugin's async scheduler. The inbox gets a
@@ -64,17 +59,28 @@ public final class SmpCommand {
      *                omitting the ones that were added, until a restart
      */
     public static List<LiteralCommandNode<CommandSourceStack>> build(
-            final Plugin plugin, final Messages messages, final PlayerLocales locales,
-            final Identities identities, final SmpSounds sounds, final Outbox outbox,
-            final BukkitSmpEffects effects, final UpdateWatcher updates,
+            final Plugin plugin,
+            final Messages messages,
+            final PlayerLocales locales,
+            final Identities identities,
+            final SmpSounds sounds,
+            final Outbox outbox,
+            final BukkitSmpEffects effects,
+            final UpdateWatcher updates,
             final java.util.function.Supplier<MilestoneTrack> track,
-            final SeasonState season, final java.util.function.Supplier<ToneColours> colours) {
+            final SeasonState season,
+            final java.util.function.Supplier<ToneColours> colours) {
 
-        final PaperCommands commands = new PaperCommands(plugin, messages, Target.SMP, outbox,
+        final PaperCommands commands = new PaperCommands(
+                plugin,
+                messages,
+                Target.SMP,
+                outbox,
                 mcUuid -> locales.of(mcUuid),
                 mcUuid -> identities.of(mcUuid).admin(),
                 identities::discordIdOf,
-                sounds::play, colours);
+                sounds::play,
+                colours);
 
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, effects);
@@ -85,8 +91,8 @@ public final class SmpCommand {
         final UpdateEffects updateEffects = new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
                 updates.directory(),
                 work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
-                (what, failure) -> plugin.getLogger()
-                        .warning("An update command failed while " + what + ": " + failure),
+                (what, failure) ->
+                        plugin.getLogger().warning("An update command failed while " + what + ": " + failure),
                 updates::watch);
 
         // The two arguments a person cannot be expected to remember. Both sources are already in
@@ -94,11 +100,15 @@ public final class SmpCommand {
         // rule a suggestion source has to meet, because Brigadier asks once per keystroke per
         // client.
         commands.suggest(SmpCommands.UNLOCK_MILESTONE, "key", () -> track.get().keys());
-        commands.suggest(SmpCommands.COMPLETE_OBJECTIVE, "key",
+        commands.suggest(
+                SmpCommands.COMPLETE_OBJECTIVE,
+                "key",
                 // The ACTIVE milestone's objectives, because that is the only milestone this
                 // command can close one of - offering the whole track would suggest keys that are
                 // always refused.
-                () -> season.active().objectives().stream().map(ObjectiveRow::key).toList());
+                () -> season.active().objectives().stream()
+                        .map(ObjectiveRow::key)
+                        .toList());
 
         // /update, folded into :commands on 2026-09-08. It used to hang under /smp as a subtree
         // this adapter knew nothing about, with a comment saying it should never become a
@@ -117,12 +127,19 @@ public final class SmpCommand {
         // PlayerCommands. status hangs under the declared /smp root as an open subtree, which is
         // also what keeps that root in a player's tree now that everything else under it is the
         // console's.
-        final PlayerCommands own = new PlayerCommands(effects, effects, sender ->
-                sender instanceof Player player
-                        ? PaperUser.of(plugin, player, locales.of(player.getUniqueId()),
+        final PlayerCommands own = new PlayerCommands(
+                effects,
+                effects,
+                sender -> sender instanceof Player player
+                        ? PaperUser.of(
+                                plugin,
+                                player,
+                                locales.of(player.getUniqueId()),
                                 identities.of(player.getUniqueId()).admin(),
-                                () -> identities.discordIdOf(player.getUniqueId()), messages,
-                                sounds::play, colours)
+                                () -> identities.discordIdOf(player.getUniqueId()),
+                                messages,
+                                sounds::play,
+                                colours)
                         : PaperUser.console(plugin, sender, messages, colours));
         commands.extraOpen("smp", own.status());
 

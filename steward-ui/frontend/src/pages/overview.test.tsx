@@ -1,11 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -374,9 +368,7 @@ describe("OverviewPage - the CPU tile never shares a row with a shorter one (ste
  */
 function metricLabels(): string[] {
   const grid = screen.getByText("CPU").closest("div")?.parentElement?.parentElement
-  return Array.from(grid?.children ?? []).map(
-    (tile) => tile.querySelector("span")?.textContent ?? "",
-  )
+  return Array.from(grid?.children ?? []).map((tile) => tile.querySelector("span")?.textContent ?? "")
 }
 
 describe("OverviewPage - the order of the number row (steward/64)", () => {
@@ -385,14 +377,7 @@ describe("OverviewPage - the order of the number row (steward/64)", () => {
     draw()
 
     await waitFor(() => expect(screen.getByText("CPU")).toBeTruthy())
-    expect(metricLabels()).toEqual([
-      "CPU",
-      "Memory",
-      "Disk",
-      "Latest backup",
-      "Behind",
-      "Issues",
-    ])
+    expect(metricLabels()).toEqual(["CPU", "Memory", "Disk", "Latest backup", "Behind", "Issues"])
   })
 })
 
@@ -433,9 +418,7 @@ describe("OverviewPage - the heading is how many are in the game (steward/64)", 
     )
     draw()
 
-    await waitFor(() =>
-      expect(screen.getByText("players online").closest("p")?.textContent).toContain("7"),
-    )
+    await waitFor(() => expect(screen.getByText("players online").closest("p")?.textContent).toContain("7"))
     expect(screen.queryByRole("heading", { name: "Overview" })).toBeNull()
   })
 

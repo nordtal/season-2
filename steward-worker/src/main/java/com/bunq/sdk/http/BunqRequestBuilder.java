@@ -1,6 +1,9 @@
 package com.bunq.sdk.http;
 
 import com.bunq.sdk.exception.BunqException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import okhttp3.CacheControl;
@@ -8,10 +11,6 @@ import okhttp3.HttpUrl;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import org.jetbrains.annotations.NotNull;
-
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * A patched copy of {@code com.bunq.sdk.http.BunqRequestBuilder} from

@@ -1,33 +1,29 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
-import eu.nordtal.s2.discordbot.discord.Ids;
-
-import eu.nordtal.s2.discordbot.discord.AdminLog;
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.LinkRedemption;
 import eu.nordtal.s2.common.message.Messages;
-
-import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.components.label.Label;
-import net.dv8tion.jda.api.components.textinput.TextInput;
-import net.dv8tion.jda.api.components.textinput.TextInputStyle;
-import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
-import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.commands.build.CommandData;
-import net.dv8tion.jda.api.interactions.commands.build.Commands;
-import net.dv8tion.jda.api.modals.Modal;
-import org.jetbrains.annotations.NotNull;
-
+import eu.nordtal.s2.discordbot.discord.AdminLog;
+import eu.nordtal.s2.discordbot.discord.Ids;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-
-import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.modals.Modal;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Account linking on the Discord side: the managed link message's button opens a modal for the
@@ -54,8 +50,13 @@ public final class LinkFlow extends ListenerAdapter {
     private final RedemptionLimit limit;
     private final ExecutorService executor;
 
-    public LinkFlow(final AccessDirectory access, final AccessRoles roles, final Messages messages,
-                    final AdminLog admin, final RedemptionLimit limit, final ExecutorService executor) {
+    public LinkFlow(
+            final AccessDirectory access,
+            final AccessRoles roles,
+            final Messages messages,
+            final AdminLog admin,
+            final RedemptionLimit limit,
+            final ExecutorService executor) {
         this.access = access;
         this.roles = roles;
         this.messages = messages;
@@ -66,8 +67,7 @@ public final class LinkFlow extends ListenerAdapter {
 
     /** What the bot registers with Discord on startup - available to everyone, unlike the admin commands. */
     public static List<CommandData> commands() {
-        return List.of(Commands.slash("unlink",
-                "Remove the Minecraft account linked to your Discord account."));
+        return List.of(Commands.slash("unlink", "Remove the Minecraft account linked to your Discord account."));
     }
 
     @Override
@@ -81,10 +81,11 @@ public final class LinkFlow extends ListenerAdapter {
                 .setPlaceholder(messages.format(locale, MESSAGES.link().modal().codePlaceholder()))
                 .setRequiredRange(CODE_MIN_LENGTH, CODE_MAX_LENGTH)
                 .build();
-        final Modal modal = Modal.create(Ids.LINK_MODAL, messages.format(locale,
-                MESSAGES.link().modal().title()))
-                .addComponents(Label.of(messages.format(locale,
-                        MESSAGES.link().modal().codeLabel()), codeInput))
+        final Modal modal = Modal.create(
+                        Ids.LINK_MODAL,
+                        messages.format(locale, MESSAGES.link().modal().title()))
+                .addComponents(
+                        Label.of(messages.format(locale, MESSAGES.link().modal().codeLabel()), codeInput))
                 .build();
 
         event.replyModal(modal).queue();
@@ -97,7 +98,8 @@ public final class LinkFlow extends ListenerAdapter {
         }
         final Locale locale = roles.localeOf(event.getUser().getId());
         final String typed = event.getValue(Ids.LINK_CODE_INPUT) == null
-                ? "" : event.getValue(Ids.LINK_CODE_INPUT).getAsString();
+                ? ""
+                : event.getValue(Ids.LINK_CODE_INPUT).getAsString();
         // Codes are generated upper-case; normalising means a player who types one in lower case
         // off a disconnect screen is not punished for it.
         final String code = typed.strip().toUpperCase(Locale.ROOT);
@@ -109,7 +111,9 @@ public final class LinkFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("Redeeming a link code failed", exception);
                 admin.alert("Redeeming a link code failed: `" + exception + "`");
-                event.getHook().editOriginal(messages.format(locale, MESSAGES.link().failed())).queue();
+                event.getHook()
+                        .editOriginal(messages.format(locale, MESSAGES.link().failed()))
+                        .queue();
             }
         });
     }
@@ -121,7 +125,9 @@ public final class LinkFlow extends ListenerAdapter {
         // ask whether its next guess was right, and two workers cannot share the last attempt.
         final int remaining = limit.acquire(discordId);
         if (remaining < 0) {
-            event.getHook().editOriginal(messages.format(locale, MESSAGES.link().tooMany())).queue();
+            event.getHook()
+                    .editOriginal(messages.format(locale, MESSAGES.link().tooMany()))
+                    .queue();
             return;
         }
 
@@ -135,9 +141,11 @@ public final class LinkFlow extends ListenerAdapter {
                 case LINKED -> {
                     limit.clear(discordId);
                     admin.record("LINK", null, discordId, result.mcUuid(), "redeemed a link code");
-                    admin.note(event.getUser().getAsMention() + " linked Minecraft account `"
-                            + result.mcUuid() + "`.");
-                    event.getHook().editOriginal(messages.format(locale, MESSAGES.link().success())).queue();
+                    admin.note(event.getUser().getAsMention() + " linked Minecraft account `" + result.mcUuid() + "`.");
+                    event.getHook()
+                            .editOriginal(
+                                    messages.format(locale, MESSAGES.link().success()))
+                            .queue();
                 }
                 case INVALID_CODE -> {
                     wrongGuess = true;
@@ -147,14 +155,18 @@ public final class LinkFlow extends ListenerAdapter {
                                 + "the maximum number of wrong link codes for this hour and is now"
                                 + " being refused. One person mistyping a code looks like this too.");
                     }
-                    event.getHook().editOriginal(messages.format(locale,
-                            MESSAGES.link().invalidCode())).queue();
+                    event.getHook()
+                            .editOriginal(
+                                    messages.format(locale, MESSAGES.link().invalidCode()))
+                            .queue();
                 }
                 // Not counted: the code was real, the account simply already has one. Charging an
                 // attempt would punish a wrong click with the defence built for a guesser.
                 case ALREADY_LINKED ->
-                        event.getHook().editOriginal(messages.format(locale,
-                                MESSAGES.link().alreadyLinked())).queue();
+                    event.getHook()
+                            .editOriginal(
+                                    messages.format(locale, MESSAGES.link().alreadyLinked()))
+                            .queue();
             }
         } finally {
             if (!wrongGuess) {
@@ -177,14 +189,18 @@ public final class LinkFlow extends ListenerAdapter {
         executor.execute(() -> {
             final Optional<UUID> mcUuid = access.linkedMinecraftAccount(discordId);
             if (!access.unlink(discordId)) {
-                event.getHook().editOriginal(messages.format(locale, MESSAGES.unlink().none())).queue();
+                event.getHook()
+                        .editOriginal(messages.format(locale, MESSAGES.unlink().none()))
+                        .queue();
                 return;
             }
 
             admin.record("UNLINK", discordId, discordId, mcUuid.orElse(null), "self-service, no waiting period");
             admin.note(event.getUser().getAsMention() + " unlinked Minecraft account `"
                     + mcUuid.map(UUID::toString).orElse("?") + "`.");
-            event.getHook().editOriginal(messages.format(locale, MESSAGES.unlink().success())).queue();
+            event.getHook()
+                    .editOriginal(messages.format(locale, MESSAGES.unlink().success()))
+                    .queue();
         });
     }
 }

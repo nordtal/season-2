@@ -4,9 +4,9 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
-import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code config/database.yml} - the proxy's own connection to the access database.
@@ -22,23 +22,24 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
  * fast onto the fallback cache rather than queue behind a struggling database.
  * </p>
  */
-@ConfigSpec(header = {
-        "-------------------------------------------------------------------",
-        "  proxy - PostgreSQL connection",
-        "-------------------------------------------------------------------",
-        "In production the password belongs in the environment, not in this",
-        "file. Every setting can be overridden with",
-        "NORDTAL_PROXY_DATABASE_<SETTING>:",
-        "",
-        "  NORDTAL_PROXY_DATABASE_JDBC_URL",
-        "  NORDTAL_PROXY_DATABASE_USERNAME",
-        "  NORDTAL_PROXY_DATABASE_PASSWORD",
-        "",
-        "An overridden value is never written back into this file. This is a",
-        "SEPARATE connection pool from access-bot's own config/database.yml -",
-        "different process, different container, its own credentials, even",
-        "though both usually point at the same PostgreSQL instance."
-})
+@ConfigSpec(
+        header = {
+            "-------------------------------------------------------------------",
+            "  proxy - PostgreSQL connection",
+            "-------------------------------------------------------------------",
+            "In production the password belongs in the environment, not in this",
+            "file. Every setting can be overridden with",
+            "NORDTAL_PROXY_DATABASE_<SETTING>:",
+            "",
+            "  NORDTAL_PROXY_DATABASE_JDBC_URL",
+            "  NORDTAL_PROXY_DATABASE_USERNAME",
+            "  NORDTAL_PROXY_DATABASE_PASSWORD",
+            "",
+            "An overridden value is never written back into this file. This is a",
+            "SEPARATE connection pool from access-bot's own config/database.yml -",
+            "different process, different container, its own credentials, even",
+            "though both usually point at the same PostgreSQL instance."
+        })
 public interface DatabaseSpec {
 
     @Order(1)
@@ -72,8 +73,8 @@ public interface DatabaseSpec {
     @Name("Connection pool size")
     @Key("maximum-pool-size")
     @Comment({
-            "Upper bound of the HikariCP pool.",
-            "The login path is one query per join attempt; this does not need to be large."
+        "Upper bound of the HikariCP pool.",
+        "The login path is one query per join attempt; this does not need to be large."
     })
     @NoExplanationNeeded
     default int maximumPoolSize() {
@@ -84,11 +85,12 @@ public interface DatabaseSpec {
     @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
     @Comment({
-            "Bounds both connection acquisition and the query itself. A login attempt must not",
-            "wait long on a struggling database before the login gate falls back to the",
-            "short-lived in-memory cache - see gate.yml's fallback-cache-window-minutes."
+        "Bounds both connection acquisition and the query itself. A login attempt must not",
+        "wait long on a struggling database before the login gate falls back to the",
+        "short-lived in-memory cache - see gate.yml's fallback-cache-window-minutes."
     })
-    @Explain("Limits both waiting for a free connection and the query itself, before the login gate falls back to its cache.")
+    @Explain(
+            "Limits both waiting for a free connection and the query itself, before the login gate falls back to its cache.")
     default int queryTimeoutSeconds() {
         return 3;
     }

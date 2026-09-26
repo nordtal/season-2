@@ -3,14 +3,12 @@ package eu.nordtal.s2.steward.worker.serve;
 import eu.nordtal.s2.common.online.OnlineCount;
 import eu.nordtal.s2.common.online.OnlineDirectory;
 import eu.nordtal.s2.common.update.StandbyDirectory;
-
-import org.jetbrains.annotations.NotNull;
-
-import javax.sql.DataSource;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.OptionalInt;
+import javax.sql.DataSource;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * How many players are on a service <em>right now</em>, as a seam (season-2-ops/122).
@@ -49,13 +47,15 @@ interface Occupancy {
      * @param now     the run's clock
      * @return how many players are on it, or empty when no fresh row says
      */
-    @NotNull OptionalInt on(@NotNull String service, @NotNull Instant now);
+    @NotNull
+    OptionalInt on(@NotNull String service, @NotNull Instant now);
 
     /**
      * @return how many players the standby proxy is holding, or empty when it has never written a
      *         row or has stopped writing. A standby nobody has heard from is not an empty one
      */
-    @NotNull OptionalInt onStandbyProxy(@NotNull Instant now);
+    @NotNull
+    OptionalInt onStandbyProxy(@NotNull Instant now);
 
     /** Nothing to read. Every answer is empty, which reads as "nobody said" everywhere. */
     Occupancy NONE = new Occupancy() {
@@ -85,8 +85,7 @@ interface Occupancy {
             private volatile StandbyDirectory standby;
 
             @Override
-            public @NotNull OptionalInt on(final @NotNull String service,
-                                           final @NotNull Instant now) {
+            public @NotNull OptionalInt on(final @NotNull String service, final @NotNull Instant now) {
                 if (counts == null) {
                     counts = OnlineDirectory.using(dataSource);
                 }

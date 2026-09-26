@@ -1,8 +1,24 @@
 package eu.nordtal.s2.common.command;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import eu.nordtal.s2.common.access.AccessSchema;
 import eu.nordtal.s2.common.audit.AuditLine;
-
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.jdbi.v3.core.JdbiException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -15,24 +31,6 @@ import org.postgresql.PGNotification;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * {@link CommandRequests#submit(NewCommandRequest, AuditLine)} - the request and its journal line
@@ -68,7 +66,8 @@ class CommandRequestJournalIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the journalled submit tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -97,7 +96,7 @@ class CommandRequestJournalIntegrationTest {
     @BeforeEach
     void freshTables() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("TRUNCATE command_request");
             statement.execute("TRUNCATE audit_log");
         }
@@ -106,9 +105,16 @@ class CommandRequestJournalIntegrationTest {
 
     /** A request shaped like the one {@code CommandApi} writes: source WEB, with a Discord id. */
     private static NewCommandRequest webRequest() {
-        return new NewCommandRequest("SMP", "smp milestone unlock", "aufbruch", "WEB",
-                "Till (300000000000000042)", Optional.of(DISCORD_ID), Optional.of(REQUEST_MC),
-                "de", Instant.now().plusSeconds(120));
+        return new NewCommandRequest(
+                "SMP",
+                "smp milestone unlock",
+                "aufbruch",
+                "WEB",
+                "Till (300000000000000042)",
+                Optional.of(DISCORD_ID),
+                Optional.of(REQUEST_MC),
+                "de",
+                Instant.now().plusSeconds(120));
     }
 
     // -------------------------------------------------------------------------------------------
@@ -118,9 +124,14 @@ class CommandRequestJournalIntegrationTest {
     @Test
     @DisplayName("the request and its journal line are both there, with the journal's own values")
     void bothRowsLand() throws SQLException {
-        final long id = requests.submit(webRequest(), new AuditLine("COMMAND",
-                "Till (300000000000000042)", "/smp milestone unlock", null,
-                "from the web interface: aufbruch"));
+        final long id = requests.submit(
+                webRequest(),
+                new AuditLine(
+                        "COMMAND",
+                        "Till (300000000000000042)",
+                        "/smp milestone unlock",
+                        null,
+                        "from the web interface: aufbruch"));
 
         assertEquals(1, countOf("SELECT count(*) FROM command_request WHERE id = " + id));
 
@@ -146,12 +157,21 @@ class CommandRequestJournalIntegrationTest {
         // and a line that has one. A binding that read the request's field would write NULL here,
         // and a test that only ever checked the null case would never notice.
         final UUID subjectOfTheLine = UUID.fromString("11111111-2222-3333-4444-555555555555");
-        requests.submit(new NewCommandRequest("SMP", "smp aura", "-25", "WEB", "Till",
-                        Optional.of(DISCORD_ID), Optional.empty(), "de",
+        requests.submit(
+                new NewCommandRequest(
+                        "SMP",
+                        "smp aura",
+                        "-25",
+                        "WEB",
+                        "Till",
+                        Optional.of(DISCORD_ID),
+                        Optional.empty(),
+                        "de",
                         Instant.now().plusSeconds(120)),
                 new AuditLine("COMMAND", "Till", "/smp aura", subjectOfTheLine, "aura corrected"));
 
-        assertEquals(subjectOfTheLine.toString(),
+        assertEquals(
+                subjectOfTheLine.toString(),
                 rowOf("SELECT mc_uuid::text FROM audit_log").getFirst());
     }
 
@@ -170,10 +190,13 @@ class CommandRequestJournalIntegrationTest {
         // leave the database in a state the next test inherits.
         final String tooLong = "A".repeat(33);
 
-        assertThrows(JdbiException.class,
+        assertThrows(
+                JdbiException.class,
                 () -> requests.submit(webRequest(), new AuditLine(tooLong, "Till", "x", null, "y")));
 
-        assertEquals(0, countOf("SELECT count(*) FROM command_request"),
+        assertEquals(
+                0,
+                countOf("SELECT count(*) FROM command_request"),
                 "a PENDING row survived a failed journal line - a target will claim and run it"
                         + " while the operator is being told nothing happened, and the operator"
                         + " will press the button again");
@@ -187,11 +210,12 @@ class CommandRequestJournalIntegrationTest {
         // able to tell "a submit was rolled back" from "a row was deleted", and the retention sweep
         // deletes rows. This pins that a refused submit is invisible in the table, gap aside, so
         // the gap is the only evidence and is not to be read as a missing row.
-        assertThrows(JdbiException.class, () -> requests.submit(webRequest(),
-                new AuditLine("A".repeat(33), "Till", "x", null, "y")));
+        assertThrows(
+                JdbiException.class,
+                () -> requests.submit(webRequest(), new AuditLine("A".repeat(33), "Till", "x", null, "y")));
 
-        final long after = requests.submit(webRequest(),
-                new AuditLine("COMMAND", "Till", "/smp milestone unlock", null, "second try"));
+        final long after = requests.submit(
+                webRequest(), new AuditLine("COMMAND", "Till", "/smp milestone unlock", null, "second try"));
 
         assertEquals(1, countOf("SELECT count(*) FROM command_request"));
         assertEquals(1, countOf("SELECT count(*) FROM command_request WHERE id = " + after));
@@ -209,9 +233,12 @@ class CommandRequestJournalIntegrationTest {
         requests.submit(webRequest(), new AuditLine("COMMAND", "T".repeat(32), "x", null, "y"));
         assertEquals(1, countOf("SELECT count(*) FROM audit_log"));
 
-        assertThrows(JdbiException.class, () -> requests.submit(webRequest(),
-                new AuditLine("COMMAND", "T".repeat(33), "x", null, "y")));
-        assertEquals(1, countOf("SELECT count(*) FROM command_request"),
+        assertThrows(
+                JdbiException.class,
+                () -> requests.submit(webRequest(), new AuditLine("COMMAND", "T".repeat(33), "x", null, "y")));
+        assertEquals(
+                1,
+                countOf("SELECT count(*) FROM command_request"),
                 "the second submit wrote a request row despite its journal line being impossible");
     }
 
@@ -232,16 +259,27 @@ class CommandRequestJournalIntegrationTest {
                 statement.execute("LISTEN nordtal_command");
             }
 
-            requests.submit(new NewCommandRequest("HUNGER_GAMES", "hg start", "", "WEB", "Till",
-                            Optional.of(DISCORD_ID), Optional.empty(), "de",
+            requests.submit(
+                    new NewCommandRequest(
+                            "HUNGER_GAMES",
+                            "hg start",
+                            "",
+                            "WEB",
+                            "Till",
+                            Optional.of(DISCORD_ID),
+                            Optional.empty(),
+                            "de",
                             Instant.now().plusSeconds(120)),
                     new AuditLine("COMMAND", "Till", "/hg start", null, "from the web interface"));
 
             final PGNotification[] sent = awaitNotification(listener);
-            assertTrue(sent != null && sent.length > 0,
+            assertTrue(
+                    sent != null && sent.length > 0,
                     "nothing arrived on nordtal_command - the target waits for its poll instead");
             assertEquals("nordtal_command", sent[0].getName());
-            assertEquals("HUNGER_GAMES", sent[0].getParameter(),
+            assertEquals(
+                    "HUNGER_GAMES",
+                    sent[0].getParameter(),
                     "the payload is the target's name, which is how three inboxes on one channel"
                             + " each decide whether the signal was about them");
         }
@@ -259,13 +297,13 @@ class CommandRequestJournalIntegrationTest {
                 statement.execute("LISTEN nordtal_command");
             }
 
-            assertThrows(JdbiException.class, () -> requests.submit(webRequest(),
-                    new AuditLine("A".repeat(33), "Till", "x", null, "y")));
+            assertThrows(
+                    JdbiException.class,
+                    () -> requests.submit(webRequest(), new AuditLine("A".repeat(33), "Till", "x", null, "y")));
 
             final PGConnection pg = listener.unwrap(PGConnection.class);
             final PGNotification[] sent = pg.getNotifications(500);
-            assertTrue(sent == null || sent.length == 0,
-                    "a notification was delivered for a row that never committed");
+            assertTrue(sent == null || sent.length == 0, "a notification was delivered for a row that never committed");
         }
     }
 
@@ -283,8 +321,7 @@ class CommandRequestJournalIntegrationTest {
         requests.submit(webRequest());
 
         assertEquals(1, countOf("SELECT count(*) FROM command_request"));
-        assertEquals(0, countOf("SELECT count(*) FROM audit_log"),
-                "the un-journalled submit wrote a journal line");
+        assertEquals(0, countOf("SELECT count(*) FROM audit_log"), "the un-journalled submit wrote a journal line");
     }
 
     // -------------------------------------------------------------------------------------------
@@ -309,16 +346,26 @@ class CommandRequestJournalIntegrationTest {
         assertEquals(4, countOf("SELECT count(*) FROM command_request"));
 
         for (final String refused : List.of("SYSTEM", "web", "Discord", "API", "")) {
-            final SQLException failure = assertThrows(SQLException.class,
+            final SQLException failure = assertThrows(
+                    SQLException.class,
                     () -> insertRaw(refused, DISCORD_ID),
                     refused + " reached the table - the CHECK no longer pins the four");
-            assertTrue(failure.getMessage().contains("command_request_source_check"),
-                    "expected command_request_source_check to refuse " + refused + ", got: "
-                            + failure.getMessage());
+            assertTrue(
+                    failure.getMessage().contains("command_request_source_check"),
+                    "expected command_request_source_check to refuse " + refused + ", got: " + failure.getMessage());
 
-            assertThrows(IllegalArgumentException.class, () -> new NewCommandRequest("SMP",
-                            "smp reload", "", refused, "till", Optional.of(DISCORD_ID),
-                            Optional.empty(), "de", Instant.now().plusSeconds(30)),
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new NewCommandRequest(
+                            "SMP",
+                            "smp reload",
+                            "",
+                            refused,
+                            "till",
+                            Optional.of(DISCORD_ID),
+                            Optional.empty(),
+                            "de",
+                            Instant.now().plusSeconds(30)),
                     refused + " was accepted by NewCommandRequest but refused by the database, so"
                             + " the operator's error message names a constraint rather than the"
                             + " adapter that built the row");
@@ -335,12 +382,20 @@ class CommandRequestJournalIntegrationTest {
         // fails such a row closed - so without this CHECK a WEB row with no id would not run
         // unauthorised, it would simply never run, which is the quieter half of the same bug.
         final SQLException refused = assertThrows(SQLException.class, () -> insertRaw("WEB", null));
-        assertTrue(refused.getMessage().contains("command_request_web_knows_who"),
-                refused.getMessage());
+        assertTrue(refused.getMessage().contains("command_request_web_knows_who"), refused.getMessage());
 
-        assertThrows(IllegalArgumentException.class,
-                () -> new NewCommandRequest("SMP", "smp reload", "", "WEB", "till",
-                        Optional.empty(), Optional.empty(), "de", Instant.now().plusSeconds(30)),
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new NewCommandRequest(
+                        "SMP",
+                        "smp reload",
+                        "",
+                        "WEB",
+                        "till",
+                        Optional.empty(),
+                        Optional.empty(),
+                        "de",
+                        Instant.now().plusSeconds(30)),
                 "the record let a WEB request through without an id");
     }
 
@@ -360,7 +415,7 @@ class CommandRequestJournalIntegrationTest {
 
     private void insertRaw(final String source, final String discordId) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement("""
+                PreparedStatement statement = connection.prepareStatement("""
                      INSERT INTO command_request
                          (target, command, source, requested_by, discord_id, expires)
                      VALUES ('SMP', 'smp reload', ?, 'till', ?, now() + '30 seconds')
@@ -378,8 +433,8 @@ class CommandRequestJournalIntegrationTest {
     /** One row as text, nulls kept as nulls - which is half of what these tests assert. */
     private List<String> rowOf(final String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rows = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet rows = statement.executeQuery(sql)) {
             assertTrue(rows.next(), "no row for: " + sql);
             final List<String> values = new ArrayList<>();
             for (int column = 1; column <= rows.getMetaData().getColumnCount(); column++) {

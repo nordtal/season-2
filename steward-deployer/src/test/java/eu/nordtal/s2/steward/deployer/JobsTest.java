@@ -1,16 +1,15 @@
 package eu.nordtal.s2.steward.deployer;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class JobsTest {
 
@@ -48,7 +47,8 @@ class JobsTest {
         waitFor(job);
 
         assertEquals(Jobs.State.FAILED, job.state());
-        assertTrue(job.lines().stream().anyMatch(line -> line.contains("no image for steward-ui")),
+        assertTrue(
+                job.lines().stream().anyMatch(line -> line.contains("no image for steward-ui")),
                 job.lines().toString());
     }
 
@@ -124,11 +124,13 @@ class JobsTest {
 
         // Assert before releasing: the moment the first job returns, the queued ones run and are
         // no longer waiting for anything.
-        assertTrue(waiting.stream().allMatch(job -> job.state() == Jobs.State.RUNNING),
+        assertTrue(
+                waiting.stream().allMatch(job -> job.state() == Jobs.State.RUNNING),
                 "five waiting deployments is not too many");
         // Not silently dropped and not queued behind the others: a job the caller can read.
         assertEquals(Jobs.State.FAILED, refused.state());
-        assertTrue(refused.lines().stream().anyMatch(line -> line.contains("refused")),
+        assertTrue(
+                refused.lines().stream().anyMatch(line -> line.contains("refused")),
                 refused.lines().toString());
         release.countDown();
     }

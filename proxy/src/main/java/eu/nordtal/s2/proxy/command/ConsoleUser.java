@@ -4,13 +4,11 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
-
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
  * The proxy console, as {@code :commands} sees it.
@@ -36,8 +34,7 @@ public final class ConsoleUser implements NordtalUser {
     }
 
     /** @param audience where to print, or {@code null} for the JVM's own standard output */
-    public ConsoleUser(final Messages messages,
-                       final net.kyori.adventure.audience.Audience audience) {
+    public ConsoleUser(final Messages messages, final net.kyori.adventure.audience.Audience audience) {
         this.renderer = new MessageRenderer(messages);
         this.audience = audience;
     }

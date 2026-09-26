@@ -1,7 +1,6 @@
 package eu.nordtal.s2.papercommon.stage;
 
 import eu.nordtal.s2.common.feedback.Feedback;
-
 import org.bukkit.entity.Player;
 
 /**

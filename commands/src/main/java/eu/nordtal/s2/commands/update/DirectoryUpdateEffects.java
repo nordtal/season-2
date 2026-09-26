@@ -5,7 +5,6 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
-
 import java.time.Duration;
 import java.util.Optional;
 import java.util.function.BiConsumer;
@@ -42,10 +41,11 @@ public final class DirectoryUpdateEffects implements UpdateEffects {
      * @param watcher  how this process shows the answer coming in - see {@link
      *                 UpdateEffects#watch}
      */
-    public DirectoryUpdateEffects(final UpdateDirectory updates,
-                                  final Consumer<Runnable> executor,
-                                  final BiConsumer<String, Throwable> logger,
-                                  final BiConsumer<Long, NordtalUser> watcher) {
+    public DirectoryUpdateEffects(
+            final UpdateDirectory updates,
+            final Consumer<Runnable> executor,
+            final BiConsumer<String, Throwable> logger,
+            final BiConsumer<Long, NordtalUser> watcher) {
         this.updates = updates;
         this.executor = executor;
         this.logger = logger;
@@ -68,8 +68,7 @@ public final class DirectoryUpdateEffects implements UpdateEffects {
     }
 
     @Override
-    public UpdateRequest submit(final UpdateKind kind, final NordtalUser user,
-                                final java.util.List<String> services) {
+    public UpdateRequest submit(final UpdateKind kind, final NordtalUser user, final java.util.List<String> services) {
         // Every kind is written due immediately, since 2026-09-08. The countdown used to be set
         // here, which meant it ran before anybody knew whether there was anything to install: the
         // ordinary /update now counted thirty seconds down to every player on the network and then

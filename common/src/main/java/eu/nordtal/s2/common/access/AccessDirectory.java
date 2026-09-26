@@ -1,11 +1,11 @@
 package eu.nordtal.s2.common.access;
 
-import javax.sql.DataSource;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import javax.sql.DataSource;
 
 /**
  * The season 2 access system, as seen by everything that is not the bot's Discord code.

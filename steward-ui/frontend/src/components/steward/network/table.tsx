@@ -48,9 +48,7 @@ export function NetworkTable() {
     <div className="flex flex-col gap-4">
       {SECTIONS.map((section) => (
         <div key={section.id} className="flex flex-col">
-          <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground">
-            {section.title}
-          </h3>
+          <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground">{section.title}</h3>
           {section.members.map((id) => {
             const service = network.service(id)
             const players = network.players(id)

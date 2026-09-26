@@ -1,11 +1,10 @@
 package eu.nordtal.s2.common.plugin;
 
+import java.util.List;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.List;
 
 /**
  * The whole SQL surface of {@code service_plugin}, as a JDBI SqlObject interface - the same style
@@ -52,14 +51,15 @@ interface PluginDao {
                     page_url = EXCLUDED.page_url,
                     added_by = EXCLUDED.added_by
             """)
-    void add(@Bind("service") String service,
-             @Bind("artifact") String artifact,
-             @Bind("projectId") String projectId,
-             @Bind("filePrefix") String filePrefix,
-             @Bind("title") String title,
-             @Bind("iconUrl") String iconUrl,
-             @Bind("pageUrl") String pageUrl,
-             @Bind("addedBy") String addedBy);
+    void add(
+            @Bind("service") String service,
+            @Bind("artifact") String artifact,
+            @Bind("projectId") String projectId,
+            @Bind("filePrefix") String filePrefix,
+            @Bind("title") String title,
+            @Bind("iconUrl") String iconUrl,
+            @Bind("pageUrl") String pageUrl,
+            @Bind("addedBy") String addedBy);
 
     /** @return how many rows went away; zero when it was not added, which is not an error */
     @SqlUpdate("DELETE FROM service_plugin WHERE service = :service AND artifact = :artifact")

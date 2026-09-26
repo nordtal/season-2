@@ -1,10 +1,9 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
-import java.util.Optional;
 
 /**
  * Which message the bot last posted for which managed message kind.
@@ -33,7 +32,5 @@ public interface ManagedMessageDao {
                               message_id = EXCLUDED.message_id,
                               updated = now()
             """)
-    void remember(@Bind("kind") String kind,
-                  @Bind("channelId") String channelId,
-                  @Bind("messageId") String messageId);
+    void remember(@Bind("kind") String kind, @Bind("channelId") String channelId, @Bind("messageId") String messageId);
 }

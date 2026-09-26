@@ -142,9 +142,7 @@ describe("the rules that make it fit on a phone", () => {
         " Badge is `w-fit shrink-0 whitespace-nowrap overflow-hidden`, so without this it is drawn" +
         " at its full text width and the table container clips it silently.",
     ).toMatch(/max-w-full/)
-    expect(classes, "…and `truncate`, so what does not fit ends in an ellipsis.").toMatch(
-      /truncate/,
-    )
+    expect(classes, "…and `truncate`, so what does not fit ends in an ellipsis.").toMatch(/truncate/)
   })
 
   it("lets an image reference break inside a table card", () => {

@@ -4,7 +4,6 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
-
 import java.util.List;
 import java.util.Set;
 
@@ -32,8 +31,7 @@ import java.util.Set;
  */
 public final class LimboCommands {
 
-    private LimboCommands() {
-    }
+    private LimboCommands() {}
 
     /**
      * {@code /limbo reload} - the wording, never the world.
@@ -45,9 +43,8 @@ public final class LimboCommands {
      * keeping an admin's own in-game or Discord path once the owner decided against both for admin
      * commands generally.
      */
-    public static final Declaration RELOAD = new Declaration(
-            List.of("limbo", "reload"), Target.LIMBO,
-            Set.of(Surface.CONSOLE), true, false, List.of());
+    public static final Declaration RELOAD =
+            new Declaration(List.of("limbo", "reload"), Target.LIMBO, Set.of(Surface.CONSOLE), true, false, List.of());
 
     /** Every {@code /limbo} command. */
     public static List<NordtalCommand<LimboEffects>> all() {

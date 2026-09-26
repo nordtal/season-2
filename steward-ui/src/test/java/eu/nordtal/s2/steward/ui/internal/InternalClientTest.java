@@ -1,22 +1,21 @@
 package eu.nordtal.s2.steward.ui.internal;
 
-import com.sun.net.httpserver.HttpServer;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.Executors;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 /**
  * The two decisions {@link InternalClient} makes before and after the wire.
@@ -55,8 +54,8 @@ class InternalClientTest {
             exchange.close();
         });
         server.createContext("/api/", exchange -> {
-            final int status = Integer.parseInt(
-                    exchange.getRequestURI().getPath().substring("/api/".length()));
+            final int status =
+                    Integer.parseInt(exchange.getRequestURI().getPath().substring("/api/".length()));
             final byte[] body = ("body of " + status).getBytes(StandardCharsets.UTF_8);
             if (status == 204 || status == 307 || status == 304) {
                 // A status that carries no body, which is the point of these three: 204 by
@@ -75,8 +74,10 @@ class InternalClientTest {
         // request on the dispatcher thread, so the slow one would stall the other seven tests.
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.start();
-        client = new InternalClient("steward-deployer",
-                "http://127.0.0.1:" + server.getAddress().getPort(), "a-secret",
+        client = new InternalClient(
+                "steward-deployer",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "a-secret",
                 Duration.ofSeconds(5));
     }
 
@@ -101,12 +102,17 @@ class InternalClientTest {
         // refusal is in the constructor, which means the container does not start rather than
         // starting and leaking.
         for (final String outside : new String[] {
-                "http://steward.nordtal.eu", "http://45.155.173.214", "http://worker.internal:8081",
-                "http://127.0.0.1.nip.io:8081"}) {
-            final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                    () -> new InternalClient("steward-deployer", outside, "a-secret",
-                            Duration.ofSeconds(1)), outside);
-            assertTrue(refused.getMessage().contains("steward-deployer")
+            "http://steward.nordtal.eu",
+            "http://45.155.173.214",
+            "http://worker.internal:8081",
+            "http://127.0.0.1.nip.io:8081"
+        }) {
+            final IllegalArgumentException refused = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new InternalClient("steward-deployer", outside, "a-secret", Duration.ofSeconds(1)),
+                    outside);
+            assertTrue(
+                    refused.getMessage().contains("steward-deployer")
                             && refused.getMessage().contains(outside),
                     "the message has to name the service and the address somebody typed, because"
                             + " the person reading it is looking at a config form: "
@@ -121,9 +127,14 @@ class InternalClientTest {
         // network - which is where the default `http://steward-worker:8081` points and is the whole
         // ordinary case. Loopback is the other one: the test stand-in for a service, on this host.
         for (final String inside : new String[] {
-                "https://steward.nordtal.eu", "HTTPS://steward.nordtal.eu",
-                "http://steward-worker:8081", "http://127.0.0.1:8081", "http://localhost:8081",
-                "http://[::1]:8081", "http://steward-worker:8081/"}) {
+            "https://steward.nordtal.eu",
+            "HTTPS://steward.nordtal.eu",
+            "http://steward-worker:8081",
+            "http://127.0.0.1:8081",
+            "http://localhost:8081",
+            "http://[::1]:8081",
+            "http://steward-worker:8081/"
+        }) {
             new InternalClient("steward-deployer", inside, "a-secret", Duration.ofSeconds(1));
         }
     }
@@ -135,8 +146,7 @@ class InternalClientTest {
         // a sentence about the setup script - and refusing it in the constructor as well would turn
         // "the deployer is not set up yet" into a container that will not start.
         new InternalClient("steward-deployer", "http://steward.nordtal.eu", "", Duration.ofSeconds(1));
-        new InternalClient("steward-deployer", "http://anything.example.com", "   ",
-                Duration.ofSeconds(1));
+        new InternalClient("steward-deployer", "http://anything.example.com", "   ", Duration.ofSeconds(1));
     }
 
     @Test
@@ -146,8 +156,9 @@ class InternalClientTest {
         // the scheme. URI parses it as scheme `steward-worker` with no host, which is neither https
         // nor http-to-something-inside, so it lands in the refusal. Worth pinning: a host==null
         // branch that fell through to "allow" would accept exactly the typo most likely to be made.
-        assertThrows(IllegalArgumentException.class, () -> new InternalClient("steward-worker",
-                "steward-worker:8081", "a-secret", Duration.ofSeconds(1)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new InternalClient("steward-worker", "steward-worker:8081", "a-secret", Duration.ofSeconds(1)));
     }
 
     // -------------------------------------------------------------------------------------------
@@ -160,19 +171,22 @@ class InternalClientTest {
         // If the client ever started following redirects, this would answer 200 from
         // elsewhere.example.com - or, with no network, hang. Either is louder than what the old
         // `>= 400` did, which was to report 202 Accepted for a recreate nothing had accepted.
-        final InternalClient.Failure refused =
-                assertThrows(InternalClient.Failure.class, () -> client.get("/api/307"));
+        final InternalClient.Failure refused = assertThrows(InternalClient.Failure.class, () -> client.get("/api/307"));
 
         assertEquals(307, refused.status());
-        assertEquals("steward-deployer", refused.where(),
+        assertEquals(
+                "steward-deployer",
+                refused.where(),
                 "the interface shows which of the two services failed, so it must not be a guess");
         assertTrue(refused.getMessage().contains("307"), refused.getMessage());
 
         // The same status through post(). The status and the service are right here too; what the
         // message says is a separate matter and is deliberately not asserted - see the report that
         // came with this test.
-        assertEquals(307, assertThrows(InternalClient.Failure.class,
-                () -> client.post("/api/307", "{}")).status());
+        assertEquals(
+                307,
+                assertThrows(InternalClient.Failure.class, () -> client.post("/api/307", "{}"))
+                        .status());
     }
 
     @Test
@@ -198,17 +212,22 @@ class InternalClientTest {
         assertEquals("body of 200", client.get("/api/200"));
         assertEquals("body of 201", client.post("/api/201", "{}"));
 
-        final InternalClient.Failure refused =
-                assertThrows(InternalClient.Failure.class, () -> client.get("/api/400"));
+        final InternalClient.Failure refused = assertThrows(InternalClient.Failure.class, () -> client.get("/api/400"));
         assertEquals(400, refused.status());
-        assertEquals("body of 400", refused.body(),
+        assertEquals(
+                "body of 400",
+                refused.body(),
                 "the other service's own explanation is what the page has to show - without it the"
                         + " operator gets a number and a shrug");
 
-        assertEquals(500, assertThrows(InternalClient.Failure.class,
-                () -> client.get("/api/500")).status());
-        assertEquals(404, assertThrows(InternalClient.Failure.class,
-                () -> client.post("/api/404", "{}")).status());
+        assertEquals(
+                500,
+                assertThrows(InternalClient.Failure.class, () -> client.get("/api/500"))
+                        .status());
+        assertEquals(
+                404,
+                assertThrows(InternalClient.Failure.class, () -> client.post("/api/404", "{}"))
+                        .status());
     }
 
     @Test
@@ -217,8 +236,8 @@ class InternalClientTest {
         // The evening half of this stack is down. It has to be distinguishable from "the service
         // answered something I did not like", because the two are different problems and the page
         // shows one line either way.
-        final InternalClient nobody = new InternalClient("steward-worker",
-                "http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));
+        final InternalClient nobody =
+                new InternalClient("steward-worker", "http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));
 
         final InternalClient.Failure failure =
                 assertThrows(InternalClient.Failure.class, () -> nobody.get("/api/health"));
@@ -238,25 +257,27 @@ class InternalClientTest {
         //
         // HttpTimeoutException IS an IOException, which is why the two have to be caught in this
         // order and why the wrong sentence was so easy to write.
-        final InternalClient patient = new InternalClient("steward-worker",
-                "http://127.0.0.1:" + server.getAddress().getPort(), "a-secret",
+        final InternalClient patient = new InternalClient(
+                "steward-worker",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "a-secret",
                 Duration.ofMillis(300));
 
         final InternalClient.Failure failure =
                 assertThrows(InternalClient.Failure.class, () -> patient.get("/api/slow"));
         assertEquals(504, failure.status());
         assertEquals("steward-worker", failure.where());
-        assertTrue(failure.getMessage().contains("/api/slow"),
-                "the log line has to name the request, or the next session measures it again: "
-                        + failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("/api/slow"),
+                "the log line has to name the request, or the next session measures it again: " + failure.getMessage());
         assertTrue(failure.getMessage().contains("did not answer"), failure.getMessage());
     }
 
     @Test
     @DisplayName("an unreachable service names the request too")
     void theSentenceNamesThePath() {
-        final InternalClient nobody = new InternalClient("steward-worker",
-                "http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));
+        final InternalClient nobody =
+                new InternalClient("steward-worker", "http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));
 
         final InternalClient.Failure failure =
                 assertThrows(InternalClient.Failure.class, () -> nobody.get("/api/services"));

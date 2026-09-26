@@ -1,9 +1,11 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
+import eu.nordtal.s2.commands.update.Refusals;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.commands.update.Refusals;
 import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
@@ -12,20 +14,6 @@ import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
-
-import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.components.actionrow.ActionRow;
-import net.dv8tion.jda.api.components.buttons.Button;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.InteractionHook;
-import net.dv8tion.jda.api.utils.messages.MessageEditData;
-import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
-import org.jdbi.v3.core.Jdbi;
-import org.jetbrains.annotations.NotNull;
-
-import java.awt.Color;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -35,8 +23,17 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.InteractionHook;
+import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
+import net.dv8tion.jda.api.utils.messages.MessageEditData;
+import org.jdbi.v3.core.Jdbi;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * {@code /update} - what is new, install it, restart the network.
@@ -81,9 +78,13 @@ public final class UpdateCommand extends ListenerAdapter {
      * @param messages the bot's layered bundle - {@code :commands}' shared file underneath this
      *                 module's own, which is what every {@code update.*} key below is declared in
      */
-    public UpdateCommand(final UpdateDirectory updates, final AdminLog admin, final Jdbi jdbi,
-                         final Messages messages, final ExecutorService worker,
-                         final ScheduledExecutorService timers) {
+    public UpdateCommand(
+            final UpdateDirectory updates,
+            final AdminLog admin,
+            final Jdbi jdbi,
+            final Messages messages,
+            final ExecutorService worker,
+            final ScheduledExecutorService timers) {
         this.updates = updates;
         this.admin = admin;
         this.dao = jdbi.onDemand(AdminFlagDao.class);
@@ -104,12 +105,16 @@ public final class UpdateCommand extends ListenerAdapter {
         if (!(user instanceof DiscordUser discord)) {
             // A NordtalUser that is not a Discord one carries no interaction to draw on. Only
             // reachable through a wiring mistake, not through a runtime condition.
-            log.warn("An update was asked for through the Discord effects by a {}, which carries no"
-                    + " interaction to draw on. Request {} still ran.", user.getClass(), id);
+            log.warn(
+                    "An update was asked for through the Discord effects by a {}, which carries no"
+                            + " interaction to draw on. Request {} still ran.",
+                    user.getClass(),
+                    id);
             return;
         }
-        updates.find(id).ifPresent(request ->
-                watch(discord.hook(), discord.locale(), request, Instant.now().plus(PATIENCE)));
+        updates.find(id)
+                .ifPresent(request -> watch(
+                        discord.hook(), discord.locale(), request, Instant.now().plus(PATIENCE)));
     }
 
     // ---------------------------------------------------------------- the buttons
@@ -117,8 +122,7 @@ public final class UpdateCommand extends ListenerAdapter {
     @Override
     public void onButtonInteraction(final @NotNull ButtonInteractionEvent event) {
         final String id = event.getComponentId();
-        if (!Ids.UPDATE_INSTALL.equals(id) && !Ids.UPDATE_RESTART.equals(id)
-                && !Ids.UPDATE_CANCEL.equals(id)) {
+        if (!Ids.UPDATE_INSTALL.equals(id) && !Ids.UPDATE_RESTART.equals(id) && !Ids.UPDATE_CANCEL.equals(id)) {
             // Every other flow's buttons come through here too.
             return;
         }
@@ -132,15 +136,17 @@ public final class UpdateCommand extends ListenerAdapter {
                 cancel(event.getHook(), locale, event.getUser());
                 return;
             }
-            submit(event.getHook(), locale, event.getUser().getId(),
+            submit(
+                    event.getHook(),
+                    locale,
+                    event.getUser().getId(),
                     Ids.UPDATE_INSTALL.equals(id) ? UpdateKind.UPDATE : UpdateKind.RESTART);
         });
     }
 
     // ---------------------------------------------------------------- writing the row
 
-    private void submit(final InteractionHook hook, final Locale locale, final String userId,
-                        final UpdateKind kind) {
+    private void submit(final InteractionHook hook, final Locale locale, final String userId, final UpdateKind kind) {
         try {
             // Checked on every click and not only on the command: a confirmation can sit on screen
             // while the role is taken away, and these are the clicks that change something.
@@ -151,8 +157,7 @@ public final class UpdateCommand extends ListenerAdapter {
 
             // Due immediately, whatever the kind: the countdown belongs to steward-worker and starts
             // only once it knows there is work, so a run that finds nothing counts nothing down.
-            final UpdateRequest request =
-                    updates.submit(kind, UpdateSource.DISCORD, userId, Duration.ZERO);
+            final UpdateRequest request = updates.submit(kind, UpdateSource.DISCORD, userId, Duration.ZERO);
 
             if (kind.stopsServers()) {
                 announceCountdown(hook, locale, userId, request);
@@ -176,8 +181,8 @@ public final class UpdateCommand extends ListenerAdapter {
      * line: that channel is an operational record read by whoever is on, not one reader's
      * surface.</p>
      */
-    private void announceCountdown(final InteractionHook hook, final Locale locale,
-                                   final String userId, final UpdateRequest request) {
+    private void announceCountdown(
+            final InteractionHook hook, final Locale locale, final String userId, final UpdateRequest request) {
         final long seconds = UpdateDirectory.UPDATE_COUNTDOWN.toSeconds();
         final String what = request.kind() == UpdateKind.RESTART ? "restart" : "update";
 
@@ -187,27 +192,26 @@ public final class UpdateCommand extends ListenerAdapter {
         hook.editOriginal(new MessageEditBuilder()
                         .setContent(say(locale, MESSAGES.update().countdown().started(seconds)))
                         .setEmbeds(List.of())
-                        .setComponents(ActionRow.of(Button.secondary(Ids.UPDATE_CANCEL,
+                        .setComponents(ActionRow.of(Button.secondary(
+                                Ids.UPDATE_CANCEL,
                                 say(locale, MESSAGES.update().button().cancel()))))
                         .build())
                 .queue();
     }
 
-    private void cancel(final InteractionHook hook, final Locale locale,
-                        final net.dv8tion.jda.api.entities.User user) {
+    private void cancel(final InteractionHook hook, final Locale locale, final net.dv8tion.jda.api.entities.User user) {
         try {
             if (!dao.isAdmin(user.getId()).orElse(false)) {
                 plain(hook, say(locale, MESSAGES.command().notAdmin()));
                 return;
             }
-            final Optional<UpdateRequest> cancelled = updates.cancelCountdown(
-                    "Cancelled in Discord by " + user.getName());
+            final Optional<UpdateRequest> cancelled =
+                    updates.cancelCountdown("Cancelled in Discord by " + user.getName());
 
             if (cancelled.isPresent()) {
                 // Named from the row, not the button: one cancel serves both kinds, and the admin
                 // log is what somebody reads weeks later to work out what happened.
-                final String what = cancelled.get().kind() == UpdateKind.UPDATE
-                        ? "update" : "restart";
+                final String what = cancelled.get().kind() == UpdateKind.UPDATE ? "update" : "restart";
                 admin.note(user.getAsMention() + " → **" + what + " cancelled**");
                 plain(hook, say(locale, MESSAGES.update().cancelled()));
             } else {
@@ -224,8 +228,8 @@ public final class UpdateCommand extends ListenerAdapter {
      * Re-reads the row until it reaches a terminal state, then edits the message. A rescheduled task
      * on the shared timer rather than a loop, so nothing is held while an install downloads.
      */
-    private void watch(final InteractionHook hook, final Locale locale,
-                       final UpdateRequest request, final Instant deadline) {
+    private void watch(
+            final InteractionHook hook, final Locale locale, final UpdateRequest request, final Instant deadline) {
         watch(hook, locale, request, deadline, null);
     }
 
@@ -236,44 +240,51 @@ public final class UpdateCommand extends ListenerAdapter {
      *              an identical embed twenty times between two stages would spend that budget on
      *              nothing
      */
-    private void watch(final InteractionHook hook, final Locale locale, final UpdateRequest request,
-                       final Instant deadline, final String drawn) {
-        timers.schedule(() -> {
-            try {
-                final Optional<UpdateRequest> row = updates.find(request.id());
-                if (row.isEmpty()) {
-                    plain(hook, say(locale, MESSAGES.update().gone()));
-                    return;
-                }
-                final UpdateRequest current = row.get();
-                if (current.status().isFinished()) {
-                    hook.editOriginal(finished(current, locale)).queue();
-                    return;
-                }
-                if (Instant.now().isAfter(deadline)) {
-                    plain(hook, say(locale, MESSAGES.update().timeout(current.status())));
-                    return;
-                }
+    private void watch(
+            final InteractionHook hook,
+            final Locale locale,
+            final UpdateRequest request,
+            final Instant deadline,
+            final String drawn) {
+        timers.schedule(
+                () -> {
+                    try {
+                        final Optional<UpdateRequest> row = updates.find(request.id());
+                        if (row.isEmpty()) {
+                            plain(hook, say(locale, MESSAGES.update().gone()));
+                            return;
+                        }
+                        final UpdateRequest current = row.get();
+                        if (current.status().isFinished()) {
+                            hook.editOriginal(finished(current, locale)).queue();
+                            return;
+                        }
+                        if (Instant.now().isAfter(deadline)) {
+                            plain(hook, say(locale, MESSAGES.update().timeout(current.status())));
+                            return;
+                        }
 
-                // The run rewrites its own report as it goes, and redrawing here is what turns
-                // five minutes of silence into something a person can watch.
-                String showing = drawn;
-                final String progress = current.result();
-                if (progress != null && !progress.equals(drawn)) {
-                    UpdateReports.parse(progress).ifPresent(report -> hook
-                            .editOriginal(new MessageEditBuilder()
-                                    .setContent("")
-                                    .setEmbeds(List.of(fields(report, current, messages, locale)))
-                                    .setComponents(List.of())
-                                    .build())
-                            .queue());
-                    showing = progress;
-                }
-                watch(hook, locale, request, deadline, showing);
-            } catch (final RuntimeException failure) {
-                fail(hook, locale, "reading the answer to request " + request.id(), failure);
-            }
-        }, CHECK_INTERVAL.toMillis(), TimeUnit.MILLISECONDS);
+                        // The run rewrites its own report as it goes, and redrawing here is what turns
+                        // five minutes of silence into something a person can watch.
+                        String showing = drawn;
+                        final String progress = current.result();
+                        if (progress != null && !progress.equals(drawn)) {
+                            UpdateReports.parse(progress)
+                                    .ifPresent(report -> hook.editOriginal(new MessageEditBuilder()
+                                                    .setContent("")
+                                                    .setEmbeds(List.of(fields(report, current, messages, locale)))
+                                                    .setComponents(List.of())
+                                                    .build())
+                                            .queue());
+                            showing = progress;
+                        }
+                        watch(hook, locale, request, deadline, showing);
+                    } catch (final RuntimeException failure) {
+                        fail(hook, locale, "reading the answer to request " + request.id(), failure);
+                    }
+                },
+                CHECK_INTERVAL.toMillis(),
+                TimeUnit.MILLISECONDS);
     }
 
     // ---------------------------------------------------------------- what an admin sees
@@ -304,27 +315,30 @@ public final class UpdateCommand extends ListenerAdapter {
         // A cancelled restart is not a failure - colouring it red would make a deliberate act look
         // like something that went wrong.
         final boolean failed = request.status() == UpdateStatus.FAILED;
-        final MessageEditBuilder message = new MessageEditBuilder()
-                .setContent("")
-                .setEmbeds(embed(request, failed, locale));
+        final MessageEditBuilder message =
+                new MessageEditBuilder().setContent("").setEmbeds(embed(request, failed, locale));
 
         if (request.status() != UpdateStatus.DONE || request.kind() != UpdateKind.REPORT) {
             return message.setComponents(List.of()).build();
         }
         // A report that found nothing gets no button: "Update now" under a list of things that are
         // all current is an invitation to take four servers down for nothing.
-        final boolean worth = UpdateReports.parse(request.result())
-                .map(UpdateReport::isWork)
-                .orElse(true);
+        final boolean worth =
+                UpdateReports.parse(request.result()).map(UpdateReport::isWork).orElse(true);
         return worth
-                ? message.setComponents(ActionRow.of(button(request.kind(), locale))).build()
+                ? message.setComponents(ActionRow.of(button(request.kind(), locale)))
+                        .build()
                 : message.setComponents(List.of()).build();
     }
 
     private Button button(final UpdateKind kind, final Locale locale) {
         return kind == UpdateKind.REPORT
-                ? Button.danger(Ids.UPDATE_INSTALL, say(locale, MESSAGES.update().button().install()))
-                : Button.danger(Ids.UPDATE_RESTART, say(locale, MESSAGES.update().button().restart()));
+                ? Button.danger(
+                        Ids.UPDATE_INSTALL,
+                        say(locale, MESSAGES.update().button().install()))
+                : Button.danger(
+                        Ids.UPDATE_RESTART,
+                        say(locale, MESSAGES.update().button().restart()));
     }
 
     /**
@@ -335,8 +349,7 @@ public final class UpdateCommand extends ListenerAdapter {
      * answers empty for those and the code-fence rendering is used. Nothing is migrated - a
      * finished request is never read twice.</p>
      */
-    private List<MessageEmbed> embed(final UpdateRequest request, final boolean failed,
-                                     final Locale locale) {
+    private List<MessageEmbed> embed(final UpdateRequest request, final boolean failed, final Locale locale) {
         final String result = request.result();
         final Optional<UpdateReport> report = UpdateReports.parse(result);
         if (report.isEmpty()) {
@@ -354,8 +367,8 @@ public final class UpdateCommand extends ListenerAdapter {
 
     // Package-private so EmbedBudgetTest can build one and measure it: Discord's 6000 is a limit
     // on the whole embed, and every guard here is arithmetic best measured rather than reasoned.
-    static MessageEmbed fields(final UpdateReport report, final UpdateRequest request,
-                               final Messages messages, final Locale locale) {
+    static MessageEmbed fields(
+            final UpdateReport report, final UpdateRequest request, final Messages messages, final Locale locale) {
         return fields(report, request, messages, locale, false);
     }
 
@@ -370,24 +383,32 @@ public final class UpdateCommand extends ListenerAdapter {
      * @param context whether to say who asked, and from where. Only the admin channel's feed does:
      *                the asker's own embed is theirs, and knows
      */
-    static MessageEmbed fields(final UpdateReport report, final UpdateRequest request,
-                               final Messages messages, final Locale locale, final boolean context) {
-        final Card card = Card.of(messages.format(locale, MESSAGES.update().stage(report.stage())),
-                        accent(report.stage()))
+    static MessageEmbed fields(
+            final UpdateReport report,
+            final UpdateRequest request,
+            final Messages messages,
+            final Locale locale,
+            final boolean context) {
+        final Card card = Card.of(
+                        messages.format(locale, MESSAGES.update().stage(report.stage())), accent(report.stage()))
                 .timestamp(request.finished() == null ? Instant.now() : request.finished());
-        final java.util.function.IntFunction<String> more =
-                count -> Card.italic(messages.format(locale, MESSAGES.update().embed().more(count)));
+        final java.util.function.IntFunction<String> more = count ->
+                Card.italic(messages.format(locale, MESSAGES.update().embed().more(count)));
 
         if (context) {
-            card.field(messages.format(locale, MESSAGES.update().embed().run()),
+            card.field(
+                            messages.format(locale, MESSAGES.update().embed().run()),
                             request.kind().name().toLowerCase(Locale.ROOT))
-                    .field(messages.format(locale, MESSAGES.update().embed().by()),
+                    .field(
+                            messages.format(locale, MESSAGES.update().embed().by()),
                             request.requestedBy() == null ? "console" : Card.escape(request.requestedBy()))
-                    .field(messages.format(locale, MESSAGES.update().embed().from()),
+                    .field(
+                            messages.format(locale, MESSAGES.update().embed().from()),
                             request.source().name().toLowerCase(Locale.ROOT));
         }
         if (request.finished() != null && request.requested() != null) {
-            card.field(messages.format(locale, MESSAGES.update().embed().duration()),
+            card.field(
+                    messages.format(locale, MESSAGES.update().embed().duration()),
                     Card.duration(Duration.between(request.requested(), request.finished())));
         }
 
@@ -420,18 +441,28 @@ public final class UpdateCommand extends ListenerAdapter {
      * in bold because it is what a reader scans for, the state in italic because the marker has
      * already said it, and every artefact that moves as a transition.
      */
-    private static String line(final UpdateReport.ServiceLine line, final Messages messages,
-                               final Locale locale) {
-        final StringBuilder text = new StringBuilder(marker(line.state())).append(' ')
-                .append(Card.bold(line.service())).append(' ')
+    private static String line(final UpdateReport.ServiceLine line, final Messages messages, final Locale locale) {
+        final StringBuilder text = new StringBuilder(marker(line.state()))
+                .append(' ')
+                .append(Card.bold(line.service()))
+                .append(' ')
                 .append(Card.italic(messages.format(locale, MESSAGES.update().state(line.state()))));
         for (final UpdateReport.Change change : line.changes()) {
-            text.append("  ").append(Card.escape(change.artefact())).append(' ').append(switch (change.state()) {
-                // An artefact whose publisher has no build for this Minecraft version. Not a
-                // failure: no server is stopped for it and nothing beside it is held back.
-                case UNSUPPORTED -> Card.italic(messages.format(locale, MESSAGES.update().embed().noBuild()));
-                case MOVING -> change.from() == null ? Card.bold(change.to()) : Card.arrow(change.from(), change.to());
-            });
+            text.append("  ")
+                    .append(Card.escape(change.artefact()))
+                    .append(' ')
+                    .append(
+                            switch (change.state()) {
+                                // An artefact whose publisher has no build for this Minecraft version. Not a
+                                // failure: no server is stopped for it and nothing beside it is held back.
+                                case UNSUPPORTED ->
+                                    Card.italic(messages.format(
+                                            locale, MESSAGES.update().embed().noBuild()));
+                                case MOVING ->
+                                    change.from() == null
+                                            ? Card.bold(change.to())
+                                            : Card.arrow(change.from(), change.to());
+                            });
         }
         return text.toString();
     }
@@ -480,8 +511,8 @@ public final class UpdateCommand extends ListenerAdapter {
      * the detail. This surface moves jars on every server, so a failure nobody sees is the one
      * thing it must not produce.
      */
-    private void fail(final InteractionHook hook, final Locale locale, final String what,
-                      final RuntimeException failure) {
+    private void fail(
+            final InteractionHook hook, final Locale locale, final String what, final RuntimeException failure) {
         log.error("An update interaction failed while {}", what, failure);
         admin.alert("An update interaction failed while " + what + ": `" + failure + "`");
         plain(hook, say(locale, MESSAGES.update().interactionFailed()));

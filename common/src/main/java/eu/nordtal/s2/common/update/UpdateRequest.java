@@ -20,16 +20,17 @@ import java.time.Instant;
  * @param result      the report, verbatim - the same text {@code updater apply} prints. {@code null}
  *                    until finished
  */
-public record UpdateRequest(long id,
-                            UpdateKind kind,
-                            UpdateStatus status,
-                            UpdateSource source,
-                            String requestedBy,
-                            Instant requested,
-                            Instant notBefore,
-                            Instant started,
-                            Instant finished,
-                            String result) {
+public record UpdateRequest(
+        long id,
+        UpdateKind kind,
+        UpdateStatus status,
+        UpdateSource source,
+        String requestedBy,
+        Instant requested,
+        Instant notBefore,
+        Instant started,
+        Instant finished,
+        String result) {
 
     /**
      * How long until this may run, from a caller's clock.

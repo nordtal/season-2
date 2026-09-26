@@ -1,24 +1,21 @@
 package eu.nordtal.s2.smp.config;
 
-import eu.nordtal.jcore.config.exception.ConfigValidationException;
-
-import eu.nordtal.s2.smp.milestone.MilestoneTrack;
-import eu.nordtal.s2.smp.milestone.ObjectiveType;
-import eu.nordtal.s2.smp.milestone.Unlock;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.jcore.config.exception.ConfigValidationException;
+import eu.nordtal.s2.smp.milestone.MilestoneTrack;
+import eu.nordtal.s2.smp.milestone.ObjectiveType;
+import eu.nordtal.s2.smp.milestone.Unlock;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * That {@code milestones.yml} can be written and read back as the whole track.
@@ -38,7 +35,8 @@ class MilestonesTest {
     void aFreshFileIsWrittenAndReadsBackAsTheWholeTrack() throws Exception {
         final MilestonesSpec written = Configs.milestones(directory, LOGGER).get();
 
-        assertTrue(Files.isRegularFile(directory.resolve("milestones.yml")),
+        assertTrue(
+                Files.isRegularFile(directory.resolve("milestones.yml")),
                 "a fresh load has to write the defaults out, or there is nothing to edit");
 
         // A SECOND load, from the file the first one just wrote: the first handle still holds the
@@ -46,15 +44,17 @@ class MilestonesTest {
         final MilestonesSpec reread = Configs.milestones(directory, LOGGER).get();
         final MilestoneTrack track = Milestones.read(reread).track();
 
-        assertEquals(List.of("waiting", "departure", "foothold", "settlement", "nether", "end",
-                "expanse", "frontier"), track.keys());
+        assertEquals(
+                List.of("waiting", "departure", "foothold", "settlement", "nether", "end", "expanse", "frontier"),
+                track.keys());
         assertEquals(written.milestones().size(), reread.milestones().size());
     }
 
     @Test
     void theNestedObjectivesSurviveTheRoundTrip() throws Exception {
         Configs.milestones(directory, LOGGER);
-        final MilestoneTrack track = Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
+        final MilestoneTrack track =
+                Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
 
         final var foothold = track.milestone("foothold").orElseThrow();
         assertEquals(4, foothold.objectives().size());
@@ -79,7 +79,8 @@ class MilestonesTest {
 
     @Test
     void theTrackMatchesTheTableInTheConcept() throws Exception {
-        final MilestoneTrack track = Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
+        final MilestoneTrack track =
+                Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
 
         // The track, column by column. The numbers are allowed to change; this is what makes a
         // retune deliberate.
@@ -91,7 +92,9 @@ class MilestonesTest {
 
         assertEquals(Unlock.NETHER, track.milestone("nether").orElseThrow().unlock());
         assertEquals(Unlock.END, track.milestone("end").orElseThrow().unlock());
-        assertEquals(0, track.milestone("nether").orElseThrow().borderDiameter(),
+        assertEquals(
+                0,
+                track.milestone("nether").orElseThrow().borderDiameter(),
                 "the Nether and the End carry no border step - the dimension is the reward");
 
         assertEquals(30, track.milestone("foothold").orElseThrow().objectivePot());
@@ -104,26 +107,33 @@ class MilestonesTest {
 
     @Test
     void everyMilestoneWithObjectivesCarriesExactlyOneParticipationGate() throws Exception {
-        final MilestoneTrack track = Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
+        final MilestoneTrack track =
+                Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
 
         // The ADVANCEMENT objective is the only type that counts distinct players, so it is the
         // only one three industrious people cannot finish alone.
-        assertEquals(List.of(10L, 10L, 8L, 8L, 6L, 5L), track.milestones().stream()
-                .filter(milestone -> !milestone.hasNoObjectives())
-                .map(milestone -> milestone.objectives().stream()
-                        .filter(objective -> objective.isParticipationGate())
-                        .findFirst().orElseThrow().target())
-                .toList());
+        assertEquals(
+                List.of(10L, 10L, 8L, 8L, 6L, 5L),
+                track.milestones().stream()
+                        .filter(milestone -> !milestone.hasNoObjectives())
+                        .map(milestone -> milestone.objectives().stream()
+                                .filter(objective -> objective.isParticipationGate())
+                                .findFirst()
+                                .orElseThrow()
+                                .target())
+                        .toList());
     }
 
     @Test
     void theOpeningTwoMilestonesHaveNothingToFinish() throws Exception {
-        final MilestoneTrack track = Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
+        final MilestoneTrack track =
+                Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
 
         assertTrue(track.milestone("waiting").orElseThrow().hasNoObjectives());
         assertTrue(track.milestone("departure").orElseThrow().hasNoObjectives());
         assertFalse(track.milestone("waiting").orElseThrow().adminUnlocked());
-        assertTrue(track.milestone("departure").orElseThrow().adminUnlocked(),
+        assertTrue(
+                track.milestone("departure").orElseThrow().adminUnlocked(),
                 "departure is the one milestone an admin opens, at the season's opening");
     }
 
@@ -147,8 +157,8 @@ class MilestonesTest {
                         advancement: ''
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.milestones(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.milestones(directory, LOGGER));
         assertTrue(error.getMessage().contains("HANDIN"), error.getMessage());
     }
 
@@ -173,8 +183,8 @@ class MilestonesTest {
                         advancement: ''
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.milestones(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.milestones(directory, LOGGER));
         assertTrue(error.getMessage().contains("participation gate"), error.getMessage());
     }
 
@@ -207,8 +217,8 @@ class MilestonesTest {
                         advancement: 'minecraft:story/iron_tools'
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.milestones(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.milestones(directory, LOGGER));
         assertTrue(error.getMessage().contains("HAND_IN with no items"), error.getMessage());
     }
 
@@ -242,8 +252,8 @@ class MilestonesTest {
                         advancement: 'minecraft:story/iron_tools'
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.milestones(directory, LOGGER));
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.milestones(directory, LOGGER));
         assertTrue(error.getMessage().contains("belongs to"), error.getMessage());
     }
 

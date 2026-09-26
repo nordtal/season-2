@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import java.util.Locale;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.Locale;
 
 /**
  * What a push notification can be <b>about</b> - the unit an account switches on and off

@@ -1,11 +1,10 @@
 package eu.nordtal.s2.common.phase;
 
+import java.time.Instant;
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
-
-import java.time.Instant;
-import java.util.Optional;
 
 /**
  * The whole SQL surface of the phase model, as a JDBI SqlObject interface. Package-private on
@@ -80,9 +79,7 @@ interface PhaseDao {
             FROM previous, switched
             """)
     @RegisterRowMapper(PhaseChangeMapper.class)
-    PhaseChange switchPhase(@Bind("phase") String phase,
-                            @Bind("actor") String actor,
-                            @Bind("reason") String reason);
+    PhaseChange switchPhase(@Bind("phase") String phase, @Bind("actor") String actor, @Bind("reason") String reason);
 
     /**
      * Writes {@code launch}, with its audit entry and notification, as one statement. Nothing is

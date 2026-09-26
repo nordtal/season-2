@@ -1,5 +1,9 @@
 package eu.nordtal.s2.commands.remote;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.Argument;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.FakeUser;
@@ -8,11 +12,6 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.command.CommandOutcome;
 import eu.nordtal.s2.common.command.NewCommandRequest;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,10 +22,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The near end of a travelling command: the wait, and the three ways it can end.
@@ -39,8 +37,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class OutboxTest {
 
-    private static final Declaration AURA = new Declaration(List.of("smp", "aura"), Target.SMP,
-            Set.of(Surface.GAME, Surface.DISCORD), true, false,
+    private static final Declaration AURA = new Declaration(
+            List.of("smp", "aura"),
+            Target.SMP,
+            Set.of(Surface.GAME, Surface.DISCORD),
+            true,
+            false,
             List.of(Argument.player("player"), Argument.integer("delta", -10000, 10000)));
 
     private static final UUID WHO = UUID.fromString("11111111-2222-3333-4444-555555555555");
@@ -50,8 +52,7 @@ class OutboxTest {
     private final List<String> warnings = new ArrayList<>();
     private final BiConsumer<String, Throwable> warn = (message, cause) -> warnings.add(message);
 
-    private final Outbox outbox = new Outbox(requests, scheduler,
-            Duration.ofMillis(300), Duration.ofMillis(5), warn);
+    private final Outbox outbox = new Outbox(requests, scheduler, Duration.ofMillis(300), Duration.ofMillis(5), warn);
 
     @AfterEach
     void stop() throws InterruptedException {
@@ -115,8 +116,7 @@ class OutboxTest {
         requests.answer(1, false, "The world is not loaded.");
         until(user, 3);
 
-        assertEquals(List.of("command.remote.sent", "<literal>", "command.remote.failed"),
-                user.keys());
+        assertEquals(List.of("command.remote.sent", "<literal>", "command.remote.failed"), user.keys());
     }
 
     @Test
@@ -127,7 +127,9 @@ class OutboxTest {
         until(user, 2);
 
         assertEquals("command.remote.no-answer", user.replies.get(1).key());
-        assertEquals(CommandOutcome.Status.EXPIRED, requests.statusOf(1),
+        assertEquals(
+                CommandOutcome.Status.EXPIRED,
+                requests.statusOf(1),
                 "the asking side is what writes EXPIRED - the target never does, which is what"
                         + " makes that status mean 'nothing ever picked this up'");
     }
@@ -144,8 +146,8 @@ class OutboxTest {
         until(user, 2);
 
         assertEquals("command.remote.still-running", user.replies.get(1).key());
-        assertEquals(CommandOutcome.Status.RUNNING, requests.statusOf(1),
-                "the asker must not cancel work already underway");
+        assertEquals(
+                CommandOutcome.Status.RUNNING, requests.statusOf(1), "the asker must not cancel work already underway");
     }
 
     @Test
@@ -176,15 +178,22 @@ class OutboxTest {
     @Test
     @DisplayName("a value the declaration cannot express is refused before anything is written")
     void anUnsendableValueNeverBecomesARow() {
-        final Declaration word = new Declaration(List.of("smp", "objective", "complete"),
-                Target.SMP, Set.of(Surface.GAME), true, true, List.of(Argument.word("key")));
+        final Declaration word = new Declaration(
+                List.of("smp", "objective", "complete"),
+                Target.SMP,
+                Set.of(Surface.GAME),
+                true,
+                true,
+                List.of(Argument.word("key")));
         final FakeUser user = FakeUser.inDiscord();
 
         outbox.send(word, user, new Values(word, Map.of("key", "two words")));
         until(user, 1);
 
         assertEquals("command.remote.failed", user.only().key());
-        assertEquals(List.of(), requests.submitted(),
+        assertEquals(
+                List.of(),
+                requests.submitted(),
                 "a request that cannot be read on the far side must not be written at all");
     }
 
@@ -193,9 +202,17 @@ class OutboxTest {
     void theRowRefusesAConsoleWithAnIdentity() {
         // Belt and braces with the CHECK in V11: the record refuses it too, so the failure names
         // the adapter that built it rather than arriving as a constraint violation.
-        assertThrows(IllegalArgumentException.class, () -> new NewCommandRequest(
-                Target.SMP.name(), "smp reload", "", "CONSOLE", "console",
-                java.util.Optional.of("100000000000000001"), java.util.Optional.empty(), "en",
-                java.time.Instant.now().plusSeconds(30)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new NewCommandRequest(
+                        Target.SMP.name(),
+                        "smp reload",
+                        "",
+                        "CONSOLE",
+                        "console",
+                        java.util.Optional.of("100000000000000001"),
+                        java.util.Optional.empty(),
+                        "en",
+                        java.time.Instant.now().plusSeconds(30)));
     }
 }

@@ -1,12 +1,14 @@
 package eu.nordtal.s2.steward.worker.docker;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
 import eu.nordtal.s2.steward.worker.ops.ServiceRuntime;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -16,12 +18,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The docker client against a real daemon, because nothing else proves it.
@@ -58,9 +57,14 @@ class DockerIntegrationTest {
                 .map(Docker.Container::service)
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());
-        final Set<String> theirs = Set.copyOf(cli("docker", "ps", "-a",
-                "--filter", "label=com.docker.compose.project=" + PROJECT,
-                "--format", "{{ .Label \"com.docker.compose.service\" }}"));
+        final Set<String> theirs = Set.copyOf(cli(
+                "docker",
+                "ps",
+                "-a",
+                "--filter",
+                "label=com.docker.compose.project=" + PROJECT,
+                "--format",
+                "{{ .Label \"com.docker.compose.service\" }}"));
 
         assumeTrue(!theirs.isEmpty(), "the nordtal-s2 stack is not on this host - skipping");
         assertEquals(theirs, mine);
@@ -76,17 +80,25 @@ class DockerIntegrationTest {
         // `docker ps` prints the health in its status column, which is the sentence a person reads.
         // Comparing against it is the point: isBack() is what an update run waits on, and if the two
         // ever disagree the run waits for something nobody can see.
-        for (final String line : cli("docker", "ps", "-a",
-                "--filter", "label=com.docker.compose.project=" + PROJECT,
-                "--format", "{{ .Label \"com.docker.compose.service\" }}\t{{ .Status }}")) {
+        for (final String line : cli(
+                "docker",
+                "ps",
+                "-a",
+                "--filter",
+                "label=com.docker.compose.project=" + PROJECT,
+                "--format",
+                "{{ .Label \"com.docker.compose.service\" }}\t{{ .Status }}")) {
             final String[] parts = line.split("\t", 2);
             final Optional<ServiceRuntime> service = runtime.service(parts[0]);
             assertTrue(service.isPresent(), "runtime() is missing " + parts[0]);
 
             final String status = parts.length > 1 ? parts[1] : "";
             final boolean cliSaysBack = status.startsWith("Up")
-                    && !status.contains("(unhealthy)") && !status.contains("(health: starting)");
-            assertEquals(cliSaysBack, service.get().isBack(),
+                    && !status.contains("(unhealthy)")
+                    && !status.contains("(health: starting)");
+            assertEquals(
+                    cliSaysBack,
+                    service.get().isBack(),
                     parts[0] + ": `docker ps` says \"" + status + "\", runtime() says \""
                             + service.get().describe() + "\"");
         }
@@ -102,8 +114,7 @@ class DockerIntegrationTest {
         // The limit is the host's memory, because no container in this stack sets one - measured
         // 2026-09-12. If that ever changes this assertion is the thing that notices.
         assertTrue(stats.memoryLimitBytes() >= stats.memoryBytes());
-        assertTrue(stats.cpuPercent().isPresent(),
-                "no CPU delta - is the request sending one-shot after all?");
+        assertTrue(stats.cpuPercent().isPresent(), "no CPU delta - is the request sending one-shot after all?");
     }
 
     @Test
@@ -121,7 +132,8 @@ class DockerIntegrationTest {
         // hold is that a line this client produced is a line the daemon's own client produced -
         // byte for byte, which is what catches a frame header read as text.
         final String candidate = mine.get(mine.size() - 1);
-        assertTrue(theirs.contains(candidate) || mine.stream().anyMatch(theirs::contains),
+        assertTrue(
+                theirs.contains(candidate) || mine.stream().anyMatch(theirs::contains),
                 "none of " + mine + "\nis in " + theirs);
     }
 
@@ -129,8 +141,7 @@ class DockerIntegrationTest {
     @DisplayName("the console runs a command in a container and brings its output back")
     void execRunsAndAnswers() throws Exception {
         final Docker.Container running = someRunningContainer();
-        final Docker.ExecResult answer = docker.exec(running.id(),
-                List.of("echo", "steward was here"));
+        final Docker.ExecResult answer = docker.exec(running.id(), List.of("echo", "steward was here"));
 
         // Proves the whole hijacked-stream path: create, start, eight-byte frames, decode, and the
         // second request that fetches the exit code.
@@ -145,8 +156,7 @@ class DockerIntegrationTest {
 
         // Without the exit code a failed command is indistinguishable from a quiet one - which is
         // how a partial backup file gets renamed over a good one.
-        final Docker.ExecResult answer = docker.exec(running.id(),
-                List.of("sh", "-c", "echo nope >&2; exit 3"));
+        final Docker.ExecResult answer = docker.exec(running.id(), List.of("sh", "-c", "echo nope >&2; exit 3"));
 
         assertEquals(3, answer.exitCode());
         assertFalse(answer.ok());
@@ -161,20 +171,26 @@ class DockerIntegrationTest {
         cli("docker", "pull", "-q", "alpine:3.19");
         final String honest = imageIdOf("alpine:3.20");
 
-        assertEquals(ImageResult.State.UP_TO_DATE, ops.check("alpine:3.20", honest).state(),
+        assertEquals(
+                ImageResult.State.UP_TO_DATE,
+                ops.check("alpine:3.20", honest).state(),
                 "a freshly pulled tag should agree with its registry");
 
         try {
             // Exactly the situation A24 hid: what runs is not what the tag means any more.
             cli("docker", "tag", "alpine:3.19", "alpine:3.20");
             final DockerOps.ImageCheck bent = ops.check("alpine:3.20", imageIdOf("alpine:3.20"));
-            assertEquals(ImageResult.State.OUTDATED, bent.state(),
+            assertEquals(
+                    ImageResult.State.OUTDATED,
+                    bent.state(),
                     "a tag pointing at another image is drift, and was not seen as drift");
         } finally {
             cli("docker", "pull", "-q", "alpine:3.20");
         }
 
-        assertEquals(ImageResult.State.UP_TO_DATE, ops.check("alpine:3.20", imageIdOf("alpine:3.20")).state(),
+        assertEquals(
+                ImageResult.State.UP_TO_DATE,
+                ops.check("alpine:3.20", imageIdOf("alpine:3.20")).state(),
                 "after pulling the real image back the drift should be gone");
     }
 
@@ -217,15 +233,17 @@ class DockerIntegrationTest {
     }
 
     private static String imageIdOf(final String reference) throws Exception {
-        return cli("docker", "image", "inspect", "--format", "{{ .Id }}", reference).get(0);
+        return cli("docker", "image", "inspect", "--format", "{{ .Id }}", reference)
+                .get(0);
     }
 
     /** Runs the docker command line and hands back its output, one line per entry. */
     private static List<String> cli(final String... command) throws IOException, InterruptedException {
-        final Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+        final Process process =
+                new ProcessBuilder(command).redirectErrorStream(true).start();
         final List<String> lines = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (!line.isBlank()) {

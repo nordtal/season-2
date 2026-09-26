@@ -118,12 +118,7 @@ export function RecreateButton({
         <Tooltip>
           <TooltipTrigger asChild>
             <ResponsiveDialogTrigger asChild>
-              <Button
-                variant={variant}
-                size="icon-xs"
-                disabled={unavailable}
-                aria-label={`Recreate ${service}`}
-              >
+              <Button variant={variant} size="icon-xs" disabled={unavailable} aria-label={`Recreate ${service}`}>
                 <ArrowsClockwiseIcon aria-hidden />
               </Button>
             </ResponsiveDialogTrigger>
@@ -164,8 +159,8 @@ export function RecreateButton({
             */}
             <div className="flex flex-col gap-2 text-left">
               <p>
-                <strong>There is no countdown and no announcement in game.</strong> Anyone on this
-                service right now is thrown out.
+                <strong>There is no countdown and no announcement in game.</strong> Anyone on this service right now is
+                thrown out.
               </p>
             </div>
           </ResponsiveDialogDescription>
@@ -204,9 +199,7 @@ export function RecreateButton({
                     // ApiError carries `where`.
                     onError: (failure) =>
                       toast.error(
-                        failure instanceof ApiError
-                          ? `${failure.where} refused: ${failure.message}`
-                          : String(failure),
+                        failure instanceof ApiError ? `${failure.where} refused: ${failure.message}` : String(failure),
                       ),
                   })
                 }}
@@ -250,15 +243,17 @@ export function useRecreateGate(service: string): { unavailable: boolean; title:
   // already on this host.
   const unreachable = deployer.data?.available === true && deployer.data.reachable === false
   const unavailable = deployer.data?.available === false || unreachable || deployer.isError || lock.locked
-  const title = lock.title ?? (deployer.data?.available === false
-    ? deployer.data.reason
-    : unreachable
-      ? "steward-deployer is configured but not answering."
-      : deployer.isError
-        ? "The state of steward-deployer is unknown: /api/deployer did not answer."
-        : deployer.data?.available === true
-          ? `Recreate the container for ${service} from the image already on this host.`
-          : "The state of steward-deployer is not known yet.")
+  const title =
+    lock.title ??
+    (deployer.data?.available === false
+      ? deployer.data.reason
+      : unreachable
+        ? "steward-deployer is configured but not answering."
+        : deployer.isError
+          ? "The state of steward-deployer is unknown: /api/deployer did not answer."
+          : deployer.data?.available === true
+            ? `Recreate the container for ${service} from the image already on this host.`
+            : "The state of steward-deployer is not known yet.")
   return { unavailable, title }
 }
 

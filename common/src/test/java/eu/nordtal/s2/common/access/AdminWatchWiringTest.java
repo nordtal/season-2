@@ -1,16 +1,15 @@
 package eu.nordtal.s2.common.access;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * That all three Paper backends actually run the admin watcher, and run it once.
@@ -46,21 +45,25 @@ class AdminWatchWiringTest {
         for (final String relative : PAPER_PLUGINS) {
             final String text = read(relative);
 
-            assertTrue(text.contains("operators.sweep()"),
+            assertTrue(
+                    text.contains("operators.sweep()"),
                     relative + " does not sweep ops.json at enable. The file is persistent, so"
                             + " anybody left in it by a crash or a SIGKILL would still be an operator"
                             + " on this start - which is the whole reason an operator is a property"
                             + " of the session and not of the disk.");
-            assertTrue(text.contains("new AdminWatch("),
+            assertTrue(
+                    text.contains("new AdminWatch("),
                     relative + " does not build an AdminWatch, so its admin flags are read once per"
                             + " session: an admin revoked in Discord keeps operator on this server"
                             + " until they choose to disconnect.");
-            assertTrue(text.contains("adminWatch.start("),
+            assertTrue(
+                    text.contains("adminWatch.start("),
                     relative + " builds an AdminWatch and never starts it, which is the same as not"
                             + " having one and looks like having one.");
             // Either form: the bare call, or the method reference inside Shutdown#quietly, which
             // is what every disable step became on 2026-09-06 (finding 101).
-            assertTrue(text.contains("adminWatch.close()") || text.contains("adminWatch::close"),
+            assertTrue(
+                    text.contains("adminWatch.close()") || text.contains("adminWatch::close"),
                     relative + " never closes its AdminWatch. The listener owns a database connection"
                             + " outside the pool and a thread parked on it; a disable that leaves"
                             + " both running leaks one of each per reload.");
@@ -78,7 +81,9 @@ class AdminWatchWiringTest {
             // one that answers the fullness check would be the empty one. smp built its instance
             // inline inside a constructor argument until 2026-09-04, which is precisely the shape
             // that makes a second `new` look harmless.
-            assertEquals(1, occurrences(text, "new FullServerAdmission()"),
+            assertEquals(
+                    1,
+                    occurrences(text, "new FullServerAdmission()"),
                     relative + " builds FullServerAdmission a number of times that is not one. It is"
                             + " a cache filled at pre-login and read in the fullness check and now"
                             + " also by the admin watcher; every extra instance is an empty one.");
@@ -97,9 +102,11 @@ class AdminWatchWiringTest {
 
     private static String read(final String relative) throws IOException {
         final Path path = repositoryRoot().resolve(relative);
-        assertTrue(Files.isRegularFile(path), relative + " no longer exists - if a module was renamed"
-                + " this list has to move with it, because a missing file is a check that silently"
-                + " stops running");
+        assertTrue(
+                Files.isRegularFile(path),
+                relative + " no longer exists - if a module was renamed"
+                        + " this list has to move with it, because a missing file is a check that silently"
+                        + " stops running");
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 
@@ -110,7 +117,8 @@ class AdminWatchWiringTest {
             candidate = candidate.getParent();
         }
         if (candidate == null) {
-            throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+            throw new IllegalStateException(
+                    "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         }
         return candidate;
     }

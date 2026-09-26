@@ -1,5 +1,11 @@
 package eu.nordtal.s2.steward.worker.plan;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.http.FakeHttp;
@@ -7,12 +13,6 @@ import eu.nordtal.s2.steward.worker.http.HttpException;
 import eu.nordtal.s2.steward.worker.source.GitHubReleases;
 import eu.nordtal.s2.steward.worker.source.Modrinth;
 import eu.nordtal.s2.steward.worker.source.PaperFill;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -23,12 +23,10 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The whole of step 1, against recorded API responses and a volume tree on disk.
@@ -92,7 +90,9 @@ class ResolverTest {
         // this assertion is what went red - a fixture from 2026-09-09 against a constant from
         // today - and that is the coupling working rather than a nuisance.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "velocity"));
-        assertEquals(List.of(), plan.notes(),
+        assertEquals(
+                List.of(),
+                plan.notes(),
                 "the proxy resolved to the API it was built against, so there is nothing to warn"
                         + " about - a note here would be one an operator learns to ignore");
     }
@@ -125,13 +125,15 @@ class ResolverTest {
         // because it keeps exactly one jar per kind. Asserted rather than left to be discovered.
         assertEquals(Change.Status.MISSING, statusOf(plan, "proxy", "velocity"));
         assertTrue(plan.hasWork());
-        assertEquals("velocity-4.3.0-31.jar",
+        assertEquals(
+                "velocity-4.3.0-31.jar",
                 changeFor(plan, "proxy", "velocity").wanted().fileName());
 
         assertEquals(1, plan.notes().size(), "expected exactly one note: " + plan.notes());
         final String note = plan.notes().getFirst();
         assertTrue(note.contains("4.3.0") && note.contains(Platform.VELOCITY_API), note);
-        assertTrue(PlanReport.of(plan).render().contains(note),
+        assertTrue(
+                PlanReport.of(plan).render().contains(note),
                 "the note is decided by the resolver and drawn by PlanReport - a report that drops"
                         + " it is a version skew nobody is told about");
     }
@@ -169,10 +171,10 @@ class ResolverTest {
         // not appear as one that is merely up to date, because a row is what the guard and the
         // applier act on. The waiting room is seconds long and holds nobody who could be talked to,
         // and the proxy runs the other jar entirely.
-        assertTrue(plan.changes().stream()
+        assertTrue(
+                plan.changes().stream()
                         .filter(change -> "voicechat".equals(change.artifact()))
-                        .noneMatch(change -> "limbo".equals(change.service())
-                                || "proxy".equals(change.service())),
+                        .noneMatch(change -> "limbo".equals(change.service()) || "proxy".equals(change.service())),
                 Report.render(plan));
     }
 
@@ -192,7 +194,8 @@ class ResolverTest {
         assertEquals(Change.Status.UP_TO_DATE, change.status(), Report.render(plan));
         assertEquals("voicechat-velocity-2.6.18.jar", change.installed());
 
-        assertTrue(plan.changes().stream()
+        assertTrue(
+                plan.changes().stream()
                         .filter(row -> "voicechat-velocity".equals(row.artifact()))
                         .allMatch(row -> "proxy".equals(row.service())),
                 "the Velocity build is on a Paper server: " + Report.render(plan));
@@ -218,7 +221,8 @@ class ResolverTest {
         // as it lasted.
         assertFalse(change.status().isFailure(), Report.render(plan));
         assertFalse(change.status().isWork(), Report.render(plan));
-        assertTrue(plan.changes().stream()
+        assertTrue(
+                plan.changes().stream()
                         .filter(row -> "smp".equals(row.service()))
                         .noneMatch(row -> row.status().isFailure()),
                 "one artefact with no build made the whole SMP untrustworthy: " + Report.render(plan));
@@ -239,12 +243,14 @@ class ResolverTest {
 
         final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(plan);
         assertFalse(report.isWork(), report.render());
-        assertEquals(eu.nordtal.s2.common.update.UpdateReport.State.UNCHANGED,
-                report.line("smp").state(), report.render());
-        assertTrue(report.line("smp").changes().stream()
+        assertEquals(
+                eu.nordtal.s2.common.update.UpdateReport.State.UNCHANGED,
+                report.line("smp").state(),
+                report.render());
+        assertTrue(
+                report.line("smp").changes().stream()
                         .anyMatch(entry -> entry.artefact().equals("coreprotect")
-                                && entry.state() == eu.nordtal.s2.common.update.UpdateReport
-                                        .Change.State.UNSUPPORTED),
+                                && entry.state() == eu.nordtal.s2.common.update.UpdateReport.Change.State.UNSUPPORTED),
                 "the artefact has to stay NAMED while it waits - one dropped from the report is one"
                         + " somebody has to remember: " + report.render());
 
@@ -262,8 +268,9 @@ class ResolverTest {
         installCurrentEverything();
         // The same artefact, the other reason for having no file. The distinction is the whole
         // point of the new status, so it is asserted from both sides.
-        http.failing("/project/Lu3KuzdV/version", new HttpException(
-                URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
+        http.failing(
+                "/project/Lu3KuzdV/version",
+                new HttpException(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
 
         final UpdatePlan plan = resolve();
         final Change change = changeFor(plan, "smp", "coreprotect");
@@ -283,8 +290,10 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        assertTrue(plan.unclaimed().stream().anyMatch(jar -> "limbo".equals(jar.service())
-                        && jar.fileName().equals("voicechat-bukkit-2.6.23.jar")),
+        assertTrue(
+                plan.unclaimed().stream()
+                        .anyMatch(jar ->
+                                "limbo".equals(jar.service()) && jar.fileName().equals("voicechat-bukkit-2.6.23.jar")),
                 Report.render(plan));
     }
 
@@ -332,7 +341,8 @@ class ResolverTest {
 
         assertTrue(plan.hasFailures());
         assertEquals(Change.Status.MOUNT_MISSING, statusOf(plan, "smp", "smp"));
-        assertTrue(Report.render(plan).contains("not the whole picture")
+        assertTrue(
+                Report.render(plan).contains("not the whole picture")
                         || Report.render(plan).contains("not the same as up to date"),
                 Report.render(plan));
     }
@@ -359,8 +369,10 @@ class ResolverTest {
     @DisplayName("a season release that cannot be read names one reason on all six rows it feeds")
     void theSeasonReleaseIsTheExpensiveFailure() throws IOException {
         installCurrentEverything();
-        http.failing("/repos/nordtal/season-2/", new HttpException(
-                URI.create("https://api.github.com/repos/nordtal/season-2/releases/latest"), 404, "Not Found"));
+        http.failing(
+                "/repos/nordtal/season-2/",
+                new HttpException(
+                        URI.create("https://api.github.com/repos/nordtal/season-2/releases/latest"), 404, "Not Found"));
 
         final UpdatePlan plan = resolve();
 
@@ -382,8 +394,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        assertEquals(List.of(new UpdatePlan.Unclaimed("smp", "SomeoneElsesPlugin-1.0.0.jar")),
-                plan.unclaimed());
+        assertEquals(List.of(new UpdatePlan.Unclaimed("smp", "SomeoneElsesPlugin-1.0.0.jar")), plan.unclaimed());
         assertTrue(Report.render(plan).contains("left alone, never deleted"));
     }
 
@@ -490,7 +501,8 @@ class ResolverTest {
     void aSeasonJarMissingFromTheReleaseKeepsWhatIsInstalled() throws IOException {
         installCurrentEverything();
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
-        http.answering("/repos/nordtal/season-2/releases",
+        http.answering(
+                "/repos/nordtal/season-2/releases",
                 FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "steward-worker-0.1.0.jar"));
 
         final UpdatePlan plan = resolve();
@@ -502,12 +514,16 @@ class ResolverTest {
         assertEquals("smp-0.1.0.jar", smp.installed());
         assertFalse(smp.status().isFailure(), Report.render(plan));
         assertFalse(smp.status().isWork(), Report.render(plan));
-        assertEquals(Change.Status.OUTDATED, changeFor(plan, "smp", "packetevents").status());
+        assertEquals(
+                Change.Status.OUTDATED, changeFor(plan, "smp", "packetevents").status());
 
         final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(plan);
-        assertEquals(eu.nordtal.s2.common.update.UpdateReport.State.PLANNED,
-                report.line("smp").state(), report.render());
-        assertTrue(report.notes().stream().anyMatch(note -> note.contains("smp-0.1.0.jar stays")),
+        assertEquals(
+                eu.nordtal.s2.common.update.UpdateReport.State.PLANNED,
+                report.line("smp").state(),
+                report.render());
+        assertTrue(
+                report.notes().stream().anyMatch(note -> note.contains("smp-0.1.0.jar stays")),
                 "the missing jar is a warning in the report: " + report.render());
     }
 
@@ -515,14 +531,17 @@ class ResolverTest {
     @DisplayName("a release without the smp jar and nothing else new is nothing to do")
     void aSeasonJarMissingFromTheReleaseIsNoWorkOnItsOwn() throws IOException {
         installCurrentEverything();
-        http.answering("/repos/nordtal/season-2/releases",
+        http.answering(
+                "/repos/nordtal/season-2/releases",
                 FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "steward-worker-0.1.0.jar"));
 
         final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
 
         assertFalse(report.line("smp").isMoving(), report.render());
-        assertEquals(eu.nordtal.s2.common.update.UpdateReport.State.UNCHANGED,
-                report.line("smp").state(), report.render());
+        assertEquals(
+                eu.nordtal.s2.common.update.UpdateReport.State.UNCHANGED,
+                report.line("smp").state(),
+                report.render());
     }
 
     @Test
@@ -530,15 +549,18 @@ class ResolverTest {
     void aHeldBackServiceIsNotMoving() throws IOException {
         installCurrentEverything();
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
-        http.failing("/project/Lu3KuzdV/version", new HttpException(
-                URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
+        http.failing(
+                "/project/Lu3KuzdV/version",
+                new HttpException(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
 
         final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
 
         // Applier skips the whole SMP over the outage, so stopping it would be an outage of our own
         // for nothing. The line stays FAILED and says what it held back.
-        assertEquals(eu.nordtal.s2.common.update.UpdateReport.State.FAILED,
-                report.line("smp").state(), report.render());
+        assertEquals(
+                eu.nordtal.s2.common.update.UpdateReport.State.FAILED,
+                report.line("smp").state(),
+                report.render());
         assertFalse(report.line("smp").isMoving(), report.render());
         assertTrue(report.line("smp").detail().contains("packetevents"), report.render());
     }
@@ -548,8 +570,10 @@ class ResolverTest {
     void anUncheckedServerJarLeavesThePluginsMoving() throws IOException {
         installCurrentEverything();
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
-        http.failing("/projects/paper/versions/26.2/builds", new HttpException(
-                URI.create("https://fill.papermc.io/v3/projects/paper/versions/26.2/builds"), 503, "down"));
+        http.failing(
+                "/projects/paper/versions/26.2/builds",
+                new HttpException(
+                        URI.create("https://fill.papermc.io/v3/projects/paper/versions/26.2/builds"), 503, "down"));
 
         final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
 
@@ -562,7 +586,8 @@ class ResolverTest {
     @DisplayName("the worker installs its own jar, which takes effect on the next start and not before")
     void theWorkerResolvesItsOwnJar() throws IOException {
         installCurrentEverything();
-        http.answering("/repos/nordtal/season-2/releases",
+        http.answering(
+                "/repos/nordtal/season-2/releases",
                 FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "steward-worker-0.1.0.jar"));
 
         final Change change = changeFor(resolve(), "steward-worker", "steward-worker");
@@ -570,7 +595,8 @@ class ResolverTest {
         // MISSING rather than UP_TO_DATE: the volume is mounted and empty, which is what a
         // deployment looks like before the first run that installs a worker jar into it.
         assertEquals(Change.Status.MISSING, change.status());
-        assertTrue(change.status().isWork(),
+        assertTrue(
+                change.status().isWork(),
                 "it is work like anything else - what it is not is work that changes THIS process");
         assertNotNull(change.wanted());
         assertEquals("steward-worker-0.1.0.jar", change.wanted().fileName());
@@ -580,7 +606,8 @@ class ResolverTest {
     @DisplayName("a release pinned by tag that is a pre-release says so on the second line")
     void aPinnedPreReleaseIsAnnounced() throws IOException {
         installCurrentEverything();
-        http.answering("/repos/nordtal/season-2/releases",
+        http.answering(
+                "/repos/nordtal/season-2/releases",
                 FakeHttp.read("github-season-v0.1.0.json").replace("\"prerelease\": false", "\"prerelease\": true"));
 
         final UpdatePlan plan = resolve();
@@ -661,22 +688,19 @@ class ResolverTest {
             public BunqSpec bunq() {
                 // Defaults: empty credentials, which is "no bank account" and is a valid season.
                 // Nothing in this test asks bunq anything (steward/109).
-                return new BunqSpec() {
-                };
+                return new BunqSpec() {};
             }
 
             @Override
             public ApiSpec api() {
                 // Defaults: nothing here serves HTTP.
-                return new ApiSpec() {
-                };
+                return new ApiSpec() {};
             }
 
             @Override
             public DockerSpec docker() {
                 // Defaults: this test is not about the daemon, and nothing here reads it.
-                return new DockerSpec() {
-                };
+                return new DockerSpec() {};
             }
 
             @Override
@@ -686,7 +710,7 @@ class ResolverTest {
 
             @Override
             public UpdateSpec update() {
-                return new UpdateSpec() { };
+                return new UpdateSpec() {};
             }
 
             @Override
@@ -698,40 +722,39 @@ class ResolverTest {
                     // anonymous spec has to hand back its defaults by name (steward/95).
                     @Override
                     public RemoteSpec remote() {
-                        return new RemoteSpec() {
-                        };
+                        return new RemoteSpec() {};
                     }
 
                     @Override
                     public RetentionSpec retention() {
-                        return new RetentionSpec() {
-                        };
+                        return new RetentionSpec() {};
                     }
-
                 };
             }
 
             @Override
             public DeployerSpec deployer() {
                 // Defaults: this test never recreates a container.
-                return new DeployerSpec() {
-                };
+                return new DeployerSpec() {};
             }
-
         };
-        return new Resolver(config, new GitHubReleases(http), new Modrinth(http), new PaperFill(http),
-                Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC)).resolve();
+        return new Resolver(
+                        config,
+                        new GitHubReleases(http),
+                        new Modrinth(http),
+                        new PaperFill(http),
+                        Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC))
+                .resolve();
     }
 
     private static Change changeFor(final UpdatePlan plan, final String service, final String artifact) {
         final Optional<Change> change = plan.changes().stream()
                 .filter(candidate -> artifact.equals(candidate.artifact()))
-                .filter(candidate -> service == null
-                        ? candidate.service() == null
-                        : service.equals(candidate.service()))
+                .filter(candidate ->
+                        service == null ? candidate.service() == null : service.equals(candidate.service()))
                 .findFirst();
-        return change.orElseThrow(() -> new AssertionError(
-                "no row for " + service + "/" + artifact + " in:\n" + Report.render(plan)));
+        return change.orElseThrow(
+                () -> new AssertionError("no row for " + service + "/" + artifact + " in:\n" + Report.render(plan)));
     }
 
     private static Change.Status statusOf(final UpdatePlan plan, final String service, final String artifact) {

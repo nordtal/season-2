@@ -1,14 +1,12 @@
 package eu.nordtal.s2.proxy.online;
 
-import eu.nordtal.s2.common.online.OnlineDirectory;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.time.Instant;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.online.OnlineDirectory;
+import java.time.Instant;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * When a tick of {@link OnlineWriter} actually writes (season-2-ops/122).
@@ -36,7 +34,8 @@ class OnlineWriterCadenceTest {
     void theOrdinaryCadence() {
         assertFalse(OnlineWriter.isDue(NOON, NOON.plusSeconds(1), false));
         assertFalse(OnlineWriter.isDue(NOON, NOON.plusSeconds(9), false));
-        assertTrue(OnlineWriter.isDue(NOON, NOON.plus(OnlineDirectory.WRITE_INTERVAL), false),
+        assertTrue(
+                OnlineWriter.isDue(NOON, NOON.plus(OnlineDirectory.WRITE_INTERVAL), false),
                 "the interval is inclusive - a tick landing exactly on it must not be skipped,"
                         + " because the next one is a whole interval later");
     }
@@ -45,7 +44,8 @@ class OnlineWriterCadenceTest {
     @DisplayName("with a run about to stop something, every tick writes")
     void theHurriedCadence() {
         assertTrue(OnlineWriter.isDue(NOON, NOON.plusSeconds(1), true));
-        assertTrue(OnlineWriter.isDue(NOON, NOON, true),
+        assertTrue(
+                OnlineWriter.isDue(NOON, NOON, true),
                 "a run is the one case where the same second is worth writing twice: the whole"
                         + " question is whether the last player has gone yet");
     }

@@ -90,5 +90,4 @@ interface SnapshotDao {
             """)
     @RegisterRowMapper(SnapshotMapper.class)
     NetworkSnapshot snapshot();
-
 }

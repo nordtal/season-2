@@ -1,5 +1,9 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.postgres.PostgresPlugin;
@@ -8,12 +12,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.sql.DataSource;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Objects;
 
 /**
  * Every browser's Web Push subscription (steward/98, concept §10c) - one row per endpoint, in
@@ -43,8 +41,11 @@ public final class PushSubscriptions {
      * <p>See {@link PushSubscriptionDao#add} for why a resubscription is an upsert rather than a
      * lookup-then-branch.</p>
      */
-    public void subscribe(final @NotNull String discordId, final @NotNull String endpoint,
-                          final @NotNull String p256dh, final @NotNull String auth) {
+    public void subscribe(
+            final @NotNull String discordId,
+            final @NotNull String endpoint,
+            final @NotNull String p256dh,
+            final @NotNull String auth) {
         subscribe(discordId, endpoint, p256dh, auth, null);
     }
 
@@ -56,12 +57,17 @@ public final class PushSubscriptions {
      * one leaves the column null, and the interface then says it does not know rather than
      * inventing something.</p>
      */
-    public void subscribe(final @NotNull String discordId, final @NotNull String endpoint,
-                          final @NotNull String p256dh, final @NotNull String auth,
-                          final @Nullable String userAgent) {
+    public void subscribe(
+            final @NotNull String discordId,
+            final @NotNull String endpoint,
+            final @NotNull String p256dh,
+            final @NotNull String auth,
+            final @Nullable String userAgent) {
         dao.add(endpoint, discordId, p256dh, auth, Devices.nameOf(userAgent));
-        log.info("{} subscribed a browser to web push - {} subscription(s) on that account now",
-                discordId, dao.forAccount(discordId).size());
+        log.info(
+                "{} subscribed a browser to web push - {} subscription(s) on that account now",
+                discordId,
+                dao.forAccount(discordId).size());
     }
 
     /** Every subscription there is, for {@link AlertWatch} - whose account it is does not matter. */
@@ -80,8 +86,7 @@ public final class PushSubscriptions {
      * <p>Looked up by endpoint <b>and</b> account, never by endpoint alone: see
      * {@link PushSubscriptionDao#find}.</p>
      */
-    public @Nullable Subscription find(final @NotNull String discordId,
-                                       final @NotNull String endpoint) {
+    public @Nullable Subscription find(final @NotNull String discordId, final @NotNull String endpoint) {
         return dao.find(endpoint, discordId);
     }
 
@@ -110,12 +115,12 @@ public final class PushSubscriptions {
     }
 
     /** One row of {@code steward_push_subscription}. */
-    public record Subscription(@NotNull String endpoint,
-                               @ColumnName("discord_id") @NotNull String discordId,
-                               @NotNull String p256dh,
-                               @NotNull String auth,
-                               @ColumnName("created_at") @NotNull Instant createdAt,
-                               @ColumnName("last_sent_at") @Nullable Instant lastSentAt,
-                               @Nullable String device) {
-    }
+    public record Subscription(
+            @NotNull String endpoint,
+            @ColumnName("discord_id") @NotNull String discordId,
+            @NotNull String p256dh,
+            @NotNull String auth,
+            @ColumnName("created_at") @NotNull Instant createdAt,
+            @ColumnName("last_sent_at") @Nullable Instant lastSentAt,
+            @Nullable String device) {}
 }

@@ -1,21 +1,19 @@
 package eu.nordtal.s2.steward.worker.config;
 
-import eu.nordtal.jcore.config.exception.ConfigValidationException;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.jcore.config.exception.ConfigValidationException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * What {@code steward.yml} refuses, and what it drops.
@@ -45,15 +43,16 @@ class ConfigsTest {
         // checks the project out over itself used to be able to delete (finding 151).
         assertTrue(volumes.contains("nordtal-s2_mc-smp"), volumes.toString());
         assertTrue(volumes.contains("nordtal-s2_mc-smp-plugins"), volumes.toString());
-        assertTrue(volumes.stream().noneMatch(volume -> volume.endsWith("postgres-data")),
+        assertTrue(
+                volumes.stream().noneMatch(volume -> volume.endsWith("postgres-data")),
                 "a snapshot of a live PGDATA fails at RESTORE and nowhere else: " + volumes);
 
         // The database is DUMPED rather than snapshotted, straight into backup.output-root, so it
         // needs no volume here at all - and the postgres-dumps volume that used to be in this list
         // went with the sidecar that wrote it (§9a). Nor is the output directory itself ever here:
         // a backup of the backups doubles every night until the disk is gone.
-        assertTrue(volumes.stream().noneMatch(volume -> volume.contains("dumps")
-                        || volume.contains("backups")),
+        assertTrue(
+                volumes.stream().noneMatch(volume -> volume.contains("dumps") || volume.contains("backups")),
                 "the backups are not a thing to back up: " + volumes);
 
         // The stop list and the volume list are not the same list, deliberately: hunger-games
@@ -64,13 +63,16 @@ class ConfigsTest {
         // is saved any more, so stopping it would buy a proxy swap and a dead port for nothing -
         // which is the point of that ticket, not a side effect of it. A backup moves players to
         // the waiting room and back, and no further.
-        assertEquals(java.util.List.of(eu.nordtal.s2.steward.worker.plan.Topology.SMP,
+        assertEquals(
+                java.util.List.of(
+                        eu.nordtal.s2.steward.worker.plan.Topology.SMP,
                         eu.nordtal.s2.steward.worker.plan.Topology.DISCORD_BOT),
                 config.backup().stopServices());
-        assertFalse(config.backup().volumes().stream().anyMatch(volume -> volume.contains("proxy")
-                        || volume.contains("limbo")),
-                "proxy and limbo left the backup on 2026-09-20 and a restart writes everything"
-                        + " they hold: " + config.backup().volumes());
+        assertFalse(
+                config.backup().volumes().stream()
+                        .anyMatch(volume -> volume.contains("proxy") || volume.contains("limbo")),
+                "proxy and limbo left the backup on 2026-09-20 and a restart writes everything" + " they hold: "
+                        + config.backup().volumes());
 
         // Thirty rather than sixty (owner, 2026-09-09), and the two halves of that decision are
         // one decision: the wait was shortened because giving up stopped being silent. A run that
@@ -94,7 +96,8 @@ class ConfigsTest {
                 assertThrows(ConfigValidationException.class, () -> Configs.steward(directory, LOGGER));
 
         final String message = String.valueOf(error.getMessage() + error.getCause());
-        assertTrue(message.contains("postgres-dumps"),
+        assertTrue(
+                message.contains("postgres-dumps"),
                 "and it names the volume that should have been there instead: " + message);
     }
 
@@ -115,7 +118,8 @@ class ConfigsTest {
                 assertThrows(ConfigValidationException.class, () -> Configs.steward(directory, LOGGER));
 
         final String message = String.valueOf(error.getMessage() + error.getCause());
-        assertTrue(message.contains("in no repository and in no"),
+        assertTrue(
+                message.contains("in no repository and in no"),
                 "and it says what the missing volume is load-bearing for: " + message);
     }
 
@@ -136,8 +140,7 @@ class ConfigsTest {
         Configs.steward(directory, LOGGER);
 
         final Path file = directory.resolve("steward.yml");
-        Files.writeString(file, Files.readString(file, StandardCharsets.UTF_8)
-                + """
+        Files.writeString(file, Files.readString(file, StandardCharsets.UTF_8) + """
 
                 minecraft-version: '26.2'
                 velocity-version: '4.1.1'
@@ -152,15 +155,16 @@ class ConfigsTest {
         assertEquals("nordtal/season-2", config.seasonRepo(), "steward-worker refused to start");
 
         final String written = Files.readString(file, StandardCharsets.UTF_8);
-        for (final String retired : new String[] {
-                "minecraft-version", "velocity-version", "paper-build", "velocity-build",
-                "arcane"}) {
-            assertFalse(written.contains(retired),
+        for (final String retired :
+                new String[] {"minecraft-version", "velocity-version", "paper-build", "velocity-build", "arcane"}) {
+            assertFalse(
+                    written.contains(retired),
                     "steward.yml still carries '" + retired + "' after a load. Either it was"
                             + " re-declared - which makes an operator believe a value nothing"
                             + " reads - or jcore stopped trimming retired keys.");
         }
-        assertTrue(Files.isRegularFile(directory.resolve("steward.yml.bak")),
+        assertTrue(
+                Files.isRegularFile(directory.resolve("steward.yml.bak")),
                 "the old content is not in a .bak, so an operator who wanted those lines back has"
                         + " nowhere to read them from");
     }
@@ -170,7 +174,8 @@ class ConfigsTest {
     @Test
     @DisplayName("a fresh file has no bunq credentials, and that is a valid deployment")
     void aFreshFileHasNoBankAccount() throws Exception {
-        final StewardSpec.BunqSpec bunq = Configs.steward(directory, LOGGER).get().bunq();
+        final StewardSpec.BunqSpec bunq =
+                Configs.steward(directory, LOGGER).get().bunq();
 
         // Empty is the default and the load succeeded, which is the whole assertion: a season
         // without a bank account is a season where everything works except buying access, and it
@@ -201,7 +206,8 @@ class ConfigsTest {
 
         final String message = String.valueOf(error.getMessage()) + error.getCause();
         assertTrue(message.contains("both api-key and account-id or neither"), message);
-        assertTrue(message.contains("NORDTAL_BOT_BUNQ_"),
+        assertTrue(
+                message.contains("NORDTAL_BOT_BUNQ_"),
                 "the message has to name the names this deployment probably still uses: " + message);
     }
 
@@ -254,7 +260,8 @@ class ConfigsTest {
                   watermark: '2026-09-01T00:00:00Z'
                 """);
 
-        final StewardSpec.BunqSpec bunq = Configs.steward(directory, LOGGER).get().bunq();
+        final StewardSpec.BunqSpec bunq =
+                Configs.steward(directory, LOGGER).get().bunq();
         assertEquals("987654", bunq.accountId());
         assertEquals(45, bunq.pollIntervalSeconds());
         assertEquals(10, bunq.recentPaymentCount());

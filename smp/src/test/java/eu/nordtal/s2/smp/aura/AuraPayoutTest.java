@@ -1,15 +1,14 @@
 package eu.nordtal.s2.smp.aura;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 /**
  * The contribution payout.
@@ -46,8 +45,10 @@ class AuraPayoutTest {
     @Test
     void exactlyOnTheThresholdQualifies() {
         // 2 % of 1000 is 20. ">=" and ">" differ by one player's entire equal share.
-        assertTrue(byId(AuraPayout.split(100, 1000, contributions("a", 980, "b", 20)), "b").qualified());
-        assertFalse(byId(AuraPayout.split(100, 1000, contributions("a", 981, "b", 19)), "b").qualified());
+        assertTrue(byId(AuraPayout.split(100, 1000, contributions("a", 980, "b", 20)), "b")
+                .qualified());
+        assertFalse(byId(AuraPayout.split(100, 1000, contributions("a", 981, "b", 19)), "b")
+                .qualified());
     }
 
     @Test
@@ -75,8 +76,8 @@ class AuraPayoutTest {
     void thePotIsNeverOverspent() {
         // An absolute guaranteed floor next to a relative pot would let a small objective's pot
         // be smaller than the sum of its own floors.
-        for (int pot : new int[]{1, 2, 7, 30, 60, 80, 110, 170, 1000}) {
-            for (int contributors : new int[]{1, 2, 3, 12, 40, 100}) {
+        for (int pot : new int[] {1, 2, 7, 30, 60, 80, 110, 170, 1000}) {
+            for (int contributors : new int[] {1, 2, 3, 12, 40, 100}) {
                 final Map<String, Long> map = new LinkedHashMap<>();
                 for (int index = 0; index < contributors; index++) {
                     map.put("p" + index, (long) (index + 1) * 7);
@@ -84,8 +85,7 @@ class AuraPayoutTest {
 
                 final int paid = total(AuraPayout.split(pot, 1000, map));
 
-                assertTrue(paid <= pot,
-                        "pot " + pot + " with " + contributors + " contributors paid out " + paid);
+                assertTrue(paid <= pot, "pot " + pot + " with " + contributors + " contributors paid out " + paid);
             }
         }
     }
@@ -101,7 +101,9 @@ class AuraPayoutTest {
 
         final List<AuraPayout.Share> shares = AuraPayout.split(30, 100, forty);
 
-        assertEquals(30, shares.stream().filter(AuraPayout.Share::qualified).count(),
+        assertEquals(
+                30,
+                shares.stream().filter(AuraPayout.Share::qualified).count(),
                 "the guarantee reaches exactly as far as the pot");
         assertTrue(byId(shares, "p39").qualified(), "the largest contributor is paid");
         assertFalse(byId(shares, "p00").qualified(), "the smallest is not");
@@ -120,7 +122,9 @@ class AuraPayoutTest {
         final List<AuraPayout.Share> shares = AuraPayout.split(80, 8, ten);
 
         assertEquals(10, shares.size());
-        assertEquals(10, shares.stream().filter(AuraPayout.Share::qualified).count(),
+        assertEquals(
+                10,
+                shares.stream().filter(AuraPayout.Share::qualified).count(),
                 "the two players beyond the target of 8 are paid like the rest");
         final int each = shares.get(0).total();
         for (final AuraPayout.Share share : shares) {
@@ -135,7 +139,9 @@ class AuraPayoutTest {
         assertEquals(50, AuraPayout.scaledPot(100, 500, 1000));
         assertEquals(0, AuraPayout.scaledPot(100, 0, 1000));
         assertEquals(100, AuraPayout.scaledPot(100, 1000, 1000));
-        assertEquals(100, AuraPayout.scaledPot(100, 5000, 1000),
+        assertEquals(
+                100,
+                AuraPayout.scaledPot(100, 5000, 1000),
                 "an objective already over its target is still only worth its pot");
         assertEquals(33, AuraPayout.scaledPot(100, 333, 1000), "floored, never rounded up");
     }
@@ -151,8 +157,7 @@ class AuraPayoutTest {
     void aTargetOfZeroIsRefusedRatherThanDividedBy() {
         // smp_objective's own CHECK forbids it; stated again where the division happens, so a
         // stale row gets a message rather than an arithmetic exception mid-payout.
-        assertThrows(IllegalArgumentException.class,
-                () -> AuraPayout.split(100, 0, contributions("a", 1, "b", 1)));
+        assertThrows(IllegalArgumentException.class, () -> AuraPayout.split(100, 0, contributions("a", 1, "b", 1)));
         assertThrows(IllegalArgumentException.class, () -> AuraPayout.scaledPot(100, 10, 0));
     }
 
@@ -170,9 +175,13 @@ class AuraPayoutTest {
 
         assertEquals(first, second);
         assertEquals(10, first.stream().filter(AuraPayout.Share::qualified).count());
-        assertEquals(List.of("p00", "p01", "p02", "p03", "p04", "p05", "p06", "p07", "p08", "p09"),
-                first.stream().filter(AuraPayout.Share::qualified)
-                        .map(AuraPayout.Share::contributorId).sorted().toList(),
+        assertEquals(
+                List.of("p00", "p01", "p02", "p03", "p04", "p05", "p06", "p07", "p08", "p09"),
+                first.stream()
+                        .filter(AuraPayout.Share::qualified)
+                        .map(AuraPayout.Share::contributorId)
+                        .sorted()
+                        .toList(),
                 "ties are broken by id ascending, so the answer is stable across runs");
     }
 
@@ -180,15 +189,14 @@ class AuraPayoutTest {
     void anOvershotObjectiveStillOnlyPaysItsPot() {
         // The delivery that completes a HAND_IN usually overshoots, which is why the denominator
         // is the total actually contributed rather than the target.
-        final List<AuraPayout.Share> shares =
-                AuraPayout.split(100, 1000, contributions("a", 3000, "b", 1000));
+        final List<AuraPayout.Share> shares = AuraPayout.split(100, 1000, contributions("a", 3000, "b", 1000));
 
         assertTrue(total(shares) <= 100, "paid " + total(shares));
         assertTrue(byId(shares, "a").total() > byId(shares, "b").total());
     }
 
-    private static Map<String, Long> contributions(final String first, final long firstAmount,
-                                                   final String second, final long secondAmount) {
+    private static Map<String, Long> contributions(
+            final String first, final long firstAmount, final String second, final long secondAmount) {
         final Map<String, Long> map = new LinkedHashMap<>();
         map.put(first, firstAmount);
         map.put(second, secondAmount);
@@ -200,6 +208,9 @@ class AuraPayoutTest {
     }
 
     private static AuraPayout.Share byId(final List<AuraPayout.Share> shares, final String id) {
-        return shares.stream().filter(share -> share.contributorId().equals(id)).findFirst().orElseThrow();
+        return shares.stream()
+                .filter(share -> share.contributorId().equals(id))
+                .findFirst()
+                .orElseThrow();
     }
 }

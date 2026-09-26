@@ -7,7 +7,6 @@ import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
@@ -31,20 +30,19 @@ import java.util.UUID;
  */
 final class FakeDirectories {
 
-    private FakeDirectories() {
-    }
+    private FakeDirectories() {}
 
     /** Every method throws except {@link UpdateDirectory#recent(int)}, which answers {@code rows}. */
     static UpdateDirectory updates(final UpdateRequest... rows) {
         final List<UpdateRequest> sorted = List.of(rows).stream()
-                .sorted(Comparator.comparing((UpdateRequest run) ->
-                                run.finished() != null ? run.finished() : run.requested())
+                .sorted(Comparator.comparing(
+                                (UpdateRequest run) -> run.finished() != null ? run.finished() : run.requested())
                         .reversed())
                 .toList();
         return new UpdateDirectory() {
             @Override
-            public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
-                                        final String requestedBy, final Duration delay) {
+            public UpdateRequest submit(
+                    final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
                 throw new UnsupportedOperationException("not exercised by this fake");
             }
 
@@ -85,8 +83,7 @@ final class FakeDirectories {
             }
 
             @Override
-            public Optional<UpdateRequest> finish(final long id, final UpdateStatus status,
-                                                  final String result) {
+            public Optional<UpdateRequest> finish(final long id, final UpdateStatus status, final String result) {
                 throw new UnsupportedOperationException("not exercised by this fake");
             }
 
@@ -150,21 +147,22 @@ final class FakeDirectories {
             }
 
             @Override
-            public List<AuditEntry> search(final String action, final String subject,
-                                           final int limit) {
+            public List<AuditEntry> search(final String action, final String subject, final int limit) {
                 final int clamped = Math.max(1, limit);
                 final List<AuditEntry> filtered = sorted.stream()
-                        .filter(entry -> action == null || action.isBlank()
-                                || action.equals(entry.action()))
-                        .filter(entry -> subject == null || subject.isBlank()
-                                || subject.equals(entry.subject()))
+                        .filter(entry -> action == null || action.isBlank() || action.equals(entry.action()))
+                        .filter(entry -> subject == null || subject.isBlank() || subject.equals(entry.subject()))
                         .toList();
                 return filtered.size() > clamped ? filtered.subList(0, clamped) : filtered;
             }
 
             @Override
-            public void record(final String action, final String actor, final String subject,
-                               final UUID mcUuid, final String detail) {
+            public void record(
+                    final String action,
+                    final String actor,
+                    final String subject,
+                    final UUID mcUuid,
+                    final String detail) {
                 throw new UnsupportedOperationException("not exercised by this fake");
             }
         };

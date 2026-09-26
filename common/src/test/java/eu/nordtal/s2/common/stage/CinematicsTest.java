@@ -1,23 +1,20 @@
 package eu.nordtal.s2.common.stage;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.feedback.FeedbackSound;
 import eu.nordtal.s2.common.feedback.FeedbackSounds;
-
-import net.kyori.adventure.text.Component;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import net.kyori.adventure.text.Component;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Running a staging: the order, the spacing, the cancel, and the sound that is not played.
@@ -48,11 +45,8 @@ class CinematicsTest {
     @Test
     @DisplayName("the frames appear in order, each on the tick the description puts it")
     void theSequenceRunsInOrderAndOnTime() {
-        assertTrue(cinematics.start(player, Cinematic.builder()
-                .frame(A, 5)
-                .frame(B, 10)
-                .frame(C, 1)
-                .build(), stage));
+        assertTrue(cinematics.start(
+                player, Cinematic.builder().frame(A, 5).frame(B, 10).frame(C, 1).build(), stage));
 
         // The first frame is not scheduled at all - it is shown inside start(), so a moment begins
         // without waiting a tick for a scheduler that may be a tick behind.
@@ -69,37 +63,48 @@ class CinematicsTest {
 
         clock.advanceTo(15);
         assertEquals(List.of(A, B, C), stage.shown);
-        assertEquals(List.of(5, 10, 1), stage.stays,
+        assertEquals(
+                List.of(5, 10, 1),
+                stage.stays,
                 "each frame's own length is handed to the surface, so the title can be timed to be"
                         + " replaced rather than to fade out between frames");
 
-        assertEquals(0, stage.cleared, "the staging is not over until its last frame has had its"
-                + " own length on screen");
+        assertEquals(
+                0, stage.cleared, "the staging is not over until its last frame has had its" + " own length on screen");
         clock.advanceTo(16);
         assertEquals(1, stage.cleared);
-        assertFalse(cinematics.isRunning(player), "a staging that has ended is not running, so the"
-                + " next one is allowed");
+        assertFalse(
+                cinematics.isRunning(player),
+                "a staging that has ended is not running, so the" + " next one is allowed");
     }
 
     @Test
     @DisplayName("a cancel stops the frames that had not run and clears the screen once")
     void aCancelReallyCancels() {
-        cinematics.start(player, Cinematic.builder().frames(List.of(A, B, C), 10).build(), stage);
+        cinematics.start(
+                player, Cinematic.builder().frames(List.of(A, B, C), 10).build(), stage);
         clock.advanceTo(10);
         assertEquals(List.of(A, B), stage.shown);
 
         cinematics.cancel(player);
 
-        assertEquals(1, stage.cleared, "a cancel has to take the effect off, or a player who left"
-                + " mid-staging comes back blind");
+        assertEquals(
+                1,
+                stage.cleared,
+                "a cancel has to take the effect off, or a player who left" + " mid-staging comes back blind");
         assertFalse(cinematics.isRunning(player));
 
         clock.advanceTo(100);
-        assertEquals(List.of(A, B), stage.shown,
+        assertEquals(
+                List.of(A, B),
+                stage.shown,
                 "a frame scheduled before the cancel still ran afterwards, which puts the staging"
                         + " back on the screen of somebody who has just respawned");
-        assertEquals(1, stage.cleared, "clear happens once - the natural end must not arrive after"
-                + " a cancel and take the screen a second time");
+        assertEquals(
+                1,
+                stage.cleared,
+                "clear happens once - the natural end must not arrive after"
+                        + " a cancel and take the screen a second time");
     }
 
     @Test
@@ -117,7 +122,8 @@ class CinematicsTest {
         final RecordingStage second = new RecordingStage();
         cinematics.start(player, Cinematic.builder().frame(A, 10).build(), stage);
 
-        assertFalse(cinematics.start(player, Cinematic.builder().frame(B, 10).build(), second),
+        assertFalse(
+                cinematics.start(player, Cinematic.builder().frame(B, 10).build(), second),
                 "two stagings at once are two title sequences over one screen and two effects with"
                         + " two end times, the later of which would clear the earlier one's"
                         + " blindness while it is still meant to be running");
@@ -160,21 +166,26 @@ class CinematicsTest {
     @Test
     @DisplayName("the sound and the effect happen once, at the start")
     void theSoundAndTheEffectOpenTheMoment() {
-        cinematics.start(player, Cinematic.builder()
-                .frames(List.of(A, B), 10)
-                .sound(Feedback.NETWORK_EVENT)
-                .effect(new Cinematic.Effect("minecraft:blindness", 0))
-                .build(), stage);
+        cinematics.start(
+                player,
+                Cinematic.builder()
+                        .frames(List.of(A, B), 10)
+                        .sound(Feedback.NETWORK_EVENT)
+                        .effect(new Cinematic.Effect("minecraft:blindness", 0))
+                        .build(),
+                stage);
 
         assertEquals(List.of(Feedback.NETWORK_EVENT), stage.played);
         assertEquals(new Cinematic.Effect("minecraft:blindness", 0), stage.effect);
-        assertEquals(20, stage.effectTicks,
+        assertEquals(
+                20,
+                stage.effectTicks,
                 "the effect lasts exactly as long as the pictures, so it ends when they do rather"
                         + " than one frame short or a second long");
 
         clock.advanceTo(100);
-        assertEquals(List.of(Feedback.NETWORK_EVENT), stage.played,
-                "the opening sound is played once, not once per frame");
+        assertEquals(
+                List.of(Feedback.NETWORK_EVENT), stage.played, "the opening sound is played once, not once per frame");
     }
 
     @Test
@@ -183,7 +194,9 @@ class CinematicsTest {
         cinematics.start(player, Cinematic.builder().frames(List.of(A, B), 10).build(), stage);
         clock.advanceTo(100);
 
-        assertEquals(List.of(), stage.played,
+        assertEquals(
+                List.of(),
+                stage.played,
                 "a staging whose sound has not been drawn yet must not fall back to some other"
                         + " category - it runs silently");
     }
@@ -200,12 +213,16 @@ class CinematicsTest {
         final SoundStage audible = new SoundStage(configured("minecraft:ui.button.click", problems));
 
         cinematics.start(player, staging(), silent);
-        assertEquals(List.of(), silent.keys,
+        assertEquals(
+                List.of(),
+                silent.keys,
                 "a category with no key in sounds.yml still reached a client, which is the escape"
                         + " hatch for an irritating sound not working");
 
         cinematics.start(UUID.randomUUID(), staging(), audible);
-        assertEquals(List.of("minecraft:ui.button.click"), audible.keys,
+        assertEquals(
+                List.of("minecraft:ui.button.click"),
+                audible.keys,
                 "the control: the same staging with a key configured does play it, so the case"
                         + " above is silence and not a staging that plays nothing at all");
         assertEquals(List.of(), problems, "a blank key is deliberate and is not a complaint");
@@ -283,8 +300,7 @@ class CinematicsTest {
      */
     private static final class FakeScheduler implements Cinematics.Scheduler {
 
-        private record Scheduled(long at, Runnable body, boolean[] cancelled) {
-        }
+        private record Scheduled(long at, Runnable body, boolean[] cancelled) {}
 
         private final List<Scheduled> pending = new ArrayList<>();
         private long now;

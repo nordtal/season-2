@@ -3,15 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useNetwork } from "./data"
 import { ServiceNode } from "./node"
 import { DATABASE_CLIENTS, EDGES, type NodeId } from "./topology"
-import {
-  type Box,
-  EDGE_COLOR,
-  type Geometry,
-  type Point,
-  Wires,
-  bundle,
-  collapseToGroups,
-} from "./wires"
+import { type Box, EDGE_COLOR, type Geometry, type Point, Wires, bundle, collapseToGroups } from "./wires"
 
 /**
  * Where the cards go, said in **lanes** rather than in pixels - which is what lets one arrangement
@@ -171,9 +163,7 @@ export function place(arrangement: Arrangement, width: number): Placed {
       x: at(group.lane),
       y: group.y,
     })),
-    junction: arrangement.junction
-      ? { x: at(arrangement.junction.lane), y: arrangement.junction.y }
-      : undefined,
+    junction: arrangement.junction ? { x: at(arrangement.junction.lane), y: arrangement.junction.y } : undefined,
     bows: arrangement.bows,
   }
 }
@@ -363,11 +353,7 @@ export function Field({ plan, id }: { plan: Arrangement; id: string }) {
             className="absolute"
             style={{ left: spot.x - NODE.width / 2, top: spot.y - NODE.height / 2 }}
           >
-            <ServiceNode
-              id={spot.id}
-              service={network.service(spot.id)}
-              players={network.players(spot.id)}
-            />
+            <ServiceNode id={spot.id} service={network.service(spot.id)} players={network.players(spot.id)} />
           </div>
         ))}
 

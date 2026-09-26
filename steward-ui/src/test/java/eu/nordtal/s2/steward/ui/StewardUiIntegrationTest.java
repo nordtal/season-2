@@ -1,5 +1,13 @@
 package eu.nordtal.s2.steward.ui;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -13,15 +21,6 @@ import eu.nordtal.s2.steward.ui.data.Data;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinGson;
-import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,9 +34,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Locale;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,15 +45,13 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * The interface in front of a stand-in for steward-worker.
@@ -143,7 +140,6 @@ class StewardUiIntegrationTest {
     private static final java.util.concurrent.atomic.AtomicInteger workerConnections =
             new java.util.concurrent.atomic.AtomicInteger();
 
-
     private static Javalin fakeWorker;
     private static Javalin fakeDeployer;
     private static Javalin fakeDiscord;
@@ -151,6 +147,7 @@ class StewardUiIntegrationTest {
     /** What the stand-in deployer was last asked to recreate, so a test can read it back. */
     private static final java.util.List<String> recreated =
             java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
     private static StewardUi ui;
     private static HttpClient http;
     private static PostgreSQLContainer<?> postgres;
@@ -158,6 +155,7 @@ class StewardUiIntegrationTest {
 
     /** Kept, so a test can build a second interface against the same database. */
     private static UiSpec config;
+
     private static Path configRoot;
 
     @BeforeAll
@@ -188,145 +186,166 @@ class StewardUiIntegrationTest {
                 """);
 
         fakeWorker = Javalin.create(cfg -> {
-            cfg.jsonMapper(new JavalinGson(new Gson(), true));
-            cfg.startup.showJavalinBanner = false;
-            cfg.jetty.addConnector((server, httpConfiguration) -> {
-                final org.eclipse.jetty.server.ServerConnector counted =
-                        new org.eclipse.jetty.server.ServerConnector(server,
-                                new org.eclipse.jetty.server.HttpConnectionFactory(
-                                        httpConfiguration));
-                counted.setPort(WORKER_PORT);
-                counted.addBean(new org.eclipse.jetty.io.Connection.Listener() {
-                    @Override
-                    public void onOpened(final org.eclipse.jetty.io.Connection connection) {
-                        workerConnections.incrementAndGet();
-                    }
+                    cfg.jsonMapper(new JavalinGson(new Gson(), true));
+                    cfg.startup.showJavalinBanner = false;
+                    cfg.jetty.addConnector((server, httpConfiguration) -> {
+                        final org.eclipse.jetty.server.ServerConnector counted =
+                                new org.eclipse.jetty.server.ServerConnector(
+                                        server, new org.eclipse.jetty.server.HttpConnectionFactory(httpConfiguration));
+                        counted.setPort(WORKER_PORT);
+                        counted.addBean(new org.eclipse.jetty.io.Connection.Listener() {
+                            @Override
+                            public void onOpened(final org.eclipse.jetty.io.Connection connection) {
+                                workerConnections.incrementAndGet();
+                            }
 
-                    @Override
-                    public void onClosed(final org.eclipse.jetty.io.Connection connection) {
-                        workerConnections.decrementAndGet();
-                    }
-                });
-                return counted;
-            });
-            // THE SAME DOOR THE REAL WORKER HAS, health open and everything else behind the shared
-            // secret. A stand-in that lets everybody in passes every test here whether the
-            // interface sends its token, sends the deployer's, or sends none at all - which is
-            // exactly the mix-up the two-secret split exists to prevent.
-            cfg.routes.before("/api/*", ctx -> {
-                if (!ctx.path().equals("/api/health")
-                        && !WORKER_TOKEN.equals(ctx.header("X-Steward-Token"))) {
-                    throw new io.javalin.http.UnauthorizedResponse("bad or missing token");
-                }
-            });
-            cfg.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
+                            @Override
+                            public void onClosed(final org.eclipse.jetty.io.Connection connection) {
+                                workerConnections.decrementAndGet();
+                            }
+                        });
+                        return counted;
+                    });
+                    // THE SAME DOOR THE REAL WORKER HAS, health open and everything else behind the shared
+                    // secret. A stand-in that lets everybody in passes every test here whether the
+                    // interface sends its token, sends the deployer's, or sends none at all - which is
+                    // exactly the mix-up the two-secret split exists to prevent.
+                    cfg.routes.before("/api/*", ctx -> {
+                        if (!ctx.path().equals("/api/health") && !WORKER_TOKEN.equals(ctx.header("X-Steward-Token"))) {
+                            throw new io.javalin.http.UnauthorizedResponse("bad or missing token");
+                        }
+                    });
+                    cfg.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
 
-            // THE REAL ConfigApi, not a stand-in, against a real directory of real files. It is
-            // the one part of the worker these tests do not fake, because the whole of the
-            // configuration editor now lives on that side and what is left in steward-ui is three
-            // lines of proxy. Faking it here would test the proxy against a mirror.
-            // No console to type into in this fake worker - none of the fixture files below name a
-            // reload command (steward/59), so a no-op is never actually invoked here; the proxy is
-            // what this test exercises, not ConfigApi's own reload behaviour, which has its own
-            // test in :steward-worker.
-            final eu.nordtal.s2.steward.worker.api.ConfigApi configApi =
-                    new eu.nordtal.s2.steward.worker.api.ConfigApi(configRoot, (service, command) -> { });
-            cfg.routes.get("/api/config", configApi::list);
-            cfg.routes.get("/api/config/<file>", configApi::one);
-            cfg.routes.put("/api/config/<file>", configApi::save);
-            // A log that never ends, which is what a running container's is. Everything about the
-            // follow that matters happens in the middle of one: a session ending, a tab closing.
-            cfg.routes.sse("/api/services/{name}/logs", client -> {
-                client.keepAlive();
-                workerFollowers.add(client);
-                client.onClose(() -> workerFollowers.remove(client));
-                Thread.ofVirtual().start(() -> {
-                    client.sendEvent("run", "Earlier run, 22 Sep 19:44");
-                    client.sendEvent("line", "[12:00:00 INFO]: still running");
-                    while (workerFollowers.contains(client)) {
-                        try {
-                            Thread.sleep(120);
-                        } catch (final InterruptedException interrupted) {
-                            Thread.currentThread().interrupt();
+                    // THE REAL ConfigApi, not a stand-in, against a real directory of real files. It is
+                    // the one part of the worker these tests do not fake, because the whole of the
+                    // configuration editor now lives on that side and what is left in steward-ui is three
+                    // lines of proxy. Faking it here would test the proxy against a mirror.
+                    // No console to type into in this fake worker - none of the fixture files below name a
+                    // reload command (steward/59), so a no-op is never actually invoked here; the proxy is
+                    // what this test exercises, not ConfigApi's own reload behaviour, which has its own
+                    // test in :steward-worker.
+                    final eu.nordtal.s2.steward.worker.api.ConfigApi configApi =
+                            new eu.nordtal.s2.steward.worker.api.ConfigApi(configRoot, (service, command) -> {});
+                    cfg.routes.get("/api/config", configApi::list);
+                    cfg.routes.get("/api/config/<file>", configApi::one);
+                    cfg.routes.put("/api/config/<file>", configApi::save);
+                    // A log that never ends, which is what a running container's is. Everything about the
+                    // follow that matters happens in the middle of one: a session ending, a tab closing.
+                    cfg.routes.sse("/api/services/{name}/logs", client -> {
+                        client.keepAlive();
+                        workerFollowers.add(client);
+                        client.onClose(() -> workerFollowers.remove(client));
+                        Thread.ofVirtual().start(() -> {
+                            client.sendEvent("run", "Earlier run, 22 Sep 19:44");
+                            client.sendEvent("line", "[12:00:00 INFO]: still running");
+                            while (workerFollowers.contains(client)) {
+                                try {
+                                    Thread.sleep(120);
+                                } catch (final InterruptedException interrupted) {
+                                    Thread.currentThread().interrupt();
+                                    return;
+                                }
+                                if (chattyLog.get()) {
+                                    client.sendEvent("line", "[12:00:00 INFO]: still running");
+                                } else {
+                                    // The real worker's heartbeat, only faster - it beats every ten
+                                    // seconds and this test is not going to wait that long to find out
+                                    // whether the interface has hung up.
+                                    client.sendComment(
+                                            "following " + client.ctx().pathParam("name"));
+                                }
+                            }
+                        });
+                    });
+                    cfg.routes.get("/api/services", ctx -> {
+                        if (workerBroken.get()) {
+                            ctx.status(502).result("the daemon is not answering");
                             return;
                         }
-                        if (chattyLog.get()) {
-                            client.sendEvent("line", "[12:00:00 INFO]: still running");
-                        } else {
-                            // The real worker's heartbeat, only faster - it beats every ten
-                            // seconds and this test is not going to wait that long to find out
-                            // whether the interface has hung up.
-                            client.sendComment("following " + client.ctx().pathParam("name"));
-                        }
-                    }
-                });
-            });
-            cfg.routes.get("/api/services", ctx -> {
-                if (workerBroken.get()) {
-                    ctx.status(502).result("the daemon is not answering");
-                    return;
-                }
-                ctx.json(List.of(Map.of("service", "smp", "state", "running",
-                        "hasConsole", true, "drift", "UP_TO_DATE")));
-            });
-            cfg.routes.post("/api/services/{name}/console", ctx ->
-                    ctx.status(202).json(Map.of("sent", "list")));
-        }).start(WORKER_PORT + 100);
+                        ctx.json(List.of(Map.of(
+                                "service", "smp", "state", "running", "hasConsole", true, "drift", "UP_TO_DATE")));
+                    });
+                    cfg.routes.post(
+                            "/api/services/{name}/console",
+                            ctx -> ctx.status(202).json(Map.of("sent", "list")));
+                })
+                .start(WORKER_PORT + 100);
 
         // A stand-in for steward-deployer. It is a second process in the deployment and a second
         // secret, so it is a second stub here too: a single fake answering both would prove the
         // interface works when the two are the same service, which is the thing 3 forbids.
         fakeDeployer = Javalin.create(cfg -> {
-            cfg.jsonMapper(new JavalinGson(new Gson(), true));
-            cfg.startup.showJavalinBanner = false;
-            cfg.routes.before("/api/*", ctx -> {
-                if (!ctx.path().equals("/api/health")
-                        && !"deployer-token".equals(ctx.header("X-Steward-Token"))) {
-                    throw new io.javalin.http.UnauthorizedResponse("bad or missing token");
-                }
-            });
-            cfg.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
-            cfg.routes.get("/api/services", ctx ->
-                    ctx.json(Map.of("smp", "ghcr.io/nordtal/minecraft:latest")));
-            cfg.routes.post("/api/recreate/{service}", ctx -> {
-                recreated.add(ctx.pathParam("service"));
-                ctx.status(202).json(Map.of("id", "job-1", "kind", "recreate",
-                        "services", List.of(ctx.pathParam("service")), "state", "RUNNING"));
-            });
-            cfg.routes.get("/api/jobs/{id}", ctx -> ctx.json(Map.of(
-                    "id", ctx.pathParam("id"), "kind", "recreate", "state", "DONE",
-                    "exitCode", 0, "lines", List.of("Container nordtal-s2-smp-1  Recreated"))));
-        }).start(DEPLOYER_PORT);
+                    cfg.jsonMapper(new JavalinGson(new Gson(), true));
+                    cfg.startup.showJavalinBanner = false;
+                    cfg.routes.before("/api/*", ctx -> {
+                        if (!ctx.path().equals("/api/health")
+                                && !"deployer-token".equals(ctx.header("X-Steward-Token"))) {
+                            throw new io.javalin.http.UnauthorizedResponse("bad or missing token");
+                        }
+                    });
+                    cfg.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
+                    cfg.routes.get("/api/services", ctx -> ctx.json(Map.of("smp", "ghcr.io/nordtal/minecraft:latest")));
+                    cfg.routes.post("/api/recreate/{service}", ctx -> {
+                        recreated.add(ctx.pathParam("service"));
+                        ctx.status(202)
+                                .json(Map.of(
+                                        "id",
+                                        "job-1",
+                                        "kind",
+                                        "recreate",
+                                        "services",
+                                        List.of(ctx.pathParam("service")),
+                                        "state",
+                                        "RUNNING"));
+                    });
+                    cfg.routes.get(
+                            "/api/jobs/{id}",
+                            ctx -> ctx.json(Map.of(
+                                    "id",
+                                    ctx.pathParam("id"),
+                                    "kind",
+                                    "recreate",
+                                    "state",
+                                    "DONE",
+                                    "exitCode",
+                                    0,
+                                    "lines",
+                                    List.of("Container nordtal-s2-smp-1  Recreated"))));
+                })
+                .start(DEPLOYER_PORT);
 
         // The one system boundary in the sign-in. Everything else in the flow below - the state,
         // the session, the cookie, the role check - is the interface's own code.
         fakeDiscord = Javalin.create(cfg -> {
-            cfg.jsonMapper(new JavalinGson(new Gson(), true));
-            cfg.startup.showJavalinBanner = false;
-            cfg.routes.post("/oauth2/token", ctx -> {
-                final Map<String, String> form = new java.util.LinkedHashMap<>();
-                for (final String pair : ctx.body().split("&")) {
-                    final int equals = pair.indexOf('=');
-                    form.put(pair.substring(0, equals), java.net.URLDecoder.decode(
-                            pair.substring(equals + 1), java.nio.charset.StandardCharsets.UTF_8));
-                }
-                secretDiscordSaw.set(form.get("client_secret"));
-                if (!"the-code".equals(form.get("code"))) {
-                    ctx.status(400).json(Map.of("error", "invalid_grant"));
-                    return;
-                }
-                ctx.json(Map.of("access_token", "an-access-token", "token_type", "Bearer"));
-            });
-            cfg.routes.get("/users/@me",
-                    ctx -> ctx.json(Map.of("id", memberId.get(), "username", "till")));
-            cfg.routes.get("/users/@me/guilds/{guild}/member", ctx -> {
-                if (!GUILD.equals(ctx.pathParam("guild"))) {
-                    ctx.status(404).json(Map.of("message", "Unknown Guild"));
-                    return;
-                }
-                ctx.json(Map.of("nick", memberNick.get(), "roles", List.of("9999")));
-            });
-        }).start(DISCORD_PORT);
+                    cfg.jsonMapper(new JavalinGson(new Gson(), true));
+                    cfg.startup.showJavalinBanner = false;
+                    cfg.routes.post("/oauth2/token", ctx -> {
+                        final Map<String, String> form = new java.util.LinkedHashMap<>();
+                        for (final String pair : ctx.body().split("&")) {
+                            final int equals = pair.indexOf('=');
+                            form.put(
+                                    pair.substring(0, equals),
+                                    java.net.URLDecoder.decode(
+                                            pair.substring(equals + 1), java.nio.charset.StandardCharsets.UTF_8));
+                        }
+                        secretDiscordSaw.set(form.get("client_secret"));
+                        if (!"the-code".equals(form.get("code"))) {
+                            ctx.status(400).json(Map.of("error", "invalid_grant"));
+                            return;
+                        }
+                        ctx.json(Map.of("access_token", "an-access-token", "token_type", "Bearer"));
+                    });
+                    cfg.routes.get("/users/@me", ctx -> ctx.json(Map.of("id", memberId.get(), "username", "till")));
+                    cfg.routes.get("/users/@me/guilds/{guild}/member", ctx -> {
+                        if (!GUILD.equals(ctx.pathParam("guild"))) {
+                            ctx.status(404).json(Map.of("message", "Unknown Guild"));
+                            return;
+                        }
+                        ctx.json(Map.of("nick", memberNick.get(), "roles", List.of("9999")));
+                    });
+                })
+                .start(DISCORD_PORT);
 
         config = new UiSpec() {
             @Override
@@ -341,8 +360,7 @@ class StewardUiIntegrationTest {
              */
             @Override
             public AlertSpec alerts() {
-                return new AlertSpec() {
-                };
+                return new AlertSpec() {};
             }
 
             @Override
@@ -377,7 +395,6 @@ class StewardUiIntegrationTest {
                     public String guildId() {
                         return GUILD;
                     }
-
                 };
             }
 
@@ -403,14 +420,12 @@ class StewardUiIntegrationTest {
                 // that quietly used `localhost` would be testing a combination this deployment
                 // never has. The authenticator below claims that origin; nothing in the flow
                 // cares what port this JVM is listening on.
-                return new WebAuthnSpec() {
-                };
+                return new WebAuthnSpec() {};
             }
 
             @Override
             public AvatarSpec avatars() {
-                return new AvatarSpec() {
-                };
+                return new AvatarSpec() {};
             }
 
             @Override
@@ -418,10 +433,8 @@ class StewardUiIntegrationTest {
                 // The defaults: both keys blank, which is "not configured" - this test is about
                 // routing and sessions, not about a VAPID keypair, and a generated one here would
                 // be a keypair this suite invented rather than the one a deployment actually runs.
-                return new WebPushSpec() {
-                };
+                return new WebPushSpec() {};
             }
-
         };
 
         // A real database with the real migrations: the rows these endpoints read are the rows
@@ -453,13 +466,19 @@ class StewardUiIntegrationTest {
 
         // The production constructor: who is signed in is read out of the session, by the same
         // code the deployment runs. The only substitution is the address of Discord.
-        ui = new StewardUi(config,
-                new DiscordAuth(config.discord(), config.publicUrl(),
-                        "http://127.0.0.1:" + DISCORD_PORT),
-                new InternalClient("steward-worker", config.worker().baseUrl(),
-                        config.worker().token(), Duration.ofSeconds(5)),
-                new InternalClient("steward-deployer", config.deployer().baseUrl(),
-                        config.deployer().token(), Duration.ofSeconds(5)),
+        ui = new StewardUi(
+                config,
+                new DiscordAuth(config.discord(), config.publicUrl(), "http://127.0.0.1:" + DISCORD_PORT),
+                new InternalClient(
+                        "steward-worker",
+                        config.worker().baseUrl(),
+                        config.worker().token(),
+                        Duration.ofSeconds(5)),
+                new InternalClient(
+                        "steward-deployer",
+                        config.deployer().baseUrl(),
+                        config.deployer().token(),
+                        Duration.ofSeconds(5)),
                 data);
         ui.start(UI_PORT);
 
@@ -529,16 +548,15 @@ class StewardUiIntegrationTest {
         final HttpClient stranger = browser();
         final HttpResponse<String> page = get(stranger, "/");
 
-        assertEquals(200, page.statusCode(),
-                "the page a person opens before signing in: " + page.body());
-        assertTrue(page.body().contains("<div id=\"root\""),
+        assertEquals(200, page.statusCode(), "the page a person opens before signing in: " + page.body());
+        assertTrue(
+                page.body().contains("<div id=\"root\""),
                 "that should be index.html, not an error page: " + page.body());
 
         // And the deep path a reload lands on, which takes the SPA fallback rather than the file
         // handler. Same requirement, different mechanism inside Javalin - measured, not assumed.
         final HttpResponse<String> deep = get(stranger, "/operations/updates/27");
-        assertEquals(200, deep.statusCode(),
-                "reloading a deep link must land on the page it names: " + deep.body());
+        assertEquals(200, deep.statusCode(), "reloading a deep link must land on the page it names: " + deep.body());
 
         // A file next to it, because the browser asks for these before anybody clicks anything.
         assertEquals(200, get(stranger, "/favicon.ico").statusCode());
@@ -554,19 +572,24 @@ class StewardUiIntegrationTest {
         final String assetPath = index.substring(asset, index.indexOf('"', asset));
         final HttpResponse<String> built = get(stranger, assetPath);
         assertEquals(200, built.statusCode(), assetPath);
-        assertFalse(built.body().contains("<div id=\"root\""),
-                assetPath + " came back as the page instead of itself");
+        assertFalse(built.body().contains("<div id=\"root\""), assetPath + " came back as the page instead of itself");
 
         // steward/79: a hashed bundle can never change under its own name, so a cold start must not
         // re-fetch it - and the document that names it can, so a cold start must always revalidate
         // it. The two headers are opposite on purpose; see StewardUi's cacheControl.
-        assertEquals(List.of("max-age=31536000, immutable"), built.headers().allValues("Cache-Control"),
+        assertEquals(
+                List.of("max-age=31536000, immutable"),
+                built.headers().allValues("Cache-Control"),
                 assetPath + " is content-hashed and must be told to cache forever: "
                         + built.headers().map());
-        assertEquals(List.of("no-cache"), page.headers().allValues("Cache-Control"),
+        assertEquals(
+                List.of("no-cache"),
+                page.headers().allValues("Cache-Control"),
                 "/ carries no hash in its name and must always be revalidated: "
                         + page.headers().map());
-        assertEquals(List.of("no-cache"), deep.headers().allValues("Cache-Control"),
+        assertEquals(
+                List.of("no-cache"),
+                deep.headers().allValues("Cache-Control"),
                 "a client-side route falls back to the same document and needs the same header: "
                         + deep.headers().map());
 
@@ -598,15 +621,20 @@ class StewardUiIntegrationTest {
         // had built exactly that. Both stale phrasings are asserted against by name, because the
         // failure mode of this line is never a missing sentence - it is an old one.
         final String said = me.get("webauthn").getAsString();
-        assertTrue(said.contains("required"), "the sign-in page no longer says a key is needed: "
-                + said);
-        assertFalse(said.contains("not built"), "the sign-in page still says the second factor"
-                + " does not exist, which stopped being true with V20: " + said);
-        assertFalse(said.contains("not yet"), "the sign-in page still says the key is not yet"
-                + " asked for before a dangerous action, which stopped being true with packages C"
-                + " and D: " + said);
-        assertTrue(said.contains("every sign-in"), "the sign-in page does not say the key is asked"
-                + " for at every sign-in, which is the whole of package C: " + said);
+        assertTrue(said.contains("required"), "the sign-in page no longer says a key is needed: " + said);
+        assertFalse(
+                said.contains("not built"),
+                "the sign-in page still says the second factor" + " does not exist, which stopped being true with V20: "
+                        + said);
+        assertFalse(
+                said.contains("not yet"),
+                "the sign-in page still says the key is not yet"
+                        + " asked for before a dangerous action, which stopped being true with packages C"
+                        + " and D: " + said);
+        assertTrue(
+                said.contains("every sign-in"),
+                "the sign-in page does not say the key is asked"
+                        + " for at every sign-in, which is the whole of package C: " + said);
     }
 
     @Test
@@ -618,13 +646,13 @@ class StewardUiIntegrationTest {
         // its request looked cross-site, which is a sentence about an attack that did not happen.
         // 401 is what the rest of the interface says, and it is what the shell knows how to act on.
         final HttpClient stranger = browser();
-        for (final String path : new String[] {
-                "/auth/webauthn/register/start", "/auth/webauthn/register/finish" }) {
-            final HttpResponse<String> refused = stranger.send(HttpRequest.newBuilder(
-                            URI.create("http://127.0.0.1:" + UI_PORT + path))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString("{}"))
-                    .build(), HttpResponse.BodyHandlers.ofString());
+        for (final String path : new String[] {"/auth/webauthn/register/start", "/auth/webauthn/register/finish"}) {
+            final HttpResponse<String> refused = stranger.send(
+                    HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + path))
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
 
             assertEquals(401, refused.statusCode(), path + " answered " + refused.body());
             assertTrue(refused.body().contains("sign in first"), refused.body());
@@ -640,11 +668,14 @@ class StewardUiIntegrationTest {
         // The nickname from the guild, not the username - somebody's guild nickname is the name
         // the other admins know them by.
         assertEquals("Till", me.get("name").getAsString());
-        assertEquals("a-client-secret", secretDiscordSaw.get(),
+        assertEquals(
+                "a-client-secret",
+                secretDiscordSaw.get(),
                 "the code was exchanged with the application's secret, not without one");
 
         assertFalse(GSON.fromJson(get(browser(), "/api/me").body(), JsonObject.class)
-                .get("signedIn").getAsBoolean());
+                .get("signedIn")
+                .getAsBoolean());
     }
 
     @Test
@@ -659,21 +690,23 @@ class StewardUiIntegrationTest {
         assertFalse(withoutAPicture.has("discordAvatarUrl"), withoutAPicture.toString());
 
         try (var connection = data.dataSource().getConnection();
-             var mirror = connection.prepareStatement(
-                     "UPDATE discord_user SET discord_avatar_url = ? WHERE discord_id = '1'")) {
+                var mirror = connection.prepareStatement(
+                        "UPDATE discord_user SET discord_avatar_url = ? WHERE discord_id = '1'")) {
             mirror.setString(1, "https://cdn.discordapp.com/avatars/1/a.png");
             assertEquals(1, mirror.executeUpdate(), "the root has no row to mirror onto");
         }
         try {
             final JsonObject withAPicture = GSON.fromJson(get("/api/me").body(), JsonObject.class);
-            assertEquals("https://cdn.discordapp.com/avatars/1/a.png",
-                    withAPicture.get("discordAvatarUrl").getAsString(), withAPicture.toString());
+            assertEquals(
+                    "https://cdn.discordapp.com/avatars/1/a.png",
+                    withAPicture.get("discordAvatarUrl").getAsString(),
+                    withAPicture.toString());
         } finally {
             // Every other test in this class signs in as "1" and expects the fallback state, so
             // the picture this test wrote must not outlive it. The row must: it is the root.
             try (var connection = data.dataSource().getConnection();
-                 var clearIt = connection.prepareStatement(
-                         "UPDATE discord_user SET discord_avatar_url = NULL WHERE discord_id = '1'")) {
+                    var clearIt = connection.prepareStatement(
+                            "UPDATE discord_user SET discord_avatar_url = NULL WHERE discord_id = '1'")) {
                 clearIt.executeUpdate();
             }
         }
@@ -701,38 +734,48 @@ class StewardUiIntegrationTest {
         final String cookie = login.headers().allValues("Set-Cookie").stream()
                 .filter(header -> header.startsWith(Sessions.COOKIE + "="))
                 .findFirst()
-                .orElseGet(() -> fail("the sign-in set no session cookie: "
-                        + login.headers().map()));
+                .orElseGet(() -> fail(
+                        "the sign-in set no session cookie: " + login.headers().map()));
 
-        assertTrue(cookie.contains("Max-Age="), cookie
-                + " has no Max-Age, so it is a browser-session cookie and a home-screen web app"
-                + " signs in again every time iOS has ended it");
+        assertTrue(
+                cookie.contains("Max-Age="),
+                cookie
+                        + " has no Max-Age, so it is a browser-session cookie and a home-screen web app"
+                        + " signs in again every time iOS has ended it");
         assertTrue(cookie.contains("HttpOnly"), cookie + " is readable from JavaScript");
-        assertTrue(cookie.toLowerCase(Locale.ROOT).contains("samesite=lax"), cookie
-                + " has no SameSite, so what a browser does with it on a cross-site POST is the"
-                + " browser's default rather than this application's decision");
+        assertTrue(
+                cookie.toLowerCase(Locale.ROOT).contains("samesite=lax"),
+                cookie
+                        + " has no SameSite, so what a browser does with it on a cross-site POST is the"
+                        + " browser's default rather than this application's decision");
         // ...and NOT Secure, because this request arrived over plain http and carried no
         // X-Forwarded-Proto. That is the flag doing its job: behind Caddy the header says https
         // and it appears, in front of a developer on 127.0.0.1 it does not - and a cookie marked
         // Secure on a plain http connection is one the browser refuses to send back, which is a
         // sign-in that never completes and says nothing about why.
-        assertFalse(cookie.contains("Secure"), cookie
-                + " is marked Secure on a plain http request, so a local sign-in cannot finish");
+        assertFalse(
+                cookie.contains("Secure"),
+                cookie + " is marked Secure on a plain http request, so a local sign-in cannot finish");
 
         // And the other half of the same decision, which is the one the deployment actually runs.
         final HttpClient throughCaddy = browser();
-        final HttpResponse<String> behindTls = throughCaddy.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + "/auth/login"))
-                .header("X-Forwarded-Proto", "https")
-                .GET().build(), HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> behindTls = throughCaddy.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/auth/login"))
+                        .header("X-Forwarded-Proto", "https")
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
 
         final String secured = behindTls.headers().allValues("Set-Cookie").stream()
                 .filter(header -> header.startsWith(Sessions.COOKIE + "="))
                 .findFirst()
-                .orElseGet(() -> fail("no session cookie: " + behindTls.headers().map()));
-        assertTrue(secured.contains("Secure"), secured
-                + " is not marked Secure although the proxy said the browser is on https, so the"
-                + " session cookie travels in clear text to anybody who can downgrade one request");
+                .orElseGet(
+                        () -> fail("no session cookie: " + behindTls.headers().map()));
+        assertTrue(
+                secured.contains("Secure"),
+                secured
+                        + " is not marked Secure although the proxy said the browser is on https, so the"
+                        + " session cookie travels in clear text to anybody who can downgrade one request");
     }
 
     @Test
@@ -748,14 +791,15 @@ class StewardUiIntegrationTest {
         final HttpClient browser = browser();
         signIn(browser);
         assertTrue(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                .get("signedIn").getAsBoolean());
+                .get("signedIn")
+                .getAsBoolean());
 
         restartTheInterface();
 
         final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
-        assertTrue(me.get("signedIn").getAsBoolean(),
-                "the browser kept its cookie and the row is still there, so this is still a "
-                        + "session: " + me);
+        assertTrue(
+                me.get("signedIn").getAsBoolean(),
+                "the browser kept its cookie and the row is still there, so this is still a " + "session: " + me);
         assertEquals("Till", me.get("name").getAsString(), me.toString());
     }
 
@@ -772,24 +816,29 @@ class StewardUiIntegrationTest {
         final HttpResponse<String> login = get(browser, "/auth/login");
         final String before = sessionCookieOf(login);
 
-        final HttpResponse<String> callback =
-                get(browser, "/auth/callback?code=the-code&state=" + stateFrom(login));
+        final HttpResponse<String> callback = get(browser, "/auth/callback?code=the-code&state=" + stateFrom(login));
         final String after = sessionCookieOf(callback);
 
-        assertNotEquals(before, after,
-                "the id that was in the browser before anybody proved who they were is now a "
-                        + "signed-in session");
+        assertNotEquals(
+                before,
+                after,
+                "the id that was in the browser before anybody proved who they were is now a " + "signed-in session");
 
         // And the old one is not merely unused - it is gone. A row left behind would still be a
         // valid cookie for whoever planted it, whatever this browser is now carrying.
         final HttpClient planted = browser();
-        final HttpResponse<String> withTheOldId = planted.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/me"))
-                .header("Cookie", Sessions.COOKIE + "=" + before)
-                .GET().build(), HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> withTheOldId = planted.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/api/me"))
+                        .header("Cookie", Sessions.COOKIE + "=" + before)
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
 
-        assertFalse(GSON.fromJson(withTheOldId.body(), JsonObject.class)
-                .get("signedIn").getAsBoolean(), withTheOldId.body());
+        assertFalse(
+                GSON.fromJson(withTheOldId.body(), JsonObject.class)
+                        .get("signedIn")
+                        .getAsBoolean(),
+                withTheOldId.body());
     }
 
     @Test
@@ -798,12 +847,14 @@ class StewardUiIntegrationTest {
         final HttpClient browser = browser();
         get(browser, "/auth/login");
 
-        final HttpResponse<String> refused =
-                get(browser, "/auth/callback?code=the-code&state=somebody-elses");
+        final HttpResponse<String> refused = get(browser, "/auth/callback?code=the-code&state=somebody-elses");
 
         assertEquals(400, refused.statusCode(), refused.body());
-        assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                .get("signedIn").getAsBoolean(), "a refused callback must not leave a session");
+        assertFalse(
+                GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                        .get("signedIn")
+                        .getAsBoolean(),
+                "a refused callback must not leave a session");
     }
 
     @Test
@@ -817,15 +868,16 @@ class StewardUiIntegrationTest {
             final HttpClient browser = browser();
             final String state = stateFrom(get(browser, "/auth/login"));
 
-            final HttpResponse<String> refused =
-                    get(browser, "/auth/callback?code=the-code&state=" + state);
+            final HttpResponse<String> refused = get(browser, "/auth/callback?code=the-code&state=" + state);
 
             assertEquals(403, refused.statusCode(), refused.body());
             assertTrue(refused.body().contains("Stranger"), refused.body());
             assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                    .get("signedIn").getAsBoolean());
-            assertEquals(0, count("SELECT count(*) FROM discord_user"
-                    + " WHERE discord_id = '880000000000000001' AND admin"),
+                    .get("signedIn")
+                    .getAsBoolean());
+            assertEquals(
+                    0,
+                    count("SELECT count(*) FROM discord_user" + " WHERE discord_id = '880000000000000001' AND admin"),
                     "a refused sign-in made somebody an admin");
         } finally {
             memberId.set("1");
@@ -837,59 +889,75 @@ class StewardUiIntegrationTest {
     @DisplayName("an admin grants below themselves, three an hour, and revokes the branch")
     void grantingAndRevokingAdmin() throws Exception {
         holdTheKey(http, authenticator);
-        for (final String id : List.of("881000000000000001", "881000000000000002",
-                "881000000000000003", "881000000000000004")) {
+        for (final String id :
+                List.of("881000000000000001", "881000000000000002", "881000000000000003", "881000000000000004")) {
             try (var connection = data.dataSource().getConnection();
-                 var member = connection.prepareStatement(
-                         "INSERT INTO discord_user (discord_id, member_state) VALUES (?, 'MEMBER')")) {
+                    var member = connection.prepareStatement(
+                            "INSERT INTO discord_user (discord_id, member_state) VALUES (?, 'MEMBER')")) {
                 member.setString(1, id);
                 member.executeUpdate();
             }
         }
         try {
-            assertEquals(409, post("/api/admins/grant", "{\"discordId\":\"881999999999999999\"}")
-                    .statusCode(), "somebody the bot never saw in the guild was made an admin");
-            assertEquals(400, post("/api/admins/grant", "{\"discordId\":\"not a snowflake\"}")
-                    .statusCode());
+            assertEquals(
+                    409,
+                    post("/api/admins/grant", "{\"discordId\":\"881999999999999999\"}")
+                            .statusCode(),
+                    "somebody the bot never saw in the guild was made an admin");
+            assertEquals(
+                    400,
+                    post("/api/admins/grant", "{\"discordId\":\"not a snowflake\"}")
+                            .statusCode());
 
-            final HttpResponse<String> granted =
-                    post("/api/admins/grant", "{\"discordId\":\"881000000000000001\"}");
+            final HttpResponse<String> granted = post("/api/admins/grant", "{\"discordId\":\"881000000000000001\"}");
             assertEquals(200, granted.statusCode(), granted.body());
             assertEquals("1", actorOf("GRANT_ADMIN"));
-            assertEquals(409, post("/api/admins/grant", "{\"discordId\":\"881000000000000001\"}")
-                    .statusCode(), "granted twice");
+            assertEquals(
+                    409,
+                    post("/api/admins/grant", "{\"discordId\":\"881000000000000001\"}")
+                            .statusCode(),
+                    "granted twice");
 
-            assertEquals(200, post("/api/admins/grant", "{\"discordId\":\"881000000000000002\"}")
-                    .statusCode());
-            assertEquals(200, post("/api/admins/grant", "{\"discordId\":\"881000000000000003\"}")
-                    .statusCode());
-            final HttpResponse<String> fourth =
-                    post("/api/admins/grant", "{\"discordId\":\"881000000000000004\"}");
+            assertEquals(
+                    200,
+                    post("/api/admins/grant", "{\"discordId\":\"881000000000000002\"}")
+                            .statusCode());
+            assertEquals(
+                    200,
+                    post("/api/admins/grant", "{\"discordId\":\"881000000000000003\"}")
+                            .statusCode());
+            final HttpResponse<String> fourth = post("/api/admins/grant", "{\"discordId\":\"881000000000000004\"}");
             assertEquals(429, fourth.statusCode(), "the fourth grant in an hour went through");
 
             // One of them granted below the first, so revoking the first takes both.
             try (var connection = data.dataSource().getConnection();
-                 var below = connection.prepareStatement("UPDATE discord_user"
-                         + " SET admin_granted_by = '881000000000000001'"
-                         + " WHERE discord_id = '881000000000000002'")) {
+                    var below = connection.prepareStatement("UPDATE discord_user"
+                            + " SET admin_granted_by = '881000000000000001'"
+                            + " WHERE discord_id = '881000000000000002'")) {
                 below.executeUpdate();
             }
-            assertEquals(409, post("/api/admins/revoke", "{\"discordId\":\"1\"}").statusCode(),
-                    "the root revoked itself");
-            final HttpResponse<String> revoked =
-                    post("/api/admins/revoke", "{\"discordId\":\"881000000000000001\"}");
+            assertEquals(
+                    409, post("/api/admins/revoke", "{\"discordId\":\"1\"}").statusCode(), "the root revoked itself");
+            final HttpResponse<String> revoked = post("/api/admins/revoke", "{\"discordId\":\"881000000000000001\"}");
             assertEquals(200, revoked.statusCode(), revoked.body());
-            assertEquals(List.of("881000000000000001", "881000000000000002"),
-                    GSON.fromJson(revoked.body(), JsonObject.class).getAsJsonArray("removed")
-                            .asList().stream().map(com.google.gson.JsonElement::getAsString).toList());
+            assertEquals(
+                    List.of("881000000000000001", "881000000000000002"),
+                    GSON.fromJson(revoked.body(), JsonObject.class).getAsJsonArray("removed").asList().stream()
+                            .map(com.google.gson.JsonElement::getAsString)
+                            .toList());
             assertEquals("1", actorOf("REVOKE_ADMIN"));
-            assertEquals(403, post("/api/admins/revoke", "{\"discordId\":\"881000000000000001\"}")
-                    .statusCode(), "revoked somebody who is no admin any more");
-            assertEquals(200, post("/api/admins/revoke", "{\"discordId\":\"881000000000000003\"}")
-                    .statusCode());
+            assertEquals(
+                    403,
+                    post("/api/admins/revoke", "{\"discordId\":\"881000000000000001\"}")
+                            .statusCode(),
+                    "revoked somebody who is no admin any more");
+            assertEquals(
+                    200,
+                    post("/api/admins/revoke", "{\"discordId\":\"881000000000000003\"}")
+                            .statusCode());
         } finally {
             try (var connection = data.dataSource().getConnection();
-                 var cleanUp = connection.createStatement()) {
+                    var cleanUp = connection.createStatement()) {
                 cleanUp.executeUpdate("TRUNCATE admin_grant");
                 cleanUp.executeUpdate("UPDATE discord_user SET admin = false, admin_granted_by = NULL,"
                         + " admin_granted_at = NULL WHERE discord_id LIKE '881%'");
@@ -906,21 +974,26 @@ class StewardUiIntegrationTest {
         try {
             signIn(theirs);
             assertTrue(GSON.fromJson(get(theirs, "/api/me").body(), JsonObject.class)
-                    .get("signedIn").getAsBoolean());
+                    .get("signedIn")
+                    .getAsBoolean());
         } finally {
             memberId.set("1");
             memberNick.set("Till");
         }
 
         holdTheKey(http, authenticator);
-        final HttpResponse<String> revoked =
-                post("/api/admins/revoke", "{\"discordId\":\"882000000000000001\"}");
+        final HttpResponse<String> revoked = post("/api/admins/revoke", "{\"discordId\":\"882000000000000001\"}");
         assertEquals(200, revoked.statusCode(), revoked.body());
 
-        assertFalse(GSON.fromJson(get(theirs, "/api/me").body(), JsonObject.class)
-                .get("signedIn").getAsBoolean(), "the session outlived the admin it belonged to");
-        assertEquals(0, count("SELECT count(*) FROM steward_session s"
-                + " WHERE s.discord_id = '882000000000000001'"), "the session row is still there");
+        assertFalse(
+                GSON.fromJson(get(theirs, "/api/me").body(), JsonObject.class)
+                        .get("signedIn")
+                        .getAsBoolean(),
+                "the session outlived the admin it belonged to");
+        assertEquals(
+                0,
+                count("SELECT count(*) FROM steward_session s" + " WHERE s.discord_id = '882000000000000001'"),
+                "the session row is still there");
     }
 
     @Test
@@ -933,18 +1006,23 @@ class StewardUiIntegrationTest {
         final HttpClient browser = browser();
         signIn(browser);
 
-        final HttpResponse<String> withoutToken = browser.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + "/auth/logout"))
-                .POST(HttpRequest.BodyPublishers.noBody())
-                .build(), HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> withoutToken = browser.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/auth/logout"))
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
 
         assertEquals(403, withoutToken.statusCode(), withoutToken.body());
-        assertTrue(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                .get("signedIn").getAsBoolean(), "the session survived the forged request");
+        assertTrue(
+                GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                        .get("signedIn")
+                        .getAsBoolean(),
+                "the session survived the forged request");
 
         assertEquals(204, logout(browser).statusCode());
         assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                .get("signedIn").getAsBoolean());
+                .get("signedIn")
+                .getAsBoolean());
     }
 
     @Test
@@ -962,11 +1040,12 @@ class StewardUiIntegrationTest {
     @DisplayName("a write without the CSRF token is refused even with a session")
     void theCookieAloneIsNotEnough() throws Exception {
         // A form posted from another site carries the cookie. It cannot read /api/me.
-        final HttpResponse<String> refused = http.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/services/smp/console"))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString("{\"command\":\"list\"}"))
-                .build(), HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> refused = http.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/api/services/smp/console"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"command\":\"list\"}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
 
         assertEquals(403, refused.statusCode(), refused.body());
     }
@@ -977,12 +1056,13 @@ class StewardUiIntegrationTest {
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         final String csrf = me.get("csrf").getAsString();
 
-        final HttpResponse<String> accepted = http.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/services/smp/console"))
-                .header("Content-Type", "application/json")
-                .header("X-Steward-CSRF", csrf)
-                .POST(HttpRequest.BodyPublishers.ofString("{\"command\":\"list\"}"))
-                .build(), HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> accepted = http.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/api/services/smp/console"))
+                        .header("Content-Type", "application/json")
+                        .header("X-Steward-CSRF", csrf)
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"command\":\"list\"}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
 
         assertEquals(202, accepted.statusCode(), accepted.body());
     }
@@ -996,7 +1076,9 @@ class StewardUiIntegrationTest {
 
             assertEquals(502, response.statusCode());
             final JsonObject error = GSON.fromJson(response.body(), JsonObject.class);
-            assertEquals("steward-worker", error.get("where").getAsString(),
+            assertEquals(
+                    "steward-worker",
+                    error.get("where").getAsString(),
                     "an empty table would look like a stack with nothing running");
             assertFalse(error.get("error").getAsString().isBlank());
         } finally {
@@ -1007,8 +1089,7 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("health answers without a session, because a healthcheck has none")
     void healthIsOpen() throws Exception {
-        final JsonObject health =
-                GSON.fromJson(get(browser(), "/api/health").body(), JsonObject.class);
+        final JsonObject health = GSON.fromJson(get(browser(), "/api/health").body(), JsonObject.class);
 
         assertEquals("ok", health.get("status").getAsString());
         assertTrue(health.get("worker").getAsBoolean(), "the fake worker is up");
@@ -1026,13 +1107,14 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("a monitor's HEAD on /api/health gets 200, not the 500 an undecided route gets")
     void headOnHealthIsNotUndecided() throws Exception {
-        final HttpResponse<Void> head = browser().send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/health"))
-                .method("HEAD", HttpRequest.BodyPublishers.noBody())
-                .build(), HttpResponse.BodyHandlers.discarding());
+        final HttpResponse<Void> head = browser()
+                .send(
+                        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/api/health"))
+                                .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                                .build(),
+                        HttpResponse.BodyHandlers.discarding());
 
-        assertEquals(200, head.statusCode(),
-                "HEAD on an ANYONE route must not be refused as undecided");
+        assertEquals(200, head.statusCode(), "HEAD on an ANYONE route must not be refused as undecided");
     }
 
     @Test
@@ -1050,12 +1132,13 @@ class StewardUiIntegrationTest {
     void askingIsARow() throws Exception {
         settleOpenRuns();
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
-        final HttpResponse<String> asked = http.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/updates"))
-                .header("Content-Type", "application/json")
-                .header("X-Steward-CSRF", me.get("csrf").getAsString())
-                .POST(HttpRequest.BodyPublishers.ofString("{\"kind\":\"BACKUP\"}"))
-                .build(), HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> asked = http.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/api/updates"))
+                        .header("Content-Type", "application/json")
+                        .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"kind\":\"BACKUP\"}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
 
         assertEquals(202, asked.statusCode(), asked.body());
         final JsonObject row = GSON.fromJson(asked.body(), JsonObject.class);
@@ -1075,7 +1158,8 @@ class StewardUiIntegrationTest {
         // And it is in the list the interface draws its runs from.
         final JsonArray recent = GSON.fromJson(get("/api/updates").body(), JsonArray.class);
         assertTrue(recent.size() >= 1);
-        assertEquals(row.get("id").getAsLong(),
+        assertEquals(
+                row.get("id").getAsLong(),
                 recent.get(0).getAsJsonObject().get("id").getAsLong());
     }
 
@@ -1103,7 +1187,9 @@ class StewardUiIntegrationTest {
 
         final HttpResponse<String> asked = post("/api/updates", "{\"kind\":\"DOWN\",\"services\":[\"smp\"]}");
         assertEquals(202, asked.statusCode(), asked.body());
-        assertEquals("[\"smp\"]", GSON.fromJson(asked.body(), JsonObject.class).get("scope").toString());
+        assertEquals(
+                "[\"smp\"]",
+                GSON.fromJson(asked.body(), JsonObject.class).get("scope").toString());
 
         final JsonObject run = GSON.fromJson(get("/api/updates/active").body(), JsonObject.class)
                 .getAsJsonObject("run");
@@ -1115,9 +1201,9 @@ class StewardUiIntegrationTest {
     /** Closes whatever run another test left open, so the one-run rule starts every test clean. */
     private void settleOpenRuns() throws Exception {
         try (var connection = data.dataSource().getConnection();
-             var settle = connection.prepareStatement("UPDATE update_request SET status = 'DONE', "
-                     + "started = coalesce(started, now()), finished = now() "
-                     + "WHERE status IN ('PENDING', 'RUNNING')")) {
+                var settle = connection.prepareStatement("UPDATE update_request SET status = 'DONE', "
+                        + "started = coalesce(started, now()), finished = now() "
+                        + "WHERE status IN ('PENDING', 'RUNNING')")) {
             settle.executeUpdate();
         }
     }
@@ -1126,12 +1212,13 @@ class StewardUiIntegrationTest {
     @DisplayName("a kind nobody defined is refused before a row is written")
     void nonsenseIsNotARun() throws Exception {
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
-        final HttpResponse<String> refused = http.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/updates"))
-                .header("Content-Type", "application/json")
-                .header("X-Steward-CSRF", me.get("csrf").getAsString())
-                .POST(HttpRequest.BodyPublishers.ofString("{\"kind\":\"DELETE_EVERYTHING\"}"))
-                .build(), HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> refused = http.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/api/updates"))
+                        .header("Content-Type", "application/json")
+                        .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"kind\":\"DELETE_EVERYTHING\"}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
 
         assertEquals(400, refused.statusCode(), refused.body());
     }
@@ -1147,13 +1234,11 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("a grant longer than a season is refused with a sentence, not handed on")
     void anAbsurdGrantIsRefused() throws Exception {
-        final HttpResponse<String> refused = post("/api/access/grant",
-                "{\"discordId\":\"1\",\"days\":2147483647}");
+        final HttpResponse<String> refused = post("/api/access/grant", "{\"discordId\":\"1\",\"days\":2147483647}");
         assertEquals(400, refused.statusCode(), refused.body());
 
         // 3650 was the old ceiling: a decade of free access, one keystroke away from 365.
-        final HttpResponse<String> decade = post("/api/access/grant",
-                "{\"discordId\":\"1\",\"days\":3650}");
+        final HttpResponse<String> decade = post("/api/access/grant", "{\"discordId\":\"1\",\"days\":3650}");
         assertEquals(400, decade.statusCode(), decade.body());
         assertTrue(decade.body().contains("between 1 and 365 days"), decade.body());
     }
@@ -1172,15 +1257,23 @@ class StewardUiIntegrationTest {
     void accessChangesAskTheBot() throws Exception {
         final long journalBefore = count("select count(*) from audit_log");
         final String[][] asks = {
-                {"/api/access/grant", "{\"discordId\":\"700000000000000007\",\"days\":30}", "GRANT",
-                        "700000000000000007", "30"},
-                {"/api/access/revoke", "{\"discordId\":\"700000000000000007\"}", "REVOKE",
-                        "700000000000000007", null},
-                {"/api/access/unlink", "{\"discordId\":\"700000000000000007\"}", "UNLINK",
-                        "700000000000000007", null},
-                {"/api/access/settle", "{\"reference\":\"AB12CD\"}", "SETTLE", "AB12CD", null},
-                {"/api/people/700000000000000007/playtime", "{\"seconds\":3600}", "SET_PLAYTIME",
-                        "700000000000000007", "3600"},
+            {
+                "/api/access/grant",
+                "{\"discordId\":\"700000000000000007\",\"days\":30}",
+                "GRANT",
+                "700000000000000007",
+                "30"
+            },
+            {"/api/access/revoke", "{\"discordId\":\"700000000000000007\"}", "REVOKE", "700000000000000007", null},
+            {"/api/access/unlink", "{\"discordId\":\"700000000000000007\"}", "UNLINK", "700000000000000007", null},
+            {"/api/access/settle", "{\"reference\":\"AB12CD\"}", "SETTLE", "AB12CD", null},
+            {
+                "/api/people/700000000000000007/playtime",
+                "{\"seconds\":3600}",
+                "SET_PLAYTIME",
+                "700000000000000007",
+                "3600"
+            },
         };
         for (final String[] ask : asks) {
             final HttpResponse<String> asked = post(ask[0], ask[1]);
@@ -1189,8 +1282,8 @@ class StewardUiIntegrationTest {
             final long id = answer.get("id").getAsLong();
 
             try (var connection = data.dataSource().getConnection();
-                 var statement = connection.prepareStatement("select kind, subject, argument,"
-                         + " source, requested_by from access_request where id = ?")) {
+                    var statement = connection.prepareStatement("select kind, subject, argument,"
+                            + " source, requested_by from access_request where id = ?")) {
                 statement.setLong(1, id);
                 try (var row = statement.executeQuery()) {
                     assertTrue(row.next(), ask[0] + " wrote no access_request row");
@@ -1203,49 +1296,53 @@ class StewardUiIntegrationTest {
                 }
             }
 
-            final JsonObject polled = GSON.fromJson(
-                    get("/api/access/requests/" + id).body(), JsonObject.class);
+            final JsonObject polled =
+                    GSON.fromJson(get("/api/access/requests/" + id).body(), JsonObject.class);
             assertEquals(ask[2], polled.get("kind").getAsString());
             assertEquals("PENDING", polled.get("status").getAsString());
         }
-        assertEquals(journalBefore, count("select count(*) from audit_log"),
+        assertEquals(
+                journalBefore,
+                count("select count(*) from audit_log"),
                 "steward-ui journalled an access change the bot will journal itself");
 
         try (var connection = data.dataSource().getConnection();
-             var statement = connection.createStatement()) {
-            statement.execute("delete from access_request where subject in"
-                    + " ('700000000000000007', 'AB12CD')");
+                var statement = connection.createStatement()) {
+            statement.execute("delete from access_request where subject in" + " ('700000000000000007', 'AB12CD')");
         }
     }
 
     @Test
     @DisplayName("the bot's answer comes back as an object, and an unknown request is a 404")
     void theBotsAnswerIsRead() throws Exception {
-        final long id = GSON.fromJson(post("/api/access/revoke",
-                "{\"discordId\":\"700000000000000008\"}").body(), JsonObject.class)
-                .get("id").getAsLong();
+        final long id = GSON.fromJson(
+                        post("/api/access/revoke", "{\"discordId\":\"700000000000000008\"}")
+                                .body(),
+                        JsonObject.class)
+                .get("id")
+                .getAsLong();
         // Standing in for the bot: claim everything waiting, then answer this one.
         while (data.accessRequests().claim().isPresent()) {
             // drained
         }
         data.accessRequests().finish(id, true, "{\"revoked\":\"2\"}");
 
-        final JsonObject polled = GSON.fromJson(
-                get("/api/access/requests/" + id).body(), JsonObject.class);
+        final JsonObject polled =
+                GSON.fromJson(get("/api/access/requests/" + id).body(), JsonObject.class);
         assertEquals("DONE", polled.get("status").getAsString());
         assertEquals("2", polled.getAsJsonObject("result").get("revoked").getAsString());
 
         assertEquals(404, get("/api/access/requests/999999999").statusCode());
         try (var connection = data.dataSource().getConnection();
-             var statement = connection.createStatement()) {
+                var statement = connection.createStatement()) {
             statement.execute("delete from access_request where subject = '700000000000000008'");
         }
     }
 
     private static long count(final String sql) throws Exception {
         try (var connection = data.dataSource().getConnection();
-             var statement = connection.createStatement();
-             var row = statement.executeQuery(sql)) {
+                var statement = connection.createStatement();
+                var row = statement.executeQuery(sql)) {
             row.next();
             return row.getLong(1);
         }
@@ -1263,12 +1360,19 @@ class StewardUiIntegrationTest {
     @DisplayName("a season date nobody named is refused, not silently taken for the launch")
     void aSeasonDateNeedsAName() throws Exception {
         final String at = "\"at\":\"2026-10-01T18:00:00Z\"";
-        assertEquals(400, post("/api/season/date", "{" + at + ",\"which\":\"smpstart\"}").statusCode());
+        assertEquals(
+                400,
+                post("/api/season/date", "{" + at + ",\"which\":\"smpstart\"}").statusCode());
         assertEquals(400, post("/api/season/date", "{" + at + "}").statusCode());
-        assertEquals(400, post("/api/season/date", "{" + at + ",\"which\":\"\"}").statusCode());
+        assertEquals(
+                400, post("/api/season/date", "{" + at + ",\"which\":\"\"}").statusCode());
         // And the two it does know still work.
-        assertEquals(200, post("/api/season/date", "{" + at + ",\"which\":\"smpStart\"}").statusCode());
-        assertEquals(200, post("/api/season/date", "{" + at + ",\"which\":\"launch\"}").statusCode());
+        assertEquals(
+                200,
+                post("/api/season/date", "{" + at + ",\"which\":\"smpStart\"}").statusCode());
+        assertEquals(
+                200,
+                post("/api/season/date", "{" + at + ",\"which\":\"launch\"}").statusCode());
     }
 
     /**
@@ -1280,10 +1384,16 @@ class StewardUiIntegrationTest {
     @DisplayName("a season date that was set can be removed again")
     void aSeasonDateCanBeRemoved() throws Exception {
         final String at = "\"at\":\"2026-10-01T18:00:00Z\"";
-        assertEquals(200, post("/api/season/date", "{" + at + ",\"which\":\"launch\"}").statusCode());
-        assertEquals(200, post("/api/season/date", "{" + at + ",\"which\":\"smpStart\"}").statusCode());
+        assertEquals(
+                200,
+                post("/api/season/date", "{" + at + ",\"which\":\"launch\"}").statusCode());
+        assertEquals(
+                200,
+                post("/api/season/date", "{" + at + ",\"which\":\"smpStart\"}").statusCode());
 
-        assertEquals(400, post("/api/season/date", "{\"at\":\"  \",\"which\":\"launch\"}").statusCode());
+        assertEquals(
+                400,
+                post("/api/season/date", "{\"at\":\"  \",\"which\":\"launch\"}").statusCode());
         assertEquals(400, post("/api/season/date", "{\"at\":null}").statusCode());
 
         final HttpResponse<String> smp = post("/api/season/date", "{\"at\":null,\"which\":\"smpStart\"}");
@@ -1320,7 +1430,6 @@ class StewardUiIntegrationTest {
         final JsonObject season = GSON.fromJson(get("/api/season").body(), JsonObject.class);
         assertFalse(season.get("phase").getAsString().isBlank());
     }
-
 
     // -------------------------------------------------------------------------------------------
     // The configuration of the whole stack
@@ -1381,8 +1490,8 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("a secret is reported as set and its value never leaves the server")
     void aSecretIsNotSentToTheBrowser() throws Exception {
-        final JsonObject document = GSON.fromJson(
-                get("/api/config/steward-worker/steward.yml").body(), JsonObject.class);
+        final JsonObject document =
+                GSON.fromJson(get("/api/config/steward-worker/steward.yml").body(), JsonObject.class);
 
         final JsonObject token = entry(document, "token");
         assertTrue(token.get("secret").getAsBoolean());
@@ -1394,13 +1503,17 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("a change is written to the file and the answer is the file as it now reads")
     void aChangeIsWrittenThrough() throws Exception {
-        final HttpResponse<String> saved = put("/api/config/steward-worker/steward.yml",
+        final HttpResponse<String> saved = put(
+                "/api/config/steward-worker/steward.yml",
                 "{\"revision\": \"" + revisionOf("steward-worker/steward.yml")
                         + "\", \"changes\": {\"port\": \"9099\"}}");
 
         assertEquals(200, saved.statusCode(), saved.body());
-        assertEquals("9099", entry(GSON.fromJson(saved.body(), JsonObject.class), "port")
-                .get("value").getAsString());
+        assertEquals(
+                "9099",
+                entry(GSON.fromJson(saved.body(), JsonObject.class), "port")
+                        .get("value")
+                        .getAsString());
         assertTrue(Files.readString(configRoot.resolve("steward-worker/steward.yml"))
                 .contains("port: 9099"));
         // And the comment above it is still there, which is the whole reason this reads the file
@@ -1412,7 +1525,8 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("a list arrives as a list and is written as one")
     void aListIsSavedAsAList() throws Exception {
-        final HttpResponse<String> saved = put("/api/config/steward-worker/steward.yml",
+        final HttpResponse<String> saved = put(
+                "/api/config/steward-worker/steward.yml",
                 "{\"revision\": \"" + revisionOf("steward-worker/steward.yml")
                         + "\", \"changes\": {\"stop-services\": [\"smp\", \"limbo\","
                         + " \"hunger-games\"]}}");
@@ -1425,7 +1539,8 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("one value sent to a list is refused with a sentence, not a stack trace")
     void theWrongShapeIsRefused() throws Exception {
-        final HttpResponse<String> refused = put("/api/config/steward-worker/steward.yml",
+        final HttpResponse<String> refused = put(
+                "/api/config/steward-worker/steward.yml",
                 "{\"revision\": \"" + revisionOf("steward-worker/steward.yml")
                         + "\", \"changes\": {\"stop-services\": \"smp\"}}");
 
@@ -1453,12 +1568,13 @@ class StewardUiIntegrationTest {
         // now with a field name to blame it on.
         final byte[] before = Files.readAllBytes(configRoot.resolve("steward-worker/steward.yml"));
 
-        final HttpResponse<String> refused = put("/api/config/steward-worker/steward.yml",
-                "{\"changes\": {\"port\": \"9098\"}}");
+        final HttpResponse<String> refused =
+                put("/api/config/steward-worker/steward.yml", "{\"changes\": {\"port\": \"9098\"}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("revision"), refused.body());
-        assertArrayEquals(before,
+        assertArrayEquals(
+                before,
                 Files.readAllBytes(configRoot.resolve("steward-worker/steward.yml")),
                 "a 400 still wrote the file");
     }
@@ -1472,18 +1588,21 @@ class StewardUiIntegrationTest {
         // gone with nothing anywhere saying so.
         final String whatTheSecondFormShows = revisionOf("steward-worker/steward.yml");
 
-        assertEquals(200, put("/api/config/steward-worker/steward.yml",
-                "{\"revision\": \"" + whatTheSecondFormShows
-                        + "\", \"changes\": {\"port\": \"9097\"}}").statusCode());
-        final byte[] afterTheFirstSave =
-                Files.readAllBytes(configRoot.resolve("steward-worker/steward.yml"));
+        assertEquals(
+                200,
+                put(
+                                "/api/config/steward-worker/steward.yml",
+                                "{\"revision\": \"" + whatTheSecondFormShows + "\", \"changes\": {\"port\": \"9097\"}}")
+                        .statusCode());
+        final byte[] afterTheFirstSave = Files.readAllBytes(configRoot.resolve("steward-worker/steward.yml"));
 
-        final HttpResponse<String> refused = put("/api/config/steward-worker/steward.yml",
-                "{\"revision\": \"" + whatTheSecondFormShows
-                        + "\", \"changes\": {\"token\": \"hunter3\"}}");
+        final HttpResponse<String> refused = put(
+                "/api/config/steward-worker/steward.yml",
+                "{\"revision\": \"" + whatTheSecondFormShows + "\", \"changes\": {\"token\": \"hunter3\"}}");
 
         assertEquals(409, refused.statusCode(), refused.body());
-        assertArrayEquals(afterTheFirstSave,
+        assertArrayEquals(
+                afterTheFirstSave,
                 Files.readAllBytes(configRoot.resolve("steward-worker/steward.yml")),
                 "the refused save wrote anyway - the operator is told nothing was saved while the"
                         + " other admin's change is being undone underneath them");
@@ -1492,12 +1611,15 @@ class StewardUiIntegrationTest {
         // And the way out of it, which is the half that makes a 409 usable rather than a wall: the
         // page re-reads the file, the operator decides their change is still the one they want,
         // and the same save goes through against the revision the fresh read handed out.
-        final HttpResponse<String> retried = put("/api/config/steward-worker/steward.yml",
+        final HttpResponse<String> retried = put(
+                "/api/config/steward-worker/steward.yml",
                 "{\"revision\": \"" + revisionOf("steward-worker/steward.yml")
                         + "\", \"changes\": {\"token\": \"hunter3\"}}");
         assertEquals(200, retried.statusCode(), retried.body());
-        assertTrue(Files.readString(configRoot.resolve("steward-worker/steward.yml"))
-                .contains("port: 9097"), "the retry undid the other admin's change after all");
+        assertTrue(
+                Files.readString(configRoot.resolve("steward-worker/steward.yml"))
+                        .contains("port: 9097"),
+                "the retry undid the other admin's change after all");
     }
 
     @Test
@@ -1506,14 +1628,16 @@ class StewardUiIntegrationTest {
         // Otherwise every save is followed by a mandatory reload, and a page that does not know
         // that shows a 409 for the operator's own second edit - the one thing guaranteed to teach
         // somebody that the conflict message is noise.
-        final HttpResponse<String> first = put("/api/config/steward-worker/steward.yml",
+        final HttpResponse<String> first = put(
+                "/api/config/steward-worker/steward.yml",
                 "{\"revision\": \"" + revisionOf("steward-worker/steward.yml")
                         + "\", \"changes\": {\"port\": \"9096\"}}");
         assertEquals(200, first.statusCode(), first.body());
 
         final String handedBack =
                 GSON.fromJson(first.body(), JsonObject.class).get("revision").getAsString();
-        final HttpResponse<String> second = put("/api/config/steward-worker/steward.yml",
+        final HttpResponse<String> second = put(
+                "/api/config/steward-worker/steward.yml",
                 "{\"revision\": \"" + handedBack + "\", \"changes\": {\"port\": \"9095\"}}");
 
         assertEquals(200, second.statusCode(), second.body());
@@ -1549,9 +1673,17 @@ class StewardUiIntegrationTest {
         // agree, and a single shared constant would let both pass while the wiring between them
         // was broken.
         assertEquals(
-                List.of("/access settle", "/access unlink", "/announce", "/hg start",
-                        "/phase launch", "/phase set", "/phase show", "/phase smp-start",
-                        "/smp milestone unlock", "/smp objective complete"),
+                List.of(
+                        "/access settle",
+                        "/access unlink",
+                        "/announce",
+                        "/hg start",
+                        "/phase launch",
+                        "/phase set",
+                        "/phase show",
+                        "/phase smp-start",
+                        "/smp milestone unlock",
+                        "/smp objective complete"),
                 offered.asList().stream()
                         .map(command -> command.getAsJsonObject().get("name").getAsString())
                         .toList());
@@ -1564,30 +1696,44 @@ class StewardUiIntegrationTest {
         final JsonObject settle = offered.asList().stream()
                 .map(com.google.gson.JsonElement::getAsJsonObject)
                 .filter(command -> "/access settle".equals(command.get("name").getAsString()))
-                .findFirst().orElseThrow();
-        assertEquals("REFERENCE", settle.getAsJsonArray("arguments").get(0).getAsJsonObject()
-                .get("kind").getAsString(), settle.toString());
+                .findFirst()
+                .orElseThrow();
+        assertEquals(
+                "REFERENCE",
+                settle.getAsJsonArray("arguments")
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("kind")
+                        .getAsString(),
+                settle.toString());
 
         final JsonObject unlink = offered.asList().stream()
                 .map(com.google.gson.JsonElement::getAsJsonObject)
                 .filter(command -> "/access unlink".equals(command.get("name").getAsString()))
-                .findFirst().orElseThrow();
-        assertEquals("ACCOUNT", unlink.getAsJsonArray("arguments").get(0).getAsJsonObject()
-                .get("kind").getAsString(), unlink.toString());
+                .findFirst()
+                .orElseThrow();
+        assertEquals(
+                "ACCOUNT",
+                unlink.getAsJsonArray("arguments")
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("kind")
+                        .getAsString(),
+                unlink.toString());
     }
 
     @Test
     @DisplayName("H: settling is asked for by picking a reference, and the row carries it")
     void settlingTravelsAsARow() throws Exception {
-        final HttpResponse<String> asked = post("/api/commands",
-                "{\"name\": \"/access settle\", \"arguments\": {\"reference\": \"AB12CD\"}}");
+        final HttpResponse<String> asked =
+                post("/api/commands", "{\"name\": \"/access settle\", \"arguments\": {\"reference\": \"AB12CD\"}}");
         assertEquals(202, asked.statusCode(), asked.body());
         final long id = Long.parseLong(
                 GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsString());
 
         try (var connection = data.dataSource().getConnection();
-             var statement = connection.prepareStatement(
-                     "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
+                var statement = connection.prepareStatement(
+                        "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
             statement.setLong(1, id);
             try (var rows = statement.executeQuery()) {
                 assertTrue(rows.next(), "the row was not written");
@@ -1602,15 +1748,15 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("H: unlinking takes a Discord id, and nothing that only looks like one")
     void unlinkingTakesAnAccount() throws Exception {
-        final HttpResponse<String> asked = post("/api/commands",
-                "{\"name\": \"/access unlink\", \"arguments\": {\"member\": \"100000000000000009\"}}");
+        final HttpResponse<String> asked = post(
+                "/api/commands", "{\"name\": \"/access unlink\", \"arguments\": {\"member\": \"100000000000000009\"}}");
         assertEquals(202, asked.statusCode(), asked.body());
 
         // A Minecraft name is what somebody would type if this were a field, and it is exactly
         // what the row cannot carry: the bot reads `member` as a snowflake. Refused here, in a
         // sentence, rather than as an IllegalArgumentException out of RequestArguments.
-        final HttpResponse<String> refused = post("/api/commands",
-                "{\"name\": \"/access unlink\", \"arguments\": {\"member\": \"Notch\"}}");
+        final HttpResponse<String> refused =
+                post("/api/commands", "{\"name\": \"/access unlink\", \"arguments\": {\"member\": \"Notch\"}}");
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("pick the person from the list"), refused.body());
     }
@@ -1618,8 +1764,8 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("a command becomes a row that says who asked for it")
     void aCommandIsARowWithANameOnIt() throws Exception {
-        final HttpResponse<String> asked = post("/api/commands",
-                "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": \"aufbruch\"}}");
+        final HttpResponse<String> asked =
+                post("/api/commands", "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": \"aufbruch\"}}");
 
         assertEquals(202, asked.statusCode(), asked.body());
         final long id = Long.parseLong(
@@ -1634,17 +1780,16 @@ class StewardUiIntegrationTest {
         // V11's console-is-anonymous CHECK the moment it carried a Discord id - or, worse, written
         // without one and left the journal unable to say who unlocked a milestone.
         try (var connection = java.sql.DriverManager.getConnection(
-                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-             var statement = connection.prepareStatement(
-                     "SELECT source, discord_id, requested_by, command, arguments"
-                             + " FROM command_request WHERE id = ?")) {
+                        postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+                var statement =
+                        connection.prepareStatement("SELECT source, discord_id, requested_by, command, arguments"
+                                + " FROM command_request WHERE id = ?")) {
             statement.setLong(1, id);
             try (var rows = statement.executeQuery()) {
                 assertTrue(rows.next(), "the row is not there");
                 assertEquals("WEB", rows.getString("source"));
                 assertEquals("1", rows.getString("discord_id"));
-                assertTrue(rows.getString("requested_by").contains("Till"),
-                        rows.getString("requested_by"));
+                assertTrue(rows.getString("requested_by").contains("Till"), rows.getString("requested_by"));
                 assertEquals("smp milestone unlock", rows.getString("command"));
                 assertEquals("aufbruch", rows.getString("arguments"));
             }
@@ -1661,7 +1806,7 @@ class StewardUiIntegrationTest {
     @DisplayName("the smp and hunger-games actions are rows asked for by what they act on")
     void gameActionsAreRowsWithoutACommandName() throws Exception {
         try (var connection = data.dataSource().getConnection();
-             var statement = connection.createStatement()) {
+                var statement = connection.createStatement()) {
             statement.execute("""
                     INSERT INTO smp_milestone (key, state) VALUES
                         ('t-open', 'ACTIVE'), ('t-later', 'LOCKED'), ('t-done', 'UNLOCKED');
@@ -1682,27 +1827,26 @@ class StewardUiIntegrationTest {
             assertEquals(400, post("/api/smp/objective", "{\"key\":\"t-coal\"}").statusCode());
             assertEquals(400, post("/api/smp/objective", "{\"key\":\"t-gold\"}").statusCode());
             assertEquals(400, post("/api/smp/objective", "{}").statusCode());
-            assertEquals(400, post("/api/smp/milestone", "{\"key\":\"t-later\"}").statusCode());
+            assertEquals(
+                    400, post("/api/smp/milestone", "{\"key\":\"t-later\"}").statusCode());
             assertEquals(400, post("/api/smp/milestone", "{\"key\":\"t-done\"}").statusCode());
 
-            assertRow(post("/api/smp/objective", "{\"key\":\"t-iron\"}"),
-                    "SMP", "smp objective complete", "t-iron");
-            assertRow(post("/api/smp/milestone", "{\"key\":\"t-open\"}"),
-                    "SMP", "smp milestone unlock", "t-open");
+            assertRow(post("/api/smp/objective", "{\"key\":\"t-iron\"}"), "SMP", "smp objective complete", "t-iron");
+            assertRow(post("/api/smp/milestone", "{\"key\":\"t-open\"}"), "SMP", "smp milestone unlock", "t-open");
             assertEquals("{}", get("/api/hunger-games/round").body());
             try (var connection = data.dataSource().getConnection();
-                 var statement = connection.createStatement()) {
+                    var statement = connection.createStatement()) {
                 statement.execute("INSERT INTO hg_game (state) VALUES ('REGISTRATION')");
             }
-            final JsonObject round = GSON.fromJson(get("/api/hunger-games/round").body(), JsonObject.class);
+            final JsonObject round =
+                    GSON.fromJson(get("/api/hunger-games/round").body(), JsonObject.class);
             assertEquals("REGISTRATION", round.get("state").getAsString(), round.toString());
             assertEquals(0, round.get("registered").getAsLong(), round.toString());
             assertRow(post("/api/hunger-games/start", "{}"), "HUNGER_GAMES", "hg start", "");
-            assertRow(post("/api/hunger-games/start", "{\"confirm\":true}"),
-                    "HUNGER_GAMES", "hg start", "confirm");
+            assertRow(post("/api/hunger-games/start", "{\"confirm\":true}"), "HUNGER_GAMES", "hg start", "confirm");
         } finally {
             try (var connection = data.dataSource().getConnection();
-                 var statement = connection.createStatement()) {
+                    var statement = connection.createStatement()) {
                 statement.execute("DELETE FROM smp_milestone WHERE key LIKE 't-%'");
                 statement.execute("DELETE FROM hg_game");
             }
@@ -1718,23 +1862,32 @@ class StewardUiIntegrationTest {
     void anAnnouncementIsOneRowPerLanguage() throws Exception {
         final long before = count("SELECT count(*) FROM command_request WHERE command = 'announce'");
         assertEquals(400, post("/api/announcements", "{\"texts\":{}}").statusCode());
-        assertEquals(400, post("/api/announcements",
-                "{\"texts\":{\"en\":\"Hello\",\"de\":\"  \"}}").statusCode());
-        assertEquals(400, post("/api/announcements", "{\"texts\":{\"EN x\":\"Hello\"}}").statusCode());
-        assertEquals(400, post("/api/announcements",
-                "{\"texts\":{\"en\":\"" + "x".repeat(Announcements.MAX_LENGTH + 1) + "\"}}").statusCode());
-        assertEquals(before, count("SELECT count(*) FROM command_request WHERE command = 'announce'"),
+        assertEquals(
+                400,
+                post("/api/announcements", "{\"texts\":{\"en\":\"Hello\",\"de\":\"  \"}}")
+                        .statusCode());
+        assertEquals(
+                400,
+                post("/api/announcements", "{\"texts\":{\"EN x\":\"Hello\"}}").statusCode());
+        assertEquals(
+                400,
+                post("/api/announcements", "{\"texts\":{\"en\":\"" + "x".repeat(Announcements.MAX_LENGTH + 1) + "\"}}")
+                        .statusCode());
+        assertEquals(
+                before,
+                count("SELECT count(*) FROM command_request WHERE command = 'announce'"),
                 "a refused announcement wrote a row");
 
-        final HttpResponse<String> sent = post("/api/announcements",
+        final HttpResponse<String> sent = post(
+                "/api/announcements",
                 "{\"texts\":{\"en\":\"The end opens tonight.\",\"de\":\"The second language, tonight.\"}}");
         assertEquals(202, sent.statusCode(), sent.body());
         final JsonObject ids = GSON.fromJson(sent.body(), JsonObject.class).getAsJsonObject("ids");
         assertEquals(2, ids.size(), sent.body());
         for (final String tag : List.of("en", "de")) {
             try (var connection = data.dataSource().getConnection();
-                 var statement = connection.prepareStatement(
-                         "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
+                    var statement = connection.prepareStatement(
+                            "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
                 statement.setLong(1, Long.parseLong(ids.get(tag).getAsString()));
                 try (var rows = statement.executeQuery()) {
                     assertTrue(rows.next(), "no row for " + tag);
@@ -1755,14 +1908,15 @@ class StewardUiIntegrationTest {
         assertEquals("en", recent.get(1).getAsJsonObject().get("language").getAsString());
     }
 
-    private static void assertRow(final HttpResponse<String> asked, final String target,
-                                  final String command, final String arguments) throws Exception {
+    private static void assertRow(
+            final HttpResponse<String> asked, final String target, final String command, final String arguments)
+            throws Exception {
         assertEquals(202, asked.statusCode(), asked.body());
         final JsonObject answer = GSON.fromJson(asked.body(), JsonObject.class);
         assertFalse(answer.has("name"), "the browser was told a command name: " + answer);
         try (var connection = data.dataSource().getConnection();
-             var statement = connection.prepareStatement(
-                     "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
+                var statement = connection.prepareStatement(
+                        "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
             statement.setLong(1, Long.parseLong(answer.get("id").getAsString()));
             try (var rows = statement.executeQuery()) {
                 assertTrue(rows.next(), "the row was not written");
@@ -1786,8 +1940,8 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("a missing required argument is refused by the declaration, not by the database")
     void aMissingArgumentIsRefused() throws Exception {
-        final HttpResponse<String> refused = post("/api/commands",
-                "{\"name\": \"/smp objective complete\", \"arguments\": {}}");
+        final HttpResponse<String> refused =
+                post("/api/commands", "{\"name\": \"/smp objective complete\", \"arguments\": {}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("key"), refused.body());
@@ -1803,28 +1957,26 @@ class StewardUiIntegrationTest {
         // script, a paste, or a frontend that starts sending multi-selects can.
         final long before = commandRequestCount();
 
-        final HttpResponse<String> asList = post("/api/commands",
-                "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": [\"a\", \"b\"]}}");
+        final HttpResponse<String> asList = post(
+                "/api/commands", "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": [\"a\", \"b\"]}}");
         assertEquals(400, asList.statusCode(), asList.body());
         assertTrue(asList.body().contains("key") && asList.body().contains("list"), asList.body());
 
-        final HttpResponse<String> asObject = post("/api/commands",
-                "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": {\"a\": 1}}}");
+        final HttpResponse<String> asObject =
+                post("/api/commands", "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": {\"a\": 1}}}");
         assertEquals(400, asObject.statusCode(), asObject.body());
-        assertTrue(asObject.body().contains("key") && asObject.body().contains("structure"),
-                asObject.body());
+        assertTrue(asObject.body().contains("key") && asObject.body().contains("structure"), asObject.body());
 
         // Neither of them is a row. A 400 that has already written the request would be the worse
         // half of the bug the journalled submit was introduced to close, from the other direction.
-        assertEquals(before, commandRequestCount(),
-                "a refused command was written into command_request anyway");
+        assertEquals(before, commandRequestCount(), "a refused command was written into command_request anyway");
     }
 
     private static long commandRequestCount() throws Exception {
         try (var connection = java.sql.DriverManager.getConnection(
-                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-             var statement = connection.createStatement();
-             var rows = statement.executeQuery("SELECT count(*) FROM command_request")) {
+                        postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+                var statement = connection.createStatement();
+                var rows = statement.executeQuery("SELECT count(*) FROM command_request")) {
             assertTrue(rows.next());
             return rows.getLong(1);
         }
@@ -1840,7 +1992,9 @@ class StewardUiIntegrationTest {
         final HttpResponse<String> accepted = post("/api/deployer/recreate/smp", "");
 
         assertEquals(202, accepted.statusCode(), accepted.body());
-        assertEquals(List.of("smp"), recreated,
+        assertEquals(
+                List.of("smp"),
+                recreated,
                 "the stand-in deployer refuses any token but its own, so arriving at all is the "
                         + "assertion: the interface sent the deployer's secret and not the worker's");
         assertTrue(accepted.body().contains("job-1"), accepted.body());
@@ -1851,8 +2005,8 @@ class StewardUiIntegrationTest {
     void aRecreateIsWrittenDown() throws Exception {
         post("/api/deployer/recreate/limbo", "");
 
-        final JsonArray journal = GSON.fromJson(
-                get("/api/journal?action=RECREATE").body(), JsonArray.class);
+        final JsonArray journal =
+                GSON.fromJson(get("/api/journal?action=RECREATE").body(), JsonArray.class);
         final JsonObject row = journal.get(0).getAsJsonObject();
         assertEquals("RECREATE", row.get("action").getAsString());
         // The Discord id, which is what `audit_log.actor` is documented to hold and what the bot
@@ -1860,7 +2014,9 @@ class StewardUiIntegrationTest {
         // name of 11 characters or more - a 500 where the recreate should have been. The name is
         // in the detail now, which is `text` and has room for it.
         assertEquals("1", row.get("actor").getAsString());
-        assertTrue(row.get("detail").getAsString().contains("Till"), row.get("detail").getAsString());
+        assertTrue(
+                row.get("detail").getAsString().contains("Till"),
+                row.get("detail").getAsString());
         assertEquals("limbo", row.get("subject").getAsString());
     }
 
@@ -1904,14 +2060,20 @@ class StewardUiIntegrationTest {
         try {
             final HttpClient browser = browser();
             signIn(browser);
-            assertEquals(longName, GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                    .get("name").getAsString(), "the stand-in did not take the long name");
+            assertEquals(
+                    longName,
+                    GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                            .get("name")
+                            .getAsString(),
+                    "the stand-in did not take the long name");
             // A different account, so a different key: every /api call below is behind the gate.
             registerAKey(browser, new TestAuthenticator(), "Archibald's key");
 
             // 1. A command. The row and its journal line are one statement now, so an actor the
             //    column cannot hold does not lose the journal line - it loses the command.
-            final HttpResponse<String> asked = post(browser, "/api/commands",
+            final HttpResponse<String> asked = post(
+                    browser,
+                    "/api/commands",
                     "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": \"aufbruch\"}}");
             assertEquals(202, asked.statusCode(), asked.body());
             journalledBy(snowflake, "COMMAND", longName);
@@ -1924,14 +2086,20 @@ class StewardUiIntegrationTest {
             // 3. and 4. Giving access and taking it away - the two things this interface does that
             //    somebody's money is attached to. The bot journals those now; what this side
             //    writes is the request, and the request has to carry the whole id.
-            assertEquals(202, post(browser, "/api/access/grant",
-                    "{\"discordId\":\"555000000000000001\",\"days\":30}").statusCode());
-            assertEquals(202, post(browser, "/api/access/revoke",
-                    "{\"discordId\":\"555000000000000001\"}").statusCode());
-            assertEquals(2, count("select count(*) from access_request where subject ="
-                    + " '555000000000000001' and requested_by = '" + snowflake + "'"));
+            assertEquals(
+                    202,
+                    post(browser, "/api/access/grant", "{\"discordId\":\"555000000000000001\",\"days\":30}")
+                            .statusCode());
+            assertEquals(
+                    202,
+                    post(browser, "/api/access/revoke", "{\"discordId\":\"555000000000000001\"}")
+                            .statusCode());
+            assertEquals(
+                    2,
+                    count("select count(*) from access_request where subject ="
+                            + " '555000000000000001' and requested_by = '" + snowflake + "'"));
             try (var connection = data.dataSource().getConnection();
-                 var statement = connection.createStatement()) {
+                    var statement = connection.createStatement()) {
                 statement.execute("delete from access_request where subject = '555000000000000001'");
             }
 
@@ -1946,30 +2114,39 @@ class StewardUiIntegrationTest {
             //    the launch/smp-start ordering rules, because it does not change the ordering.
             final JsonObject season = GSON.fromJson(get("/api/season").body(), JsonObject.class);
             final String phaseBefore = season.get("phase").getAsString();
-            final String launchAt = season.has("launch")
-                    ? season.get("launch").getAsString() : "2026-10-01T18:00:00Z";
-            final String smpStartAt = season.has("smpStart")
-                    ? season.get("smpStart").getAsString() : "2026-10-01T18:00:00Z";
+            final String launchAt = season.has("launch") ? season.get("launch").getAsString() : "2026-10-01T18:00:00Z";
+            final String smpStartAt =
+                    season.has("smpStart") ? season.get("smpStart").getAsString() : "2026-10-01T18:00:00Z";
 
-            assertEquals(200, post(browser, "/api/season/date",
-                    "{\"at\":\"" + launchAt + "\",\"which\":\"launch\"}").statusCode());
-            assertEquals(snowflake, actorOf("SET_LAUNCH"),
-                    "the season journal took a truncated actor and said nothing");
+            assertEquals(
+                    200,
+                    post(browser, "/api/season/date", "{\"at\":\"" + launchAt + "\",\"which\":\"launch\"}")
+                            .statusCode());
+            assertEquals(
+                    snowflake, actorOf("SET_LAUNCH"), "the season journal took a truncated actor and said nothing");
 
-            assertEquals(200, post(browser, "/api/season/date",
-                    "{\"at\":\"" + smpStartAt + "\",\"which\":\"smpStart\"}").statusCode());
+            assertEquals(
+                    200,
+                    post(browser, "/api/season/date", "{\"at\":\"" + smpStartAt + "\",\"which\":\"smpStart\"}")
+                            .statusCode());
             assertEquals(snowflake, actorOf("SET_SMP_START"));
 
             // START_EVENT and never SMP: setSmpStart refuses outright once the season is in SMP,
             // and leaving the network in that phase would make the date tests beside this one fail
             // for a reason that has nothing to do with them.
             try {
-                assertEquals(200, post(browser, "/api/season/phase",
-                        "{\"phase\":\"START_EVENT\",\"reason\":\"a long name should not matter\"}")
-                        .statusCode());
+                assertEquals(
+                        200,
+                        post(
+                                        browser,
+                                        "/api/season/phase",
+                                        "{\"phase\":\"START_EVENT\",\"reason\":\"a long name should not matter\"}")
+                                .statusCode());
                 assertEquals(snowflake, actorOf("SET_PHASE"));
             } finally {
-                post(browser, "/api/season/phase",
+                post(
+                        browser,
+                        "/api/season/phase",
                         "{\"phase\":\"" + phaseBefore + "\",\"reason\":\"restoring the fixture\"}");
             }
         } finally {
@@ -1979,14 +2156,16 @@ class StewardUiIntegrationTest {
     }
 
     /** The newest journal row of this action: written by that id, and naming the person in its detail. */
-    private static void journalledBy(final String id, final String action, final String name)
-            throws Exception {
+    private static void journalledBy(final String id, final String action, final String name) throws Exception {
         final JsonObject row = newestJournalRow(action);
-        assertEquals(id, row.get("actor").getAsString(),
+        assertEquals(
+                id,
+                row.get("actor").getAsString(),
                 action + " was journalled as something other than the bare Discord id: " + row);
         // The name is not lost, it moved. `detail` is `text`, so it has room for it, and without
         // it the journal page would name nobody a person recognises.
-        assertTrue(row.get("detail").getAsString().contains(name),
+        assertTrue(
+                row.get("detail").getAsString().contains(name),
                 action + " lost the name entirely instead of moving it into the detail: " + row);
     }
 
@@ -1995,8 +2174,8 @@ class StewardUiIntegrationTest {
     }
 
     private static JsonObject newestJournalRow(final String action) throws Exception {
-        final JsonArray journal = GSON.fromJson(
-                get("/api/journal?action=" + action).body(), JsonArray.class);
+        final JsonArray journal =
+                GSON.fromJson(get("/api/journal?action=" + action).body(), JsonArray.class);
         assertFalse(journal.isEmpty(), "nothing was journalled as " + action);
         return journal.get(0).getAsJsonObject();
     }
@@ -2027,8 +2206,7 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("the job the deployer started can be read back through the interface")
     void aJobIsReadBack() throws Exception {
-        final JsonObject job = GSON.fromJson(
-                get("/api/deployer/jobs/job-1").body(), JsonObject.class);
+        final JsonObject job = GSON.fromJson(get("/api/deployer/jobs/job-1").body(), JsonObject.class);
 
         assertEquals("DONE", job.get("state").getAsString());
         assertEquals(0, job.get("exitCode").getAsInt());
@@ -2059,13 +2237,14 @@ class StewardUiIntegrationTest {
             // they have already been round.
             final HttpResponse<String> refused = get(browser, "/api/services");
             assertEquals(403, refused.statusCode(), refused.body());
-            assertEquals("SECOND_FACTOR_MISSING",
+            assertEquals(
+                    "SECOND_FACTOR_MISSING",
                     GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString(),
-                    "the interface cannot tell this apart from an ordinary refusal: "
-                            + refused.body());
+                    "the interface cannot tell this apart from an ordinary refusal: " + refused.body());
 
             // Including the ones that write. A missing key is not a read-only mode.
-            assertEquals(403, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
+            assertEquals(
+                    403, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
         } finally {
             memberId.set("1");
             memberNick.set("Till");
@@ -2084,13 +2263,18 @@ class StewardUiIntegrationTest {
 
             registerAKey(browser, new TestAuthenticator(), "YubiKey blau");
 
-            assertEquals(200, get(browser, "/api/services").statusCode(),
-                    "the key was registered and the gate stayed shut");
+            assertEquals(
+                    200, get(browser, "/api/services").statusCode(), "the key was registered and the gate stayed shut");
 
             final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
             assertEquals(1, me.getAsJsonArray("keys").size(), me.toString());
-            assertEquals("YubiKey blau", me.getAsJsonArray("keys").get(0).getAsJsonObject()
-                    .get("label").getAsString());
+            assertEquals(
+                    "YubiKey blau",
+                    me.getAsJsonArray("keys")
+                            .get(0)
+                            .getAsJsonObject()
+                            .get("label")
+                            .getAsString());
             // Registering a key IS holding it, so the session is verified without a second
             // ceremony one second later.
             assertTrue(me.get("verified").getAsBoolean(), me.toString());
@@ -2112,12 +2296,13 @@ class StewardUiIntegrationTest {
             signIn(browser);
             final TestAuthenticator key = new TestAuthenticator();
 
-            final HttpResponse<String> started =
-                    post(browser, "/auth/webauthn/register/start", "");
+            final HttpResponse<String> started = post(browser, "/auth/webauthn/register/start", "");
             assertEquals(200, started.statusCode(), started.body());
 
-            assertEquals(200, finishRegistration(browser,
-                    key.register(started.body(), ORIGIN), "Once").statusCode());
+            assertEquals(
+                    200,
+                    finishRegistration(browser, key.register(started.body(), ORIGIN), "Once")
+                            .statusCode());
 
             // A DIFFERENT AUTHENTICATOR ANSWERING THE SAME CHALLENGE, and that detail is the whole
             // test. Sending the identical bytes twice proves nothing: the library refuses the
@@ -2125,11 +2310,14 @@ class StewardUiIntegrationTest {
             // the read-and-clear replaced by a plain SELECT - measured, which is why it reads like
             // this now. The attack is somebody who has SEEN the challenge registering THEIR key
             // with it, and only clearing it in the statement that reads it stops that.
-            final HttpResponse<String> again = finishRegistration(browser,
-                    new TestAuthenticator().register(started.body(), ORIGIN), "Twice");
+            final HttpResponse<String> again =
+                    finishRegistration(browser, new TestAuthenticator().register(started.body(), ORIGIN), "Twice");
             assertEquals(400, again.statusCode(), again.body());
-            assertEquals(1, GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                    .getAsJsonArray("keys").size(),
+            assertEquals(
+                    1,
+                    GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                            .getAsJsonArray("keys")
+                            .size(),
                     "a second authenticator answered a challenge that had already been used");
         } finally {
             memberId.set("1");
@@ -2146,20 +2334,22 @@ class StewardUiIntegrationTest {
             final HttpClient browser = browser();
             signIn(browser);
 
-            final HttpResponse<String> started =
-                    post(browser, "/auth/webauthn/register/start", "");
+            final HttpResponse<String> started = post(browser, "/auth/webauthn/register/start", "");
             // A SUBDOMAIN OF THE RELYING PARTY, not a stranger's domain - because that is the case
             // the relying party id actually creates. `nordtal.eu` means a key registered here works
             // on every subdomain; it must NOT mean this service accepts a ceremony that happened on
             // one. A browser on bluemap.nordtal.eu can ask for these keys; it cannot hand the
             // answer to Steward.
-            final String answer = new TestAuthenticator()
-                    .register(started.body(), "https://bluemap.nordtal.eu");
+            final String answer = new TestAuthenticator().register(started.body(), "https://bluemap.nordtal.eu");
 
             final HttpResponse<String> refused = finishRegistration(browser, answer, "From next door");
             assertEquals(400, refused.statusCode(), refused.body());
-            assertEquals(0, GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                    .getAsJsonArray("keys").size(), "a foreign origin registered a key");
+            assertEquals(
+                    0,
+                    GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                            .getAsJsonArray("keys")
+                            .size(),
+                    "a foreign origin registered a key");
         } finally {
             memberId.set("1");
             memberNick.set("Till");
@@ -2175,12 +2365,14 @@ class StewardUiIntegrationTest {
             final HttpClient browser = browser();
             signIn(browser);
 
-            final HttpResponse<String> started =
-                    post(browser, "/auth/webauthn/register/start", "");
-            final String answer = new TestAuthenticator().register(started.body(), ORIGIN,
-                    // 32 bytes of somebody else's choosing, base64url - the shape is right and the
-                    // value was never issued by this service.
-                    "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8");
+            final HttpResponse<String> started = post(browser, "/auth/webauthn/register/start", "");
+            final String answer = new TestAuthenticator()
+                    .register(
+                            started.body(),
+                            ORIGIN,
+                            // 32 bytes of somebody else's choosing, base64url - the shape is right and the
+                            // value was never issued by this service.
+                            "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8");
 
             final HttpResponse<String> refused = finishRegistration(browser, answer, "Invented");
             assertEquals(400, refused.statusCode(), refused.body());
@@ -2198,8 +2390,11 @@ class StewardUiIntegrationTest {
         // would otherwise be the cheapest way for a stolen cookie to become a permanent key.
         final HttpClient stolen = browser();
         signIn(stolen);
-        assertFalse(GSON.fromJson(get(stolen, "/api/me").body(), JsonObject.class)
-                .get("verified").getAsBoolean(), "a fresh session started out verified");
+        assertFalse(
+                GSON.fromJson(get(stolen, "/api/me").body(), JsonObject.class)
+                        .get("verified")
+                        .getAsBoolean(),
+                "a fresh session started out verified");
 
         final HttpResponse<String> refused = post(stolen, "/auth/webauthn/register/start", "");
         assertEquals(403, refused.statusCode(), refused.body());
@@ -2226,11 +2421,12 @@ class StewardUiIntegrationTest {
 
         // Reading is refused too, and that is the whole of C. Before it, everything below was
         // readable for thirty days to anybody holding the cookie.
-        for (final String path : new String[] {
-                "/api/services", "/api/people", "/api/journal", "/api/updates", "/api/config" }) {
+        for (final String path :
+                new String[] {"/api/services", "/api/people", "/api/journal", "/api/updates", "/api/config"}) {
             final HttpResponse<String> refused = get(fresh, path);
             assertEquals(403, refused.statusCode(), path + " answered " + refused.body());
-            assertEquals("SECOND_FACTOR_REQUIRED",
+            assertEquals(
+                    "SECOND_FACTOR_REQUIRED",
                     GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString(),
                     path + " answered " + refused.body());
         }
@@ -2238,8 +2434,11 @@ class StewardUiIntegrationTest {
         holdTheKey(fresh, authenticator);
 
         assertEquals(200, get(fresh, "/api/people").statusCode());
-        assertTrue(GSON.fromJson(get(fresh, "/api/me").body(), JsonObject.class)
-                .get("verified").getAsBoolean(), "the key was held and the session is not verified");
+        assertTrue(
+                GSON.fromJson(get(fresh, "/api/me").body(), JsonObject.class)
+                        .get("verified")
+                        .getAsBoolean(),
+                "the key was held and the session is not verified");
     }
 
     @Test
@@ -2247,8 +2446,7 @@ class StewardUiIntegrationTest {
     void aChallengeIsSpentWhenItIsAnswered() throws Exception {
         final HttpClient browser = browser();
         signIn(browser);
-        final HttpResponse<String> started =
-                post(browser, "/auth/webauthn/authenticate/start", "");
+        final HttpResponse<String> started = post(browser, "/auth/webauthn/authenticate/start", "");
         assertEquals(200, started.statusCode(), started.body());
         final String answer = authenticator.assertion(started.body(), ORIGIN);
 
@@ -2258,8 +2456,9 @@ class StewardUiIntegrationTest {
         // else's successful sign-in is not a sign-in.
         final HttpResponse<String> replayed = finishAssertion(browser, answer);
         assertEquals(400, replayed.statusCode(), replayed.body());
-        assertTrue(replayed.body().contains("already finished")
-                || replayed.body().contains("not started"), replayed.body());
+        assertTrue(
+                replayed.body().contains("already finished") || replayed.body().contains("not started"),
+                replayed.body());
     }
 
     @Test
@@ -2267,8 +2466,7 @@ class StewardUiIntegrationTest {
     void anotherKeyIsNotThisAccountsKey() throws Exception {
         final HttpClient browser = browser();
         signIn(browser);
-        final HttpResponse<String> started =
-                post(browser, "/auth/webauthn/authenticate/start", "");
+        final HttpResponse<String> started = post(browser, "/auth/webauthn/authenticate/start", "");
         assertEquals(200, started.statusCode(), started.body());
 
         // A key this service has never seen, answering a challenge it really was issued. The
@@ -2277,8 +2475,11 @@ class StewardUiIntegrationTest {
         final HttpResponse<String> refused =
                 finishAssertion(browser, new TestAuthenticator().assertion(started.body(), ORIGIN));
         assertEquals(400, refused.statusCode(), refused.body());
-        assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                .get("verified").getAsBoolean(), "a stranger's key verified this session");
+        assertFalse(
+                GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                        .get("verified")
+                        .getAsBoolean(),
+                "a stranger's key verified this session");
     }
 
     @Test
@@ -2286,18 +2487,20 @@ class StewardUiIntegrationTest {
     void theOriginIsCheckedOnASignInToo() throws Exception {
         final HttpClient browser = browser();
         signIn(browser);
-        final HttpResponse<String> started =
-                post(browser, "/auth/webauthn/authenticate/start", "");
-        final HttpResponse<String> refused = finishAssertion(browser,
-                authenticator.assertion(started.body(), "https://bluemap.nordtal.eu"));
+        final HttpResponse<String> started = post(browser, "/auth/webauthn/authenticate/start", "");
+        final HttpResponse<String> refused =
+                finishAssertion(browser, authenticator.assertion(started.body(), "https://bluemap.nordtal.eu"));
 
         // The relying party id is the whole of nordtal.eu so that a key survives the move to
         // production; the ORIGIN is this one address. Without that narrower check, any subdomain
         // could relay a ceremony through this service - which is the risk the plan writes down as
         // the price of the wide id, and this is the thing that pays it.
         assertEquals(400, refused.statusCode(), refused.body());
-        assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                .get("verified").getAsBoolean(), "a ceremony from another subdomain verified");
+        assertFalse(
+                GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                        .get("verified")
+                        .getAsBoolean(),
+                "a ceremony from another subdomain verified");
     }
 
     @Test
@@ -2317,8 +2520,7 @@ class StewardUiIntegrationTest {
         // interface nobody watches a deployment in.
         assertEquals(200, get(browser, "/api/services").statusCode());
 
-        final HttpResponse<String> refused =
-                post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}");
+        final HttpResponse<String> refused = post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}");
         assertEquals(403, refused.statusCode(), refused.body());
         final JsonObject body = GSON.fromJson(refused.body(), JsonObject.class);
         assertEquals("SECOND_FACTOR_REQUIRED", body.get("code").getAsString(), refused.body());
@@ -2346,15 +2548,16 @@ class StewardUiIntegrationTest {
         // dangerous" in the plan and are behind the key now. A test that only listed the obvious
         // ones would pass on exactly the day somebody moved one back.
         final String[][] writes = {
-                { "/api/updates", "{\"kind\":\"UPDATE\"}" },
-                { "/api/access/grant", "{\"discordId\":\"1\",\"days\":1}" },
-                { "/api/season/phase", "{\"phase\":\"LIVE\"}" },
-                { "/api/commands", "{\"command\":\"phase\"}" },
+            {"/api/updates", "{\"kind\":\"UPDATE\"}"},
+            {"/api/access/grant", "{\"discordId\":\"1\",\"days\":1}"},
+            {"/api/season/phase", "{\"phase\":\"LIVE\"}"},
+            {"/api/commands", "{\"command\":\"phase\"}"},
         };
         for (final String[] write : writes) {
             final HttpResponse<String> refused = post(browser, write[0], write[1]);
             assertEquals(403, refused.statusCode(), write[0] + " answered " + refused.body());
-            assertEquals("SECOND_FACTOR_REQUIRED",
+            assertEquals(
+                    "SECOND_FACTOR_REQUIRED",
                     GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString(),
                     write[0] + " answered " + refused.body());
         }
@@ -2378,11 +2581,13 @@ class StewardUiIntegrationTest {
         final JsonObject added = me.getAsJsonArray("keys").asList().stream()
                 .map(com.google.gson.JsonElement::getAsJsonObject)
                 .filter(key -> "My phone".equals(key.get("label").getAsString()))
-                .findFirst().orElseThrow(() -> new AssertionError(me.toString()));
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(me.toString()));
         final String id = added.get("id").getAsString();
 
-        assertEquals(200, put(browser, "/api/keys/" + id, "{\"label\":\"My old phone\"}")
-                .statusCode());
+        assertEquals(
+                200,
+                put(browser, "/api/keys/" + id, "{\"label\":\"My old phone\"}").statusCode());
         assertTrue(get(browser, "/api/me").body().contains("My old phone"));
 
         assertEquals(200, delete(browser, "/api/keys/" + id).statusCode());
@@ -2400,8 +2605,7 @@ class StewardUiIntegrationTest {
         holdTheKey(browser, authenticator);
         // A credential id is handed to every browser that starts a sign-in, so it is a value a
         // stranger can hold. The DELETE matches on the account as well, and this is that column.
-        final HttpResponse<String> refused =
-                delete(browser, "/api/keys/" + new TestAuthenticator().credentialId());
+        final HttpResponse<String> refused = delete(browser, "/api/keys/" + new TestAuthenticator().credentialId());
         assertEquals(404, refused.statusCode(), refused.body());
     }
 
@@ -2414,26 +2618,27 @@ class StewardUiIntegrationTest {
         heldLongAgo(browser);
         // A stolen session that could add an authenticator would be a stolen session that had made
         // itself permanent. That is why key management is in the plan's dangerous list at all.
-        assertEquals(403, delete(browser, "/api/keys/" + authenticator.credentialId()).statusCode());
-        assertEquals(403, put(browser, "/api/keys/" + authenticator.credentialId(),
-                "{\"label\":\"mine now\"}").statusCode());
+        assertEquals(
+                403,
+                delete(browser, "/api/keys/" + authenticator.credentialId()).statusCode());
+        assertEquals(
+                403,
+                put(browser, "/api/keys/" + authenticator.credentialId(), "{\"label\":\"mine now\"}")
+                        .statusCode());
     }
 
     // --- the helpers the four above are written in ---------------------------------------------
 
     /** The whole authentication, driven the way the browser drives it. */
-    private static void holdTheKey(final HttpClient browser, final TestAuthenticator key)
-            throws Exception {
-        final HttpResponse<String> started =
-                post(browser, "/auth/webauthn/authenticate/start", "");
+    private static void holdTheKey(final HttpClient browser, final TestAuthenticator key) throws Exception {
+        final HttpResponse<String> started = post(browser, "/auth/webauthn/authenticate/start", "");
         assertEquals(200, started.statusCode(), started.body());
-        final HttpResponse<String> finished =
-                finishAssertion(browser, key.assertion(started.body(), ORIGIN));
+        final HttpResponse<String> finished = finishAssertion(browser, key.assertion(started.body(), ORIGIN));
         assertEquals(200, finished.statusCode(), finished.body());
     }
 
-    private static HttpResponse<String> finishAssertion(final HttpClient browser,
-                                                        final String credential) throws Exception {
+    private static HttpResponse<String> finishAssertion(final HttpClient browser, final String credential)
+            throws Exception {
         final JsonObject envelope = new JsonObject();
         envelope.addProperty("credential", credential);
         return post(browser, "/auth/webauthn/authenticate/finish", GSON.toJson(envelope));
@@ -2449,44 +2654,44 @@ class StewardUiIntegrationTest {
      */
     private static void heldLongAgo(final HttpClient browser) throws Exception {
         final String csrf = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
-                .get("csrf").getAsString();
+                .get("csrf")
+                .getAsString();
         try (var connection = data.dataSource().getConnection();
-             var statement = connection.prepareStatement(
-                     "UPDATE steward_session SET verified_at = now() - interval '1 hour'"
-                             + " WHERE csrf = ?")) {
+                var statement = connection.prepareStatement(
+                        "UPDATE steward_session SET verified_at = now() - interval '1 hour'" + " WHERE csrf = ?")) {
             statement.setString(1, csrf);
             assertEquals(1, statement.executeUpdate(), "no session matched that browser");
         }
     }
 
-    private static HttpResponse<String> delete(final HttpClient browser, final String path)
-            throws Exception {
+    private static HttpResponse<String> delete(final HttpClient browser, final String path) throws Exception {
         final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
-        return browser.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + path))
-                .header("X-Steward-CSRF", me.get("csrf").getAsString())
-                .DELETE()
-                .build(), HttpResponse.BodyHandlers.ofString());
+        return browser.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + path))
+                        .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                        .DELETE()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
     }
 
-    private static HttpResponse<String> put(final HttpClient browser, final String path,
-                                            final String body) throws Exception {
+    private static HttpResponse<String> put(final HttpClient browser, final String path, final String body)
+            throws Exception {
         final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
-        return browser.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + path))
-                .header("Content-Type", "application/json")
-                .header("X-Steward-CSRF", me.get("csrf").getAsString())
-                .PUT(HttpRequest.BodyPublishers.ofString(body))
-                .build(), HttpResponse.BodyHandlers.ofString());
+        return browser.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + path))
+                        .header("Content-Type", "application/json")
+                        .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                        .PUT(HttpRequest.BodyPublishers.ofString(body))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
     }
 
     /** The whole registration, driven the way the browser drives it. Nothing is stood in for. */
-    private static void registerAKey(final HttpClient browser, final TestAuthenticator key,
-                                     final String label) throws Exception {
+    private static void registerAKey(final HttpClient browser, final TestAuthenticator key, final String label)
+            throws Exception {
         final HttpResponse<String> started = post(browser, "/auth/webauthn/register/start", "");
         assertEquals(200, started.statusCode(), started.body());
-        final HttpResponse<String> finished =
-                finishRegistration(browser, key.register(started.body(), ORIGIN), label);
+        final HttpResponse<String> finished = finishRegistration(browser, key.register(started.body(), ORIGIN), label);
         assertEquals(200, finished.statusCode(), finished.body());
     }
 
@@ -2498,9 +2703,8 @@ class StewardUiIntegrationTest {
      * may parse it. Written out here rather than hidden, because a test that quietly nested the
      * object would be testing a route that does not exist.</p>
      */
-    private static HttpResponse<String> finishRegistration(final HttpClient browser,
-                                                           final String credential,
-                                                           final String label) throws Exception {
+    private static HttpResponse<String> finishRegistration(
+            final HttpClient browser, final String credential, final String label) throws Exception {
         final JsonObject envelope = new JsonObject();
         envelope.addProperty("label", label);
         envelope.addProperty("credential", credential);
@@ -2522,8 +2726,8 @@ class StewardUiIntegrationTest {
         // until the heap is gone - measured, the one time this test left it behind.
         final int whileFollowing;
         try (java.net.Socket tab = openTheLogOverASocket(browser)) {
-            final BufferedReader lines = new BufferedReader(
-                    new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
+            final BufferedReader lines =
+                    new BufferedReader(new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
             assertTrue(waitForALineSaying(lines, "event: run"), "the run event lost its name");
             assertTrue(waitForALineSaying(lines, "Earlier run, 22 Sep 19:44"));
             assertTrue(waitForALineSaying(lines, "event: line"));
@@ -2551,7 +2755,8 @@ class StewardUiIntegrationTest {
             // The check at the top of the route is made once, when the connection opens. A follow
             // outlives it by hours: without a second look, a signed-out - or expired, or revoked -
             // session went on being served this container's logs until the container stopped.
-            assertTrue(waitForALineSaying(lines, "this session ended"),
+            assertTrue(
+                    waitForALineSaying(lines, "this session ended"),
                     "the logs kept arriving after the session had been thrown away");
         }
         assertTrue(theFollowsConnectionClosed(whileFollowing), "the worker's end was left open");
@@ -2573,8 +2778,8 @@ class StewardUiIntegrationTest {
             // so a "closed tab" made of one would tell the interface nothing and prove nothing.
             // A socket that is closed is closed, which is what a browser does with a tab.
             final java.net.Socket tab = openTheLogOverASocket(browser);
-            final BufferedReader lines = new BufferedReader(
-                    new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
+            final BufferedReader lines =
+                    new BufferedReader(new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
             assertTrue(waitForALineSaying(lines, "still running"), "nothing was ever followed");
             final int whileFollowing = workerConnections.get();
             assertTrue(whileFollowing >= 1, "the follow is not open at the worker at all");
@@ -2585,8 +2790,8 @@ class StewardUiIntegrationTest {
             // is watching, exactly like a server that has stopped. Three of them is past the
             // timeout twice over.
             for (int beat = 1; beat <= 3; beat++) {
-                assertTrue(waitForALineSaying(lines, "open"),
-                        "the follow went quiet and died after beat " + (beat - 1));
+                assertTrue(
+                        waitForALineSaying(lines, "open"), "the follow went quiet and died after beat " + (beat - 1));
             }
 
             // AND NOW THE TAB IS CLOSED - which means the socket goes, not just the reader. The
@@ -2598,9 +2803,10 @@ class StewardUiIntegrationTest {
 
             // Every reload used to leave a connection behind here - and behind that one, at the
             // worker, an open docker log stream nobody was reading.
-            assertTrue(theFollowsConnectionClosed(whileFollowing),
-                    "the worker's end outlived the browser's: " + workerConnections.get()
-                            + " connections open, " + whileFollowing + " during the follow");
+            assertTrue(
+                    theFollowsConnectionClosed(whileFollowing),
+                    "the worker's end outlived the browser's: " + workerConnections.get() + " connections open, "
+                            + whileFollowing + " during the follow");
         } finally {
             chattyLog.set(true);
         }
@@ -2614,25 +2820,30 @@ class StewardUiIntegrationTest {
      */
     private static java.net.Socket openTheLogOverASocket(final HttpClient browser) throws Exception {
         final java.net.CookieHandler jar = browser.cookieHandler().orElseThrow();
-        final String cookies = ((CookieManager) jar).getCookieStore().getCookies().stream()
-                .map(cookie -> cookie.getName() + "=" + cookie.getValue())
-                .reduce((left, right) -> left + "; " + right)
-                .orElseThrow(() -> new AssertionError("this browser has no session cookie"));
+        final String cookies = ((CookieManager) jar)
+                .getCookieStore().getCookies().stream()
+                        .map(cookie -> cookie.getName() + "=" + cookie.getValue())
+                        .reduce((left, right) -> left + "; " + right)
+                        .orElseThrow(() -> new AssertionError("this browser has no session cookie"));
         final java.net.Socket tab = new java.net.Socket("127.0.0.1", UI_PORT);
-        tab.getOutputStream().write(("GET /api/services/smp/logs HTTP/1.1\r\n"
-                + "Host: 127.0.0.1:" + UI_PORT + "\r\n"
-                + "Accept: text/event-stream\r\n"
-                + "Cookie: " + cookies + "\r\n"
-                + "\r\n").getBytes(StandardCharsets.UTF_8));
+        tab.getOutputStream()
+                .write(("GET /api/services/smp/logs HTTP/1.1\r\n"
+                                + "Host: 127.0.0.1:" + UI_PORT + "\r\n"
+                                + "Accept: text/event-stream\r\n"
+                                + "Cookie: " + cookies + "\r\n"
+                                + "\r\n")
+                        .getBytes(StandardCharsets.UTF_8));
         tab.getOutputStream().flush();
         return tab;
     }
 
     private static HttpResponse<InputStream> openTheLog(final HttpClient browser) throws Exception {
-        final HttpResponse<InputStream> follow = browser.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/services/smp/logs"))
-                .header("Accept", "text/event-stream")
-                .GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+        final HttpResponse<InputStream> follow = browser.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/api/services/smp/logs"))
+                        .header("Accept", "text/event-stream")
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofInputStream());
         assertEquals(200, follow.statusCode());
         return follow;
     }
@@ -2648,8 +2859,7 @@ class StewardUiIntegrationTest {
      * test run rather than failing it - and "the stream never ended" is precisely the defect these
      * two tests are about.</p>
      */
-    private static boolean waitForALineSaying(final BufferedReader lines, final String text)
-            throws Exception {
+    private static boolean waitForALineSaying(final BufferedReader lines, final String text) throws Exception {
         // A DAEMON thread. Closing a response body does not unblock a read already sitting in it -
         // the JDK behaviour this whole pair of tests is about - so an ordinary executor thread
         // would still be parked in readLine() when the suite ended, and would keep the test JVM
@@ -2661,14 +2871,15 @@ class StewardUiIntegrationTest {
         });
         try {
             return one.submit(() -> {
-                String line;
-                while ((line = lines.readLine()) != null) {
-                    if (line.contains(text)) {
-                        return true;
-                    }
-                }
-                return false;
-            }).get(20, TimeUnit.SECONDS);
+                        String line;
+                        while ((line = lines.readLine()) != null) {
+                            if (line.contains(text)) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    })
+                    .get(20, TimeUnit.SECONDS);
         } catch (final TimeoutException never) {
             return false;
         } finally {
@@ -2684,8 +2895,7 @@ class StewardUiIntegrationTest {
      * one after. Two beats plus room is the honest bound, and a test that allowed less would fail
      * on a slow machine while the behaviour was correct.</p>
      */
-    private static boolean theFollowsConnectionClosed(final int whileFollowing)
-            throws InterruptedException {
+    private static boolean theFollowsConnectionClosed(final int whileFollowing) throws InterruptedException {
         // Strictly fewer than during the follow. Not "back to what it was before", because the
         // client pools connections and may well have followed the log down one it had already
         // opened - in which case the honest evidence is that one MORE connection is gone, not that
@@ -2717,8 +2927,7 @@ class StewardUiIntegrationTest {
         }
         final String state = stateFrom(get(browser, "/auth/login"));
 
-        final HttpResponse<String> callback =
-                get(browser, "/auth/callback?code=the-code&state=" + state);
+        final HttpResponse<String> callback = get(browser, "/auth/callback?code=the-code&state=" + state);
 
         assertEquals(302, callback.statusCode(), callback.body());
         assertEquals("/", callback.headers().firstValue("Location").orElseThrow());
@@ -2727,7 +2936,7 @@ class StewardUiIntegrationTest {
     /** Makes this account an admin granted by the root, {@code "1"}, whatever it was before. */
     private static void admitBelowRoot(final String discordId) throws Exception {
         try (var connection = data.dataSource().getConnection();
-             var admit = connection.prepareStatement("""
+                var admit = connection.prepareStatement("""
                      INSERT INTO discord_user (discord_id, member_state, admin, admin_granted_by,
                                                admin_granted_at, updated)
                      VALUES (?, 'MEMBER', true, '1', now(), now())
@@ -2770,39 +2979,47 @@ class StewardUiIntegrationTest {
      */
     private static void restartTheInterface() throws Exception {
         ui.stop();
-        ui = new StewardUi(config,
-                new DiscordAuth(config.discord(), config.publicUrl(),
-                        "http://127.0.0.1:" + DISCORD_PORT),
-                new InternalClient("steward-worker", config.worker().baseUrl(),
-                        config.worker().token(), Duration.ofSeconds(5)),
-                new InternalClient("steward-deployer", config.deployer().baseUrl(),
-                        config.deployer().token(), Duration.ofSeconds(5)),
+        ui = new StewardUi(
+                config,
+                new DiscordAuth(config.discord(), config.publicUrl(), "http://127.0.0.1:" + DISCORD_PORT),
+                new InternalClient(
+                        "steward-worker",
+                        config.worker().baseUrl(),
+                        config.worker().token(),
+                        Duration.ofSeconds(5)),
+                new InternalClient(
+                        "steward-deployer",
+                        config.deployer().baseUrl(),
+                        config.deployer().token(),
+                        Duration.ofSeconds(5)),
                 data);
         ui.start(UI_PORT);
     }
 
     private static HttpResponse<String> logout(final HttpClient browser) throws Exception {
         final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
-        return browser.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + "/auth/logout"))
-                .header("X-Steward-CSRF", me.get("csrf").getAsString())
-                .POST(HttpRequest.BodyPublishers.noBody())
-                .build(), HttpResponse.BodyHandlers.ofString());
+        return browser.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/auth/logout"))
+                        .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
     }
 
     private static HttpResponse<String> post(final String path, final String body) throws Exception {
         return post(http, path, body);
     }
 
-    private static HttpResponse<String> post(final HttpClient browser, final String path,
-                                             final String body) throws Exception {
+    private static HttpResponse<String> post(final HttpClient browser, final String path, final String body)
+            throws Exception {
         final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
-        return browser.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + path))
-                .header("Content-Type", "application/json")
-                .header("X-Steward-CSRF", me.get("csrf").getAsString())
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build(), HttpResponse.BodyHandlers.ofString());
+        return browser.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + path))
+                        .header("Content-Type", "application/json")
+                        .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
     }
 
     private static JsonObject entry(final JsonObject document, final String path) {
@@ -2815,22 +3032,24 @@ class StewardUiIntegrationTest {
 
     private static HttpResponse<String> put(final String path, final String body) throws Exception {
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
-        return http.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + path))
-                .header("Content-Type", "application/json")
-                .header("X-Steward-CSRF", me.get("csrf").getAsString())
-                .PUT(HttpRequest.BodyPublishers.ofString(body))
-                .build(), HttpResponse.BodyHandlers.ofString());
+        return http.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + path))
+                        .header("Content-Type", "application/json")
+                        .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                        .PUT(HttpRequest.BodyPublishers.ofString(body))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
     }
 
     private static HttpResponse<String> get(final String path) throws Exception {
         return get(http, path);
     }
 
-    private static HttpResponse<String> get(final HttpClient browser, final String path)
-            throws Exception {
-        return browser.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + UI_PORT + path)).GET().build(),
+    private static HttpResponse<String> get(final HttpClient browser, final String path) throws Exception {
+        return browser.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + path))
+                        .GET()
+                        .build(),
                 HttpResponse.BodyHandlers.ofString());
     }
 }

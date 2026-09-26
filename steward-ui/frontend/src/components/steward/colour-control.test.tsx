@@ -1,12 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import {
-  ColourControl,
-  MINECRAFT_CHAT_BACKGROUND,
-  SAMPLE_TEXT,
-  colourRuns,
-} from "@/components/steward/colour-control"
+import { ColourControl, MINECRAFT_CHAT_BACKGROUND, SAMPLE_TEXT, colourRuns } from "@/components/steward/colour-control"
 import { colourValue } from "@/components/steward/config-controls"
 import type { ConfigEntry } from "@/lib/api"
 
@@ -71,9 +66,7 @@ describe("colourValue", () => {
   it("never offers a colour picker in place of a secret, a list, or a read-only row", () => {
     expect(colourValue(field({ key: "good", path: "good", value: "#8ba888", secret: true }))).toBeNull()
     expect(colourValue(field({ key: "good", path: "good", value: "#8ba888", kind: "LIST" }))).toBeNull()
-    expect(
-      colourValue(field({ key: "good", path: "good", value: "#8ba888", editable: false })),
-    ).toBeNull()
+    expect(colourValue(field({ key: "good", path: "good", value: "#8ba888", editable: false }))).toBeNull()
   })
 })
 
@@ -270,8 +263,19 @@ describe("colourRuns", () => {
     expect(runs).toHaveLength(1)
     expect(runs[0]).toHaveLength(13)
     expect(runs[0].map((entry) => entry.key)).toEqual([
-      "tier-01", "tier-02", "tier-03", "tier-04", "tier-05", "tier-06", "tier-07",
-      "tier-08", "tier-09", "tier-10", "tier-11", "tier-12", "tier-13",
+      "tier-01",
+      "tier-02",
+      "tier-03",
+      "tier-04",
+      "tier-05",
+      "tier-06",
+      "tier-07",
+      "tier-08",
+      "tier-09",
+      "tier-10",
+      "tier-11",
+      "tier-12",
+      "tier-13",
     ])
     expect(runs[0].some((entry) => entry.key === "admin")).toBe(false)
   })

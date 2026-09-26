@@ -16,9 +16,11 @@ describe("versionJump", () => {
    * `3.0 → 4.0` - a version jump that never happened, printed with total confidence.
    */
   it("does not stop in the middle of a number", () => {
-    expect(
-      versionJump("packetevents-spigot-2.13.0.jar", "packetevents-spigot-2.14.0.jar", "2.14.0+spigot"),
-    ).toEqual({ from: "2.13.0", to: "2.14.0", exact: true })
+    expect(versionJump("packetevents-spigot-2.13.0.jar", "packetevents-spigot-2.14.0.jar", "2.14.0+spigot")).toEqual({
+      from: "2.13.0",
+      to: "2.14.0",
+      exact: true,
+    })
   })
 
   /**
@@ -53,11 +55,7 @@ describe("versionJump", () => {
     // THE CASE THAT MADE THE PREFIX RULE (season-2-ops/142). A pack has no version: its installed
     // identity is a SHA-1 and its wanted one is a zip. Both remainders contain a digit, so without
     // the rule this pair was drawn as a version jump from a hash to a filename.
-    const jump = versionJump(
-      "c0bac3a03dad681347cbe4a3bc932aff8ffd8203",
-      "nordtal-resource-pack-0.9.4.zip",
-      "0.9.4",
-    )
+    const jump = versionJump("c0bac3a03dad681347cbe4a3bc932aff8ffd8203", "nordtal-resource-pack-0.9.4.zip", "0.9.4")
     expect(jump).toEqual({
       from: "c0bac3a03dad681347cbe4a3bc932aff8ffd8203",
       to: "0.9.4",

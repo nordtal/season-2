@@ -7,7 +7,6 @@ import eu.nordtal.s2.smp.milestone.ObjectiveType;
 import eu.nordtal.s2.smp.milestone.TrackShape;
 import eu.nordtal.s2.smp.milestone.TrackValidation;
 import eu.nordtal.s2.smp.milestone.Unlock;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -27,8 +26,7 @@ import java.util.Objects;
  */
 public final class Milestones {
 
-    private Milestones() {
-    }
+    private Milestones() {}
 
     /**
      * The outcome of reading the file.
@@ -63,16 +61,16 @@ public final class Milestones {
         final List<TrackValidation.Problem> problems = new ArrayList<>();
         final List<Milestone> milestones = new ArrayList<>();
 
-        final List<MilestonesSpec.MilestoneEntry> entries =
-                spec.milestones() == null ? List.of() : spec.milestones();
+        final List<MilestonesSpec.MilestoneEntry> entries = spec.milestones() == null ? List.of() : spec.milestones();
         for (final MilestonesSpec.MilestoneEntry entry : entries) {
             final String key = entry.key() == null ? "" : entry.key().trim();
 
             final Unlock unlock = Unlock.parse(entry.unlocks()).orElse(null);
             if (unlock == null) {
-                problems.add(new TrackValidation.Problem(key, null,
-                        "unlocks '" + entry.unlocks() + "', which is not one of BORDER, NETHER, END, "
-                                + "NOTHING."));
+                problems.add(new TrackValidation.Problem(
+                        key,
+                        null,
+                        "unlocks '" + entry.unlocks() + "', which is not one of BORDER, NETHER, END, " + "NOTHING."));
                 continue;
             }
 
@@ -80,22 +78,31 @@ public final class Milestones {
             final List<MilestonesSpec.ObjectiveEntry> objectiveEntries =
                     entry.objectives() == null ? List.of() : entry.objectives();
             for (final MilestonesSpec.ObjectiveEntry objectiveEntry : objectiveEntries) {
-                final String objectiveKey = objectiveEntry.key() == null ? "" : objectiveEntry.key().trim();
-                final ObjectiveType type = ObjectiveType.parse(objectiveEntry.type()).orElse(null);
+                final String objectiveKey =
+                        objectiveEntry.key() == null ? "" : objectiveEntry.key().trim();
+                final ObjectiveType type =
+                        ObjectiveType.parse(objectiveEntry.type()).orElse(null);
                 if (type == null) {
-                    problems.add(new TrackValidation.Problem(key, objectiveKey,
+                    problems.add(new TrackValidation.Problem(
+                            key,
+                            objectiveKey,
                             "has type '" + objectiveEntry.type() + "', which is not one of HAND_IN, "
                                     + "STATISTIC, ADVANCEMENT."));
                     continue;
                 }
-                objectives.add(new Objective(objectiveKey, type,
-                        trimmed(objectiveEntry.role()), objectiveEntry.target(),
-                        trimmedList(objectiveEntry.items()), trimmed(objectiveEntry.statistic()),
-                        trimmedList(objectiveEntry.subjects()), trimmed(objectiveEntry.advancement())));
+                objectives.add(new Objective(
+                        objectiveKey,
+                        type,
+                        trimmed(objectiveEntry.role()),
+                        objectiveEntry.target(),
+                        trimmedList(objectiveEntry.items()),
+                        trimmed(objectiveEntry.statistic()),
+                        trimmedList(objectiveEntry.subjects()),
+                        trimmed(objectiveEntry.advancement())));
             }
 
-            milestones.add(new Milestone(key, unlock, entry.borderDiameter(), entry.objectivePot(),
-                    entry.adminUnlocked(), objectives));
+            milestones.add(new Milestone(
+                    key, unlock, entry.borderDiameter(), entry.objectivePot(), entry.adminUnlocked(), objectives));
         }
 
         problems.addAll(TrackShape.validate(milestones));

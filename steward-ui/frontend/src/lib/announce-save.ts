@@ -11,11 +11,7 @@ import type { ConfigReloadOutcome } from "@/lib/api"
  * for a document nothing has re-fetched yet, and is treated the same as `APPLIED` was always
  * shown: a plain confirmation with the file's name.
  */
-export function announceSave(
-  label: string,
-  reload: ConfigReloadOutcome | undefined,
-  fallbackDescription: string,
-) {
+export function announceSave(label: string, reload: ConfigReloadOutcome | undefined, fallbackDescription: string) {
   if (!reload || reload.status === "APPLIED") {
     toast.success(label, { description: reload?.message ?? fallbackDescription })
     return

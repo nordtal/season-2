@@ -1,13 +1,11 @@
 package eu.nordtal.s2.proxy.update;
 
 import eu.nordtal.s2.common.update.UpdateStatus;
-
-import org.jetbrains.annotations.Nullable;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * When to speak during a countdown, and what to say - with no proxy, no database and no clock in it.
@@ -79,8 +77,7 @@ public final class Countdown {
      *
      * @param delay from the instant {@link #beats} was called
      */
-    public record Beat(Duration delay, Announcement announcement) {
-    }
+    public record Beat(Duration delay, Announcement announcement) {}
 
     /** The request being counted down, so a second one starts a fresh set. */
     private Long watching;
@@ -111,8 +108,7 @@ public final class Countdown {
 
         for (final long threshold : CHAT_THRESHOLDS) {
             if (secondsShown >= threshold) {
-                beats.add(atOrNow(millisLeft, threshold,
-                        new Announcement(Announcement.Kind.COUNTDOWN, threshold)));
+                beats.add(atOrNow(millisLeft, threshold, new Announcement(Announcement.Kind.COUNTDOWN, threshold)));
             }
         }
         for (long second = SUBTITLES_FROM; second >= 1L; second--) {
@@ -120,12 +116,10 @@ public final class Countdown {
             // line draws the title of its own second, and two titles on one second do not queue -
             // the later one replaces the earlier mid-fade. Ten is the one that collides today.
             if (secondsShown >= second && !CHAT_THRESHOLDS.contains(second)) {
-                beats.add(atOrNow(millisLeft, second,
-                        new Announcement(Announcement.Kind.TICK, second)));
+                beats.add(atOrNow(millisLeft, second, new Announcement(Announcement.Kind.TICK, second)));
             }
         }
-        beats.add(new Beat(Duration.ofMillis(millisLeft),
-                new Announcement(Announcement.Kind.NOW, 0L)));
+        beats.add(new Beat(Duration.ofMillis(millisLeft), new Announcement(Announcement.Kind.NOW, 0L)));
 
         // Sorted rather than emitted in order: the chat thresholds and the subtitles interleave at
         // ten seconds, and a caller scheduling them in the order they were built would still be
@@ -141,8 +135,7 @@ public final class Countdown {
      * a number the clock still shows but whose exact instant is already some milliseconds behind
      * us.</p>
      */
-    private static Beat atOrNow(final long millisLeft, final long seconds,
-                                final Announcement announcement) {
+    private static Beat atOrNow(final long millisLeft, final long seconds, final Announcement announcement) {
         return new Beat(Duration.ofMillis(Math.max(0L, millisLeft - seconds * 1000L)), announcement);
     }
 

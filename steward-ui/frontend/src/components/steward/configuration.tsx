@@ -11,14 +11,9 @@ import type {
 import { languageName } from "@/lib/language-names"
 import { ListControl, ScalarControl } from "@/components/steward/config-controls"
 import { RawConfigEditor } from "@/components/steward/raw-config-editor"
-import {
-  type SectionValues,
-  RepeatableCards,
-  sectionsFromEntry,
-} from "@/components/steward/repeatable-cards"
+import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-
 
 /**
  * `discordId` used to be defined here and stayed exported under this name for
@@ -51,23 +46,19 @@ export function EnvironmentOverriddenBadge() {
     <Tooltip>
       <TooltipTrigger asChild>
         <span tabIndex={0} className="rounded-full focus-visible:outline-none">
-          <Badge
-            variant="outline"
-            className="shrink-0 gap-1 border-warning/30 bg-warning/12 text-warning"
-          >
+          <Badge variant="outline" className="shrink-0 gap-1 border-warning/30 bg-warning/12 text-warning">
             <WarningIcon className="size-3" aria-hidden />
             env override
           </Badge>
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-xs">
-        An environment variable overrides this. Saving changes the file, not the running service,
-        until that variable is removed.
+        An environment variable overrides this. Saving changes the file, not the running service, until that variable is
+        removed.
       </TooltipContent>
     </Tooltip>
   )
 }
-
 
 /**
  * A file steward could not read as YAML, shown exactly as it stands on disk (steward/56) - and,
@@ -151,9 +142,7 @@ export function changed(document: ParsedConfigDocument, draft: Draft): ConfigCha
  * file for where the two names in it come from. A blank tag (a freshly added, still-empty card)
  * falls back to the plain index rather than showing an empty string as a title.
  */
-function sectionTitleFor(
-  entry: ConfigEntry,
-): ((section: SectionValues, index: number) => string) | undefined {
+function sectionTitleFor(entry: ConfigEntry): ((section: SectionValues, index: number) => string) | undefined {
   if (entry.path !== "languages") return undefined
   return (section, index) => {
     const tag = typeof section.tag === "string" ? section.tag.trim() : ""
@@ -219,4 +208,3 @@ export function Control({
     />
   )
 }
-

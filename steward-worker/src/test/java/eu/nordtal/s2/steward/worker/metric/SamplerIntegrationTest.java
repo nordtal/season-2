@@ -1,5 +1,10 @@
 package eu.nordtal.s2.steward.worker.metric;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.metric.MetricDirectory;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
@@ -7,21 +12,15 @@ import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
 import eu.nordtal.s2.steward.worker.schema.Schema;
+import java.time.Instant;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.time.Instant;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The sampler, end to end: the real daemon on one side, a real PostgreSQL on the other.
@@ -94,8 +93,9 @@ class SamplerIntegrationTest {
         }
         assertTrue(written > 0, "a round wrote nothing at all");
 
-        assertFalse(metrics.range("host", "memory_used_bytes",
-                        at.minusSeconds(60), at.plusSeconds(60)).isEmpty(),
+        assertFalse(
+                metrics.range("host", "memory_used_bytes", at.minusSeconds(60), at.plusSeconds(60))
+                        .isEmpty(),
                 "the host's memory never arrived in the table");
 
         final Set<String> services = docker.containers(PROJECT).stream()
@@ -105,8 +105,9 @@ class SamplerIntegrationTest {
         assumeTrue(!services.isEmpty(), "nothing of the stack is running - skipping");
 
         for (final String service : services) {
-            assertFalse(metrics.range(service, "memory_bytes",
-                            at.minusSeconds(60), at.plusSeconds(60)).isEmpty(),
+            assertFalse(
+                    metrics.range(service, "memory_bytes", at.minusSeconds(60), at.plusSeconds(60))
+                            .isEmpty(),
                     service + " is running but wrote no memory sample");
         }
     }
@@ -130,8 +131,10 @@ class SamplerIntegrationTest {
         // Exactly one, not "at most one": <= 1 is also what two rounds that wrote nothing at all
         // look like, and a sampler that has quietly stopped recording passes that assertion every
         // time. The row has to be there, and there has to be one of it.
-        assertEquals(1, metrics.range("host", "memory_used_bytes",
-                        at.minusSeconds(1), at.plusSeconds(1)).size(),
+        assertEquals(
+                1,
+                metrics.range("host", "memory_used_bytes", at.minusSeconds(1), at.plusSeconds(1))
+                        .size(),
                 "one instant, sampled twice, is one row of that series - no more and no fewer");
     }
 }

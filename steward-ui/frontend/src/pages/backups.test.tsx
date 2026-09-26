@@ -1,11 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -196,9 +190,7 @@ function backend(
 ) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/config") {
-      return json(200, [
-        { service: "steward-worker", name: "steward.yml", path: FILE, readable: true, writable: true },
-      ])
+      return json(200, [{ service: "steward-worker", name: "steward.yml", path: FILE, readable: true, writable: true }])
     }
     if (url === `/api/config/${FILE}`) {
       if (init?.method === "PUT") {
@@ -297,9 +289,7 @@ describe("BackupsPage - the destination dialog never draws a secret (steward/95)
     )
 
     fireEvent.change(endpoint, { target: { value: "" } })
-    await waitFor(() =>
-      expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true),
-    )
+    await waitFor(() => expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true))
   })
 
   it("sends only what was typed, together with the revision it was drawn from", async () => {
@@ -539,12 +529,8 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     expect(await screen.findByText("nordtal-20260917T044550Z.dump")).toBeTruthy()
     expect(screen.queryByText("nordtal-s2_mc-smp-20260918T044500Z.tar.zst")).toBeNull()
 
-    const link = screen.getByLabelText(
-      "Download nordtal-s2_mc-smp-20260917T044505Z.tar.zst",
-    ) as HTMLAnchorElement
-    expect(link.getAttribute("href")).toBe(
-      "/api/backups/nordtal-s2_mc-smp-20260917T044505Z.tar.zst/download",
-    )
+    const link = screen.getByLabelText("Download nordtal-s2_mc-smp-20260917T044505Z.tar.zst") as HTMLAnchorElement
+    expect(link.getAttribute("href")).toBe("/api/backups/nordtal-s2_mc-smp-20260917T044505Z.tar.zst/download")
   })
 
   it("says so when no run matches the id, rather than drawing an empty page", async () => {

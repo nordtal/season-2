@@ -1,16 +1,10 @@
-
 import { ShieldWarningIcon } from "@phosphor-icons/react"
 import type { Me } from "@/lib/api"
 import { DiscordMark } from "@/app/discord-mark"
 import { StewardMark } from "@/app/steward-mark"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 
 /**
@@ -58,7 +52,6 @@ export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
                 </a>
               </Button>
             )}
-
           </CardContent>
         </Card>
       </div>

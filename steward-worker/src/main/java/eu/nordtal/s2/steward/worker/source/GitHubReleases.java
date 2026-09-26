@@ -3,14 +3,12 @@ package eu.nordtal.s2.steward.worker.source;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.worker.http.Http;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The GitHub releases API, for the two repositories that publish jars we run: our own
@@ -54,16 +52,21 @@ public final class GitHubReleases {
      *                   still reported, because "GitHub said something we did not expect" belongs
      *                   in a report and not in a comment claiming it cannot happen.
      */
-    public record Release(@NotNull String tag, boolean prerelease, @NotNull List<Asset> assets) {
+    public record Release(
+            @NotNull String tag,
+            boolean prerelease,
+            @NotNull List<Asset> assets) {
 
         /** An asset by exact name, or {@code null}. */
         public @Nullable Asset asset(final @NotNull String name) {
-            return assets.stream().filter(candidate -> candidate.name().equals(name)).findFirst().orElse(null);
+            return assets.stream()
+                    .filter(candidate -> candidate.name().equals(name))
+                    .findFirst()
+                    .orElse(null);
         }
     }
 
-    public record Asset(@NotNull String name, @NotNull URI url, long size) {
-    }
+    public record Asset(@NotNull String name, @NotNull URI url, long size) {}
 
     /**
      * The newest published release of a repository.
@@ -100,9 +103,7 @@ public final class GitHubReleases {
         }
 
         return new Release(
-                Json.string(payload, "tag_name", what),
-                Json.bool(payload, "prerelease", false),
-                List.copyOf(assets));
+                Json.string(payload, "tag_name", what), Json.bool(payload, "prerelease", false), List.copyOf(assets));
     }
 
     /**

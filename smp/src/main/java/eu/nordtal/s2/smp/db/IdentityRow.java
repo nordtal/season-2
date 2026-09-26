@@ -11,6 +11,4 @@ package eu.nordtal.s2.smp.db;
  * {@code smp_player} row, and one who has never been counted by the proxy has no
  * {@code player_playtime} row. Null there means "none yet" and is not an error.
  */
-public record IdentityRow(String locale, Boolean admin, Boolean donor, Integer aura,
-                          Long playtimeSeconds) {
-}
+public record IdentityRow(String locale, Boolean admin, Boolean donor, Integer aura, Long playtimeSeconds) {}

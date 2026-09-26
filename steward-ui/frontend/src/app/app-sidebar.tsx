@@ -84,10 +84,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
 /** Substitutes `$name`-style segments, so one entry can describe a parameterised route. */
 export function resolveHref(to: string, params?: Record<string, string>) {
   if (!params) return to
-  return Object.entries(params).reduce(
-    (path, [key, value]) => path.replace(`$${key}`, encodeURIComponent(value)),
-    to,
-  )
+  return Object.entries(params).reduce((path, [key, value]) => path.replace(`$${key}`, encodeURIComponent(value)), to)
 }
 
 /**

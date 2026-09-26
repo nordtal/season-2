@@ -1,24 +1,20 @@
 package eu.nordtal.s2.common.hud;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.hud.BossBarLine.Pill;
 import eu.nordtal.s2.common.pack.PackAdvances;
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.ShadowColor;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Walks a composed HUD line with a cursor driven by the pack's own advances, so it can contradict
@@ -41,8 +37,7 @@ class BossBarLineTest {
      * last painted column is {@code cursor + advance - 2} - the pixel a person sees, which is what
      * the padding is measured against.</p>
      */
-    private record Span(String what, int start, int end) {
-    }
+    private record Span(String what, int start, int end) {}
 
     @Test
     @DisplayName("each pill's content sits PADDING in from its caps, and the line ends on the last pill")
@@ -59,17 +54,25 @@ class BossBarLineTest {
         for (int index = 0; index < pills.size(); index++) {
             final Span pill = walk.pills.get(index);
             final Span content = walk.contents.get(index);
-            assertEquals(pill.start + BossBarWidth.CAP + BossBarLine.PADDING, content.start,
+            assertEquals(
+                    pill.start + BossBarWidth.CAP + BossBarLine.PADDING,
+                    content.start,
                     "pill " + index + "'s content does not start PADDING in from the left cap");
-            assertEquals(pill.end - BossBarWidth.CAP - BossBarLine.PADDING, content.end,
+            assertEquals(
+                    pill.end - BossBarWidth.CAP - BossBarLine.PADDING,
+                    content.end,
                     "pill " + index + "'s content does not end PADDING before the right cap - the"
                             + " pill is the wrong width for what it holds");
             if (index > 0) {
-                assertEquals(walk.pills.get(index - 1).end + 1 + BossBarLine.GAP, pill.start,
+                assertEquals(
+                        walk.pills.get(index - 1).end + 1 + BossBarLine.GAP,
+                        pill.start,
                         "pill " + index + " is not GAP after the one before it");
             }
         }
-        assertEquals(walk.pills.get(pills.size() - 1).end + 1, walk.cursor,
+        assertEquals(
+                walk.pills.get(pills.size() - 1).end + 1,
+                walk.cursor,
                 "the cursor has to finish one past the last pill's last column: the client centres the"
                         + " whole line by its total advance, so anything past it shifts every pill");
     }
@@ -78,7 +81,8 @@ class BossBarLineTest {
     @DisplayName("an icon-only pill and a text-only pill are both just their content plus padding")
     void theTwoDegenerateShapes() {
         final Walk icon = walk(BossBarLine.compose(List.of(Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, ""))));
-        assertEquals(ADVANCES.get(Glyphs.BOSSBAR_ICON_COMPASS.codePointAt(0)) - 2,
+        assertEquals(
+                ADVANCES.get(Glyphs.BOSSBAR_ICON_COMPASS.codePointAt(0)) - 2,
                 icon.contents.get(0).end - icon.contents.get(0).start,
                 "an icon-only pill must not carry the icon gap after a text that is not there");
 
@@ -90,14 +94,20 @@ class BossBarLineTest {
     @DisplayName("the component names the bossbar font and turns the shadow off")
     void theComponentIsStyledTheWayTheHudNeeds() {
         final Component line = BossBarLine.render(List.of(Pill.of("x")));
-        assertEquals(Key.key(Glyphs.FONT_BOSSBAR), line.style().font(),
+        assertEquals(
+                Key.key(Glyphs.FONT_BOSSBAR),
+                line.style().font(),
                 "without the font key the segments resolve against minecraft:default, where U+E004"
                         + " is the admin tag and not a background tile");
-        assertEquals(ShadowColor.none(), line.style().shadowColor(),
+        assertEquals(
+                ShadowColor.none(),
+                line.style().shadowColor(),
                 "the client draws every glyph a second time one pixel down and right; on butted"
                         + " tiles that second copy is a dark seam at every boundary");
-        assertNull(line.style().color(), "the line is drawn in the client's default white so the"
-                + " icons' own colours reach the screen unmultiplied");
+        assertNull(
+                line.style().color(),
+                "the line is drawn in the client's default white so the"
+                        + " icons' own colours reach the screen unmultiplied");
         assertEquals(BossBarLine.compose(List.of(Pill.of("x"))), ((TextComponent) line).content());
     }
 
@@ -114,8 +124,7 @@ class BossBarLineTest {
 
     // --- the walk ------------------------------------------------------------------------
 
-    private record Walk(List<Span> pills, List<Span> contents, int cursor) {
-    }
+    private record Walk(List<Span> pills, List<Span> contents, int cursor) {}
 
     /**
      * Replays the composition the way the client lays it out. A pill's background is the run from
@@ -161,9 +170,16 @@ class BossBarLineTest {
     }
 
     private static boolean isBackground(final int codePoint) {
-        for (final String tile : new String[]{Glyphs.BOSSBAR_BG_1, Glyphs.BOSSBAR_BG_2, Glyphs.BOSSBAR_BG_4,
-                Glyphs.BOSSBAR_BG_8, Glyphs.BOSSBAR_BG_16, Glyphs.BOSSBAR_BG_32, Glyphs.BOSSBAR_BG_64,
-                Glyphs.BOSSBAR_BG_128}) {
+        for (final String tile : new String[] {
+            Glyphs.BOSSBAR_BG_1,
+            Glyphs.BOSSBAR_BG_2,
+            Glyphs.BOSSBAR_BG_4,
+            Glyphs.BOSSBAR_BG_8,
+            Glyphs.BOSSBAR_BG_16,
+            Glyphs.BOSSBAR_BG_32,
+            Glyphs.BOSSBAR_BG_64,
+            Glyphs.BOSSBAR_BG_128
+        }) {
             if (tile.codePointAt(0) == codePoint) {
                 return true;
             }

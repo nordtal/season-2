@@ -1,5 +1,19 @@
 package eu.nordtal.s2.common.access;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,21 +25,6 @@ import org.postgresql.PGNotification;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The admin tree against a real PostgreSQL running the real migrations: the bootstrap, who may
@@ -52,7 +51,8 @@ class AdminTreeIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
+        assumeTrue(
+                DockerClientFactory.instance().isDockerAvailable(),
                 "No Docker daemon reachable - skipping the PostgreSQL-backed admin tree tests");
 
         postgres = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -97,8 +97,8 @@ class AdminTreeIntegrationTest {
 
         assertTrue(tree.isAdmin(ROOT));
         assertFalse(tree.isAdmin(A));
-        assertEquals(List.of(new AdminTree.Admin(ROOT, null, tree.admins().getFirst().grantedAt())),
-                tree.admins());
+        assertEquals(
+                List.of(new AdminTree.Admin(ROOT, null, tree.admins().getFirst().grantedAt())), tree.admins());
     }
 
     @Test
@@ -130,7 +130,9 @@ class AdminTreeIntegrationTest {
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(A, A1));
 
         final List<AdminTree.Admin> admins = tree.admins();
-        assertEquals(List.of(ROOT, A, A1), admins.stream().map(AdminTree.Admin::discordId).toList());
+        assertEquals(
+                List.of(ROOT, A, A1),
+                admins.stream().map(AdminTree.Admin::discordId).toList());
         assertNull(admins.get(0).grantedBy());
         assertEquals(ROOT, admins.get(1).grantedBy());
         assertEquals(A, admins.get(2).grantedBy());
@@ -145,7 +147,9 @@ class AdminTreeIntegrationTest {
 
         assertEquals(AdminTree.Grant.NOT_A_MEMBER, tree.grant(ROOT, A));
         assertEquals(AdminTree.Grant.NOT_A_MEMBER, tree.grant(ROOT, B));
-        assertEquals(AdminTree.Grant.NOT_A_MEMBER, tree.grant(ROOT, "500000000000000088"),
+        assertEquals(
+                AdminTree.Grant.NOT_A_MEMBER,
+                tree.grant(ROOT, "500000000000000088"),
                 "an account the bot has never seen is not a member either");
         assertEquals(0, count("SELECT count(*) FROM admin_grant"), "a refused grant is not counted");
     }
@@ -158,7 +162,9 @@ class AdminTreeIntegrationTest {
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(A, A1));
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(ROOT, B));
 
-        assertEquals(AdminTree.Grant.RATE_LIMITED, tree.grant(A1, A1X),
+        assertEquals(
+                AdminTree.Grant.RATE_LIMITED,
+                tree.grant(A1, A1X),
                 "the limit is global - A1 has granted nobody and is still refused");
         assertFalse(tree.isAdmin(A1X));
 
@@ -179,19 +185,25 @@ class AdminTreeIntegrationTest {
 
         assertEquals(AdminTree.Revocation.Outcome.NOT_BELOW, tree.revoke(A, B).outcome(), "a sibling");
         assertEquals(AdminTree.Revocation.Outcome.NOT_BELOW, tree.revoke(A1, A).outcome(), "an ancestor");
-        assertEquals(AdminTree.Revocation.Outcome.NOT_BELOW, tree.revoke(B, A1).outcome(),
-                "somebody on another branch");
-        assertEquals(AdminTree.Revocation.Outcome.NOT_BELOW, tree.revoke(ROOT, OUTSIDER).outcome(),
+        assertEquals(
+                AdminTree.Revocation.Outcome.NOT_BELOW, tree.revoke(B, A1).outcome(), "somebody on another branch");
+        assertEquals(
+                AdminTree.Revocation.Outcome.NOT_BELOW,
+                tree.revoke(ROOT, OUTSIDER).outcome(),
                 "somebody who is no admin at all");
-        assertEquals(AdminTree.Revocation.Outcome.ACTOR_NOT_ADMIN, tree.revoke(OUTSIDER, A).outcome());
+        assertEquals(
+                AdminTree.Revocation.Outcome.ACTOR_NOT_ADMIN,
+                tree.revoke(OUTSIDER, A).outcome());
         assertEquals(Set.of(ROOT, A, B, A1, A1X), admins(), "no refusal changed anything");
 
         final AdminTree.Revocation revocation = tree.revoke(ROOT, A);
         assertEquals(AdminTree.Revocation.Outcome.REVOKED, revocation.outcome());
         assertEquals(List.of(A, A1, A1X), revocation.removed(), "the target first, then its branch");
         assertEquals(Set.of(ROOT, B), admins());
-        assertEquals(0, count("SELECT count(*) FROM discord_user WHERE admin_granted_by IS NOT NULL"
-                + " AND NOT admin"), "a non-admin keeps no granter");
+        assertEquals(
+                0,
+                count("SELECT count(*) FROM discord_user WHERE admin_granted_by IS NOT NULL" + " AND NOT admin"),
+                "a non-admin keeps no granter");
     }
 
     @Test
@@ -261,7 +273,8 @@ class AdminTreeIntegrationTest {
 
             tree.grant(ROOT, A);
 
-            final PGNotification[] arrived = listening.unwrap(PGConnection.class).getNotifications(5000);
+            final PGNotification[] arrived =
+                    listening.unwrap(PGConnection.class).getNotifications(5000);
             assertNotNull(arrived, "no notification arrived on nordtal_admin within 5s");
             assertEquals(A, arrived[0].getParameter());
         }
@@ -272,10 +285,13 @@ class AdminTreeIntegrationTest {
     @Test
     @DisplayName("the flag cannot be raised without a grant - the old role mirror's write is refused")
     void theFlagNeedsAGrant() {
-        assertThrows(SQLException.class, () -> executeChecked(
-                "UPDATE discord_user SET admin = true WHERE discord_id = '" + A + "'"));
-        assertThrows(SQLException.class, () -> executeChecked(
-                "INSERT INTO discord_user (discord_id, admin) VALUES ('500000000000000066', true)"));
+        assertThrows(
+                SQLException.class,
+                () -> executeChecked("UPDATE discord_user SET admin = true WHERE discord_id = '" + A + "'"));
+        assertThrows(
+                SQLException.class,
+                () -> executeChecked(
+                        "INSERT INTO discord_user (discord_id, admin) VALUES ('500000000000000066', true)"));
     }
 
     @Test
@@ -283,8 +299,10 @@ class AdminTreeIntegrationTest {
     void oneRootAtMost() {
         tree.claimRootIfNobody(ROOT);
 
-        assertThrows(SQLException.class, () -> executeChecked("UPDATE discord_user SET admin = true,"
-                + " admin_granted_at = now() WHERE discord_id = '" + A + "'"));
+        assertThrows(
+                SQLException.class,
+                () -> executeChecked("UPDATE discord_user SET admin = true,"
+                        + " admin_granted_at = now() WHERE discord_id = '" + A + "'"));
     }
 
     // ---------------------------------------------------------------- helpers
@@ -313,15 +331,15 @@ class AdminTreeIntegrationTest {
 
     private static void executeChecked(final String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }
 
     private static long count(final String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             var rows = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                var rows = statement.executeQuery(sql)) {
             assertTrue(rows.next(), "expected a row from: " + sql);
             return rows.getLong(1);
         } catch (final SQLException exception) {

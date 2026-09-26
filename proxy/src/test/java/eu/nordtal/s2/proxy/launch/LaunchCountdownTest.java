@@ -1,16 +1,14 @@
 package eu.nordtal.s2.proxy.launch;
 
-import eu.nordtal.s2.common.message.Messages;
-
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Locale;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.message.Messages;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Locale;
+import org.junit.jupiter.api.Test;
 
 /**
  * The countdown the three {@code PRE_LAUNCH} screens and the server browser share.
@@ -23,8 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class LaunchCountdownTest {
 
-    private static final Messages MESSAGES =
-            Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
+    private static final Messages MESSAGES = Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
 
     private static final Instant NOW = Instant.parse("2026-09-03T12:00:00Z");
 
@@ -94,8 +91,8 @@ class LaunchCountdownTest {
         // contains rather than startsWith: gate.countdown carries MiniMessage since the palette
         // pass, so the sentence begins with a tag. What is being asserted is which of the two keys
         // was used, and that survives the markup - anchoring on the first character did not.
-        final String counting = LaunchCountdown.sentence(MESSAGES, Locale.ENGLISH,
-                NOW.plus(Duration.ofMinutes(20)), NOW);
+        final String counting =
+                LaunchCountdown.sentence(MESSAGES, Locale.ENGLISH, NOW.plus(Duration.ofMinutes(20)), NOW);
         assertTrue(counting.contains("The network opens in"), counting);
         assertTrue(counting.contains("20 minutes"), counting);
 
@@ -107,11 +104,11 @@ class LaunchCountdownTest {
     void germanIsTranslatedRatherThanFallingBackToEnglish() {
         // The bundle falls back to English for a missing key, silently, which is exactly how a
         // half-translated screen ships. These are the keys the PRE_LAUNCH screens are made of.
-        assertEquals("42 Minuten", LaunchCountdown.render(MESSAGES, Locale.GERMAN,
-                NOW.plus(Duration.ofMinutes(42)), NOW));
+        assertEquals(
+                "42 Minuten", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW.plus(Duration.ofMinutes(42)), NOW));
         assertEquals("jedem Moment", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW, NOW));
-        assertTrue(LaunchCountdown.sentence(MESSAGES, Locale.GERMAN,
-                NOW.plus(Duration.ofMinutes(42)), NOW).contains("Das Netzwerk öffnet"));
+        assertTrue(LaunchCountdown.sentence(MESSAGES, Locale.GERMAN, NOW.plus(Duration.ofMinutes(42)), NOW)
+                .contains("Das Netzwerk öffnet"));
     }
 
     private static String render(final Duration remaining) {

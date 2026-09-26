@@ -4,14 +4,7 @@ import { cn } from "cn"
 
 import { bytes, count, percent, relative } from "@/lib/format"
 import { summarise } from "@/lib/health"
-import {
-  useActions,
-  useBackups,
-  useHost,
-  useMetrics,
-  useServices,
-  useSettings,
-} from "@/lib/queries"
+import { useActions, useBackups, useHost, useMetrics, useServices, useSettings } from "@/lib/queries"
 import { ActionRow } from "@/components/steward/actions"
 import { NetworkPanel } from "@/components/steward/network/view"
 import { OnlineLine, useOnline } from "@/components/steward/online"
@@ -182,9 +175,7 @@ function MetricRow() {
         hint={
           host.data
             ? (unreadable ??
-              (host.data.memoryTotalBytes
-                ? `${bytes(usedMemory)} of ${bytes(host.data.memoryTotalBytes)}`
-                : "–"))
+              (host.data.memoryTotalBytes ? `${bytes(usedMemory)} of ${bytes(host.data.memoryTotalBytes)}` : "–"))
             : WAITING_HINT
         }
       >

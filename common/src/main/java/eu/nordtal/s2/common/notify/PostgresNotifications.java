@@ -1,8 +1,5 @@
 package eu.nordtal.s2.common.notify;
 
-import org.postgresql.PGConnection;
-import org.postgresql.PGNotification;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -11,6 +8,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
+import org.postgresql.PGConnection;
+import org.postgresql.PGNotification;
 
 /**
  * The pgjdbc half of a listener: one plain JDBC connection with a {@code LISTEN} issued for each
@@ -38,8 +37,7 @@ public final class PostgresNotifications implements Notifications {
     private final PGConnection pg;
     private final List<String> channels;
 
-    private PostgresNotifications(final Connection connection, final List<String> channels)
-            throws SQLException {
+    private PostgresNotifications(final Connection connection, final List<String> channels) throws SQLException {
         this.connection = connection;
         this.pg = connection.unwrap(PGConnection.class);
         this.channels = channels;
@@ -57,9 +55,13 @@ public final class PostgresNotifications implements Notifications {
      * @param channels              the channels to {@code LISTEN} on, at least one
      * @return a connector that opens one dedicated connection per call
      */
-    public static Connector connector(final String jdbcUrl, final String username,
-                                      final String password, final int socketTimeoutSeconds,
-                                      final String applicationName, final List<String> channels) {
+    public static Connector connector(
+            final String jdbcUrl,
+            final String username,
+            final String password,
+            final int socketTimeoutSeconds,
+            final String applicationName,
+            final List<String> channels) {
         Objects.requireNonNull(jdbcUrl, "jdbcUrl");
         Objects.requireNonNull(username, "username");
         Objects.requireNonNull(applicationName, "applicationName");
@@ -71,8 +73,7 @@ public final class PostgresNotifications implements Notifications {
             // The name goes into the statement unquoted - it is an identifier, so there is no
             // placeholder for it.
             if (!channel.matches("[a-z][a-z0-9_]*")) {
-                throw new IllegalArgumentException(
-                        "not a usable LISTEN channel name: '" + channel + "'");
+                throw new IllegalArgumentException("not a usable LISTEN channel name: '" + channel + "'");
             }
         }
 
@@ -114,14 +115,12 @@ public final class PostgresNotifications implements Notifications {
      */
     @Override
     public boolean awaitNotification(final Duration timeout) throws SQLException {
-        final PGNotification[] notifications =
-                pg.getNotifications((int) Math.max(1L, timeout.toMillis()));
+        final PGNotification[] notifications = pg.getNotifications((int) Math.max(1L, timeout.toMillis()));
         if (notifications != null && notifications.length > 0) {
             return true;
         }
         if (!connection.isValid(LIVENESS_CHECK_SECONDS)) {
-            throw new SQLException("The " + String.join(", ", channels)
-                    + " listener connection is no longer valid");
+            throw new SQLException("The " + String.join(", ", channels) + " listener connection is no longer valid");
         }
         return false;
     }

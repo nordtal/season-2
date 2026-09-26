@@ -7,13 +7,6 @@ import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
 import eu.nordtal.s2.common.notify.Notifications;
 import eu.nordtal.s2.common.notify.PostgresNotifications;
-
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.IllegalPluginAccessException;
-import org.bukkit.plugin.Plugin;
-import org.slf4j.Logger;
-
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
@@ -21,6 +14,11 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.IllegalPluginAccessException;
+import org.bukkit.plugin.Plugin;
+import org.slf4j.Logger;
 
 /**
  * Keeps a Paper server's operators in step with {@code discord_user.admin} while people are online.
@@ -81,6 +79,7 @@ public final class AdminWatch implements AutoCloseable {
      * command tree and {@code ops.json} cannot disagree about who is an admin.</p>
      */
     private volatile Set<UUID> known = Set.of();
+
     private volatile boolean running = true;
 
     /**
@@ -96,9 +95,13 @@ public final class AdminWatch implements AutoCloseable {
      *                  Pass {@code set -> { }} when there is nothing.
      * @param logger    the plugin logger
      */
-    public AdminWatch(final Plugin plugin, final AccessDirectory access,
-                      final AdminOperators operators, final FullServerAdmission admission,
-                      final Consumer<Set<UUID>> also, final Logger logger) {
+    public AdminWatch(
+            final Plugin plugin,
+            final AccessDirectory access,
+            final AdminOperators operators,
+            final FullServerAdmission admission,
+            final Consumer<Set<UUID>> also,
+            final Logger logger) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.access = Objects.requireNonNull(access, "access");
         this.operators = Objects.requireNonNull(operators, "operators");
@@ -138,9 +141,11 @@ public final class AdminWatch implements AutoCloseable {
      *                     caller's own poll is then the only path, which is the same trade the
      *                     admin roster makes
      */
-    public void start(final Duration pollInterval, final DatabaseConnection listenOn,
-                      final List<NotificationListener.Refresh> alsoRefresh,
-                      final List<String> alsoChannels) {
+    public void start(
+            final Duration pollInterval,
+            final DatabaseConnection listenOn,
+            final List<NotificationListener.Refresh> alsoRefresh,
+            final List<String> alsoChannels) {
         final long ticks = Math.max(20L, pollInterval.toSeconds() * 20L);
         // First run on the next tick rather than after a whole interval. The set starts empty, and
         // anything reading it through isAdmin - a command tree, most of all - would answer "nobody
@@ -148,8 +153,10 @@ public final class AdminWatch implements AutoCloseable {
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::refresh, 1L, ticks);
 
         if (listenOn == null) {
-            logger.info("The {} LISTEN connection is disabled; the {}s poll is the only path an"
-                    + " admin change travels", Channels.ADMIN, pollInterval.toSeconds());
+            logger.info(
+                    "The {} LISTEN connection is disabled; the {}s poll is the only path an" + " admin change travels",
+                    Channels.ADMIN,
+                    pollInterval.toSeconds());
             return;
         }
 
@@ -157,17 +164,19 @@ public final class AdminWatch implements AutoCloseable {
         channels.addAll(alsoChannels);
 
         final Notifications.Connector connector = PostgresNotifications.connector(
-                listenOn.jdbcUrl(), listenOn.username(), listenOn.password(),
+                listenOn.jdbcUrl(),
+                listenOn.username(),
+                listenOn.password(),
                 listenOn.socketTimeoutSeconds(),
-                plugin.getName() + "-admin-listener", channels);
+                plugin.getName() + "-admin-listener",
+                channels);
 
         final List<NotificationListener.Refresh> refreshes =
-                new java.util.ArrayList<>(List.of(
-                        new NotificationListener.Refresh("the admin roster", this::refresh)));
+                new java.util.ArrayList<>(List.of(new NotificationListener.Refresh("the admin roster", this::refresh)));
         refreshes.addAll(alsoRefresh);
 
-        final NotificationListener started = new NotificationListener(connector,
-                plugin.getName() + "-admin-listener", refreshes, logger, pollInterval);
+        final NotificationListener started = new NotificationListener(
+                connector, plugin.getName() + "-admin-listener", refreshes, logger, pollInterval);
         this.listener = started;
         started.start();
     }
@@ -199,8 +208,7 @@ public final class AdminWatch implements AutoCloseable {
             // Deliberately not fatal. An unreachable database must not cost the operators who
             // already hold their flag - the next tick asks again, and the enable sweep is what
             // guarantees nothing survives a restart.
-            logger.warn("Could not read the admin roster; operators are unchanged until the next"
-                    + " poll.", failure);
+            logger.warn("Could not read the admin roster; operators are unchanged until the next" + " poll.", failure);
             return;
         }
 
@@ -242,8 +250,7 @@ public final class AdminWatch implements AutoCloseable {
             gained.removeAll(before);
             final Set<UUID> lost = new HashSet<>(before);
             lost.removeAll(after);
-            logger.info("The admin roster changed: {} gained operator, {} lost it",
-                    gained.size(), lost.size());
+            logger.info("The admin roster changed: {} gained operator, {} lost it", gained.size(), lost.size());
         }
     }
 
@@ -264,8 +271,7 @@ public final class AdminWatch implements AutoCloseable {
      * shape they all reduce to - the same reason {@code AccessDirectory}'s factories take a
      * {@code DataSource} rather than any one module's config.</p>
      */
-    public record DatabaseConnection(String jdbcUrl, String username, String password,
-                                     int socketTimeoutSeconds) {
+    public record DatabaseConnection(String jdbcUrl, String username, String password, int socketTimeoutSeconds) {
 
         public DatabaseConnection {
             Objects.requireNonNull(jdbcUrl, "jdbcUrl");

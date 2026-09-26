@@ -1,16 +1,14 @@
 package eu.nordtal.s2.smp.npc;
 
-import eu.nordtal.s2.smp.db.OwnContributionRow;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Locale;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.smp.db.OwnContributionRow;
+import java.util.List;
+import java.util.Locale;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The share line's arithmetic, which is the whole of what the spawn NPC's bottom row says.
@@ -31,23 +29,26 @@ class OwnShareTest {
         // which is what ObjectiveEngine will actually grant when that one completes. The aggregate
         // share is 30/400 = 7.5 %, which through the thresholds once would be one spin, and the
         // line would then promise a third of what the player is owed.
-        final OwnShare.Summary summary = OwnShare.of(List.of(
-                new OwnContributionRow("a", 30, 100),
-                new OwnContributionRow("b", 0, 100),
-                new OwnContributionRow("c", 0, 100),
-                new OwnContributionRow("d", 0, 100)), THRESHOLDS);
+        final OwnShare.Summary summary = OwnShare.of(
+                List.of(
+                        new OwnContributionRow("a", 30, 100),
+                        new OwnContributionRow("b", 0, 100),
+                        new OwnContributionRow("c", 0, 100),
+                        new OwnContributionRow("d", 0, 100)),
+                THRESHOLDS);
 
         assertEquals(3, summary.spins());
         assertEquals(7.5, summary.percent(), 1e-9);
-        assertEquals(List.of(3, 0, 0, 0), summary.lines().stream().map(OwnShare.Line::spins).toList());
+        assertEquals(
+                List.of(3, 0, 0, 0),
+                summary.lines().stream().map(OwnShare.Line::spins).toList());
     }
 
     @Test
     @DisplayName("the percentage is what was contributed over what the milestone asked for")
     void thePercentageIsPerMilestone() {
-        final OwnShare.Summary summary = OwnShare.of(List.of(
-                new OwnContributionRow("a", 500, 2000),
-                new OwnContributionRow("b", 100, 500)), THRESHOLDS);
+        final OwnShare.Summary summary = OwnShare.of(
+                List.of(new OwnContributionRow("a", 500, 2000), new OwnContributionRow("b", 100, 500)), THRESHOLDS);
 
         assertEquals(24.0, summary.percent(), 1e-9, "600 of 2500");
         assertEquals(25.0, summary.lines().get(0).percent(), 1e-9);
@@ -58,13 +59,13 @@ class OwnShareTest {
     @Test
     @DisplayName("a player who has contributed nothing is empty, and one who is just over the line is not")
     void emptyIsEmptyAndTwoPercentIsNot() {
-        assertTrue(OwnShare.of(List.of(new OwnContributionRow("a", 0, 100)), THRESHOLDS).empty());
+        assertTrue(OwnShare.of(List.of(new OwnContributionRow("a", 0, 100)), THRESHOLDS)
+                .empty());
         assertTrue(OwnShare.of(List.of(), THRESHOLDS).empty());
 
         // The qualifying threshold is 2 %, so this player IS paid and the menu must not tell them
         // they have contributed nothing.
-        final OwnShare.Summary just = OwnShare.of(
-                List.of(new OwnContributionRow("a", 2, 100)), THRESHOLDS);
+        final OwnShare.Summary just = OwnShare.of(List.of(new OwnContributionRow("a", 2, 100)), THRESHOLDS);
         assertFalse(just.empty());
         assertEquals(1, just.spins());
     }
@@ -72,11 +73,12 @@ class OwnShareTest {
     @Test
     @DisplayName("a contribution below the first threshold shows a share and promises no spin")
     void belowTheThresholdIsStillAShare() {
-        final OwnShare.Summary summary = OwnShare.of(
-                List.of(new OwnContributionRow("a", 1, 100)), THRESHOLDS);
+        final OwnShare.Summary summary = OwnShare.of(List.of(new OwnContributionRow("a", 1, 100)), THRESHOLDS);
         assertFalse(summary.empty());
         assertEquals(1.0, summary.percent(), 1e-9);
-        assertEquals(0, summary.spins(),
+        assertEquals(
+                0,
+                summary.spins(),
                 "1 % is under the 2 % qualifying threshold, so it earns nothing - and the line has"
                         + " to say a share of 1 % rather than round it into a spin");
     }
@@ -87,8 +89,7 @@ class OwnShareTest {
         // A target lowered by a reload is one of the concept's own escape hatches, and a HAND_IN
         // that finishes usually overshoots. A player who delivered twice what was asked should see
         // that they did.
-        final OwnShare.Summary summary = OwnShare.of(
-                List.of(new OwnContributionRow("a", 200, 100)), THRESHOLDS);
+        final OwnShare.Summary summary = OwnShare.of(List.of(new OwnContributionRow("a", 200, 100)), THRESHOLDS);
         assertEquals(200.0, summary.percent(), 1e-9);
     }
 
@@ -99,14 +100,17 @@ class OwnShareTest {
         // cannot happen - and would be a division by zero on the one screen every player opens.
         assertEquals(0.0, OwnShare.percentOf(5, 0), 1e-9);
         assertEquals(0.0, OwnShare.percentOf(0, 0), 1e-9);
-        assertTrue(OwnShare.of(List.of(new OwnContributionRow("a", 5, 0)), THRESHOLDS).empty());
+        assertTrue(OwnShare.of(List.of(new OwnContributionRow("a", 5, 0)), THRESHOLDS)
+                .empty());
     }
 
     @Test
     @DisplayName("no thresholds configured is no spins, not an exception")
     void noThresholdsPromisesNothing() {
-        assertEquals(0, OwnShare.of(
-                List.of(new OwnContributionRow("a", 100, 100)), List.of()).spins());
+        assertEquals(
+                0,
+                OwnShare.of(List.of(new OwnContributionRow("a", 100, 100)), List.of())
+                        .spins());
     }
 
     @Test

@@ -1,19 +1,18 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * A YAML sequence of mappings, read as {@link Kind#SECTIONS} and - for an existing entry's own
@@ -34,8 +33,7 @@ class ConfigFilesSectionsTest {
     @TempDir
     Path directory;
 
-    private static final String TIERS_FIXTURE =
-            "tiers:\n"
+    private static final String TIERS_FIXTURE = "tiers:\n"
             + "\n"
             + "  # How many days of access this buys. A day is exactly 24 hours.\n"
             + "- days: 30\n"
@@ -70,9 +68,11 @@ class ConfigFilesSectionsTest {
     void aFieldKeepsTheCommentDirectlyAboveItEvenBetweenTwoOtherFields() throws IOException {
         final ConfigEntry tiers = entry(read(TIERS_FIXTURE), "tiers");
 
-        assertEquals(List.of("How many days of access this buys. A day is exactly 24 hours."),
+        assertEquals(
+                List.of("How many days of access this buys. A day is exactly 24 hours."),
                 fieldOf(tiers, 0, "days").comments());
-        assertEquals(List.of("What it costs, in cents. Integer cents everywhere; never a float."),
+        assertEquals(
+                List.of("What it costs, in cents. Integer cents everywhere; never a float."),
                 fieldOf(tiers, 0, "price-cents").comments());
         // jcore never wrote a comment for the second and third entry.
         assertEquals(List.of(), fieldOf(tiers, 1, "days").comments());
@@ -95,9 +95,12 @@ class ConfigFilesSectionsTest {
     void theFieldsOfASectionAreNotAlsoFlattenedIntoTheDocumentsOwnList() throws IOException {
         final ConfigDocument document = read(TIERS_FIXTURE);
 
-        assertTrue(document.find("tiers[0].days").isEmpty(),
+        assertTrue(
+                document.find("tiers[0].days").isEmpty(),
                 "a section's own fields are reached through ConfigEntry.sections(), not find()");
-        assertEquals(List.of("tiers"), document.entries().stream().map(ConfigEntry::path).toList());
+        assertEquals(
+                List.of("tiers"),
+                document.entries().stream().map(ConfigEntry::path).toList());
     }
 
     @Test
@@ -130,12 +133,18 @@ class ConfigFilesSectionsTest {
         Files.writeString(file, TIERS_FIXTURE);
         final String before = Files.readString(file);
 
-        ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                Map.of("days", "30", "price-cents", "350"), // the only change
-                Map.of("days", "60", "price-cents", "500"),
-                Map.of("days", "90", "price-cents", "700")))));
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "tiers",
+                        ConfigChange.sections(List.of(
+                                Map.of("days", "30", "price-cents", "350"), // the only change
+                                Map.of("days", "60", "price-cents", "500"),
+                                Map.of("days", "90", "price-cents", "700")))));
 
-        assertEquals(before.replace("price-cents: 300", "price-cents: 350"), Files.readString(file),
+        assertEquals(
+                before.replace("price-cents: 300", "price-cents: 350"),
+                Files.readString(file),
                 "every byte other than the one changed value must be exactly as it was - the"
                         + " comments and the key order of the untouched entries included");
     }
@@ -145,10 +154,14 @@ class ConfigFilesSectionsTest {
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, TIERS_FIXTURE);
 
-        final ConfigDocument written = ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                Map.of("days", "30", "price-cents", "350"),
-                Map.of("days", "60", "price-cents", "500"),
-                Map.of("days", "90", "price-cents", "700")))));
+        final ConfigDocument written = ConfigFiles.write(
+                file,
+                Map.of(
+                        "tiers",
+                        ConfigChange.sections(List.of(
+                                Map.of("days", "30", "price-cents", "350"),
+                                Map.of("days", "60", "price-cents", "500"),
+                                Map.of("days", "90", "price-cents", "700")))));
 
         final ConfigEntry tiers = entry(written, "tiers");
         assertEquals("30", fieldValue(tiers, 0, "days"));
@@ -163,13 +176,17 @@ class ConfigFilesSectionsTest {
         Files.writeString(file, TIERS_FIXTURE);
         final String before = Files.readString(file);
 
-        ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                Map.of("days", "31", "price-cents", "300"),
-                Map.of("days", "60", "price-cents", "500"),
-                Map.of("days", "90", "price-cents", "750")))));
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "tiers",
+                        ConfigChange.sections(List.of(
+                                Map.of("days", "31", "price-cents", "300"),
+                                Map.of("days", "60", "price-cents", "500"),
+                                Map.of("days", "90", "price-cents", "750")))));
 
-        assertEquals(before.replace("days: 30", "days: 31")
-                        .replace("price-cents: 700", "price-cents: 750"),
+        assertEquals(
+                before.replace("days: 30", "days: 31").replace("price-cents: 700", "price-cents: 750"),
                 Files.readString(file));
     }
 
@@ -179,10 +196,14 @@ class ConfigFilesSectionsTest {
         Files.writeString(file, TIERS_FIXTURE);
         final String before = Files.readString(file);
 
-        ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                Map.of("days", "30", "price-cents", "300"),
-                Map.of("days", "60", "price-cents", "500"),
-                Map.of("days", "90", "price-cents", "700")))));
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "tiers",
+                        ConfigChange.sections(List.of(
+                                Map.of("days", "30", "price-cents", "300"),
+                                Map.of("days", "60", "price-cents", "500"),
+                                Map.of("days", "90", "price-cents", "700")))));
 
         assertEquals(before, Files.readString(file));
     }
@@ -205,19 +226,24 @@ class ConfigFilesSectionsTest {
      * the right red: the test was failing on the old refusal, not on a diff between two strings.</p>
      */
     @Test
-    void appendingAnEntryLeavesEveryExistingEntryByteIdenticalAndCopiesTheLastEntrysStyle()
-            throws IOException {
+    void appendingAnEntryLeavesEveryExistingEntryByteIdenticalAndCopiesTheLastEntrysStyle() throws IOException {
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, TIERS_FIXTURE);
         final String before = Files.readString(file);
 
-        final ConfigDocument written = ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                Map.of("days", "30", "price-cents", "300"),
-                Map.of("days", "60", "price-cents", "500"),
-                Map.of("days", "90", "price-cents", "700"),
-                Map.of("days", "120", "price-cents", "900")))));
+        final ConfigDocument written = ConfigFiles.write(
+                file,
+                Map.of(
+                        "tiers",
+                        ConfigChange.sections(List.of(
+                                Map.of("days", "30", "price-cents", "300"),
+                                Map.of("days", "60", "price-cents", "500"),
+                                Map.of("days", "90", "price-cents", "700"),
+                                Map.of("days", "120", "price-cents", "900")))));
 
-        assertEquals(before + "- days: 120\n  price-cents: 900\n", Files.readString(file),
+        assertEquals(
+                before + "- days: 120\n  price-cents: 900\n",
+                Files.readString(file),
                 "the three existing entries must be untouched, and the new one written in the same"
                         + " shape (no comment, no blank line) as the last existing entry");
 
@@ -229,38 +255,41 @@ class ConfigFilesSectionsTest {
 
     @Test
     void appendingCopiesABlankLineBeforeEachEntryWhenTheLastEntryHadOne() throws IOException {
-        final String fixture = "tiers:\n"
-                + "- days: 30\n"
-                + "  price-cents: 300\n"
-                + "\n"
-                + "- days: 60\n"
-                + "  price-cents: 500\n";
+        final String fixture =
+                "tiers:\n" + "- days: 30\n" + "  price-cents: 300\n" + "\n" + "- days: 60\n" + "  price-cents: 500\n";
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, fixture);
 
-        ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                Map.of("days", "30", "price-cents", "300"),
-                Map.of("days", "60", "price-cents", "500"),
-                Map.of("days", "90", "price-cents", "700")))));
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "tiers",
+                        ConfigChange.sections(List.of(
+                                Map.of("days", "30", "price-cents", "300"),
+                                Map.of("days", "60", "price-cents", "500"),
+                                Map.of("days", "90", "price-cents", "700")))));
 
-        assertEquals(fixture + "\n- days: 90\n  price-cents: 700\n", Files.readString(file),
+        assertEquals(
+                fixture + "\n- days: 90\n  price-cents: 700\n",
+                Files.readString(file),
                 "the last entry had a blank line before it, so the new one gets one too");
     }
 
     @Test
     void appendingCopiesTheIndentationOfTheLastEntry() throws IOException {
-        final String fixture = "tiers:\n"
-                + "  - days: 30\n"
-                + "    price-cents: 300\n"
-                + "  - days: 60\n"
-                + "    price-cents: 500\n";
+        final String fixture =
+                "tiers:\n" + "  - days: 30\n" + "    price-cents: 300\n" + "  - days: 60\n" + "    price-cents: 500\n";
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, fixture);
 
-        ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                Map.of("days", "30", "price-cents", "300"),
-                Map.of("days", "60", "price-cents", "500"),
-                Map.of("days", "90", "price-cents", "700")))));
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "tiers",
+                        ConfigChange.sections(List.of(
+                                Map.of("days", "30", "price-cents", "300"),
+                                Map.of("days", "60", "price-cents", "500"),
+                                Map.of("days", "90", "price-cents", "700")))));
 
         assertEquals(fixture + "  - days: 90\n    price-cents: 700\n", Files.readString(file));
     }
@@ -275,22 +304,24 @@ class ConfigFilesSectionsTest {
      */
     @Test
     void appendingAnEmptyStringFieldReadsBackEmptyNotQuoted() throws IOException {
-        final String fixture = "languages:\n"
-                + "- tag: en\n"
-                + "  role: ''\n"
-                + "- tag: de\n"
-                + "  role: ''\n";
+        final String fixture = "languages:\n" + "- tag: en\n" + "  role: ''\n" + "- tag: de\n" + "  role: ''\n";
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, fixture);
 
-        final ConfigDocument written = ConfigFiles.write(file, Map.of("languages", ConfigChange.sections(List.of(
-                Map.of("tag", "en", "role", ""),
-                Map.of("tag", "de", "role", ""),
-                Map.of("tag", "fr", "role", "")))));
+        final ConfigDocument written = ConfigFiles.write(
+                file,
+                Map.of(
+                        "languages",
+                        ConfigChange.sections(List.of(
+                                Map.of("tag", "en", "role", ""),
+                                Map.of("tag", "de", "role", ""),
+                                Map.of("tag", "fr", "role", "")))));
 
         assertEquals(fixture + "- tag: fr\n  role: ''\n", Files.readString(file));
         final ConfigEntry languages = entry(written, "languages");
-        assertEquals("", fieldValue(languages, 2, "role"),
+        assertEquals(
+                "",
+                fieldValue(languages, 2, "role"),
                 "the logical value of an empty string field is the empty string, not \"''\"");
     }
 
@@ -300,12 +331,17 @@ class ConfigFilesSectionsTest {
         Files.writeString(file, TIERS_FIXTURE);
         final String before = Files.readString(file);
 
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
-                () -> ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                        Map.of("days", "31", "price-cents", "300"), // changed alongside the append
-                        Map.of("days", "60", "price-cents", "500"),
-                        Map.of("days", "90", "price-cents", "700"),
-                        Map.of("days", "120", "price-cents", "900"))))));
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
+                () -> ConfigFiles.write(
+                        file,
+                        Map.of(
+                                "tiers",
+                                ConfigChange.sections(List.of(
+                                        Map.of("days", "31", "price-cents", "300"), // changed alongside the append
+                                        Map.of("days", "60", "price-cents", "500"),
+                                        Map.of("days", "90", "price-cents", "700"),
+                                        Map.of("days", "120", "price-cents", "900"))))));
 
         assertTrue(thrown.getMessage().contains("tiers"), thrown.getMessage());
         assertEquals(before, Files.readString(file), "a refused write must not touch the file");
@@ -317,13 +353,18 @@ class ConfigFilesSectionsTest {
         Files.writeString(file, TIERS_FIXTURE);
         final String before = Files.readString(file);
 
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
-                () -> ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                        Map.of("days", "30", "price-cents", "300"),
-                        Map.of("days", "60", "price-cents", "500"),
-                        Map.of("days", "90", "price-cents", "700"),
-                        Map.of("days", "120", "price-cents", "900"),
-                        Map.of("days", "150", "price-cents", "1100"))))));
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
+                () -> ConfigFiles.write(
+                        file,
+                        Map.of(
+                                "tiers",
+                                ConfigChange.sections(List.of(
+                                        Map.of("days", "30", "price-cents", "300"),
+                                        Map.of("days", "60", "price-cents", "500"),
+                                        Map.of("days", "90", "price-cents", "700"),
+                                        Map.of("days", "120", "price-cents", "900"),
+                                        Map.of("days", "150", "price-cents", "1100"))))));
 
         assertTrue(thrown.getMessage().contains("tiers"), thrown.getMessage());
         assertEquals(before, Files.readString(file), "a refused write must not touch the file");
@@ -334,8 +375,7 @@ class ConfigFilesSectionsTest {
      * {@code - } line belongs to that entry and is removed with it, and a comment above the
      * <em>next</em> entry's {@code - } line is left standing when a different entry is removed.
      */
-    private static final String TIERS_WITH_A_COMMENT_BETWEEN_ENTRIES =
-            "tiers:\n"
+    private static final String TIERS_WITH_A_COMMENT_BETWEEN_ENTRIES = "tiers:\n"
             + "- days: 30\n"
             + "  price-cents: 300\n"
             + "# about the 60-day tier\n"
@@ -351,16 +391,22 @@ class ConfigFilesSectionsTest {
 
         // Removing the FIRST entry (days: 30) must leave the comment about the 60-day tier alone:
         // it sits directly above that entry's own `- ` line, not above the removed one's.
-        final ConfigDocument written = ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                Map.of("days", "60", "price-cents", "500"),
-                Map.of("days", "90", "price-cents", "700")))));
+        final ConfigDocument written = ConfigFiles.write(
+                file,
+                Map.of(
+                        "tiers",
+                        ConfigChange.sections(List.of(
+                                Map.of("days", "60", "price-cents", "500"),
+                                Map.of("days", "90", "price-cents", "700")))));
 
-        assertEquals("tiers:\n"
-                + "# about the 60-day tier\n"
-                + "- days: 60\n"
-                + "  price-cents: 500\n"
-                + "- days: 90\n"
-                + "  price-cents: 700\n", Files.readString(file));
+        assertEquals(
+                "tiers:\n"
+                        + "# about the 60-day tier\n"
+                        + "- days: 60\n"
+                        + "  price-cents: 500\n"
+                        + "- days: 90\n"
+                        + "  price-cents: 700\n",
+                Files.readString(file));
 
         final ConfigEntry tiers = entry(written, "tiers");
         assertEquals(2, tiers.sections().size());
@@ -374,15 +420,17 @@ class ConfigFilesSectionsTest {
 
         // Removing the SECOND entry (days: 60) must take its own comment with it, and leave the
         // 90-day entry - which never had one - untouched.
-        ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                Map.of("days", "30", "price-cents", "300"),
-                Map.of("days", "90", "price-cents", "700")))));
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "tiers",
+                        ConfigChange.sections(List.of(
+                                Map.of("days", "30", "price-cents", "300"),
+                                Map.of("days", "90", "price-cents", "700")))));
 
-        assertEquals("tiers:\n"
-                + "- days: 30\n"
-                + "  price-cents: 300\n"
-                + "- days: 90\n"
-                + "  price-cents: 700\n", Files.readString(file));
+        assertEquals(
+                "tiers:\n" + "- days: 30\n" + "  price-cents: 300\n" + "- days: 90\n" + "  price-cents: 700\n",
+                Files.readString(file));
     }
 
     @Test
@@ -390,12 +438,15 @@ class ConfigFilesSectionsTest {
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, TIERS_FIXTURE);
 
-        final ConfigDocument written = ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                Map.of("days", "30", "price-cents", "300"),
-                Map.of("days", "60", "price-cents", "500")))));
+        final ConfigDocument written = ConfigFiles.write(
+                file,
+                Map.of(
+                        "tiers",
+                        ConfigChange.sections(List.of(
+                                Map.of("days", "30", "price-cents", "300"),
+                                Map.of("days", "60", "price-cents", "500")))));
 
-        assertEquals(TIERS_FIXTURE.replace("- days: 90\n  price-cents: 700\n", ""),
-                Files.readString(file));
+        assertEquals(TIERS_FIXTURE.replace("- days: 90\n  price-cents: 700\n", ""), Files.readString(file));
         assertEquals(2, entry(written, "tiers").sections().size());
     }
 
@@ -405,10 +456,15 @@ class ConfigFilesSectionsTest {
         Files.writeString(file, TIERS_FIXTURE);
         final String before = Files.readString(file);
 
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
-                () -> ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                        Map.of("days", "31", "price-cents", "300"), // changed, not just removed
-                        Map.of("days", "60", "price-cents", "500"))))));
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
+                () -> ConfigFiles.write(
+                        file,
+                        Map.of(
+                                "tiers",
+                                ConfigChange.sections(List.of(
+                                        Map.of("days", "31", "price-cents", "300"), // changed, not just removed
+                                        Map.of("days", "60", "price-cents", "500"))))));
 
         assertTrue(thrown.getMessage().contains("tiers"), thrown.getMessage());
         assertEquals(before, Files.readString(file), "a refused write must not touch the file");
@@ -419,9 +475,11 @@ class ConfigFilesSectionsTest {
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, TIERS_FIXTURE);
 
-        assertThrows(IllegalArgumentException.class,
-                () -> ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                        Map.of("days", "30", "price-cents", "300"))))));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ConfigFiles.write(
+                        file,
+                        Map.of("tiers", ConfigChange.sections(List.of(Map.of("days", "30", "price-cents", "300"))))));
     }
 
     // -----------------------------------------------------------------------------------------
@@ -433,11 +491,16 @@ class ConfigFilesSectionsTest {
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, TIERS_FIXTURE);
 
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
-                () -> ConfigFiles.write(file, Map.of("tiers", ConfigChange.sections(List.of(
-                        Map.of("days", "30"),
-                        Map.of("days", "60", "price-cents", "500"),
-                        Map.of("days", "90", "price-cents", "700"))))));
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
+                () -> ConfigFiles.write(
+                        file,
+                        Map.of(
+                                "tiers",
+                                ConfigChange.sections(List.of(
+                                        Map.of("days", "30"),
+                                        Map.of("days", "60", "price-cents", "500"),
+                                        Map.of("days", "90", "price-cents", "700"))))));
 
         assertTrue(thrown.getMessage().contains("price-cents"), thrown.getMessage());
     }
@@ -447,7 +510,8 @@ class ConfigFilesSectionsTest {
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, TIERS_FIXTURE);
 
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
                 () -> ConfigFiles.write(file, Map.of("tiers", ConfigChange.list(List.of("30", "60")))));
 
         assertTrue(thrown.getMessage().contains("tiers"), thrown.getMessage());
@@ -459,8 +523,8 @@ class ConfigFilesSectionsTest {
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, TIERS_FIXTURE);
 
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
-                () -> ConfigFiles.write(file, Map.of("tiers", ConfigChange.of("30"))));
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class, () -> ConfigFiles.write(file, Map.of("tiers", ConfigChange.of("30"))));
 
         assertTrue(thrown.getMessage().contains("tiers"), thrown.getMessage());
         assertTrue(thrown.getMessage().contains("list of sections"), thrown.getMessage());
@@ -471,9 +535,9 @@ class ConfigFilesSectionsTest {
         final Path file = directory.resolve("service.yml");
         Files.writeString(file, "port: 8080\n");
 
-        final IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
-                () -> ConfigFiles.write(file, Map.of("port",
-                        ConfigChange.sections(List.of(Map.of("x", "y"))))));
+        final IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
+                () -> ConfigFiles.write(file, Map.of("port", ConfigChange.sections(List.of(Map.of("x", "y"))))));
 
         assertTrue(thrown.getMessage().contains("port"), thrown.getMessage());
     }
@@ -489,9 +553,9 @@ class ConfigFilesSectionsTest {
     }
 
     private static ConfigEntry entry(final ConfigDocument document, final String path) {
-        return document.find(path).orElseThrow(
-                () -> new AssertionError("no entry " + path + " in " + document.entries().stream()
-                        .map(ConfigEntry::path).toList()));
+        return document.find(path)
+                .orElseThrow(() -> new AssertionError("no entry " + path + " in "
+                        + document.entries().stream().map(ConfigEntry::path).toList()));
     }
 
     private static ConfigEntry fieldOf(final ConfigEntry sectionsEntry, final int index, final String key) {

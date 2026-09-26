@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.ui;
 
-import eu.nordtal.s2.common.access.PlaytimeWording;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.access.PlaytimeWording;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -12,9 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The journal says what the dialog asked for (steward/126).
@@ -38,15 +37,14 @@ class PlaytimeWordingTest {
             new long[] {59, 5},
             new long[] {3_659, 6});
 
-    private static final List<String> EXPECTED = List.of(
-            "1 d 6 h 30 min", "2 d", "6 h 30 min", "30 min", "0 min", "0 min", "1 h");
+    private static final List<String> EXPECTED =
+            List.of("1 d 6 h 30 min", "2 d", "6 h 30 min", "30 min", "0 min", "0 min", "1 h");
 
     @Test
     @DisplayName("the three units, the empty ones left out, and a total of nothing still says 0 min")
     void theWordingIsTheOneTheInterfaceUses() {
         for (final long[] each : CASES) {
-            assertEquals(EXPECTED.get((int) each[1]), PlaytimeWording.of(each[0]),
-                    each[0] + " seconds");
+            assertEquals(EXPECTED.get((int) each[1]), PlaytimeWording.of(each[0]), each[0] + " seconds");
         }
     }
 
@@ -90,7 +88,8 @@ class PlaytimeWordingTest {
         while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
             directory = directory.getParent();
         }
-        assertTrue(directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        assertTrue(
+                directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         return directory;
     }
 }

@@ -21,76 +21,83 @@
       by anything that could fail to run.
     -->
     <script>
-      (function () {
+      ;(function () {
         // One attempt per document, remembered here rather than in a variable, because the
         // recovery this guards is a full page reload - nothing in memory survives it. Without this,
         // a document that reloads and fetches the very same stale reference fails the same way and
         // reloads again, forever.
-        var RELOAD_KEY = "steward:reloaded-after-startup-error";
+        var RELOAD_KEY = "steward:reloaded-after-startup-error"
 
         function show(message) {
-          var line = document.getElementById("startup-fallback-message");
+          var line = document.getElementById("startup-fallback-message")
           if (line) {
-            line.textContent = message;
+            line.textContent = message
           }
           // The panel is invisible for the first seconds so a healthy start never flashes it (see
           // the <style> above). A start that is NOT healthy has no reason to wait those seconds
           // out: this is the one path that knows something is already wrong.
-          var panel = document.getElementById("startup-fallback");
+          var panel = document.getElementById("startup-fallback")
           if (panel) {
-            panel.style.animation = "none";
-            panel.style.opacity = "1";
+            panel.style.animation = "none"
+            panel.style.opacity = "1"
           }
         }
 
         function alreadyReloaded() {
           try {
-            return window.sessionStorage.getItem(RELOAD_KEY) !== null;
+            return window.sessionStorage.getItem(RELOAD_KEY) !== null
           } catch (storageError) {
             // Private browsing or a full quota - nowhere to remember an attempt, so this treats it
             // as already spent rather than risking a reload loop with no memory to stop it.
-            return true;
+            return true
           }
         }
 
         function reloadOnce(what) {
           if (alreadyReloaded()) {
-            show("Steward could not load " + what + ", even after reloading once. Saving this "
-              + "page to the home screen again usually fixes it.");
-            return;
+            show(
+              "Steward could not load " +
+                what +
+                ", even after reloading once. Saving this " +
+                "page to the home screen again usually fixes it.",
+            )
+            return
           }
           try {
-            window.sessionStorage.setItem(RELOAD_KEY, "1");
+            window.sessionStorage.setItem(RELOAD_KEY, "1")
           } catch (storageError) {
-            show("Steward could not load " + what + ". Reload this page to try again.");
-            return;
+            show("Steward could not load " + what + ". Reload this page to try again.")
+            return
           }
-          window.location.reload();
+          window.location.reload()
         }
 
-        window.addEventListener("error", function (event) {
-          var target = event.target;
-          var isTheAppShell = target instanceof HTMLScriptElement
-            || (target instanceof HTMLLinkElement && target.rel === "stylesheet");
-          if (isTheAppShell) {
-            reloadOnce("part of the app (" + (target.src || target.href) + ")");
-            return;
-          }
-          if (target && target !== window && typeof target.tagName === "string") {
-            // An icon or the manifest failed - cosmetic, and not what steward/79 is about.
-            return;
-          }
-          // A thrown error, most likely from inside the bundle once it did load. Reloading a
-          // bundle that loaded fine and then threw would not fix anything, so this only reports.
-          show("Steward hit an error before it could start: "
-            + (event.message || "no message was given") + ".");
-        }, true);
+        window.addEventListener(
+          "error",
+          function (event) {
+            var target = event.target
+            var isTheAppShell =
+              target instanceof HTMLScriptElement || (target instanceof HTMLLinkElement && target.rel === "stylesheet")
+            if (isTheAppShell) {
+              reloadOnce("part of the app (" + (target.src || target.href) + ")")
+              return
+            }
+            if (target && target !== window && typeof target.tagName === "string") {
+              // An icon or the manifest failed - cosmetic, and not what steward/79 is about.
+              return
+            }
+            // A thrown error, most likely from inside the bundle once it did load. Reloading a
+            // bundle that loaded fine and then threw would not fix anything, so this only reports.
+            show("Steward hit an error before it could start: " + (event.message || "no message was given") + ".")
+          },
+          true,
+        )
 
         window.addEventListener("unhandledrejection", function (event) {
-          var reason = event.reason && event.reason.message ? event.reason.message : event.reason;
-          show("Steward hit an error before it could start: " + reason + ".");
-        });
-      })();
+          var reason = event.reason && event.reason.message ? event.reason.message : event.reason
+          show("Steward hit an error before it could start: " + reason + ".")
+        })
+      })()
     </script>
 
     <!--
@@ -111,7 +118,9 @@
         animation: startup-fallback-in 0.3s ease-out 2.5s forwards;
       }
       @keyframes startup-fallback-in {
-        to { opacity: 1; }
+        to {
+          opacity: 1;
+        }
       }
     </style>
 
@@ -156,16 +165,36 @@
         that can be the very thing missing - `class="dark"` on <html> draws nothing at all once its
         stylesheet has failed to load, so this cannot depend on it either.
       -->
-      <div id="startup-fallback" style="min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column;
-                  align-items: center; justify-content: center; gap: 1rem; padding: 2rem;
-                  text-align: center; background: #0d0d0d; color: #e5e5e5;
-                  font-family: system-ui, sans-serif;">
-        <p id="startup-fallback-message" style="margin: 0; max-width: 28rem;">
-          Steward has not started yet.
-        </p>
-        <button type="button" onclick="window.location.reload()"
-                style="padding: 0.6rem 1.2rem; border-radius: 0.4rem; border: 1px solid #4b5563;
-                       background: #1f2937; color: #e5e5e5; font-size: 1rem;">
+      <div
+        id="startup-fallback"
+        style="
+          min-height: 100vh;
+          min-height: 100dvh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 1rem;
+          padding: 2rem;
+          text-align: center;
+          background: #0d0d0d;
+          color: #e5e5e5;
+          font-family: system-ui, sans-serif;
+        "
+      >
+        <p id="startup-fallback-message" style="margin: 0; max-width: 28rem">Steward has not started yet.</p>
+        <button
+          type="button"
+          onclick="window.location.reload()"
+          style="
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.4rem;
+            border: 1px solid #4b5563;
+            background: #1f2937;
+            color: #e5e5e5;
+            font-size: 1rem;
+          "
+        >
           Reload
         </button>
       </div>

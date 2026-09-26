@@ -3,12 +3,9 @@ package eu.nordtal.s2.discordbot.access.payment;
 import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequestStatus;
 import eu.nordtal.s2.common.payment.PaymentRequests;
-
 import eu.nordtal.s2.discordbot.config.AccessSpec;
-
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * The purchase state machine, without any Discord in it - and, since steward/109, without any bank
@@ -71,18 +68,36 @@ public final class Purchases {
         final Optional<PaymentRequest> existing = requests.openOf(discordId);
         if (existing.isPresent()) {
             final PaymentRequest open = existing.get();
-            if (open.tab().isEmpty()
-                    && requests.reselect(open.id(), tier.days(), amountCents, donationCents)) {
-                return new PaymentRequest(open.id(), open.reference(), open.discordId(), tier.days(),
-                        amountCents, donationCents, open.status(), null, null, null,
-                        open.created(), open.expires(), null,
-                        open.tabRequested(), open.tabFailed(), open.cancelRequested(),
-                        open.tabCancelled(), open.matchedCents(), open.matchedBy());
+            if (open.tab().isEmpty() && requests.reselect(open.id(), tier.days(), amountCents, donationCents)) {
+                return new PaymentRequest(
+                        open.id(),
+                        open.reference(),
+                        open.discordId(),
+                        tier.days(),
+                        amountCents,
+                        donationCents,
+                        open.status(),
+                        null,
+                        null,
+                        null,
+                        open.created(),
+                        open.expires(),
+                        null,
+                        open.tabRequested(),
+                        open.tabFailed(),
+                        open.cancelRequested(),
+                        open.tabCancelled(),
+                        open.matchedCents(),
+                        open.matchedBy());
             }
             close(open, PaymentRequestStatus.SUPERSEDED);
         }
 
-        return requests.open(discordId, tier.days(), amountCents, donationCents,
+        return requests.open(
+                discordId,
+                tier.days(),
+                amountCents,
+                donationCents,
                 config.payment().requestTtlHours());
     }
 

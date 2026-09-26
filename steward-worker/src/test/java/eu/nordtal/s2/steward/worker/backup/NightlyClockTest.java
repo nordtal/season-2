@@ -1,17 +1,16 @@
 package eu.nordtal.s2.steward.worker.backup;
 
-import eu.nordtal.s2.common.update.UpdateDirectory;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.update.UpdateDirectory;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The arithmetic of the nightly clock, without a database and without waiting for 04:45.
@@ -23,8 +22,7 @@ class NightlyClockTest {
     private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
 
     private NightlyClock at(final String time) {
-        final Optional<NightlyClock> clock =
-                NightlyClock.from(noDirectory(), time, BERLIN);
+        final Optional<NightlyClock> clock = NightlyClock.from(noDirectory(), time, BERLIN);
         assertTrue(clock.isPresent(), time + " should have been accepted");
         return clock.get();
     }
@@ -34,8 +32,7 @@ class NightlyClockTest {
     void aFractionIsStillAWait() {
         // The predecessor floored this to zero seconds, fired while the target was still ahead,
         // re-armed for another fraction, and wrote one backup request per pass.
-        final Duration until = at("04:45").untilNext(
-                ZonedDateTime.of(2026, 9, 13, 4, 44, 59, 600_000_000, BERLIN));
+        final Duration until = at("04:45").untilNext(ZonedDateTime.of(2026, 9, 13, 4, 44, 59, 600_000_000, BERLIN));
 
         assertTrue(until.toMillis() > 0 && until.toMillis() < 1000, until.toString());
     }
@@ -43,11 +40,9 @@ class NightlyClockTest {
     @Test
     @DisplayName("firing exactly on the second arms for tomorrow, not for right now")
     void exactlyOnTimeMeansTomorrow() {
-        final Duration until = at("04:45").untilNext(
-                ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN));
+        final Duration until = at("04:45").untilNext(ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN));
 
-        assertEquals(Duration.ofHours(24), until,
-                "a wait of zero is the loop this class exists not to have");
+        assertEquals(Duration.ofHours(24), until, "a wait of zero is the loop this class exists not to have");
     }
 
     @Test
@@ -66,8 +61,7 @@ class NightlyClockTest {
     void survivesTheSpringForward() {
         // Europe/Berlin loses an hour on the last Sunday in March at 02:00. A clock that counted
         // in fixed hours would fire at 05:45 that morning and stay an hour off until October.
-        final ZonedDateTime beforeTheChange =
-                ZonedDateTime.of(2027, 3, 27, 5, 45, 0, 0, BERLIN);
+        final ZonedDateTime beforeTheChange = ZonedDateTime.of(2027, 3, 27, 5, 45, 0, 0, BERLIN);
         final Duration until = at("04:45").untilNext(beforeTheChange);
 
         assertEquals(4, beforeTheChange.plus(until).getHour());
@@ -77,7 +71,9 @@ class NightlyClockTest {
         // not exist that night. A clock that scheduled a fixed 24 hours would drift an hour and
         // stay there until October; one that scheduled the wall-clock difference would fire an
         // hour late. This schedules the real duration to the right wall-clock moment.
-        assertEquals(Duration.ofHours(22), until,
+        assertEquals(
+                Duration.ofHours(22),
+                until,
                 "the wait is the real time to the next 04:45, not the hours on the face of a clock");
     }
 
@@ -100,16 +96,19 @@ class NightlyClockTest {
         final ZonedDateTime beforeIt = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
         final ZonedDateTime afterIt = ZonedDateTime.of(2026, 9, 13, 5, 0, 0, 0, BERLIN);
 
-        assertEquals(ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN),
+        assertEquals(
+                ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN),
                 NightlyClock.next("04:45", BERLIN, beforeIt).orElseThrow());
-        assertEquals(ZonedDateTime.of(2026, 9, 14, 4, 45, 0, 0, BERLIN),
+        assertEquals(
+                ZonedDateTime.of(2026, 9, 14, 4, 45, 0, 0, BERLIN),
                 NightlyClock.next("04:45", BERLIN, afterIt).orElseThrow(),
                 "past today's, so it is tomorrow's - never a moment already gone");
 
         // Asked from somewhere else entirely: the answer is the same instant, expressed here.
-        assertEquals(ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN),
-                NightlyClock.next("04:45", BERLIN,
-                        beforeIt.withZoneSameInstant(ZoneId.of("Pacific/Auckland"))).orElseThrow());
+        assertEquals(
+                ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", BERLIN, beforeIt.withZoneSameInstant(ZoneId.of("Pacific/Auckland")))
+                        .orElseThrow());
 
         assertTrue(NightlyClock.next("", BERLIN, beforeIt).isEmpty(), "empty means no backup");
         assertTrue(NightlyClock.next("quarter to five", BERLIN, beforeIt).isEmpty());
@@ -123,28 +122,32 @@ class NightlyClockTest {
         final List<String> monAndThu = List.of("MONDAY", "THURSDAY");
         final ZonedDateTime sundayNight = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
 
-        assertEquals(ZonedDateTime.of(2026, 9, 14, 4, 45, 0, 0, BERLIN),
+        assertEquals(
+                ZonedDateTime.of(2026, 9, 14, 4, 45, 0, 0, BERLIN),
                 NightlyClock.next("04:45", monAndThu, BERLIN, sundayNight).orElseThrow(),
                 "Sunday is not one of the two, so the next firing is Monday's");
 
         // Monday, and today's has already gone: the next one is Thursday and not tomorrow.
-        assertEquals(ZonedDateTime.of(2026, 9, 17, 4, 45, 0, 0, BERLIN),
-                NightlyClock.next("04:45", monAndThu, BERLIN,
-                        ZonedDateTime.of(2026, 9, 14, 5, 0, 0, 0, BERLIN)).orElseThrow(),
+        assertEquals(
+                ZonedDateTime.of(2026, 9, 17, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", monAndThu, BERLIN, ZonedDateTime.of(2026, 9, 14, 5, 0, 0, 0, BERLIN))
+                        .orElseThrow(),
                 "three days are skipped whole - a day-of-week schedule that only ever adds one day"
                         + " is a daily backup wearing a different config key");
 
         // And the day it IS on still behaves like the daily one: before the time, it is today's.
-        assertEquals(ZonedDateTime.of(2026, 9, 14, 4, 45, 0, 0, BERLIN),
-                NightlyClock.next("04:45", monAndThu, BERLIN,
-                        ZonedDateTime.of(2026, 9, 14, 3, 0, 0, 0, BERLIN)).orElseThrow());
+        assertEquals(
+                ZonedDateTime.of(2026, 9, 14, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", monAndThu, BERLIN, ZonedDateTime.of(2026, 9, 14, 3, 0, 0, 0, BERLIN))
+                        .orElseThrow());
     }
 
     @Test
     @DisplayName("no weekday at all is no nightly backup, exactly as an empty time is")
     void noWeekdayMeansNoBackup() {
         final ZonedDateTime sundayNight = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
-        assertTrue(NightlyClock.next("04:45", List.of(), BERLIN, sundayNight).isEmpty(),
+        assertTrue(
+                NightlyClock.next("04:45", List.of(), BERLIN, sundayNight).isEmpty(),
                 "a schedule with no day in it cannot fire, and saying so is better than quietly"
                         + " running every night because the list looked unset");
         assertTrue(NightlyClock.from(noDirectory(), "04:45", List.of(), BERLIN).isEmpty());
@@ -154,9 +157,10 @@ class NightlyClockTest {
     @DisplayName("a weekday nobody can read is dropped, and the readable ones still schedule")
     void anUnreadableWeekdayIsDropped() {
         final ZonedDateTime sundayNight = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
-        assertEquals(ZonedDateTime.of(2026, 9, 17, 4, 45, 0, 0, BERLIN),
-                NightlyClock.next("04:45", List.of("thursday", " Thu ", "whenever"), BERLIN,
-                        sundayNight).orElseThrow(),
+        assertEquals(
+                ZonedDateTime.of(2026, 9, 17, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", List.of("thursday", " Thu ", "whenever"), BERLIN, sundayNight)
+                        .orElseThrow(),
                 "case and spacing are not the operator's problem; a word that is not a weekday is"
                         + " logged and ignored rather than taking the whole schedule with it");
     }
@@ -165,7 +169,8 @@ class NightlyClockTest {
     @DisplayName("no list at all is every night - the shape every deployment before this had")
     void noListIsEveryNight() {
         final ZonedDateTime sundayNight = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
-        assertEquals(NightlyClock.next("04:45", BERLIN, sundayNight),
+        assertEquals(
+                NightlyClock.next("04:45", BERLIN, sundayNight),
                 NightlyClock.next("04:45", null, BERLIN, sundayNight),
                 "a config file written before backup.days existed has to keep running nightly");
     }
@@ -180,19 +185,28 @@ class NightlyClockTest {
         assertEquals(NightlyClock.RETRY, clock.fire(due, due.plusMinutes(90)));
 
         final ZonedDateTime tooLate = due.plus(NightlyClock.PATIENCE);
-        assertEquals(clock.untilNext(tooLate), clock.fire(due, tooLate),
+        assertEquals(
+                clock.untilNext(tooLate),
+                clock.fire(due, tooLate),
                 "past its patience it waits for tomorrow rather than running into the morning");
     }
 
     /** Every submit is refused, as the directory refuses one while another run is open. */
     private static UpdateDirectory busy() {
         final eu.nordtal.s2.common.update.UpdateRequest open = new eu.nordtal.s2.common.update.UpdateRequest(
-                9L, eu.nordtal.s2.common.update.UpdateKind.UPDATE, eu.nordtal.s2.common.update.UpdateStatus.RUNNING,
-                eu.nordtal.s2.common.update.UpdateSource.DISCORD, "a", java.time.Instant.now(),
-                java.time.Instant.now(), null, null, null);
+                9L,
+                eu.nordtal.s2.common.update.UpdateKind.UPDATE,
+                eu.nordtal.s2.common.update.UpdateStatus.RUNNING,
+                eu.nordtal.s2.common.update.UpdateSource.DISCORD,
+                "a",
+                java.time.Instant.now(),
+                java.time.Instant.now(),
+                null,
+                null,
+                null);
         return (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(
                 UpdateDirectory.class.getClassLoader(),
-                new Class<?>[]{UpdateDirectory.class},
+                new Class<?>[] {UpdateDirectory.class},
                 (proxy, method, args) -> {
                     if (method.getName().equals("submit")) {
                         throw eu.nordtal.s2.common.update.RunRefused.runOpen(open);
@@ -205,7 +219,7 @@ class NightlyClockTest {
     private static UpdateDirectory noDirectory() {
         return (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(
                 UpdateDirectory.class.getClassLoader(),
-                new Class<?>[]{UpdateDirectory.class},
+                new Class<?>[] {UpdateDirectory.class},
                 (proxy, method, args) -> {
                     throw new AssertionError("the clock asked the database: " + method.getName());
                 });
@@ -217,35 +231,44 @@ class NightlyClockTest {
         final List<Object[]> submitted = new java.util.ArrayList<>();
         final UpdateDirectory recording = (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(
                 UpdateDirectory.class.getClassLoader(),
-                new Class<?>[]{UpdateDirectory.class},
+                new Class<?>[] {UpdateDirectory.class},
                 (proxy, method, args) -> {
                     if (method.getName().equals("submit")) {
                         submitted.add(args);
                         return new eu.nordtal.s2.common.update.UpdateRequest(
-                                12L, (eu.nordtal.s2.common.update.UpdateKind) args[0],
+                                12L,
+                                (eu.nordtal.s2.common.update.UpdateKind) args[0],
                                 eu.nordtal.s2.common.update.UpdateStatus.PENDING,
-                                (eu.nordtal.s2.common.update.UpdateSource) args[1], (String) args[2],
-                                java.time.Instant.now(), java.time.Instant.now(), null, null, null);
+                                (eu.nordtal.s2.common.update.UpdateSource) args[1],
+                                (String) args[2],
+                                java.time.Instant.now(),
+                                java.time.Instant.now(),
+                                null,
+                                null,
+                                null);
                     }
                     throw new AssertionError("the clock asked the database: " + method.getName());
                 });
-        final NightlyClock clock = NightlyClock.from(recording, NightlyClock.Job.UPDATE, "03:30",
-                List.of("SUN"), BERLIN).orElseThrow();
+        final NightlyClock clock = NightlyClock.from(
+                        recording, NightlyClock.Job.UPDATE, "03:30", List.of("SUN"), BERLIN)
+                .orElseThrow();
         final ZonedDateTime sunday = ZonedDateTime.of(2026, 9, 27, 3, 30, 0, 0, BERLIN);
 
         final Duration next = clock.fire(sunday, sunday);
 
         assertEquals(1, submitted.size());
         assertEquals(eu.nordtal.s2.common.update.UpdateKind.UPDATE, submitted.get(0)[0]);
-        assertTrue(((String) submitted.get(0)[2]).startsWith("steward-worker"),
-                "the interface reads a steward-worker row as the clock: " + submitted.get(0)[2]);
+        assertTrue(
+                ((String) submitted.get(0)[2]).startsWith("steward-worker"),
+                "the interface reads a steward-worker row as the clock: "
+                        + submitted.get(0)[2]);
         assertEquals(Duration.ofDays(7), next, "Sunday only: the next one is a week away");
     }
 
     @Test
     @DisplayName("an empty update.at is no update clock at all, which is the default")
     void noUpdateTimeIsNoClock() {
-        assertTrue(NightlyClock.from(noDirectory(), NightlyClock.Job.UPDATE, "",
-                List.of("MONDAY"), BERLIN).isEmpty());
+        assertTrue(NightlyClock.from(noDirectory(), NightlyClock.Job.UPDATE, "", List.of("MONDAY"), BERLIN)
+                .isEmpty());
     }
 }

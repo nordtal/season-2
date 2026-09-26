@@ -3,15 +3,13 @@ package eu.nordtal.s2.steward.worker.bunq;
 import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
 import eu.nordtal.s2.common.notify.Notifications;
-
-import lombok.extern.slf4j.Slf4j;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * What drives {@link Payments}: a poll, and a {@code LISTEN nordtal_payment} that makes it feel
@@ -73,9 +71,8 @@ public final class PaymentLoop implements AutoCloseable {
      * @param poll      how often to ask bunq regardless of any notification
      * @return the running loop, to be closed with the container
      */
-    public static PaymentLoop start(final Payments payments,
-                                    final Notifications.Connector connector,
-                                    final Duration poll) {
+    public static PaymentLoop start(
+            final Payments payments, final Notifications.Connector connector, final Duration poll) {
         final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(runnable -> {
             final Thread thread = new Thread(runnable, "steward-worker-bunq-poll");
             thread.setDaemon(true);

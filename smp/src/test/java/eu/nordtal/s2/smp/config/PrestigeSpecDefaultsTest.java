@@ -1,20 +1,17 @@
 package eu.nordtal.s2.smp.config;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.jcore.config.spec.Specs;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import eu.nordtal.s2.smp.prestige.Prestige;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The crest ladder this plugin ships - fourteen colours and thirteen hours - is held here, and
@@ -55,7 +52,8 @@ class PrestigeSpecDefaultsTest {
                 wrong.add(colour);
             }
         }
-        assertTrue(wrong.isEmpty(),
+        assertTrue(
+                wrong.isEmpty(),
                 "a default that is not a hex colour is only noticed as a WARN in the log of a"
                         + " running server, where nobody reads it, and the tier silently wears the"
                         + " fallback instead: " + wrong);
@@ -67,18 +65,19 @@ class PrestigeSpecDefaultsTest {
         // Only the values this test can actually measure. A value that is not a hex colour is the
         // other test's finding, and letting it crash this one too would replace a sentence naming
         // the offending pair with a NumberFormatException naming nothing.
-        final List<String> colours = all().stream().filter(c -> HEX.matcher(c).matches()).toList();
+        final List<String> colours =
+                all().stream().filter(c -> HEX.matcher(c).matches()).toList();
         final List<String> tooClose = new ArrayList<>();
         for (int i = 0; i < colours.size(); i++) {
             for (int j = i + 1; j < colours.size(); j++) {
                 final double distance = distance(colours.get(i), colours.get(j));
                 if (distance < MINIMUM_DISTANCE) {
-                    tooClose.add(colours.get(i) + " and " + colours.get(j)
-                            + " are " + Math.round(distance) + " apart");
+                    tooClose.add(colours.get(i) + " and " + colours.get(j) + " are " + Math.round(distance) + " apart");
                 }
             }
         }
-        assertTrue(tooClose.isEmpty(),
+        assertTrue(
+                tooClose.isEmpty(),
                 "two prestige colours that read as the same colour make two tiers indistinguishable"
                         + " in chat, in the tab list and above a player's head - which is what"
                         + " season-2-ingame/22 fixed for NEUTRAL and MUTED: " + tooClose);
@@ -95,7 +94,9 @@ class PrestigeSpecDefaultsTest {
     @Test
     @DisplayName("the hours and the colours have exactly the same thirteen keys, in the same order")
     void bothBlocksDeclareTheSameLadder() {
-        assertEquals(keysOf(PrestigeSpec.TierHoursSpec.class), keysOf(PrestigeSpec.TierColoursSpec.class),
+        assertEquals(
+                keysOf(PrestigeSpec.TierHoursSpec.class),
+                keysOf(PrestigeSpec.TierColoursSpec.class),
                 "steward draws one row per tier by pairing these two blocks on their keys; a key in"
                         + " one and not the other silently drops a row or pairs the wrong two"
                         + " values");
@@ -113,8 +114,10 @@ class PrestigeSpecDefaultsTest {
     private static List<String> keysOf(final Class<?> block) {
         return Arrays.stream(block.getDeclaredMethods())
                 .sorted(java.util.Comparator.comparingInt(
-                        method -> method.getAnnotation(eu.nordtal.jcore.config.spec.annotation.Order.class).value()))
-                .map(method -> method.getAnnotation(eu.nordtal.jcore.config.spec.annotation.Key.class).value())
+                        method -> method.getAnnotation(eu.nordtal.jcore.config.spec.annotation.Order.class)
+                                .value()))
+                .map(method -> method.getAnnotation(eu.nordtal.jcore.config.spec.annotation.Key.class)
+                        .value())
                 .toList();
     }
 
@@ -139,17 +142,15 @@ class PrestigeSpecDefaultsTest {
         final double dr = a[0] - b[0];
         final double dg = a[1] - b[1];
         final double db = a[2] - b[2];
-        return Math.sqrt((2 + meanRed / 256) * dr * dr
-                + 4 * dg * dg
-                + (2 + (255 - meanRed) / 256) * db * db);
+        return Math.sqrt((2 + meanRed / 256) * dr * dr + 4 * dg * dg + (2 + (255 - meanRed) / 256) * db * db);
     }
 
     private static int[] rgb(final String hex) {
         final String digits = hex.startsWith("#") ? hex.substring(1) : hex;
         return new int[] {
-                Integer.parseInt(digits.substring(0, 2), 16),
-                Integer.parseInt(digits.substring(2, 4), 16),
-                Integer.parseInt(digits.substring(4, 6), 16),
+            Integer.parseInt(digits.substring(0, 2), 16),
+            Integer.parseInt(digits.substring(2, 4), 16),
+            Integer.parseInt(digits.substring(4, 6), 16),
         };
     }
 }

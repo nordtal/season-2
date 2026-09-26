@@ -1,13 +1,10 @@
 package eu.nordtal.s2.proxy.ping;
 
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.network.NetworkSnapshot;
-
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-
 import eu.nordtal.s2.common.SeasonPhase;
-
+import eu.nordtal.s2.common.message.MessageRenderer;
+import eu.nordtal.s2.common.network.NetworkSnapshot;
 import java.util.Optional;
 
 /**
@@ -31,8 +28,7 @@ import java.util.Optional;
  */
 final class Placeholders {
 
-    private Placeholders() {
-    }
+    private Placeholders() {}
 
     /**
      * @param template  the MOTD as written in {@code network.yml}
@@ -43,8 +39,13 @@ final class Placeholders {
      * @param countdown the rendered countdown line, for {@code {countdown}}
      * @return the template with every recognised placeholder replaced
      */
-    static String apply(final String template, final ProxyServer proxy, final SeasonPhase phase,
-                        final int maximum, final NetworkSnapshot snapshot, final String countdown) {
+    static String apply(
+            final String template,
+            final ProxyServer proxy,
+            final SeasonPhase phase,
+            final int maximum,
+            final NetworkSnapshot snapshot,
+            final String countdown) {
         if (template == null || template.indexOf('{') < 0) {
             return template == null ? "" : template;
         }
@@ -73,15 +74,21 @@ final class Placeholders {
     }
 
     /** @return the value, or {@code null} for a name this build does not know */
-    private static String resolve(final String name, final ProxyServer proxy, final SeasonPhase phase,
-                                  final int maximum, final NetworkSnapshot snapshot, final String countdown) {
+    private static String resolve(
+            final String name,
+            final ProxyServer proxy,
+            final SeasonPhase phase,
+            final int maximum,
+            final NetworkSnapshot snapshot,
+            final String countdown) {
         if (name.startsWith("players:")) {
             final String server = name.substring("players:".length());
             final Optional<RegisteredServer> registered = proxy.getServer(server);
             // A server velocity.toml does not have reads as 0 rather than as an error: the MOTD is
             // not the place to discover a routing misconfiguration, and gate.yml's own names are
             // checked where they are used.
-            return registered.map(value -> String.valueOf(value.getPlayersConnected().size()))
+            return registered
+                    .map(value -> String.valueOf(value.getPlayersConnected().size()))
                     .orElse("0");
         }
         return switch (name) {

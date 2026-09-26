@@ -56,31 +56,13 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
@@ -120,14 +102,12 @@ const MEMBER_STATES: Record<string, { label: string; tone: Tone; title: string }
   LEFT: {
     label: "left",
     tone: "warn",
-    title:
-      "No longer in the guild. A purchased period keeps running regardless - it is not paused.",
+    title: "No longer in the guild. A purchased period keeps running regardless - it is not paused.",
   },
   BANNED: {
     label: "banned",
     tone: "down",
-    title:
-      "Banned in Discord. The login is refused while that holds; the paid period keeps expiring meanwhile.",
+    title: "Banned in Discord. The login is refused while that holds; the paid period keeps expiring meanwhile.",
   },
 }
 
@@ -393,11 +373,7 @@ export function AccessPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Users"
-        actions={<GrantDialog />}
-      />
-
+      <PageHeader title="Users" actions={<GrantDialog />} />
 
       <Card>
         <CardHeader>
@@ -430,11 +406,7 @@ export function AccessPage() {
               />
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <Switch
-                id="only-with-access"
-                checked={onlyWithAccess}
-                onCheckedChange={changeOnlyWithAccess}
-              />
+              <Switch id="only-with-access" checked={onlyWithAccess} onCheckedChange={changeOnlyWithAccess} />
               <Label htmlFor="only-with-access">with access only</Label>
             </div>
           </div>
@@ -487,7 +459,7 @@ export function AccessPage() {
                     title="Nobody matches"
                     note={
                       onlyWithAccess
-                        ? "With this filter and \"with access only\" nobody is left."
+                        ? 'With this filter and "with access only" nobody is left.'
                         : "No loaded account contains this string in its name or either id."
                     }
                   />
@@ -505,80 +477,71 @@ export function AccessPage() {
               return (
                 <>
                   <PeopleTable>
-                      {paged.map((person) => (
-                        <TableRow key={person.discordId}>
-                          <TableCell data-label="Person" className="font-medium">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Entity id={person.discordId} kind="discord" />
-                              {/* "Member" is the ordinary case and is left unsaid (steward/46) -
-                               * LEFT and BANNED are exactly the two states worth a glance, and
-                               * they still get one, right next to the name rather than in a
-                               * column of their own. */}
-                              {person.memberState !== "MEMBER" ? (
-                                <MemberBadge state={person.memberState} />
-                              ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell data-label="Access">
-                            <AccessBadge person={person} now={now} />
-                          </TableCell>
-                          <TableCell data-label="Minecraft">
-                            {person.minecraftUuid ? (
-                              <Entity id={person.minecraftUuid} kind="minecraft" />
-                            ) : (
-                              <LinkBadge person={person} />
-                            )}
-                          </TableCell>
-                          <TableCell data-label="Roles">
-                            <div className="flex items-center gap-1">
-                              {person.donor ? (
-                                <StatusBadge
-                                  tone="idle"
-                                  tipContent="Given once, never taken away - which is why handing the role out in Discord is harmless."
-                                >
-                                  Supporter
-                                </StatusBadge>
-                              ) : null}
-                              {person.admin ? (
-                                <StatusBadge
-                                  tone="idle"
-                                  tipContent={grantedByText(person, list)}
-                                >
-                                  Admin
-                                </StatusBadge>
-                              ) : null}
-                              {!person.donor && !person.admin ? (
-                                <span className="text-xs text-muted-foreground">–</span>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell data-label="Playtime">
-                            {/* `playtime` and not `duration` (steward/126): this column answers the
+                    {paged.map((person) => (
+                      <TableRow key={person.discordId}>
+                        <TableCell data-label="Person" className="font-medium">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Entity id={person.discordId} kind="discord" />
+                            {/* "Member" is the ordinary case and is left unsaid (steward/46) -
+                             * LEFT and BANNED are exactly the two states worth a glance, and
+                             * they still get one, right next to the name rather than in a
+                             * column of their own. */}
+                            {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
+                          </div>
+                        </TableCell>
+                        <TableCell data-label="Access">
+                          <AccessBadge person={person} now={now} />
+                        </TableCell>
+                        <TableCell data-label="Minecraft">
+                          {person.minecraftUuid ? (
+                            <Entity id={person.minecraftUuid} kind="minecraft" />
+                          ) : (
+                            <LinkBadge person={person} />
+                          )}
+                        </TableCell>
+                        <TableCell data-label="Roles">
+                          <div className="flex items-center gap-1">
+                            {person.donor ? (
+                              <StatusBadge
+                                tone="idle"
+                                tipContent="Given once, never taken away - which is why handing the role out in Discord is harmless."
+                              >
+                                Supporter
+                              </StatusBadge>
+                            ) : null}
+                            {person.admin ? (
+                              <StatusBadge tone="idle" tipContent={grantedByText(person, list)}>
+                                Admin
+                              </StatusBadge>
+                            ) : null}
+                            {!person.donor && !person.admin ? (
+                              <span className="text-xs text-muted-foreground">–</span>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                        <TableCell data-label="Playtime">
+                          {/* `playtime` and not `duration` (steward/126): this column answers the
                                 dialog beside it, and that one asks in days, hours and minutes. It
                                 draws the dash for null by itself, which is the answer for somebody
                                 who has never been online - not "0 min". */}
-                            <span className="text-sm tabular-nums">
-                              {playtime(person.playtimeSeconds ?? undefined)}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <RowActions
-                              label={`Actions for ${personName(person)}`}
-                              actions={rowActions(person, {
-                                onPeriods: () => setSelected(person),
-                                onGrant: () => setGranting(person),
-                                onPlaytime: () => setPlaytimeFor(person),
-                                onRevoke: () => setRevoking(person),
-                                onUnlink: () => setUnlinking(person),
-                                onMakeAdmin: () => setMakingAdmin(person),
-                                onRevokeAdmin: below.has(person.discordId)
-                                  ? () => setUnmakingAdmin(person)
-                                  : undefined,
-                              })}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                          <span className="text-sm tabular-nums">{playtime(person.playtimeSeconds ?? undefined)}</span>
+                        </TableCell>
+                        <TableCell>
+                          <RowActions
+                            label={`Actions for ${personName(person)}`}
+                            actions={rowActions(person, {
+                              onPeriods: () => setSelected(person),
+                              onGrant: () => setGranting(person),
+                              onPlaytime: () => setPlaytimeFor(person),
+                              onRevoke: () => setRevoking(person),
+                              onUnlink: () => setUnlinking(person),
+                              onMakeAdmin: () => setMakingAdmin(person),
+                              onRevokeAdmin: below.has(person.discordId) ? () => setUnmakingAdmin(person) : undefined,
+                            })}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </PeopleTable>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">
@@ -634,28 +597,16 @@ export function AccessPage() {
       </ResponsiveDialog>
 
       {revoking ? (
-        <RevokeDialog
-          person={revoking}
-          open
-          onOpenChange={(open) => (open ? null : setRevoking(null))}
-        />
+        <RevokeDialog person={revoking} open onOpenChange={(open) => (open ? null : setRevoking(null))} />
       ) : null}
 
       {/* Both rendered here rather than in the row, for the reason `unlinking` is declared with. */}
       {unlinking ? (
-        <UnlinkDialog
-          person={unlinking}
-          open
-          onOpenChange={(open) => (open ? null : setUnlinking(null))}
-        />
+        <UnlinkDialog person={unlinking} open onOpenChange={(open) => (open ? null : setUnlinking(null))} />
       ) : null}
 
       {makingAdmin ? (
-        <MakeAdminDialog
-          person={makingAdmin}
-          open
-          onOpenChange={(open) => (open ? null : setMakingAdmin(null))}
-        />
+        <MakeAdminDialog person={makingAdmin} open onOpenChange={(open) => (open ? null : setMakingAdmin(null))} />
       ) : null}
 
       {unmakingAdmin ? (
@@ -668,19 +619,11 @@ export function AccessPage() {
       ) : null}
 
       {granting ? (
-        <GrantDialog
-          person={granting}
-          open
-          onOpenChange={(open) => (open ? null : setGranting(null))}
-        />
+        <GrantDialog person={granting} open onOpenChange={(open) => (open ? null : setGranting(null))} />
       ) : null}
 
       {playtimeFor ? (
-        <PlaytimeDialog
-          person={playtimeFor}
-          open
-          onOpenChange={(open) => (open ? null : setPlaytimeFor(null))}
-        />
+        <PlaytimeDialog person={playtimeFor} open onOpenChange={(open) => (open ? null : setPlaytimeFor(null))} />
       ) : null}
     </div>
   )
@@ -767,13 +710,7 @@ function rowActions(
     actions.push({
       key: "revoke",
       node: (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-destructive"
-          onClick={on.onRevoke}
-        >
+        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevoke}>
           <ShieldSlashIcon aria-hidden />
           Revoke
         </Button>
@@ -785,13 +722,7 @@ function rowActions(
     actions.push({
       key: "unlink",
       node: (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-destructive"
-          onClick={on.onUnlink}
-        >
+        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onUnlink}>
           <LinkBreakIcon aria-hidden />
           Unlink
         </Button>
@@ -815,13 +746,7 @@ function rowActions(
     actions.push({
       key: "revoke-admin",
       node: (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-destructive"
-          onClick={on.onRevokeAdmin}
-        >
+        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevokeAdmin}>
           <CrownCrossIcon aria-hidden />
           Revoke admin
         </Button>
@@ -857,9 +782,9 @@ function AccessColumnHead() {
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-xs">
-        Two readings, deliberately not one: whether an unrevoked period covers right now - and when
-        the latest period ends, revoked ones included. Without the second, somebody whose access was
-        taken away would look exactly like somebody who never had any.
+        Two readings, deliberately not one: whether an unrevoked period covers right now - and when the latest period
+        ends, revoked ones included. Without the second, somebody whose access was taken away would look exactly like
+        somebody who never had any.
       </TooltipContent>
     </Tooltip>
   )
@@ -888,11 +813,7 @@ function GrantDialog({
   const [discordId, setDiscordId] = useState(person?.discordId ?? "")
   const [days, setDays] = useState("30")
   const parsedDays = Number.parseInt(days, 10)
-  const usable =
-    discordId.trim().length > 0 &&
-    Number.isFinite(parsedDays) &&
-    parsedDays > 0 &&
-    parsedDays <= MOST_DAYS
+  const usable = discordId.trim().length > 0 && Number.isFinite(parsedDays) && parsedDays > 0 && parsedDays <= MOST_DAYS
 
   return (
     <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
@@ -908,8 +829,8 @@ function GrantDialog({
         <ResponsiveAlertDialogHeader>
           <ResponsiveAlertDialogTitle>Grant access by hand</ResponsiveAlertDialogTitle>
           <ResponsiveAlertDialogDescription>
-            The bot writes a period with the source <code className="text-xs">ADMIN</code> - no
-            payment, no bunq tab - gives the role and tells the person by direct message.
+            The bot writes a period with the source <code className="text-xs">ADMIN</code> - no payment, no bunq tab -
+            gives the role and tells the person by direct message.
           </ResponsiveAlertDialogDescription>
         </ResponsiveAlertDialogHeader>
 
@@ -944,16 +865,13 @@ function GrantDialog({
             <li>At most {MOST_DAYS} days. A longer period is two grants.</li>
             <li>A day is exactly 24 hours, not a calendar day.</li>
             <li>
-              If a period is already running, the new one is appended - paid time is never lost,
-              and periods are never summed across a gap.
+              If a period is already running, the new one is appended - paid time is never lost, and periods are never
+              summed across a gap.
             </li>
+            <li>If the SMP launch has not been reached, the period starts at that date and not today.</li>
             <li>
-              If the SMP launch has not been reached, the period starts at that date and not
-              today.
-            </li>
-            <li>
-              If the bot does not know this Discord id yet, the account is created for it. A
-              mistyped id therefore produces a person who does not exist - and no error.
+              If the bot does not know this Discord id yet, the account is created for it. A mistyped id therefore
+              produces a person who does not exist - and no error.
             </li>
           </ul>
         </div>
@@ -1044,9 +962,7 @@ function PlaytimeDialog({
   const field = (value: string) => Number(value.replace(",", "."))
   const parts = [field(days), field(hours), field(minutes)]
   const usable = parts.every((part) => Number.isFinite(part) && part >= 0)
-  const seconds = usable
-    ? Math.round(parts[0] * 86_400 + parts[1] * 3_600 + parts[2] * 60)
-    : 0
+  const seconds = usable ? Math.round(parts[0] * 86_400 + parts[1] * 3_600 + parts[2] * 60) : 0
 
   return (
     <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
@@ -1054,8 +970,8 @@ function PlaytimeDialog({
         <ResponsiveAlertDialogHeader>
           <ResponsiveAlertDialogTitle>Set play time</ResponsiveAlertDialogTitle>
           <ResponsiveAlertDialogDescription>
-            Replaces the counted total for {personName(person)}. The prestige tier follows from it,
-            and there is nothing else to set.
+            Replaces the counted total for {personName(person)}. The prestige tier follows from it, and there is nothing
+            else to set.
           </ResponsiveAlertDialogDescription>
         </ResponsiveAlertDialogHeader>
 
@@ -1099,8 +1015,8 @@ function PlaytimeDialog({
           </div>
           <p className="text-xs text-muted-foreground">
             Counted so far: {playtime(person.playtimeSeconds ?? undefined)}
-            {usable ? `, becoming ${playtime(seconds)}` : null}. Anybody online while this is
-            written keeps counting up from the new value.
+            {usable ? `, becoming ${playtime(seconds)}` : null}. Anybody online while this is written keeps counting up
+            from the new value.
           </p>
         </div>
 
@@ -1152,8 +1068,8 @@ function UnlinkDialog({
         <ResponsiveAlertDialogHeader>
           <ResponsiveAlertDialogTitle>Unlink?</ResponsiveAlertDialogTitle>
           <ResponsiveAlertDialogDescription>
-            Breaks the link between this Discord account and its Minecraft account. The paid period
-            is untouched; the person can link a Minecraft account again afterwards.
+            Breaks the link between this Discord account and its Minecraft account. The paid period is untouched; the
+            person can link a Minecraft account again afterwards.
           </ResponsiveAlertDialogDescription>
         </ResponsiveAlertDialogHeader>
         <ResponsiveAlertDialogFooter>
@@ -1321,8 +1237,8 @@ function SettleAction({ reference }: { reference: string }) {
         <ResponsiveAlertDialogHeader>
           <ResponsiveAlertDialogTitle>Settle?</ResponsiveAlertDialogTitle>
           <ResponsiveAlertDialogDescription>
-            Marks {reference} paid by hand and writes the access period it bought. Use this only
-            once the money has actually arrived - it books access, it does not check bunq.
+            Marks {reference} paid by hand and writes the access period it bought. Use this only once the money has
+            actually arrived - it books access, it does not check bunq.
           </ResponsiveAlertDialogDescription>
         </ResponsiveAlertDialogHeader>
         <ResponsiveAlertDialogFooter>
@@ -1403,25 +1319,23 @@ function RevokeDialog({
         <ResponsiveAlertDialogHeader>
           <ResponsiveAlertDialogTitle>Revoke access?</ResponsiveAlertDialogTitle>
           <ResponsiveAlertDialogDescription>
-            What is revoked is the <span className="text-foreground">whole remaining run</span> of
-            the person this row names - every period not yet expired at once, not a single one.
+            What is revoked is the <span className="text-foreground">whole remaining run</span> of the person this row
+            names - every period not yet expired at once, not a single one.
           </ResponsiveAlertDialogDescription>
         </ResponsiveAlertDialogHeader>
 
         <div className="flex flex-col gap-3 text-sm">
           <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
             <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-            Anyone playing right now is thrown out: the proxy re-checks every connected player's
-            access regularly and disconnects as soon as it no longer holds - not only at the next
-            login.
+            Anyone playing right now is thrown out: the proxy re-checks every connected player's access regularly and
+            disconnects as soon as it no longer holds - not only at the next login.
           </p>
           <p className="text-muted-foreground">
-            Paid time does not come back this way. A later grant starts fresh and does not credit
-            the revoked remainder.
+            Paid time does not come back this way. A later grant starts fresh and does not credit the revoked remainder.
           </p>
           <p className="text-muted-foreground">
-            The entry stays and is only marked revoked - which is why a date still stands beside
-            "no access" in the list, instead of the person looking like a stranger.
+            The entry stays and is only marked revoked - which is why a date still stands beside "no access" in the
+            list, instead of the person looking like a stranger.
           </p>
         </div>
 
@@ -1469,15 +1383,7 @@ function RevokeDialog({
 }
 
 /** One person's chain, period by period. Read-only: the two writes stand in the table row. */
-function PersonGrants({
-  person,
-  now,
-  onRevoke,
-}: {
-  person: Person
-  now: number
-  onRevoke: () => void
-}) {
+function PersonGrants({ person, now, onRevoke }: { person: Person; now: number; onRevoke: () => void }) {
   const grants = useGrants(person.discordId)
 
   return (
@@ -1486,21 +1392,15 @@ function PersonGrants({
         <ResponsiveDialogTitle className="flex flex-wrap items-center justify-between gap-3 pr-6">
           <Entity id={person.discordId} kind="discord" />
           {person.accessActive ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="text-destructive"
-              onClick={onRevoke}
-            >
+            <Button type="button" variant="outline" size="sm" className="text-destructive" onClick={onRevoke}>
               <ShieldSlashIcon aria-hidden />
               Revoke
             </Button>
           ) : null}
         </ResponsiveDialogTitle>
         <ResponsiveDialogDescription>
-          Request → tab → paid → access → linked. This is the fourth link: every period, its source
-          and - for a purchase - the payment request it came from.
+          Request → tab → paid → access → linked. This is the fourth link: every period, its source and - for a purchase
+          - the payment request it came from.
         </ResponsiveDialogDescription>
       </ResponsiveDialogHeader>
 
@@ -1508,20 +1408,10 @@ function PersonGrants({
         <Stat label="Guild" value={<MemberBadge state={person.memberState} />} />
         <Stat
           label="Minecraft"
-          value={
-            person.minecraftUuid ? (
-              <Entity id={person.minecraftUuid} kind="minecraft" />
-            ) : (
-              "–"
-            )
-          }
+          value={person.minecraftUuid ? <Entity id={person.minecraftUuid} kind="minecraft" /> : "–"}
           hint={person.linked ? `linked ${dateTime(person.linked)}` : "not linked"}
         />
-        <Stat
-          label="Language"
-          value={person.locale}
-          hint={`last changed ${relative(person.updated, now)}`}
-        />
+        <Stat label="Language" value={person.locale} hint={`last changed ${relative(person.updated, now)}`} />
       </div>
 
       <Separator />
@@ -1563,36 +1453,36 @@ function PersonGrants({
                     </TableRow>
                   ))
                 : list.map((row) => {
-              const state = grantTone(row, now)
-              return (
-                <TableRow key={row.id}>
-                  <TableCell data-label="Source">{GRANT_SOURCES[row.source] ?? row.source}</TableCell>
-                  <TableCell data-label="Window" className="text-muted-foreground tnum">
-                    {dateTime(row.validFrom)} – {dateTime(row.validUntil)}
-                  </TableCell>
-                  <TableCell data-label="State">
-                    <StatusBadge tone={state.tone} tipContent={state.title}>
-                      {state.label}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell data-label="Request">
-                    {row.paymentRequestId ? (
-                      <span className="font-mono text-xs" title={row.paymentRequestId}>
-                        {shortId(row.paymentRequestId)}
-                      </span>
-                    ) : (
-                      <span
-                        className="text-xs text-muted-foreground"
-                        title={
-                          row.source === "PURCHASE"
-                            ? "Bought, but the payment request is no longer in the database - it is set to NULL when the request is deleted."
-                            : "Granted by hand, so there is no payment request."
-                        }
-                      >
-                        –
-                      </span>
-                    )}
-                  </TableCell>
+                    const state = grantTone(row, now)
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell data-label="Source">{GRANT_SOURCES[row.source] ?? row.source}</TableCell>
+                        <TableCell data-label="Window" className="text-muted-foreground tnum">
+                          {dateTime(row.validFrom)} – {dateTime(row.validUntil)}
+                        </TableCell>
+                        <TableCell data-label="State">
+                          <StatusBadge tone={state.tone} tipContent={state.title}>
+                            {state.label}
+                          </StatusBadge>
+                        </TableCell>
+                        <TableCell data-label="Request">
+                          {row.paymentRequestId ? (
+                            <span className="font-mono text-xs" title={row.paymentRequestId}>
+                              {shortId(row.paymentRequestId)}
+                            </span>
+                          ) : (
+                            <span
+                              className="text-xs text-muted-foreground"
+                              title={
+                                row.source === "PURCHASE"
+                                  ? "Bought, but the payment request is no longer in the database - it is set to NULL when the request is deleted."
+                                  : "Granted by hand, so there is no payment request."
+                              }
+                            >
+                              –
+                            </span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     )
                   })}
@@ -1648,9 +1538,7 @@ export function PaymentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Payments"
-      />
+      <PageHeader title="Payments" />
 
       <QueryState
         query={payments}
@@ -1669,10 +1557,7 @@ export function PaymentsPage() {
           const open = rows.filter((payment) => payment.status === "OPEN")
           const overdue = open.filter((payment) => isOverdue(payment, now))
           const paid = rows.filter((payment) => payment.status === "PAID")
-          const requested = paid.reduce(
-            (sum, payment) => sum + payment.amountCents + payment.donationCents,
-            0,
-          )
+          const requested = paid.reduce((sum, payment) => sum + payment.amountCents + payment.donationCents, 0)
           // Built from what is here, plus the value being filtered on, so that a status added to
           // the CHECK constraint later still appears the moment one row carries it.
           const present = [...new Set(rows.map((payment) => payment.status))].sort()
@@ -1685,9 +1570,7 @@ export function PaymentsPage() {
                   <Stat
                     label="Open"
                     value={waiting ? undefined : count(open.length)}
-                    hint={
-                      waiting ? undefined : `${count(overdue.length)} of them past the deadline`
-                    }
+                    hint={waiting ? undefined : `${count(overdue.length)} of them past the deadline`}
                     tone={overdue.length > 0 ? "warn" : undefined}
                   />
                   <Stat label="Paid" value={waiting ? undefined : count(paid.length)} />
@@ -1698,9 +1581,9 @@ export function PaymentsPage() {
                     hint="Amount plus donation, as the tab requested it"
                   />
                   <p className="max-w-prose text-xs text-muted-foreground">
-                    This is <span className="text-foreground">not the balance</span>: on the
-                    bunq.me page the paying person can change the amount, and what actually arrived
-                    is in none of these columns. This interface does not ask bunq - the bot does.
+                    This is <span className="text-foreground">not the balance</span>: on the bunq.me page the paying
+                    person can change the amount, and what actually arrived is in none of these columns. This interface
+                    does not ask bunq - the bot does.
                   </p>
                 </CardContent>
               </Card>
@@ -1733,8 +1616,8 @@ export function PaymentsPage() {
                     {overdue.length > 0 ? (
                       <span className="flex items-center gap-2 text-xs text-warning">
                         <WarningCircleIcon className="size-4 shrink-0" aria-hidden />
-                        {count(overdue.length)} open request(s) are past their deadline - nobody is
-                        going to pay those, they are only waiting for the bot's cleanup run.
+                        {count(overdue.length)} open request(s) are past their deadline - nobody is going to pay those,
+                        they are only waiting for the bot's cleanup run.
                       </span>
                     ) : null}
                   </div>
@@ -1808,85 +1691,84 @@ export function PaymentsPage() {
                               </TableRow>
                             ))
                           : shown.map((payment) => {
-                          const state = PAYMENT_STATES[payment.status]
-                          const late = isOverdue(payment, now)
-                          return (
-                            <TableRow key={payment.id}>
-                              <TableCell
-                                data-label="Reference"
-                                className="font-mono font-medium"
-                                title={`Created ${dateTime(payment.created)}`}
-                              >
-                                {payment.reference}
-                              </TableCell>
-                              <TableCell data-label="Person">
-                                <Entity id={payment.discordId} kind="discord" />
-                              </TableCell>
-                              <TableCell data-label="Days" className="text-right tnum">{payment.days}</TableCell>
-                              <TableCell data-label="Amount" className="text-right tnum">
-                                <div className="flex flex-col items-end">
-                                  <span>{euros(payment.amountCents)}</span>
-                                  {payment.donationCents > 0 ? (
-                                    <span
-                                      className="text-xs text-muted-foreground"
-                                      title="Donation on top of the requested amount"
-                                    >
-                                      +{euros(payment.donationCents)}
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </TableCell>
-                              <TableCell data-label="Status">
-                                <div className="flex items-center gap-1">
-                                  <StatusBadge
-                                    tone={late ? "warn" : (state?.tone ?? "idle")}
-                                    tipContent={
-                                      state?.title ??
-                                      "This interface does not know this status."
-                                    }
+                              const state = PAYMENT_STATES[payment.status]
+                              const late = isOverdue(payment, now)
+                              return (
+                                <TableRow key={payment.id}>
+                                  <TableCell
+                                    data-label="Reference"
+                                    className="font-mono font-medium"
+                                    title={`Created ${dateTime(payment.created)}`}
                                   >
-                                    {state?.label ?? payment.status}
-                                  </StatusBadge>
-                                  {late ? (
-                                    <StatusBadge
-                                      tone="warn"
-                                      tipContent="The deadline has passed but the status still reads OPEN - the bot's cleanup run has not touched it yet."
-                                    >
-                                      overdue
-                                    </StatusBadge>
-                                  ) : null}
-                                </div>
-                              </TableCell>
-                              <TableCell data-label="Deadline" className="text-muted-foreground tnum">
-                                {dateTime(payment.expires)}
-                              </TableCell>
-                              <TableCell data-label="Paid" className="text-muted-foreground tnum">
-                                {dateTime(payment.settled)}
-                              </TableCell>
-                              <TableCell>
-                                {/* No `flex-wrap` here - see steward/116 on the header above. */}
-                                <div className="flex items-center justify-end gap-1">
-                                  {payment.shareUrl ? (
-                                    <Button asChild variant="ghost" size="sm">
-                                      <a
-                                        href={payment.shareUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        title={payment.shareUrl}
+                                    {payment.reference}
+                                  </TableCell>
+                                  <TableCell data-label="Person">
+                                    <Entity id={payment.discordId} kind="discord" />
+                                  </TableCell>
+                                  <TableCell data-label="Days" className="text-right tnum">
+                                    {payment.days}
+                                  </TableCell>
+                                  <TableCell data-label="Amount" className="text-right tnum">
+                                    <div className="flex flex-col items-end">
+                                      <span>{euros(payment.amountCents)}</span>
+                                      {payment.donationCents > 0 ? (
+                                        <span
+                                          className="text-xs text-muted-foreground"
+                                          title="Donation on top of the requested amount"
+                                        >
+                                          +{euros(payment.donationCents)}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell data-label="Status">
+                                    <div className="flex items-center gap-1">
+                                      <StatusBadge
+                                        tone={late ? "warn" : (state?.tone ?? "idle")}
+                                        tipContent={state?.title ?? "This interface does not know this status."}
                                       >
-                                        <ArrowSquareOutIcon aria-hidden />
-                                        Tab
-                                      </a>
-                                    </Button>
-                                  ) : (
-                                    <span
-                                      className="text-xs text-muted-foreground"
-                                      title="No bunq.me address stands in the row for this request."
-                                    >
-                                      –
-                                    </span>
-                                  )}
-                                  {/*
+                                        {state?.label ?? payment.status}
+                                      </StatusBadge>
+                                      {late ? (
+                                        <StatusBadge
+                                          tone="warn"
+                                          tipContent="The deadline has passed but the status still reads OPEN - the bot's cleanup run has not touched it yet."
+                                        >
+                                          overdue
+                                        </StatusBadge>
+                                      ) : null}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell data-label="Deadline" className="text-muted-foreground tnum">
+                                    {dateTime(payment.expires)}
+                                  </TableCell>
+                                  <TableCell data-label="Paid" className="text-muted-foreground tnum">
+                                    {dateTime(payment.settled)}
+                                  </TableCell>
+                                  <TableCell>
+                                    {/* No `flex-wrap` here - see steward/116 on the header above. */}
+                                    <div className="flex items-center justify-end gap-1">
+                                      {payment.shareUrl ? (
+                                        <Button asChild variant="ghost" size="sm">
+                                          <a
+                                            href={payment.shareUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            title={payment.shareUrl}
+                                          >
+                                            <ArrowSquareOutIcon aria-hidden />
+                                            Tab
+                                          </a>
+                                        </Button>
+                                      ) : (
+                                        <span
+                                          className="text-xs text-muted-foreground"
+                                          title="No bunq.me address stands in the row for this request."
+                                        >
+                                          –
+                                        </span>
+                                      )}
+                                      {/*
                                     steward/47: `settle` moved here from the generic command card,
                                     onto the one row it can apply to - an OPEN request already
                                     names the reference the command needs, so there is nothing
@@ -1894,14 +1776,14 @@ export function PaymentsPage() {
                                     settled, hence `payment.status === "OPEN"` rather than drawing
                                     the button everywhere and disabling it.
                                   */}
-                                  {payment.status === "OPEN" ? (
-                                    <SettleAction reference={payment.reference} />
-                                  ) : null}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
+                                      {payment.status === "OPEN" ? (
+                                        <SettleAction reference={payment.reference} />
+                                      ) : null}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
                       </TableBody>
                     </Table>
                   )}
@@ -1945,9 +1827,7 @@ export function JournalPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Journal"
-      />
+      <PageHeader title="Journal" />
 
       <Card>
         <CardHeader>
@@ -2020,8 +1900,7 @@ export function JournalPage() {
 
           {actions.length === 0 && !all.isPending && !all.error ? (
             <p className="text-xs text-muted-foreground">
-              The selector above lists only actions that occur in the loaded entries - none occurs
-              yet.
+              The selector above lists only actions that occur in the loaded entries - none occurs yet.
             </p>
           ) : null}
 
@@ -2029,7 +1908,7 @@ export function JournalPage() {
             query={entries}
             empty={{
               title: "No entry",
-              note: "Nothing in the record matches these filters. Both compare exactly, not partially - a typo in the id looks exactly like \"nothing happened\".",
+              note: 'Nothing in the record matches these filters. Both compare exactly, not partially - a typo in the id looks exactly like "nothing happened".',
             }}
             isEmpty={(list: JournalEntry[]) => list.length === 0}
           >
@@ -2073,38 +1952,40 @@ export function JournalPage() {
                           </TableRow>
                         ))
                       : list.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell data-label="When" className="text-muted-foreground tnum" title={entry.occurred}>
-                          {dateTime(entry.occurred)}
-                        </TableCell>
-                        {/* The action is printed raw, exactly as the row carries it: any prettier
-                         * wording would be a table that silently falls back to the enum name for
-                         * anything new - and this column is what somebody greps the bot's log for. */}
-                        <TableCell data-label="Action" className="font-medium">{entry.action}</TableCell>
-                        {/* steward/124, Till on 2026-09-19: never user ids, always profiles.
-                         * Both columns printed the raw snowflake until then. The
-                         * identity component is what the rest of the app already uses, and it
-                         * answers the awkward case by itself: somebody the roster no longer knows
-                         * is drawn as "no Discord name on record" with the id still copyable in
-                         * the popover, which is a name for the row rather than an anonymous one.
-                         * No admin at all is Steward's own mark, the case `system` was built for. */}
-                        <TableCell data-label="Triggered by" className="text-muted-foreground">
-                          {entry.actor ? <Entity id={entry.actor} /> : <Entity system />}
-                        </TableCell>
-                        <TableCell data-label="Concerns" className="text-muted-foreground">
-                          {entry.subject ? (
-                            <Entity id={entry.subject} />
-                          ) : entry.mcUuid ? (
-                            <Entity id={entry.mcUuid} kind="minecraft" />
-                          ) : null}
-                        </TableCell>
-                        {/* steward/114: the one column here that is running text rather than a
-                         * field - a field does not wrap (a date, an id), prose does, at any
-                         * width, so this overrides TableCell's own `whitespace-nowrap` rather
-                         * than relying on the stacked layout alone. */}
-                        <TableCell data-label="Detail" className="text-muted-foreground whitespace-normal">
-                          {entry.detail ?? "–"}
-                        </TableCell>
+                          <TableRow key={entry.id}>
+                            <TableCell data-label="When" className="text-muted-foreground tnum" title={entry.occurred}>
+                              {dateTime(entry.occurred)}
+                            </TableCell>
+                            {/* The action is printed raw, exactly as the row carries it: any prettier
+                             * wording would be a table that silently falls back to the enum name for
+                             * anything new - and this column is what somebody greps the bot's log for. */}
+                            <TableCell data-label="Action" className="font-medium">
+                              {entry.action}
+                            </TableCell>
+                            {/* steward/124, Till on 2026-09-19: never user ids, always profiles.
+                             * Both columns printed the raw snowflake until then. The
+                             * identity component is what the rest of the app already uses, and it
+                             * answers the awkward case by itself: somebody the roster no longer knows
+                             * is drawn as "no Discord name on record" with the id still copyable in
+                             * the popover, which is a name for the row rather than an anonymous one.
+                             * No admin at all is Steward's own mark, the case `system` was built for. */}
+                            <TableCell data-label="Triggered by" className="text-muted-foreground">
+                              {entry.actor ? <Entity id={entry.actor} /> : <Entity system />}
+                            </TableCell>
+                            <TableCell data-label="Concerns" className="text-muted-foreground">
+                              {entry.subject ? (
+                                <Entity id={entry.subject} />
+                              ) : entry.mcUuid ? (
+                                <Entity id={entry.mcUuid} kind="minecraft" />
+                              ) : null}
+                            </TableCell>
+                            {/* steward/114: the one column here that is running text rather than a
+                             * field - a field does not wrap (a date, an id), prose does, at any
+                             * width, so this overrides TableCell's own `whitespace-nowrap` rather
+                             * than relying on the stacked layout alone. */}
+                            <TableCell data-label="Detail" className="text-muted-foreground whitespace-normal">
+                              {entry.detail ?? "–"}
+                            </TableCell>
                           </TableRow>
                         ))}
                   </TableBody>
@@ -2114,8 +1995,8 @@ export function JournalPage() {
                     <SkeletonText className="w-64" />
                   ) : (
                     <>
-                      {count(list.length)} entries. This query hands out no more than 200 - paging
-                      through the whole record is not something the API knows yet.
+                      {count(list.length)} entries. This query hands out no more than 200 - paging through the whole
+                      record is not something the API knows yet.
                     </>
                   )}
                 </p>

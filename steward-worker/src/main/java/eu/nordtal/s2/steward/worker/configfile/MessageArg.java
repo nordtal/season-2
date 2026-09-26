@@ -16,7 +16,8 @@ import org.jetbrains.annotations.Nullable;
  * @param type      the context type the role has, e.g. {@code player}; {@code null} for a plain value
  * @param global    whether every message of the network has it, rather than this one alone
  */
-public record MessageArg(@NotNull String name, boolean component, @Nullable String type, boolean global) {
+public record MessageArg(
+        @NotNull String name, boolean component, @Nullable String type, boolean global) {
 
     public MessageArg(final @NotNull String name, final boolean component) {
         this(name, component, null, false);

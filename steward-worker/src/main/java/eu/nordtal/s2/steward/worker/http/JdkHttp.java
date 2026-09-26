@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.worker.http;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -10,6 +8,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The real {@link Http}: {@code java.net.http}, no dependency, redirects followed.
@@ -35,8 +34,7 @@ public final class JdkHttp implements Http {
      * string: that one says {@code nordtal-season-2/deploy}, because a request from a server
      * container and a request from the worker are worth telling apart in somebody else's log.
      */
-    public static final String USER_AGENT =
-            "nordtal-season-2/steward-worker (+https://github.com/nordtal/season-2)";
+    public static final String USER_AGENT = "nordtal-season-2/steward-worker (+https://github.com/nordtal/season-2)";
 
     private final HttpClient client;
     private final Duration timeout;

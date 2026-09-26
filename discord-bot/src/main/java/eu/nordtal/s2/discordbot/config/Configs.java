@@ -5,10 +5,6 @@ import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
-
-import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,6 +13,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Where the bot's config files live, and every rule about what a valid value is.
@@ -78,8 +76,7 @@ public final class Configs {
                 link-channel: '000000000000000000'
                 hunger-games-channel: '000000000000000000'""";
 
-    private Configs() {
-    }
+    private Configs() {}
 
     /**
      * Where an operator's message overrides go: beside the YAML files, in the volume a deployment
@@ -120,7 +117,10 @@ public final class Configs {
      * </p>
      */
     public static @NotNull ConfigHandle<BotSpec> bot() throws ConfigException {
-        return load("bot", BotSpec.class, "NORDTAL_BOT",
+        return load(
+                "bot",
+                BotSpec.class,
+                "NORDTAL_BOT",
                 config -> requireSecret("token", "NORDTAL_BOT_TOKEN", config.token()));
     }
 
@@ -201,11 +201,11 @@ public final class Configs {
                 .toList();
         for (int index = 1; index < byDays.size(); index++) {
             if (byDays.get(index).priceCents() <= byDays.get(index - 1).priceCents()) {
-                throw new IllegalArgumentException(
-                        "tiers must get more expensive as they get longer: " + byDays.get(index).days()
-                                + " days costs " + byDays.get(index).priceCents() + "c but "
-                                + byDays.get(index - 1).days() + " days costs "
-                                + byDays.get(index - 1).priceCents() + "c");
+                throw new IllegalArgumentException("tiers must get more expensive as they get longer: "
+                        + byDays.get(index).days()
+                        + " days costs " + byDays.get(index).priceCents() + "c but "
+                        + byDays.get(index - 1).days() + " days costs "
+                        + byDays.get(index - 1).priceCents() + "c");
             }
         }
     }
@@ -221,8 +221,8 @@ public final class Configs {
      */
     private static void validateLanguages(final List<AccessSpec.LanguageSpec> languages) {
         if (languages == null || languages.isEmpty()) {
-            throw new IllegalArgumentException(SHAPE_OF_LANGUAGES.formatted(
-                    "languages is empty, so nothing can be said to anybody."));
+            throw new IllegalArgumentException(
+                    SHAPE_OF_LANGUAGES.formatted("languages is empty, so nothing can be said to anybody."));
         }
 
         final Set<String> tags = new HashSet<>();
@@ -270,9 +270,9 @@ public final class Configs {
 
     // ------------------------------------------------------------------ loading
 
-    private static <T> ConfigHandle<T> load(final String name, final Class<T> specType,
-                                            final String envPrefix,
-                                            final ConfigValidator<T> validator) throws ConfigException {
+    private static <T> ConfigHandle<T> load(
+            final String name, final Class<T> specType, final String envPrefix, final ConfigValidator<T> validator)
+            throws ConfigException {
         final Path file = directory().resolve(name + ".yml");
         final boolean fresh = !Files.isRegularFile(file);
 
@@ -282,8 +282,9 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            log.warn("No config existed at {} - defaults were written and are almost certainly "
-                    + "not what you want", file.toAbsolutePath());
+            log.warn(
+                    "No config existed at {} - defaults were written and are almost certainly " + "not what you want",
+                    file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle);
         return handle;
@@ -299,8 +300,7 @@ public final class Configs {
         try {
             EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
         } catch (final IOException e) {
-            log.warn("Could not write the environment-override marker beside {}: {}",
-                    handle.file(), e.getMessage());
+            log.warn("Could not write the environment-override marker beside {}: {}", handle.file(), e.getMessage());
         }
     }
 
@@ -314,8 +314,7 @@ public final class Configs {
 
     private static void requireSecret(final String key, final String variable, final String value) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(
-                    key + " is empty. Set " + variable + " in the environment.");
+            throw new IllegalArgumentException(key + " is empty. Set " + variable + " in the environment.");
         }
     }
 
@@ -332,13 +331,11 @@ public final class Configs {
 
     private static void requireSnowflake(final String key, final String value) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(
-                    key + " is empty. Fill in the Discord id; the bot will not guess one.");
+            throw new IllegalArgumentException(key + " is empty. Fill in the Discord id; the bot will not guess one.");
         }
         for (int index = 0; index < value.length(); index++) {
             if (!Character.isDigit(value.charAt(index))) {
-                throw new IllegalArgumentException(
-                        key + " must be a Discord snowflake (digits only), was: " + value);
+                throw new IllegalArgumentException(key + " must be a Discord snowflake (digits only), was: " + value);
             }
         }
     }

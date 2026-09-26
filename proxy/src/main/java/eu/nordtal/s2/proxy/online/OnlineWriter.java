@@ -2,14 +2,10 @@ package eu.nordtal.s2.proxy.online;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-
 import eu.nordtal.s2.common.online.OnlineDirectory;
 import eu.nordtal.s2.common.online.OnlineRoster;
 import eu.nordtal.s2.proxy.routing.PhaseServers;
 import eu.nordtal.s2.proxy.routing.ProxyRole;
-
-import org.slf4j.Logger;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -19,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
+import org.slf4j.Logger;
 
 /**
  * Writes what the proxy currently sees into {@code online_count}, on a timer (steward/86).
@@ -91,15 +88,24 @@ public final class OnlineWriter {
      * @param role which of the two proxies this process is. A standby writes nothing at all - see
      *             {@link #write()}
      */
-    public OnlineWriter(final ProxyServer proxy, final PhaseServers servers,
-                        final OnlineDirectory online, final OnlineRoster roster,
-                        final ProxyRole role, final Logger logger) {
+    public OnlineWriter(
+            final ProxyServer proxy,
+            final PhaseServers servers,
+            final OnlineDirectory online,
+            final OnlineRoster roster,
+            final ProxyRole role,
+            final Logger logger) {
         this(proxy, servers, online, roster, role, logger, Clock.systemUTC());
     }
 
-    public OnlineWriter(final ProxyServer proxy, final PhaseServers servers,
-                        final OnlineDirectory online, final OnlineRoster roster,
-                        final ProxyRole role, final Logger logger, final Clock clock) {
+    public OnlineWriter(
+            final ProxyServer proxy,
+            final PhaseServers servers,
+            final OnlineDirectory online,
+            final OnlineRoster roster,
+            final ProxyRole role,
+            final Logger logger,
+            final Clock clock) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.servers = Objects.requireNonNull(servers, "servers");
         this.online = Objects.requireNonNull(online, "online");
@@ -144,8 +150,7 @@ public final class OnlineWriter {
         } catch (final RuntimeException failure) {
             // The watch behind this reads a database row. A pass that cannot answer is a pass that
             // falls back to the ordinary cadence, never one that stops writing counts altogether.
-            logger.debug("Could not tell whether a run is imminent; writing on the usual cadence",
-                    failure);
+            logger.debug("Could not tell whether a run is imminent; writing on the usual cadence", failure);
             return false;
         }
     }
@@ -166,7 +171,9 @@ public final class OnlineWriter {
         if (lastWrite == null || hurrying) {
             return true;
         }
-        return !Duration.between(lastWrite, now).minus(OnlineDirectory.WRITE_INTERVAL).isNegative();
+        return !Duration.between(lastWrite, now)
+                .minus(OnlineDirectory.WRITE_INTERVAL)
+                .isNegative();
     }
 
     /**
@@ -202,8 +209,9 @@ public final class OnlineWriter {
         } catch (final RuntimeException failure) {
             // Nothing is retried here and nothing is cleared: the next tick is the retry, and a
             // slightly stale row beats a dashboard that goes blank over one missed write.
-            logger.warn("Could not write online player counts; the service list keeps showing the "
-                    + "last numbers it saw", failure);
+            logger.warn(
+                    "Could not write online player counts; the service list keeps showing the " + "last numbers it saw",
+                    failure);
         }
     }
 
@@ -213,8 +221,9 @@ public final class OnlineWriter {
         } catch (final RuntimeException failure) {
             // Same rule as above, and the same retry: the next tick. A roster that is one tick
             // behind shows a face too many for ten seconds; the count next to it is unaffected.
-            logger.warn("Could not write the online player list; the service list keeps showing "
-                    + "the last names it saw", failure);
+            logger.warn(
+                    "Could not write the online player list; the service list keeps showing " + "the last names it saw",
+                    failure);
         }
     }
 
@@ -246,10 +255,11 @@ public final class OnlineWriter {
         // where the players actually are, it is the only row that would not have been zero
         // (season-2-ops/120). A count that says nobody is online while everybody is parked is
         // worse than no count.
-        for (final String name : List.of(servers.smp(), servers.hungerGames(),
-                servers.limbo(), servers.limboStandby())) {
-            proxy.getServer(name).ifPresent(
-                    server -> byServer.put(name, server.getPlayersConnected().size()));
+        for (final String name :
+                List.of(servers.smp(), servers.hungerGames(), servers.limbo(), servers.limboStandby())) {
+            proxy.getServer(name)
+                    .ifPresent(server ->
+                            byServer.put(name, server.getPlayersConnected().size()));
         }
         return byServer;
     }

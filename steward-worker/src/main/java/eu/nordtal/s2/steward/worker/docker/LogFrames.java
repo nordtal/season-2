@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,6 +9,7 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Docker's log stream comes in two shapes, and reading the wrong one is visible to everybody.
@@ -35,11 +34,11 @@ public final class LogFrames {
 
     /** Docker's stream numbers, as they appear in the first header byte. */
     public static final int STDIN = 0;
+
     public static final int STDOUT = 1;
     public static final int STDERR = 2;
 
-    private LogFrames() {
-    }
+    private LogFrames() {}
 
     /**
      * Reads until the stream ends or the thread is interrupted, handing over whole lines.
@@ -47,8 +46,9 @@ public final class LogFrames {
      * @param multiplexed whether the eight-byte header is there - {@code Config.Tty} is false
      * @param line        called for each complete line, without its terminator
      */
-    public static void read(final @NotNull InputStream in, final boolean multiplexed,
-                            final @NotNull Consumer<String> line) throws IOException {
+    public static void read(
+            final @NotNull InputStream in, final boolean multiplexed, final @NotNull Consumer<String> line)
+            throws IOException {
         final StringBuilder held = new StringBuilder();
         final Utf8 text = new Utf8();
         if (multiplexed) {
@@ -69,8 +69,7 @@ public final class LogFrames {
                     // An all-zero payload is what the array already is, so ignoring this handed the
                     // interface `length` NUL characters and called them a log line - and the next
                     // eight bytes of a stream that has ended are not a header either.
-                    throw new EOFException("the log stream ended before a " + length
-                            + "-byte payload");
+                    throw new EOFException("the log stream ended before a " + length + "-byte payload");
                 }
                 split(held, text.decode(payload, payload.length), line);
             }
@@ -91,8 +90,7 @@ public final class LogFrames {
         }
     }
 
-    private static void split(final StringBuilder held, final String text,
-                              final Consumer<String> line) {
+    private static void split(final StringBuilder held, final String text, final Consumer<String> line) {
         held.append(text);
         int start = 0;
         for (int i = 0; i < held.length(); i++) {
@@ -122,7 +120,8 @@ public final class LogFrames {
      */
     private static final class Utf8 {
 
-        private final CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+        private final CharsetDecoder decoder = StandardCharsets.UTF_8
+                .newDecoder()
                 .onMalformedInput(CodingErrorAction.REPLACE)
                 .onUnmappableCharacter(CodingErrorAction.REPLACE);
 
@@ -159,8 +158,7 @@ public final class LogFrames {
      * header are somebody's log text - so it throws rather than carrying on and producing garbage.
      * </p>
      */
-    private static boolean readFully(final InputStream in, final byte[] buffer, final int length)
-            throws IOException {
+    private static boolean readFully(final InputStream in, final byte[] buffer, final int length) throws IOException {
         int filled = 0;
         while (filled < length) {
             final int read = in.read(buffer, filled, length - filled);
@@ -168,8 +166,7 @@ public final class LogFrames {
                 if (filled == 0) {
                     return false;
                 }
-                throw new EOFException("the log stream ended " + filled + " bytes into a "
-                        + length + "-byte read");
+                throw new EOFException("the log stream ended " + filled + " bytes into a " + length + "-byte read");
             }
             filled += read;
         }

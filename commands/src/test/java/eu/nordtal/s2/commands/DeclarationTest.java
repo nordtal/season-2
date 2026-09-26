@@ -1,15 +1,14 @@
 package eu.nordtal.s2.commands;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Set;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Every invariant {@link Declaration} actually enforces, and the one question it answers.
@@ -22,15 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DeclarationTest {
 
     private static Declaration of(final List<Argument> arguments) {
-        return new Declaration(List.of("smp", "aura"), Target.SMP, Set.of(Surface.GAME),
-                true, false, arguments);
+        return new Declaration(List.of("smp", "aura"), Target.SMP, Set.of(Surface.GAME), true, false, arguments);
     }
 
     @Test
     @DisplayName("a greedy argument has to be last")
     void greedyMustBeLast() {
-        final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                () -> of(List.of(Argument.greedy("when"), Argument.word("key"))));
+        final IllegalArgumentException refused = assertThrows(
+                IllegalArgumentException.class, () -> of(List.of(Argument.greedy("when"), Argument.word("key"))));
 
         assertTrue(refused.getMessage().contains("when"), refused.getMessage());
     }
@@ -38,8 +36,12 @@ class DeclarationTest {
     @Test
     @DisplayName("a greedy argument in last place is fine - /phase launch is exactly this")
     void greedyLastIsFine() {
-        final Declaration launch = new Declaration(List.of("phase", "launch"), Target.PROXY,
-                Set.of(Surface.GAME, Surface.DISCORD), true, false,
+        final Declaration launch = new Declaration(
+                List.of("phase", "launch"),
+                Target.PROXY,
+                Set.of(Surface.GAME, Surface.DISCORD),
+                true,
+                false,
                 List.of(Argument.greedy("when")));
 
         assertEquals("/phase launch", launch.name());
@@ -48,7 +50,8 @@ class DeclarationTest {
     @Test
     @DisplayName("a required argument cannot follow an optional one")
     void requiredCannotFollowOptional() {
-        final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+        final IllegalArgumentException refused = assertThrows(
+                IllegalArgumentException.class,
                 () -> of(List.of(Argument.word("key").optional(), Argument.word("other"))));
 
         assertTrue(refused.getMessage().contains("other"), refused.getMessage());
@@ -57,30 +60,34 @@ class DeclarationTest {
     @Test
     @DisplayName("an optional argument after a required one is the ordinary case")
     void optionalAfterRequiredIsFine() {
-        assertEquals(2, of(List.of(Argument.word("key"), Argument.word("note").optional()))
-                .arguments().size());
+        assertEquals(
+                2,
+                of(List.of(Argument.word("key"), Argument.word("note").optional()))
+                        .arguments()
+                        .size());
     }
 
     @Test
     @DisplayName("two arguments cannot share a name")
     void namesAreUnique() {
-        assertThrows(IllegalArgumentException.class,
-                () -> of(List.of(Argument.word("key"), Argument.integer("key", 0, 1))));
+        assertThrows(
+                IllegalArgumentException.class, () -> of(List.of(Argument.word("key"), Argument.integer("key", 0, 1))));
     }
 
     @Test
     @DisplayName("a command on no surface is refused, because nothing would register it")
     void everyCommandNeedsASurface() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> new Declaration(List.of("smp"), Target.SMP, Set.of(), true, false, List.of()));
     }
 
     @Test
     @DisplayName("a path segment cannot be blank")
     void pathSegmentsAreReal() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new Declaration(List.of("smp", " "), Target.SMP, Set.of(Surface.GAME),
-                        true, false, List.of()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new Declaration(List.of("smp", " "), Target.SMP, Set.of(Surface.GAME), true, false, List.of()));
     }
 
     @Test
@@ -88,8 +95,13 @@ class DeclarationTest {
     void remoteFollowsTheHost() {
         // The case that made the earlier signature wrong: Surface.GAME is four different processes,
         // so asking by surface answered "local" for /hg start typed on the SMP.
-        final Declaration start = new Declaration(List.of("hg", "start"), Target.HUNGER_GAMES,
-                Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, false, List.of());
+        final Declaration start = new Declaration(
+                List.of("hg", "start"),
+                Target.HUNGER_GAMES,
+                Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE),
+                true,
+                false,
+                List.of());
 
         assertFalse(start.isRemoteOn(Target.HUNGER_GAMES));
         assertTrue(start.isRemoteOn(Target.SMP));
@@ -117,7 +129,8 @@ class DeclarationTest {
     @Test
     @DisplayName("a non-CHOICE carrying choices is refused, because nothing would apply them")
     void onlyChoicesCarryChoices() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> new Argument("key", Argument.Kind.WORD, true, 0, 0, List.of("a", "b")));
     }
 }

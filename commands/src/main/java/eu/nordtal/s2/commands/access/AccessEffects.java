@@ -2,7 +2,6 @@ package eu.nordtal.s2.commands.access;
 
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.NordtalUser;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -29,17 +28,20 @@ import java.util.UUID;
 public interface AccessEffects extends CommandEffects {
 
     /** One period of access somebody holds or held. */
-    record Grant(Instant validFrom, Instant validUntil, String source, boolean revoked) {
-    }
+    record Grant(Instant validFrom, Instant validUntil, String source, boolean revoked) {}
 
     /** One purchase, in whatever state it reached. */
-    record Purchase(String reference, int days, String amount, String status) {
-    }
+    record Purchase(String reference, int days, String amount, String status) {}
 
     /** Everything {@code /access status} prints about one account. */
-    record Status(String name, Optional<Instant> accessUntil, boolean donor, Locale locale,
-                  Optional<UUID> minecraftAccount, List<Grant> grants, List<Purchase> purchases) {
-    }
+    record Status(
+            String name,
+            Optional<Instant> accessUntil,
+            boolean donor,
+            Locale locale,
+            Optional<UUID> minecraftAccount,
+            List<Grant> grants,
+            List<Purchase> purchases) {}
 
     /** Everything worth knowing about one account. Empty when Discord does not know the id. */
     Optional<Status> status(String discordId);
@@ -83,8 +85,7 @@ public interface AccessEffects extends CommandEffects {
      * @param status   the status a {@link Settlement#NOT_OPEN} request was actually in, so the
      *                 refusal can name it - "already paid" and "cancelled" are different problems
      */
-    record Settled(Settlement outcome, Instant until, int days, String status) {
-    }
+    record Settled(Settlement outcome, Instant until, int days, String status) {}
 
     /** The three ways {@link #settle} can end. */
     enum Settlement {

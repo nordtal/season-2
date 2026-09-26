@@ -1,9 +1,9 @@
 package eu.nordtal.s2.hungergames.border;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import org.junit.jupiter.api.Test;
 
 class BorderMathTest {
 
@@ -46,8 +46,7 @@ class BorderMathTest {
 
     @Test
     void shrinkDurationRefusesNonPositiveSpeed() {
-        assertThrows(IllegalArgumentException.class,
-                () -> BorderMath.shrinkDurationMillis(250.0, 200.0, 0.0));
+        assertThrows(IllegalArgumentException.class, () -> BorderMath.shrinkDurationMillis(250.0, 200.0, 0.0));
     }
 
     @Test

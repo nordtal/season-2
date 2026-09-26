@@ -64,7 +64,11 @@ export function ChartsGalleryPage() {
         </Head>
       </Proposal>
 
-      <Proposal mark="D" name="Range switch, reading on touch" aside={<RangeSwitch hours={hours} onChange={setHours} />}>
+      <Proposal
+        mark="D"
+        name="Range switch, reading on touch"
+        aside={<RangeSwitch hours={hours} onChange={setHours} />}
+      >
         <Head service={service}>
           <Scrub label="CPU" value={cpu} points={ranged.cpu} format={formatCpu} colour="var(--chart-1)" />
           <Scrub label="RAM" value={ram} points={ranged.memory} format={formatRam} colour="var(--chart-2)" />
@@ -74,7 +78,17 @@ export function ChartsGalleryPage() {
   )
 }
 
-function Proposal({ mark, name, aside, children }: { mark: string; name: string; aside?: ReactNode; children: ReactNode }) {
+function Proposal({
+  mark,
+  name,
+  aside,
+  children,
+}: {
+  mark: string
+  name: string
+  aside?: ReactNode
+  children: ReactNode
+}) {
   return (
     <section className="flex flex-col gap-4 border-t border-border pt-4">
       <div className="flex min-h-control flex-wrap items-center justify-between gap-3">
@@ -111,7 +125,11 @@ function Head({
         </div>
         <span className="text-2xl font-semibold tabular-nums">
           {service ? (
-            service.startedAt ? since(service.startedAt) : "–"
+            service.startedAt ? (
+              since(service.startedAt)
+            ) : (
+              "–"
+            )
           ) : (
             <SkeletonText width="short" className="h-[1lh]" />
           )}

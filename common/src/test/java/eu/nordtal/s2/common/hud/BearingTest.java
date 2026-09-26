@@ -1,8 +1,8 @@
 package eu.nordtal.s2.common.hud;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 class BearingTest {
 

@@ -20,19 +20,18 @@ import io.javalin.http.Context;
 import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.InternalServerErrorResponse;
 import io.javalin.http.NotFoundResponse;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
-import java.nio.file.AccessDeniedException;
 import java.io.UncheckedIOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The three routes over {@code eu.nordtal.s2.steward.worker.configfile}.
@@ -123,8 +122,10 @@ public final class ConfigApi {
         this(root, console, Map.of());
     }
 
-    public ConfigApi(final @NotNull Path root, final @NotNull ConsoleLine console,
-                     final @NotNull Map<String, Runnable> ownReloads) {
+    public ConfigApi(
+            final @NotNull Path root,
+            final @NotNull ConsoleLine console,
+            final @NotNull Map<String, Runnable> ownReloads) {
         this.root = root;
         this.console = console;
         this.ownReloads = Map.copyOf(ownReloads);
@@ -175,8 +176,8 @@ public final class ConfigApi {
         final Map<String, ConfigChange> changes = changesOf(body);
         final String revision = revisionOf(body);
         try {
-            final Map<String, Object> answer = document(location,
-                    ConfigFiles.write(location.file(), changes, revision));
+            final Map<String, Object> answer =
+                    document(location, ConfigFiles.write(location.file(), changes, revision));
             // The write above is what makes the change real; this is what makes it reach anything.
             // One request, one click - never a second button for "now actually use it" (steward/59).
             answer.put("reload", reload(location));
@@ -184,8 +185,11 @@ public final class ConfigApi {
         } catch (final StaleConfigException e) {
             // Nobody made a mistake and the change needs no correcting: somebody was faster. The
             // page redraws from the file as it now stands and the operator decides again.
-            log.info("{} was not saved: it was written since it was read ({} -> {})",
-                    location.file(), e.expected(), e.actual());
+            log.info(
+                    "{} was not saved: it was written since it was read ({} -> {})",
+                    location.file(),
+                    e.expected(),
+                    e.actual());
             // The sentence says what this answer is, and not what it carries: a ConflictResponse is
             // a message, not a document. The page re-reads the file when it sees the 409 (queries
             // .ts invalidates on that status alone); promising the current file in the body of the
@@ -201,15 +205,13 @@ public final class ConfigApi {
             // Javalin does not log a handled HttpResponseException, so without this line the only
             // trace of a full disk or a read-only mount is one sentence in somebody's browser.
             log.error("{} could not be written", location.file(), e);
-            throw new InternalServerErrorResponse(location.name() + " could not be written: "
-                    + e.getMessage());
+            throw new InternalServerErrorResponse(location.name() + " could not be written: " + e.getMessage());
         } catch (final IllegalStateException e) {
             // ConfigFiles refused to write what it had rendered, because it would not read back as
             // what was asked for. That is this program's bug and not the operator's, so it stays a
             // 500 - but it is the one failure that most needs a stack trace on this side.
             log.error("{} was not written: the rendered file would not read back", location.file(), e);
-            throw new InternalServerErrorResponse(location.name() + " could not be written: "
-                    + e.getMessage());
+            throw new InternalServerErrorResponse(location.name() + " could not be written: " + e.getMessage());
         }
     }
 
@@ -257,15 +259,17 @@ public final class ConfigApi {
             ctx.json(answer);
         } catch (final StaleConfigException e) {
             // Exactly #save's own reasoning: nobody made a mistake, somebody else was faster.
-            log.info("{} was not saved: it was written since it was read ({} -> {})",
-                    location.file(), e.expected(), e.actual());
+            log.info(
+                    "{} was not saved: it was written since it was read ({} -> {})",
+                    location.file(),
+                    e.expected(),
+                    e.actual());
             throw new ConflictResponse(location.name() + " was changed by somebody else while this"
                     + " editor was open, so nothing was saved. Read it again and make the change"
                     + " once more if it is still the one you want.");
         } catch (final IOException e) {
             log.error("{} could not be written", location.file(), e);
-            throw new InternalServerErrorResponse(location.name() + " could not be written: "
-                    + e.getMessage());
+            throw new InternalServerErrorResponse(location.name() + " could not be written: " + e.getMessage());
         }
     }
 
@@ -277,8 +281,8 @@ public final class ConfigApi {
         try {
             return ConfigFiles.discover(root);
         } catch (final UncheckedIOException e) {
-            throw new InternalServerErrorResponse("The config mount at " + root
-                    + " could not be listed: " + e.getMessage());
+            throw new InternalServerErrorResponse(
+                    "The config mount at " + root + " could not be listed: " + e.getMessage());
         }
     }
 
@@ -295,15 +299,13 @@ public final class ConfigApi {
         return locations().stream()
                 .filter(location -> identityOf(location).equals(asked))
                 .findFirst()
-                .orElseThrow(() -> new NotFoundResponse(
-                        "There is no config file called " + asked + " under " + root + "."));
+                .orElseThrow(
+                        () -> new NotFoundResponse("There is no config file called " + asked + " under " + root + "."));
     }
 
     /** How a file is named in a URL: what {@code discover} found, service directory included. */
     private static String identityOf(final ConfigLocation location) {
-        return location.service().isEmpty()
-                ? location.name()
-                : location.service() + "/" + location.name();
+        return location.service().isEmpty() ? location.name() : location.service() + "/" + location.name();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -353,23 +355,21 @@ public final class ConfigApi {
             // between the two lines, and because a directory somewhere above this file can refuse
             // the open without `isReadable` on the file itself saying so.
             log.warn("{} cannot be read by this process", location.file(), denied);
-            throw new InternalServerErrorResponse(location.name() + " is on this host but this"
-                    + " service may not open it.");
+            throw new InternalServerErrorResponse(
+                    location.name() + " is on this host but this" + " service may not open it.");
         } catch (final IOException e) {
             // Not a config file this class can split into keys - a foreign file steward/55's
             // broadened discover() now surfaces (a plugin's README, a .properties file), or a .yml
             // with a mistake in it. Either way there is still something to show: the bytes on disk,
             // read-only, rather than a 400 with a path and a line number in it (steward/56).
-            log.info("{} does not read as a config file; showing it as raw text: {}",
-                    location.file(), e.getMessage());
+            log.info("{} does not read as a config file; showing it as raw text: {}", location.file(), e.getMessage());
             return rawDocument(location, e.getMessage());
         }
     }
 
     // Package-private: ConfigApiReloadTest constructs a ConfigDocument directly, without a
     // Javalin context or a file on disk, to check what restartRequired says.
-    static Map<String, Object> document(final ConfigLocation location,
-                                                final ConfigDocument read) {
+    static Map<String, Object> document(final ConfigLocation location, final ConfigDocument read) {
         final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
         answer.put("revision", read.revision());
         answer.put("header", read.header());
@@ -405,7 +405,11 @@ public final class ConfigApi {
         if (own != null) {
             return reReadOwn(own, location);
         }
-        return reload(console, identityOf(location), location.service(), location.name(),
+        return reload(
+                console,
+                identityOf(location),
+                location.service(),
+                location.name(),
                 location.file().toString());
     }
 
@@ -419,14 +423,18 @@ public final class ConfigApi {
         try {
             own.run();
             answer.put("status", "APPLIED");
-            answer.put("message", "Saved, and " + location.service() + " read " + location.name()
-                    + " again. The backup and update schedules apply at once; most other settings"
-                    + " in it are still read only at a restart.");
+            answer.put(
+                    "message",
+                    "Saved, and " + location.service() + " read " + location.name()
+                            + " again. The backup and update schedules apply at once; most other settings"
+                            + " in it are still read only at a restart.");
         } catch (final RuntimeException e) {
             log.warn("{} was saved but could not be read again: {}", location.file(), e.getMessage());
             answer.put("status", "RESTART_REQUIRED");
-            answer.put("message", "Saved, but " + location.service() + " could not read it again: "
-                    + e.getMessage() + ". The change takes effect at its next restart.");
+            answer.put(
+                    "message",
+                    "Saved, but " + location.service() + " could not read it again: " + e.getMessage()
+                            + ". The change takes effect at its next restart.");
         }
         return answer;
     }
@@ -435,37 +443,45 @@ public final class ConfigApi {
      * The same three outcomes for anything {@link #RELOAD_COMMAND} names by {@code identity} - a
      * config file here, a message bundle in {@link MessagesApi}.
      */
-    static Map<String, Object> reload(final ConsoleLine console, final String identity,
-                                      final String service, final String name, final String file) {
+    static Map<String, Object> reload(
+            final ConsoleLine console,
+            final String identity,
+            final String service,
+            final String name,
+            final String file) {
         final Map<String, Object> answer = new LinkedHashMap<>();
         final String command = RELOAD_COMMAND.get(identity);
         if (command == null) {
             answer.put("status", "RESTART_REQUIRED");
-            answer.put("message", "Saved. Nothing reloads " + name + " live; "
-                    + (service.isEmpty() ? "it" : service)
-                    + " only reads it again at its next restart, which stays a click of its own.");
+            answer.put(
+                    "message",
+                    "Saved. Nothing reloads " + name + " live; "
+                            + (service.isEmpty() ? "it" : service)
+                            + " only reads it again at its next restart, which stays a click of its own.");
             return answer;
         }
         try {
             console.send(service, command);
             answer.put("status", "APPLIED");
-            answer.put("message", "Saved, and \"" + command + "\" was sent to "
-                    + service + "'s console to pick it up. Its reply, if the change was"
-                    + " refused, appears in that service's own log.");
+            answer.put(
+                    "message",
+                    "Saved, and \"" + command + "\" was sent to "
+                            + service + "'s console to pick it up. Its reply, if the change was"
+                            + " refused, appears in that service's own log.");
         } catch (final DockerException e) {
-            log.warn("{} was saved but {} could not be reached to reload it: {}",
-                    file, service, e.getMessage());
+            log.warn("{} was saved but {} could not be reached to reload it: {}", file, service, e.getMessage());
             answer.put("status", "NO_ANSWER");
-            answer.put("message", "Saved, but " + service + " did not answer: "
-                    + e.getMessage() + ". The change is on disk and takes effect once that service"
-                    + " is running again.");
+            answer.put(
+                    "message",
+                    "Saved, but " + service + " did not answer: "
+                            + e.getMessage() + ". The change is on disk and takes effect once that service"
+                            + " is running again.");
         } catch (final IllegalArgumentException e) {
             // Cannot happen for anything RELOAD_COMMAND names today - every key in it belongs to
             // one of the four services with a console - but a service losing its console without
             // this map being updated to match should read as "needs a restart", not crash the save
             // that already succeeded.
-            log.warn("{} names a reload command for {}, which refused it: {}",
-                    file, service, e.getMessage());
+            log.warn("{} names a reload command for {}, which refused it: {}", file, service, e.getMessage());
             answer.put("status", "RESTART_REQUIRED");
             answer.put("message", "Saved. " + e.getMessage());
         }
@@ -487,14 +503,13 @@ public final class ConfigApi {
         answer.put("raw", true);
         answer.put("reason", reason);
         try {
-            final String content = java.nio.file.Files.readString(location.file(),
-                    java.nio.charset.StandardCharsets.UTF_8);
+            final String content =
+                    java.nio.file.Files.readString(location.file(), java.nio.charset.StandardCharsets.UTF_8);
             answer.put("content", content);
             answer.put("revision", ConfigFiles.revisionOf(content));
         } catch (final IOException e) {
             log.warn("{} could not be read as raw text either", location.file(), e);
-            throw new InternalServerErrorResponse(location.name() + " could not be read: "
-                    + e.getMessage());
+            throw new InternalServerErrorResponse(location.name() + " could not be read: " + e.getMessage());
         }
         return answer;
     }
@@ -512,8 +527,11 @@ public final class ConfigApi {
         row.put("noExplanationNeeded", entry.noExplanationNeeded());
         // `filled` is what a secret is allowed to say about itself. It is sent for every key, not
         // only the secret ones, so the page has one rule to draw rather than two.
-        row.put("filled", !entry.value().isEmpty() || !entry.items().isEmpty()
-                || !entry.sections().isEmpty());
+        row.put(
+                "filled",
+                !entry.value().isEmpty()
+                        || !entry.items().isEmpty()
+                        || !entry.sections().isEmpty());
         if (!entry.secret()) {
             row.put("value", entry.value());
             row.put("items", entry.items());
@@ -554,11 +572,16 @@ public final class ConfigApi {
         // map achieves, rather than sending an empty array a scalar or a section itself never has.
         if (entry.kind() == ConfigEntry.Kind.SECTIONS) {
             if (!entry.template().isEmpty()) {
-                row.put("template", entry.template().stream().map(ConfigApi::describe).toList());
+                row.put(
+                        "template",
+                        entry.template().stream().map(ConfigApi::describe).toList());
             }
-            row.put("sections", entry.sections().stream()
-                    .map(section -> section.stream().map(ConfigApi::describe).toList())
-                    .toList());
+            row.put(
+                    "sections",
+                    entry.sections().stream()
+                            .map(section ->
+                                    section.stream().map(ConfigApi::describe).toList())
+                            .toList());
         }
         return row;
     }
@@ -571,8 +594,7 @@ public final class ConfigApi {
         try {
             return JsonParser.parseString(body == null ? "" : body).getAsJsonObject();
         } catch (final JsonSyntaxException | IllegalStateException | IllegalArgumentException e) {
-            throw new BadRequestResponse("The body has to be a JSON object with `revision` and"
-                    + " `changes` fields.");
+            throw new BadRequestResponse("The body has to be a JSON object with `revision` and" + " `changes` fields.");
         }
     }
 
@@ -586,7 +608,9 @@ public final class ConfigApi {
      */
     private static String revisionOf(final JsonObject body) {
         final JsonElement revision = body.get("revision");
-        if (revision == null || !revision.isJsonPrimitive() || revision.getAsString().isBlank()) {
+        if (revision == null
+                || !revision.isJsonPrimitive()
+                || revision.getAsString().isBlank()) {
             throw new BadRequestResponse("`revision` has to be the value this file was last read"
                     + " with, so that a change somebody else made in the meantime is not"
                     + " overwritten.");
@@ -614,7 +638,8 @@ public final class ConfigApi {
         }
 
         final Map<String, ConfigChange> answer = new LinkedHashMap<>();
-        for (final Map.Entry<String, JsonElement> change : changes.getAsJsonObject().entrySet()) {
+        for (final Map.Entry<String, JsonElement> change :
+                changes.getAsJsonObject().entrySet()) {
             answer.put(change.getKey(), changeOf(change.getKey(), change.getValue()));
         }
         if (answer.isEmpty()) {
@@ -652,7 +677,8 @@ public final class ConfigApi {
                         + " an object of field to new value, not " + item);
             }
             final Map<String, Object> fields = new LinkedHashMap<>();
-            for (final Map.Entry<String, JsonElement> field : item.getAsJsonObject().entrySet()) {
+            for (final Map.Entry<String, JsonElement> field :
+                    item.getAsJsonObject().entrySet()) {
                 fields.put(field.getKey(), fieldOf(path + "." + field.getKey(), field.getValue()));
             }
             sections.add(fields);
@@ -694,14 +720,11 @@ public final class ConfigApi {
         if (value.isJsonNull()) {
             return "";
         }
-        throw new BadRequestResponse(path + ": a setting is a value or a list of values, not "
-                + value);
+        throw new BadRequestResponse(path + ": a setting is a value or a list of values, not " + value);
     }
 
     /** For the page that lists the mount: whether there is anything there at all. */
     public Optional<String> whatIsMissing() {
-        return locations().isEmpty()
-                ? Optional.of("Nothing is mounted at " + root)
-                : Optional.empty();
+        return locations().isEmpty() ? Optional.of("Nothing is mounted at " + root) : Optional.empty();
     }
 }

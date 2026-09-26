@@ -1,11 +1,10 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * One message key, in both languages, packaged and overridden.

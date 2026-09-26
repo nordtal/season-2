@@ -1,15 +1,14 @@
 package eu.nordtal.s2.smp.npc;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The label the config promises is the label a player sees.
@@ -48,13 +47,16 @@ class SpawnNpcLabelTest {
     void theNameIsAVisibleCustomName() {
         final String source = read();
 
-        assertTrue(source.contains("mannequin.customName("),
+        assertTrue(
+                source.contains("mannequin.customName("),
                 "the NPC's configured name is not set as the entity's custom name, which is the"
                         + " one label that was watched being drawn on a real client");
-        assertTrue(source.contains("mannequin.setCustomNameVisible(true)"),
+        assertTrue(
+                source.contains("mannequin.setCustomNameVisible(true)"),
                 "the NPC has a custom name that is never made visible, which is the default and"
                         + " looks exactly like having no name at all");
-        assertTrue(source.contains("mannequin.setDescription(null)"),
+        assertTrue(
+                source.contains("mannequin.setDescription(null)"),
                 "the NPC's mannequin description is not cleared with null. Left at its default,"
                         + " vanilla draws it as a second smaller line reading the English word"
                         + " \"NPC\" under the name - two labels, and the lower one in one language"
@@ -67,8 +69,7 @@ class SpawnNpcLabelTest {
     private static String read() {
         try {
             Path candidate = Path.of("").toAbsolutePath();
-            while (candidate != null
-                    && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
+            while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
                 candidate = candidate.getParent();
             }
             if (candidate == null) {

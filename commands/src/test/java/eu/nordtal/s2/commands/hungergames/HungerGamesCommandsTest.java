@@ -1,21 +1,19 @@
 package eu.nordtal.s2.commands.hungergames;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.commands.Confirmations;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Everything {@code /hg} decides, without a server, a lobby or twenty people on towers.
@@ -56,10 +54,12 @@ class HungerGamesCommandsTest {
         // a miss and keys on the typed line - so a /hg start with forty participants would demand a
         // retype, and the sentence it demanded it with would say "this cannot be undone" instead of
         // naming the number that matters. Decided with the owner, 2026-09-05.
-        assertEquals(List.of(), HungerGamesCommands.declarations().stream()
-                .filter(Declaration::irreversible)
-                .map(Declaration::name)
-                .toList());
+        assertEquals(
+                List.of(),
+                HungerGamesCommands.declarations().stream()
+                        .filter(Declaration::irreversible)
+                        .map(Declaration::name)
+                        .toList());
     }
 
     @Test
@@ -71,11 +71,13 @@ class HungerGamesCommandsTest {
         // /hg ready-status and /hg reload are console only.
         for (final Declaration declaration : HungerGamesCommands.declarations()) {
             assertTrue(declaration.adminOnly(), declaration.name());
-            assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
+            assertTrue(
+                    declaration.surfaces().contains(Surface.CONSOLE),
                     declaration.name() + " lost the console, which must never happen");
-            assertFalse(declaration.surfaces().contains(Surface.GAME),
-                    declaration.name() + " is still reachable in game");
-            assertFalse(declaration.surfaces().contains(Surface.DISCORD),
+            assertFalse(
+                    declaration.surfaces().contains(Surface.GAME), declaration.name() + " is still reachable in game");
+            assertFalse(
+                    declaration.surfaces().contains(Surface.DISCORD),
                     declaration.name() + " is still reachable from Discord");
         }
     }
@@ -110,7 +112,9 @@ class HungerGamesCommandsTest {
         assertEquals("hg.start.below-hard-minimum", first.only().key());
 
         final FakeUser second = confirm(FakeUser.inGame());
-        assertEquals("hg.start.below-hard-minimum", second.only().key(),
+        assertEquals(
+                "hg.start.below-hard-minimum",
+                second.only().key(),
                 "a confirmation carried a game past the arithmetic floor");
         assertEquals(List.of(), hg.did);
     }
@@ -244,13 +248,12 @@ class HungerGamesCommandsTest {
     @DisplayName("ready-status lists every team with its status as a translated phrase")
     void readyStatus() {
         hg.registration = FakeHungerGames.registered(4);
-        hg.teams = List.of(new HungerGamesEffects.TeamReady("Rot", true),
-                new HungerGamesEffects.TeamReady("Blau", false));
+        hg.teams =
+                List.of(new HungerGamesEffects.TeamReady("Rot", true), new HungerGamesEffects.TeamReady("Blau", false));
 
         final FakeUser user = run(new ReadyStatus());
 
-        assertEquals(List.of("hg.ready-status.header", "hg.ready-status.line",
-                "hg.ready-status.line"), user.keys());
+        assertEquals(List.of("hg.ready-status.header", "hg.ready-status.line", "hg.ready-status.line"), user.keys());
         assertEquals("<hg.ready-status.ready>", user.replies.get(1).of("status"));
         assertEquals("<hg.ready-status.not-ready>", user.replies.get(2).of("status"));
     }
@@ -273,8 +276,11 @@ class HungerGamesCommandsTest {
 
         hg.did.clear();
         hg.messagesReload = false;
-        assertEquals(List.of("hg.admin.reload-failed"), run(new ReloadHungerGames()).keys());
-        assertEquals(List.of("reload sounds", "reload messages"), hg.did,
+        assertEquals(
+                List.of("hg.admin.reload-failed"), run(new ReloadHungerGames()).keys());
+        assertEquals(
+                List.of("reload sounds", "reload messages"),
+                hg.did,
                 "a broken sounds.yml must not stop a corrected message from being re-read");
 
         // And the other way round, which the sentence above claimed and no case checked: an early
@@ -283,8 +289,11 @@ class HungerGamesCommandsTest {
         hg.did.clear();
         hg.messagesReload = true;
         hg.soundsReload = false;
-        assertEquals(List.of("hg.admin.reload-failed"), run(new ReloadHungerGames()).keys());
-        assertEquals(List.of("reload sounds", "reload messages"), hg.did,
+        assertEquals(
+                List.of("hg.admin.reload-failed"), run(new ReloadHungerGames()).keys());
+        assertEquals(
+                List.of("reload sounds", "reload messages"),
+                hg.did,
                 "a broken sounds.yml must not stop the messages from being re-read");
     }
 }

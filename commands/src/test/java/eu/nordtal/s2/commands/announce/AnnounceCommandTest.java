@@ -1,17 +1,16 @@
 package eu.nordtal.s2.commands.announce;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class AnnounceCommandTest {
 
@@ -29,8 +28,7 @@ class AnnounceCommandTest {
         }
 
         @Override
-        public void warn(final String what, final Throwable cause) {
-        }
+        public void warn(final String what, final Throwable cause) {}
 
         @Override
         public boolean post(final String languageTag, final String text) {

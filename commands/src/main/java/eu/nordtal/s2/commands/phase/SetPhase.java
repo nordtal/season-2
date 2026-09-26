@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands.phase;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
@@ -9,10 +11,7 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.PhaseChange;
-
 import java.util.Optional;
-
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 /**
  * {@code /phase set &lt;phase&gt;} - the one command in the network that can disconnect everybody.
@@ -50,8 +49,7 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
      * adapter parsed first for exactly that reason and the bot's did not.</p>
      */
     @Override
-    public java.util.Optional<MessageRef> problem(
-            final Values values) {
+    public java.util.Optional<MessageRef> problem(final Values values) {
         final String requested = values.string("phase");
         if (parse(requested).isPresent()) {
             return java.util.Optional.empty();
@@ -86,10 +84,13 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
             // already knows, and refreshing here is what makes the reply and the log agree.
             effects.afterWrite();
 
-            user.reply(change.unchanged()
+            user.reply(
+                    change.unchanged()
                             ? MESSAGES.phase().unchanged(change.current().name())
-                            : MESSAGES.phase().changed(String.valueOf(change.previous()),
-                                    change.current().name()),
+                            : MESSAGES.phase()
+                                    .changed(
+                                            String.valueOf(change.previous()),
+                                            change.current().name()),
                     // "already in that phase" is WARN: nothing was written, and an admin who typed
                     // this while the network is misbehaving has to see that at a glance.
                     change.unchanged() ? Tone.WARN : Tone.GOOD);

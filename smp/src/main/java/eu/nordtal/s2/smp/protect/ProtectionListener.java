@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.protect;
 
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -7,8 +9,6 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.region.Boxes;
-
-import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.Container;
@@ -28,8 +28,6 @@ import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-
-import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 /**
  * The four spawns, protected by a handful of event handlers over a list of boxes.
@@ -51,9 +49,12 @@ public final class ProtectionListener implements Listener {
     private final PlayerLocales locales;
     private final SmpSounds sounds;
 
-    public ProtectionListener(final Boxes regions, final Identities identities,
-                              final Messages messages, final PlayerLocales locales,
-                              final SmpSounds sounds) {
+    public ProtectionListener(
+            final Boxes regions,
+            final Identities identities,
+            final Messages messages,
+            final PlayerLocales locales,
+            final SmpSounds sounds) {
         this.regions = regions;
         this.identities = identities;
         this.messages = messages;
@@ -115,7 +116,8 @@ public final class ProtectionListener implements Listener {
         if (!inside(at)) {
             return;
         }
-        if (event.getRemover() instanceof Player player && identities.of(player.getUniqueId()).admin()) {
+        if (event.getRemover() instanceof Player player
+                && identities.of(player.getUniqueId()).admin()) {
             return;
         }
         event.setCancelled(true);
@@ -166,8 +168,8 @@ public final class ProtectionListener implements Listener {
     // ------------------------------------------------------------------ helpers
 
     private boolean inside(final Location location) {
-        return regions.contains(location.getWorld().getName(), location.getBlockX(),
-                location.getBlockY(), location.getBlockZ());
+        return regions.contains(
+                location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 
     /** Whether this player must be stopped here - and tells them why, once, when they are. */
@@ -175,8 +177,10 @@ public final class ProtectionListener implements Listener {
         if (!inside(block.getLocation()) || identities.of(player.getUniqueId()).admin()) {
             return false;
         }
-        player.sendActionBar(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
-                MESSAGES.smp().protect().denied()));
+        player.sendActionBar(MessageRenderer.of(messages)
+                .format(
+                        locales.of(player.getUniqueId()),
+                        MESSAGES.smp().protect().denied()));
         sounds.play(player, Feedback.REFUSED);
         return true;
     }

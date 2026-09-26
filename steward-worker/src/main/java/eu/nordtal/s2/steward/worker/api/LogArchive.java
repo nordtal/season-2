@@ -1,10 +1,5 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -27,6 +22,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The lines of earlier runs, out of the server's own rotated logs.
@@ -56,12 +55,12 @@ final class LogArchive {
 
     /** {@code 2026-09-23-2.log.gz}: log4j's rotated name, the date the file was started on. */
     private static final Pattern NAME = Pattern.compile("(\\d{4}-\\d{2}-\\d{2})-(\\d+)\\.log\\.gz");
+
     private static final Pattern CLOCK = Pattern.compile("^\\[(\\d{2}):(\\d{2}):\\d{2}]");
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH);
 
     /** One earlier run, oldest line first, and the grey line that stands above it. */
-    record Run(@NotNull String label, @NotNull List<String> lines) {
-    }
+    record Run(@NotNull String label, @NotNull List<String> lines) {}
 
     /** What the archive gave, oldest run first; {@code exhausted} when nothing older is left. */
     record Backlog(@NotNull List<Run> runs, boolean exhausted) {
@@ -86,8 +85,8 @@ final class LogArchive {
      * Up to {@code wanted} lines from the runs before {@code oldest}, newest run first while
      * reading and oldest first in the answer.
      */
-    @NotNull Backlog before(final @NotNull String service, final @NotNull Instant oldest,
-                            final int wanted) {
+    @NotNull
+    Backlog before(final @NotNull String service, final @NotNull Instant oldest, final int wanted) {
         final List<Path> archives = archives(service, oldest);
         final Deque<Run> runs = new ArrayDeque<>();
         int missing = wanted;
@@ -99,8 +98,11 @@ final class LogArchive {
                 break;
             }
             if (index > 0 && Duration.between(started, clock.get()).compareTo(BUDGET) > 0) {
-                log.warn("reading the archived logs of {} took over {}; stopped after {} file(s)",
-                        service, BUDGET, index);
+                log.warn(
+                        "reading the archived logs of {} took over {}; stopped after {} file(s)",
+                        service,
+                        BUDGET,
+                        index);
                 exhausted = false;
                 break;
             }
@@ -109,8 +111,8 @@ final class LogArchive {
             if (lines.isEmpty()) {
                 continue;
             }
-            final List<String> kept = lines.size() > missing
-                    ? lines.subList(lines.size() - missing, lines.size()) : lines;
+            final List<String> kept =
+                    lines.size() > missing ? lines.subList(lines.size() - missing, lines.size()) : lines;
             runs.addFirst(new Run(label(archive, lines), List.copyOf(kept)));
             missing -= kept.size();
             if (lines.size() > kept.size()) {
@@ -121,7 +123,8 @@ final class LogArchive {
     }
 
     /** The rotated archives of this service from before {@code oldest}, newest first. */
-    @NotNull List<Path> archives(final @NotNull String service, final @NotNull Instant oldest) {
+    @NotNull
+    List<Path> archives(final @NotNull String service, final @NotNull Instant oldest) {
         if (volumesRoot == null) {
             return List.of();
         }
@@ -131,8 +134,8 @@ final class LogArchive {
         }
         final Instant limit = oldest.plus(SLACK);
         try (Stream<Path> files = Files.list(logs)) {
-            return files
-                    .filter(file -> NAME.matcher(file.getFileName().toString()).matches())
+            return files.filter(
+                            file -> NAME.matcher(file.getFileName().toString()).matches())
                     .filter(file -> modified(file).isBefore(limit))
                     .sorted(Comparator.comparing(LogArchive::modified).reversed())
                     .toList();
@@ -152,11 +155,12 @@ final class LogArchive {
 
     private static List<String> read(final Path archive) {
         final List<String> lines = new ArrayList<>();
-        final var decoder = StandardCharsets.UTF_8.newDecoder()
+        final var decoder = StandardCharsets.UTF_8
+                .newDecoder()
                 .onMalformedInput(CodingErrorAction.REPLACE)
                 .onUnmappableCharacter(CodingErrorAction.REPLACE);
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new GZIPInputStream(Files.newInputStream(archive)), decoder))) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new GZIPInputStream(Files.newInputStream(archive)), decoder))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 lines.add(line);

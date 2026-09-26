@@ -14,7 +14,7 @@ deploy/dev ui
 
 It brings up the stack and the three steward services, gets Node and the packages through Gradle,
 and runs Vite on http://localhost:5173. What that starts, why the port matters, and how to work on
-the Java half instead are in [`deploy/README.md` § *Locally* → *The interface*](../../deploy/README.md#the-interface).
+the Java half instead are in [`deploy/README.md` § _Locally_ → _The interface_](../../deploy/README.md#the-interface).
 **That section is the description of the local start; this file does not keep a second copy of it.**
 
 The two things that belong here because they are about this directory and not about the stack:

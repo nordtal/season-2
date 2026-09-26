@@ -1,7 +1,6 @@
 package eu.nordtal.s2.smp.config;
 
 import eu.nordtal.jcore.config.spec.Specs;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,8 +47,7 @@ final class DefaultSmp {
      * with everything else social, so the opening minutes withhold travel and nothing else.
      */
     static final List<SmpSpec.BoardSpec> BOARDS = List.of(
-            board("OBJECTIVE", "nordtal", 106 - 4, 68, 88 + 6, 0f),
-            board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
+            board("OBJECTIVE", "nordtal", 106 - 4, 68, 88 + 6, 0f), board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
 
     /**
      * Placeholder duel platforms, both 3 x 3 and both inside radius 10 of the border centre.
@@ -59,8 +57,8 @@ final class DefaultSmp {
             platform("BOW", "nordtal", 106 + 5, 68, 88 - 1, 106 + 7, 69, 88 + 1));
 
     /** A placeholder wheel, inside radius 10 with everything else social. */
-    static final List<SmpSpec.SpawnRegionSpec> WHEEL_REGIONS = List.of(
-            region("nordtal", 106 - 2, 68, 88 + 2, 106 - 1, 70, 88 + 3));
+    static final List<SmpSpec.SpawnRegionSpec> WHEEL_REGIONS =
+            List.of(region("nordtal", 106 - 2, 68, 88 + 2, 106 - 1, 70, 88 + 3));
 
     /** A placeholder NPC, inside radius 10 with everything else social. */
     static final SmpSpec.NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "", "Nordtal");
@@ -78,20 +76,15 @@ final class DefaultSmp {
      * is replaced from the built spawn; what keeps a wrong one from killing anybody in the
      * meantime is {@code LandingSite#findSafeAt}, not the numbers.
      */
-    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_NORDTAL =
-            spawnPoint(106.5, 68.0, 88.5, 0f, 0f);
+    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_NORDTAL = spawnPoint(106.5, 68.0, 88.5, 0f, 0f);
 
-    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_NETHER =
-            spawnPoint(0.5, 32.0, 0.5, 0f, 0f);
+    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_NETHER = spawnPoint(0.5, 32.0, 0.5, 0f, 0f);
 
-    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_END =
-            spawnPoint(0.5, 64.0, 0.5, 0f, 0f);
+    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_END = spawnPoint(0.5, 64.0, 0.5, 0f, 0f);
 
     /** The three of them together, which is what the top-level key answers with. */
-    static final SmpSpec.BalloonSpawnPointsSpec BALLOON_SPAWN_POINTS = balloonSpawnPoints(
-            BALLOON_SPAWN_POINT_NORDTAL,
-            BALLOON_SPAWN_POINT_NETHER,
-            BALLOON_SPAWN_POINT_END);
+    static final SmpSpec.BalloonSpawnPointsSpec BALLOON_SPAWN_POINTS =
+            balloonSpawnPoints(BALLOON_SPAWN_POINT_NORDTAL, BALLOON_SPAWN_POINT_NETHER, BALLOON_SPAWN_POINT_END);
 
     /**
      * A placeholder first-join point, in Nordtal on the border centre with everything else social.
@@ -100,8 +93,7 @@ final class DefaultSmp {
      * a {@code default} method on a spec interface can only return values, so there is nothing here
      * to read it from. That duplication is named in the key's own comment.
      */
-    static final SmpSpec.FirstJoinSpawnSpec FIRST_JOIN_SPAWN =
-            firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
+    static final SmpSpec.FirstJoinSpawnSpec FIRST_JOIN_SPAWN = firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
 
     /**
      * The curated advancement list. Twenty-two entries across the four bands described in
@@ -144,9 +136,8 @@ final class DefaultSmp {
      * The winner's head start: the thing everybody wants and nobody has on day one, plus a head
      * start on gear that is spent the moment it is used.
      */
-    static final List<SmpSpec.WheelPrizeSpec> HG_WINNER_ITEMS = List.of(
-            item("ELYTRA", 1, 1),
-            item("NETHERITE_INGOT", 1, 1));
+    static final List<SmpSpec.WheelPrizeSpec> HG_WINNER_ITEMS =
+            List.of(item("ELYTRA", 1, 1), item("NETHERITE_INGOT", 1, 1));
 
     /**
      * The wheel's pool. Weights are relative; as written, the common band is about 70 % of spins,
@@ -204,12 +195,16 @@ final class DefaultSmp {
     // ---------------------------------------------------------------- the sound vocabulary
     //
 
-    private DefaultSmp() {
-    }
+    private DefaultSmp() {}
 
-    private static SmpSpec.SpawnRegionSpec region(final String world, final int minX, final int minY,
-                                                  final int minZ, final int maxX, final int maxY,
-                                                  final int maxZ) {
+    private static SmpSpec.SpawnRegionSpec region(
+            final String world,
+            final int minX,
+            final int minY,
+            final int minZ,
+            final int maxX,
+            final int maxY,
+            final int maxZ) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("world", world);
         values.put("min-x", minX);
@@ -221,9 +216,14 @@ final class DefaultSmp {
         return Specs.createUnsafe(SmpSpec.SpawnRegionSpec.class, values);
     }
 
-    private static SmpSpec.BalloonSpec balloon(final String world, final int minX, final int minY,
-                                               final int minZ, final int maxX, final int maxY,
-                                               final int maxZ) {
+    private static SmpSpec.BalloonSpec balloon(
+            final String world,
+            final int minX,
+            final int minY,
+            final int minZ,
+            final int maxX,
+            final int maxY,
+            final int maxZ) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("world", world);
         values.put("min-x", minX);
@@ -245,8 +245,8 @@ final class DefaultSmp {
      * and {@code smp}'s own {@code ConfigsTest} is what caught it, at exactly the moment
      * {@code Configs.validate} first touched the new getter.</p>
      */
-    private static SmpSpec.BoardSpec board(final String kind, final String world, final double x,
-                                           final double y, final double z, final float yaw) {
+    private static SmpSpec.BoardSpec board(
+            final String kind, final String world, final double x, final double y, final double z, final float yaw) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("kind", kind);
         values.put("world", world);
@@ -258,9 +258,15 @@ final class DefaultSmp {
         return Specs.createUnsafe(SmpSpec.BoardSpec.class, values);
     }
 
-    private static SmpSpec.DuelPlatformSpec platform(final String type, final String world,
-                                                     final int minX, final int minY, final int minZ,
-                                                     final int maxX, final int maxY, final int maxZ) {
+    private static SmpSpec.DuelPlatformSpec platform(
+            final String type,
+            final String world,
+            final int minX,
+            final int minY,
+            final int minZ,
+            final int maxX,
+            final int maxY,
+            final int maxZ) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("type", type);
         values.put("world", world);
@@ -273,9 +279,14 @@ final class DefaultSmp {
         return Specs.createUnsafe(SmpSpec.DuelPlatformSpec.class, values);
     }
 
-    private static SmpSpec.NpcSpec npc(final String world, final double x, final double y,
-                                       final double z, final float yaw, final String skinName,
-                                       final String name) {
+    private static SmpSpec.NpcSpec npc(
+            final String world,
+            final double x,
+            final double y,
+            final double z,
+            final float yaw,
+            final String skinName,
+            final String name) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("world", world);
         values.put("x", x);
@@ -287,8 +298,8 @@ final class DefaultSmp {
         return Specs.createUnsafe(SmpSpec.NpcSpec.class, values);
     }
 
-    private static SmpSpec.SpawnPointSpec spawnPoint(final double x, final double y, final double z,
-                                                     final float yaw, final float pitch) {
+    private static SmpSpec.SpawnPointSpec spawnPoint(
+            final double x, final double y, final double z, final float yaw, final float pitch) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("x", x);
         values.put("y", y);
@@ -299,7 +310,8 @@ final class DefaultSmp {
     }
 
     private static SmpSpec.BalloonSpawnPointsSpec balloonSpawnPoints(
-            final SmpSpec.SpawnPointSpec nordtal, final SmpSpec.SpawnPointSpec nether,
+            final SmpSpec.SpawnPointSpec nordtal,
+            final SmpSpec.SpawnPointSpec nether,
             final SmpSpec.SpawnPointSpec end) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("nordtal", nordtal);
@@ -308,9 +320,8 @@ final class DefaultSmp {
         return Specs.createUnsafe(SmpSpec.BalloonSpawnPointsSpec.class, values);
     }
 
-    private static SmpSpec.FirstJoinSpawnSpec firstJoinSpawn(final String world, final double x,
-                                                             final double y, final double z,
-                                                             final float yaw, final float pitch) {
+    private static SmpSpec.FirstJoinSpawnSpec firstJoinSpawn(
+            final String world, final double x, final double y, final double z, final float yaw, final float pitch) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("world", world);
         values.put("x", x);

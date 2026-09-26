@@ -17,13 +17,7 @@ import { RUN_KIND_SEARCH_TERMS } from "@/app/run-search-terms"
 import type { Run } from "@/lib/api"
 import { runPath } from "@/lib/run-path"
 import { dateTime, relative } from "@/lib/format"
-import {
-  useConfigDocuments,
-  useConfigs,
-  useMessageBundles,
-  useMessageDocuments,
-  useRuns,
-} from "@/lib/queries"
+import { useConfigDocuments, useConfigs, useMessageBundles, useMessageDocuments, useRuns } from "@/lib/queries"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import {
   entryHaystack,
@@ -108,10 +102,7 @@ export function CommandPalette() {
   // this host on 2026-09-17, 282 to 429 keys each, which is the same "small enough to just fetch
   // it" case `useConfigDocuments` already made for config files.
   const bundleLocations = useMessageBundles(open).data ?? []
-  const bundlePaths = React.useMemo(
-    () => bundleLocations.map((location) => location.path),
-    [bundleLocations],
-  )
+  const bundlePaths = React.useMemo(() => bundleLocations.map((location) => location.path), [bundleLocations])
   const bundleDocuments = useMessageDocuments(bundlePaths, open && search.trim().length > 0)
 
   // steward/120: the settings group appears only once there are hits, so the first keystroke used
@@ -122,8 +113,7 @@ export function CommandPalette() {
   const reading =
     open &&
     search.trim().length > 0 &&
-    (documents.some((query) => query.isPending) ||
-      bundleDocuments.some((query) => query.isPending))
+    (documents.some((query) => query.isPending) || bundleDocuments.some((query) => query.isPending))
 
   const settingsHits = React.useMemo(() => {
     if (!search.trim()) return []
@@ -230,9 +220,7 @@ export function CommandPalette() {
                     <Icon aria-hidden className="text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{entry.label}</span>
                     <CommandShortcut className="truncate text-muted-foreground/70">
-                      {entry.params
-                        ? Object.values(entry.params).join(" ")
-                        : null}
+                      {entry.params ? Object.values(entry.params).join(" ") : null}
                     </CommandShortcut>
                   </CommandItem>
                 )

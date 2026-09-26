@@ -1,10 +1,8 @@
 package eu.nordtal.s2.common.feedback;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import eu.nordtal.s2.common.RepositoryRoot;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -16,8 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The rule {@link SoundVocabularyTest} makes about sound, made about what a moment looks like: one
@@ -33,8 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class WorldEffectVocabularyTest {
 
     /** Every module that can draw something in a world. */
-    private static final List<String> MODULES =
-            List.of("smp", "limbo", "hunger-games", "proxy");
+    private static final List<String> MODULES = List.of("smp", "limbo", "hunger-games", "proxy");
 
     /** Every way of naming an effect directly, and what to do instead. */
     private static final Map<String, String> FORBIDDEN = new LinkedHashMap<>(Map.of(
@@ -50,8 +47,7 @@ class WorldEffectVocabularyTest {
                     + " refuses their damage, and a rocket spawned elsewhere is not stamped"));
 
     /** A bare {@code Particle.SOMETHING} constant, without matching a qualified name or a field. */
-    private static final Pattern BARE_PARTICLE_CONSTANT =
-            Pattern.compile("(?<![A-Za-z0-9_.])Particle\\.");
+    private static final Pattern BARE_PARTICLE_CONSTANT = Pattern.compile("(?<![A-Za-z0-9_.])Particle\\.");
 
     /**
      * The files that may name an effect, and why. A second entry would be another Paper module's own
@@ -85,7 +81,9 @@ class WorldEffectVocabularyTest {
                 }
             }
         }
-        assertEquals(List.of(), offenders,
+        assertEquals(
+                List.of(),
+                offenders,
                 "if a module genuinely needs an adapter of its own, add it to ALLOWED with the"
                         + " reason; if this is a call site, give the moment a method on the adapter");
     }
@@ -100,8 +98,11 @@ class WorldEffectVocabularyTest {
                 })
                 .sorted()
                 .toList();
-        assertEquals(List.of(), gone, "an entry here for a file that draws nothing any more is an"
-                + " exception nobody is taking - delete it, so the list keeps meaning what it says");
+        assertEquals(
+                List.of(),
+                gone,
+                "an entry here for a file that draws nothing any more is an"
+                        + " exception nobody is taking - delete it, so the list keeps meaning what it says");
     }
 
     /**
@@ -112,13 +113,17 @@ class WorldEffectVocabularyTest {
     @Test
     @DisplayName("a launched firework is stamped, and the stamp is refused damage")
     void everyRocketIsDisarmed() {
-        final String adapter = read(RepositoryRoot.resolve(
-                "smp/src/main/java/eu/nordtal/s2/smp/feedback/WorldEffects.java"));
+        final String adapter =
+                read(RepositoryRoot.resolve("smp/src/main/java/eu/nordtal/s2/smp/feedback/WorldEffects.java"));
 
-        assertEquals(count(adapter, "Firework.class"), count(adapter, "PersistentDataType.BYTE, (byte) 1"),
+        assertEquals(
+                count(adapter, "Firework.class"),
+                count(adapter, "PersistentDataType.BYTE, (byte) 1"),
                 "every place that spawns a rocket has to stamp it in the same method - an unstamped"
                         + " one is a rocket onDamage will not recognise");
-        assertEquals(true, adapter.contains("event.setCancelled(true)"),
+        assertEquals(
+                true,
+                adapter.contains("event.setCancelled(true)"),
                 "the adapter has to refuse damage from its own rockets; without that handler the"
                         + " stamp is decoration");
     }
@@ -139,7 +144,9 @@ class WorldEffectVocabularyTest {
             return List.of();
         }
         try (Stream<Path> walk = Files.walk(root)) {
-            return walk.filter(path -> path.toString().endsWith(".java")).sorted().toList();
+            return walk.filter(path -> path.toString().endsWith(".java"))
+                    .sorted()
+                    .toList();
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot walk " + root, e);
         }

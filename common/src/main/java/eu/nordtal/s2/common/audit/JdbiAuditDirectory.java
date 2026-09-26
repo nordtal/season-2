@@ -1,12 +1,11 @@
 package eu.nordtal.s2.common.audit;
 
+import java.util.List;
+import java.util.Objects;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.sql.DataSource;
-import java.util.List;
-import java.util.Objects;
 
 /**
  * The only implementation of {@link AuditDirectory}. Package-private: consumers get it from the
@@ -39,8 +38,12 @@ final class JdbiAuditDirectory implements AuditDirectory {
     }
 
     @Override
-    public void record(final String action, final String actor, final String subject,
-                       final java.util.UUID mcUuid, final String detail) {
+    public void record(
+            final String action,
+            final String actor,
+            final String subject,
+            final java.util.UUID mcUuid,
+            final String detail) {
         Objects.requireNonNull(action, "action");
         dao.record(action, actor, subject, mcUuid, detail);
     }

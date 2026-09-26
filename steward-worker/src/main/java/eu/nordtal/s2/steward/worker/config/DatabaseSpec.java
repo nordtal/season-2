@@ -4,9 +4,9 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
-import eu.nordtal.jcore.config.spec.annotation.Name;
 
 /**
  * {@code config/database.yml} - the connection steward-worker applies the schema through.
@@ -34,25 +34,26 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
  * on a table with a season's worth of playtime rows in it is allowed to take minutes, and a login
  * is not.
  */
-@ConfigSpec(header = {
-        "-------------------------------------------------------------------",
-        "  steward-worker - PostgreSQL connection",
-        "-------------------------------------------------------------------",
-        "THIS IS THE ONLY PROCESS THAT APPLIES THE SCHEMA. The migrations",
-        "live in common/src/main/resources/db/migration and are applied from",
-        "this container - by `steward-worker migrate`, and by",
-        "`steward-worker apply` before it moves a single jar.",
-        "",
-        "In production the password belongs in the environment, not in this",
-        "file. Every setting can be overridden with",
-        "NORDTAL_STEWARD_DATABASE_<SETTING>:",
-        "",
-        "  NORDTAL_STEWARD_DATABASE_JDBC_URL",
-        "  NORDTAL_STEWARD_DATABASE_USERNAME",
-        "  NORDTAL_STEWARD_DATABASE_PASSWORD",
-        "",
-        "An overridden value is never written back into this file."
-})
+@ConfigSpec(
+        header = {
+            "-------------------------------------------------------------------",
+            "  steward-worker - PostgreSQL connection",
+            "-------------------------------------------------------------------",
+            "THIS IS THE ONLY PROCESS THAT APPLIES THE SCHEMA. The migrations",
+            "live in common/src/main/resources/db/migration and are applied from",
+            "this container - by `steward-worker migrate`, and by",
+            "`steward-worker apply` before it moves a single jar.",
+            "",
+            "In production the password belongs in the environment, not in this",
+            "file. Every setting can be overridden with",
+            "NORDTAL_STEWARD_DATABASE_<SETTING>:",
+            "",
+            "  NORDTAL_STEWARD_DATABASE_JDBC_URL",
+            "  NORDTAL_STEWARD_DATABASE_USERNAME",
+            "  NORDTAL_STEWARD_DATABASE_PASSWORD",
+            "",
+            "An overridden value is never written back into this file."
+        })
 public interface DatabaseSpec {
 
     @Order(1)
@@ -68,8 +69,8 @@ public interface DatabaseSpec {
     @Name("Username")
     @Key("username")
     @Comment({
-            "Database user. This one needs more rights than any other module's: it creates and",
-            "alters tables. Every other process in this deployment only reads and writes rows."
+        "Database user. This one needs more rights than any other module's: it creates and",
+        "alters tables. Every other process in this deployment only reads and writes rows."
     })
     @Explain("Needs rights to create and alter tables - every other module's user only reads and writes rows.")
     default String username() {
@@ -89,17 +90,18 @@ public interface DatabaseSpec {
     @Name("Connection pool size")
     @Key("maximum-pool-size")
     @Comment({
-            "Upper bound of the HikariCP pool.",
-            "",
-            "Four, and the number is not arbitrary. `steward-worker migrate` and `steward-worker",
-            "apply` need one connection and exit. `steward-worker serve` needs three at once in the",
-            "worst case: one held for the whole of an apply by the advisory lock that stops two",
-            "workers moving jars at the same time, one for the queries that claim and finish the",
-            "request, and one spare so that a slow query cannot deadlock the other two. The LISTEN",
-            "connection is NOT one of these - pgjdbc opens it directly, outside the pool, because",
-            "LISTEN is session state a pool would hand back out."
+        "Upper bound of the HikariCP pool.",
+        "",
+        "Four, and the number is not arbitrary. `steward-worker migrate` and `steward-worker",
+        "apply` need one connection and exit. `steward-worker serve` needs three at once in the",
+        "worst case: one held for the whole of an apply by the advisory lock that stops two",
+        "workers moving jars at the same time, one for the queries that claim and finish the",
+        "request, and one spare so that a slow query cannot deadlock the other two. The LISTEN",
+        "connection is NOT one of these - pgjdbc opens it directly, outside the pool, because",
+        "LISTEN is session state a pool would hand back out."
     })
-    @Explain("Lower than 4 risks a deadlock: serve needs the advisory lock, the request query and a spare connection at once.")
+    @Explain(
+            "Lower than 4 risks a deadlock: serve needs the advisory lock, the request query and a spare connection at once.")
     default int maximumPoolSize() {
         return 4;
     }
@@ -108,14 +110,15 @@ public interface DatabaseSpec {
     @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
     @Comment({
-            "Bounds connection acquisition and the statements themselves.",
-            "",
-            "Far larger than any other module's three seconds, deliberately. An index added to a",
-            "table with a season's worth of playtime rows in it is allowed to take minutes; a",
-            "migration killed half way through by a timeout is the one failure this whole",
-            "arrangement exists to avoid."
+        "Bounds connection acquisition and the statements themselves.",
+        "",
+        "Far larger than any other module's three seconds, deliberately. An index added to a",
+        "table with a season's worth of playtime rows in it is allowed to take minutes; a",
+        "migration killed half way through by a timeout is the one failure this whole",
+        "arrangement exists to avoid."
     })
-    @Explain("Deliberately far larger than any other module's - a migration killed by a timeout is worse than a slow one.")
+    @Explain(
+            "Deliberately far larger than any other module's - a migration killed by a timeout is worse than a slow one.")
     default int queryTimeoutSeconds() {
         return 300;
     }

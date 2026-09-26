@@ -42,9 +42,23 @@ export function MinecraftText({ runs, fill, glyphs, base = "#FFFFFF", shadow = t
   return (
     <>
       {runs.map((run, index) => {
-        const drawn = <McRun key={index} run={run} fill={fill} glyphs={glyphs} base={base} shadow={shadow} scale={scale} gradient={gradients[index]} />
+        const drawn = (
+          <McRun
+            key={index}
+            run={run}
+            fill={fill}
+            glyphs={glyphs}
+            base={base}
+            shadow={shadow}
+            scale={scale}
+            gradient={gradients[index]}
+          />
+        )
         return run.style.hover ? (
-          <HoverTip key={index} tip={<MinecraftText runs={run.style.hover} fill={fill} glyphs={glyphs} scale={scale} />}>
+          <HoverTip
+            key={index}
+            tip={<MinecraftText runs={run.style.hover} fill={fill} glyphs={glyphs} scale={scale} />}
+          >
             {drawn}
           </HoverTip>
         ) : (
@@ -92,7 +106,13 @@ function McRun({
   shadow,
   scale,
   gradient,
-}: Omit<McProps, "runs"> & { run: Run; base: string; shadow: boolean; scale: number; gradient?: { start: number; total: number } }) {
+}: Omit<McProps, "runs"> & {
+  run: Run
+  base: string
+  shadow: boolean
+  scale: number
+  gradient?: { start: number; total: number }
+}) {
   const style = run.style
   if (run.kind === "break") return <br />
   if (run.kind === "raw") return null
@@ -147,14 +167,34 @@ function Obfuscated({ text }: { text: string }) {
     const timer = window.setInterval(() => setTick((value) => value + 1), 90)
     return () => window.clearInterval(timer)
   }, [])
-  return <>{[...text].map((char, at) => (char === " " ? " " : NOISE[(at * 7 + tick * 13 + char.charCodeAt(0)) % NOISE.length])).join("")}</>
+  return (
+    <>
+      {[...text]
+        .map((char, at) => (char === " " ? " " : NOISE[(at * 7 + tick * 13 + char.charCodeAt(0)) % NOISE.length]))
+        .join("")}
+    </>
+  )
 }
 
-export function Glyph({ name, glyphs, scale = SCALE, className }: { name: string; glyphs: GlyphInfo[]; scale?: number; className?: string }) {
+export function Glyph({
+  name,
+  glyphs,
+  scale = SCALE,
+  className,
+}: {
+  name: string
+  glyphs: GlyphInfo[]
+  scale?: number
+  className?: string
+}) {
   const glyph = glyphs.find((candidate) => candidate.name === name)
   if (!glyph) {
     return (
-      <span className={cn("inline-block border border-dashed border-current px-0.5 text-[0.6em] align-middle", className)}>{name}</span>
+      <span
+        className={cn("inline-block border border-dashed border-current px-0.5 text-[0.6em] align-middle", className)}
+      >
+        {name}
+      </span>
     )
   }
   return (
@@ -223,7 +263,15 @@ type PreviewProps = {
 
 export function Preview({ runs, format, shown, keyName, fill, glyphs, className }: PreviewProps) {
   if (format === "DISCORD_MARKDOWN" || shown?.startsWith("DISCORD_")) {
-    return <DiscordPreview runs={runs} shown={shown ?? "DISCORD_MESSAGE"} keyName={keyName} fill={fill} className={className} />
+    return (
+      <DiscordPreview
+        runs={runs}
+        shown={shown ?? "DISCORD_MESSAGE"}
+        keyName={keyName}
+        fill={fill}
+        className={className}
+      />
+    )
   }
   const text = (base = "#FFFFFF", shadow = true, scale = SCALE) => (
     <MinecraftText runs={runs} fill={fill} glyphs={glyphs} base={base} shadow={shadow} scale={scale} />
@@ -241,8 +289,14 @@ export function Preview({ runs, format, shown, keyName, fill, glyphs, className 
     case "SUBTITLE": {
       const title = shown === "TITLE"
       return scene(
-        <div className="flex w-full flex-col items-center justify-center gap-2 px-3 text-center" style={{ background: "rgba(0,0,0,0.15)" }}>
-          <div style={{ fontSize: 8 * (title ? 4 : 2), lineHeight: `${9 * (title ? 4 : 2) + 2}px` }} className="break-words">
+        <div
+          className="flex w-full flex-col items-center justify-center gap-2 px-3 text-center"
+          style={{ background: "rgba(0,0,0,0.15)" }}
+        >
+          <div
+            style={{ fontSize: 8 * (title ? 4 : 2), lineHeight: `${9 * (title ? 4 : 2) + 2}px` }}
+            className="break-words"
+          >
             {text("#FFFFFF", true, title ? 4 : 2)}
           </div>
         </div>,
@@ -259,7 +313,10 @@ export function Preview({ runs, format, shown, keyName, fill, glyphs, className 
       return scene(
         <div className="flex w-full flex-col items-center gap-1 px-3 pt-3 text-center">
           <div>{text()}</div>
-          <div className="h-2.5 w-full max-w-[364px] rounded-[1px]" style={{ background: "#4a2a64", boxShadow: "inset 0 0 0 1px #1d0f28" }}>
+          <div
+            className="h-2.5 w-full max-w-[364px] rounded-[1px]"
+            style={{ background: "#4a2a64", boxShadow: "inset 0 0 0 1px #1d0f28" }}
+          >
             <div className="h-full w-2/3" style={{ background: "#c05bf0" }} />
           </div>
         </div>,
@@ -267,11 +324,18 @@ export function Preview({ runs, format, shown, keyName, fill, glyphs, className 
     case "TAB_LIST":
       return scene(
         <div className="flex w-full justify-center px-3 pt-3">
-          <div className="flex w-full max-w-[520px] flex-col items-center gap-1 px-2 py-1 text-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+          <div
+            className="flex w-full max-w-[520px] flex-col items-center gap-1 px-2 py-1 text-center"
+            style={{ background: "rgba(0,0,0,0.5)" }}
+          >
             <div>{text()}</div>
             <div className="grid w-full grid-cols-2 gap-px">
               {["Steve", "Alex", "Nordlicht", "Effi"].map((name) => (
-                <span key={name} className="px-1 text-left" style={{ background: "rgba(255,255,255,0.12)", color: "#FFFFFF" }}>
+                <span
+                  key={name}
+                  className="px-1 text-left"
+                  style={{ background: "rgba(255,255,255,0.12)", color: "#FFFFFF" }}
+                >
                   {name}
                 </span>
               ))}
@@ -309,7 +373,10 @@ export function Preview({ runs, format, shown, keyName, fill, glyphs, className 
         <div className="flex w-full flex-col items-center justify-center gap-4 p-3 text-center">
           <div style={{ color: "#AAAAAA" }}>Connection lost</div>
           <div>{text()}</div>
-          <div className="w-full max-w-[400px] rounded-[2px] py-1 text-center" style={{ background: "#6f6f6f", boxShadow: "inset 0 0 0 2px #000", color: "#FFFFFF" }}>
+          <div
+            className="w-full max-w-[400px] rounded-[2px] py-1 text-center"
+            style={{ background: "#6f6f6f", boxShadow: "inset 0 0 0 2px #000", color: "#FFFFFF" }}
+          >
             Back to server list
           </div>
         </div>,
@@ -414,15 +481,35 @@ function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
   )
 }
 
-function DiscordPreview({ runs, shown, keyName, fill, className }: { runs: Run[]; shown: string; keyName: string; fill: Fill; className?: string }) {
+function DiscordPreview({
+  runs,
+  shown,
+  keyName,
+  fill,
+  className,
+}: {
+  runs: Run[]
+  shown: string
+  keyName: string
+  fill: Fill
+  className?: string
+}) {
   const limit = discordLimit(shown, keyName)
   const length = plainText(runs, fill).length
   const body = <DiscordRuns runs={runs} fill={fill} />
   const surface = (children: ReactNode) => (
-    <div className={cn("relative flex w-full flex-col gap-2 rounded-md p-4 text-[15px] leading-[1.375]", className)} style={{ background: "#313338", color: "#dbdee1" }}>
+    <div
+      className={cn("relative flex w-full flex-col gap-2 rounded-md p-4 text-[15px] leading-[1.375]", className)}
+      style={{ background: "#313338", color: "#dbdee1" }}
+    >
       {children}
       {limit ? (
-        <span className={cn("absolute right-2 bottom-1 text-xs tabular-nums", length > limit ? "text-destructive" : "opacity-50")}>
+        <span
+          className={cn(
+            "absolute right-2 bottom-1 text-xs tabular-nums",
+            length > limit ? "text-destructive" : "opacity-50",
+          )}
+        >
           {length}/{limit}
         </span>
       ) : null}
@@ -450,8 +537,15 @@ function DiscordPreview({ runs, shown, keyName, fill, className }: { runs: Run[]
       const title = /title/i.test(keyName)
       return surface(
         author(
-          <div className="mt-1 max-w-[432px] rounded-[4px] border-l-4 py-2 pr-4 pl-3" style={{ background: "#2b2d31", borderColor: "#4a63d8" }}>
-            {title ? <div className="font-semibold text-white">{body}</div> : <div className="text-sm whitespace-pre-wrap">{body}</div>}
+          <div
+            className="mt-1 max-w-[432px] rounded-[4px] border-l-4 py-2 pr-4 pl-3"
+            style={{ background: "#2b2d31", borderColor: "#4a63d8" }}
+          >
+            {title ? (
+              <div className="font-semibold text-white">{body}</div>
+            ) : (
+              <div className="text-sm whitespace-pre-wrap">{body}</div>
+            )}
           </div>,
         ),
       )
@@ -460,7 +554,10 @@ function DiscordPreview({ runs, shown, keyName, fill, className }: { runs: Run[]
       return surface(
         author(
           <div className="mt-2 flex flex-wrap gap-2">
-            <span className="inline-flex h-8 items-center rounded-[3px] px-4 text-sm font-medium text-white" style={{ background: "#5865f2" }}>
+            <span
+              className="inline-flex h-8 items-center rounded-[3px] px-4 text-sm font-medium text-white"
+              style={{ background: "#5865f2" }}
+            >
               {body}
             </span>
           </div>,
@@ -476,7 +573,10 @@ function DiscordPreview({ runs, shown, keyName, fill, className }: { runs: Run[]
     case "DISCORD_SELECT":
       return surface(
         author(
-          <div className="mt-2 flex h-10 max-w-[400px] items-center justify-between rounded-[4px] px-3 text-sm" style={{ background: "#1e1f22", color: "#949ba4" }}>
+          <div
+            className="mt-2 flex h-10 max-w-[400px] items-center justify-between rounded-[4px] px-3 text-sm"
+            style={{ background: "#1e1f22", color: "#949ba4" }}
+          >
             <span className="truncate">{body}</span>
             <CaretDownIcon aria-hidden className="size-4 shrink-0" />
           </div>,
@@ -485,7 +585,10 @@ function DiscordPreview({ runs, shown, keyName, fill, className }: { runs: Run[]
     case "DISCORD_CHANNEL":
       return surface(
         <div className="w-full max-w-60 rounded-[4px] p-2" style={{ background: "#2b2d31" }}>
-          <div className="flex items-center gap-1.5 rounded-[4px] px-2 py-1.5" style={{ background: "#404249", color: "#ffffff" }}>
+          <div
+            className="flex items-center gap-1.5 rounded-[4px] px-2 py-1.5"
+            style={{ background: "#404249", color: "#ffffff" }}
+          >
             <HashIcon aria-hidden className="size-5 shrink-0" style={{ color: "#80848e" }} />
             <span className="truncate">{plainText(runs, fill).toLowerCase().replace(/\s+/g, "-")}</span>
           </div>

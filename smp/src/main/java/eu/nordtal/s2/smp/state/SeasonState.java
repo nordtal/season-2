@@ -1,10 +1,9 @@
 package eu.nordtal.s2.smp.state;
 
+import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Unlock;
-import eu.nordtal.s2.smp.db.ObjectiveRow;
-
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -75,8 +74,12 @@ public final class SeasonState {
          * milestone, which is also how the pot is split.
          */
         public double progress() {
-            return objectives.isEmpty() ? 0.0
-                    : objectives.stream().mapToDouble(ObjectiveRow::ratio).average().orElse(0.0);
+            return objectives.isEmpty()
+                    ? 0.0
+                    : objectives.stream()
+                            .mapToDouble(ObjectiveRow::ratio)
+                            .average()
+                            .orElse(0.0);
         }
     }
 

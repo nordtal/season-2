@@ -1,23 +1,21 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
-
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The update embed stays inside Discord's limit on the whole of it.
@@ -46,17 +44,17 @@ class EmbedBudgetTest {
     /** Discord's own limit, and the thing every case here measures against. */
     private static final int LIMIT = 6000;
 
-    private final Messages messages = Messages.load(EmbedBudgetTest.class.getClassLoader(),
-            "messages/commands", Locale.ENGLISH, Locale.GERMAN);
+    private final Messages messages =
+            Messages.load(EmbedBudgetTest.class.getClassLoader(), "messages/commands", Locale.ENGLISH, Locale.GERMAN);
 
     @Test
     @DisplayName("long notes and more services than fit still build inside the limit")
     void theWorstCaseFits() {
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request(),
-                    messages, locale);
+            final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request(), messages, locale);
 
-            assertTrue(embed.getLength() <= LIMIT,
+            assertTrue(
+                    embed.getLength() <= LIMIT,
                     locale + ": the embed is " + embed.getLength() + " characters; JDA refuses it"
                             + " above " + LIMIT + ", and the admin then sees 'that did not work'"
                             + " instead of the run");
@@ -69,25 +67,25 @@ class EmbedBudgetTest {
         // The exact shape of the third bug: notes long enough to consume everything the services
         // left, and more services than were drawn, so the overflow field is offered.
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final MessageEmbed embed = UpdateCommand.fields(report(30, 900, 1, 5000), request(),
-                    messages, locale);
+            final MessageEmbed embed = UpdateCommand.fields(report(30, 900, 1, 5000), request(), messages, locale);
 
-            assertTrue(embed.getLength() <= LIMIT,
-                    locale + ": the embed is " + embed.getLength() + " characters");
+            assertTrue(embed.getLength() <= LIMIT, locale + ": the embed is " + embed.getLength() + " characters");
         }
     }
 
     @Test
     @DisplayName("an ordinary run is drawn in full, one line per service under one heading")
     void theNormalCaseKeepsEveryService() {
-        final MessageEmbed embed = UpdateCommand.fields(report(4, 60, 2, 80), request(),
-                messages, Locale.GERMAN);
+        final MessageEmbed embed = UpdateCommand.fields(report(4, 60, 2, 80), request(), messages, Locale.GERMAN);
 
         assertTrue(embed.getLength() <= LIMIT);
         final MessageEmbed.Field services = embed.getFields().stream()
-                .filter(field -> "Dienste".equals(field.getName())).findFirst().orElseThrow();
+                .filter(field -> "Dienste".equals(field.getName()))
+                .findFirst()
+                .orElseThrow();
         for (int i = 0; i < 4; i++) {
-            assertTrue(services.getValue().contains("**service-" + i + "**"),
+            assertTrue(
+                    services.getValue().contains("**service-" + i + "**"),
                     "four services and a short note is the everyday run; guarding the limit must"
                             + " not cost it a single line");
         }
@@ -103,22 +101,27 @@ class EmbedBudgetTest {
                 .withNote("what was done\n\nproxy\n  proxy   unchanged   proxy-0.9.5.jar\n");
         final MessageEmbed embed = UpdateCommand.fields(report, request(), messages, Locale.ENGLISH);
 
-        final String notes = embed.getFields().stream().filter(field -> "Notes".equals(field.getName()))
-                .map(MessageEmbed.Field::getValue).findFirst().orElseThrow();
+        final String notes = embed.getFields().stream()
+                .filter(field -> "Notes".equals(field.getName()))
+                .map(MessageEmbed.Field::getValue)
+                .findFirst()
+                .orElseThrow();
         assertTrue(notes.contains("carries no proxy"), "a one-line note is drawn");
-        assertFalse(notes.contains("what was done"), "the table repeats the service lines in a"
-                + " shape only a monospaced font reads");
+        assertFalse(
+                notes.contains("what was done"),
+                "the table repeats the service lines in a" + " shape only a monospaced font reads");
     }
 
     @Test
     @DisplayName("a run too big for one embed counts what it leaves out, and never draws a code block")
     void theWorstCaseSummarises() {
-        final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request(),
-                messages, Locale.ENGLISH, true);
+        final MessageEmbed embed =
+                UpdateCommand.fields(report(40, 600, 30, 400), request(), messages, Locale.ENGLISH, true);
 
         assertTrue(embed.getFields().size() <= 25);
-        final String all = embed.getFields().stream().map(MessageEmbed.Field::getValue)
-                .reduce("", String::concat) + embed.getDescription();
+        final String all =
+                embed.getFields().stream().map(MessageEmbed.Field::getValue).reduce("", String::concat)
+                        + embed.getDescription();
         assertTrue(all.matches("(?s).*\\+\\d+ more.*"), "what did not fit is counted: " + all.length());
         assertFalse(all.contains("```"), "a code block is for something to copy");
     }
@@ -129,26 +132,26 @@ class EmbedBudgetTest {
         // Only UpdateFeed draws with context, so without this case the fields it adds before the
         // services are measured by nothing.
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), longAsker(),
-                    messages, locale, true);
+            final MessageEmbed embed =
+                    UpdateCommand.fields(report(40, 600, 30, 400), longAsker(), messages, locale, true);
 
-            assertTrue(embed.getLength() <= LIMIT,
+            assertTrue(
+                    embed.getLength() <= LIMIT,
                     locale + ": the embed is " + embed.getLength() + " characters with the context"
                             + " fields, above " + LIMIT + " - Discord refuses the whole message, so"
                             + " the admin channel would show nothing at all about a run in flight");
         }
     }
 
-    private static UpdateReport report(final int services, final int each,
-                                       final int notes, final int noteLength) {
+    private static UpdateReport report(final int services, final int each, final int notes, final int noteLength) {
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.VERIFYING);
         for (int i = 0; i < services; i++) {
             final List<UpdateReport.Change> changes = new ArrayList<>();
             for (int c = 0; c * 40 < each; c++) {
                 changes.add(new UpdateReport.Change("artefact-" + i + "-" + c, "0.6.0", "0.7.0"));
             }
-            report = report.with(new UpdateReport.ServiceLine("service-" + i,
-                    UpdateReport.State.FAILED, changes, "x".repeat(each)));
+            report = report.with(
+                    new UpdateReport.ServiceLine("service-" + i, UpdateReport.State.FAILED, changes, "x".repeat(each)));
         }
         for (int i = 0; i < notes; i++) {
             report = report.withNote("n".repeat(noteLength));
@@ -158,12 +161,30 @@ class EmbedBudgetTest {
 
     /** {@code requested_by} is varchar(32); 64 is twice the worst a row can hold. */
     private static UpdateRequest longAsker() {
-        return new UpdateRequest(1L, UpdateKind.UPDATE, UpdateStatus.RUNNING, UpdateSource.GAME,
-                "T".repeat(64), Instant.now(), Instant.now(), Instant.now(), null, null);
+        return new UpdateRequest(
+                1L,
+                UpdateKind.UPDATE,
+                UpdateStatus.RUNNING,
+                UpdateSource.GAME,
+                "T".repeat(64),
+                Instant.now(),
+                Instant.now(),
+                Instant.now(),
+                null,
+                null);
     }
 
     private static UpdateRequest request() {
-        return new UpdateRequest(1L, UpdateKind.UPDATE, UpdateStatus.RUNNING, UpdateSource.DISCORD,
-                "1", Instant.now(), Instant.now(), Instant.now(), null, null);
+        return new UpdateRequest(
+                1L,
+                UpdateKind.UPDATE,
+                UpdateStatus.RUNNING,
+                UpdateSource.DISCORD,
+                "1",
+                Instant.now(),
+                Instant.now(),
+                Instant.now(),
+                null,
+                null);
     }
 }

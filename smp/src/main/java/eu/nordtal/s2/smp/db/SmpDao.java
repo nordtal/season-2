@@ -1,17 +1,15 @@
 package eu.nordtal.s2.smp.db;
 
 import eu.nordtal.s2.smp.milestone.StoredProgress;
-
-import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
-import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
-import org.jdbi.v3.sqlobject.transaction.Transaction;
-import org.jdbi.v3.sqlobject.customizer.Bind;
-import org.jdbi.v3.sqlobject.statement.SqlQuery;
-import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
+import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jdbi.v3.sqlobject.transaction.Transaction;
 
 /**
  * Everything the SMP reads and writes, as one JDBI SqlObject.
@@ -150,8 +148,8 @@ public interface SmpDao {
             WHERE obj.milestone_key = :milestoneKey AND obj.key = :objectiveKey
             """)
     @RegisterConstructorMapper(ObjectiveRow.class)
-    Optional<ObjectiveRow> objective(@Bind("milestoneKey") String milestoneKey,
-                                     @Bind("objectiveKey") String objectiveKey);
+    Optional<ObjectiveRow> objective(
+            @Bind("milestoneKey") String milestoneKey, @Bind("objectiveKey") String objectiveKey);
 
     /**
      * Adds to an objective's collected amount.
@@ -171,8 +169,8 @@ public interface SmpDao {
                 SET amount  = smp_contribution.amount + excluded.amount,
                     updated = now()
             """)
-    void addContribution(@Bind("objectiveId") UUID objectiveId, @Bind("discordId") String discordId,
-                         @Bind("amount") long amount);
+    void addContribution(
+            @Bind("objectiveId") UUID objectiveId, @Bind("discordId") String discordId, @Bind("amount") long amount);
 
     @SqlQuery("""
             SELECT discord_id AS discordId, amount AS amount
@@ -198,8 +196,8 @@ public interface SmpDao {
             WHERE obj.milestone_key = :milestoneKey
             """)
     @RegisterConstructorMapper(OwnContributionRow.class)
-    List<OwnContributionRow> ownContributions(@Bind("milestoneKey") String milestoneKey,
-                                              @Bind("discordId") String discordId);
+    List<OwnContributionRow> ownContributions(
+            @Bind("milestoneKey") String milestoneKey, @Bind("discordId") String discordId);
 
     /**
      * Marks an objective finished, once.
@@ -244,8 +242,11 @@ public interface SmpDao {
             VALUES (:milestoneKey, :key, :type, :target)
             ON CONFLICT (milestone_key, key) DO UPDATE SET target = EXCLUDED.target, type = EXCLUDED.type
             """)
-    void ensureObjective(@Bind("milestoneKey") String milestoneKey, @Bind("key") String key,
-                         @Bind("type") String type, @Bind("target") long target);
+    void ensureObjective(
+            @Bind("milestoneKey") String milestoneKey,
+            @Bind("key") String key,
+            @Bind("type") String type,
+            @Bind("target") long target);
 
     @SqlUpdate("UPDATE smp_milestone SET state = 'ACTIVE' WHERE key = :key AND state = 'LOCKED'")
     int activateMilestone(@Bind("key") String key);
@@ -277,8 +278,11 @@ public interface SmpDao {
             INSERT INTO smp_aura_event (discord_id, delta, reason, ref)
             VALUES (:discordId, :delta, :reason, :ref)
             """)
-    void recordAuraEvent(@Bind("discordId") String discordId, @Bind("delta") int delta,
-                         @Bind("reason") String reason, @Bind("ref") String ref);
+    void recordAuraEvent(
+            @Bind("discordId") String discordId,
+            @Bind("delta") int delta,
+            @Bind("reason") String reason,
+            @Bind("ref") String ref);
 
     /**
      * Writes a milestone row if the track declares one this database has never seen.
@@ -319,8 +323,13 @@ public interface SmpDao {
             INSERT INTO smp_poi (name, world, x, y, z, created_by)
             VALUES (:name, :world, :x, :y, :z, :createdBy)
             """)
-    void createPoi(@Bind("name") String name, @Bind("world") String world, @Bind("x") int x,
-                   @Bind("y") int y, @Bind("z") int z, @Bind("createdBy") String createdBy);
+    void createPoi(
+            @Bind("name") String name,
+            @Bind("world") String world,
+            @Bind("x") int x,
+            @Bind("y") int y,
+            @Bind("z") int z,
+            @Bind("createdBy") String createdBy);
 
     @SqlUpdate("DELETE FROM smp_poi WHERE id = :id")
     int deletePoi(@Bind("id") UUID id);
@@ -346,8 +355,12 @@ public interface SmpDao {
                     last_death_z     = excluded.last_death_z,
                     updated          = now()
             """)
-    void rememberDeath(@Bind("discordId") String discordId, @Bind("world") String world,
-                       @Bind("x") int x, @Bind("y") int y, @Bind("z") int z);
+    void rememberDeath(
+            @Bind("discordId") String discordId,
+            @Bind("world") String world,
+            @Bind("x") int x,
+            @Bind("y") int y,
+            @Bind("z") int z);
 
     @SqlQuery("""
             SELECT last_death_world AS world, last_death_x AS x, last_death_y AS y, last_death_z AS z
@@ -494,9 +507,14 @@ public interface SmpDao {
             INSERT INTO smp_grave (owner_id, world, x, y, z, contents, experience)
             VALUES (:ownerId, :world, :x, :y, :z, :contents, :experience)
             """)
-    void createGrave(@Bind("ownerId") String ownerId, @Bind("world") String world,
-                     @Bind("x") int x, @Bind("y") int y, @Bind("z") int z,
-                     @Bind("contents") byte[] contents, @Bind("experience") int experience);
+    void createGrave(
+            @Bind("ownerId") String ownerId,
+            @Bind("world") String world,
+            @Bind("x") int x,
+            @Bind("y") int y,
+            @Bind("z") int z,
+            @Bind("contents") byte[] contents,
+            @Bind("experience") int experience);
 
     /**
      * Every grave that still holds something.
@@ -607,8 +625,7 @@ public interface SmpDao {
                 WHERE smp_spin.last_free IS DISTINCT FROM :today
             RETURNING discord_id
             """)
-    Optional<String> takeFreeSpin(@Bind("discordId") String discordId,
-                                  @Bind("today") java.time.LocalDate today);
+    Optional<String> takeFreeSpin(@Bind("discordId") String discordId, @Bind("today") java.time.LocalDate today);
 
     /** Spends one earned spin, and only if there is one to spend. */
     @SqlQuery("""
@@ -636,9 +653,10 @@ public interface SmpDao {
             SET last_free = CAST(:previous AS date)
             WHERE discord_id = :discordId AND last_free = :today
             """)
-    void restoreFreeSpin(@Bind("discordId") String discordId,
-                         @Bind("previous") java.time.LocalDate previous,
-                         @Bind("today") java.time.LocalDate today);
+    void restoreFreeSpin(
+            @Bind("discordId") String discordId,
+            @Bind("previous") java.time.LocalDate previous,
+            @Bind("today") java.time.LocalDate today);
 
     /**
      * Puts back an earned spin that paid out nothing. See {@link #restoreFreeSpin}.

@@ -1,10 +1,10 @@
 name: smp
-version: '${version}'
+version: "${version}"
 main: eu.nordtal.s2.smp.SmpPlugin
 description: The season 2 SMP - Nordtal, the Nether and the End.
 author: nordtal
 website: https://nordtal.eu
-api-version: '26.2'
+api-version: "26.2"
 
 # DisplayTags owns every nametag on this network; its API is an interface over the running plugin,
 # so it must be installed and load first. required: true so a server missing it fails at start

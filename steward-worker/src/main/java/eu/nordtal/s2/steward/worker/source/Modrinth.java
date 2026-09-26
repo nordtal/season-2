@@ -5,20 +5,18 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.worker.http.Http;
 import eu.nordtal.s2.steward.worker.http.HttpException;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.util.Comparator;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The Modrinth v2 API, for the third-party plugins the network runs: PacketEvents,
@@ -59,6 +57,7 @@ public final class Modrinth {
 
     /** Where a project's own page lives, which is the link the interface offers next to a hit. */
     private static final String PAGE = "https://modrinth.com/plugin/";
+
     private static final String VERSION_FILE = "https://api.modrinth.com/v2/version_file/";
     private static final String PROJECTS = "https://api.modrinth.com/v2/projects";
 
@@ -144,8 +143,11 @@ public final class Modrinth {
      *                     Both are refusals rather than fallbacks: installing the 26.1 build
      *                     instead is not a decision a program gets to make.
      */
-    public @NotNull RemoteFile newest(final @NotNull String artifact, final @NotNull String projectId,
-                                      final @NotNull String gameVersion, final @NotNull String loader)
+    public @NotNull RemoteFile newest(
+            final @NotNull String artifact,
+            final @NotNull String projectId,
+            final @NotNull String gameVersion,
+            final @NotNull String loader)
             throws IOException {
 
         // Both filters are JSON arrays inside a query parameter - Modrinth's own documented shape,
@@ -181,7 +183,8 @@ public final class Modrinth {
         // Newest first. A version with an unparseable date sorts last rather than crashing the run:
         // the field is not one we control, and one odd row must not cost the other five artefacts
         // their report.
-        releases.sort(Comparator.comparing((JsonObject version) -> published(version)).reversed());
+        releases.sort(
+                Comparator.comparing((JsonObject version) -> published(version)).reversed());
         final JsonObject newest = releases.getFirst();
 
         final JsonObject file = primaryFile(newest);
@@ -221,10 +224,14 @@ public final class Modrinth {
      * @param downloads   how many times it has been downloaded - the only number here that says
      *                    anything about whether a stranger's plugin is worth trusting
      */
-    public record Hit(@NotNull String projectId, @NotNull String slug, @NotNull String title,
-                      @Nullable String description, @Nullable String iconUrl,
-                      @NotNull String pageUrl, long downloads) {
-    }
+    public record Hit(
+            @NotNull String projectId,
+            @NotNull String slug,
+            @NotNull String title,
+            @Nullable String description,
+            @Nullable String iconUrl,
+            @NotNull String pageUrl,
+            long downloads) {}
 
     /**
      * Plugins matching {@code query} that are tagged for {@code gameVersion} on {@code loader}.
@@ -253,17 +260,16 @@ public final class Modrinth {
      * @param loader      {@code paper} or {@code velocity} - {@code Topology.Kind#modrinthLoader}
      * @throws IOException if the API could not be read
      */
-    public @NotNull List<Hit> search(final @NotNull String query, final @NotNull String gameVersion,
-                                     final @NotNull String loader) throws IOException {
+    public @NotNull List<Hit> search(
+            final @NotNull String query, final @NotNull String gameVersion, final @NotNull String loader)
+            throws IOException {
         // Modrinth's own shape: facets is a JSON array of arrays, AND between the outer entries,
         // OR inside each. So this reads "on this loader, AND for this Minecraft version, AND a
         // plugin" - three separate requirements rather than three alternatives.
-        final String facets = "[[\"categories:" + loader + "\"],[\"versions:" + gameVersion
-                + "\"],[\"project_type:plugin\"]]";
-        final URI uri = URI.create(SEARCH
-                + "?query=" + encode(query.strip())
-                + "&limit=" + SEARCH_LIMIT
-                + "&facets=" + encode(facets));
+        final String facets =
+                "[[\"categories:" + loader + "\"],[\"versions:" + gameVersion + "\"],[\"project_type:plugin\"]]";
+        final URI uri = URI.create(
+                SEARCH + "?query=" + encode(query.strip()) + "&limit=" + SEARCH_LIMIT + "&facets=" + encode(facets));
 
         final String what = "Modrinth search for \"" + query.strip() + "\" on " + loader + "/" + gameVersion;
         final JsonObject answer = Json.object(http.get(uri), what);
@@ -302,9 +308,12 @@ public final class Modrinth {
      *
      * @param iconUrl as Modrinth states it; the caller decides whether a browser may load it
      */
-    public record Project(@NotNull String projectId, @NotNull String slug, @NotNull String title,
-                          @Nullable String iconUrl, @NotNull String pageUrl) {
-    }
+    public record Project(
+            @NotNull String projectId,
+            @NotNull String slug,
+            @NotNull String title,
+            @Nullable String iconUrl,
+            @NotNull String pageUrl) {}
 
     /**
      * The project a file with this SHA-512 was published under, or {@code null} when Modrinth has
@@ -336,8 +345,8 @@ public final class Modrinth {
         final String ids = projectIds.stream()
                 .map(id -> "\"" + id + "\"")
                 .collect(java.util.stream.Collectors.joining(",", "[", "]"));
-        final JsonArray answer = Json.array(http.get(URI.create(PROJECTS + "?ids=" + encode(ids))),
-                "Modrinth projects");
+        final JsonArray answer =
+                Json.array(http.get(URI.create(PROJECTS + "?ids=" + encode(ids))), "Modrinth projects");
         final List<Project> found = new ArrayList<>();
         for (final JsonElement element : answer) {
             final JsonObject project = element.getAsJsonObject();
@@ -346,9 +355,12 @@ public final class Modrinth {
             if (id == null || slug == null) {
                 continue;
             }
-            found.add(new Project(id, slug,
+            found.add(new Project(
+                    id,
+                    slug,
                     java.util.Objects.requireNonNullElse(Json.optionalString(project, "title"), slug),
-                    Json.optionalString(project, "icon_url"), PAGE + slug));
+                    Json.optionalString(project, "icon_url"),
+                    PAGE + slug));
         }
         return List.copyOf(found);
     }

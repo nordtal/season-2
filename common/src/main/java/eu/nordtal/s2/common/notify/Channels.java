@@ -122,6 +122,5 @@ public final class Channels {
      */
     public static final String ACCESS = "nordtal_access";
 
-    private Channels() {
-    }
+    private Channels() {}
 }

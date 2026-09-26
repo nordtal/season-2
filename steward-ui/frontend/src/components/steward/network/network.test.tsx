@@ -1,11 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -141,9 +135,7 @@ describe("the network view", () => {
     // things inside a box wait. So these wait on one of those instead.
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
-    const drawn = [...document.querySelectorAll("[data-node]")].map(
-      (node) => (node as HTMLElement).dataset.node,
-    )
+    const drawn = [...document.querySelectorAll("[data-node]")].map((node) => (node as HTMLElement).dataset.node)
     for (const name of SERVICES) expect(drawn, `${name} is not drawn`).toContain(name)
     expect(drawn).toContain("players")
     // One box each. An arrangement that placed a service twice would draw its lines twice too.
@@ -174,10 +166,7 @@ describe("the network view", () => {
     expect(within(box("players")).getByTitle("players").textContent).toBe("7")
 
     for (const silent of ["postgres", "caddy", "steward-ui", "steward-worker", "discord-bot"]) {
-      expect(
-        within(box(silent)).queryByTitle("players"),
-        `${silent} has no player count and must draw none`,
-      ).toBeNull()
+      expect(within(box(silent)).queryByTitle("players"), `${silent} has no player count and must draw none`).toBeNull()
     }
   })
 
@@ -205,19 +194,16 @@ describe("the network view", () => {
     for (const name of ["smp", "limbo", "proxy", "hunger-games"]) {
       const identifier = within(box(name)).getByRole("link", { name })
       const count = within(box(name)).getByTitle("players")
-      expect(
-        count.parentElement,
-        `${name}: the count must live on the tag line, not beside the identifier`,
-      ).not.toBe(identifier.parentElement)
+      expect(count.parentElement, `${name}: the count must live on the tag line, not beside the identifier`).not.toBe(
+        identifier.parentElement,
+      )
     }
 
     // And the one deliberate exception, written down rather than implied: the entry box has no
     // second line to put a count on, so its count does sit beside the label - which is harmless
     // there, because "players" is short enough that nothing has ever had to yield to it.
     const entry = box("players")
-    expect(within(entry).getByText("players").parentElement).toBe(
-      within(entry).getByTitle("players").parentElement,
-    )
+    expect(within(entry).getByText("players").parentElement).toBe(within(entry).getByTitle("players").parentElement)
   })
 
   it("marks the three image states that are not current, and leaves the current one unmarked", async () => {
@@ -318,9 +304,7 @@ describe("the view collapses a group's edges into one drawn line each (Till, 202
     draw()
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
-    const edgeKeys = [...document.querySelectorAll("[data-edge]")].map(
-      (el) => (el as HTMLElement).dataset.edge,
-    )
+    const edgeKeys = [...document.querySelectorAll("[data-edge]")].map((el) => (el as HTMLElement).dataset.edge)
     // Three raw edges - proxy to each of smp, hunger-games and limbo - collapse to this
     // one key; two more - steward-ui to steward-worker and to steward-deployer - collapse to the
     // other. The three edges that were never grouped (players to proxy, players to caddy,
@@ -350,9 +334,7 @@ describe("the network on a phone (steward/121)", () => {
     draw(TABLE, NetworkTable)
     await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
 
-    const drawn = [...document.querySelectorAll("[data-row]")].map(
-      (node) => (node as HTMLElement).dataset.row,
-    )
+    const drawn = [...document.querySelectorAll("[data-row]")].map((node) => (node as HTMLElement).dataset.row)
     for (const name of SERVICES) expect(drawn, `${name} has no row`).toContain(name)
     expect(new Set(drawn).size).toBe(drawn.length)
     // The order is the sections', flattened - which is the only thing left in the table that says
@@ -367,10 +349,7 @@ describe("the network on a phone (steward/121)", () => {
     await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
 
     for (const section of SECTIONS) {
-      expect(
-        screen.getByRole("heading", { name: section.title }),
-        `${section.title} has no heading`,
-      ).toBeTruthy()
+      expect(screen.getByRole("heading", { name: section.title }), `${section.title} has no heading`).toBeTruthy()
     }
   })
 

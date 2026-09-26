@@ -1,10 +1,9 @@
 package eu.nordtal.s2.discordbot;
 
+import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
 import org.jetbrains.annotations.NotNull;
-
-import javax.sql.DataSource;
 
 /**
  * The bot refuses to start against a database it was not built against. steward-worker owns the
@@ -19,8 +18,7 @@ import javax.sql.DataSource;
 @Slf4j
 final class SchemaCheck {
 
-    private SchemaCheck() {
-    }
+    private SchemaCheck() {}
 
     /**
      * @throws IllegalStateException if the database is not at the schema this jar expects. The
@@ -42,7 +40,8 @@ final class SchemaCheck {
                             + " starting. The bot does not apply migrations any more - steward-worker"
                             + " does. Run it against this stack:\n\n"
                             + "    docker compose run --rm steward-worker migrate\n\n"
-                            + "Flyway said: " + invalid.getMessage(), invalid);
+                            + "Flyway said: " + invalid.getMessage(),
+                    invalid);
         }
         log.info("Database schema validated - it matches the migrations in this jar");
     }

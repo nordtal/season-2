@@ -1,15 +1,14 @@
 package eu.nordtal.s2.smp.welcome;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The season's opening moment is switched on, and it runs late enough to be in the right language.
@@ -36,24 +35,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SeasonWelcomeIsWiredTest {
 
     private static final String PLUGIN = "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java";
-    private static final String PRESENCE =
-            "smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java";
-    private static final String WELCOME =
-            "smp/src/main/java/eu/nordtal/s2/smp/welcome/SeasonWelcome.java";
+    private static final String PRESENCE = "smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java";
+    private static final String WELCOME = "smp/src/main/java/eu/nordtal/s2/smp/welcome/SeasonWelcome.java";
 
     @Test
     @DisplayName("the staging device is built, registered and stopped again")
     void theDeviceIsWired() {
         final String plugin = read(PLUGIN);
 
-        assertTrue(plugin.contains("new BukkitCinematics(")
+        assertTrue(
+                plugin.contains("new BukkitCinematics(")
                         || plugin.contains("new eu.nordtal.s2.papercommon.stage.BukkitCinematics("),
                 "nothing builds the staging device, so nothing can run a staged moment");
-        assertTrue(plugin.contains("registerEvents(cinematics, this)"),
+        assertTrue(
+                plugin.contains("registerEvents(cinematics, this)"),
                 "the staging device is not registered as a listener, so a player who leaves or dies"
                         + " mid-staging keeps the blindness - and on a quit that means it is saved"
                         + " to disk with them");
-        assertTrue(plugin.contains("cinematics::stop"),
+        assertTrue(
+                plugin.contains("cinematics::stop"),
                 "nothing stops the stagings at disable. Paper disables plugins BEFORE it saves"
                         + " players, so a staging still running at that point writes its potion"
                         + " effect to disk on somebody who comes back unable to see");
@@ -64,10 +64,12 @@ class SeasonWelcomeIsWiredTest {
     void theMomentIsWired() {
         final String plugin = read(PLUGIN);
 
-        assertTrue(plugin.contains("new SeasonWelcome(")
+        assertTrue(
+                plugin.contains("new SeasonWelcome(")
                         || plugin.contains("new eu.nordtal.s2.smp.welcome.SeasonWelcome("),
                 "nothing builds the season's opening moment");
-        assertTrue(plugin.contains("systemLines, welcome), this)"),
+        assertTrue(
+                plugin.contains("systemLines, welcome), this)"),
                 "the moment is built but never handed to PresenceListener, which is the only place"
                         + " that knows when a player's language has landed");
     }
@@ -79,12 +81,15 @@ class SeasonWelcomeIsWiredTest {
 
         final int announce = presence.indexOf("lines.announceJoin(player);");
         final int welcome = presence.indexOf("welcome.onLanguageReady(player);");
-        assertTrue(announce > 0, "PresenceListener no longer announces the join line, which is the"
-                + " landmark this check hangs off - if that moved, the welcome has to move with it");
-        assertTrue(welcome > 0,
-                "nothing calls the season's opening moment. It is complete, it is tested, and it"
-                        + " never happens");
-        assertTrue(welcome > announce,
+        assertTrue(
+                announce > 0,
+                "PresenceListener no longer announces the join line, which is the"
+                        + " landmark this check hangs off - if that moved, the welcome has to move with it");
+        assertTrue(
+                welcome > 0,
+                "nothing calls the season's opening moment. It is complete, it is tested, and it" + " never happens");
+        assertTrue(
+                welcome > announce,
                 "the welcome is called before the join line, which means it is no longer inside the"
                         + " callback that runs once the player has fully arrived. The moment carries"
                         + " no language of its own since 2026-09-09 - the owner struck the subtitle -"
@@ -96,7 +101,8 @@ class SeasonWelcomeIsWiredTest {
         // back. A call from onJoin would compile, work, and be wrong in exactly one invisible way.
         final int onJoin = presence.indexOf("public void onJoin(");
         final int loadLanguage = presence.indexOf("private void loadLanguage(");
-        assertTrue(welcome > loadLanguage && loadLanguage > onJoin,
+        assertTrue(
+                welcome > loadLanguage && loadLanguage > onJoin,
                 "the welcome is called from the join handler rather than from loadLanguage's"
                         + " callback, so it runs before the language is known");
     }
@@ -110,11 +116,13 @@ class SeasonWelcomeIsWiredTest {
         // should be reading this file anyway.
         final String welcome = read(WELCOME);
 
-        assertTrue(welcome.contains("placeholder"),
+        assertTrue(
+                welcome.contains("placeholder"),
                 "the opening moment's frames no longer announce themselves as a placeholder. If the"
                         + " art has arrived, replace this check with one that the frames name their"
                         + " font - a nordtal: code point without one draws another font's glyph");
-        assertTrue(welcome.contains("minecraft:blindness"),
+        assertTrue(
+                welcome.contains("minecraft:blindness"),
                 "the moment no longer applies blindness, which is what makes the pictures the only"
                         + " thing on the screen");
     }
@@ -123,8 +131,7 @@ class SeasonWelcomeIsWiredTest {
     private static String read(final String relative) {
         try {
             Path candidate = Path.of("").toAbsolutePath();
-            while (candidate != null
-                    && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
+            while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
                 candidate = candidate.getParent();
             }
             if (candidate == null) {

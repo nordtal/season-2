@@ -7,10 +7,6 @@ import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.game.Demotion;
 import eu.nordtal.s2.hungergames.lobby.Lobby;
-
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.Plugin;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +16,8 @@ import java.util.concurrent.Executor;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 
 /**
  * {@link HungerGamesEffects} against this server.
@@ -47,12 +45,16 @@ public final class BukkitHungerGamesEffects implements HungerGamesEffects {
     private final BooleanSupplier reloadSounds;
     private final Runnable reloadMessages;
 
-    public BukkitHungerGamesEffects(final Plugin plugin, final Executor executor,
-                                    final HungerGamesDao dao, final HungerGamesSpec config,
-                                    final Lobby lobby, final Supplier<UUID> currentGameId,
-                                    final Consumer<UUID> onStart,
-                                    final BooleanSupplier reloadSounds,
-                                    final Runnable reloadMessages) {
+    public BukkitHungerGamesEffects(
+            final Plugin plugin,
+            final Executor executor,
+            final HungerGamesDao dao,
+            final HungerGamesSpec config,
+            final Lobby lobby,
+            final Supplier<UUID> currentGameId,
+            final Consumer<UUID> onStart,
+            final BooleanSupplier reloadSounds,
+            final Runnable reloadMessages) {
         this.plugin = plugin;
         this.executor = executor;
         this.dao = dao;
@@ -85,11 +87,14 @@ public final class BukkitHungerGamesEffects implements HungerGamesEffects {
         if (gameId == null) {
             return Optional.empty();
         }
-        return dao.game(gameId).map(game -> new Registration(gameId, game.state().name(),
-                // The RESOLVED count: Demotion turns a duo whose partner never showed into the
-                // full-hearted solo it will actually become, and that is the number the border
-                // arithmetic will divide by.
-                Demotion.resolve(dao.roster(gameId)).size()));
+        return dao.game(gameId)
+                .map(game -> new Registration(
+                        gameId,
+                        game.state().name(),
+                        // The RESOLVED count: Demotion turns a duo whose partner never showed into the
+                        // full-hearted solo it will actually become, and that is the number the border
+                        // arithmetic will divide by.
+                        Demotion.resolve(dao.roster(gameId)).size()));
     }
 
     @Override
@@ -111,8 +116,9 @@ public final class BukkitHungerGamesEffects implements HungerGamesEffects {
             reloadMessages.run();
             return true;
         } catch (final RuntimeException failure) {
-            plugin.getLogger().severe("the messages could not be reloaded, the running ones are "
-                    + "unchanged: " + failure.getMessage());
+            plugin.getLogger()
+                    .severe("the messages could not be reloaded, the running ones are " + "unchanged: "
+                            + failure.getMessage());
             return false;
         }
     }
@@ -136,10 +142,10 @@ public final class BukkitHungerGamesEffects implements HungerGamesEffects {
     }
 
     @Override
-    public void recordStart(final NordtalUser who, final Registration game,
-                            final boolean confirmedBelowMinimum) {
-        plugin.getLogger().info("hunger-games game " + game.gameId() + " started by " + who.name()
-                + " (" + who.origin() + ") with " + game.participants() + " resolvable participants"
-                + (confirmedBelowMinimum ? " (confirmed below the soft minimum)" : ""));
+    public void recordStart(final NordtalUser who, final Registration game, final boolean confirmedBelowMinimum) {
+        plugin.getLogger()
+                .info("hunger-games game " + game.gameId() + " started by " + who.name()
+                        + " (" + who.origin() + ") with " + game.participants() + " resolvable participants"
+                        + (confirmedBelowMinimum ? " (confirmed below the soft minimum)" : ""));
     }
 }

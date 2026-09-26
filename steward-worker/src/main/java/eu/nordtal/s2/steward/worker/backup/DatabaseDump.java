@@ -2,10 +2,6 @@ package eu.nordtal.s2.steward.worker.backup;
 
 import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -13,6 +9,9 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The database dump, absorbed from the {@code postgres-backup} sidecar (§9a).
@@ -72,9 +71,12 @@ public final class DatabaseDump {
      * @param service   the compose service running PostgreSQL, normally {@code postgres}
      * @param directory where the dump is written, as the POSTGRES container sees it
      */
-    public DatabaseDump(final @NotNull Docker docker, final @NotNull String project,
-                        final @NotNull String service, final @NotNull String directory,
-                        final @NotNull Clock clock) {
+    public DatabaseDump(
+            final @NotNull Docker docker,
+            final @NotNull String project,
+            final @NotNull String service,
+            final @NotNull String directory,
+            final @NotNull Clock clock) {
         this.docker = docker;
         this.project = project;
         this.service = service;
@@ -88,13 +90,17 @@ public final class DatabaseDump {
         try {
             containerId = containerOf().orElse(null);
         } catch (DockerException e) {
-            return SnapshotResult.failed(NAME, took(started),
+            return SnapshotResult.failed(
+                    NAME,
+                    took(started),
                     "could not ask docker which container runs " + service + ": " + e.getMessage());
         }
         if (containerId == null) {
-            return SnapshotResult.failed(NAME, took(started),
+            return SnapshotResult.failed(
+                    NAME,
+                    took(started),
                     "no running container for " + service + ", so there is nothing to dump. The "
-                    + "database being down is the reason, not a detail of the backup.");
+                            + "database being down is the reason, not a detail of the backup.");
         }
 
         final String base = PREFIX + STAMP.format(started) + SUFFIX;
@@ -109,10 +115,14 @@ public final class DatabaseDump {
         // and not a single .dump in the directory since this replaced the sidecar. Handing the
         // directory to `postgres` here is idempotent, survives a recreated volume, and leaves root
         // writing into it as before - the volume archives and the retention sweep are unaffected.
-        final Docker.ExecResult prepared = docker.exec(containerId, List.of("sh", "-c",
-                "mkdir -p " + quote(directory) + " && chown postgres " + quote(directory)), null);
+        final Docker.ExecResult prepared = docker.exec(
+                containerId,
+                List.of("sh", "-c", "mkdir -p " + quote(directory) + " && chown postgres " + quote(directory)),
+                null);
         if (!prepared.ok()) {
-            return SnapshotResult.failed(NAME, took(started),
+            return SnapshotResult.failed(
+                    NAME,
+                    took(started),
                     "could not hand " + directory + " to the postgres user, so pg_dump would not"
                             + " have been able to write there: " + firstLine(prepared.output()));
         }
@@ -120,40 +130,42 @@ public final class DatabaseDump {
         // One `sh -c` per step rather than one long chain, so a failure names the step it failed
         // at. The values come out of the container's own environment: they are already there, and
         // repeating them here would be a second copy of a password.
-        final Docker.ExecResult dumped = run(containerId,
+        final Docker.ExecResult dumped = run(
+                containerId,
                 "pg_dump --format=custom --compress=9 --file=" + quote(partialPath)
                         + " -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"");
         if (!dumped.ok()) {
             remove(containerId, partialPath);
-            return SnapshotResult.failed(NAME, took(started),
-                    "pg_dump exited " + dumped.exitCode() + ": " + firstLine(dumped.output()));
+            return SnapshotResult.failed(
+                    NAME, took(started), "pg_dump exited " + dumped.exitCode() + ": " + firstLine(dumped.output()));
         }
 
         // Cheap integrity check, and the sidecar's: read the archive's own table of contents back.
         // It does not prove the dump restores - only a real restore drill can - but it catches a
         // truncated file while there is still something to be done about it.
-        final Docker.ExecResult listed = run(containerId, "pg_restore --list " + quote(partialPath)
-                + " > /dev/null");
+        final Docker.ExecResult listed = run(containerId, "pg_restore --list " + quote(partialPath) + " > /dev/null");
         if (!listed.ok()) {
             remove(containerId, partialPath);
-            return SnapshotResult.failed(NAME, took(started),
-                    "the dump is not a readable archive (pg_restore --list exited "
-                            + listed.exitCode() + ") - discarded rather than kept");
+            return SnapshotResult.failed(
+                    NAME,
+                    took(started),
+                    "the dump is not a readable archive (pg_restore --list exited " + listed.exitCode()
+                            + ") - discarded rather than kept");
         }
 
         final long bytes = sizeOf(containerId, partialPath);
         if (bytes <= 0) {
             remove(containerId, partialPath);
-            return SnapshotResult.failed(NAME, took(started),
-                    "pg_dump wrote an empty file and reported success. Nothing was saved.");
+            return SnapshotResult.failed(
+                    NAME, took(started), "pg_dump wrote an empty file and reported success. Nothing was saved.");
         }
 
-        final Docker.ExecResult renamed = run(containerId,
-                "mv " + quote(partialPath) + " " + quote(finalPath));
+        final Docker.ExecResult renamed = run(containerId, "mv " + quote(partialPath) + " " + quote(finalPath));
         if (!renamed.ok()) {
-            return SnapshotResult.failed(NAME, took(started),
-                    "the dump was written and verified but could not be named: "
-                            + firstLine(renamed.output()));
+            return SnapshotResult.failed(
+                    NAME,
+                    took(started),
+                    "the dump was written and verified but could not be named: " + firstLine(renamed.output()));
         }
 
         log.info("database dumped to {} ({})", finalPath, SnapshotResult.human(bytes));

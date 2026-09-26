@@ -1,7 +1,6 @@
 package eu.nordtal.s2.proxy.pack;
 
 import eu.nordtal.s2.common.limbo.WaitReason;
-
 import java.util.Objects;
 
 /**

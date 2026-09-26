@@ -1,17 +1,15 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jetbrains.annotations.NotNull;
-
-import javax.sql.DataSource;
-
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
 
 /**
  * Which kinds of alert each account wants pushed (steward/98, Till's review of 2026-09-18) - rows in
@@ -77,8 +75,7 @@ public final class PushPreferences {
     }
 
     /** One switch, set by the account it belongs to. */
-    public void set(final @NotNull String discordId, final @NotNull AlertType type,
-                    final boolean enabled) {
+    public void set(final @NotNull String discordId, final @NotNull AlertType type, final boolean enabled) {
         dao.set(discordId, type.key(), enabled);
     }
 
@@ -98,8 +95,8 @@ public final class PushPreferences {
     }
 
     /** One row of {@code steward_push_preference}. */
-    public record Row(@ColumnName("discord_id") @NotNull String discordId,
-                      @ColumnName("alert_type") @NotNull String alertType,
-                      boolean enabled) {
-    }
+    public record Row(
+            @ColumnName("discord_id") @NotNull String discordId,
+            @ColumnName("alert_type") @NotNull String alertType,
+            boolean enabled) {}
 }

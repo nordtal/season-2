@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.worker.backup;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -14,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * How long a backup is kept - the arithmetic, with no directory under it.
@@ -62,8 +61,7 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
      * for. The moment comes from the stamp in the file name rather than from an mtime - a file
      * copied off this host and back has a new mtime and the same age.
      */
-    public record Dated(@NotNull String name, @NotNull Instant taken) {
-    }
+    public record Dated(@NotNull String name, @NotNull Instant taken) {}
 
     public Retention {
         if (daily < 1) {
@@ -74,8 +72,7 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
         }
         if (weekly < 0 || monthly < 0) {
             throw new IllegalArgumentException(
-                    "backup.retention.weekly and .monthly cannot be negative, were "
-                            + weekly + " and " + monthly);
+                    "backup.retention.weekly and .monthly cannot be negative, were " + weekly + " and " + monthly);
         }
         if (collapseAfterDays < 0) {
             throw new IllegalArgumentException(
@@ -100,7 +97,9 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
         // Newest first, so "the last run of a day" and "the newest day of a week" are both simply
         // the first entry a loop sees.
         final List<Dated> newestFirst = all.stream()
-                .sorted(Comparator.comparing(Dated::taken).thenComparing(Dated::name).reversed())
+                .sorted(Comparator.comparing(Dated::taken)
+                        .thenComparing(Dated::name)
+                        .reversed())
                 .toList();
 
         final Set<Dated> keep = new HashSet<>();
@@ -122,7 +121,9 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
         final List<Dated> days = List.copyOf(perDay.values());
 
         keep.addAll(days.stream().limit(daily).toList());
-        keep.addAll(newestOfEach(days, weekly,
+        keep.addAll(newestOfEach(
+                days,
+                weekly,
                 day -> day.get(IsoFields.WEEK_BASED_YEAR) * 100 + day.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)));
         keep.addAll(newestOfEach(days, monthly, day -> day.getYear() * 100 + day.getMonthValue()));
 
@@ -142,8 +143,10 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
      * The buckets the daily window already covers therefore keep nothing extra, and that is why the
      * total is "at most daily + weekly + monthly" rather than exactly it.</p>
      */
-    private static List<Dated> newestOfEach(final List<Dated> daysNewestFirst, final int buckets,
-                                            final java.util.function.ToIntFunction<LocalDate> bucketOf) {
+    private static List<Dated> newestOfEach(
+            final List<Dated> daysNewestFirst,
+            final int buckets,
+            final java.util.function.ToIntFunction<LocalDate> bucketOf) {
         if (buckets < 1) {
             return List.of();
         }

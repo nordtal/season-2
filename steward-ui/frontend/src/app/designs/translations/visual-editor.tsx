@@ -4,11 +4,29 @@ import { ChatTextIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 
 import type { GlyphInfo, MessageArg } from "@/lib/api"
-import { applyStyle, capabilities, commonStyle, gradientAt, hexOf, insert, lengthOf, plainText, remove, shadowOf, totalLength } from "@/lib/rich-text"
+import {
+  applyStyle,
+  capabilities,
+  commonStyle,
+  gradientAt,
+  hexOf,
+  insert,
+  lengthOf,
+  plainText,
+  remove,
+  shadowOf,
+  totalLength,
+} from "@/lib/rich-text"
 import type { Format, Run, Style } from "@/lib/rich-text"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { BreakButton, GlyphMenu, PlaceholderChip, PlaceholderMenu, StyleButtons } from "@/app/designs/translations/parts"
+import {
+  BreakButton,
+  GlyphMenu,
+  PlaceholderChip,
+  PlaceholderMenu,
+  StyleButtons,
+} from "@/app/designs/translations/parts"
 import { Glyph, MINECRAFT_FONT } from "@/app/designs/translations/preview"
 import type { Fill } from "@/app/designs/translations/preview"
 
@@ -38,7 +56,17 @@ export type VisualEditorProps = {
 
 type Range = { from: number; to: number }
 
-export function VisualEditor({ runs, onChange, format, args, glyphs, fill, label, nested, disabled }: VisualEditorProps) {
+export function VisualEditor({
+  runs,
+  onChange,
+  format,
+  args,
+  glyphs,
+  fill,
+  label,
+  nested,
+  disabled,
+}: VisualEditorProps) {
   const root = useRef<HTMLDivElement>(null)
   const [generation, setGeneration] = useState(0)
   const [range, setRange] = useState<Range>({ from: totalLength(runs), to: totalLength(runs) })
@@ -242,9 +270,20 @@ export function VisualEditor({ runs, onChange, format, args, glyphs, fill, label
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-0.5">
-        {args.length > 0 ? <PlaceholderMenu args={args} fill={fill} disabled={disabled} onPick={(arg) => insertAt([{ kind: "placeholder", name: arg.name, style: {} }])} /> : null}
-        {can.glyph ? <GlyphMenu glyphs={glyphs} onPick={(name) => insertAt([{ kind: "glyph", name, style: {} }])} /> : null}
-        {can.breaks && !nested ? <BreakButton disabled={disabled} onPress={() => insertAt([{ kind: "break", style: {} }])} /> : null}
+        {args.length > 0 ? (
+          <PlaceholderMenu
+            args={args}
+            fill={fill}
+            disabled={disabled}
+            onPick={(arg) => insertAt([{ kind: "placeholder", name: arg.name, style: {} }])}
+          />
+        ) : null}
+        {can.glyph ? (
+          <GlyphMenu glyphs={glyphs} onPick={(name) => insertAt([{ kind: "glyph", name, style: {} }])} />
+        ) : null}
+        {can.breaks && !nested ? (
+          <BreakButton disabled={disabled} onPress={() => insertAt([{ kind: "break", style: {} }])} />
+        ) : null}
         {wide || nested ? (
           <>
             <span aria-hidden className="mx-1 h-5 w-px bg-border" />
@@ -270,7 +309,16 @@ export function VisualEditor({ runs, onChange, format, args, glyphs, fill, label
         style={surfaceStyle(format)}
       >
         {runs.map((run, index) => (
-          <RunView key={index} index={index} run={run} runs={runs} format={format} args={args} glyphs={glyphs} fill={fill} />
+          <RunView
+            key={index}
+            index={index}
+            run={run}
+            runs={runs}
+            format={format}
+            args={args}
+            glyphs={glyphs}
+            fill={fill}
+          />
         ))}
         {runs[runs.length - 1]?.kind === "break" ? <br /> : null}
       </div>
@@ -281,13 +329,34 @@ export function VisualEditor({ runs, onChange, format, args, glyphs, fill, label
 
 function surfaceStyle(format: Format): CSSProperties {
   if (format === "MINIMESSAGE") {
-    return { ...MINECRAFT_FONT, background: "linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), #3a4a5e", color: "#FFFFFF", caretColor: "#FFFFFF" }
+    return {
+      ...MINECRAFT_FONT,
+      background: "linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), #3a4a5e",
+      color: "#FFFFFF",
+      caretColor: "#FFFFFF",
+    }
   }
   if (format === "DISCORD_MARKDOWN") return { background: "#313338", color: "#dbdee1", fontSize: 15, lineHeight: 1.375 }
   return {}
 }
 
-function RunView({ index, run, runs, format, args, glyphs, fill }: { index: number; run: Run; runs: Run[]; format: Format; args: MessageArg[]; glyphs: GlyphInfo[]; fill: Fill }) {
+function RunView({
+  index,
+  run,
+  runs,
+  format,
+  args,
+  glyphs,
+  fill,
+}: {
+  index: number
+  run: Run
+  runs: Run[]
+  format: Format
+  args: MessageArg[]
+  glyphs: GlyphInfo[]
+  fill: Fill
+}) {
   const minecraft = format === "MINIMESSAGE"
   const marks = marksOf(run.style, format)
   switch (run.kind) {
@@ -317,7 +386,12 @@ function RunView({ index, run, runs, format, args, glyphs, fill }: { index: numb
     case "placeholder": {
       const arg = args.find((candidate) => candidate.name === run.name)
       return (
-        <span data-run={index} contentEditable={false} style={{ ...textStyle(run.style, format), ...marks }} title={fill(run.name)}>
+        <span
+          data-run={index}
+          contentEditable={false}
+          style={{ ...textStyle(run.style, format), ...marks }}
+          title={fill(run.name)}
+        >
           <PlaceholderChip name={run.name.replace(/^_/, "")} global={arg?.global} />
         </span>
       )
@@ -339,7 +413,11 @@ function RunView({ index, run, runs, format, args, glyphs, fill }: { index: numb
       )
     case "raw":
       return (
-        <span data-run={index} contentEditable={false} className="rounded-sm bg-muted px-1 font-mono text-[0.7em] text-muted-foreground">
+        <span
+          data-run={index}
+          contentEditable={false}
+          className="rounded-sm bg-muted px-1 font-mono text-[0.7em] text-muted-foreground"
+        >
           {run.source}
         </span>
       )
@@ -365,11 +443,24 @@ function textStyle(style: Style, format: Format): CSSProperties {
   }
   if (format === "MINIMESSAGE") {
     const colour = style.colour ? hexOf(style.colour) : "#FFFFFF"
-    Object.assign(css, { color: colour, textShadow: `2px 2px 0 ${shadowOf(colour)}`, textDecorationThickness: lines ? 2 : undefined })
-    if (style.obfuscated) Object.assign(css, { backgroundImage: "repeating-linear-gradient(90deg, transparent 0 3px, rgba(255,255,255,0.15) 3px 4px)" })
+    Object.assign(css, {
+      color: colour,
+      textShadow: `2px 2px 0 ${shadowOf(colour)}`,
+      textDecorationThickness: lines ? 2 : undefined,
+    })
+    if (style.obfuscated)
+      Object.assign(css, {
+        backgroundImage: "repeating-linear-gradient(90deg, transparent 0 3px, rgba(255,255,255,0.15) 3px 4px)",
+      })
   }
   if (format === "DISCORD_MARKDOWN" && style.code) {
-    Object.assign(css, { fontFamily: "var(--font-mono, monospace)", fontSize: "0.85em", background: "#2b2d31", borderRadius: 4, padding: "0 4px" })
+    Object.assign(css, {
+      fontFamily: "var(--font-mono, monospace)",
+      fontSize: "0.85em",
+      background: "#2b2d31",
+      borderRadius: 4,
+      padding: "0 4px",
+    })
   }
   return css
 }
@@ -425,7 +516,16 @@ function HoverMenu({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2">
-        <VisualEditor runs={draft} onChange={setDraft} format="MINIMESSAGE" args={args} glyphs={glyphs} fill={fill} label="Hover text" nested />
+        <VisualEditor
+          runs={draft}
+          onChange={setDraft}
+          format="MINIMESSAGE"
+          args={args}
+          glyphs={glyphs}
+          fill={fill}
+          label="Hover text"
+          nested
+        />
         <div className="flex gap-2">
           <Button
             type="button"
@@ -535,7 +635,8 @@ function modelOffset(root: HTMLElement, runs: Run[], node: Node, offset: number)
   }
   const index = runIndex(top)
   if (index === null) return position + (top.nodeType === Node.TEXT_NODE ? offset : 0)
-  if (runs[index]?.kind !== "text") return position + (offset === 0 && (node === top || node === top.firstChild) ? 0 : 1)
+  if (runs[index]?.kind !== "text")
+    return position + (offset === 0 && (node === top || node === top.firstChild) ? 0 : 1)
   return position + textOffsetWithin(top, node, offset)
 }
 
@@ -544,7 +645,10 @@ function currentRange(root: HTMLElement, runs: Run[]): Range | null {
   if (!selection || selection.rangeCount === 0) return null
   const range = selection.getRangeAt(0)
   if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return null
-  return { from: modelOffset(root, runs, range.startContainer, range.startOffset), to: modelOffset(root, runs, range.endContainer, range.endOffset) }
+  return {
+    from: modelOffset(root, runs, range.startContainer, range.startOffset),
+    to: modelOffset(root, runs, range.endContainer, range.endOffset),
+  }
 }
 
 function domPoint(root: HTMLElement, runs: Run[], target: number): { node: Node; offset: number } {
@@ -588,7 +692,9 @@ function placeCaret(root: HTMLElement, runs: Run[], range: Range) {
 function readDom(root: HTMLElement, runs: Run[]): { runs: Run[]; caret: Range } {
   const selection = document.getSelection()
   const caretAt =
-    selection && selection.rangeCount > 0 && root.contains(selection.focusNode) ? modelOffset(root, runs, selection.focusNode!, selection.focusOffset) : totalLength(runs)
+    selection && selection.rangeCount > 0 && root.contains(selection.focusNode)
+      ? modelOffset(root, runs, selection.focusNode!, selection.focusOffset)
+      : totalLength(runs)
   const out: Run[] = []
   for (const child of Array.from(root.childNodes)) {
     const index = runIndex(child)

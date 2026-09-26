@@ -2,7 +2,6 @@ package eu.nordtal.s2.commands.hungergames;
 
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.NordtalUser;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,12 +25,10 @@ public interface HungerGamesEffects extends CommandEffects {
      * @param state        its state, as {@code hg_game.state} spells it
      * @param participants how many will actually be teleported, demotions resolved
      */
-    record Registration(UUID gameId, String state, int participants) {
-    }
+    record Registration(UUID gameId, String state, int participants) {}
 
     /** One team's readiness, for {@code /hg ready-status}. */
-    record TeamReady(String team, boolean ready) {
-    }
+    record TeamReady(String team, boolean ready) {}
 
     /** The registered game, or empty when none is. */
     Optional<Registration> registration();

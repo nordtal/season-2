@@ -7,5 +7,4 @@ package eu.nordtal.s2.smp.db;
  * makes it comparable across objectives is that the share is always measured against that
  * objective's target, never against another objective's.
  */
-public record ContributionRow(String discordId, long amount) {
-}
+public record ContributionRow(String discordId, long amount) {}
